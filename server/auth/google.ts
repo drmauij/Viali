@@ -6,6 +6,7 @@ import connectPg from "connect-pg-simple";
 import { storage } from "../storage";
 import { Pool } from "pg";
 import { seedHospitalData } from "../seed-hospital";
+import logger from "../logger";
 
 let sessionMiddleware: ReturnType<typeof session> | null = null;
 
@@ -82,7 +83,7 @@ async function upsertUser(profile: any) {
     // This includes: 4 locations, 3 surgery rooms, 5 admin groups, and 13 medications
     await seedHospitalData(hospital.id, user.id);
     
-    console.log(`[Auth] Created and seeded new hospital for user ${user.id}`);
+    logger.info(`[Auth] Created and seeded new hospital for user ${user.id}`);
   }
   
   return user;
@@ -109,7 +110,7 @@ export async function setupAuth(app: Express) {
 
   // Setup Google OAuth strategy if credentials are provided
   if (googleConfigured) {
-    console.log('[Auth] Setting up Google OAuth strategy');
+    logger.info('[Auth] Setting up Google OAuth strategy');
     
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID!,
@@ -135,7 +136,7 @@ export async function setupAuth(app: Express) {
           expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 1 week
         });
       } catch (error: any) {
-        console.error('[Auth] Error during Google OAuth:', error);
+        logger.error('[Auth] Error during Google OAuth:', error);
         done(error);
       }
     }));
@@ -157,7 +158,7 @@ export async function setupAuth(app: Express) {
       }
     );
   } else {
-    console.log('[Auth] Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
+    logger.info('[Auth] Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
     
     // Return 503 Service Unavailable when Google OAuth is not configured
     app.get("/api/auth/google", (req, res) => {
@@ -184,7 +185,7 @@ export async function setupAuth(app: Express) {
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        console.error('[Auth] Logout error:', err);
+        logger.error('[Auth] Logout error:', err);
       }
       res.redirect("/");
     });

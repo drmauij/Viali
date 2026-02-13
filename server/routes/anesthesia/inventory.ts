@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
 import { requireWriteAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
+import logger from "../../logger";
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.get('/api/anesthesia/inventory/:recordId', isAuthenticated, async (req: a
     
     res.json(inventory);
   } catch (error) {
-    console.error("Error fetching inventory usage:", error);
+    logger.error("Error fetching inventory usage:", error);
     res.status(500).json({ message: "Failed to fetch inventory usage" });
   }
 });
@@ -71,7 +72,7 @@ router.post('/api/anesthesia/inventory/:recordId/calculate', isAuthenticated, re
     
     res.json(inventory);
   } catch (error) {
-    console.error("Error calculating inventory usage:", error);
+    logger.error("Error calculating inventory usage:", error);
     res.status(500).json({ message: "Failed to calculate inventory usage" });
   }
 });
@@ -118,7 +119,7 @@ router.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, requi
     
     res.json(created);
   } catch (error) {
-    console.error("Error creating manual inventory usage:", error);
+    logger.error("Error creating manual inventory usage:", error);
     res.status(500).json({ message: "Failed to create manual inventory usage" });
   }
 });
@@ -169,7 +170,7 @@ router.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, requireW
     
     res.json(updatedInventory);
   } catch (error) {
-    console.error("Error setting inventory override:", error);
+    logger.error("Error setting inventory override:", error);
     res.status(500).json({ message: "Failed to set inventory override" });
   }
 });
@@ -206,7 +207,7 @@ router.delete('/api/anesthesia/inventory/:id/override', isAuthenticated, require
     
     res.json(updatedInventory);
   } catch (error) {
-    console.error("Error clearing inventory override:", error);
+    logger.error("Error clearing inventory override:", error);
     res.status(500).json({ message: "Failed to clear inventory override" });
   }
 });
@@ -278,7 +279,7 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
 
     res.json(commit);
   } catch (error) {
-    console.error("Error committing inventory:", error);
+    logger.error("Error committing inventory:", error);
     res.status(500).json({ message: error instanceof Error ? error.message : "Failed to commit inventory" });
   }
 });
@@ -316,7 +317,7 @@ router.get('/api/anesthesia/inventory/:recordId/commits', isAuthenticated, async
     const commits = await storage.getInventoryCommits(recordId, unitId as string | undefined);
     res.json(commits);
   } catch (error) {
-    console.error("Error fetching commit history:", error);
+    logger.error("Error fetching commit history:", error);
     res.status(500).json({ message: "Failed to fetch commit history" });
   }
 });
@@ -359,7 +360,7 @@ router.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthentica
     const rolledBackCommit = await storage.rollbackInventoryCommit(commitId, userId, reason);
     res.json(rolledBackCommit);
   } catch (error) {
-    console.error("Error rolling back commit:", error);
+    logger.error("Error rolling back commit:", error);
     res.status(500).json({ message: error instanceof Error ? error.message : "Failed to rollback commit" });
   }
 });
@@ -382,7 +383,7 @@ router.get('/api/anesthesia/audit/:recordType/:recordId', isAuthenticated, async
     
     res.json(auditTrail);
   } catch (error) {
-    console.error("Error fetching audit trail:", error);
+    logger.error("Error fetching audit trail:", error);
     res.status(500).json({ message: "Failed to fetch audit trail" });
   }
 });
@@ -452,7 +453,7 @@ router.get('/api/anesthesia/billing/:recordId', isAuthenticated, async (req: any
 
     res.json(billingSummary);
   } catch (error) {
-    console.error("Error generating billing report:", error);
+    logger.error("Error generating billing report:", error);
     res.status(500).json({ message: "Failed to generate billing report" });
   }
 });
@@ -509,7 +510,7 @@ router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any,
     
     res.json(enrichedSets);
   } catch (error) {
-    console.error("Error fetching anesthesia sets:", error);
+    logger.error("Error fetching anesthesia sets:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia sets" });
   }
 });
@@ -566,7 +567,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
     
     res.json({ ...set, items, medications, inventoryItems });
   } catch (error) {
-    console.error("Error fetching anesthesia set:", error);
+    logger.error("Error fetching anesthesia set:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia set" });
   }
 });
@@ -641,7 +642,7 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
     
     res.status(201).json({ ...set, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
-    console.error("Error creating anesthesia set:", error);
+    logger.error("Error creating anesthesia set:", error);
     res.status(500).json({ message: "Failed to create anesthesia set" });
   }
 });
@@ -716,7 +717,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
     
     res.json({ ...updatedSet, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
-    console.error("Error updating anesthesia set:", error);
+    logger.error("Error updating anesthesia set:", error);
     res.status(500).json({ message: "Failed to update anesthesia set" });
   }
 });
@@ -741,7 +742,7 @@ router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess
     await storage.deleteAnesthesiaSet(setId);
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting anesthesia set:", error);
+    logger.error("Error deleting anesthesia set:", error);
     res.status(500).json({ message: "Failed to delete anesthesia set" });
   }
 });
@@ -775,7 +776,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       storage.getAnesthesiaSetInventory(setId),
     ]);
     
-    console.log(`[Apply Set] Set ${setId} has ${setItems.length} technique items, ${setMedications.length} medications, ${setInventoryItems.length} inventory items`);
+    logger.info(`[Apply Set] Set ${setId} has ${setItems.length} technique items, ${setMedications.length} medications, ${setInventoryItems.length} inventory items`);
     let appliedCount = 0;
     let medicationsApplied = 0;
     let inventoryApplied = 0;
@@ -785,7 +786,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       try {
         const config = (item.config || {}) as Record<string, any>;
         const itemType = item.itemType as string;
-        console.log(`[Apply Set] Processing item type: ${itemType}`, config);
+        logger.info(`[Apply Set] Processing item type: ${itemType}`, config);
         
         switch (itemType) {
           case 'peripheral_iv':
@@ -944,10 +945,10 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             break;
             
           default:
-            console.log(`[Apply Set] Skipping unsupported item type: ${item.itemType}`);
+            logger.info(`[Apply Set] Skipping unsupported item type: ${item.itemType}`);
         }
       } catch (itemError) {
-        console.error(`Error applying set item ${item.id}:`, itemError);
+        logger.error(`Error applying set item ${item.id}:`, itemError);
       }
     }
 
@@ -1012,7 +1013,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
               infusionSessionId: sessionId,
               administeredBy: userId,
             });
-            console.log(`[Apply Set] Created infusion start for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''} (rateUnit: ${medConfig.rateUnit})`);
+            logger.info(`[Apply Set] Created infusion start for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''} (rateUnit: ${medConfig.rateUnit})`);
           } else if (dose) {
             // Create bolus event
             await storage.createAnesthesiaMedication({
@@ -1025,13 +1026,13 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
               route: medConfig.administrationRoute || 'i.v.',
               administeredBy: userId,
             });
-            console.log(`[Apply Set] Created bolus for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
+            logger.info(`[Apply Set] Created bolus for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
           }
         }
         
         medicationsApplied++;
       } catch (medError) {
-        console.error(`Error applying medication ${med.medicationConfigId}:`, medError);
+        logger.error(`Error applying medication ${med.medicationConfigId}:`, medError);
       }
     }
 
@@ -1054,7 +1055,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           inventoryApplied++;
         }
       } catch (invError) {
-        console.error(`Error applying inventory item ${inv.itemId}:`, invError);
+        logger.error(`Error applying inventory item ${inv.itemId}:`, invError);
       }
     }
 
@@ -1065,7 +1066,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       inventoryApplied,
     });
   } catch (error) {
-    console.error("Error applying anesthesia set:", error);
+    logger.error("Error applying anesthesia set:", error);
     res.status(500).json({ message: "Failed to apply anesthesia set" });
   }
 });
@@ -1090,7 +1091,7 @@ router.get('/api/inventory-sets/:hospitalId', isAuthenticated, async (req: any, 
     const sets = await storage.getInventorySets(hospitalId, unitId as string | undefined);
     res.json(sets);
   } catch (error) {
-    console.error("Error fetching inventory sets:", error);
+    logger.error("Error fetching inventory sets:", error);
     res.status(500).json({ message: "Failed to fetch inventory sets" });
   }
 });
@@ -1115,7 +1116,7 @@ router.get('/api/inventory-sets/set/:setId', isAuthenticated, async (req: any, r
     const items = await storage.getInventorySetItems(setId);
     res.json({ ...set, items });
   } catch (error) {
-    console.error("Error fetching inventory set:", error);
+    logger.error("Error fetching inventory set:", error);
     res.status(500).json({ message: "Failed to fetch inventory set" });
   }
 });
@@ -1158,7 +1159,7 @@ router.post('/api/inventory-sets', isAuthenticated, requireAdminRole, requireWri
     const setItems = await storage.getInventorySetItems(set.id);
     res.status(201).json({ ...set, items: setItems });
   } catch (error) {
-    console.error("Error creating inventory set:", error);
+    logger.error("Error creating inventory set:", error);
     res.status(500).json({ message: "Failed to create inventory set" });
   }
 });
@@ -1198,7 +1199,7 @@ router.patch('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess, 
     const setItems = await storage.getInventorySetItems(setId);
     res.json({ ...updatedSet, items: setItems });
   } catch (error) {
-    console.error("Error updating inventory set:", error);
+    logger.error("Error updating inventory set:", error);
     res.status(500).json({ message: "Failed to update inventory set" });
   }
 });
@@ -1223,7 +1224,7 @@ router.delete('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess,
     await storage.deleteInventorySet(setId);
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting inventory set:", error);
+    logger.error("Error deleting inventory set:", error);
     res.status(500).json({ message: "Failed to delete inventory set" });
   }
 });
@@ -1276,7 +1277,7 @@ router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAcc
 
     res.json({ message: "Set applied successfully", itemsApplied: setItems.length });
   } catch (error) {
-    console.error("Error applying inventory set:", error);
+    logger.error("Error applying inventory set:", error);
     res.status(500).json({ message: "Failed to apply inventory set" });
   }
 });
@@ -1310,7 +1311,7 @@ router.get('/api/surgery-sets/:hospitalId', isAuthenticated, async (req: any, re
     
     res.json(setsWithDetails);
   } catch (error) {
-    console.error("Error fetching surgery sets:", error);
+    logger.error("Error fetching surgery sets:", error);
     res.status(500).json({ message: "Failed to fetch surgery sets" });
   }
 });
@@ -1339,7 +1340,7 @@ router.get('/api/surgery-sets/set/:setId', isAuthenticated, async (req: any, res
 
     res.json({ ...set, inventoryItems: inventoryWithNames });
   } catch (error) {
-    console.error("Error fetching surgery set:", error);
+    logger.error("Error fetching surgery set:", error);
     res.status(500).json({ message: "Failed to fetch surgery set" });
   }
 });
@@ -1380,7 +1381,7 @@ router.post('/api/surgery-sets', isAuthenticated, requireAdminRole, requireWrite
 
     res.status(201).json(set);
   } catch (error) {
-    console.error("Error creating surgery set:", error);
+    logger.error("Error creating surgery set:", error);
     res.status(500).json({ message: "Failed to create surgery set" });
   }
 });
@@ -1422,7 +1423,7 @@ router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requ
 
     res.json(updated);
   } catch (error) {
-    console.error("Error updating surgery set:", error);
+    logger.error("Error updating surgery set:", error);
     res.status(500).json({ message: "Failed to update surgery set" });
   }
 });
@@ -1446,7 +1447,7 @@ router.delete('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, req
     await storage.deleteSurgerySet(setId);
     res.json({ message: "Surgery set deleted" });
   } catch (error) {
-    console.error("Error deleting surgery set:", error);
+    logger.error("Error deleting surgery set:", error);
     res.status(500).json({ message: "Failed to delete surgery set" });
   }
 });
@@ -1513,7 +1514,7 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
           inventoryApplied++;
         }
       } catch (invError) {
-        console.error(`Error applying surgery set inventory item ${inv.itemId}:`, invError);
+        logger.error(`Error applying surgery set inventory item ${inv.itemId}:`, invError);
       }
     }
 
@@ -1523,7 +1524,7 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
       inventoryApplied,
     });
   } catch (error) {
-    console.error("Error applying surgery set:", error);
+    logger.error("Error applying surgery set:", error);
     res.status(500).json({ message: "Failed to apply surgery set" });
   }
 });

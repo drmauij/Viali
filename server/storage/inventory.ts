@@ -36,6 +36,7 @@ import {
   type SurgeryRoom,
   type InsertSurgeryRoom,
 } from "@shared/schema";
+import logger from "../logger";
 
 export async function getFolders(hospitalId: string, unitId: string): Promise<Folder[]> {
   return await db
@@ -240,7 +241,7 @@ export async function updateItemCode(itemId: string, updates: Partial<ItemCode>)
   }
   
   if (existing) {
-    console.log(`[Storage] Updating existing item codes for ${itemId}`);
+    logger.info(`[Storage] Updating existing item codes for ${itemId}`);
     const [updated] = await db
       .update(itemCodes)
       .set({ ...cleanedUpdates, updatedAt: new Date() })
@@ -248,7 +249,7 @@ export async function updateItemCode(itemId: string, updates: Partial<ItemCode>)
       .returning();
     return updated;
   } else {
-    console.log(`[Storage] Creating new item codes for ${itemId}`);
+    logger.info(`[Storage] Creating new item codes for ${itemId}`);
     const [created] = await db
       .insert(itemCodes)
       .values({ itemId, ...cleanedUpdates } as InsertItemCode)

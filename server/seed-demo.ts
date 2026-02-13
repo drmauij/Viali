@@ -10,6 +10,7 @@ import bcrypt from 'bcrypt';
 import { users, hospitals, userHospitalRoles } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import { seedHospitalData } from './seed-hospital.js';
+import logger from "./logger";
 
 const DEMO_EMAIL = 'demo@viali.app';
 const DEMO_PASSWORD = 'demo123';
@@ -18,7 +19,7 @@ const DEMO_LAST_NAME = 'User';
 const DEMO_HOSPITAL_NAME = 'Demo Hospital';
 
 async function seedDemoUser() {
-  console.log('🌱 Starting demo user seeding...');
+  logger.info('🌱 Starting demo user seeding...');
   
   try {
     // Check if demo user already exists
@@ -29,7 +30,7 @@ async function seedDemoUser() {
       .limit(1);
 
     if (existingUser.length > 0) {
-      console.log('✅ Demo user already exists:', DEMO_EMAIL);
+      logger.info('✅ Demo user already exists:', DEMO_EMAIL);
       const user = existingUser[0];
       
       // Get hospital for this user
@@ -47,20 +48,20 @@ async function seedDemoUser() {
           .limit(1);
           
         if (hospitalData.length > 0) {
-          console.log('✅ Demo hospital:', hospitalData[0].name);
+          logger.info('✅ Demo hospital:', hospitalData[0].name);
         }
       }
       
-      console.log('✨ Demo user is ready to use!');
+      logger.info('✨ Demo user is ready to use!');
       process.exit(0);
     }
 
     // Hash password
-    console.log('🔐 Hashing password...');
+    logger.info('🔐 Hashing password...');
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
     // Create demo user
-    console.log('👤 Creating demo user...');
+    logger.info('👤 Creating demo user...');
     const newUser = await db
       .insert(users)
       .values({
@@ -73,10 +74,10 @@ async function seedDemoUser() {
       .returning();
 
     const user = newUser[0];
-    console.log('✅ Created user:', user.email);
+    logger.info('✅ Created user:', user.email);
 
     // Create demo hospital
-    console.log('🏥 Creating demo hospital...');
+    logger.info('🏥 Creating demo hospital...');
     const newHospital = await db
       .insert(hospitals)
       .values({
@@ -86,22 +87,22 @@ async function seedDemoUser() {
       .returning();
 
     const hospital = newHospital[0];
-    console.log('✅ Created hospital:', hospital.name);
+    logger.info('✅ Created hospital:', hospital.name);
 
     // Seed hospital with default data (locations, surgery rooms, admin groups, medications)
-    console.log('🌱 Seeding hospital with default data...');
+    logger.info('🌱 Seeding hospital with default data...');
     await seedHospitalData(hospital.id, user.id);
-    console.log('✅ Hospital seeded with default data');
+    logger.info('✅ Hospital seeded with default data');
 
-    console.log('\n🎉 Demo user setup complete!');
-    console.log('\n📝 Demo Credentials:');
-    console.log(`   Email: ${DEMO_EMAIL}`);
-    console.log(`   Password: ${DEMO_PASSWORD}`);
-    console.log('\n✨ You can now use the "Try Demo" button on the login page!');
+    logger.info('\n🎉 Demo user setup complete!');
+    logger.info('\n📝 Demo Credentials:');
+    logger.info(`   Email: ${DEMO_EMAIL}`);
+    logger.info(`   Password: ${DEMO_PASSWORD}`);
+    logger.info('\n✨ You can now use the "Try Demo" button on the login page!');
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error seeding demo user:', error);
+    logger.error('❌ Error seeding demo user:', error);
     process.exit(1);
   }
 }

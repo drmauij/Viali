@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { jsPDF } from "jspdf";
 import { ObjectStorageService } from "../objectStorage";
 import { randomUUID } from "crypto";
+import logger from "../logger";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -45,7 +46,7 @@ async function requireAdminRoleCheck(req: any, res: any, next: any) {
 
     next();
   } catch (error) {
-    console.error("Error checking admin role:", error);
+    logger.error("Error checking admin role:", error);
     res.status(500).json({ message: "Failed to verify permissions" });
   }
 }
@@ -91,7 +92,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       try {
         paymentMethod = await stripe.paymentMethods.retrieve(hospital.stripePaymentMethodId);
       } catch (e) {
-        console.error("Failed to retrieve payment method:", e);
+        logger.error("Failed to retrieve payment method:", e);
       }
     }
 
@@ -253,7 +254,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       questionnaireDisabled: hospital.questionnaireDisabled ?? false,
     });
   } catch (error) {
-    console.error("Error fetching billing status:", error);
+    logger.error("Error fetching billing status:", error);
     res.status(500).json({ message: "Failed to fetch billing status" });
   }
 });
@@ -285,7 +286,7 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
 
     res.json({ success: true, addon, enabled });
   } catch (error) {
-    console.error("Error updating addon:", error);
+    logger.error("Error updating addon:", error);
     res.status(500).json({ message: "Failed to update addon" });
   }
 });
@@ -351,7 +352,7 @@ router.post("/api/billing/:hospitalId/setup-intent", isAuthenticated, requireAdm
       customerId: stripeCustomerId,
     });
   } catch (error) {
-    console.error("Error creating setup intent:", error);
+    logger.error("Error creating setup intent:", error);
     res.status(500).json({ message: "Failed to create setup intent" });
   }
 });
@@ -414,7 +415,7 @@ router.post("/api/billing/:hospitalId/confirm-setup", isAuthenticated, requireAd
 
     res.json({ success: true, upgraded: hospital.licenseType === "test" });
   } catch (error) {
-    console.error("Error confirming setup:", error);
+    logger.error("Error confirming setup:", error);
     res.status(500).json({ message: "Failed to confirm payment setup" });
   }
 });
@@ -437,7 +438,7 @@ router.delete("/api/billing/:hospitalId/payment-method", isAuthenticated, requir
       try {
         await stripe.paymentMethods.detach(hospital.stripePaymentMethodId);
       } catch (e) {
-        console.error("Failed to detach payment method:", e);
+        logger.error("Failed to detach payment method:", e);
       }
     }
 
@@ -448,7 +449,7 @@ router.delete("/api/billing/:hospitalId/payment-method", isAuthenticated, requir
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error removing payment method:", error);
+    logger.error("Error removing payment method:", error);
     res.status(500).json({ message: "Failed to remove payment method" });
   }
 });
@@ -474,7 +475,7 @@ router.post("/api/billing/:hospitalId/portal-session", isAuthenticated, requireA
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error("Error creating portal session:", error);
+    logger.error("Error creating portal session:", error);
     res.status(500).json({ message: "Failed to create portal session" });
   }
 });
@@ -513,7 +514,7 @@ router.get("/api/billing/:hospitalId/usage", isAuthenticated, async (req: any, r
       totalCost,
     });
   } catch (error) {
-    console.error("Error fetching usage:", error);
+    logger.error("Error fetching usage:", error);
     res.status(500).json({ message: "Failed to fetch usage" });
   }
 });
@@ -588,7 +589,7 @@ router.post("/api/billing/:hospitalId/charge-month", isAuthenticated, requireAdm
       status: paidInvoice.status,
     });
   } catch (error: any) {
-    console.error("Error charging month:", error);
+    logger.error("Error charging month:", error);
     res.status(500).json({ message: error.message || "Failed to charge month" });
   }
 });
@@ -631,7 +632,7 @@ router.get("/api/billing/:hospitalId/invoices", isAuthenticated, async (req: any
       })),
     });
   } catch (error) {
-    console.error("Error fetching invoices:", error);
+    logger.error("Error fetching invoices:", error);
     res.status(500).json({ message: "Failed to fetch invoices" });
   }
 });
@@ -710,7 +711,7 @@ router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req:
       } : null,
     });
   } catch (error) {
-    console.error("Error fetching terms status:", error);
+    logger.error("Error fetching terms status:", error);
     res.status(500).json({ message: "Failed to fetch terms status" });
   }
 });
@@ -928,7 +929,7 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${documentType}_preview_${isGerman ? "de" : "en"}.pdf"`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating preview PDF:", error);
+    logger.error("Error generating preview PDF:", error);
     res.status(500).json({ message: "Failed to generate preview PDF" });
   }
 });
@@ -963,7 +964,7 @@ router.get("/api/billing/:hospitalId/terms-pdf/:acceptanceId", isAuthenticated, 
 
     await objectStorageService.downloadObject(acceptance.pdfUrl, res);
   } catch (error) {
-    console.error("Error downloading terms PDF:", error);
+    logger.error("Error downloading terms PDF:", error);
     res.status(500).json({ message: "Failed to download terms PDF" });
   }
 });
@@ -1217,7 +1218,7 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
         pdf.addImage(acceptance.signatureImage, "PNG", 15, y, 60, 25);
         y += 30;
       } catch (e) {
-        console.error("Failed to add signature image to PDF:", e);
+        logger.error("Failed to add signature image to PDF:", e);
       }
     }
     
@@ -1234,13 +1235,13 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
         const s3Key = `billing/terms/${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedDate.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
         await objectStorageService.uploadBase64ToS3(pdfBase64, s3Key, "application/pdf");
         pdfStorageKey = `/objects/${s3Key}`;
-        console.log(`Regenerated ${documentType} PDF uploaded to object storage:`, pdfStorageKey);
+        logger.info(`Regenerated ${documentType} PDF uploaded to object storage:`, pdfStorageKey);
       } catch (uploadError) {
-        console.error(`Failed to upload regenerated ${documentType} PDF to object storage:`, uploadError);
+        logger.error(`Failed to upload regenerated ${documentType} PDF to object storage:`, uploadError);
         return res.status(500).json({ message: "Failed to upload PDF" });
       }
     } else {
-      console.log("Object storage not configured, skipping PDF upload");
+      logger.info("Object storage not configured, skipping PDF upload");
       return res.status(500).json({ message: "Object storage not configured" });
     }
 
@@ -1252,7 +1253,7 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
 
     res.json({ success: true, pdfUrl: pdfStorageKey });
   } catch (error) {
-    console.error("Error regenerating PDF:", error);
+    logger.error("Error regenerating PDF:", error);
     res.status(500).json({ message: "Failed to regenerate PDF" });
   }
 });
@@ -1511,7 +1512,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       pdf.addImage(signatureImage, "PNG", 15, y, 60, 25);
       y += 30;
     } catch (e) {
-      console.error("Failed to add signature image to PDF:", e);
+      logger.error("Failed to add signature image to PDF:", e);
     }
     
     pdf.text("_________________________________", 15, y); y += 5;
@@ -1533,9 +1534,9 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
         const s3Key = `billing/terms/${hospitalId}/${pdfFilename}`;
         await objectStorageService.uploadBase64ToS3(pdfBase64, s3Key, "application/pdf");
         pdfStorageKey = `/objects/${s3Key}`;
-        console.log(`${documentType} PDF uploaded to object storage:`, pdfStorageKey);
+        logger.info(`${documentType} PDF uploaded to object storage:`, pdfStorageKey);
       } catch (uploadError) {
-        console.error(`Failed to upload ${documentType} PDF to object storage:`, uploadError);
+        logger.error(`Failed to upload ${documentType} PDF to object storage:`, uploadError);
       }
     }
 
@@ -1570,12 +1571,12 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
           ],
         });
         emailSentAt = new Date();
-        console.log(`${docLabel.en} acceptance email sent successfully`);
+        logger.info(`${docLabel.en} acceptance email sent successfully`);
       } catch (emailError) {
-        console.error(`Failed to send ${docLabel.en} acceptance email:`, emailError);
+        logger.error(`Failed to send ${docLabel.en} acceptance email:`, emailError);
       }
     } else {
-      console.log("RESEND_API_KEY not configured, skipping email");
+      logger.info("RESEND_API_KEY not configured, skipping email");
     }
 
     // Save acceptance record
@@ -1603,7 +1604,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       },
     });
   } catch (error) {
-    console.error("Error accepting terms:", error);
+    logger.error("Error accepting terms:", error);
     res.status(500).json({ message: "Failed to accept terms" });
   }
 });
@@ -1621,7 +1622,7 @@ router.get("/api/billing/:hospitalId/billing-invoices", isAuthenticated, async (
     
     res.json({ invoices });
   } catch (error) {
-    console.error("Error fetching invoices:", error);
+    logger.error("Error fetching invoices:", error);
     res.status(500).json({ message: "Failed to fetch invoices" });
   }
 });
@@ -1836,7 +1837,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       },
     });
   } catch (error: any) {
-    console.error("Error generating invoice:", error);
+    logger.error("Error generating invoice:", error);
     res.status(500).json({ message: error.message || "Failed to generate invoice" });
   }
 });
@@ -1853,7 +1854,7 @@ router.post("/api/billing/webhook", async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   
   if (!webhookSecret) {
-    console.log("Stripe webhook secret not configured, accepting all events");
+    logger.info("Stripe webhook secret not configured, accepting all events");
   }
   
   let event: Stripe.Event;
@@ -1870,7 +1871,7 @@ router.post("/api/billing/webhook", async (req, res) => {
       event = body as Stripe.Event;
     }
   } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message);
+    logger.error("Webhook signature verification failed:", err.message);
     return res.status(400).json({ message: `Webhook Error: ${err.message}` });
   }
   
@@ -1878,7 +1879,7 @@ router.post("/api/billing/webhook", async (req, res) => {
     switch (event.type) {
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`[Webhook] Invoice paid: ${invoice.id}`);
+        logger.info(`[Webhook] Invoice paid: ${invoice.id}`);
         
         // Update our billing invoice record
         if (invoice.id) {
@@ -1898,7 +1899,7 @@ router.post("/api/billing/webhook", async (req, res) => {
       
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`[Webhook] Invoice payment failed: ${invoice.id}`);
+        logger.info(`[Webhook] Invoice payment failed: ${invoice.id}`);
         
         // Update our billing invoice record
         if (invoice.id) {
@@ -1916,7 +1917,7 @@ router.post("/api/billing/webhook", async (req, res) => {
       
       case 'invoice.finalized': {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`[Webhook] Invoice finalized: ${invoice.id}`);
+        logger.info(`[Webhook] Invoice finalized: ${invoice.id}`);
         
         // Update hosted invoice URL if available
         if (invoice.id && invoice.hosted_invoice_url) {
@@ -1932,12 +1933,12 @@ router.post("/api/billing/webhook", async (req, res) => {
       }
       
       default:
-        console.log(`[Webhook] Unhandled event type: ${event.type}`);
+        logger.info(`[Webhook] Unhandled event type: ${event.type}`);
     }
     
     res.json({ received: true });
   } catch (error: any) {
-    console.error("Error processing webhook:", error);
+    logger.error("Error processing webhook:", error);
     res.status(500).json({ message: "Webhook processing failed" });
   }
 });

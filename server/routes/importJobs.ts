@@ -7,6 +7,7 @@ import {
   getBulkImportImageLimit,
   requireWriteAccess,
 } from "../utils";
+import logger from "../logger";
 
 const router = Router();
 
@@ -60,13 +61,13 @@ router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req:
       notificationSent: false,
     });
 
-    console.log(`[Import Job] Created job ${job.id} with ${base64Images.length} images for user ${userId}`);
+    logger.info(`[Import Job] Created job ${job.id} with ${base64Images.length} images for user ${userId}`);
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     fetch(`${baseUrl}/api/import-jobs/process-next`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    }).catch(err => console.error('[Import Job] Failed to trigger background worker:', err));
+    }).catch(err => logger.error('[Import Job] Failed to trigger background worker:', err));
 
     res.status(201).json({
       jobId: job.id,
@@ -74,7 +75,7 @@ router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req:
       totalImages: job.totalImages
     });
   } catch (error: any) {
-    console.error("Error creating import job:", error);
+    logger.error("Error creating import job:", error);
     res.status(500).json({ message: error.message || "Failed to create import job" });
   }
 });
@@ -110,7 +111,7 @@ router.get('/api/import-jobs/:id', isAuthenticated, async (req: any, res) => {
       completedAt: job.completedAt,
     });
   } catch (error: any) {
-    console.error("Error getting import job:", error);
+    logger.error("Error getting import job:", error);
     res.status(500).json({ message: error.message || "Failed to get job status" });
   }
 });
@@ -122,7 +123,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
       return res.json({ message: "No jobs in queue" });
     }
 
-    console.log(`[Import Job Worker] Processing job ${job.id} with ${job.totalImages} images`);
+    logger.info(`[Import Job Worker] Processing job ${job.id} with ${job.totalImages} images`);
 
     await storage.updateImportJob(job.id, {
       status: 'processing',
@@ -140,7 +141,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
           processedImages: currentImage,
           progressPercent,
         });
-        console.log(`[Import Job Worker] Progress: ${currentImage}/${totalImages} (${progressPercent}%)`);
+        logger.info(`[Import Job Worker] Progress: ${currentImage}/${totalImages} (${progressPercent}%)`);
       },
       job.hospitalId
     );
@@ -156,7 +157,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
       imagesData: null,
     });
 
-    console.log(`[Import Job Worker] Completed job ${job.id}, extracted ${extractedItems.length} items`);
+    logger.info(`[Import Job Worker] Completed job ${job.id}, extracted ${extractedItems.length} items`);
 
     const user = await storage.getUser(job.userId);
     if (user?.email) {
@@ -170,7 +171,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
         previewUrl
       );
       await storage.updateImportJob(job.id, { notificationSent: true });
-      console.log(`[Import Job Worker] Sent notification email to ${user.email}`);
+      logger.info(`[Import Job Worker] Sent notification email to ${user.email}`);
     }
 
     res.json({
@@ -179,7 +180,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
       itemsExtracted: extractedItems.length
     });
   } catch (error: any) {
-    console.error("Error processing job:", error);
+    logger.error("Error processing job:", error);
     const job = await storage.getNextQueuedJob();
     if (job) {
       await storage.updateImportJob(job.id, {

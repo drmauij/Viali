@@ -8,6 +8,7 @@ import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from './sms';
+import logger from "./logger";
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
@@ -84,7 +85,7 @@ async function generateFlyerDownloadUrls(flyers: InfoFlyerData[]): Promise<InfoF
         }
         return { ...flyer, downloadUrl: flyer.flyerUrl };
       } catch (error) {
-        console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+        logger.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
         return { ...flyer, downloadUrl: flyer.flyerUrl };
       }
     })
@@ -99,7 +100,7 @@ async function processNextImportJob() {
       return false;
     }
 
-    console.log(`[Worker] Processing import job ${job.id} with ${job.totalImages} images`);
+    logger.info(`[Worker] Processing import job ${job.id} with ${job.totalImages} images`);
 
     await storage.updateImportJob(job.id, {
       status: 'processing',
@@ -117,7 +118,7 @@ async function processNextImportJob() {
             processedImages: currentImage,
             progressPercent,
           });
-          console.log(`[Worker] Job ${job.id}: ${currentImage}/${totalImages} (${progressPercent}%)`);
+          logger.info(`[Worker] Job ${job.id}: ${currentImage}/${totalImages} (${progressPercent}%)`);
         },
         job.hospitalId
       );
@@ -133,7 +134,7 @@ async function processNextImportJob() {
         imagesData: null,
       });
 
-      console.log(`[Worker] Completed import job ${job.id}, extracted ${extractedItems.length} items`);
+      logger.info(`[Worker] Completed import job ${job.id}, extracted ${extractedItems.length} items`);
 
       const user = await storage.getUser(job.userId);
       if (user?.email) {
@@ -149,15 +150,15 @@ async function processNextImportJob() {
           );
 
           await storage.updateImportJob(job.id, { notificationSent: true });
-          console.log(`[Worker] Sent notification email to ${user.email}`);
+          logger.info(`[Worker] Sent notification email to ${user.email}`);
         } catch (emailError: any) {
-          console.error(`[Worker] Failed to send email notification:`, emailError);
+          logger.error(`[Worker] Failed to send email notification:`, emailError);
         }
       }
 
       return true;
     } catch (processingError: any) {
-      console.error(`[Worker] Error processing import job ${job.id}:`, processingError);
+      logger.error(`[Worker] Error processing import job ${job.id}:`, processingError);
       
       await storage.updateImportJob(job.id, {
         status: 'failed',
@@ -168,7 +169,7 @@ async function processNextImportJob() {
       return true;
     }
   } catch (error: any) {
-    console.error('[Worker] Error in processNextImportJob:', error);
+    logger.error('[Worker] Error in processNextImportJob:', error);
     return false;
   }
 }
@@ -181,7 +182,7 @@ async function processNextPriceSyncJob() {
       return false;
     }
 
-    console.log(`[Worker] Processing price sync job ${job.id}`);
+    logger.info(`[Worker] Processing price sync job ${job.id}`);
 
     await storage.updatePriceSyncJob(job.id, {
       status: 'processing',
@@ -211,7 +212,7 @@ async function processNextPriceSyncJob() {
         catalog.apiBaseUrl || undefined
       );
 
-      console.log(`[Worker] Testing Galexis connection...`);
+      logger.info(`[Worker] Testing Galexis connection...`);
       const connectionTest = await client.testConnection();
       if (!connectionTest.success) {
         throw new Error(`Galexis connection failed: ${connectionTest.message}`);
@@ -271,7 +272,7 @@ async function processNextPriceSyncJob() {
         ));
       
       const itemsWithZeroPriceSupplier = new Set(zeroPriceSuppliers.map(s => s.itemId));
-      console.log(`[Worker] Found ${zeroPriceSuppliers.length} items with preferred suppliers that have zero/null price - will try to resolve from Galexis`);
+      logger.info(`[Worker] Found ${zeroPriceSuppliers.length} items with preferred suppliers that have zero/null price - will try to resolve from Galexis`);
 
       // Build a map of itemId -> item info for all hospital items
       const hospitalItemMap = new Map<string, { itemId: string; itemName: string; pharmacode?: string; gtin?: string }>();
@@ -317,7 +318,7 @@ async function processNextPriceSyncJob() {
         }
       }
 
-      console.log(`[Worker] Found ${itemsToLookup.length} items to lookup in Galexis (${existingSupplierCodes.length} existing supplier codes)`);
+      logger.info(`[Worker] Found ${itemsToLookup.length} items to lookup in Galexis (${existingSupplierCodes.length} existing supplier codes)`);
       
       await storage.updatePriceSyncJob(job.id, {
         totalItems: itemsToLookup.length,
@@ -329,7 +330,7 @@ async function processNextPriceSyncJob() {
       const priceMap = new Map<string, PriceData>();
       
       if (itemsToLookup.length > 0) {
-        console.log(`[Worker] Using Galexis productAvailability API to lookup ${itemsToLookup.length} products...`);
+        logger.info(`[Worker] Using Galexis productAvailability API to lookup ${itemsToLookup.length} products...`);
         
         // Build lookup requests - prefer pharmacode over GTIN
         const lookupRequests: ProductLookupRequest[] = [];
@@ -360,7 +361,7 @@ async function processNextPriceSyncJob() {
           );
           
           galexisDebugInfo = debugInfo;
-          console.log(`[Worker] ProductAvailability completed: ${lookupResults.filter(r => r.found).length}/${lookupResults.length} found`);
+          logger.info(`[Worker] ProductAvailability completed: ${lookupResults.filter(r => r.found).length}/${lookupResults.length} found`);
 
           // Build price map from lookup results
           // Key by BOTH the returned pharmacode/gtin AND the original requested codes
@@ -404,7 +405,7 @@ async function processNextPriceSyncJob() {
           }
           
           if (failedWithGtinFallback.length > 0) {
-            console.log(`[Worker] Retrying ${failedWithGtinFallback.length} failed pharmacode lookups with GTIN...`);
+            logger.info(`[Worker] Retrying ${failedWithGtinFallback.length} failed pharmacode lookups with GTIN...`);
             
             try {
               const { results: retryResults } = await client.lookupProductsBatch(
@@ -428,13 +429,13 @@ async function processNextPriceSyncJob() {
                 }
               }
               
-              console.log(`[Worker] GTIN fallback found ${retryFoundCount}/${failedWithGtinFallback.length} additional products`);
+              logger.info(`[Worker] GTIN fallback found ${retryFoundCount}/${failedWithGtinFallback.length} additional products`);
             } catch (retryError: any) {
-              console.error(`[Worker] GTIN fallback lookup failed:`, retryError.message);
+              logger.error(`[Worker] GTIN fallback lookup failed:`, retryError.message);
             }
           }
         } catch (lookupError: any) {
-          console.error(`[Worker] ProductAvailability lookup failed:`, lookupError.message);
+          logger.error(`[Worker] ProductAvailability lookup failed:`, lookupError.message);
           galexisDebugInfo = {
             error: lookupError.message,
             errorType: 'productAvailability',
@@ -443,7 +444,7 @@ async function processNextPriceSyncJob() {
         }
       }
 
-      console.log(`[Worker] Got ${priceMap.size} prices from Galexis, matching with inventory items...`);
+      logger.info(`[Worker] Got ${priceMap.size} prices from Galexis, matching with inventory items...`);
 
       await storage.updatePriceSyncJob(job.id, {
         progressPercent: 50,
@@ -468,11 +469,11 @@ async function processNextPriceSyncJob() {
           if (itemInfo?.pharmacode && priceMap.has(itemInfo.pharmacode)) {
             priceData = priceMap.get(itemInfo.pharmacode);
             matchedByCode = itemInfo.pharmacode;
-            console.log(`[Worker] Matched supplier code for item ${code.itemId} via pharmacode ${itemInfo.pharmacode} (articleCode was ${code.articleCode})`);
+            logger.info(`[Worker] Matched supplier code for item ${code.itemId} via pharmacode ${itemInfo.pharmacode} (articleCode was ${code.articleCode})`);
           } else if (itemInfo?.gtin && priceMap.has(itemInfo.gtin)) {
             priceData = priceMap.get(itemInfo.gtin);
             matchedByCode = itemInfo.gtin;
-            console.log(`[Worker] Matched supplier code for item ${code.itemId} via GTIN ${itemInfo.gtin} (articleCode was ${code.articleCode})`);
+            logger.info(`[Worker] Matched supplier code for item ${code.itemId} via GTIN ${itemInfo.gtin} (articleCode was ${code.articleCode})`);
           }
         }
         
@@ -530,7 +531,7 @@ async function processNextPriceSyncJob() {
                 }
                 if (Object.keys(updateFields).length > 1) {
                   await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, code.itemId));
-                  console.log(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                  logger.info(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
                 }
               }
             }
@@ -540,12 +541,12 @@ async function processNextPriceSyncJob() {
               const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
               if (existingItem.length > 0 && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
                 await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
-                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+                logger.info(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
               }
             }
             
             updatedCount++;
-            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
+            logger.info(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
           } else {
             // Construct catalog URL using pharmacode (prefer matchedByCode which is the pharmacode/GTIN we found the price with)
             const pharmacodeForUrl = matchedByCode || code.articleCode;
@@ -575,7 +576,7 @@ async function processNextPriceSyncJob() {
                 }
                 if (Object.keys(updateFields).length > 1) {
                   await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, code.itemId));
-                  console.log(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                  logger.info(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
                 }
               }
             }
@@ -585,7 +586,7 @@ async function processNextPriceSyncJob() {
               const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
               if (existingItem.length > 0 && !existingItem[0].description) {
                 await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
-                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+                logger.info(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
               }
             }
           }
@@ -642,7 +643,7 @@ async function processNextPriceSyncJob() {
                 })
                 .where(eq(supplierCodes.id, existingGalexisCode[0].id));
               
-              console.log(`[Worker] Updated existing Galexis code for item "${item.itemName}" (articleCode: ${matchedCode})`);
+              logger.info(`[Worker] Updated existing Galexis code for item "${item.itemName}" (articleCode: ${matchedCode})`);
               autoMatchedCount++;
               itemsWithGalexisCode.add(item.itemId);
               
@@ -659,7 +660,7 @@ async function processNextPriceSyncJob() {
                   }
                   if (Object.keys(updateFields).length > 1) {
                     await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
-                    console.log(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                    logger.info(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
                   }
                 }
               }
@@ -678,7 +679,7 @@ async function processNextPriceSyncJob() {
                 ));
               
               if (demotedCount.rowCount && demotedCount.rowCount > 0) {
-                console.log(`[Worker] Demoted ${demotedCount.rowCount} existing preferred suppliers for item ${item.itemId} (Galexis price found: ${priceData.basispreis})`);
+                logger.info(`[Worker] Demoted ${demotedCount.rowCount} existing preferred suppliers for item ${item.itemId} (Galexis price found: ${priceData.basispreis})`);
               }
               
               // Create new Galexis supplier code
@@ -717,7 +718,7 @@ async function processNextPriceSyncJob() {
                     }
                     if (Object.keys(updateFields).length > 1) {
                       await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
-                      console.log(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                      logger.info(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
                     }
                   }
                 }
@@ -727,16 +728,16 @@ async function processNextPriceSyncJob() {
                   const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, item.itemId)).limit(1);
                   if (existingItem.length > 0 && !existingItem[0].description) {
                     await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, item.itemId));
-                    console.log(`[Worker] Updated item description for ${item.itemId}: "${priceData.description}"`);
+                    logger.info(`[Worker] Updated item description for ${item.itemId}: "${priceData.description}"`);
                   }
                 }
                 
                 autoMatchedCount++;
                 autoCreatedCount++;
                 itemsWithGalexisCode.add(item.itemId);
-                console.log(`[Worker] Auto-matched item "${item.itemName}" by ${pharmacode ? 'pharmacode' : 'GTIN'} ${matchedCode}, price=${priceData.basispreis}`);
+                logger.info(`[Worker] Auto-matched item "${item.itemName}" by ${pharmacode ? 'pharmacode' : 'GTIN'} ${matchedCode}, price=${priceData.basispreis}`);
               } catch (err: any) {
-                console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
+                logger.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
               }
             }
           } else {
@@ -752,9 +753,9 @@ async function processNextPriceSyncJob() {
             // This helps identify items that might need manual price entry
             const hasZeroPriceSupplier = itemsWithZeroPriceSupplier.has(item.itemId);
             if (hasZeroPriceSupplier) {
-              console.log(`[Worker] ATTENTION: Item "${item.itemName}" has zero-price supplier but NOT found in Galexis (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'}) - needs manual price entry`);
+              logger.info(`[Worker] ATTENTION: Item "${item.itemName}" has zero-price supplier but NOT found in Galexis (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'}) - needs manual price entry`);
             } else {
-              console.log(`[Worker] No Galexis match for item "${item.itemName}" (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'})`);
+              logger.info(`[Worker] No Galexis match for item "${item.itemName}" (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'})`);
             }
           }
         }
@@ -766,7 +767,7 @@ async function processNextPriceSyncJob() {
         !itemsWithGalexisCode.has(s.itemId) && unmatchedWithCodes.some(u => u.itemId === s.itemId)
       ).length;
       
-      console.log(`[Worker] Zero-price suppliers: ${zeroPriceSuppliers.length} total, ${zeroPriceItemsResolved} resolved with Galexis, ${zeroPriceItemsStillUnmatched} still need manual pricing`);
+      logger.info(`[Worker] Zero-price suppliers: ${zeroPriceSuppliers.length} total, ${zeroPriceItemsResolved} resolved with Galexis, ${zeroPriceItemsStillUnmatched} still need manual pricing`);
 
       // Deduplicate supplier codes: remove entries with same item, same supplier, same code, same price
       let duplicatesRemoved = 0;
@@ -818,11 +819,11 @@ async function processNextPriceSyncJob() {
           if (duplicateIds.length > 0) {
             await db.delete(supplierCodes).where(inArray(supplierCodes.id, duplicateIds));
             duplicatesRemoved = duplicateIds.length;
-            console.log(`[Worker] Removed ${duplicatesRemoved} duplicate supplier codes`);
+            logger.info(`[Worker] Removed ${duplicatesRemoved} duplicate supplier codes`);
           }
         }
       } catch (dedupError: any) {
-        console.error(`[Worker] Deduplication error:`, dedupError.message);
+        logger.error(`[Worker] Deduplication error:`, dedupError.message);
       }
 
       const summary = {
@@ -846,7 +847,7 @@ async function processNextPriceSyncJob() {
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
+      logger.info(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
@@ -875,11 +876,11 @@ async function processNextPriceSyncJob() {
         lastSyncMessage: syncMessage,
       });
 
-      console.log(`[Worker] Completed price sync job ${job.id}: matched ${totalMatched}, updated ${updatedCount}, duplicates removed ${duplicatesRemoved}`);
+      logger.info(`[Worker] Completed price sync job ${job.id}: matched ${totalMatched}, updated ${updatedCount}, duplicates removed ${duplicatesRemoved}`);
 
       return true;
     } catch (processingError: any) {
-      console.error(`[Worker] Error processing price sync job ${job.id}:`, processingError);
+      logger.error(`[Worker] Error processing price sync job ${job.id}:`, processingError);
       
       await storage.updatePriceSyncJob(job.id, {
         status: 'failed',
@@ -896,7 +897,7 @@ async function processNextPriceSyncJob() {
       return true;
     }
   } catch (error: any) {
-    console.error('[Worker] Error in processNextPriceSyncJob:', error);
+    logger.error('[Worker] Error in processNextPriceSyncJob:', error);
     return false;
   }
 }
@@ -912,7 +913,7 @@ async function processNextScheduledJob(): Promise<boolean> {
       return false;
     }
 
-    console.log(`[Worker] Processing scheduled job ${job.id} (${job.jobType}) for hospital ${job.hospitalId}`);
+    logger.info(`[Worker] Processing scheduled job ${job.id} (${job.jobType}) for hospital ${job.hospitalId}`);
 
     await storage.updateScheduledJob(job.id, {
       status: 'processing',
@@ -934,7 +935,7 @@ async function processNextScheduledJob(): Promise<boolean> {
 
       return true;
     } catch (processingError: any) {
-      console.error(`[Worker] Error processing scheduled job ${job.id}:`, processingError);
+      logger.error(`[Worker] Error processing scheduled job ${job.id}:`, processingError);
       
       await storage.updateScheduledJob(job.id, {
         status: 'failed',
@@ -945,7 +946,7 @@ async function processNextScheduledJob(): Promise<boolean> {
       return true;
     }
   } catch (error: any) {
-    console.error('[Worker] Error in processNextScheduledJob:', error);
+    logger.error('[Worker] Error in processNextScheduledJob:', error);
     return false;
   }
 }
@@ -1064,7 +1065,7 @@ async function sendQuestionnaireEmail(
 
     return { success: true };
   } catch (error: any) {
-    console.error('[Worker] Failed to send questionnaire email:', error);
+    logger.error('[Worker] Failed to send questionnaire email:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1119,13 +1120,13 @@ async function sendQuestionnaireSms(
     const result = await sendSms(patientPhone, message, hospitalId);
     
     if (result.success) {
-      console.log(`[Worker] SMS sent to ${patientPhone}, UUID: ${result.messageUuid}`);
+      logger.info(`[Worker] SMS sent to ${patientPhone}, UUID: ${result.messageUuid}`);
       return { success: true };
     } else {
       return { success: false, error: result.error };
     }
   } catch (error: any) {
-    console.error('[Worker] Failed to send questionnaire SMS:', error);
+    logger.error('[Worker] Failed to send questionnaire SMS:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1137,14 +1138,14 @@ async function sendQuestionnaireSms(
 async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   const hospitalId = job.hospitalId;
   
-  console.log(`[Worker] Auto-questionnaire dispatch for hospital ${hospitalId}`);
+  logger.info(`[Worker] Auto-questionnaire dispatch for hospital ${hospitalId}`);
   
   // Check if questionnaire addon is enabled for this hospital
   // Free accounts and test accounts (within 15-day trial) have all addons enabled
   const hospital = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
   const hospitalData = hospital[0];
   if (!hospitalData) {
-    console.log(`[Worker] Hospital ${hospitalId} not found, skipping`);
+    logger.info(`[Worker] Hospital ${hospitalId} not found, skipping`);
     return;
   }
   
@@ -1165,7 +1166,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   
   // Check if questionnaire is manually disabled (override)
   if (hospitalData.questionnaireDisabled) {
-    console.log(`[Worker] Skipping auto-questionnaire dispatch - questionnaire manually disabled for hospital ${hospitalId}`);
+    logger.info(`[Worker] Skipping auto-questionnaire dispatch - questionnaire manually disabled for hospital ${hospitalId}`);
     return;
   }
   
@@ -1175,7 +1176,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     AUTO_QUESTIONNAIRE_DAYS_AHEAD
   );
   
-  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for ${AUTO_QUESTIONNAIRE_DAYS_AHEAD} days ahead`);
+  logger.info(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for ${AUTO_QUESTIONNAIRE_DAYS_AHEAD} days ahead`);
   
   let processedCount = 0;
   let successCount = 0;
@@ -1196,7 +1197,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     
     // Skip if we already processed this patient in this batch (multiple surgeries for same patient)
     if (processedPatientIds.has(surgery.patientId)) {
-      console.log(`[Worker] Skipping ${patientName} - already processed in this batch (multiple surgeries)`);
+      logger.info(`[Worker] Skipping ${patientName} - already processed in this batch (multiple surgeries)`);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1207,7 +1208,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     
     // Skip if patient already has a filled/submitted questionnaire (via tablet or previous visit)
     if (surgery.hasExistingQuestionnaire) {
-      console.log(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
+      logger.info(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
       processedPatientIds.add(surgery.patientId);
       results.push({
         surgeryId: surgery.surgeryId,
@@ -1219,7 +1220,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     
     // Skip if already has questionnaire sent
     if (surgery.hasQuestionnaireSent) {
-      console.log(`[Worker] Skipping ${patientName} - questionnaire already sent`);
+      logger.info(`[Worker] Skipping ${patientName} - questionnaire already sent`);
       processedPatientIds.add(surgery.patientId);
       results.push({
         surgeryId: surgery.surgeryId,
@@ -1234,7 +1235,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     const hasPhone = !!surgery.patientPhone;
     
     if (!hasEmail && !hasPhone) {
-      console.log(`[Worker] Skipping ${patientName} - no email or phone on file`);
+      logger.info(`[Worker] Skipping ${patientName} - no email or phone on file`);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1254,7 +1255,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         )
       );
       if (hasActiveOrSubmittedLink) {
-        console.log(`[Worker] Skipping ${patientName} - already has active or submitted questionnaire link`);
+        logger.info(`[Worker] Skipping ${patientName} - already has active or submitted questionnaire link`);
         processedPatientIds.add(surgery.patientId);
         results.push({
           surgeryId: surgery.surgeryId,
@@ -1309,9 +1310,9 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           });
           sendSuccess = true;
           usedMethod = 'email';
-          console.log(`[Worker] Successfully sent questionnaire via email to ${patientName} (${surgery.patientEmail})`);
+          logger.info(`[Worker] Successfully sent questionnaire via email to ${patientName} (${surgery.patientEmail})`);
         } else {
-          console.log(`[Worker] Email failed for ${patientName}, trying SMS fallback...`);
+          logger.info(`[Worker] Email failed for ${patientName}, trying SMS fallback...`);
         }
       }
       
@@ -1334,7 +1335,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           });
           sendSuccess = true;
           usedMethod = 'sms';
-          console.log(`[Worker] Successfully sent questionnaire via SMS to ${patientName} (${surgery.patientPhone})`);
+          logger.info(`[Worker] Successfully sent questionnaire via SMS to ${patientName} (${surgery.patientPhone})`);
         }
       }
       
@@ -1363,9 +1364,9 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
             isAutomatic: true,
             messageType: 'auto_questionnaire',
           });
-          console.log(`[Worker] Saved auto-questionnaire message to patient communication history`);
+          logger.info(`[Worker] Saved auto-questionnaire message to patient communication history`);
         } catch (msgError) {
-          console.error(`[Worker] Failed to save auto-questionnaire message:`, msgError);
+          logger.error(`[Worker] Failed to save auto-questionnaire message:`, msgError);
         }
         
         successCount++;
@@ -1384,7 +1385,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         });
       }
     } catch (error: any) {
-      console.error(`[Worker] Error processing surgery ${surgery.surgeryId}:`, error);
+      logger.error(`[Worker] Error processing surgery ${surgery.surgeryId}:`, error);
       failedCount++;
       results.push({
         surgeryId: surgery.surgeryId,
@@ -1405,7 +1406,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     results: results as any,
   });
 
-  console.log(`[Worker] Completed auto-questionnaire dispatch: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
+  logger.info(`[Worker] Completed auto-questionnaire dispatch: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
 }
 
 /**
@@ -1413,7 +1414,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
  * Syncs absences from all users with configured ICS URLs
  */
 async function processTimebutlerIcsSync(job: any): Promise<void> {
-  console.log(`[Worker] Starting Timebutler ICS sync for hospital ${job.hospitalId}`);
+  logger.info(`[Worker] Starting Timebutler ICS sync for hospital ${job.hospitalId}`);
   
   const icalModule = await import('node-ical');
   const ical = icalModule.default || icalModule; // Handle ESM/CJS compatibility
@@ -1445,7 +1446,7 @@ async function processTimebutlerIcsSync(job: any): Promise<void> {
       successCount: 0,
       results: { message: 'No users with ICS URLs configured' },
     });
-    console.log(`[Worker] No users with ICS URLs for hospital ${job.hospitalId}`);
+    logger.info(`[Worker] No users with ICS URLs for hospital ${job.hospitalId}`);
     return;
   }
   
@@ -1519,7 +1520,7 @@ async function processTimebutlerIcsSync(job: any): Promise<void> {
     } catch (userError: any) {
       failedCount++;
       results.push({ userId: user.id, name: `${user.firstName} ${user.lastName}`, status: 'failed', error: userError.message });
-      console.error(`[Worker] Failed to sync ICS for user ${user.id}:`, userError.message);
+      logger.error(`[Worker] Failed to sync ICS for user ${user.id}:`, userError.message);
     }
   }
   
@@ -1532,7 +1533,7 @@ async function processTimebutlerIcsSync(job: any): Promise<void> {
     results: { totalSynced, users: results },
   });
   
-  console.log(`[Worker] Completed Timebutler ICS sync: ${usersProcessed}/${usersWithIcs.length} users, ${totalSynced} absences synced`);
+  logger.info(`[Worker] Completed Timebutler ICS sync: ${usersProcessed}/${usersWithIcs.length} users, ${totalSynced} absences synced`);
 }
 
 /**
@@ -1565,10 +1566,10 @@ async function scheduleTimebutlerIcsSyncJobs(): Promise<void> {
         status: 'pending',
       });
       
-      console.log(`[Worker] Scheduled Timebutler ICS sync job for hospital ${hospital.id}`);
+      logger.info(`[Worker] Scheduled Timebutler ICS sync job for hospital ${hospital.id}`);
     }
   } catch (error: any) {
-    console.error('[Worker] Error scheduling Timebutler ICS sync jobs:', error);
+    logger.error('[Worker] Error scheduling Timebutler ICS sync jobs:', error);
   }
 }
 
@@ -1616,10 +1617,10 @@ async function scheduleAutoQuestionnaireJobs(): Promise<void> {
         status: 'pending',
       });
       
-      console.log(`[Worker] Scheduled auto-questionnaire job for hospital ${hospital.id} at ${scheduledFor.toISOString()}`);
+      logger.info(`[Worker] Scheduled auto-questionnaire job for hospital ${hospital.id} at ${scheduledFor.toISOString()}`);
     }
   } catch (error: any) {
-    console.error('[Worker] Error scheduling auto-questionnaire jobs:', error);
+    logger.error('[Worker] Error scheduling auto-questionnaire jobs:', error);
   }
 }
 
@@ -1663,10 +1664,10 @@ async function scheduleCalcomSyncJobs(): Promise<void> {
         status: 'pending',
       });
       
-      console.log(`[Worker] Scheduled Cal.com sync job for hospital ${config.hospitalId}`);
+      logger.info(`[Worker] Scheduled Cal.com sync job for hospital ${config.hospitalId}`);
     }
   } catch (error: any) {
-    console.error('[Worker] Error scheduling Cal.com sync jobs:', error);
+    logger.error('[Worker] Error scheduling Cal.com sync jobs:', error);
   }
 }
 
@@ -1675,7 +1676,7 @@ async function scheduleCalcomSyncJobs(): Promise<void> {
  * Syncs all appointments and surgeries to Cal.com for mapped providers
  */
 async function processCalcomSync(job: any): Promise<void> {
-  console.log(`[Worker] Starting Cal.com sync for hospital ${job.hospitalId}`);
+  logger.info(`[Worker] Starting Cal.com sync for hospital ${job.hospitalId}`);
   
   try {
     const { syncAppointmentsToCalcom, syncSurgeriesToCalcom } = await import("./services/calcomSync");
@@ -1698,9 +1699,9 @@ async function processCalcomSync(job: any): Promise<void> {
       },
     });
     
-    console.log(`[Worker] Completed Cal.com sync: ${appointmentsResult.synced} appointments, ${surgeriesResult.synced} surgeries synced`);
+    logger.info(`[Worker] Completed Cal.com sync: ${appointmentsResult.synced} appointments, ${surgeriesResult.synced} surgeries synced`);
   } catch (error: any) {
-    console.error(`[Worker] Cal.com sync error:`, error);
+    logger.error(`[Worker] Cal.com sync error:`, error);
     
     await storage.updateScheduledJob(job.id, {
       status: 'failed',
@@ -1741,10 +1742,10 @@ async function schedulePreSurgeryReminderJobs() {
         status: 'pending',
       });
       
-      console.log(`[Worker] Scheduled pre-surgery reminder job for hospital ${hospital.id}`);
+      logger.info(`[Worker] Scheduled pre-surgery reminder job for hospital ${hospital.id}`);
     }
   } catch (error: any) {
-    console.error('[Worker] Error scheduling pre-surgery reminder jobs:', error);
+    logger.error('[Worker] Error scheduling pre-surgery reminder jobs:', error);
   }
 }
 
@@ -1757,7 +1758,7 @@ async function schedulePreSurgeryReminderJobs() {
 async function processPreSurgeryReminder(job: any): Promise<void> {
   const hospitalId = job.hospitalId;
   
-  console.log(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
+  logger.info(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
   
   // Only send reminders around 6pm (between 5:30pm and 6:30pm local time)
   const now = new Date();
@@ -1768,14 +1769,14 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
   const reminderWindowEnd = 18 * 60 + 30;   // 6:30pm = 18:30
   
   if (timeInMinutes < reminderWindowStart || timeInMinutes > reminderWindowEnd) {
-    console.log(`[Worker] Skipping pre-surgery reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} is outside 6pm window (17:30-18:30)`);
+    logger.info(`[Worker] Skipping pre-surgery reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} is outside 6pm window (17:30-18:30)`);
     return;
   }
   
   // Check if pre-surgery reminder is manually disabled
   const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
   if (hospitalData[0]?.preSurgeryReminderDisabled) {
-    console.log(`[Worker] Skipping pre-surgery reminder - manually disabled for hospital ${hospitalId}`);
+    logger.info(`[Worker] Skipping pre-surgery reminder - manually disabled for hospital ${hospitalId}`);
     return;
   }
   
@@ -1785,7 +1786,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     PRE_SURGERY_REMINDER_HOURS_AHEAD
   );
   
-  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for tomorrow`);
+  logger.info(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for tomorrow`);
   
   let processedCount = 0;
   let successCount = 0;
@@ -1806,7 +1807,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     
     // Skip if already reminded
     if (surgery.reminderSent) {
-      console.log(`[Worker] Skipping ${patientName} - reminder already sent`);
+      logger.info(`[Worker] Skipping ${patientName} - reminder already sent`);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1819,7 +1820,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     const hasPhone = !!surgery.patientPhone;
     
     if (!hasEmail && !hasPhone) {
-      console.log(`[Worker] Skipping ${patientName} - no contact info`);
+      logger.info(`[Worker] Skipping ${patientName} - no contact info`);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1832,7 +1833,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       // Double-check reminderSent flag (prevents race condition with concurrent jobs)
       const freshSurgery = await storage.getSurgery(surgery.surgeryId);
       if (freshSurgery?.reminderSent) {
-        console.log(`[Worker] Skipping ${patientName} - reminder already sent (race condition check)`);
+        logger.info(`[Worker] Skipping ${patientName} - reminder already sent (race condition check)`);
         results.push({ surgeryId: surgery.surgeryId, patientName, status: 'skipped_already_reminded' });
         continue;
       }
@@ -1891,7 +1892,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           sendSuccess = true;
           usedMethod = 'sms';
           sentMessageText = smsMessage;
-          console.log(`[Worker] Pre-surgery reminder SMS sent to ${patientName}`);
+          logger.info(`[Worker] Pre-surgery reminder SMS sent to ${patientName}`);
         }
       }
       
@@ -1915,7 +1916,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
             ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })
             : '';
           sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}\n\n${fastingInstructionsDe}\n\n---\n\n${fastingInstructionsEn}`;
-          console.log(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
+          logger.info(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
         }
       }
       
@@ -1933,9 +1934,9 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
             isAutomatic: true,
             messageType: 'auto_reminder',
           });
-          console.log(`[Worker] Saved pre-surgery reminder message to patient communication history`);
+          logger.info(`[Worker] Saved pre-surgery reminder message to patient communication history`);
         } catch (msgError) {
-          console.error(`[Worker] Failed to save pre-surgery reminder message:`, msgError);
+          logger.error(`[Worker] Failed to save pre-surgery reminder message:`, msgError);
         }
         
         successCount++;
@@ -1954,7 +1955,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         });
       }
     } catch (error: any) {
-      console.error(`[Worker] Error sending reminder for surgery ${surgery.surgeryId}:`, error);
+      logger.error(`[Worker] Error sending reminder for surgery ${surgery.surgeryId}:`, error);
       failedCount++;
       results.push({
         surgeryId: surgery.surgeryId,
@@ -1975,7 +1976,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     results: results as any,
   });
 
-  console.log(`[Worker] Completed pre-surgery reminders: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
+  logger.info(`[Worker] Completed pre-surgery reminders: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
 }
 
 /**
@@ -2095,7 +2096,7 @@ async function sendPreSurgeryReminderEmail(
     
     return { success: true };
   } catch (error: any) {
-    console.error('[Worker] Failed to send pre-surgery reminder email:', error);
+    logger.error('[Worker] Failed to send pre-surgery reminder email:', error);
     return { success: false, error: error.message };
   }
 }
@@ -2177,10 +2178,10 @@ async function scheduleMonthlyBillingJobs(): Promise<void> {
         status: 'pending',
       });
       
-      console.log(`[Worker] Scheduled monthly billing job for hospital ${hospital.id} (period: ${periodStart.toISOString()} - ${periodEnd.toISOString()})`);
+      logger.info(`[Worker] Scheduled monthly billing job for hospital ${hospital.id} (period: ${periodStart.toISOString()} - ${periodEnd.toISOString()})`);
     }
   } catch (error: any) {
-    console.error('[Worker] Error scheduling monthly billing jobs:', error);
+    logger.error('[Worker] Error scheduling monthly billing jobs:', error);
   }
 }
 
@@ -2190,7 +2191,7 @@ async function scheduleMonthlyBillingJobs(): Promise<void> {
  */
 async function processMonthlyBilling(job: any): Promise<void> {
   const hospitalId = job.hospitalId;
-  console.log(`[Worker] Processing monthly billing for hospital ${hospitalId}`);
+  logger.info(`[Worker] Processing monthly billing for hospital ${hospitalId}`);
   
   try {
     const Stripe = (await import('stripe')).default;
@@ -2242,7 +2243,7 @@ async function processMonthlyBilling(job: any): Promise<void> {
         failedCount: 0,
         results: { message: 'No records for billing period' } as any,
       });
-      console.log(`[Worker] No billing needed for hospital ${hospitalId} (0 records)`);
+      logger.info(`[Worker] No billing needed for hospital ${hospitalId} (0 records)`);
       return;
     }
     
@@ -2353,10 +2354,10 @@ async function processMonthlyBilling(job: any): Promise<void> {
       } as any,
     });
     
-    console.log(`[Worker] Completed billing for hospital ${hospitalId}: ${recordCount} records, ${totalAmount.toFixed(2)} CHF, invoice ${finalizedInvoice.id}`);
+    logger.info(`[Worker] Completed billing for hospital ${hospitalId}: ${recordCount} records, ${totalAmount.toFixed(2)} CHF, invoice ${finalizedInvoice.id}`);
     
   } catch (error: any) {
-    console.error(`[Worker] Error processing billing for hospital ${hospitalId}:`, error);
+    logger.error(`[Worker] Error processing billing for hospital ${hospitalId}:`, error);
     
     await storage.updateScheduledJob(job.id, {
       status: 'failed',
@@ -2371,7 +2372,7 @@ async function checkStuckJobs() {
     const stuckJobs = await storage.getStuckJobs(STUCK_JOB_THRESHOLD_MINUTES);
     
     if (stuckJobs.length > 0) {
-      console.log(`[Worker] Found ${stuckJobs.length} stuck jobs, marking as failed`);
+      logger.info(`[Worker] Found ${stuckJobs.length} stuck jobs, marking as failed`);
       
       for (const job of stuckJobs) {
         const minutesStuck = Math.round(
@@ -2384,11 +2385,11 @@ async function checkStuckJobs() {
           error: `Job stuck in processing for ${minutesStuck} minutes and was automatically failed`,
         });
         
-        console.log(`[Worker] Marked stuck job ${job.id} as failed (was stuck for ${minutesStuck} minutes)`);
+        logger.info(`[Worker] Marked stuck job ${job.id} as failed (was stuck for ${minutesStuck} minutes)`);
       }
     }
   } catch (error: any) {
-    console.error('[Worker] Error checking stuck jobs:', error);
+    logger.error('[Worker] Error checking stuck jobs:', error);
   }
 }
 
@@ -2442,7 +2443,7 @@ async function scheduleAutoPriceSyncJobs(): Promise<void> {
               status: 'queued',
               jobType: 'full_sync',
             });
-            console.log(`[Worker] Scheduled daily Galexis price sync for hospital "${hospital.name}"`);
+            logger.info(`[Worker] Scheduled daily Galexis price sync for hospital "${hospital.name}"`);
           }
         }
       } else {
@@ -2450,7 +2451,7 @@ async function scheduleAutoPriceSyncJobs(): Promise<void> {
       }
     }
   } catch (error: any) {
-    console.error('[Worker] Error in scheduleAutoPriceSyncJobs:', error.message);
+    logger.error('[Worker] Error in scheduleAutoPriceSyncJobs:', error.message);
   }
 }
 
@@ -2530,17 +2531,17 @@ async function captureInventorySnapshots() {
           itemCount,
         });
         
-        console.log(`[Worker] Captured inventory snapshot for unit "${unit.name}": ${itemCount} items, ${totalValue.toFixed(2)} value`);
+        logger.info(`[Worker] Captured inventory snapshot for unit "${unit.name}": ${itemCount} items, ${totalValue.toFixed(2)} value`);
       }
     }
   } catch (error: any) {
-    console.error('[Worker] Error capturing inventory snapshots:', error.message);
+    logger.error('[Worker] Error capturing inventory snapshots:', error.message);
   }
 }
 
 async function workerLoop() {
-  console.log('[Worker] Starting background worker...');
-  console.log(`[Worker] Poll interval: ${POLL_INTERVAL_MS}ms, Stuck job check: ${STUCK_JOB_CHECK_INTERVAL_MS}ms`);
+  logger.info('[Worker] Starting background worker...');
+  logger.info(`[Worker] Poll interval: ${POLL_INTERVAL_MS}ms, Stuck job check: ${STUCK_JOB_CHECK_INTERVAL_MS}ms`);
   
   let lastStuckJobCheck = Date.now();
   let lastScheduledJobCheck = Date.now();
@@ -2597,7 +2598,7 @@ async function workerLoop() {
       
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     } catch (error: any) {
-      console.error('[Worker] Unexpected error in worker loop:', error);
+      logger.error('[Worker] Unexpected error in worker loop:', error);
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     }
   }
@@ -2608,9 +2609,9 @@ async function workerLoop() {
  * Can be called from main server process or run as standalone.
  */
 export function startWorker() {
-  console.log('[Worker] Initializing background job processor...');
+  logger.info('[Worker] Initializing background job processor...');
   workerLoop().catch(error => {
-    console.error('[Worker] Fatal error in worker loop:', error);
+    logger.error('[Worker] Fatal error in worker loop:', error);
   });
 }
 
@@ -2619,17 +2620,17 @@ const isMainModule = import.meta.url === `file://${process.argv[1]}`;
 
 if (isMainModule) {
   process.on('SIGTERM', () => {
-    console.log('[Worker] Received SIGTERM, shutting down gracefully...');
+    logger.info('[Worker] Received SIGTERM, shutting down gracefully...');
     process.exit(0);
   });
 
   process.on('SIGINT', () => {
-    console.log('[Worker] Received SIGINT, shutting down gracefully...');
+    logger.info('[Worker] Received SIGINT, shutting down gracefully...');
     process.exit(0);
   });
 
   workerLoop().catch(error => {
-    console.error('[Worker] Fatal error:', error);
+    logger.error('[Worker] Fatal error:', error);
     process.exit(1);
   });
 }

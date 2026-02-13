@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { findStandardParameter } from "@shared/monitorParameters";
 import { getVisionAiClient, getVisionModel, VisionAiProvider } from "./visionAiFactory";
+import logger from "../logger";
 
 interface RawParameter {
   detectedName: string;
@@ -205,7 +206,7 @@ export async function analyzeMonitorImage(base64Image: string, hospitalId?: stri
     ? await getVisionAiClient(hospitalId)
     : { client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
   const model = getVisionModel(provider);
-  console.log(`[VisionAI] Using ${provider} (${model}) for monitor analysis`);
+  logger.info(`[VisionAI] Using ${provider} (${model}) for monitor analysis`);
 
   const response = await openai.chat.completions.create({
     model,
@@ -251,7 +252,7 @@ export async function analyzeMonitorImage(base64Image: string, hospitalId?: stri
     timestamp: Date.now()
   };
 
-  console.log('[Monitor Analysis] Brand:', result.monitorBrand, 'Type:', result.monitorType, 'Parameters:', mappedParameters.length);
+  logger.info('[Monitor Analysis] Brand:', result.monitorBrand, 'Type:', result.monitorType, 'Parameters:', mappedParameters.length);
   return result;
 }
 
@@ -273,7 +274,7 @@ export async function transcribeVoice(audioData: string): Promise<string> {
     response_format: 'text'
   });
 
-  console.log('[Voice Transcription]:', transcription);
+  logger.info('[Voice Transcription]:', transcription);
   return transcription;
 }
 
@@ -298,6 +299,6 @@ export async function parseDrugCommand(transcription: string, hospitalId?: strin
   });
 
   const result = JSON.parse(response.choices[0].message.content || '{"drugs": []}');
-  console.log('[Drug Command Parser] Parsed drugs:', result.drugs);
+  logger.info('[Drug Command Parser] Parsed drugs:', result.drugs);
   return result.drugs || [];
 }

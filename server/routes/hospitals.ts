@@ -19,6 +19,7 @@ import {
 import { z, ZodError } from "zod";
 import { eq, and, or, inArray, sql, asc } from "drizzle-orm";
 import type { Request, Response } from "express";
+import logger from "../logger";
 
 const router = Router();
 
@@ -57,7 +58,7 @@ router.get('/api/chop-procedures', async (req: Request, res: Response) => {
       .limit(limit);
     res.json(results);
   } catch (error: any) {
-    console.error("Error searching CHOP procedures:", error);
+    logger.error("Error searching CHOP procedures:", error);
     res.status(500).json({ message: "Failed to search procedures" });
   }
 });
@@ -73,7 +74,7 @@ router.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, asyn
     const imageLimit = getBulkImportImageLimit(licenseType);
     res.json({ limit: imageLimit, licenseType });
   } catch (error: any) {
-    console.error("Error getting bulk import limit:", error);
+    logger.error("Error getting bulk import limit:", error);
     res.status(500).json({ message: "Failed to get bulk import limit" });
   }
 });
@@ -110,7 +111,7 @@ router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireWriteAccess, 
     const updatedHospital = await storage.updateHospital(hospitalId, updates);
     res.json(updatedHospital);
   } catch (error: any) {
-    console.error("Error updating hospital:", error);
+    logger.error("Error updating hospital:", error);
     res.status(500).json({ message: "Failed to update hospital settings" });
   }
 });
@@ -136,7 +137,7 @@ router.post('/api/hospitals/:id/seed', isAuthenticated, requireWriteAccess, asyn
       }
     });
   } catch (error) {
-    console.error("Error seeding hospital:", error);
+    logger.error("Error seeding hospital:", error);
     res.status(500).json({ message: "Failed to seed hospital data" });
   }
 });
@@ -154,7 +155,7 @@ router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireWriteAcces
     const result = await resetListsToDefaults(hospitalId);
     res.json({ message: "Lists reset to defaults successfully", result });
   } catch (error) {
-    console.error("Error resetting lists:", error);
+    logger.error("Error resetting lists:", error);
     res.status(500).json({ message: "Failed to reset lists to defaults" });
   }
 });
@@ -275,7 +276,7 @@ router.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireWrite
       }
     });
   } catch (error) {
-    console.error("Error normalizing phone numbers:", error);
+    logger.error("Error normalizing phone numbers:", error);
     res.status(500).json({ message: "Failed to normalize phone numbers" });
   }
 });

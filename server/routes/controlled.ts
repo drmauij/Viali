@@ -12,6 +12,7 @@ import {
   getActiveUnitIdFromRequest,
   requireWriteAccess,
 } from "../utils";
+import logger from "../logger";
 
 const router = Router();
 
@@ -50,7 +51,7 @@ router.post('/api/activity/log', isAuthenticated, async (req: any, res) => {
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error logging activity:", error);
+    logger.error("Error logging activity:", error);
     res.json({ success: true, warning: "Activity may not have been logged" });
   }
 });
@@ -96,12 +97,12 @@ router.post('/api/controlled/extract-patient-info', isAuthenticated, requireWrit
       const firstLine = extractedText.split('\n').find(line => line.trim().length > 2);
       res.json({ patientId: firstLine?.trim() || null });
     } catch (ocrError) {
-      console.error("OCR processing error:", ocrError);
+      logger.error("OCR processing error:", ocrError);
       await worker.terminate();
       throw ocrError;
     }
   } catch (error) {
-    console.error("Error extracting patient info:", error);
+    logger.error("Error extracting patient info:", error);
     res.status(500).json({ message: "Failed to extract patient information" });
   }
 });
@@ -186,7 +187,7 @@ router.post('/api/controlled/dispense', isAuthenticated, requireWriteAccess, asy
     
     res.status(201).json(activities);
   } catch (error: any) {
-    console.error("Error recording controlled substance:", error);
+    logger.error("Error recording controlled substance:", error);
     
     if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
       return res.status(403).json({ message: error.message });
@@ -268,7 +269,7 @@ router.post('/api/controlled/adjust', isAuthenticated, requireWriteAccess, async
     
     res.status(201).json(activity);
   } catch (error: any) {
-    console.error("Error adjusting controlled substance:", error);
+    logger.error("Error adjusting controlled substance:", error);
     
     if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
       return res.status(403).json({ message: error.message });
@@ -323,7 +324,7 @@ router.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, 
             }
           }
         } catch (error) {
-          console.error("Error decrypting patient ID:", error);
+          logger.error("Error decrypting patient ID:", error);
         }
       }
       
@@ -331,7 +332,7 @@ router.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, 
         try {
           decrypted.patientPhoto = decryptPatientData(activity.patientPhoto);
         } catch (error) {
-          console.error("Error decrypting patient photo:", error);
+          logger.error("Error decrypting patient photo:", error);
         }
       }
       
@@ -340,7 +341,7 @@ router.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, 
     
     res.json(decryptedActivities);
   } catch (error) {
-    console.error("Error fetching controlled log:", error);
+    logger.error("Error fetching controlled log:", error);
     res.status(500).json({ message: "Failed to fetch controlled log" });
   }
 });
@@ -374,7 +375,7 @@ router.post('/api/controlled/checks', isAuthenticated, requireWriteAccess, async
     
     res.status(201).json(check);
   } catch (error: any) {
-    console.error("Error creating controlled check:", error);
+    logger.error("Error creating controlled check:", error);
     res.status(500).json({ message: "Failed to create controlled check" });
   }
 });
@@ -393,7 +394,7 @@ router.get('/api/controlled/checks/:hospitalId', isAuthenticated, async (req: an
     const checks = await storage.getControlledChecks(hospitalId, unitId);
     res.json(checks);
   } catch (error) {
-    console.error("Error fetching controlled checks:", error);
+    logger.error("Error fetching controlled checks:", error);
     res.status(500).json({ message: "Failed to fetch controlled checks" });
   }
 });
@@ -429,7 +430,7 @@ router.delete('/api/controlled/checks/:checkId', isAuthenticated, requireWriteAc
     
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting controlled check:", error);
+    logger.error("Error deleting controlled check:", error);
     res.status(500).json({ message: "Failed to delete controlled check" });
   }
 });
@@ -463,7 +464,7 @@ router.post('/api/controlled/verify/:activityId', isAuthenticated, requireWriteA
     const activity = await storage.verifyControlledActivity(activityId, signature, userId);
     res.json(activity);
   } catch (error: any) {
-    console.error("Error verifying controlled activity:", error);
+    logger.error("Error verifying controlled activity:", error);
     
     if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
       return res.status(403).json({ message: error.message });
@@ -489,7 +490,7 @@ router.get('/api/alerts/:hospitalId', isAuthenticated, async (req: any, res) => 
     const alerts = await storage.getAlerts(hospitalId, unitId, acknowledgedBool);
     res.json(alerts);
   } catch (error) {
-    console.error("Error fetching alerts:", error);
+    logger.error("Error fetching alerts:", error);
     res.status(500).json({ message: "Failed to fetch alerts" });
   }
 });
@@ -512,7 +513,7 @@ router.post('/api/alerts/:alertId/acknowledge', isAuthenticated, requireWriteAcc
     const alert = await storage.acknowledgeAlert(alertId, userId);
     res.json(alert);
   } catch (error) {
-    console.error("Error acknowledging alert:", error);
+    logger.error("Error acknowledging alert:", error);
     res.status(500).json({ message: "Failed to acknowledge alert" });
   }
 });
@@ -540,7 +541,7 @@ router.post('/api/alerts/:alertId/snooze', isAuthenticated, requireWriteAccess, 
     const alert = await storage.snoozeAlert(alertId, new Date(until));
     res.json(alert);
   } catch (error) {
-    console.error("Error snoozing alert:", error);
+    logger.error("Error snoozing alert:", error);
     res.status(500).json({ message: "Failed to snooze alert" });
   }
 });
@@ -563,7 +564,7 @@ router.get('/api/activities/:hospitalId', isAuthenticated, async (req: any, res)
     });
     res.json(activities);
   } catch (error) {
-    console.error("Error fetching activities:", error);
+    logger.error("Error fetching activities:", error);
     res.status(500).json({ message: "Failed to fetch activities" });
   }
 });

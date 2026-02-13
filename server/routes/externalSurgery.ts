@@ -14,6 +14,7 @@ import { Resend } from "resend";
 import { db } from "../db";
 import { users, userHospitalRoles, units } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import logger from "../logger";
 
 const router = Router();
 
@@ -120,7 +121,7 @@ router.get('/public/external-surgery/:token', fetchLimiter, async (req: Request,
       hospitalId: result.hospital.id,
     });
   } catch (error) {
-    console.error("Error fetching external surgery form:", error);
+    logger.error("Error fetching external surgery form:", error);
     res.status(500).json({ message: "Failed to load form" });
   }
 });
@@ -172,7 +173,7 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
           );
 
         if (orAdmins.length === 0) {
-          console.log('[ExternalSurgery] No OR-admin users found for hospital', result.hospital.id);
+          logger.info('[ExternalSurgery] No OR-admin users found for hospital', result.hospital.id);
           return;
         }
 
@@ -195,15 +196,15 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             wishedDate,
             deepLinkUrl,
             'de'
-          ).catch(err => console.error('[ExternalSurgery] Failed to send notification to', admin.email, err));
+          ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to', admin.email, err));
         }
-        console.log(`[ExternalSurgery] Sent notifications to ${orAdmins.length} OR-admin(s) for hospital ${result.hospital.name}`);
+        logger.info(`[ExternalSurgery] Sent notifications to ${orAdmins.length} OR-admin(s) for hospital ${result.hospital.name}`);
       } catch (err) {
-        console.error('[ExternalSurgery] Error sending admin notifications:', err);
+        logger.error('[ExternalSurgery] Error sending admin notifications:', err);
       }
     })();
   } catch (error) {
-    console.error("Error submitting external surgery request:", error);
+    logger.error("Error submitting external surgery request:", error);
     res.status(500).json({ message: "Failed to submit request" });
   }
 });
@@ -261,7 +262,7 @@ router.post('/public/external-surgery/:token/upload-url', uploadLimiter, async (
       key,
     });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error("Error generating upload URL:", error);
     res.status(500).json({ message: "Failed to generate upload URL" });
   }
 });
@@ -293,7 +294,7 @@ router.post('/public/external-surgery/:token/documents', uploadLimiter, async (r
     
     res.json(doc);
   } catch (error) {
-    console.error("Error saving document:", error);
+    logger.error("Error saving document:", error);
     res.status(500).json({ message: "Failed to save document" });
   }
 });
@@ -321,7 +322,7 @@ router.get('/api/hospitals/:hospitalId/external-surgery-requests', isAuthenticat
     
     res.json(requestsWithDocuments);
   } catch (error) {
-    console.error("Error fetching external surgery requests:", error);
+    logger.error("Error fetching external surgery requests:", error);
     res.status(500).json({ message: "Failed to fetch requests" });
   }
 });
@@ -341,7 +342,7 @@ router.get('/api/hospitals/:hospitalId/external-surgery-requests/count', isAuthe
     
     res.json({ count });
   } catch (error) {
-    console.error("Error fetching pending count:", error);
+    logger.error("Error fetching pending count:", error);
     res.status(500).json({ message: "Failed to fetch count" });
   }
 });
@@ -366,7 +367,7 @@ router.get('/api/external-surgery-requests/:id', isAuthenticated, async (req: an
     
     res.json({ ...request, documents });
   } catch (error) {
-    console.error("Error fetching request:", error);
+    logger.error("Error fetching request:", error);
     res.status(500).json({ message: "Failed to fetch request" });
   }
 });
@@ -397,7 +398,7 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating request:", error);
+    logger.error("Error updating request:", error);
     res.status(500).json({ message: "Failed to update request" });
   }
 });
@@ -583,7 +584,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
             });
           }
         } catch (emailError) {
-          console.error("Error sending confirmation email:", emailError);
+          logger.error("Error sending confirmation email:", emailError);
         }
       }
       
@@ -599,7 +600,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
             confirmationSmsSent: true,
           });
         } catch (smsError) {
-          console.error("Error sending confirmation SMS:", smsError);
+          logger.error("Error sending confirmation SMS:", smsError);
         }
       }
     }
@@ -610,7 +611,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       patientId,
     });
   } catch (error) {
-    console.error("Error scheduling surgery:", error);
+    logger.error("Error scheduling surgery:", error);
     res.status(500).json({ message: "Failed to schedule surgery" });
   }
 });
@@ -633,7 +634,7 @@ router.get('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated,
     
     res.json({ token: hospital.externalSurgeryToken || null });
   } catch (error) {
-    console.error("Error fetching token:", error);
+    logger.error("Error fetching token:", error);
     res.status(500).json({ message: "Failed to fetch token" });
   }
 });
@@ -657,7 +658,7 @@ router.post('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated
     
     res.json({ token: hospital.externalSurgeryToken });
   } catch (error) {
-    console.error("Error generating token:", error);
+    logger.error("Error generating token:", error);
     res.status(500).json({ message: "Failed to generate token" });
   }
 });
@@ -679,7 +680,7 @@ router.delete('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticat
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting token:", error);
+    logger.error("Error deleting token:", error);
     res.status(500).json({ message: "Failed to delete token" });
   }
 });

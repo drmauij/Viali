@@ -21,6 +21,7 @@ import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
 import { db } from "../../db";
 import { eq, and } from "drizzle-orm";
+import logger from "../../logger";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -54,7 +55,7 @@ router.get('/api/anesthesia/records/surgery/:surgeryId', isAuthenticated, async 
 
     res.json(record);
   } catch (error) {
-    console.error("Error fetching anesthesia record:", error);
+    logger.error("Error fetching anesthesia record:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia record" });
   }
 });
@@ -92,7 +93,7 @@ router.get('/api/anesthesia/records/surgery/:surgeryId/all', isAuthenticated, as
 
     res.json(enrichedRecords);
   } catch (error) {
-    console.error("Error fetching all anesthesia records for surgery:", error);
+    logger.error("Error fetching all anesthesia records for surgery:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia records" });
   }
 });
@@ -122,7 +123,7 @@ router.get('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res)
 
     res.json(record);
   } catch (error) {
-    console.error("Error fetching anesthesia record:", error);
+    logger.error("Error fetching anesthesia record:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia record" });
   }
 });
@@ -148,19 +149,19 @@ router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, requ
 
     const existingRecord = await storage.getAnesthesiaRecord(validatedData.surgeryId);
     if (existingRecord) {
-      console.log(`[ANESTHESIA] Returning existing record ${existingRecord.id} for surgery ${validatedData.surgeryId} (preventing duplicate)`);
+      logger.info(`[ANESTHESIA] Returning existing record ${existingRecord.id} for surgery ${validatedData.surgeryId} (preventing duplicate)`);
       return res.status(200).json(existingRecord);
     }
 
     const newRecord = await storage.createAnesthesiaRecord(validatedData);
-    console.log(`[ANESTHESIA] Created new record ${newRecord.id} for surgery ${validatedData.surgeryId}`);
+    logger.info(`[ANESTHESIA] Created new record ${newRecord.id} for surgery ${validatedData.surgeryId}`);
     
     res.status(201).json(newRecord);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating anesthesia record:", error);
+    logger.error("Error creating anesthesia record:", error);
     res.status(500).json({ message: "Failed to create anesthesia record" });
   }
 });
@@ -196,7 +197,7 @@ router.patch('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess,
     
     res.json(updatedRecord);
   } catch (error) {
-    console.error("Error updating anesthesia record:", error);
+    logger.error("Error updating anesthesia record:", error);
     res.status(500).json({ message: "Failed to update anesthesia record" });
   }
 });
@@ -232,13 +233,13 @@ router.delete('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess
     }
 
     const counts = await storage.getAnesthesiaRecordDataCounts(id);
-    console.log(`[ANESTHESIA] Deleting duplicate record ${id} for surgery ${record.surgeryId} (vitals: ${counts.vitals}, meds: ${counts.medications}, events: ${counts.events})`);
+    logger.info(`[ANESTHESIA] Deleting duplicate record ${id} for surgery ${record.surgeryId} (vitals: ${counts.vitals}, meds: ${counts.medications}, events: ${counts.events})`);
 
     await storage.deleteAnesthesiaRecord(id);
     
     res.json({ message: "Anesthesia record deleted successfully" });
   } catch (error) {
-    console.error("Error deleting anesthesia record:", error);
+    logger.error("Error deleting anesthesia record:", error);
     res.status(500).json({ message: "Failed to delete anesthesia record" });
   }
 });
@@ -291,7 +292,7 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
       if (newP !== undefined) {
         const newPHasTime = hasValidTime(newP);
         
-        console.log(`[TIME-MARKERS] P (PACU End) comparison for record ${id}:`, {
+        logger.info(`[TIME-MARKERS] P (PACU End) comparison for record ${id}:`, {
           previousPHasTime,
           newPHasTime,
           previousPTime: previousP?.time,
@@ -304,19 +305,19 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
         if (newPHasTime && !previousPHasTime) {
           updateData.isLocked = true;
           updateData.lockedAt = new Date();
-          console.log(`[TIME-MARKERS] P (PACU End) marker set for record ${id} - LOCKING record`);
+          logger.info(`[TIME-MARKERS] P (PACU End) marker set for record ${id} - LOCKING record`);
         } else if (!newPHasTime && previousPHasTime) {
           updateData.isLocked = false;
           updateData.lockedAt = null;
-          console.log(`[TIME-MARKERS] P (PACU End) marker cleared for record ${id} - UNLOCKING record`);
+          logger.info(`[TIME-MARKERS] P (PACU End) marker cleared for record ${id} - UNLOCKING record`);
         } else if (newPHasTime && previousPHasTime && !record.isLocked) {
           updateData.isLocked = true;
           updateData.lockedAt = new Date();
-          console.log(`[TIME-MARKERS] P marker already set but record not locked for ${id} - REPAIRING: locking record`);
+          logger.info(`[TIME-MARKERS] P marker already set but record not locked for ${id} - REPAIRING: locking record`);
         } else {
-          console.log(`[TIME-MARKERS] P marker status unchanged for record ${id} - no lock change (both have time: ${newPHasTime && previousPHasTime}, both empty: ${!newPHasTime && !previousPHasTime})`);
+          logger.info(`[TIME-MARKERS] P marker status unchanged for record ${id} - no lock change (both have time: ${newPHasTime && previousPHasTime}, both empty: ${!newPHasTime && !previousPHasTime})`);
         }
-        console.log(`[TIME-MARKERS] Update data for record ${id}:`, {
+        logger.info(`[TIME-MARKERS] Update data for record ${id}:`, {
           willUpdateIsLocked: 'isLocked' in updateData,
           newIsLocked: updateData.isLocked,
         });
@@ -336,7 +337,7 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
     
     res.json(updatedRecord);
   } catch (error) {
-    console.error("Error updating time markers:", error);
+    logger.error("Error updating time markers:", error);
     res.status(500).json({ message: "Failed to update time markers" });
   }
 });
@@ -392,7 +393,7 @@ router.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, r
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating sign in checklist:", error);
+    logger.error("Error updating sign in checklist:", error);
     res.status(500).json({ message: "Failed to update sign in checklist" });
   }
 });
@@ -448,7 +449,7 @@ router.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating time out checklist:", error);
+    logger.error("Error updating time out checklist:", error);
     res.status(500).json({ message: "Failed to update time out checklist" });
   }
 });
@@ -504,7 +505,7 @@ router.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating sign out checklist:", error);
+    logger.error("Error updating sign out checklist:", error);
     res.status(500).json({ message: "Failed to update sign out checklist" });
   }
 });
@@ -550,7 +551,7 @@ router.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireWrite
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating post-op data:", error);
+    logger.error("Error updating post-op data:", error);
     res.status(500).json({ message: "Failed to update post-op data" });
   }
 });
@@ -605,7 +606,7 @@ router.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requi
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating surgery staff data:", error);
+    logger.error("Error updating surgery staff data:", error);
     res.status(500).json({ message: "Failed to update surgery staff data" });
   }
 });
@@ -678,7 +679,7 @@ router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireWri
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating intra-op data:", error);
+    logger.error("Error updating intra-op data:", error);
     res.status(500).json({ message: "Failed to update intra-op data" });
   }
 });
@@ -739,7 +740,7 @@ router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requ
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Validation error", errors: error.errors });
     }
-    console.error("Error updating counts-sterile data:", error);
+    logger.error("Error updating counts-sterile data:", error);
     res.status(500).json({ message: "Failed to update counts-sterile data" });
   }
 });
@@ -781,7 +782,7 @@ router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticate
 
     res.json({ uploadURL, storageKey });
   } catch (error) {
-    console.error("Error getting sticker doc upload URL:", error);
+    logger.error("Error getting sticker doc upload URL:", error);
     res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
@@ -827,7 +828,7 @@ router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuth
 
     res.json({ downloadURL });
   } catch (error) {
-    console.error("Error getting sticker doc download URL:", error);
+    logger.error("Error getting sticker doc download URL:", error);
     res.status(500).json({ message: "Failed to get download URL" });
   }
 });
@@ -863,7 +864,7 @@ router.post('/api/anesthesia/records/:id/close', isAuthenticated, requireWriteAc
     
     res.json(closedRecord);
   } catch (error) {
-    console.error("Error closing anesthesia record:", error);
+    logger.error("Error closing anesthesia record:", error);
     res.status(500).json({ message: "Failed to close anesthesia record" });
   }
 });
@@ -904,7 +905,7 @@ router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAc
     
     res.json(amendedRecord);
   } catch (error) {
-    console.error("Error amending anesthesia record:", error);
+    logger.error("Error amending anesthesia record:", error);
     res.status(500).json({ message: "Failed to amend anesthesia record" });
   }
 });
@@ -940,7 +941,7 @@ router.post('/api/anesthesia/records/:id/lock', isAuthenticated, requireWriteAcc
     
     res.json(lockedRecord);
   } catch (error) {
-    console.error("Error locking anesthesia record:", error);
+    logger.error("Error locking anesthesia record:", error);
     res.status(500).json({ message: "Failed to lock anesthesia record" });
   }
 });
@@ -981,7 +982,7 @@ router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteA
     
     res.json(unlockedRecord);
   } catch (error) {
-    console.error("Error unlocking anesthesia record:", error);
+    logger.error("Error unlocking anesthesia record:", error);
     res.status(500).json({ message: "Failed to unlock anesthesia record" });
   }
 });
@@ -1054,7 +1055,7 @@ router.get('/api/anesthesia/records/:recordId/on-demand-medications/:administrat
 
     res.json(medsWithImportStatus);
   } catch (error) {
-    console.error("Error fetching on-demand medications:", error);
+    logger.error("Error fetching on-demand medications:", error);
     res.status(500).json({ message: "Failed to fetch on-demand medications" });
   }
 });
@@ -1106,7 +1107,7 @@ router.get('/api/anesthesia/records/:recordId/imported-medications', isAuthentic
 
     res.json(importedMeds);
   } catch (error) {
-    console.error("Error fetching imported medications:", error);
+    logger.error("Error fetching imported medications:", error);
     res.status(500).json({ message: "Failed to fetch imported medications" });
   }
 });
@@ -1193,7 +1194,7 @@ router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenti
     if (error.code === '23505') {
       return res.status(409).json({ message: "Medication already imported to this record" });
     }
-    console.error("Error importing medication:", error);
+    logger.error("Error importing medication:", error);
     res.status(500).json({ message: "Failed to import medication" });
   }
 });
@@ -1233,7 +1234,7 @@ router.delete('/api/anesthesia/records/:recordId/imported-medications/:medicatio
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error removing imported medication:", error);
+    logger.error("Error removing imported medication:", error);
     res.status(500).json({ message: "Failed to remove imported medication" });
   }
 });

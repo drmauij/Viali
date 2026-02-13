@@ -12,6 +12,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
+import logger from "../logger";
 
 const router = Router();
 
@@ -272,7 +273,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
       reused: false,
     });
   } catch (error) {
-    console.error("Error generating questionnaire link:", error);
+    logger.error("Error generating questionnaire link:", error);
     res.status(500).json({ message: "Failed to generate questionnaire link" });
   }
 });
@@ -328,7 +329,7 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async
     
     res.json(enrichedLinks);
   } catch (error) {
-    console.error("Error fetching questionnaire links:", error);
+    logger.error("Error fetching questionnaire links:", error);
     res.status(500).json({ message: "Failed to fetch questionnaire links" });
   }
 });
@@ -370,7 +371,7 @@ router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res
     
     res.json(enrichedResponses);
   } catch (error) {
-    console.error("Error fetching questionnaire responses:", error);
+    logger.error("Error fetching questionnaire responses:", error);
     res.status(500).json({ message: "Failed to fetch questionnaire responses" });
   }
 });
@@ -392,7 +393,7 @@ router.get('/api/questionnaire/unassociated', isAuthenticated, async (req: any, 
     
     res.json(responses);
   } catch (error) {
-    console.error("Error fetching unassociated questionnaire responses:", error);
+    logger.error("Error fetching unassociated questionnaire responses:", error);
     res.status(500).json({ message: "Failed to fetch unassociated responses" });
   }
 });
@@ -449,7 +450,7 @@ router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticate
       }
     });
   } catch (error) {
-    console.error("Error associating questionnaire with patient:", error);
+    logger.error("Error associating questionnaire with patient:", error);
     res.status(500).json({ message: "Failed to associate questionnaire" });
   }
 });
@@ -508,7 +509,7 @@ router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (r
       } : null
     });
   } catch (error) {
-    console.error("Error fetching response details:", error);
+    logger.error("Error fetching response details:", error);
     res.status(500).json({ message: "Failed to fetch response details" });
   }
 });
@@ -607,7 +608,7 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
 
     res.json(review);
   } catch (error) {
-    console.error("Error saving review:", error);
+    logger.error("Error saving review:", error);
     res.status(500).json({ message: "Failed to save review" });
   }
 });
@@ -735,7 +736,7 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
     
     res.json({ message: "Email sent successfully" });
   } catch (error) {
-    console.error("Error sending questionnaire email:", error);
+    logger.error("Error sending questionnaire email:", error);
     res.status(500).json({ message: "Failed to send email" });
   }
 });
@@ -801,7 +802,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
     
     res.json({ message: "SMS sent successfully" });
   } catch (error) {
-    console.error("Error sending questionnaire SMS:", error);
+    logger.error("Error sending questionnaire SMS:", error);
     res.status(500).json({ message: "Failed to send SMS" });
   }
 });
@@ -834,7 +835,7 @@ router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requ
     
     res.json({ message: "Link invalidated successfully" });
   } catch (error) {
-    console.error("Error invalidating link:", error);
+    logger.error("Error invalidating link:", error);
     res.status(500).json({ message: "Failed to invalidate link" });
   }
 });
@@ -898,7 +899,7 @@ router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res
       ],
     });
   } catch (error) {
-    console.error("Error fetching hospital questionnaire info:", error);
+    logger.error("Error fetching hospital questionnaire info:", error);
     res.status(500).json({ message: "Failed to load questionnaire" });
   }
 });
@@ -939,7 +940,7 @@ router.post('/api/public/questionnaire/hospital/:token/start', async (req: Reque
       redirectUrl: `/questionnaire/${linkToken}`,
     });
   } catch (error) {
-    console.error("Error starting hospital questionnaire:", error);
+    logger.error("Error starting hospital questionnaire:", error);
     res.status(500).json({ message: "Failed to start questionnaire" });
   }
 });
@@ -1103,7 +1104,7 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       ],
     });
   } catch (error) {
-    console.error("Error fetching questionnaire config:", error);
+    logger.error("Error fetching questionnaire config:", error);
     res.status(500).json({ message: "Failed to load questionnaire" });
   }
 });
@@ -1240,7 +1241,7 @@ router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, a
       currentStep: response.currentStep,
     });
   } catch (error) {
-    console.error("Error saving progress:", error);
+    logger.error("Error saving progress:", error);
     res.status(500).json({ message: "Failed to save progress" });
   }
 });
@@ -1376,7 +1377,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
       submittedAt: submitted.submittedAt,
     });
   } catch (error) {
-    console.error("Error submitting questionnaire:", error);
+    logger.error("Error submitting questionnaire:", error);
     res.status(500).json({ message: "Failed to submit questionnaire" });
   }
 });
@@ -1410,7 +1411,7 @@ router.post('/api/public/questionnaire/:token/upload-url', questionnaireUploadLi
       if (!accessKeyId) missing.push('S3_ACCESS_KEY');
       if (!secretAccessKey) missing.push('S3_SECRET_KEY');
       if (!bucket) missing.push('S3_BUCKET');
-      console.error(`[Questionnaire Upload] Missing S3 configuration: ${missing.join(', ')}`);
+      logger.error(`[Questionnaire Upload] Missing S3 configuration: ${missing.join(', ')}`);
       return res.status(503).json({ message: "File storage not configured" });
     }
 
@@ -1444,7 +1445,7 @@ router.post('/api/public/questionnaire/:token/upload-url', questionnaireUploadLi
       key,
     });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error("Error generating upload URL:", error);
     res.status(500).json({ message: "Failed to generate upload URL" });
   }
 });
@@ -1497,7 +1498,7 @@ router.post('/api/public/questionnaire/:token/upload', questionnaireUploadLimite
       createdAt: upload.createdAt,
     });
   } catch (error) {
-    console.error("Error uploading file:", error);
+    logger.error("Error uploading file:", error);
     res.status(500).json({ message: "Failed to upload file" });
   }
 });
@@ -1529,7 +1530,7 @@ router.delete('/api/public/questionnaire/:token/upload/:uploadId', questionnaire
 
     res.json({ message: "File deleted successfully" });
   } catch (error) {
-    console.error("Error deleting file:", error);
+    logger.error("Error deleting file:", error);
     res.status(500).json({ message: "Failed to delete file" });
   }
 });
@@ -1608,7 +1609,7 @@ router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (r
       fileSize: upload.fileSize,
     });
   } catch (error) {
-    console.error("Error generating download URL:", error);
+    logger.error("Error generating download URL:", error);
     res.status(500).json({ message: "Failed to generate download URL" });
   }
 });
@@ -1703,7 +1704,7 @@ router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (
       res.status(500).json({ message: "Error streaming file" });
     }
   } catch (error: any) {
-    console.error("Error streaming file:", error);
+    logger.error("Error streaming file:", error);
     if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
       res.status(404).json({ message: "File not found in storage" });
     } else if (!res.headersSent) {
@@ -1772,7 +1773,7 @@ router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWr
         });
         await s3Client.send(command);
       } catch (s3Error) {
-        console.error("Error deleting file from S3:", s3Error);
+        logger.error("Error deleting file from S3:", s3Error);
         // Continue to delete from database even if S3 delete fails
       }
     }
@@ -1782,7 +1783,7 @@ router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWr
 
     res.json({ message: "Upload deleted successfully" });
   } catch (error) {
-    console.error("Error deleting questionnaire upload:", error);
+    logger.error("Error deleting questionnaire upload:", error);
     res.status(500).json({ message: "Failed to delete upload" });
   }
 });
@@ -1843,7 +1844,7 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
           }
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         } catch (error) {
-          console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+          logger.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         }
       })
@@ -1851,7 +1852,7 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
     
     res.json({ flyers: flyersWithUrls });
   } catch (error) {
-    console.error("Error fetching info flyers:", error);
+    logger.error("Error fetching info flyers:", error);
     res.status(500).json({ message: "Failed to fetch info flyers" });
   }
 });
@@ -1876,14 +1877,14 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     // Get the questionnaire link
     const link = await storage.getQuestionnaireLinkByToken(token);
     if (!link) {
-      console.log(`Patient portal: token ${token.substring(0, 10)}... not found in database`);
+      logger.info(`Patient portal: token ${token.substring(0, 10)}... not found in database`);
       return res.status(404).json({ message: "Link not found or expired", debug: { reason: "not_found", token: token.substring(0, 10) } });
     }
     
     // Check if link status is invalidated (always block)
     if (link.status === 'invalidated') {
       const debugInfo = { reason: "invalidated", status: link.status, expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, surgeryId: link.surgeryId, patientId: link.patientId };
-      console.log(`Patient portal: token ${token.substring(0, 10)}... rejected - invalidated`, debugInfo);
+      logger.info(`Patient portal: token ${token.substring(0, 10)}... rejected - invalidated`, debugInfo);
       return res.status(410).json({ message: "Link has expired", debug: debugInfo });
     }
 
@@ -1926,11 +1927,11 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           updateData.status = existingResponse ? 'started' : 'pending';
         }
         await storage.updateQuestionnaireLink(link.id, updateData);
-        console.log(`Patient portal: token ${token.substring(0, 10)}... auto-extended to ${newExpiresAt.toISOString()} (surgery: ${upcomingSurgeryDate.toISOString()})`);
+        logger.info(`Patient portal: token ${token.substring(0, 10)}... auto-extended to ${newExpiresAt.toISOString()} (surgery: ${upcomingSurgeryDate.toISOString()})`);
         // Continue to load the portal (don't return error)
       } else {
         const debugInfo = { reason: isTimeExpired ? "expired_by_time" : "expired_by_status", expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, now: new Date().toISOString(), status: link.status, surgeryId: link.surgeryId, patientId: link.patientId };
-        console.log(`Patient portal: token ${token.substring(0, 10)}... expired, no upcoming surgery`, debugInfo);
+        logger.info(`Patient portal: token ${token.substring(0, 10)}... expired, no upcoming surgery`, debugInfo);
         return res.status(410).json({ message: "Link has expired", debug: debugInfo });
       }
     }
@@ -2066,7 +2067,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           }
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         } catch (error) {
-          console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+          logger.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         }
       })
@@ -2096,7 +2097,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       questionnaireUrl: `/questionnaire/${token}`,
     });
   } catch (error) {
-    console.error("Error fetching patient portal data:", error);
+    logger.error("Error fetching patient portal data:", error);
     res.status(500).json({ message: "Failed to fetch portal data" });
   }
 });
@@ -2111,7 +2112,7 @@ router.get('/api/user/message-templates', isAuthenticated, async (req: any, res:
       .orderBy(userMessageTemplates.createdAt);
     res.json(templates);
   } catch (error) {
-    console.error("Error fetching message templates:", error);
+    logger.error("Error fetching message templates:", error);
     res.status(500).json({ message: "Failed to fetch templates" });
   }
 });
@@ -2134,7 +2135,7 @@ router.post('/api/user/message-templates', isAuthenticated, async (req: any, res
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid input", errors: error.errors });
     }
-    console.error("Error creating message template:", error);
+    logger.error("Error creating message template:", error);
     res.status(500).json({ message: "Failed to create template" });
   }
 });
@@ -2160,7 +2161,7 @@ router.patch('/api/user/message-templates/:id', isAuthenticated, async (req: any
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid input", errors: error.errors });
     }
-    console.error("Error updating message template:", error);
+    logger.error("Error updating message template:", error);
     res.status(500).json({ message: "Failed to update template" });
   }
 });
@@ -2177,7 +2178,7 @@ router.delete('/api/user/message-templates/:id', isAuthenticated, async (req: an
     }
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting message template:", error);
+    logger.error("Error deleting message template:", error);
     res.status(500).json({ message: "Failed to delete template" });
   }
 });
@@ -2266,7 +2267,7 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
       consentRemoteSignedAt: assessment.consentRemoteSignedAt ?? null,
     });
   } catch (error) {
-    console.error("Error fetching consent data:", error);
+    logger.error("Error fetching consent data:", error);
     res.status(500).json({ message: "Failed to fetch consent data" });
   }
 });
@@ -2355,7 +2356,7 @@ router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async
 
     res.json({ success: true, message: "Consent signed successfully" });
   } catch (error) {
-    console.error("Error signing consent:", error);
+    logger.error("Error signing consent:", error);
     res.status(500).json({ message: "Failed to sign consent" });
   }
 });

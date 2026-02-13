@@ -2,6 +2,7 @@
 import { Vonage } from '@vonage/server-sdk';
 import { storage } from './storage';
 import { decryptCredential } from './utils/encryption';
+import logger from "./logger";
 
 interface VonageCredentials {
   apiKey: string;
@@ -27,17 +28,17 @@ async function getHospitalVonageCredentials(hospitalId: string): Promise<VonageC
     const config = await storage.getHospitalVonageConfig(hospitalId);
     
     if (!config) {
-      console.log(`[SMS] No Vonage config found for hospital ${hospitalId}`);
+      logger.info(`[SMS] No Vonage config found for hospital ${hospitalId}`);
       return null;
     }
     
     if (config.isEnabled === false) {
-      console.log(`[SMS] Vonage config exists but is disabled for hospital ${hospitalId}`);
+      logger.info(`[SMS] Vonage config exists but is disabled for hospital ${hospitalId}`);
       return null;
     }
     
     if (!config.encryptedApiKey || !config.encryptedApiSecret || !config.encryptedFromNumber) {
-      console.log(`[SMS] Vonage config incomplete for hospital ${hospitalId}: hasKey=${!!config.encryptedApiKey}, hasSecret=${!!config.encryptedApiSecret}, hasFrom=${!!config.encryptedFromNumber}`);
+      logger.info(`[SMS] Vonage config incomplete for hospital ${hospitalId}: hasKey=${!!config.encryptedApiKey}, hasSecret=${!!config.encryptedApiSecret}, hasFrom=${!!config.encryptedFromNumber}`);
       return null;
     }
     
@@ -46,13 +47,13 @@ async function getHospitalVonageCredentials(hospitalId: string): Promise<VonageC
     const fromNumber = decryptCredential(config.encryptedFromNumber);
     
     if (!apiKey || !apiSecret || !fromNumber) {
-      console.warn(`[SMS] Failed to decrypt Vonage credentials for hospital ${hospitalId}`);
+      logger.warn(`[SMS] Failed to decrypt Vonage credentials for hospital ${hospitalId}`);
       return null;
     }
     
     return { apiKey, apiSecret, fromNumber, source: 'hospital' };
   } catch (error) {
-    console.error(`[SMS] Error fetching hospital Vonage config:`, error);
+    logger.error(`[SMS] Error fetching hospital Vonage config:`, error);
     return null;
   }
 }
@@ -111,7 +112,7 @@ export async function sendSms(to: string, message: string, hospitalId?: string):
     const vonageTo = normalizedTo.replace(/^\+/, '');
     const vonageFrom = credentials.fromNumber.replace(/^\+/, '');
 
-    console.log(`[SMS] Sending SMS to ${normalizedTo} from ${credentials.fromNumber} (source: ${credentials.source}${hospitalId ? `, hospital: ${hospitalId}` : ''})`);
+    logger.info(`[SMS] Sending SMS to ${normalizedTo} from ${credentials.fromNumber} (source: ${credentials.source}${hospitalId ? `, hospital: ${hospitalId}` : ''})`);
     
     const response = await vonage.sms.send({
       to: vonageTo,
@@ -122,14 +123,14 @@ export async function sendSms(to: string, message: string, hospitalId?: string):
     const firstMessage = response.messages[0];
     
     if (firstMessage.status === '0') {
-      console.log(`[SMS] Message sent successfully, ID: ${firstMessage.messageId}`);
+      logger.info(`[SMS] Message sent successfully, ID: ${firstMessage.messageId}`);
       return {
         success: true,
         messageUuid: firstMessage.messageId,
         source: credentials.source,
       };
     } else {
-      console.error(`[SMS] Failed to send: ${firstMessage.errorText}`);
+      logger.error(`[SMS] Failed to send: ${firstMessage.errorText}`);
       return {
         success: false,
         error: firstMessage.errorText || 'Unknown Vonage error',
@@ -137,7 +138,7 @@ export async function sendSms(to: string, message: string, hospitalId?: string):
       };
     }
   } catch (error) {
-    console.error('[SMS] Failed to send SMS:', error);
+    logger.error('[SMS] Failed to send SMS:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

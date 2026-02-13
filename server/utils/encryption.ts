@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import logger from "../logger";
 
 if (!process.env.ENCRYPTION_SECRET) {
   throw new Error("ENCRYPTION_SECRET environment variable is required for patient data encryption");
@@ -27,12 +28,12 @@ export function decryptPatientData(text: string): string {
   const parts = text.split(":");
   
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    console.warn("Invalid encrypted data format, returning as-is");
+    logger.warn("Invalid encrypted data format, returning as-is");
     return text;
   }
   
   if (parts[0].length !== 32) {
-    console.warn(`Invalid IV length: ${parts[0].length}, expected 32. Returning as-is`);
+    logger.warn(`Invalid IV length: ${parts[0].length}, expected 32. Returning as-is`);
     return text;
   }
   
@@ -44,7 +45,7 @@ export function decryptPatientData(text: string): string {
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (error) {
-    console.error("Failed to decrypt data:", error);
+    logger.error("Failed to decrypt data:", error);
     return text;
   }
 }
@@ -66,12 +67,12 @@ export function decryptCredential(encryptedText: string): string | null {
   const parts = encryptedText.split(":");
   
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    console.warn("Invalid encrypted credential format");
+    logger.warn("Invalid encrypted credential format");
     return null;
   }
   
   if (parts[0].length !== 32) {
-    console.warn(`Invalid IV length for credential: ${parts[0].length}, expected 32`);
+    logger.warn(`Invalid IV length for credential: ${parts[0].length}, expected 32`);
     return null;
   }
   
@@ -83,7 +84,7 @@ export function decryptCredential(encryptedText: string): string | null {
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (error) {
-    console.error("Failed to decrypt credential:", error);
+    logger.error("Failed to decrypt credential:", error);
     return null;
   }
 }

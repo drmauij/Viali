@@ -300,7 +300,7 @@ async function isClinicAccess(req: any, res: Response, next: any) {
     
     next();
   } catch (error) {
-    console.error("Error checking clinic access:", error);
+    logger.error("Error checking clinic access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -353,7 +353,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, 
     
     res.json(services);
   } catch (error) {
-    console.error("Error fetching services:", error);
+    logger.error("Error fetching services:", error);
     res.status(500).json({ message: "Failed to fetch services" });
   }
 });
@@ -380,7 +380,7 @@ router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isCli
     
     res.json(result[0]);
   } catch (error) {
-    console.error("Error fetching service:", error);
+    logger.error("Error fetching service:", error);
     res.status(500).json({ message: "Failed to fetch service" });
   }
 });
@@ -405,7 +405,7 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess,
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating service:", error);
+    logger.error("Error creating service:", error);
     res.status(500).json({ message: "Failed to create service" });
   }
 });
@@ -450,7 +450,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating service:", error);
+    logger.error("Error updating service:", error);
     res.status(500).json({ message: "Failed to update service" });
   }
 });
@@ -482,7 +482,7 @@ router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, is
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting service:", error);
+    logger.error("Error deleting service:", error);
     res.status(500).json({ message: "Failed to delete service" });
   }
 });
@@ -530,7 +530,7 @@ router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, isCli
     
     res.json({ movedCount: serviceIds.length, targetUnitId });
   } catch (error) {
-    console.error("Error bulk moving services:", error);
+    logger.error("Error bulk moving services:", error);
     res.status(500).json({ message: "Failed to move services" });
   }
 });
@@ -562,7 +562,7 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
     
     res.json({ updatedCount: serviceIds.length, isBillable });
   } catch (error) {
-    console.error("Error bulk setting billable status:", error);
+    logger.error("Error bulk setting billable status:", error);
     res.status(500).json({ message: "Failed to update billable status" });
   }
 });
@@ -585,7 +585,7 @@ router.get('/api/clinic/:hospitalId/next-invoice-number', isAuthenticated, isCli
     
     res.json({ nextNumber });
   } catch (error) {
-    console.error("Error getting next invoice number:", error);
+    logger.error("Error getting next invoice number:", error);
     res.status(500).json({ message: "Failed to get next invoice number" });
   }
 });
@@ -634,7 +634,7 @@ router.get('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess, 
     
     res.json(filtered);
   } catch (error) {
-    console.error("Error fetching invoices:", error);
+    logger.error("Error fetching invoices:", error);
     res.status(500).json({ message: "Failed to fetch invoices" });
   }
 });
@@ -709,7 +709,7 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isCli
       items: invoiceItems,
     });
   } catch (error) {
-    console.error("Error fetching invoice:", error);
+    logger.error("Error fetching invoice:", error);
     res.status(500).json({ message: "Failed to fetch invoice" });
   }
 });
@@ -817,7 +817,7 @@ router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess,
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating invoice:", error);
+    logger.error("Error creating invoice:", error);
     res.status(500).json({ message: "Failed to create invoice" });
   }
 });
@@ -856,7 +856,7 @@ router.patch('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isC
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating invoice:", error);
+    logger.error("Error updating invoice:", error);
     res.status(500).json({ message: "Failed to update invoice" });
   }
 });
@@ -889,7 +889,7 @@ router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, is
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting invoice:", error);
+    logger.error("Error deleting invoice:", error);
     res.status(500).json({ message: "Failed to delete invoice" });
   }
 });
@@ -927,7 +927,7 @@ router.patch('/api/clinic/:hospitalId/invoices/:invoiceId/status', isAuthenticat
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error updating invoice status:", error);
+    logger.error("Error updating invoice status:", error);
     res.status(500).json({ message: "Failed to update invoice status" });
   }
 });
@@ -976,11 +976,11 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
     }));
     
     // Debug log for price issue
-    console.log('Items with prices:', enrichedItems.filter(i => i.patientPrice).map(i => ({ name: i.name, patientPrice: i.patientPrice })));
+    logger.info('Items with prices:', enrichedItems.filter(i => i.patientPrice).map(i => ({ name: i.name, patientPrice: i.patientPrice })));
     
     res.json(enrichedItems);
   } catch (error) {
-    console.error("Error fetching items with prices:", error);
+    logger.error("Error fetching items with prices:", error);
     res.status(500).json({ message: "Failed to fetch items" });
   }
 });
@@ -1041,7 +1041,7 @@ router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, isClinicAc
     
     res.json(enrichedItems);
   } catch (error) {
-    console.error("Error fetching billable items:", error);
+    logger.error("Error fetching billable items:", error);
     res.status(500).json({ message: "Failed to fetch billable items" });
   }
 });
@@ -1085,7 +1085,7 @@ router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, isClini
     
     res.json(enrichedServices);
   } catch (error) {
-    console.error("Error fetching billable services:", error);
+    logger.error("Error fetching billable services:", error);
     res.status(500).json({ message: "Failed to fetch billable services" });
   }
 });
@@ -1112,7 +1112,7 @@ router.get('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAcce
       companyLogoUrl: (hospital as any).companyLogoUrl || '',
     });
   } catch (error) {
-    console.error("Error fetching company data:", error);
+    logger.error("Error fetching company data:", error);
     res.status(500).json({ message: "Failed to fetch company data" });
   }
 });
@@ -1172,7 +1172,7 @@ router.patch('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAc
       companyLogoUrl: updated.companyLogoUrl,
     });
   } catch (error) {
-    console.error("Error updating company data:", error);
+    logger.error("Error updating company data:", error);
     res.status(500).json({ message: "Failed to update company data" });
   }
 });
@@ -1254,7 +1254,7 @@ router.post('/api/clinic/:hospitalId/invoices/:invoiceId/send-email', isAuthenti
     
     res.json({ success: true, message: "Invoice sent successfully" });
   } catch (error) {
-    console.error("Error sending invoice email:", error);
+    logger.error("Error sending invoice email:", error);
     res.status(500).json({ message: "Failed to send invoice email" });
   }
 });
@@ -1288,7 +1288,7 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthen
     
     res.json({ email: patient[0]?.email || null });
   } catch (error) {
-    console.error("Error fetching patient email:", error);
+    logger.error("Error fetching patient email:", error);
     res.status(500).json({ message: "Failed to fetch patient email" });
   }
 });
@@ -1326,7 +1326,7 @@ router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, isClinicAcce
     
     res.json(appointments);
   } catch (error) {
-    console.error("Error fetching appointments:", error);
+    logger.error("Error fetching appointments:", error);
     res.status(500).json({ message: "Failed to fetch appointments" });
   }
 });
@@ -1347,7 +1347,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated
     
     res.json(appointments);
   } catch (error) {
-    console.error("Error fetching appointments:", error);
+    logger.error("Error fetching appointments:", error);
     res.status(500).json({ message: "Failed to fetch appointments" });
   }
 });
@@ -1365,7 +1365,7 @@ router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticate
     
     res.json(appointment);
   } catch (error) {
-    console.error("Error fetching appointment:", error);
+    logger.error("Error fetching appointment:", error);
     res.status(500).json({ message: "Failed to fetch appointment" });
   }
 });
@@ -1397,7 +1397,7 @@ router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, isClin
     const availability = await storage.getMultipleStaffAvailability(staffIdList, hospitalId, date as string);
     res.json(availability);
   } catch (error) {
-    console.error("Error fetching staff availability:", error);
+    logger.error("Error fetching staff availability:", error);
     res.status(500).json({ message: "Failed to fetch staff availability" });
   }
 });
@@ -1491,7 +1491,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
         const { syncSingleAppointment } = await import("../services/calcomSync");
         await syncSingleAppointment(appointment.id);
       } catch (err) {
-        console.error(`Failed to sync appointment ${appointment.id} to Cal.com:`, err);
+        logger.error(`Failed to sync appointment ${appointment.id} to Cal.com:`, err);
       }
     })();
     
@@ -1500,7 +1500,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating appointment:", error);
+    logger.error("Error creating appointment:", error);
     res.status(500).json({ message: "Failed to create appointment" });
   }
 });
@@ -1566,7 +1566,7 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
           await syncSingleAppointment(updated.id);
         }
       } catch (err) {
-        console.error(`Failed to sync appointment ${updated.id} to Cal.com:`, err);
+        logger.error(`Failed to sync appointment ${updated.id} to Cal.com:`, err);
       }
     })();
     
@@ -1575,7 +1575,7 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating appointment:", error);
+    logger.error("Error updating appointment:", error);
     res.status(500).json({ message: "Failed to update appointment" });
   }
 });
@@ -1602,7 +1602,7 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
           const { deleteCalcomBlock } = await import("../services/calcomSync");
           await deleteCalcomBlock(existing.calcomBookingUid!, hospitalId);
         } catch (err) {
-          console.error(`Failed to delete Cal.com block for appointment ${appointmentId}:`, err);
+          logger.error(`Failed to delete Cal.com block for appointment ${appointmentId}:`, err);
         }
       })();
     }
@@ -1611,7 +1611,7 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting appointment:", error);
+    logger.error("Error deleting appointment:", error);
     res.status(500).json({ message: "Failed to delete appointment" });
   }
 });
@@ -1632,7 +1632,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabl
     
     res.json(slots);
   } catch (error) {
-    console.error("Error fetching available slots:", error);
+    logger.error("Error fetching available slots:", error);
     res.status(500).json({ message: "Failed to fetch available slots" });
   }
 });
@@ -1650,7 +1650,7 @@ router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, isClinic
     
     res.json(providers);
   } catch (error) {
-    console.error("Error fetching clinic providers:", error);
+    logger.error("Error fetching clinic providers:", error);
     res.status(500).json({ message: "Failed to fetch clinic providers" });
   }
 });
@@ -1664,7 +1664,7 @@ router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, isClin
     
     res.json(providers);
   } catch (error) {
-    console.error("Error fetching bookable providers:", error);
+    logger.error("Error fetching bookable providers:", error);
     res.status(500).json({ message: "Failed to fetch bookable providers" });
   }
 });
@@ -1714,7 +1714,7 @@ router.get('/api/hospitals/:hospitalId/users', isAuthenticated, async (req: any,
     
     res.json(Array.from(userMap.values()));
   } catch (error) {
-    console.error("Error fetching hospital users:", error);
+    logger.error("Error fetching hospital users:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 });
@@ -1729,7 +1729,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
     
     res.json(providers);
   } catch (error) {
-    console.error("Error fetching bookable providers:", error);
+    logger.error("Error fetching bookable providers:", error);
     res.status(500).json({ message: "Failed to fetch bookable providers" });
   }
 });
@@ -1796,7 +1796,7 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
     
     res.json(updatedProvider || { userId, isBookable });
   } catch (error) {
-    console.error("Error setting clinic provider bookable status:", error);
+    logger.error("Error setting clinic provider bookable status:", error);
     res.status(500).json({ message: "Failed to update provider status" });
   }
 });
@@ -1822,7 +1822,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
     
     res.json(availability);
   } catch (error) {
-    console.error("Error fetching provider availability:", error);
+    logger.error("Error fetching provider availability:", error);
     res.status(500).json({ message: "Failed to fetch availability" });
   }
 });
@@ -1853,7 +1853,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthentic
     
     res.json(schedules);
   } catch (error) {
-    console.error("Error fetching weekly schedules:", error);
+    logger.error("Error fetching weekly schedules:", error);
     res.status(500).json({ message: "Failed to fetch weekly schedules" });
   }
 });
@@ -1881,7 +1881,7 @@ router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
     
     res.json(result);
   } catch (error) {
-    console.error("Error setting provider availability:", error);
+    logger.error("Error setting provider availability:", error);
     res.status(500).json({ message: "Failed to set availability" });
   }
 });
@@ -1910,7 +1910,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off
     
     res.json(timeOff);
   } catch (error) {
-    console.error("Error fetching provider time off:", error);
+    logger.error("Error fetching provider time off:", error);
     res.status(500).json({ message: "Failed to fetch time off" });
   }
 });
@@ -1940,7 +1940,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating time off:", error);
+    logger.error("Error creating time off:", error);
     res.status(500).json({ message: "Failed to create time off" });
   }
 });
@@ -1981,7 +1981,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, is
     
     res.json(timeOffs);
   } catch (error) {
-    console.error("Error fetching time offs for unit:", error);
+    logger.error("Error fetching time offs for unit:", error);
     res.status(500).json({ message: "Failed to fetch time offs" });
   }
 });
@@ -2003,7 +2003,7 @@ router.put('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isCli
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating time off:", error);
+    logger.error("Error updating time off:", error);
     res.status(500).json({ message: "Failed to update time off" });
   }
 });
@@ -2017,7 +2017,7 @@ router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, is
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting time off:", error);
+    logger.error("Error deleting time off:", error);
     res.status(500).json({ message: "Failed to delete time off" });
   }
 });
@@ -2040,7 +2040,7 @@ router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuth
     
     res.json(provider);
   } catch (error) {
-    console.error("Error updating provider availability mode:", error);
+    logger.error("Error updating provider availability mode:", error);
     res.status(500).json({ message: "Failed to update availability mode" });
   }
 });
@@ -2069,7 +2069,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
     
     res.json(windows);
   } catch (error) {
-    console.error("Error fetching provider availability windows:", error);
+    logger.error("Error fetching provider availability windows:", error);
     res.status(500).json({ message: "Failed to fetch availability windows" });
   }
 });
@@ -2099,7 +2099,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthe
     
     res.json(windows);
   } catch (error) {
-    console.error("Error fetching availability windows for unit:", error);
+    logger.error("Error fetching availability windows for unit:", error);
     res.status(500).json({ message: "Failed to fetch availability windows" });
   }
 });
@@ -2134,7 +2134,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
     
     res.status(201).json(window);
   } catch (error) {
-    console.error("Error creating availability window:", error);
+    logger.error("Error creating availability window:", error);
     res.status(500).json({ message: "Failed to create availability window" });
   }
 });
@@ -2154,7 +2154,7 @@ router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthentic
     
     res.json(window);
   } catch (error) {
-    console.error("Error updating availability window:", error);
+    logger.error("Error updating availability window:", error);
     res.status(500).json({ message: "Failed to update availability window" });
   }
 });
@@ -2168,7 +2168,7 @@ router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthen
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting availability window:", error);
+    logger.error("Error deleting availability window:", error);
     res.status(500).json({ message: "Failed to delete availability window" });
   }
 });
@@ -2191,7 +2191,7 @@ router.get('/api/clinic/:hospitalId/absences', isAuthenticated, isClinicAccess, 
     
     res.json(absences);
   } catch (error) {
-    console.error("Error fetching absences:", error);
+    logger.error("Error fetching absences:", error);
     res.status(500).json({ message: "Failed to fetch absences" });
   }
 });
@@ -2218,7 +2218,7 @@ router.get('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClini
       res.json(null);
     }
   } catch (error) {
-    console.error("Error fetching Timebutler config:", error);
+    logger.error("Error fetching Timebutler config:", error);
     res.status(500).json({ message: "Failed to fetch Timebutler config" });
   }
 });
@@ -2245,7 +2245,7 @@ router.put('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClini
       hasApiToken: !!config.apiToken,
     });
   } catch (error) {
-    console.error("Error updating Timebutler config:", error);
+    logger.error("Error updating Timebutler config:", error);
     res.status(500).json({ message: "Failed to update Timebutler config" });
   }
 });
@@ -2273,7 +2273,7 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Timebutler API error:", errorText);
+      logger.error("Timebutler API error:", errorText);
       
       // Update config with error status
       await storage.upsertTimebutlerConfig({
@@ -2312,7 +2312,7 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
     
     // We need either userId or email for user identification, plus dates
     if ((userIdIdx === -1 && emailIdx === -1) || startIdx === -1 || endIdx === -1) {
-      console.error("Could not parse Timebutler CSV headers:", headers);
+      logger.error("Could not parse Timebutler CSV headers:", headers);
       return res.status(500).json({ 
         message: "Could not parse Timebutler response. Expected columns: User ID or Email, From/To dates." 
       });
@@ -2357,7 +2357,7 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
     }
     
     if (skippedUnmapped > 0) {
-      console.log(`Timebutler sync: Skipped ${skippedUnmapped} unmapped users`);
+      logger.info(`Timebutler sync: Skipped ${skippedUnmapped} unmapped users`);
     }
     
     // Sync absences to database
@@ -2382,7 +2382,7 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
       syncedCount: absences.length,
     });
   } catch (error) {
-    console.error("Error syncing Timebutler:", error);
+    logger.error("Error syncing Timebutler:", error);
     res.status(500).json({ message: "Failed to sync Timebutler" });
   }
 });
@@ -2455,7 +2455,7 @@ router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, is
       syncedCount: absences.length,
     });
   } catch (error) {
-    console.error("Error syncing user ICS:", error);
+    logger.error("Error syncing user ICS:", error);
     res.status(500).json({ message: "Failed to sync from ICS URL" });
   }
 });
@@ -2478,7 +2478,7 @@ router.post('/api/clinic/:hospitalId/queue-ics-sync', isAuthenticated, isClinicA
       message: "Timebutler sync job queued. It will run shortly in the background.",
     });
   } catch (error) {
-    console.error("Error queuing ICS sync:", error);
+    logger.error("Error queuing ICS sync:", error);
     res.status(500).json({ message: "Failed to queue sync job" });
   }
 });
@@ -2583,7 +2583,7 @@ router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, isClinicAcc
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error("Error syncing all ICS:", error);
+    logger.error("Error syncing all ICS:", error);
     res.status(500).json({ message: "Failed to sync ICS URLs" });
   }
 });
@@ -2620,7 +2620,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
     
     res.json(providers);
   } catch (error) {
-    console.error("Error fetching providers:", error);
+    logger.error("Error fetching providers:", error);
     res.status(500).json({ message: "Failed to fetch providers" });
   }
 });
@@ -2714,7 +2714,7 @@ router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, isClinicAcc
     
     res.json(enrichedResult);
   } catch (error) {
-    console.error("Error fetching all surgeries:", error);
+    logger.error("Error fetching all surgeries:", error);
     res.status(500).json({ message: "Failed to fetch surgeries" });
   }
 });
@@ -2812,7 +2812,7 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
     
     res.json(enrichedResult);
   } catch (error) {
-    console.error("Error fetching provider surgeries:", error);
+    logger.error("Error fetching provider surgeries:", error);
     res.status(500).json({ message: "Failed to fetch provider surgeries" });
   }
 });
@@ -2849,7 +2849,7 @@ router.get('/api/clinic/:hospitalId/sync-status', isAuthenticated, isClinicAcces
       } : null,
     });
   } catch (error) {
-    console.error("Error fetching sync status:", error);
+    logger.error("Error fetching sync status:", error);
     res.status(500).json({ message: "Failed to fetch sync status" });
   }
 });
@@ -2878,7 +2878,7 @@ router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
       apiKey: config.apiKey ? '***configured***' : null,
     });
   } catch (error) {
-    console.error("Error fetching Cal.com config:", error);
+    logger.error("Error fetching Cal.com config:", error);
     res.status(500).json({ message: "Failed to fetch Cal.com config" });
   }
 });
@@ -2906,7 +2906,7 @@ router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
       webhookSecret: config.webhookSecret ? '***configured***' : null,
     });
   } catch (error) {
-    console.error("Error updating Cal.com config:", error);
+    logger.error("Error updating Cal.com config:", error);
     res.status(500).json({ message: "Failed to update Cal.com config" });
   }
 });
@@ -2918,7 +2918,7 @@ router.get('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicA
     const mappings = await storage.getCalcomProviderMappings(hospitalId);
     res.json(mappings);
   } catch (error) {
-    console.error("Error fetching Cal.com mappings:", error);
+    logger.error("Error fetching Cal.com mappings:", error);
     res.status(500).json({ message: "Failed to fetch Cal.com mappings" });
   }
 });
@@ -2944,7 +2944,7 @@ router.post('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinic
     
     res.json(mapping);
   } catch (error) {
-    console.error("Error creating Cal.com mapping:", error);
+    logger.error("Error creating Cal.com mapping:", error);
     res.status(500).json({ message: "Failed to create Cal.com mapping" });
   }
 });
@@ -2956,7 +2956,7 @@ router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthentica
     await storage.deleteCalcomProviderMapping(mappingId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting Cal.com mapping:", error);
+    logger.error("Error deleting Cal.com mapping:", error);
     res.status(500).json({ message: "Failed to delete Cal.com mapping" });
   }
 });
@@ -2986,7 +2986,7 @@ router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, isClinicAcce
       errors: allErrors.slice(0, 10),
     });
   } catch (error: any) {
-    console.error("Error syncing to Cal.com:", error);
+    logger.error("Error syncing to Cal.com:", error);
     res.status(500).json({ message: "Failed to sync to Cal.com", error: error.message });
   }
 });
@@ -3080,7 +3080,7 @@ router.post('/api/clinic/:hospitalId/calcom-sync/:providerId', isAuthenticated, 
       errors,
     });
   } catch (error: any) {
-    console.error("Error syncing to Cal.com:", error);
+    logger.error("Error syncing to Cal.com:", error);
     res.status(500).json({ message: "Failed to sync to Cal.com", error: error.message });
   }
 });
@@ -3096,7 +3096,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
     const { hospitalId } = req.params;
     const { triggerEvent, payload } = req.body;
     
-    console.log(`Cal.com webhook received: ${triggerEvent}`, JSON.stringify(payload, null, 2));
+    logger.info(`Cal.com webhook received: ${triggerEvent}`, JSON.stringify(payload, null, 2));
     
     // Handle ping test from Cal.com (no triggerEvent or PING event)
     if (!triggerEvent || triggerEvent === 'PING') {
@@ -3116,7 +3116,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
       const mapping = mappings.find(m => m.calcomEventTypeId === String(eventTypeId));
       
       if (!mapping) {
-        console.warn(`No provider mapping found for event type ${eventTypeId}`);
+        logger.warn(`No provider mapping found for event type ${eventTypeId}`);
         return res.json({ received: true, processed: false, reason: 'No provider mapping' });
       }
       
@@ -3223,7 +3223,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
         })
         .returning();
       
-      console.log(`Created appointment ${appointment.id} from Cal.com booking ${payload.uid}`);
+      logger.info(`Created appointment ${appointment.id} from Cal.com booking ${payload.uid}`);
       
       res.json({ received: true, processed: true, appointmentId: appointment.id });
     } else if (triggerEvent === 'BOOKING_RESCHEDULED') {
@@ -3261,7 +3261,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
         })
         .where(eq(appts.id, existing.id));
       
-      console.log(`Rescheduled appointment ${existing.id} from Cal.com booking ${uid}`);
+      logger.info(`Rescheduled appointment ${existing.id} from Cal.com booking ${uid}`);
       
       res.json({ received: true, processed: true, appointmentId: existing.id, action: 'rescheduled' });
     } else if (triggerEvent === 'BOOKING_CANCELLED') {
@@ -3293,14 +3293,14 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
         })
         .where(eq(appts.id, existing.id));
       
-      console.log(`Cancelled appointment ${existing.id} from Cal.com booking ${uid}`);
+      logger.info(`Cancelled appointment ${existing.id} from Cal.com booking ${uid}`);
       
       res.json({ received: true, processed: true, appointmentId: existing.id, action: 'cancelled' });
     } else {
       res.json({ received: true, processed: false, reason: `Unknown event: ${triggerEvent}` });
     }
   } catch (error: any) {
-    console.error("Error processing Cal.com webhook:", error);
+    logger.error("Error processing Cal.com webhook:", error);
     res.status(500).json({ message: "Failed to process webhook", error: error.message });
   }
 });
@@ -3436,7 +3436,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     res.setHeader('Content-Disposition', 'attachment; filename="calendar.ics"');
     res.send(icsContent);
   } catch (error: any) {
-    console.error("Error generating ICS feed:", error);
+    logger.error("Error generating ICS feed:", error);
     res.status(500).send('Error generating calendar feed');
   }
 });
@@ -3519,7 +3519,7 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAcce
       eventTypes,
     });
   } catch (error: any) {
-    console.error("Error testing Cal.com connection:", error);
+    logger.error("Error testing Cal.com connection:", error);
     res.status(400).json({ 
       success: false, 
       message: "Failed to connect to Cal.com API",
@@ -3565,7 +3565,7 @@ router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, isClinicAcce
       feeds,
     });
   } catch (error: any) {
-    console.error("Error getting Cal.com feeds:", error);
+    logger.error("Error getting Cal.com feeds:", error);
     res.status(500).json({ message: "Failed to get feed URLs", error: error.message });
   }
 });
@@ -3618,7 +3618,7 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, i
       feedUrls,
     });
   } catch (error: any) {
-    console.error("Error subscribing ICS feeds to Cal.com:", error);
+    logger.error("Error subscribing ICS feeds to Cal.com:", error);
     res.status(500).json({ 
       success: false,
       message: "Failed to subscribe feeds to Cal.com", 
@@ -3632,6 +3632,7 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, i
 // ==========================================
 
 import { encryptCredential, decryptCredential } from "../utils/encryption";
+import logger from "../logger";
 
 // Get Vonage SMS configuration for a hospital
 router.get('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async (req: any, res) => {
@@ -3671,7 +3672,7 @@ router.get('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async 
       lastTestError: config.lastTestError,
     });
   } catch (error) {
-    console.error("Error fetching Vonage config:", error);
+    logger.error("Error fetching Vonage config:", error);
     res.status(500).json({ message: "Failed to fetch Vonage configuration" });
   }
 });
@@ -3715,7 +3716,7 @@ router.put('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async 
       lastTestError: config.lastTestError,
     });
   } catch (error) {
-    console.error("Error saving Vonage config:", error);
+    logger.error("Error saving Vonage config:", error);
     res.status(500).json({ message: "Failed to save Vonage configuration" });
   }
 });
@@ -3780,7 +3781,7 @@ router.post('/api/admin/:hospitalId/integrations/vonage/test', isAuthenticated, 
       });
     }
   } catch (error: any) {
-    console.error("Error testing Vonage config:", error);
+    logger.error("Error testing Vonage config:", error);
     const errorMsg = error.message || 'Failed to test Vonage configuration';
     
     try {
@@ -3815,7 +3816,7 @@ router.delete('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, asy
     
     res.json({ success: true, message: "Vonage configuration removed" });
   } catch (error) {
-    console.error("Error deleting Vonage config:", error);
+    logger.error("Error deleting Vonage config:", error);
     res.status(500).json({ message: "Failed to delete Vonage configuration" });
   }
 });

@@ -19,6 +19,7 @@ import {
   canAccessOrder,
 } from "../utils";
 import { ObjectStorageService } from "../objectStorage";
+import logger from "../logger";
 
 const router = Router();
 
@@ -53,7 +54,7 @@ router.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any,
     const ordersResult = await storage.getOrders(hospitalId, status as string);
     res.json(ordersResult);
   } catch (error) {
-    console.error("Error fetching logistic orders:", error);
+    logger.error("Error fetching logistic orders:", error);
     res.status(500).json({ message: "Failed to fetch orders" });
   }
 });
@@ -94,7 +95,7 @@ router.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => 
     const ordersResult = await storage.getOrders(hospitalId, status as string, defaultUnitId);
     res.json(ordersResult);
   } catch (error) {
-    console.error("Error fetching orders:", error);
+    logger.error("Error fetching orders:", error);
     res.status(500).json({ message: "Failed to fetch orders" });
   }
 });
@@ -132,7 +133,7 @@ router.get('/api/orders/open-items/:hospitalId', isAuthenticated, async (req: an
     
     res.json(itemsMap);
   } catch (error) {
-    console.error("Error fetching open order items:", error);
+    logger.error("Error fetching open order items:", error);
     res.status(500).json({ message: "Failed to fetch open order items" });
   }
 });
@@ -169,7 +170,7 @@ router.post('/api/orders', isAuthenticated, requireWriteAccess, async (req: any,
 
     res.status(201).json(order);
   } catch (error) {
-    console.error("Error creating order:", error);
+    logger.error("Error creating order:", error);
     res.status(500).json({ message: "Failed to create order" });
   }
 });
@@ -243,8 +244,8 @@ router.post('/api/orders/:hospitalId/merge', isAuthenticated, requireWriteAccess
       mergedCount: otherOrderIds.length + 1
     });
   } catch (error: any) {
-    console.error("Error merging orders:", error);
-    console.error("Error stack:", error?.stack);
+    logger.error("Error merging orders:", error);
+    logger.error("Error stack:", error?.stack);
     res.status(500).json({ message: "Failed to merge orders", error: error?.message || String(error) });
   }
 });
@@ -310,8 +311,8 @@ router.post('/api/orders/:orderId/split', isAuthenticated, requireWriteAccess, a
       movedCount: linesToMove.length
     });
   } catch (error: any) {
-    console.error("Error splitting order:", error);
-    console.error("Error stack:", error?.stack);
+    logger.error("Error splitting order:", error);
+    logger.error("Error stack:", error?.stack);
     res.status(500).json({ message: "Failed to split order", error: error?.message || String(error) });
   }
 });
@@ -336,7 +337,7 @@ router.post('/api/orders/quick-add', isAuthenticated, requireWriteAccess, async 
 
     res.json({ order, orderLine });
   } catch (error) {
-    console.error("Error adding item to order:", error);
+    logger.error("Error adding item to order:", error);
     res.status(500).json({ message: "Failed to add item to order" });
   }
 });
@@ -364,7 +365,7 @@ router.post('/api/orders/:orderId/status', isAuthenticated, requireWriteAccess, 
     const updatedOrder = await storage.updateOrderStatus(orderId, status);
     res.json(updatedOrder);
   } catch (error) {
-    console.error("Error updating order status:", error);
+    logger.error("Error updating order status:", error);
     res.status(500).json({ message: "Failed to update order status" });
   }
 });
@@ -398,7 +399,7 @@ router.patch('/api/orders/:orderId', isAuthenticated, requireWriteAccess, async 
     const [updatedOrder] = await db.select().from(orders).where(eq(orders.id, orderId));
     res.json(updatedOrder);
   } catch (error) {
-    console.error("Error updating order:", error);
+    logger.error("Error updating order:", error);
     res.status(500).json({ message: "Failed to update order" });
   }
 });
@@ -424,7 +425,7 @@ router.patch('/api/orders/:orderId/notes', isAuthenticated, requireWriteAccess, 
     const [updatedOrder] = await db.select().from(orders).where(eq(orders.id, orderId));
     res.json(updatedOrder);
   } catch (error) {
-    console.error("Error updating order notes:", error);
+    logger.error("Error updating order notes:", error);
     res.status(500).json({ message: "Failed to update order notes" });
   }
 });
@@ -470,7 +471,7 @@ router.patch('/api/order-lines/:lineId', isAuthenticated, requireWriteAccess, as
     const [updatedLine] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
     res.json(updatedLine);
   } catch (error) {
-    console.error("Error updating order line:", error);
+    logger.error("Error updating order line:", error);
     res.status(500).json({ message: "Failed to update order line" });
   }
 });
@@ -558,7 +559,7 @@ router.post('/api/order-lines/:lineId/move-to-secondary', isAuthenticated, requi
       mainOrderDeleted: remainingLines.length === 0
     });
   } catch (error) {
-    console.error("Error moving order line to secondary:", error);
+    logger.error("Error moving order line to secondary:", error);
     res.status(500).json({ message: "Failed to move order line" });
   }
 });
@@ -595,7 +596,7 @@ router.patch('/api/order-lines/:lineId/offline-worked', isAuthenticated, require
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error updating offline worked status:", error);
+    logger.error("Error updating offline worked status:", error);
     res.status(500).json({ message: "Failed to update offline worked status" });
   }
 });
@@ -654,7 +655,7 @@ router.post('/api/order-lines/:lineId/receive', isAuthenticated, requireWriteAcc
     const currentQty = currentStock?.qtyOnHand || 0;
     const newQty = currentQty + line.qty;
     
-    console.log('[Order Line Receive] Stock update: item', item.id, 'unit', order.unitId, 'current', currentQty, '+ received', line.qty, '= new', newQty);
+    logger.info('[Order Line Receive] Stock update: item', item.id, 'unit', order.unitId, 'current', currentQty, '+ received', line.qty, '= new', newQty);
     
     await storage.updateStockLevel(item.id, order.unitId, newQty);
     
@@ -714,7 +715,7 @@ router.post('/api/order-lines/:lineId/receive', isAuthenticated, requireWriteAcc
     
     res.json({ success: true, allReceived });
   } catch (error) {
-    console.error("Error receiving order line:", error);
+    logger.error("Error receiving order line:", error);
     res.status(500).json({ message: "Failed to receive order line" });
   }
 });
@@ -756,7 +757,7 @@ router.delete('/api/order-lines/:lineId', isAuthenticated, requireWriteAccess, a
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error removing order line:", error);
+    logger.error("Error removing order line:", error);
     res.status(500).json({ message: "Failed to remove order line" });
   }
 });
@@ -779,7 +780,7 @@ router.delete('/api/orders/:orderId', isAuthenticated, requireWriteAccess, async
     await storage.deleteOrder(orderId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting order:", error);
+    logger.error("Error deleting order:", error);
     res.status(500).json({ message: "Failed to delete order" });
   }
 });
@@ -807,7 +808,7 @@ router.post('/api/orders/:orderId/attachments/upload-url', isAuthenticated, requ
 
     res.json({ uploadURL, storageKey });
   } catch (error) {
-    console.error("Error getting upload URL for order attachment:", error);
+    logger.error("Error getting upload URL for order attachment:", error);
     res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
@@ -837,7 +838,7 @@ router.post('/api/orders/:orderId/attachments', isAuthenticated, requireWriteAcc
 
     res.json(attachment);
   } catch (error) {
-    console.error("Error creating order attachment:", error);
+    logger.error("Error creating order attachment:", error);
     res.status(500).json({ message: "Failed to create attachment" });
   }
 });
@@ -854,7 +855,7 @@ router.get('/api/orders/:orderId/attachments', isAuthenticated, async (req: any,
 
     res.json(attachments);
   } catch (error) {
-    console.error("Error fetching order attachments:", error);
+    logger.error("Error fetching order attachments:", error);
     res.status(500).json({ message: "Failed to fetch attachments" });
   }
 });
@@ -880,7 +881,7 @@ router.get('/api/orders/attachments/:attachmentId/download-url', isAuthenticated
     const downloadURL = await objectStorageService.getObjectDownloadURL(attachment.storageKey, 3600);
     res.json({ downloadURL, filename: attachment.filename, contentType: attachment.contentType });
   } catch (error) {
-    console.error("Error getting download URL for order attachment:", error);
+    logger.error("Error getting download URL for order attachment:", error);
     res.status(500).json({ message: "Failed to get download URL" });
   }
 });
@@ -903,7 +904,7 @@ router.delete('/api/orders/attachments/:attachmentId', isAuthenticated, requireW
       try {
         await objectStorageService.deleteObject(attachment.storageKey);
       } catch (deleteError) {
-        console.warn(`Failed to delete attachment from S3 ${attachment.storageKey}:`, deleteError);
+        logger.warn(`Failed to delete attachment from S3 ${attachment.storageKey}:`, deleteError);
       }
     }
 
@@ -911,7 +912,7 @@ router.delete('/api/orders/attachments/:attachmentId', isAuthenticated, requireW
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting order attachment:", error);
+    logger.error("Error deleting order attachment:", error);
     res.status(500).json({ message: "Failed to delete attachment" });
   }
 });
@@ -922,7 +923,7 @@ router.get('/api/vendors/:hospitalId', isAuthenticated, async (req, res) => {
     const vendors = await storage.getVendors(hospitalId);
     res.json(vendors);
   } catch (error) {
-    console.error("Error fetching vendors:", error);
+    logger.error("Error fetching vendors:", error);
     res.status(500).json({ message: "Failed to fetch vendors" });
   }
 });

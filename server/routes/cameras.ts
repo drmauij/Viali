@@ -7,6 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { z } from "zod";
 import { cameraDevices, insertCameraDeviceSchema } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import logger from "../logger";
 
 const router = Router();
 
@@ -69,7 +70,7 @@ async function requireCameraAccess(req: Request, res: Response, next: NextFuncti
     (req as any).cameraDevice = device;
     next();
   } catch (error) {
-    console.error("Camera access check failed:", error);
+    logger.error("Camera access check failed:", error);
     res.status(500).json({ error: "Permission check failed" });
   }
 }
@@ -99,7 +100,7 @@ async function requireCameraDeviceAccess(req: Request, res: Response, next: Next
     (req as any).cameraDevice = device;
     next();
   } catch (error) {
-    console.error("Camera device access check failed:", error);
+    logger.error("Camera device access check failed:", error);
     res.status(500).json({ error: "Permission check failed" });
   }
 }
@@ -123,7 +124,7 @@ async function requireCameraWriteAccess(req: Request, res: Response, next: NextF
 
     next();
   } catch (error) {
-    console.error("Write access check failed:", error);
+    logger.error("Write access check failed:", error);
     res.status(500).json({ error: "Permission check failed" });
   }
 }
@@ -184,7 +185,7 @@ router.get("/cameras/:cameraId/images", isAuthenticated, requireCameraAccess, as
       count: images.length,
     });
   } catch (error: any) {
-    console.error("Error listing camera images:", error);
+    logger.error("Error listing camera images:", error);
     res.status(500).json({ error: "Failed to list camera images" });
   }
 });
@@ -241,7 +242,7 @@ router.get("/cameras/:cameraId/latest", isAuthenticated, requireCameraAccess, as
       downloadUrl,
     });
   } catch (error: any) {
-    console.error("Error getting latest camera image:", error);
+    logger.error("Error getting latest camera image:", error);
     res.status(500).json({ error: "Failed to get latest camera image" });
   }
 });
@@ -285,7 +286,7 @@ router.get("/cameras/:cameraId/images/:timestamp/url", isAuthenticated, requireC
       downloadUrl,
     });
   } catch (error: any) {
-    console.error("Error getting image URL:", error);
+    logger.error("Error getting image URL:", error);
     res.status(500).json({ error: "Failed to get image URL" });
   }
 });
@@ -334,7 +335,7 @@ router.get("/cameras/:cameraId/images/:timestamp/base64", isAuthenticated, requi
     if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
       return res.status(404).json({ error: "Image not found" });
     }
-    console.error("Error getting image base64:", error);
+    logger.error("Error getting image base64:", error);
     res.status(500).json({ error: "Failed to get image" });
   }
 });
@@ -358,7 +359,7 @@ router.get("/api/camera-devices", isAuthenticated, requireHospitalAccess, async 
 
     res.json(devices);
   } catch (error: any) {
-    console.error("Error listing camera devices:", error);
+    logger.error("Error listing camera devices:", error);
     res.status(500).json({ error: "Failed to list camera devices" });
   }
 });
@@ -368,7 +369,7 @@ router.get("/api/camera-devices/:id", isAuthenticated, requireCameraDeviceAccess
     const device = (req as any).cameraDevice;
     res.json(device);
   } catch (error: any) {
-    console.error("Error getting camera device:", error);
+    logger.error("Error getting camera device:", error);
     res.status(500).json({ error: "Failed to get camera device" });
   }
 });
@@ -402,7 +403,7 @@ router.post("/api/camera-devices", isAuthenticated, async (req: Request, res: Re
 
     res.status(201).json(device);
   } catch (error: any) {
-    console.error("Error creating camera device:", error);
+    logger.error("Error creating camera device:", error);
     res.status(500).json({ error: "Failed to create camera device" });
   }
 });
@@ -423,7 +424,7 @@ router.patch("/api/camera-devices/:id", isAuthenticated, requireCameraDeviceAcce
 
     res.json(updated);
   } catch (error: any) {
-    console.error("Error updating camera device:", error);
+    logger.error("Error updating camera device:", error);
     res.status(500).json({ error: "Failed to update camera device" });
   }
 });
@@ -439,7 +440,7 @@ router.delete("/api/camera-devices/:id", isAuthenticated, requireCameraDeviceAcc
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting camera device:", error);
+    logger.error("Error deleting camera device:", error);
     res.status(500).json({ error: "Failed to delete camera device" });
   }
 });
@@ -456,7 +457,7 @@ router.post("/api/camera-devices/:id/heartbeat", isAuthenticated, requireCameraD
 
     res.json(updated);
   } catch (error: any) {
-    console.error("Error updating camera heartbeat:", error);
+    logger.error("Error updating camera heartbeat:", error);
     res.status(500).json({ error: "Failed to update camera heartbeat" });
   }
 });
@@ -466,7 +467,7 @@ router.get("/api/camera-devices/by-camera-id/:cameraId", isAuthenticated, requir
     const device = (req as any).cameraDevice;
     res.json(device);
   } catch (error: any) {
-    console.error("Error getting camera device by cameraId:", error);
+    logger.error("Error getting camera device by cameraId:", error);
     res.status(500).json({ error: "Failed to get camera device" });
   }
 });

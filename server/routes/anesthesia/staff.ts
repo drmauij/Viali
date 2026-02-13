@@ -17,6 +17,7 @@ import { eq, and } from "drizzle-orm";
 import { requireWriteAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
 import { broadcastAnesthesiaUpdate } from "../../socket";
+import logger from "../../logger";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -55,7 +56,7 @@ router.get('/api/anesthesia/staff/:recordId', isAuthenticated, async (req: any, 
     
     res.json(staff);
   } catch (error) {
-    console.error("Error fetching staff:", error);
+    logger.error("Error fetching staff:", error);
     res.status(500).json({ message: "Failed to fetch staff" });
   }
 });
@@ -118,7 +119,7 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (
     
     res.json(uniqueUsers);
   } catch (error) {
-    console.error("Error fetching staff options:", error);
+    logger.error("Error fetching staff options:", error);
     res.status(500).json({ message: "Failed to fetch staff options" });
   }
 });
@@ -169,7 +170,7 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, asy
     
     res.json(uniqueUsers);
   } catch (error) {
-    console.error("Error fetching all staff options:", error);
+    logger.error("Error fetching all staff options:", error);
     res.status(500).json({ message: "Failed to fetch staff options" });
   }
 });
@@ -254,7 +255,7 @@ router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireWr
       unitId: targetUnit.id,
     });
   } catch (error) {
-    console.error("Error creating quick staff user:", error);
+    logger.error("Error creating quick staff user:", error);
     res.status(500).json({ message: "Failed to create staff user" });
   }
 });
@@ -301,7 +302,7 @@ router.post('/api/anesthesia/staff', isAuthenticated, requireWriteAccess, async 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating staff:", error);
+    logger.error("Error creating staff:", error);
     res.status(500).json({ message: "Failed to create staff" });
   }
 });
@@ -364,7 +365,7 @@ router.patch('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, a
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating staff:", error);
+    logger.error("Error updating staff:", error);
     res.status(500).json({ message: "Failed to update staff" });
   }
 });
@@ -409,7 +410,7 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting staff:", error);
+    logger.error("Error deleting staff:", error);
     res.status(500).json({ message: "Failed to delete staff" });
   }
 });
@@ -480,7 +481,7 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, async (req: any
 
     res.json(poolWithAssignments);
   } catch (error) {
-    console.error("Error fetching staff pool:", error);
+    logger.error("Error fetching staff pool:", error);
     res.status(500).json({ message: "Failed to fetch staff pool" });
   }
 });
@@ -515,7 +516,7 @@ router.post('/api/staff-pool', isAuthenticated, requireWriteAccess, async (req: 
 
     res.status(201).json({ ...newEntry, assignedSurgeryIds: [], isBooked: false });
   } catch (error) {
-    console.error("Error adding staff to pool:", error);
+    logger.error("Error adding staff to pool:", error);
     res.status(500).json({ message: "Failed to add staff to pool" });
   }
 });
@@ -545,7 +546,7 @@ router.delete('/api/staff-pool/:id', isAuthenticated, requireWriteAccess, async 
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error removing staff from pool:", error);
+    logger.error("Error removing staff from pool:", error);
     res.status(500).json({ message: "Failed to remove staff from pool" });
   }
 });
@@ -586,7 +587,7 @@ router.get('/api/planned-staff/:surgeryId', isAuthenticated, async (req: any, re
 
     res.json(planned);
   } catch (error) {
-    console.error("Error fetching planned staff:", error);
+    logger.error("Error fetching planned staff:", error);
     res.status(500).json({ message: "Failed to fetch planned staff" });
   }
 });
@@ -649,7 +650,7 @@ router.post('/api/planned-staff', isAuthenticated, requireWriteAccess, async (re
 
     res.status(201).json(newAssignment);
   } catch (error) {
-    console.error("Error assigning staff to surgery:", error);
+    logger.error("Error assigning staff to surgery:", error);
     res.status(500).json({ message: "Failed to assign staff to surgery" });
   }
 });
@@ -684,7 +685,7 @@ router.delete('/api/planned-staff/:id', isAuthenticated, requireWriteAccess, asy
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error removing staff assignment:", error);
+    logger.error("Error removing staff assignment:", error);
     res.status(500).json({ message: "Failed to remove staff assignment" });
   }
 });
@@ -717,7 +718,7 @@ router.delete('/api/planned-staff/by-pool/:surgeryId/:dailyStaffPoolId', isAuthe
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error removing staff assignment:", error);
+    logger.error("Error removing staff assignment:", error);
     res.status(500).json({ message: "Failed to remove staff assignment" });
   }
 });
@@ -762,7 +763,7 @@ router.get('/api/room-staff/all/:hospitalId/:date', isAuthenticated, async (req:
 
     res.json(roomStaffAssignments);
   } catch (error) {
-    console.error("Error fetching room staff assignments:", error);
+    logger.error("Error fetching room staff assignments:", error);
     res.status(500).json({ message: "Failed to fetch room staff assignments" });
   }
 });
@@ -810,7 +811,7 @@ router.get('/api/room-staff/:roomId/:date', isAuthenticated, async (req: any, re
 
     res.json(roomStaff);
   } catch (error) {
-    console.error("Error fetching room staff:", error);
+    logger.error("Error fetching room staff:", error);
     res.status(500).json({ message: "Failed to fetch room staff" });
   }
 });
@@ -879,7 +880,7 @@ router.post('/api/room-staff', isAuthenticated, requireWriteAccess, async (req: 
 
     res.status(201).json({ ...newAssignment, roomName: room.name });
   } catch (error) {
-    console.error("Error assigning staff to room:", error);
+    logger.error("Error assigning staff to room:", error);
     res.status(500).json({ message: "Failed to assign staff to room" });
   }
 });
@@ -918,7 +919,7 @@ router.delete('/api/room-staff/:id', isAuthenticated, requireWriteAccess, async 
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error removing room staff assignment:", error);
+    logger.error("Error removing room staff assignment:", error);
     res.status(500).json({ message: "Failed to remove room staff assignment" });
   }
 });
@@ -956,7 +957,7 @@ router.delete('/api/room-staff/by-pool/:roomId/:dailyStaffPoolId/:date', isAuthe
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error removing room staff assignment:", error);
+    logger.error("Error removing room staff assignment:", error);
     res.status(500).json({ message: "Failed to remove room staff assignment" });
   }
 });

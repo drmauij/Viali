@@ -8,6 +8,7 @@ import {
   HybridBinarizer,
   GlobalHistogramBinarizer,
 } from '@zxing/library';
+import logger from "../logger";
 
 export interface DecodedBarcode {
   text: string;
@@ -66,7 +67,7 @@ async function decodeFromBuffer(imageBuffer: Buffer): Promise<DecodedBarcode | n
     const barcodeText = result.getText();
     const format = BarcodeFormat[result.getBarcodeFormat()];
 
-    console.log(`[BarcodeDecoder] Decoded ${format}: ${barcodeText}`);
+    logger.info(`[BarcodeDecoder] Decoded ${format}: ${barcodeText}`);
 
     const decoded: DecodedBarcode = {
       text: barcodeText,
@@ -151,7 +152,7 @@ export async function tryDecodeWithMultipleStrategies(base64Image: string): Prom
       .toBuffer();
     result = await decodeFromBuffer(enhanced1);
     if (result) {
-      console.log('[BarcodeDecoder] Decoded with greyscale+normalize+sharpen');
+      logger.info('[BarcodeDecoder] Decoded with greyscale+normalize+sharpen');
       return result;
     }
   } catch {}
@@ -164,7 +165,7 @@ export async function tryDecodeWithMultipleStrategies(base64Image: string): Prom
       .toBuffer();
     result = await decodeFromBuffer(enhanced2);
     if (result) {
-      console.log('[BarcodeDecoder] Decoded with high contrast');
+      logger.info('[BarcodeDecoder] Decoded with high contrast');
       return result;
     }
   } catch {}
@@ -177,7 +178,7 @@ export async function tryDecodeWithMultipleStrategies(base64Image: string): Prom
       .toBuffer();
     result = await decodeFromBuffer(enhanced3);
     if (result) {
-      console.log('[BarcodeDecoder] Decoded with threshold');
+      logger.info('[BarcodeDecoder] Decoded with threshold');
       return result;
     }
   } catch {}
@@ -192,7 +193,7 @@ export async function tryDecodeWithMultipleStrategies(base64Image: string): Prom
       .toBuffer();
     result = await decodeFromBuffer(enhanced4);
     if (result) {
-      console.log('[BarcodeDecoder] Decoded with 2x resize');
+      logger.info('[BarcodeDecoder] Decoded with 2x resize');
       return result;
     }
   } catch {}
@@ -207,13 +208,13 @@ export async function tryDecodeWithMultipleStrategies(base64Image: string): Prom
         .toBuffer();
       result = await decodeFromBuffer(rotated);
       if (result) {
-        console.log(`[BarcodeDecoder] Decoded with ${angle}° rotation`);
+        logger.info(`[BarcodeDecoder] Decoded with ${angle}° rotation`);
         return result;
       }
     } catch {}
   }
 
-  console.log('[BarcodeDecoder] No barcode found after all strategies');
+  logger.info('[BarcodeDecoder] No barcode found after all strategies');
   return null;
 }
 

@@ -15,6 +15,7 @@ import {
   verifyUserHospitalUnitAccess
 } from "../utils";
 import { broadcastChecklistUpdate } from "../socket";
+import logger from "../logger";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -64,9 +65,9 @@ router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, as
     const template = await storage.createChecklistTemplate(validated, assignmentsList);
     res.status(201).json(template);
   } catch (error: any) {
-    console.error("Error creating checklist template:", error);
+    logger.error("Error creating checklist template:", error);
     if (error.name === 'ZodError') {
-      console.error("Validation errors:", error.errors);
+      logger.error("Validation errors:", error.errors);
       return res.status(400).json({ message: "Invalid template data", errors: error.errors });
     }
     res.status(500).json({ message: "Failed to create checklist template" });
@@ -89,7 +90,7 @@ router.get('/api/checklists/templates/:hospitalId', isAuthenticated, async (req:
     const templates = await storage.getChecklistTemplates(hospitalId, undefined, active);
     res.json(templates);
   } catch (error) {
-    console.error("Error fetching checklist templates:", error);
+    logger.error("Error fetching checklist templates:", error);
     res.status(500).json({ message: "Failed to fetch checklist templates" });
   }
 });
@@ -129,7 +130,7 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
     const updated = await storage.updateChecklistTemplate(id, processedUpdates, assignmentsList);
     res.json(updated);
   } catch (error: any) {
-    console.error("Error updating checklist template:", error);
+    logger.error("Error updating checklist template:", error);
     res.status(500).json({ message: "Failed to update checklist template" });
   }
 });
@@ -153,7 +154,7 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
     await storage.deleteChecklistTemplate(id);
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting checklist template:", error);
+    logger.error("Error deleting checklist template:", error);
     res.status(500).json({ message: "Failed to delete checklist template" });
   }
 });
@@ -173,7 +174,7 @@ router.get('/api/checklists/room-pending/:hospitalId', isAuthenticated, async (r
     const pending = await storage.getRoomPendingChecklists(hospitalId, queryDate);
     res.json(pending);
   } catch (error) {
-    console.error("Error fetching room pending checklists:", error);
+    logger.error("Error fetching room pending checklists:", error);
     res.status(500).json({ message: "Failed to fetch room pending checklists" });
   }
 });
@@ -214,7 +215,7 @@ router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: a
     
     res.json(pending);
   } catch (error) {
-    console.error("Error fetching pending checklists:", error);
+    logger.error("Error fetching pending checklists:", error);
     res.status(500).json({ message: "Failed to fetch pending checklists" });
   }
 });
@@ -249,7 +250,7 @@ router.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any
     
     res.json({ count: totalCount });
   } catch (error) {
-    console.error("Error fetching pending checklist count:", error);
+    logger.error("Error fetching pending checklist count:", error);
     res.status(500).json({ message: "Failed to fetch pending checklist count" });
   }
 });
@@ -300,7 +301,7 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
     
     res.status(201).json(completion);
   } catch (error: any) {
-    console.error("Error completing checklist:", error);
+    logger.error("Error completing checklist:", error);
     if (error.name === 'ZodError') {
       return res.status(400).json({ message: "Invalid completion data", errors: error.errors });
     }
@@ -354,7 +355,7 @@ router.post('/api/checklists/dismiss', isAuthenticated, requireWriteAccess, asyn
     
     res.status(201).json(dismissal);
   } catch (error: any) {
-    console.error("Error dismissing checklist:", error);
+    logger.error("Error dismissing checklist:", error);
     if (error.name === 'ZodError') {
       return res.status(400).json({ message: "Invalid dismissal data", errors: error.errors });
     }
@@ -404,7 +405,7 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
     
     res.json(completions);
   } catch (error) {
-    console.error("Error fetching checklist history:", error);
+    logger.error("Error fetching checklist history:", error);
     res.status(500).json({ message: "Failed to fetch checklist history" });
   }
 });
@@ -426,7 +427,7 @@ router.get('/api/checklists/completion/:id', isAuthenticated, async (req: any, r
     
     res.json(completion);
   } catch (error) {
-    console.error("Error fetching checklist completion:", error);
+    logger.error("Error fetching checklist completion:", error);
     res.status(500).json({ message: "Failed to fetch checklist completion" });
   }
 });

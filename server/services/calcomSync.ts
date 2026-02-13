@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
 import { createCalcomClient, type CalcomClient, type CalcomBooking } from "./calcomClient";
+import logger from "../logger";
 
 export interface SyncResult {
   synced: number;
@@ -343,7 +344,7 @@ export async function syncSingleAppointment(appointmentId: string): Promise<{ su
             .where(eq(clinicAppointments.id, appointmentId));
         }
       } catch (error: any) {
-        console.error(`Failed to delete Cal.com block for cancelled appointment ${appointmentId}:`, error);
+        logger.error(`Failed to delete Cal.com block for cancelled appointment ${appointmentId}:`, error);
       }
     }
     return { success: true, calcomUid: undefined };
@@ -436,7 +437,7 @@ export async function syncSingleSurgery(surgeryId: string): Promise<{ success: b
             .where(eq(surgeries.id, surgeryId));
         }
       } catch (error: any) {
-        console.error(`Failed to delete Cal.com block for cancelled/completed surgery ${surgeryId}:`, error);
+        logger.error(`Failed to delete Cal.com block for cancelled/completed surgery ${surgeryId}:`, error);
       }
     }
     return { success: true, calcomUid: undefined };
@@ -506,7 +507,7 @@ export async function deleteCalcomBlock(bookingUid: string, hospitalId: string):
     await calcomSetup.client.deleteBusyBlock(bookingUid);
     return true;
   } catch (error: any) {
-    console.error(`Failed to delete Cal.com block ${bookingUid}:`, error);
+    logger.error(`Failed to delete Cal.com block ${bookingUid}:`, error);
     return false;
   }
 }

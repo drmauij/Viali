@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { startWorker } from "./worker";
+import logger from "./logger";
 
 // Initialize Sentry for backend error monitoring
 if (process.env.SENTRY_DSN) {
@@ -19,7 +20,7 @@ if (process.env.SENTRY_DSN) {
     environment: process.env.NODE_ENV || "development",
     tracesSampleRate: 0.1,
   });
-  console.log("[Sentry] Backend monitoring initialized");
+  logger.info("[Sentry] Backend monitoring initialized");
 }
 
 // Get the directory of the current module (works in both dev and production)
@@ -330,18 +331,18 @@ app.use((req, res, next) => {
 
     // Handle server errors
     server.on('error', (error: NodeJS.ErrnoException) => {
-      console.error('Server error:', error);
+      logger.error('Server error:', error);
       if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use`);
+        logger.error(`Port ${port} is already in use`);
       }
       process.exit(1);
     });
 
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 })().catch((error) => {
-  console.error('Unhandled error during server startup:', error);
+  logger.error('Unhandled error during server startup:', error);
   process.exit(1);
 });

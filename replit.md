@@ -125,4 +125,12 @@ Core design decisions include:
 - Continue UnifiedTimeline breakdown: camera/AI handlers (~465 lines), infusion handlers (~1,300 lines), dialog JSX (~2,000 lines)
 - Break down other large frontend components (Items 7.5K, PatientDetail 7.5K lines)
 - Replace `any` types across route handlers with proper Express Request/Response types
-- Add a structured logger (e.g. pino) to replace 1,200+ console.log/warn/error calls
+
+**Completed: Structured Logging with Pino (Feb 2026):**
+- Replaced all 1,266 `console.log/warn/error` calls across 57 server files with Pino structured logger
+- Logger module: `server/logger.ts` - console-compatible wrapper around Pino
+  - Auto-extracts Error objects into structured `err` field for proper stack trace logging
+  - Uses `pino-pretty` in development (colorized, readable timestamps), raw JSON in production
+  - Log level configurable via `LOG_LEVEL` env var (defaults to `debug` in dev, `info` in production)
+- Excluded: `server/vite.ts` (Vite dev tooling), `server/migrations/` (one-time scripts), `server/scripts/` (CLI tools)
+- Pattern: `import logger from "../logger"` then `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`

@@ -1,3 +1,4 @@
+import logger from "../logger";
 interface MedicationRecord {
   type: string;
   dose?: string | null;
@@ -197,7 +198,7 @@ export function calculateRateControlledAmpules(
   // Parse initial bolus if provided (assumed to be in the same unit as ampuleTotalContent)
   const initialBolusValue = parseNumericValue(initialBolus);
   
-  console.log('[CALC-DEBUG] Input values:', {
+  logger.info('[CALC-DEBUG] Input values:', {
     rateValue,
     rateUnit,
     rateUnitLower,
@@ -217,7 +218,7 @@ export function calculateRateControlledAmpules(
     const totalMicrograms = rateValue * weight * durationMinutes;
     const totalMilligrams = totalMicrograms / 1000;
     totalVolume = totalMilligrams;
-    console.log('[CALC-DEBUG] μg/kg/min calculation:', {
+    logger.info('[CALC-DEBUG] μg/kg/min calculation:', {
       durationMinutes,
       weight,
       totalMicrograms,
@@ -240,7 +241,7 @@ export function calculateRateControlledAmpules(
     const totalMicrograms = rateValue * durationMinutes;
     const totalMilligrams = totalMicrograms / 1000;
     totalVolume = totalMilligrams;
-    console.log('[CALC-DEBUG] μg/min (absolute) calculation:', {
+    logger.info('[CALC-DEBUG] μg/min (absolute) calculation:', {
       durationMinutes,
       totalMicrograms,
       totalMilligrams
@@ -250,7 +251,7 @@ export function calculateRateControlledAmpules(
     const durationMinutes = durationHours * 60;
     const totalMilligrams = rateValue * durationMinutes;
     totalVolume = totalMilligrams;
-    console.log('[CALC-DEBUG] mg/min (absolute) calculation:', {
+    logger.info('[CALC-DEBUG] mg/min (absolute) calculation:', {
       durationMinutes,
       totalMilligrams
     });
@@ -258,7 +259,7 @@ export function calculateRateControlledAmpules(
     totalVolume = rateValue * durationHours;
   } else {
     totalVolume = rateValue * durationHours;
-    console.log('[CALC-DEBUG] Default calculation (unrecognized unit)');
+    logger.info('[CALC-DEBUG] Default calculation (unrecognized unit)');
   }
   
   // Add initial bolus to total volume (initial bolus is in same unit as ampuleTotalContent)
@@ -268,7 +269,7 @@ export function calculateRateControlledAmpules(
   if (ampuleValue === 0) return 0;
   
   const result = Math.ceil(totalWithBolus / ampuleValue);
-  console.log('[CALC-DEBUG] Final calculation:', {
+  logger.info('[CALC-DEBUG] Final calculation:', {
     totalVolume,
     initialBolusValue,
     totalWithBolus,

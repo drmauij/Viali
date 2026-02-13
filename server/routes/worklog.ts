@@ -7,6 +7,7 @@ import { getActiveUnitIdFromRequest } from "../utils";
 import { eq, and, desc } from "drizzle-orm";
 import { ObjectStorageService } from "../objectStorage";
 import crypto from "crypto";
+import logger from "../logger";
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.get('/api/worklog/:token', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching worklog link:", error);
+    logger.error("Error fetching worklog link:", error);
     res.status(500).json({ message: "Failed to fetch worklog data" });
   }
 });
@@ -124,7 +125,7 @@ router.patch('/api/worklog/:token/personal-data', async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error saving personal data:", error);
+    logger.error("Error saving personal data:", error);
     res.status(500).json({ message: "Failed to save personal data" });
   }
 });
@@ -155,7 +156,7 @@ router.post('/api/worklog/:token/permit-image-upload', async (req, res) => {
     
     res.json({ uploadURL, storageKey });
   } catch (error) {
-    console.error("Error getting permit image upload URL:", error);
+    logger.error("Error getting permit image upload URL:", error);
     res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
@@ -188,7 +189,7 @@ router.get('/api/worklog/:token/permit-image/:side', async (req, res) => {
     const downloadURL = await objectStorageService.getObjectDownloadURL(storageKey, 3600);
     res.json({ downloadURL });
   } catch (error) {
-    console.error("Error getting permit image download URL:", error);
+    logger.error("Error getting permit image download URL:", error);
     res.status(500).json({ message: "Failed to get download URL" });
   }
 });
@@ -232,7 +233,7 @@ router.post('/api/worklog/:token/entries', async (req, res) => {
     
     res.status(201).json(entry);
   } catch (error) {
-    console.error("Error creating worklog entry:", error);
+    logger.error("Error creating worklog entry:", error);
     res.status(500).json({ message: "Failed to create entry" });
   }
 });
@@ -279,7 +280,7 @@ router.post('/api/worklog/resend', async (req, res) => {
     
     res.json({ message: "If your email is registered, you will receive the link shortly." });
   } catch (error) {
-    console.error("Error resending worklog link:", error);
+    logger.error("Error resending worklog link:", error);
     res.status(500).json({ message: "Failed to process request" });
   }
 });
@@ -293,7 +294,7 @@ router.get('/api/hospitals/:hospitalId/worklog/pending', isAuthenticated, async 
     const entries = await storage.getPendingWorklogEntries(hospitalId, unitId);
     res.json(entries);
   } catch (error) {
-    console.error("Error fetching pending worklogs:", error);
+    logger.error("Error fetching pending worklogs:", error);
     res.status(500).json({ message: "Failed to fetch pending entries" });
   }
 });
@@ -314,7 +315,7 @@ router.get('/api/hospitals/:hospitalId/worklog/entries', isAuthenticated, async 
     
     res.json(entries);
   } catch (error) {
-    console.error("Error fetching worklog entries:", error);
+    logger.error("Error fetching worklog entries:", error);
     res.status(500).json({ message: "Failed to fetch entries" });
   }
 });
@@ -350,7 +351,7 @@ router.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/countersign', i
     const updated = await storage.countersignWorklogEntry(entryId, userId, signature, signerName);
     res.json(updated);
   } catch (error) {
-    console.error("Error countersigning entry:", error);
+    logger.error("Error countersigning entry:", error);
     res.status(500).json({ message: "Failed to countersign entry" });
   }
 });
@@ -382,7 +383,7 @@ router.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/reject', isAuth
     const updated = await storage.rejectWorklogEntry(entryId, userId, reason || '', signerName);
     res.json(updated);
   } catch (error) {
-    console.error("Error rejecting entry:", error);
+    logger.error("Error rejecting entry:", error);
     res.status(500).json({ message: "Failed to reject entry" });
   }
 });
@@ -397,7 +398,7 @@ router.get('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (r
     const links = await storage.getWorklogLinksByUnit(unitId);
     res.json(links);
   } catch (error) {
-    console.error("Error fetching worklog links:", error);
+    logger.error("Error fetching worklog links:", error);
     res.status(500).json({ message: "Failed to fetch links" });
   }
 });
@@ -446,7 +447,7 @@ router.post('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (
     
     res.status(201).json(link);
   } catch (error) {
-    console.error("Error creating worklog link:", error);
+    logger.error("Error creating worklog link:", error);
     res.status(500).json({ message: "Failed to create link" });
   }
 });
@@ -472,7 +473,7 @@ router.post('/api/hospitals/:hospitalId/worklog/links/:linkId/send', isAuthentic
       res.status(400).json({ message: "Unit or hospital not found" });
     }
   } catch (error) {
-    console.error("Error sending worklog link:", error);
+    logger.error("Error sending worklog link:", error);
     res.status(500).json({ message: "Failed to send email" });
   }
 });
@@ -484,7 +485,7 @@ router.delete('/api/hospitals/:hospitalId/worklog/links/:linkId', isAuthenticate
     await storage.deleteExternalWorklogLink(linkId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting worklog link:", error);
+    logger.error("Error deleting worklog link:", error);
     res.status(500).json({ message: "Failed to delete link" });
   }
 });
@@ -529,7 +530,7 @@ router.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenti
     
     res.status(201).json(link);
   } catch (error) {
-    console.error("Error creating worklog link:", error);
+    logger.error("Error creating worklog link:", error);
     res.status(500).json({ message: "Failed to create link" });
   }
 });
@@ -541,7 +542,7 @@ router.get('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthentic
     const links = await storage.getWorklogLinksByUnit(unitId);
     res.json(links);
   } catch (error) {
-    console.error("Error fetching worklog links:", error);
+    logger.error("Error fetching worklog links:", error);
     res.status(500).json({ message: "Failed to fetch links" });
   }
 });
@@ -568,7 +569,7 @@ router.get('/api/worklog/:token/entries/:entryId', async (req, res) => {
       unitName: link.unit.name,
     });
   } catch (error) {
-    console.error("Error fetching entry:", error);
+    logger.error("Error fetching entry:", error);
     res.status(500).json({ message: "Failed to fetch entry" });
   }
 });
@@ -597,7 +598,7 @@ router.delete('/api/worklog/:token/entries/:entryId', async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting entry:", error);
+    logger.error("Error deleting entry:", error);
     res.status(500).json({ message: "Failed to delete entry" });
   }
 });
@@ -632,7 +633,7 @@ router.get('/api/worklog/:token/contracts', async (req, res) => {
     
     res.json(contracts);
   } catch (error) {
-    console.error("Error fetching contracts:", error);
+    logger.error("Error fetching contracts:", error);
     res.status(500).json({ message: "Failed to fetch contracts" });
   }
 });

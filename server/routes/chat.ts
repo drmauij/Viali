@@ -8,6 +8,7 @@ import { z } from "zod";
 import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
 import { ObjectStorageService, ObjectNotFoundError, ObjectPermission } from "../objectStorage";
 import { sendNewMessageEmail, sendMentionEmail, sendNewConversationEmail } from "../email";
+import logger from "../logger";
 
 const createConversationSchema = z.object({
   scopeType: z.enum(['self', 'direct', 'unit', 'hospital']),
@@ -82,7 +83,7 @@ async function verifyConversationAccess(req: any, res: Response, next: NextFunct
     (req as any).conversation = conversation;
     next();
   } catch (error) {
-    console.error("Error verifying conversation access:", error);
+    logger.error("Error verifying conversation access:", error);
     res.status(500).json({ message: "Failed to verify conversation access" });
   }
 }
@@ -101,7 +102,7 @@ router.get('/api/chat/:hospitalId/conversations', isAuthenticated, async (req: a
     const conversations = await storage.getConversations(userId, hospitalId);
     res.json(conversations);
   } catch (error) {
-    console.error("Error fetching conversations:", error);
+    logger.error("Error fetching conversations:", error);
     res.status(500).json({ message: "Failed to fetch conversations" });
   }
 });
@@ -121,7 +122,7 @@ router.get('/api/chat/:hospitalId/conversations/self', isAuthenticated, async (r
     const fullConversation = await storage.getConversation(conversation.id);
     res.json(fullConversation);
   } catch (error) {
-    console.error("Error fetching/creating self conversation:", error);
+    logger.error("Error fetching/creating self conversation:", error);
     res.status(500).json({ message: "Failed to get self conversation" });
   }
 });
@@ -182,7 +183,7 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
     const fullConversation = await storage.getConversation(conversation.id);
     res.status(201).json(fullConversation);
   } catch (error) {
-    console.error("Error creating conversation:", error);
+    logger.error("Error creating conversation:", error);
     res.status(500).json({ message: "Failed to create conversation" });
   }
 });
@@ -191,7 +192,7 @@ router.get('/api/chat/conversations/:conversationId', isAuthenticated, verifyCon
   try {
     res.json(req.conversation);
   } catch (error) {
-    console.error("Error fetching conversation:", error);
+    logger.error("Error fetching conversation:", error);
     res.status(500).json({ message: "Failed to fetch conversation" });
   }
 });
@@ -210,7 +211,7 @@ router.patch('/api/chat/conversations/:conversationId', isAuthenticated, verifyC
     const fullConversation = await storage.getConversation(conversationId);
     res.json(fullConversation);
   } catch (error) {
-    console.error("Error updating conversation:", error);
+    logger.error("Error updating conversation:", error);
     res.status(500).json({ message: "Failed to update conversation" });
   }
 });
@@ -239,19 +240,19 @@ router.delete('/api/chat/conversations/:conversationId', isAuthenticated, verify
             }
           } catch (deleteError) {
             // Log but continue - don't fail the whole delete if a file is already gone
-            console.warn(`Failed to delete attachment ${attachment.storageKey}:`, deleteError);
+            logger.warn(`Failed to delete attachment ${attachment.storageKey}:`, deleteError);
           }
         }
       }
     } catch (cleanupError) {
-      console.error("Error cleaning up attachments:", cleanupError);
+      logger.error("Error cleaning up attachments:", cleanupError);
       // Continue with conversation deletion even if cleanup fails
     }
     
     await storage.deleteConversation(conversationId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting conversation:", error);
+    logger.error("Error deleting conversation:", error);
     res.status(500).json({ message: "Failed to delete conversation" });
   }
 });
@@ -288,7 +289,7 @@ router.post('/api/chat/conversations/:conversationId/participants', isAuthentica
     const fullConversation = await storage.getConversation(conversationId);
     res.status(201).json(fullConversation);
   } catch (error) {
-    console.error("Error adding participant:", error);
+    logger.error("Error adding participant:", error);
     res.status(500).json({ message: "Failed to add participant" });
   }
 });
@@ -314,7 +315,7 @@ router.delete('/api/chat/conversations/:conversationId/participants/:userId', is
     const fullConversation = await storage.getConversation(conversationId);
     res.json(fullConversation);
   } catch (error) {
-    console.error("Error removing participant:", error);
+    logger.error("Error removing participant:", error);
     res.status(500).json({ message: "Failed to remove participant" });
   }
 });
@@ -327,7 +328,7 @@ router.post('/api/chat/conversations/:conversationId/read', isAuthenticated, ver
     await storage.markConversationRead(conversationId, userId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error marking conversation as read:", error);
+    logger.error("Error marking conversation as read:", error);
     res.status(500).json({ message: "Failed to mark conversation as read" });
   }
 });
@@ -341,7 +342,7 @@ router.get('/api/chat/conversations/:conversationId/messages', isAuthenticated, 
     const messages = await storage.getMessages(conversationId, limit, before);
     res.json(messages);
   } catch (error) {
-    console.error("Error fetching messages:", error);
+    logger.error("Error fetching messages:", error);
     res.status(500).json({ message: "Failed to fetch messages" });
   }
 });
@@ -402,7 +403,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
                 ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
                 : 'Someone';
               sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined, conversationId)
-                .catch(err => console.error('Failed to send mention email:', err));
+                .catch(err => logger.error('Failed to send mention email:', err));
             }
           }
         }
@@ -458,7 +459,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
           const participantUser = participant.user || await storage.getUser(participant.userId);
           if (participantUser?.email) {
             sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined, conversationId)
-              .catch(err => console.error('Failed to send new message email:', err));
+              .catch(err => logger.error('Failed to send new message email:', err));
           }
         }
       }
@@ -495,7 +496,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
     
     res.status(201).json(fullMessage);
   } catch (error) {
-    console.error("Error creating message:", error);
+    logger.error("Error creating message:", error);
     res.status(500).json({ message: "Failed to create message" });
   }
 });
@@ -527,7 +528,7 @@ router.patch('/api/chat/messages/:messageId', isAuthenticated, requireWriteAcces
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating message:", error);
+    logger.error("Error updating message:", error);
     res.status(500).json({ message: "Failed to update message" });
   }
 });
@@ -553,7 +554,7 @@ router.delete('/api/chat/messages/:messageId', isAuthenticated, requireWriteAcce
     
     res.json(deleted);
   } catch (error) {
-    console.error("Error deleting message:", error);
+    logger.error("Error deleting message:", error);
     res.status(500).json({ message: "Failed to delete message" });
   }
 });
@@ -572,7 +573,7 @@ router.get('/api/chat/:hospitalId/notifications', isAuthenticated, async (req: a
     const notifications = await storage.getUnreadNotifications(userId, hospitalId);
     res.json(notifications);
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    logger.error("Error fetching notifications:", error);
     res.status(500).json({ message: "Failed to fetch notifications" });
   }
 });
@@ -584,7 +585,7 @@ router.post('/api/chat/notifications/:notificationId/read', isAuthenticated, asy
     const updated = await storage.markNotificationRead(notificationId);
     res.json(updated);
   } catch (error) {
-    console.error("Error marking notification as read:", error);
+    logger.error("Error marking notification as read:", error);
     res.status(500).json({ message: "Failed to mark notification as read" });
   }
 });
@@ -607,7 +608,7 @@ router.post('/api/chat/:hospitalId/notifications/mark-all-read', isAuthenticated
     
     res.json({ success: true, markedRead: notifications.length });
   } catch (error) {
-    console.error("Error marking all notifications as read:", error);
+    logger.error("Error marking all notifications as read:", error);
     res.status(500).json({ message: "Failed to mark notifications as read" });
   }
 });
@@ -627,7 +628,7 @@ router.get('/api/chat/:hospitalId/mentions', isAuthenticated, async (req: any, r
     const mentions = await storage.getMentionsForUser(userId, hospitalId, unreadOnly);
     res.json(mentions);
   } catch (error) {
-    console.error("Error fetching mentions:", error);
+    logger.error("Error fetching mentions:", error);
     res.status(500).json({ message: "Failed to fetch mentions" });
   }
 });
@@ -666,7 +667,7 @@ router.get('/api/chat/attachments/:attachmentId/download', isAuthenticated, asyn
     
     await objectStorageService.downloadObject(attachment.storageKey, res);
   } catch (error) {
-    console.error("Error downloading attachment:", error);
+    logger.error("Error downloading attachment:", error);
     if (error instanceof ObjectNotFoundError) {
       return res.status(404).json({ message: "File not found in storage" });
     }
@@ -688,7 +689,7 @@ router.patch('/api/chat/attachments/:attachmentId/save-to-patient', isAuthentica
     const updated = await storage.updateAttachment(attachmentId, { savedToPatientId: patientId });
     res.json(updated);
   } catch (error) {
-    console.error("Error saving attachment to patient:", error);
+    logger.error("Error saving attachment to patient:", error);
     res.status(500).json({ message: "Failed to save attachment to patient" });
   }
 });
@@ -700,7 +701,7 @@ router.post('/api/chat/upload', isAuthenticated, async (req: any, res) => {
     const result = await objectStorageService.getObjectEntityUploadURL(filename);
     res.json(result);
   } catch (error) {
-    console.error("Error getting upload URL:", error);
+    logger.error("Error getting upload URL:", error);
     res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
@@ -718,7 +719,7 @@ router.get('/api/chat/objects/:objectPath(*)', isAuthenticated, async (req: any,
     
     await objectStorageService.downloadObject(objectPath, res);
   } catch (error) {
-    console.error("Error fetching object:", error);
+    logger.error("Error fetching object:", error);
     if (error instanceof ObjectNotFoundError) {
       return res.status(404).json({ message: "Object not found" });
     }
@@ -744,7 +745,7 @@ router.post('/api/chat/attachments/confirm', isAuthenticated, async (req: any, r
           visibility: "private",
         });
       } catch (aclError) {
-        console.warn("Could not set ACL policy (object may not exist yet):", aclError);
+        logger.warn("Could not set ACL policy (object may not exist yet):", aclError);
       }
     }
     
@@ -756,7 +757,7 @@ router.post('/api/chat/attachments/confirm', isAuthenticated, async (req: any, r
       success: true 
     });
   } catch (error) {
-    console.error("Error confirming attachment:", error);
+    logger.error("Error confirming attachment:", error);
     res.status(500).json({ message: "Failed to confirm attachment" });
   }
 });

@@ -1,3 +1,4 @@
+import logger from "../logger";
 const CALCOM_API_BASE = 'https://api.cal.com/v2';
 
 export interface CalcomSlot {
@@ -121,7 +122,7 @@ export class CalcomClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Cal.com API error: ${response.status}`, errorText);
+      logger.error(`Cal.com API error: ${response.status}`, errorText);
       throw new Error(`Cal.com API error: ${response.status} - ${errorText}`);
     }
 

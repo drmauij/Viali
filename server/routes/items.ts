@@ -22,6 +22,7 @@ import {
   requireResourceAccess,
   getBulkImportImageLimit,
 } from "../utils";
+import logger from "../logger";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.post('/api/items/analyze-image', isAuthenticated, requireWriteAccess, asy
     
     res.json(extractedData);
   } catch (error: any) {
-    console.error("Error analyzing image:", error);
+    logger.error("Error analyzing image:", error);
     res.status(500).json({ message: error.message || "Failed to analyze image" });
   }
 });
@@ -84,7 +85,7 @@ router.post('/api/items/analyze-codes', isAuthenticated, requireWriteAccess, asy
     
     res.json(extractedCodes);
   } catch (error: any) {
-    console.error("Error analyzing codes image:", error);
+    logger.error("Error analyzing codes image:", error);
     res.status(500).json({ message: error.message || "Failed to analyze codes image" });
   }
 });
@@ -188,7 +189,7 @@ router.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, as
     
     // Build lookup request - prefer pharmacode if provided
     const lookupRequest = pharmacode ? { pharmacode } : { gtin };
-    console.log(`[Galexis Lookup] Testing lookup for:`, lookupRequest);
+    logger.info(`[Galexis Lookup] Testing lookup for:`, lookupRequest);
     
     const { results, debugInfo } = await client.lookupProducts([lookupRequest]);
     
@@ -269,7 +270,7 @@ router.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, as
       }
     }
   } catch (error: any) {
-    console.error("Error looking up product in Galexis:", error);
+    logger.error("Error looking up product in Galexis:", error);
     res.status(500).json({ message: error.message || "Failed to lookup product in Galexis" });
   }
 });
@@ -316,16 +317,16 @@ router.post('/api/items/analyze-images', isAuthenticated, requireWriteAccess, as
     // Remove data URL prefix if present
     const base64Images = images.map((img: string) => img.replace(/^data:image\/\w+;base64,/, ''));
     
-    console.log(`[Bulk Import] Starting analysis of ${base64Images.length} images for hospital ${hospitalId}`);
+    logger.info(`[Bulk Import] Starting analysis of ${base64Images.length} images for hospital ${hospitalId}`);
     
     const { analyzeBulkItemImages } = await import('../openai');
     const extractedItems = await analyzeBulkItemImages(base64Images, undefined, hospitalId);
     
-    console.log(`[Bulk Import] Completed analysis, extracted ${extractedItems.length} items`);
+    logger.info(`[Bulk Import] Completed analysis, extracted ${extractedItems.length} items`);
     
     res.json({ items: extractedItems });
   } catch (error: any) {
-    console.error("Error analyzing bulk images:", error);
+    logger.error("Error analyzing bulk images:", error);
     
     // Provide more detailed error messages
     if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
@@ -387,7 +388,7 @@ router.post('/api/items/analyze-bulk-codes', isAuthenticated, requireWriteAccess
     const { analyzeCodesImage } = await import('../openai');
     const results: any[] = [];
 
-    console.log(`[Bulk Codes Import] Starting analysis of ${images.length} barcode images for hospital ${hospitalId}`);
+    logger.info(`[Bulk Codes Import] Starting analysis of ${images.length} barcode images for hospital ${hospitalId}`);
 
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
@@ -428,13 +429,13 @@ router.post('/api/items/analyze-bulk-codes', isAuthenticated, requireWriteAccess
               item.galexisFound = true;
             }
           } catch (lookupError: any) {
-            console.error(`[Bulk Codes Import] Galexis lookup failed for GTIN ${gtin}:`, lookupError.message);
+            logger.error(`[Bulk Codes Import] Galexis lookup failed for GTIN ${gtin}:`, lookupError.message);
           }
         }
 
         results.push(item);
       } catch (imageError: any) {
-        console.error(`[Bulk Codes Import] Failed to analyze image ${i}:`, imageError.message);
+        logger.error(`[Bulk Codes Import] Failed to analyze image ${i}:`, imageError.message);
         results.push({
           imageIndex: i,
           gtin: '',
@@ -447,11 +448,11 @@ router.post('/api/items/analyze-bulk-codes', isAuthenticated, requireWriteAccess
       }
     }
 
-    console.log(`[Bulk Codes Import] Completed analysis, processed ${results.length} images, ${results.filter(r => r.galexisFound).length} found in Galexis`);
+    logger.info(`[Bulk Codes Import] Completed analysis, processed ${results.length} images, ${results.filter(r => r.galexisFound).length} found in Galexis`);
     
     res.json({ items: results });
   } catch (error: any) {
-    console.error("Error analyzing bulk codes:", error);
+    logger.error("Error analyzing bulk codes:", error);
     res.status(500).json({ message: error.message || "Failed to analyze barcode images" });
   }
 });
@@ -463,11 +464,11 @@ router.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: 
     const userId = req.user.id;
     const activeUnitId = getActiveUnitIdFromRequest(req);
     
-    console.log('[BULK] Received', bulkItems?.length, 'items for bulk creation');
+    logger.info('[BULK] Received', bulkItems?.length, 'items for bulk creation');
     if (bulkItems && bulkItems.length > 0) {
       const sample = bulkItems[0];
-      console.log('[BULK] Sample item fields:', Object.keys(sample));
-      console.log('[BULK] Sample item:', {
+      logger.info('[BULK] Sample item fields:', Object.keys(sample));
+      logger.info('[BULK] Sample item:', {
         name: sample.name,
         unit: sample.unit,
         initialStock: sample.initialStock,
@@ -660,7 +661,7 @@ router.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: 
               abgabekategorie: codes.abgabekategorie || null,
             });
           } catch (codeError) {
-            console.warn(`[BULK] Failed to create item codes for item ${item.id}:`, codeError);
+            logger.warn(`[BULK] Failed to create item codes for item ${item.id}:`, codeError);
           }
         }
       }
@@ -680,7 +681,7 @@ router.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: 
               isPreferred: !!supplier.preferredSupplier,
             });
           } catch (supplierError) {
-            console.warn(`[BULK] Failed to create supplier code for item ${item.id}:`, supplierError);
+            logger.warn(`[BULK] Failed to create supplier code for item ${item.id}:`, supplierError);
           }
         }
       }
@@ -690,7 +691,7 @@ router.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: 
     
     res.status(201).json({ items: createdItems });
   } catch (error: any) {
-    console.error("Error creating bulk items:", error);
+    logger.error("Error creating bulk items:", error);
     res.status(500).json({ message: error.message || "Failed to create items" });
   }
 });
@@ -792,7 +793,7 @@ router.get('/api/items/export-csv', isAuthenticated, async (req: any, res) => {
     
     res.send(csvContent);
   } catch (error: any) {
-    console.error("Error exporting items:", error);
+    logger.error("Error exporting items:", error);
     res.status(500).json({ message: error.message || "Failed to export items" });
   }
 });
@@ -804,10 +805,10 @@ router.get('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('i
   try {
     const { itemId } = req.params;
     const code = await storage.getItemCode(itemId);
-    console.log(`[ItemCodes] Fetched codes for item ${itemId}:`, code ? 'found' : 'not found');
+    logger.info(`[ItemCodes] Fetched codes for item ${itemId}:`, code ? 'found' : 'not found');
     res.json(code || null);
   } catch (error: any) {
-    console.error("Error fetching item codes:", error);
+    logger.error("Error fetching item codes:", error);
     res.status(500).json({ message: error.message || "Failed to fetch item codes" });
   }
 });
@@ -818,14 +819,14 @@ router.put('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('i
     const { itemId } = req.params;
     // Strip out any extra fields (id, itemId, createdAt, updatedAt) that may come from client
     const { id, itemId: bodyItemId, createdAt, updatedAt, ...codeFields } = req.body;
-    console.log(`[ItemCodes] Updating codes for item ${itemId}:`, JSON.stringify(codeFields));
+    logger.info(`[ItemCodes] Updating codes for item ${itemId}:`, JSON.stringify(codeFields));
     const validatedData = insertItemCodeSchema.omit({ itemId: true }).parse(codeFields);
     const code = await storage.updateItemCode(itemId, validatedData);
-    console.log(`[ItemCodes] Successfully updated codes for item ${itemId}`);
+    logger.info(`[ItemCodes] Successfully updated codes for item ${itemId}`);
     res.json(code);
   } catch (error: any) {
-    console.error("Error updating item codes:", error);
-    console.error("Request body was:", JSON.stringify(req.body));
+    logger.error("Error updating item codes:", error);
+    logger.error("Request body was:", JSON.stringify(req.body));
     res.status(500).json({ message: error.message || "Failed to update item codes" });
   }
 });
@@ -837,7 +838,7 @@ router.delete('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess
     await storage.deleteItemCode(itemId);
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting item codes:", error);
+    logger.error("Error deleting item codes:", error);
     res.status(500).json({ message: error.message || "Failed to delete item codes" });
   }
 });
@@ -851,7 +852,7 @@ router.get('/api/items/:itemId/suppliers', isAuthenticated, requireResourceAcces
     const codes = await storage.getSupplierCodes(itemId);
     res.json(codes);
   } catch (error: any) {
-    console.error("Error fetching supplier codes:", error);
+    logger.error("Error fetching supplier codes:", error);
     res.status(500).json({ message: error.message || "Failed to fetch supplier codes" });
   }
 });
@@ -869,7 +870,7 @@ router.post('/api/items/:itemId/suppliers', isAuthenticated, requireResourceAcce
     const code = await storage.createSupplierCode(validatedData);
     res.status(201).json(code);
   } catch (error: any) {
-    console.error("Error creating supplier code:", error);
+    logger.error("Error creating supplier code:", error);
     res.status(500).json({ message: error.message || "Failed to create supplier code" });
   }
 });
@@ -891,7 +892,7 @@ router.put('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireR
     const code = await storage.updateSupplierCode(supplierId, validatedData);
     res.json(code);
   } catch (error: any) {
-    console.error("Error updating supplier code:", error);
+    logger.error("Error updating supplier code:", error);
     res.status(500).json({ message: error.message || "Failed to update supplier code" });
   }
 });
@@ -910,7 +911,7 @@ router.delete('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requi
     await storage.deleteSupplierCode(supplierId);
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting supplier code:", error);
+    logger.error("Error deleting supplier code:", error);
     res.status(500).json({ message: error.message || "Failed to delete supplier code" });
   }
 });
@@ -929,7 +930,7 @@ router.post('/api/items/:itemId/suppliers/:supplierId/set-preferred', isAuthenti
     await storage.setPreferredSupplier(itemId, supplierId);
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error setting preferred supplier:", error);
+    logger.error("Error setting preferred supplier:", error);
     res.status(500).json({ message: error.message || "Failed to set preferred supplier" });
   }
 });
@@ -943,7 +944,7 @@ router.get('/api/items/:itemId/lots', isAuthenticated, requireResourceAccess('it
     const itemLots = await storage.getLots(itemId);
     res.json(itemLots);
   } catch (error: any) {
-    console.error("Error fetching lots:", error);
+    logger.error("Error fetching lots:", error);
     res.status(500).json({ message: error.message || "Failed to fetch lots" });
   }
 });
@@ -967,7 +968,7 @@ router.post('/api/items/:itemId/lots', isAuthenticated, requireResourceAccess('i
     });
     res.status(201).json(lot);
   } catch (error: any) {
-    console.error("Error creating lot:", error);
+    logger.error("Error creating lot:", error);
     res.status(500).json({ message: error.message || "Failed to create lot" });
   }
 });
@@ -992,7 +993,7 @@ router.put('/api/items/:itemId/lots/:lotId', isAuthenticated, requireResourceAcc
     const lot = await storage.updateLot(lotId, updates);
     res.json(lot);
   } catch (error: any) {
-    console.error("Error updating lot:", error);
+    logger.error("Error updating lot:", error);
     res.status(500).json({ message: error.message || "Failed to update lot" });
   }
 });
@@ -1011,7 +1012,7 @@ router.delete('/api/items/:itemId/lots/:lotId', isAuthenticated, requireResource
     await storage.deleteLot(lotId);
     res.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting lot:", error);
+    logger.error("Error deleting lot:", error);
     res.status(500).json({ message: error.message || "Failed to delete lot" });
   }
 });
@@ -1038,7 +1039,7 @@ router.post('/api/scan/barcode', isAuthenticated, requireWriteAccess, async (req
     
     res.json(item);
   } catch (error) {
-    console.error("Error scanning barcode:", error);
+    logger.error("Error scanning barcode:", error);
     res.status(500).json({ message: "Failed to scan barcode" });
   }
 });
@@ -1053,38 +1054,38 @@ router.post('/api/scan/lookup', isAuthenticated, requireWriteAccess, async (req,
 
     const apiKey = process.env.EAN_SEARCH_API_KEY;
     if (!apiKey) {
-      console.error("EAN_SEARCH_API_KEY not configured");
+      logger.error("EAN_SEARCH_API_KEY not configured");
       return res.status(503).json({ message: "External lookup service not configured" });
     }
 
     const url = `https://api.ean-search.org/api?token=${apiKey}&op=barcode-lookup&format=json&ean=${barcode}`;
-    console.log(`[External Lookup] Calling EAN-Search API for barcode: ${barcode}`);
+    logger.info(`[External Lookup] Calling EAN-Search API for barcode: ${barcode}`);
     
     const response = await fetch(url);
-    console.log(`[External Lookup] API response status: ${response.status}`);
+    logger.info(`[External Lookup] API response status: ${response.status}`);
     
     if (!response.ok) {
-      console.error(`[External Lookup] API returned ${response.status}: ${response.statusText}`);
+      logger.error(`[External Lookup] API returned ${response.status}: ${response.statusText}`);
       return res.status(404).json({ message: "Product not found in external database" });
     }
 
     const data = await response.json();
-    console.log(`[External Lookup] API response data:`, JSON.stringify(data));
+    logger.info(`[External Lookup] API response data:`, JSON.stringify(data));
     
     // Check for API errors
     if (data.error) {
-      console.error(`[External Lookup] API error: ${data.error}`);
+      logger.error(`[External Lookup] API error: ${data.error}`);
       return res.status(404).json({ message: data.error || "Product not found in external database" });
     }
 
     // EAN-Search returns { result: [...] }
     if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
-      console.error(`[External Lookup] No results found in API response`);
+      logger.error(`[External Lookup] No results found in API response`);
       return res.status(404).json({ message: "Product not found in external database" });
     }
 
     const product = data.result[0];
-    console.log(`[External Lookup] Found product:`, product.name);
+    logger.info(`[External Lookup] Found product:`, product.name);
     
     res.json({
       name: product.name || '',
@@ -1094,7 +1095,7 @@ router.post('/api/scan/lookup', isAuthenticated, requireWriteAccess, async (req,
       found: true,
     });
   } catch (error) {
-    console.error("[External Lookup] Error:", error);
+    logger.error("[External Lookup] Error:", error);
     res.status(500).json({ message: "Failed to lookup barcode" });
   }
 });
@@ -1141,7 +1142,7 @@ router.post('/api/stock/update', isAuthenticated, requireWriteAccess, async (req
     
     res.json(stockLevel);
   } catch (error) {
-    console.error("Error updating stock:", error);
+    logger.error("Error updating stock:", error);
     res.status(500).json({ message: "Failed to update stock" });
   }
 });

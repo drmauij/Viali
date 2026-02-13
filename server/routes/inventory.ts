@@ -23,6 +23,7 @@ import {
   requireWriteAccess,
   hasLogisticsAccess
 } from "../utils";
+import logger from "../logger";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -41,7 +42,7 @@ router.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, async (req, res) 
     const kpis = await storage.getDashboardKPIs(hospitalId);
     res.json(kpis);
   } catch (error) {
-    console.error("Error fetching KPIs:", error);
+    logger.error("Error fetching KPIs:", error);
     res.status(500).json({ message: "Failed to fetch KPIs" });
   }
 });
@@ -61,7 +62,7 @@ router.get('/api/units/:hospitalId', isAuthenticated, async (req: any, res) => {
     const units = await storage.getUnits(hospitalId);
     res.json(units);
   } catch (error) {
-    console.error("Error fetching units:", error);
+    logger.error("Error fetching units:", error);
     res.status(500).json({ message: "Failed to fetch units" });
   }
 });
@@ -107,7 +108,7 @@ router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) =>
     const folders = await storage.getFolders(hospitalId, effectiveUnitId);
     res.json(folders);
   } catch (error) {
-    console.error("Error fetching folders:", error);
+    logger.error("Error fetching folders:", error);
     res.status(500).json({ message: "Failed to fetch folders" });
   }
 });
@@ -130,7 +131,7 @@ router.post('/api/folders', isAuthenticated, requireWriteAccess, async (req: any
     const folder = await storage.createFolder(folderData);
     res.status(201).json(folder);
   } catch (error) {
-    console.error("Error creating folder:", error);
+    logger.error("Error creating folder:", error);
     res.status(500).json({ message: "Failed to create folder" });
   }
 });
@@ -170,7 +171,7 @@ router.patch('/api/folders/bulk-sort', isAuthenticated, requireWriteAccess, asyn
 
     res.json({ message: "Folder sort order updated successfully", updatedCount });
   } catch (error) {
-    console.error("Error updating folder sort order:", error);
+    logger.error("Error updating folder sort order:", error);
     res.status(500).json({ message: "Failed to update folder sort order" });
   }
 });
@@ -198,7 +199,7 @@ router.patch('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asyn
     const updated = await storage.updateFolder(folderId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating folder:", error);
+    logger.error("Error updating folder:", error);
     res.status(500).json({ message: "Failed to update folder" });
   }
 });
@@ -225,7 +226,7 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
     await storage.deleteFolder(folderId);
     res.json({ message: "Folder deleted successfully" });
   } catch (error) {
-    console.error("Error deleting folder:", error);
+    logger.error("Error deleting folder:", error);
     res.status(500).json({ message: "Failed to delete folder" });
   }
 });
@@ -284,7 +285,7 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     const itemsList = await storage.getItems(hospitalId, effectiveUnitId, includeArchived === 'true' ? { ...activeFilters, includeArchived: true } : (Object.keys(activeFilters).length > 0 ? activeFilters : undefined));
     res.json(itemsList);
   } catch (error) {
-    console.error("Error fetching items:", error);
+    logger.error("Error fetching items:", error);
     res.status(500).json({ message: "Failed to fetch items" });
   }
 });
@@ -318,7 +319,7 @@ router.get('/api/item-codes/:hospitalId', isAuthenticated, async (req: any, res)
     
     res.json(codes);
   } catch (error) {
-    console.error("Error fetching item codes:", error);
+    logger.error("Error fetching item codes:", error);
     res.status(500).json({ message: "Failed to fetch item codes" });
   }
 });
@@ -374,7 +375,7 @@ router.get('/api/preferred-supplier-codes/:hospitalId', isAuthenticated, async (
     
     res.json(codes);
   } catch (error) {
-    console.error("Error fetching preferred supplier codes:", error);
+    logger.error("Error fetching preferred supplier codes:", error);
     res.status(500).json({ message: "Failed to fetch preferred supplier codes" });
   }
 });
@@ -401,7 +402,7 @@ router.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) =
     const lots = await storage.getLots(itemId);
     res.json({ ...item, lots });
   } catch (error) {
-    console.error("Error fetching item:", error);
+    logger.error("Error fetching item:", error);
     res.status(500).json({ message: "Failed to fetch item" });
   }
 });
@@ -432,7 +433,7 @@ router.get('/api/items/single/:itemId', isAuthenticated, async (req: any, res) =
       stockLevel: stockLevel || { qtyOnHand: 0, qtyAllocated: 0 }
     });
   } catch (error) {
-    console.error("Error fetching single item:", error);
+    logger.error("Error fetching single item:", error);
     res.status(500).json({ message: "Failed to fetch item" });
   }
 });
@@ -485,7 +486,7 @@ router.post('/api/items', isAuthenticated, requireWriteAccess, async (req: any, 
     
     res.status(201).json(item);
   } catch (error) {
-    console.error("Error creating item:", error);
+    logger.error("Error creating item:", error);
     res.status(500).json({ message: "Failed to create item" });
   }
 });
@@ -569,7 +570,7 @@ router.patch('/api/items/bulk-update', isAuthenticated, requireWriteAccess, asyn
     
     res.json({ items: updatedItems });
   } catch (error: any) {
-    console.error("Error updating bulk items:", error);
+    logger.error("Error updating bulk items:", error);
     res.status(500).json({ message: error.message || "Failed to update items" });
   }
 });
@@ -605,7 +606,7 @@ router.patch('/api/items/bulk-sort', isAuthenticated, requireWriteAccess, async 
 
     res.json({ message: "Item sort order updated successfully" });
   } catch (error) {
-    console.error("Error updating item sort order:", error);
+    logger.error("Error updating item sort order:", error);
     res.status(500).json({ message: "Failed to update item sort order" });
   }
 });
@@ -652,7 +653,7 @@ router.patch('/api/items/bulk-billable', isAuthenticated, requireWriteAccess, as
         await storage.updateItem(itemId, { isInvoiceable: isBillable });
         results.updated.push(itemId);
       } catch (error: any) {
-        console.error(`Error updating item ${itemId}:`, error);
+        logger.error(`Error updating item ${itemId}:`, error);
         results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
       }
     }
@@ -664,7 +665,7 @@ router.patch('/api/items/bulk-billable', isAuthenticated, requireWriteAccess, as
       results
     });
   } catch (error) {
-    console.error("Error bulk updating billable status:", error);
+    logger.error("Error bulk updating billable status:", error);
     res.status(500).json({ message: "Failed to bulk update billable status" });
   }
 });
@@ -760,7 +761,7 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
     const refreshedItem = await storage.getItem(itemId);
     res.json(refreshedItem);
   } catch (error) {
-    console.error("Error updating item:", error);
+    logger.error("Error updating item:", error);
     res.status(500).json({ message: "Failed to update item" });
   }
 });
@@ -843,7 +844,7 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
       res.json(updatedItem);
     }
   } catch (error) {
-    console.error("Error reducing unit:", error);
+    logger.error("Error reducing unit:", error);
     res.status(500).json({ message: "Failed to reduce unit" });
   }
 });
@@ -876,7 +877,7 @@ router.delete('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (
     await storage.deleteItem(itemId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting item:", error);
+    logger.error("Error deleting item:", error);
     res.status(500).json({ message: "Failed to delete item" });
   }
 });
@@ -923,7 +924,7 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
         await storage.deleteItem(itemId);
         results.deleted.push(itemId);
       } catch (error: any) {
-        console.error(`Error deleting item ${itemId}:`, error);
+        logger.error(`Error deleting item ${itemId}:`, error);
         results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
       }
     }
@@ -935,7 +936,7 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
       results
     });
   } catch (error) {
-    console.error("Error bulk deleting items:", error);
+    logger.error("Error bulk deleting items:", error);
     res.status(500).json({ message: "Failed to bulk delete items" });
   }
 });
@@ -996,7 +997,7 @@ router.post('/api/items/bulk-move', isAuthenticated, requireWriteAccess, async (
         await storage.updateItem(itemId, { unitId: targetUnitId });
         results.moved.push(itemId);
       } catch (error: any) {
-        console.error(`Error moving item ${itemId}:`, error);
+        logger.error(`Error moving item ${itemId}:`, error);
         results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
       }
     }
@@ -1008,7 +1009,7 @@ router.post('/api/items/bulk-move', isAuthenticated, requireWriteAccess, async (
       results
     });
   } catch (error) {
-    console.error("Error bulk moving items:", error);
+    logger.error("Error bulk moving items:", error);
     res.status(500).json({ message: "Failed to bulk move items" });
   }
 });
@@ -1144,7 +1145,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
               if (idx > -1) results.created.splice(idx, 1);
             }
           } catch (rollbackErr) {
-            console.error(`Rollback failed for ${itemId}:`, rollbackErr);
+            logger.error(`Rollback failed for ${itemId}:`, rollbackErr);
           }
         };
         
@@ -1211,7 +1212,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
           }
         } catch (destError) {
           // Destination update failed - rollback any partial destination changes
-          console.error(`Destination update failed for ${itemId}:`, destError);
+          logger.error(`Destination update failed for ${itemId}:`, destError);
           await rollbackDestination();
           throw destError;
         }
@@ -1230,7 +1231,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
           }
         } catch (sourceError) {
           // Source update failed - rollback both source and destination changes
-          console.error(`Source update failed for ${itemId}:`, sourceError);
+          logger.error(`Source update failed for ${itemId}:`, sourceError);
           
           // Rollback source changes if any were made
           try {
@@ -1241,7 +1242,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
               await storage.updateItem(itemId, { currentUnits: sourceUnitsOriginal });
             }
           } catch (sourceRollbackErr) {
-            console.error(`Source rollback failed for ${itemId}:`, sourceRollbackErr);
+            logger.error(`Source rollback failed for ${itemId}:`, sourceRollbackErr);
           }
           
           // Rollback destination changes
@@ -1262,7 +1263,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
             notes: `Transferred ${transferType === 'units' ? unitTransferQty + ' units' : packTransferQty + ' packs'} to ${destUnit.name}`,
           });
         } catch (activityError) {
-          console.error(`Activity log failed for ${itemId}:`, activityError);
+          logger.error(`Activity log failed for ${itemId}:`, activityError);
           // Don't fail the transfer for activity log errors
         }
         
@@ -1273,7 +1274,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
         results.transferred.push(itemId);
         
       } catch (error: any) {
-        console.error(`Error transferring item ${itemId}:`, error);
+        logger.error(`Error transferring item ${itemId}:`, error);
         results.failed.push({ itemId, reason: error.message || "Unknown error" });
       }
     }
@@ -1286,7 +1287,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
       results,
     });
   } catch (error) {
-    console.error("Error transferring items:", error);
+    logger.error("Error transferring items:", error);
     res.status(500).json({ message: "Failed to transfer items" });
   }
 });
@@ -1307,7 +1308,7 @@ router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, async (req: an
     const catalogs = await storage.getSupplierCatalogs(hospitalId);
     res.json(catalogs);
   } catch (error) {
-    console.error("Error fetching supplier catalogs:", error);
+    logger.error("Error fetching supplier catalogs:", error);
     res.status(500).json({ message: "Failed to fetch supplier catalogs" });
   }
 });
@@ -1352,7 +1353,7 @@ router.post('/api/supplier-catalogs', isAuthenticated, async (req: any, res) => 
     
     res.json(catalog);
   } catch (error) {
-    console.error("Error creating supplier catalog:", error);
+    logger.error("Error creating supplier catalog:", error);
     res.status(500).json({ message: "Failed to create supplier catalog" });
   }
 });
@@ -1377,7 +1378,7 @@ router.patch('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: a
     const updated = await storage.updateSupplierCatalog(catalogId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating supplier catalog:", error);
+    logger.error("Error updating supplier catalog:", error);
     res.status(500).json({ message: "Failed to update supplier catalog" });
   }
 });
@@ -1401,7 +1402,7 @@ router.delete('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: 
     await storage.deleteSupplierCatalog(catalogId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting supplier catalog:", error);
+    logger.error("Error deleting supplier catalog:", error);
     res.status(500).json({ message: "Failed to delete supplier catalog" });
   }
 });
@@ -1420,7 +1421,7 @@ router.get('/api/price-sync-jobs/:hospitalId', isAuthenticated, async (req: any,
     const jobs = await storage.getPriceSyncJobs(hospitalId);
     res.json(jobs);
   } catch (error) {
-    console.error("Error fetching price sync jobs:", error);
+    logger.error("Error fetching price sync jobs:", error);
     res.status(500).json({ message: "Failed to fetch price sync jobs" });
   }
 });
@@ -1463,7 +1464,7 @@ router.post('/api/price-sync/trigger', isAuthenticated, async (req: any, res) =>
       message: "Price sync job queued successfully" 
     });
   } catch (error) {
-    console.error("Error triggering price sync:", error);
+    logger.error("Error triggering price sync:", error);
     res.status(500).json({ message: "Failed to trigger price sync" });
   }
 });
@@ -1479,7 +1480,7 @@ router.get('/api/price-sync-jobs/status/:jobId', isAuthenticated, async (req: an
     
     res.json(job);
   } catch (error) {
-    console.error("Error fetching job status:", error);
+    logger.error("Error fetching job status:", error);
     res.status(500).json({ message: "Failed to fetch job status" });
   }
 });
@@ -1533,7 +1534,7 @@ router.get('/api/supplier-matches/:hospitalId', isAuthenticated, async (req: any
     
     res.json({ directMatches, suggestedMatches });
   } catch (error) {
-    console.error("Error fetching supplier matches:", error);
+    logger.error("Error fetching supplier matches:", error);
     res.status(500).json({ message: "Failed to fetch supplier matches" });
   }
 });
@@ -1553,7 +1554,7 @@ router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async
     const confirmedMatches = await storage.getConfirmedSupplierMatches(hospitalId);
     res.json(confirmedMatches);
   } catch (error) {
-    console.error("Error fetching confirmed matches:", error);
+    logger.error("Error fetching confirmed matches:", error);
     res.status(500).json({ message: "Failed to fetch confirmed matches" });
   }
 });
@@ -1707,7 +1708,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       },
     });
   } catch (error) {
-    console.error("Error fetching categorized matches:", error);
+    logger.error("Error fetching categorized matches:", error);
     res.status(500).json({ message: "Failed to fetch categorized matches" });
   }
 });
@@ -1733,7 +1734,7 @@ router.get('/api/price-sync-jobs/:jobId/matches', isAuthenticated, async (req: a
     const matches = await storage.getSupplierMatchesByJobId(jobId);
     res.json(matches);
   } catch (error) {
-    console.error("Error fetching job matches:", error);
+    logger.error("Error fetching job matches:", error);
     res.status(500).json({ message: "Failed to fetch job matches" });
   }
 });
@@ -1754,7 +1755,7 @@ router.post('/api/supplier-codes/:id/confirm', isAuthenticated, async (req: any,
     
     res.json(updated);
   } catch (error) {
-    console.error("Error confirming match:", error);
+    logger.error("Error confirming match:", error);
     res.status(500).json({ message: "Failed to confirm match" });
   }
 });
@@ -1775,7 +1776,7 @@ router.post('/api/supplier-codes/:id/reject', isAuthenticated, async (req: any, 
     
     res.json(updated);
   } catch (error) {
-    console.error("Error rejecting match:", error);
+    logger.error("Error rejecting match:", error);
     res.status(500).json({ message: "Failed to reject match" });
   }
 });
@@ -1810,7 +1811,7 @@ router.post('/api/supplier-codes/:id/select', isAuthenticated, async (req: any, 
     const updated = await storage.getSupplierCode(id);
     res.json(updated);
   } catch (error) {
-    console.error("Error selecting match:", error);
+    logger.error("Error selecting match:", error);
     res.status(500).json({ message: "Failed to select match" });
   }
 });
@@ -1863,7 +1864,7 @@ router.put('/api/item-codes/:itemId', isAuthenticated, async (req: any, res) => 
       res.json(created[0]);
     }
   } catch (error) {
-    console.error("Error updating item codes:", error);
+    logger.error("Error updating item codes:", error);
     res.status(500).json({ message: "Failed to update item codes" });
   }
 });
@@ -2027,7 +2028,7 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
       warningDays,
     });
   } catch (error) {
-    console.error("Error calculating runway:", error);
+    logger.error("Error calculating runway:", error);
     res.status(500).json({ message: "Failed to calculate stock runway" });
   }
 });
@@ -2201,7 +2202,7 @@ router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (
       });
     }
   } catch (error) {
-    console.error("Error sending stock alerts:", error);
+    logger.error("Error sending stock alerts:", error);
     res.status(500).json({ message: "Failed to send stock alerts" });
   }
 });
@@ -2232,7 +2233,7 @@ router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req:
     
     res.json(itemsWithCodes);
   } catch (error) {
-    console.error("Error exporting catalog:", error);
+    logger.error("Error exporting catalog:", error);
     res.status(500).json({ message: "Failed to export catalog" });
   }
 });
@@ -2296,7 +2297,7 @@ router.get('/api/inventory-snapshots/:hospitalId', isAuthenticated, async (req: 
     
     res.json(snapshots);
   } catch (error) {
-    console.error("Error fetching inventory snapshots:", error);
+    logger.error("Error fetching inventory snapshots:", error);
     res.status(500).json({ message: "Failed to fetch inventory snapshots" });
   }
 });

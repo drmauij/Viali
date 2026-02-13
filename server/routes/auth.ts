@@ -3,6 +3,7 @@ import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import logger from "../logger";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.post('/api/auth/signup', async (req, res) => {
     const { seedHospitalData } = await import('../seed-hospital');
     await seedHospitalData(hospital.id, user.id);
     
-    console.log(`[Auth] Created and seeded new hospital for user ${user.id}`);
+    logger.info(`[Auth] Created and seeded new hospital for user ${user.id}`);
 
     req.login({ 
       id: user.id,
@@ -38,7 +39,7 @@ router.post('/api/auth/signup', async (req, res) => {
       expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
     }, (err) => {
       if (err) {
-        console.error("Error logging in user:", err);
+        logger.error("Error logging in user:", err);
         return res.status(500).json({ message: "Account created but login failed" });
       }
       res.status(201).json({ 
@@ -53,7 +54,7 @@ router.post('/api/auth/signup', async (req, res) => {
       });
     });
   } catch (error: any) {
-    console.error("Error during signup:", error);
+    logger.error("Error during signup:", error);
     res.status(500).json({ message: error.message || "Failed to create account" });
   }
 });
@@ -92,7 +93,7 @@ router.post('/api/auth/login', async (req, res) => {
       mustChangePassword: user.mustChangePassword
     }, (err) => {
       if (err) {
-        console.error("[Auth] Error logging in user:", err);
+        logger.error("[Auth] Error logging in user:", err);
         return res.status(500).json({ message: "Login failed" });
       }
       res.json({ 
@@ -107,7 +108,7 @@ router.post('/api/auth/login', async (req, res) => {
       });
     });
   } catch (error: any) {
-    console.error("Error during login:", error);
+    logger.error("Error during login:", error);
     res.status(500).json({ message: error.message || "Login failed" });
   }
 });
@@ -143,7 +144,7 @@ router.post('/api/auth/change-password', isAuthenticated, async (req: any, res) 
 
     res.json({ message: "Password changed successfully" });
   } catch (error: any) {
-    console.error("Error changing password:", error);
+    logger.error("Error changing password:", error);
     res.status(500).json({ message: error.message || "Failed to change password" });
   }
 });
@@ -186,7 +187,7 @@ router.post('/api/auth/forgot-password', async (req, res) => {
 
     res.json({ message: "If an account with that email exists, a password reset link has been sent." });
   } catch (error: any) {
-    console.error("Error in forgot password:", error);
+    logger.error("Error in forgot password:", error);
     res.status(500).json({ message: "An error occurred. Please try again later." });
   }
 });
@@ -229,7 +230,7 @@ router.post('/api/auth/reset-password', async (req, res) => {
 
     res.json({ message: "Password reset successfully" });
   } catch (error: any) {
-    console.error("Error resetting password:", error);
+    logger.error("Error resetting password:", error);
     res.status(500).json({ message: "Failed to reset password" });
   }
 });
@@ -252,7 +253,7 @@ router.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
       mustChangePassword: user.mustChangePassword || false,
     });
   } catch (error) {
-    console.error("Error fetching user:", error);
+    logger.error("Error fetching user:", error);
     res.status(500).json({ message: "Failed to fetch user" });
   }
 });
@@ -320,7 +321,7 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       hospital,
     });
   } catch (error) {
-    console.error("Error during signup:", error);
+    logger.error("Error during signup:", error);
     res.status(500).json({ message: "Failed to create hospital" });
   }
 });
@@ -339,7 +340,7 @@ router.get('/api/user/preferences', isAuthenticated, async (req: any, res) => {
     
     res.json(user[0].preferences || {});
   } catch (error) {
-    console.error("Error fetching user preferences:", error);
+    logger.error("Error fetching user preferences:", error);
     res.status(500).json({ message: "Failed to fetch preferences" });
   }
 });
@@ -374,7 +375,7 @@ router.patch('/api/user/preferences', isAuthenticated, async (req: any, res) => 
     
     res.json(mergedPreferences);
   } catch (error) {
-    console.error("Error updating user preferences:", error);
+    logger.error("Error updating user preferences:", error);
     res.status(500).json({ message: "Failed to update preferences" });
   }
 });
@@ -396,7 +397,7 @@ router.put('/api/user/timebutler-url', isAuthenticated, async (req: any, res) =>
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error updating Timebutler URL:", error);
+    logger.error("Error updating Timebutler URL:", error);
     res.status(500).json({ message: "Failed to update Timebutler URL" });
   }
 });

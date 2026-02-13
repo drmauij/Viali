@@ -8,6 +8,7 @@ import {
 } from "../services/aiMonitorAnalysis";
 import { z, ZodError } from "zod";
 import OpenAI from "openai";
+import logger from "../logger";
 
 const router = Router();
 
@@ -35,7 +36,7 @@ router.post('/api/proxy-vitabyte', async (req: Request, res: Response) => {
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (error: any) {
-    console.error('Vitabyte API proxy error:', error);
+    logger.error('Vitabyte API proxy error:', error);
     res.status(500).json({ error: 'Failed to proxy request', details: error.message });
   }
 });
@@ -60,7 +61,7 @@ router.post('/api/analyze-monitor', isAuthenticated, requireWriteAccess, async (
     const result = await analyzeMonitorImage(image, effectiveHospitalId);
     res.json(result);
   } catch (error: any) {
-    console.error("Error analyzing monitor image:", error);
+    logger.error("Error analyzing monitor image:", error);
     res.status(500).json({ message: error.message || "Failed to analyze monitor image" });
   }
 });
@@ -83,7 +84,7 @@ router.post('/api/transcribe-voice', isAuthenticated, requireWriteAccess, async 
     const transcription = await transcribeVoice(audioData);
     res.json({ transcription });
   } catch (error: any) {
-    console.error("Error transcribing voice:", error);
+    logger.error("Error transcribing voice:", error);
     res.status(500).json({ message: error.message || "Failed to transcribe voice" });
   }
 });
@@ -106,7 +107,7 @@ router.post('/api/parse-drug-command', isAuthenticated, requireWriteAccess, asyn
     const drugs = await parseDrugCommand(transcription);
     res.json({ drugs });
   } catch (error: any) {
-    console.error("Error parsing drug command:", error);
+    logger.error("Error parsing drug command:", error);
     res.status(500).json({ message: error.message || "Failed to parse drug command" });
   }
 });
@@ -155,11 +156,11 @@ router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: a
     const translatedText = response.choices[0]?.message?.content || '';
     const translations = translatedText.split('\n').filter(line => line.trim());
     if (translations.length !== items.length) {
-      console.warn('Translation count mismatch:', { input: items.length, output: translations.length });
+      logger.warn('Translation count mismatch:', { input: items.length, output: translations.length });
     }
     res.json({ translations });
   } catch (error: any) {
-    console.error("Error translating items:", error);
+    logger.error("Error translating items:", error);
     res.status(500).json({ message: error.message || "Failed to translate items" });
   }
 });

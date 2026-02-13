@@ -1,4 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import logger from "../logger";
 
 /**
  * Parse pack size from product description strings.
@@ -167,8 +168,8 @@ export class GalexisClient {
     try {
       const requestXml = this.buildCustomerSpecificConditionsRequest(pageSize, requestKey);
       
-      console.log('[Galexis] Fetching customer conditions...');
-      console.log('[Galexis] Request XML:', requestXml);
+      logger.info('[Galexis] Fetching customer conditions...');
+      logger.info('[Galexis] Request XML:', requestXml);
       
       const response = await fetch(`${this.baseUrl}/`, {
         method: 'POST',
@@ -185,31 +186,31 @@ export class GalexisClient {
       }
 
       const responseXml = await response.text();
-      console.log('[Galexis] Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
+      logger.info('[Galexis] Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
       
       const parsed = this.parser.parse(responseXml);
-      console.log('[Galexis] Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
+      logger.info('[Galexis] Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
       
       const conditionsResponse = parsed.customerSpecificConditionsResponse;
       
       if (!conditionsResponse) {
-        console.log('[Galexis] Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 2000));
+        logger.info('[Galexis] Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 2000));
         throw new Error('Invalid response format from Galexis');
       }
 
-      console.log('[Galexis] Response keys:', conditionsResponse ? Object.keys(conditionsResponse) : 'NULL');
+      logger.info('[Galexis] Response keys:', conditionsResponse ? Object.keys(conditionsResponse) : 'NULL');
 
       if (conditionsResponse.clientErrorResponse) {
         const errorMsg = conditionsResponse.clientErrorResponse.message || 
                         conditionsResponse.clientErrorResponse.errorText ||
                         JSON.stringify(conditionsResponse.clientErrorResponse);
-        console.log('[Galexis] Client error response:', JSON.stringify(conditionsResponse.clientErrorResponse));
+        logger.info('[Galexis] Client error response:', JSON.stringify(conditionsResponse.clientErrorResponse));
         throw new Error(`Galexis authentication error: ${errorMsg}`);
       }
 
       if (conditionsResponse.nothingFound !== undefined) {
-        console.log('[Galexis] API returned nothingFound - no customer-specific conditions registered');
-        console.log('[Galexis] Full response:', JSON.stringify(conditionsResponse, null, 2));
+        logger.info('[Galexis] API returned nothingFound - no customer-specific conditions registered');
+        logger.info('[Galexis] Full response:', JSON.stringify(conditionsResponse, null, 2));
         return { 
           prices: [], 
           hasMore: false, 
@@ -275,8 +276,8 @@ export class GalexisClient {
         extractedKey = conditionsResponse.inBetween.requestKey;
       }
       
-      console.log(`[Galexis] Pagination status: ${paginationStatus}, extractedKey: "${extractedKey}", prices: ${prices.length}`);
-      console.log(`[Galexis] Response structure keys: ${conditionsResponse ? Object.keys(conditionsResponse).join(', ') : 'NULL'}`);
+      logger.info(`[Galexis] Pagination status: ${paginationStatus}, extractedKey: "${extractedKey}", prices: ${prices.length}`);
+      logger.info(`[Galexis] Response structure keys: ${conditionsResponse ? Object.keys(conditionsResponse).join(', ') : 'NULL'}`);
       
       // Only continue if we have more pages AND we have a valid key to continue with
       if ((conditionsResponse.atFirst || conditionsResponse.inBetween) && extractedKey) {
@@ -284,19 +285,19 @@ export class GalexisClient {
         nextKey = extractedKey;
       } else if (conditionsResponse.atFirst || conditionsResponse.inBetween) {
         // We have a "more pages" indicator but no key - log warning and try to find key
-        console.warn(`[Galexis] WARNING: API indicates more pages but no requestKey found. Response keys: ${conditionsResponse ? JSON.stringify(Object.keys(conditionsResponse)) : 'NULL'}`);
-        console.warn(`[Galexis] browseRequest content: ${JSON.stringify(conditionsResponse.browseRequest)}`);
-        console.warn(`[Galexis] atFirst content: ${JSON.stringify(conditionsResponse.atFirst)}`);
-        console.warn(`[Galexis] inBetween content: ${JSON.stringify(conditionsResponse.inBetween)}`);
+        logger.warn(`[Galexis] WARNING: API indicates more pages but no requestKey found. Response keys: ${conditionsResponse ? JSON.stringify(Object.keys(conditionsResponse)) : 'NULL'}`);
+        logger.warn(`[Galexis] browseRequest content: ${JSON.stringify(conditionsResponse.browseRequest)}`);
+        logger.warn(`[Galexis] atFirst content: ${JSON.stringify(conditionsResponse.atFirst)}`);
+        logger.warn(`[Galexis] inBetween content: ${JSON.stringify(conditionsResponse.inBetween)}`);
         // Do NOT set hasMore to true without a key - this would cause infinite loop
         hasMore = false;
       }
 
-      console.log(`[Galexis] Fetched ${prices.length} price entries, hasMore: ${hasMore}`);
+      logger.info(`[Galexis] Fetched ${prices.length} price entries, hasMore: ${hasMore}`);
 
       return { prices, hasMore, nextKey };
     } catch (error: any) {
-      console.error('[Galexis] Error fetching conditions:', error);
+      logger.error('[Galexis] Error fetching conditions:', error);
       throw error;
     }
   }
@@ -317,17 +318,17 @@ export class GalexisClient {
 
     while (hasMore) {
       page++;
-      console.log(`[Galexis] Fetching page ${page}...`);
+      logger.info(`[Galexis] Fetching page ${page}...`);
       
       // Safety check: prevent infinite loops
       if (page > MAX_PAGES) {
-        console.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_PAGES} pages. Stopping to prevent infinite loop.`);
-        console.error(`[Galexis] Current items: ${allPrices.length}, last nextKey: "${nextKey}"`);
+        logger.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_PAGES} pages. Stopping to prevent infinite loop.`);
+        logger.error(`[Galexis] Current items: ${allPrices.length}, last nextKey: "${nextKey}"`);
         break;
       }
       
       if (allPrices.length > MAX_ITEMS) {
-        console.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_ITEMS} items. Stopping to prevent infinite loop.`);
+        logger.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_ITEMS} items. Stopping to prevent infinite loop.`);
         break;
       }
       
@@ -335,7 +336,7 @@ export class GalexisClient {
       
       // If we got 0 items, something is wrong - stop
       if (result.prices.length === 0 && page > 1) {
-        console.warn(`[Galexis] Got 0 items on page ${page}. Stopping pagination.`);
+        logger.warn(`[Galexis] Got 0 items on page ${page}. Stopping pagination.`);
         break;
       }
       
@@ -357,7 +358,7 @@ export class GalexisClient {
       }
     }
 
-    console.log(`[Galexis] Total prices fetched: ${allPrices.length} over ${page} pages`);
+    logger.info(`[Galexis] Total prices fetched: ${allPrices.length} over ${page} pages`);
     return { prices: allPrices, debugInfo };
   }
 
@@ -403,10 +404,10 @@ ${productLines}
       return { results: [], debugInfo: { message: 'No products to lookup' } };
     }
 
-    console.log(`[Galexis] Looking up ${products.length} products by pharmacode/GTIN...`);
+    logger.info(`[Galexis] Looking up ${products.length} products by pharmacode/GTIN...`);
     
     const requestXml = this.buildProductAvailabilityRequest(products);
-    console.log('[Galexis] ProductAvailability Request XML:', requestXml.substring(0, 1000));
+    logger.info('[Galexis] ProductAvailability Request XML:', requestXml.substring(0, 1000));
 
     try {
       const response = await fetch(`${this.baseUrl}/`, {
@@ -420,30 +421,30 @@ ${productLines}
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[Galexis] ProductAvailability HTTP error:', response.status, errorText);
+        logger.error('[Galexis] ProductAvailability HTTP error:', response.status, errorText);
         throw new Error(`Galexis API error: ${response.status} - ${errorText}`);
       }
 
       const responseXml = await response.text();
-      console.log('[Galexis] ProductAvailability Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
+      logger.info('[Galexis] ProductAvailability Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
 
       const parsed = this.parser.parse(responseXml);
-      console.log('[Galexis] ProductAvailability Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
+      logger.info('[Galexis] ProductAvailability Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
 
       // Handle GalexisXMLError responses (authentication failures, service errors, etc.)
       if (parsed.GalexisXMLError) {
         const xmlError = parsed.GalexisXMLError;
         const errorCode = xmlError.errorCode || xmlError.code || 'unknown';
         const errorMessage = xmlError.errorMessage || xmlError.message || xmlError.description || JSON.stringify(xmlError);
-        console.error(`[Galexis] API returned GalexisXMLError: code=${errorCode}, message=${errorMessage}`);
+        logger.error(`[Galexis] API returned GalexisXMLError: code=${errorCode}, message=${errorMessage}`);
         throw new Error(`Galexis API error (${errorCode}): ${errorMessage}`);
       }
 
       const availabilityResponse = parsed.productAvailabilityResponse;
       if (!availabilityResponse) {
         const parsedKeys = parsed ? Object.keys(parsed) : [];
-        console.log('[Galexis] ProductAvailability Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 3000));
-        console.error(`[Galexis] Expected 'productAvailabilityResponse' but got keys: [${parsedKeys.join(', ')}]`);
+        logger.info('[Galexis] ProductAvailability Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 3000));
+        logger.error(`[Galexis] Expected 'productAvailabilityResponse' but got keys: [${parsedKeys.join(', ')}]`);
         throw new Error(`Invalid productAvailability response format from Galexis. Got keys: [${parsedKeys.join(', ')}]`);
       }
 
@@ -451,14 +452,14 @@ ${productLines}
         const errorMsg = availabilityResponse.clientErrorResponse.message || 
                         availabilityResponse.clientErrorResponse.errorText ||
                         JSON.stringify(availabilityResponse.clientErrorResponse);
-        console.log('[Galexis] ProductAvailability Client error:', JSON.stringify(availabilityResponse.clientErrorResponse));
+        logger.info('[Galexis] ProductAvailability Client error:', JSON.stringify(availabilityResponse.clientErrorResponse));
         throw new Error(`Galexis authentication error: ${errorMsg}`);
       }
 
       const responseLines = availabilityResponse.productAvailabilityResponseLines?.productAvailabilityResponseLine || [];
       const linesArray = Array.isArray(responseLines) ? responseLines : [responseLines];
       
-      console.log(`[Galexis] ProductAvailability Got ${linesArray.length} response lines`);
+      logger.info(`[Galexis] ProductAvailability Got ${linesArray.length} response lines`);
 
       const results: ProductLookupResult[] = linesArray.map((line: any, index: number) => {
         const requestLine = line.productAvailabilityLine;
@@ -470,14 +471,14 @@ ${productLines}
         const requestedGtin = requestLine?.product?.EAN?.id?.toString() || '';
         
         // Debug logging for all response lines - see what Galexis actually returns
-        console.log(`[Galexis] Response line ${index}: pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
-        console.log(`[Galexis]   - productResponse keys: ${productResponse ? Object.keys(productResponse).join(', ') : 'NULL'}`);
-        console.log(`[Galexis]   - availability: ${JSON.stringify(availability)}`);
-        console.log(`[Galexis]   - line keys: ${line ? Object.keys(line).join(', ') : 'NULL'}`);
+        logger.info(`[Galexis] Response line ${index}: pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
+        logger.info(`[Galexis]   - productResponse keys: ${productResponse ? Object.keys(productResponse).join(', ') : 'NULL'}`);
+        logger.info(`[Galexis]   - availability: ${JSON.stringify(availability)}`);
+        logger.info(`[Galexis]   - line keys: ${line ? Object.keys(line).join(', ') : 'NULL'}`);
         
         if (!productResponse) {
-          console.log(`[Galexis] No productResponse for pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
-          console.log(`[Galexis]   Full line object: ${JSON.stringify(line, null, 2).substring(0, 500)}`);
+          logger.info(`[Galexis] No productResponse for pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
+          logger.info(`[Galexis]   Full line object: ${JSON.stringify(line, null, 2).substring(0, 500)}`);
           return {
             pharmacode: requestedPharmacode,
             gtin: requestedGtin,
@@ -507,7 +508,7 @@ ${productLines}
         const parsedPackSize = parsePackSizeFromDescription(descriptionText);
         const packSize = deliveryQuantity || parsedPackSize;
 
-        console.log(`[Galexis] Found product: ${descriptionText}, pharmacode=${productResponse.wholesalerProductCode}, price=${basePiecePrice}, deliveryQty=${deliveryQuantity}, parsedPack=${parsedPackSize}`);
+        logger.info(`[Galexis] Found product: ${descriptionText}, pharmacode=${productResponse.wholesalerProductCode}, price=${basePiecePrice}, deliveryQty=${deliveryQuantity}, parsedPack=${parsedPackSize}`);
 
         return {
           pharmacode: productResponse.wholesalerProductCode?.toString() || requestedPharmacode,
@@ -533,7 +534,7 @@ ${productLines}
       });
 
       const foundCount = results.filter(r => r.found).length;
-      console.log(`[Galexis] ProductAvailability completed: ${foundCount}/${results.length} products found`);
+      logger.info(`[Galexis] ProductAvailability completed: ${foundCount}/${results.length} products found`);
 
       return {
         results,
@@ -548,7 +549,7 @@ ${productLines}
         },
       };
     } catch (error: any) {
-      console.error('[Galexis] ProductAvailability error:', error);
+      logger.error('[Galexis] ProductAvailability error:', error);
       throw error;
     }
   }
@@ -564,7 +565,7 @@ ${productLines}
 
     for (let i = 0; i < products.length; i += batchSize) {
       const batch = products.slice(i, i + batchSize);
-      console.log(`[Galexis] Processing batch ${Math.floor(i / batchSize) + 1}, items ${i + 1}-${Math.min(i + batchSize, products.length)} of ${products.length}`);
+      logger.info(`[Galexis] Processing batch ${Math.floor(i / batchSize) + 1}, items ${i + 1}-${Math.min(i + batchSize, products.length)} of ${products.length}`);
       
       try {
         const { results, debugInfo } = await this.lookupProducts(batch);
@@ -580,7 +581,7 @@ ${productLines}
           await new Promise(resolve => setTimeout(resolve, 300));
         }
       } catch (error: any) {
-        console.error(`[Galexis] Batch ${Math.floor(i / batchSize) + 1} failed:`, error.message);
+        logger.error(`[Galexis] Batch ${Math.floor(i / batchSize) + 1} failed:`, error.message);
         for (const p of batch) {
           allResults.push({
             pharmacode: p.pharmacode || '',
@@ -592,7 +593,7 @@ ${productLines}
       }
     }
 
-    console.log(`[Galexis] Batch lookup completed: ${foundCount}/${allResults.length} products found`);
+    logger.info(`[Galexis] Batch lookup completed: ${foundCount}/${allResults.length} products found`);
 
     return {
       results: allResults,

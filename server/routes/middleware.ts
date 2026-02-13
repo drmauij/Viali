@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { getUserUnitForHospital, canWrite, getActiveUnitIdFromRequest } from "../utils";
+import logger from "../logger";
 
 export interface AuthenticatedRequest extends Request {
   user: {
@@ -35,7 +36,7 @@ export async function requireHospitalAccess(
 
     next();
   } catch (error) {
-    console.error("Error checking hospital access:", error);
+    logger.error("Error checking hospital access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -65,7 +66,7 @@ export async function requireUnitAccess(
 
     next();
   } catch (error) {
-    console.error("Error checking unit access:", error);
+    logger.error("Error checking unit access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -93,7 +94,7 @@ export async function requireWritePermission(
 
     next();
   } catch (error) {
-    console.error("Error checking write permission:", error);
+    logger.error("Error checking write permission:", error);
     res.status(500).json({ message: "Failed to verify permissions" });
   }
 }
@@ -121,7 +122,7 @@ export async function requireAdminRole(
 
     next();
   } catch (error) {
-    console.error("Error checking admin role:", error);
+    logger.error("Error checking admin role:", error);
     res.status(500).json({ message: "Failed to verify permissions" });
   }
 }

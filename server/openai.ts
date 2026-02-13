@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { tryDecodeWithMultipleStrategies } from "./services/barcodeDecoder";
 import { getVisionAiClient, getVisionModel, VisionAiProvider } from "./services/visionAiFactory";
+import logger from "./logger";
 
 interface ExtractedItemData {
   name?: string;
@@ -31,7 +32,7 @@ export async function analyzeItemImage(base64Image: string, hospitalId?: string)
     try {
       decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
       if (decodedBarcode) {
-        console.log('[VisionAI] Barcode decoded successfully:', {
+        logger.info('[VisionAI] Barcode decoded successfully:', {
           gtin: decodedBarcode.gtin,
           lot: decodedBarcode.lotNumber,
           expiry: decodedBarcode.expiryDate,
@@ -39,7 +40,7 @@ export async function analyzeItemImage(base64Image: string, hospitalId?: string)
         });
       }
     } catch (barcodeError) {
-      console.log('[VisionAI] Barcode decoding failed, continuing with AI analysis');
+      logger.info('[VisionAI] Barcode decoding failed, continuing with AI analysis');
     }
 
     // Get the appropriate AI client based on hospital settings
@@ -47,7 +48,7 @@ export async function analyzeItemImage(base64Image: string, hospitalId?: string)
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
     const model = getVisionModel(provider);
-    console.log(`[VisionAI] Using ${provider} (${model}) for item analysis`);
+    logger.info(`[VisionAI] Using ${provider} (${model}) for item analysis`);
 
     const visionResponse = await openai.chat.completions.create({
       model,
@@ -211,7 +212,7 @@ Important:
       gs1DataMatrix: gs1DataMatrixContent,
     };
   } catch (error: any) {
-    console.error("Error analyzing image with OpenAI:", error);
+    logger.error("Error analyzing image with OpenAI:", error);
     throw new Error("Failed to analyze image: " + error.message);
   }
 }
@@ -233,7 +234,7 @@ export async function analyzeCodesImage(base64Image: string, hospitalId?: string
     try {
       decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
       if (decodedBarcode) {
-        console.log('[VisionAI] Barcode decoded successfully for codes extraction:', {
+        logger.info('[VisionAI] Barcode decoded successfully for codes extraction:', {
           gtin: decodedBarcode.gtin,
           lot: decodedBarcode.lotNumber,
           expiry: decodedBarcode.expiryDate,
@@ -241,7 +242,7 @@ export async function analyzeCodesImage(base64Image: string, hospitalId?: string
         });
       }
     } catch (barcodeError) {
-      console.log('[VisionAI] Barcode decoding failed, continuing with AI analysis for codes');
+      logger.info('[VisionAI] Barcode decoding failed, continuing with AI analysis for codes');
     }
 
     // Get the appropriate AI client based on hospital settings
@@ -249,7 +250,7 @@ export async function analyzeCodesImage(base64Image: string, hospitalId?: string
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
     const model = getVisionModel(provider);
-    console.log(`[VisionAI] Using ${provider} (${model}) for codes extraction`);
+    logger.info(`[VisionAI] Using ${provider} (${model}) for codes extraction`);
 
     const visionResponse = await openai.chat.completions.create({
       model,
@@ -323,7 +324,7 @@ Return ONLY valid JSON.`
       confidence: Math.max(0, Math.min(1, result.confidence || 0)),
     };
   } catch (error: any) {
-    console.error("Error analyzing codes image with OpenAI:", error);
+    logger.error("Error analyzing codes image with OpenAI:", error);
     throw new Error("Failed to analyze codes image: " + error.message);
   }
 }
@@ -351,7 +352,7 @@ export async function analyzeBulkItemImages(
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
     const model = getVisionModel(provider);
-    console.log(`[VisionAI] Using ${provider} (${model}) for bulk item analysis`);
+    logger.info(`[VisionAI] Using ${provider} (${model}) for bulk item analysis`);
 
     // Process images in small batches to stay within strict 30s deployment timeout
     // Each batch of 3 images takes ~12-20 seconds, safely completing under 30s
@@ -372,7 +373,7 @@ export async function analyzeBulkItemImages(
       const currentImage = Math.min(i + BATCH_SIZE, base64Images.length);
       const progressPercent = Math.round((currentImage / base64Images.length) * 100);
 
-      console.log(`[Bulk Import] Processing batch ${batchNumber} of ${totalBatches} (images ${i + 1}-${currentImage}/${base64Images.length})`);
+      logger.info(`[Bulk Import] Processing batch ${batchNumber} of ${totalBatches} (images ${i + 1}-${currentImage}/${base64Images.length})`);
 
       // Call progress callback if provided
       if (onProgress) {
@@ -434,7 +435,7 @@ Important instructions:
       for (const item of batchItems) {
         // Skip items without names or with invalid names
         if (!item.name || typeof item.name !== 'string' || !item.name.trim()) {
-          console.warn('[Bulk Import] Skipping item without valid name:', item);
+          logger.warn('[Bulk Import] Skipping item without valid name:', item);
           continue;
         }
         
@@ -445,15 +446,15 @@ Important instructions:
         if (!exists) {
           allItems.push(item);
         } else {
-          console.log(`[Bulk Import] Skipping duplicate item: ${item.name}`);
+          logger.info(`[Bulk Import] Skipping duplicate item: ${item.name}`);
         }
       }
     }
     
-    console.log(`[Bulk Import] Total extracted items: ${allItems.length}`);
+    logger.info(`[Bulk Import] Total extracted items: ${allItems.length}`);
     return allItems;
   } catch (error: any) {
-    console.error("Error analyzing bulk images with OpenAI:", error);
+    logger.error("Error analyzing bulk images with OpenAI:", error);
     throw new Error("Failed to analyze images: " + error.message);
   }
 }

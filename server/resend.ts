@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import logger from "./logger";
 
 // Get Resend client - reads from environment variables
 function getResendClient() {
@@ -28,7 +29,7 @@ export async function sendWelcomeEmail(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending from:', fromEmail, 'to:', toEmail);
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -59,13 +60,13 @@ export async function sendWelcomeEmail(
     });
 
     if (error) {
-      console.error('Failed to send welcome email:', error);
+      logger.error('Failed to send welcome email:', error);
       return { success: false, error };
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    logger.error('Error sending welcome email:', error);
     return { success: false, error };
   }
 }
@@ -124,13 +125,13 @@ export async function sendPasswordResetEmail(
     });
 
     if (error) {
-      console.error('Failed to send password reset email:', error);
+      logger.error('Failed to send password reset email:', error);
       return { success: false, error };
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    logger.error('Error sending password reset email:', error);
     return { success: false, error };
   }
 }
@@ -144,7 +145,7 @@ export async function sendHospitalAddedNotification(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending hospital added notification from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending hospital added notification from:', fromEmail, 'to:', toEmail);
 
     const html = `
       <!DOCTYPE html>
@@ -199,13 +200,13 @@ export async function sendHospitalAddedNotification(
     });
 
     if (error) {
-      console.error('Failed to send hospital added notification:', error);
+      logger.error('Failed to send hospital added notification:', error);
       return { success: false, error };
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending hospital added notification:', error);
+    logger.error('Error sending hospital added notification:', error);
     return { success: false, error };
   }
 }
@@ -272,13 +273,13 @@ export async function sendBulkImportCompleteEmail(
     });
 
     if (error) {
-      console.error('Failed to send bulk import email:', error);
+      logger.error('Failed to send bulk import email:', error);
       return { success: false, error };
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending bulk import email:', error);
+    logger.error('Error sending bulk import email:', error);
     return { success: false, error };
   }
 }
@@ -296,7 +297,7 @@ export async function sendExternalSurgeryRequestNotification(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending external surgery request notification from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending external surgery request notification from:', fromEmail, 'to:', toEmail);
 
     const isGerman = language === 'de';
 
@@ -358,14 +359,14 @@ export async function sendExternalSurgeryRequestNotification(
     });
 
     if (error) {
-      console.error('Failed to send external surgery request notification:', error);
+      logger.error('Failed to send external surgery request notification:', error);
       return { success: false, error };
     }
 
-    console.log(`[Email] Successfully sent external surgery request notification to ${toEmail}`);
+    logger.info(`[Email] Successfully sent external surgery request notification to ${toEmail}`);
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending external surgery request notification:', error);
+    logger.error('Error sending external surgery request notification:', error);
     return { success: false, error };
   }
 }
@@ -389,7 +390,7 @@ export async function sendStockAlertEmail(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending stock alert from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending stock alert from:', fromEmail, 'to:', toEmail);
 
     const isGerman = language === 'de';
     
@@ -524,14 +525,14 @@ export async function sendStockAlertEmail(
     });
 
     if (error) {
-      console.error('Failed to send stock alert email:', error);
+      logger.error('Failed to send stock alert email:', error);
       return { success: false, error };
     }
 
-    console.log(`[Email] Successfully sent stock alert to ${toEmail}`);
+    logger.info(`[Email] Successfully sent stock alert to ${toEmail}`);
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending stock alert email:', error);
+    logger.error('Error sending stock alert email:', error);
     return { success: false, error };
   }
 }
@@ -544,7 +545,7 @@ export async function sendSignedContractEmail(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending signed contract from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending signed contract from:', fromEmail, 'to:', toEmail);
 
     const subject = `Ihr unterschriebener Vertrag - ${clinicName}`;
 
@@ -603,14 +604,14 @@ export async function sendSignedContractEmail(
     });
 
     if (error) {
-      console.error('Failed to send signed contract email:', error);
+      logger.error('Failed to send signed contract email:', error);
       return { success: false, error };
     }
 
-    console.log(`[Email] Successfully sent signed contract to ${toEmail}`);
+    logger.info(`[Email] Successfully sent signed contract to ${toEmail}`);
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending signed contract email:', error);
+    logger.error('Error sending signed contract email:', error);
     return { success: false, error };
   }
 }
@@ -626,7 +627,7 @@ export async function sendInvoiceEmail(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending invoice from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending invoice from:', fromEmail, 'to:', toEmail);
 
     const isGerman = language === 'de';
     const subject = isGerman 
@@ -691,13 +692,13 @@ export async function sendInvoiceEmail(
     });
 
     if (error) {
-      console.error('Failed to send invoice email:', error);
+      logger.error('Failed to send invoice email:', error);
       return { success: false, error };
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending invoice email:', error);
+    logger.error('Error sending invoice email:', error);
     return { success: false, error };
   }
 }
@@ -712,7 +713,7 @@ export async function sendSurgerySummaryEmail(
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    console.log('[Email] Sending surgery summary from:', fromEmail, 'to:', toEmail);
+    logger.info('[Email] Sending surgery summary from:', fromEmail, 'to:', toEmail);
 
     const isGerman = language === 'de';
 
@@ -777,14 +778,14 @@ export async function sendSurgerySummaryEmail(
     });
 
     if (error) {
-      console.error('Failed to send surgery summary email:', error);
+      logger.error('Failed to send surgery summary email:', error);
       return { success: false, error };
     }
 
-    console.log(`[Email] Successfully sent surgery summary to ${toEmail}`);
+    logger.info(`[Email] Successfully sent surgery summary to ${toEmail}`);
     return { success: true, data };
   } catch (error) {
-    console.error('Error sending surgery summary email:', error);
+    logger.error('Error sending surgery summary email:', error);
     return { success: false, error };
   }
 }

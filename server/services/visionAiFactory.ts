@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { db } from "../db";
 import { hospitals } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import logger from "../logger";
 
 export type VisionAiProvider = "openai" | "pixtral";
 
@@ -23,7 +24,7 @@ export async function getVisionAiClient(hospitalId: string): Promise<VisionAiCli
   if (provider === "pixtral") {
     const apiKey = process.env.MISTRAL_API_KEY;
     if (!apiKey) {
-      console.warn("[VisionAI] MISTRAL_API_KEY not set, falling back to OpenAI");
+      logger.warn("[VisionAI] MISTRAL_API_KEY not set, falling back to OpenAI");
       return {
         provider: "openai",
         client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),

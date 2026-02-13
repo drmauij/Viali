@@ -13,6 +13,7 @@ import {
 } from "../utils";
 import { eq, and, sql } from "drizzle-orm";
 import crypto from "crypto";
+import logger from "../logger";
 
 const router = Router();
 
@@ -53,11 +54,11 @@ function decryptNote(text: string): string {
       decrypted += decipher.final("utf8");
       return decrypted;
     } catch (error) {
-      console.error("Failed to decrypt note with GCM - authentication failed or data corrupted:", error);
+      logger.error("Failed to decrypt note with GCM - authentication failed or data corrupted:", error);
       throw new Error("Failed to decrypt note: authentication verification failed");
     }
   } else if (parts.length === 2) {
-    console.warn("Note uses old CBC encryption - will be upgraded to GCM on next update");
+    logger.warn("Note uses old CBC encryption - will be upgraded to GCM on next update");
     return decryptPatientData(text);
   } else {
     throw new Error("Invalid encrypted note format");
@@ -132,7 +133,7 @@ router.get('/api/notes/:hospitalId', isAuthenticated, async (req: any, res) => {
           content: decryptNote(note.content)
         };
       } catch (error) {
-        console.error(`Failed to decrypt note ${note.id}:`, error);
+        logger.error(`Failed to decrypt note ${note.id}:`, error);
         return {
           ...note,
           content: "[Error: Unable to decrypt note - data may be corrupted]"
@@ -142,7 +143,7 @@ router.get('/api/notes/:hospitalId', isAuthenticated, async (req: any, res) => {
 
     res.json(decryptedNotes);
   } catch (error) {
-    console.error("Error fetching notes:", error);
+    logger.error("Error fetching notes:", error);
     res.status(500).json({ message: "Failed to fetch notes" });
   }
 });
@@ -172,7 +173,7 @@ router.post('/api/notes', isAuthenticated, requireWriteAccess, async (req: any, 
     };
     res.status(201).json(decryptedNote);
   } catch (error) {
-    console.error("Error creating note:", error);
+    logger.error("Error creating note:", error);
     res.status(500).json({ message: "Failed to create note" });
   }
 });
@@ -224,7 +225,7 @@ router.patch('/api/notes/:noteId', isAuthenticated, requireWriteAccess, async (r
     };
     res.json(decryptedNote);
   } catch (error) {
-    console.error("Error updating note:", error);
+    logger.error("Error updating note:", error);
     res.status(500).json({ message: "Failed to update note" });
   }
 });
@@ -261,7 +262,7 @@ router.delete('/api/notes/:noteId', isAuthenticated, requireWriteAccess, async (
     await db.delete(notes).where(eq(notes.id, noteId));
     res.json({ message: "Note deleted successfully" });
   } catch (error) {
-    console.error("Error deleting note:", error);
+    logger.error("Error deleting note:", error);
     res.status(500).json({ message: "Failed to delete note" });
   }
 });
@@ -273,7 +274,7 @@ router.get('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any,
     const todos = await storage.getPersonalTodos(userId, hospitalId);
     res.json(todos);
   } catch (error) {
-    console.error("Error fetching todos:", error);
+    logger.error("Error fetching todos:", error);
     res.status(500).json({ message: "Failed to fetch todos" });
   }
 });
@@ -293,7 +294,7 @@ router.post('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any
     const todo = await storage.createPersonalTodo(parsed.data);
     res.status(201).json(todo);
   } catch (error) {
-    console.error("Error creating todo:", error);
+    logger.error("Error creating todo:", error);
     res.status(500).json({ message: "Failed to create todo" });
   }
 });
@@ -317,7 +318,7 @@ router.patch('/api/todos/:todoId', isAuthenticated, async (req: any, res) => {
     const updated = await storage.updatePersonalTodo(todoId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating todo:", error);
+    logger.error("Error updating todo:", error);
     res.status(500).json({ message: "Failed to update todo" });
   }
 });
@@ -336,7 +337,7 @@ router.delete('/api/todos/:todoId', isAuthenticated, async (req: any, res) => {
     await storage.deletePersonalTodo(todoId);
     res.json({ message: "Todo deleted successfully" });
   } catch (error) {
-    console.error("Error deleting todo:", error);
+    logger.error("Error deleting todo:", error);
     res.status(500).json({ message: "Failed to delete todo" });
   }
 });
@@ -358,7 +359,7 @@ router.post('/api/hospitals/:hospitalId/todos/reorder', isAuthenticated, async (
     await storage.reorderPersonalTodos(todoIds, status);
     res.json({ message: "Todos reordered successfully" });
   } catch (error) {
-    console.error("Error reordering todos:", error);
+    logger.error("Error reordering todos:", error);
     res.status(500).json({ message: "Failed to reorder todos" });
   }
 });

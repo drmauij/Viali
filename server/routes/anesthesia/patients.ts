@@ -5,6 +5,7 @@ import { insertPatientSchema } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
+import logger from "../../logger";
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.get('/api/patients', isAuthenticated, async (req: any, res) => {
     
     res.json(patients);
   } catch (error) {
-    console.error("Error fetching patients:", error);
+    logger.error("Error fetching patients:", error);
     res.status(500).json({ message: "Failed to fetch patients" });
   }
 });
@@ -53,7 +54,7 @@ router.get('/api/patients/:id', isAuthenticated, async (req: any, res) => {
 
     res.json(patient);
   } catch (error) {
-    console.error("Error fetching patient:", error);
+    logger.error("Error fetching patient:", error);
     res.status(500).json({ message: "Failed to fetch patient" });
   }
 });
@@ -87,7 +88,7 @@ router.post('/api/patients', isAuthenticated, requireWriteAccess, async (req: an
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating patient:", error);
+    logger.error("Error creating patient:", error);
     res.status(500).json({ message: "Failed to create patient" });
   }
 });
@@ -114,7 +115,7 @@ router.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (re
     
     res.json(patient);
   } catch (error) {
-    console.error("Error updating patient:", error);
+    logger.error("Error updating patient:", error);
     res.status(500).json({ message: "Failed to update patient" });
   }
 });
@@ -141,7 +142,7 @@ router.post('/api/patients/:id/archive', isAuthenticated, requireWriteAccess, as
     
     res.json({ message: "Patient archived successfully", patient });
   } catch (error) {
-    console.error("Error archiving patient:", error);
+    logger.error("Error archiving patient:", error);
     res.status(500).json({ message: "Failed to archive patient" });
   }
 });
@@ -168,7 +169,7 @@ router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, 
     
     res.json({ message: "Patient restored successfully", patient });
   } catch (error) {
-    console.error("Error restoring patient:", error);
+    logger.error("Error restoring patient:", error);
     res.status(500).json({ message: "Failed to restore patient" });
   }
 });
@@ -241,7 +242,7 @@ router.post('/api/patients/:id/card-image/upload-url', isAuthenticated, requireW
       key,
     });
   } catch (error) {
-    console.error("Error generating card image upload URL:", error);
+    logger.error("Error generating card image upload URL:", error);
     res.status(500).json({ message: "Failed to generate upload URL" });
   }
 });
@@ -284,7 +285,7 @@ router.patch('/api/patients/:id/card-image', isAuthenticated, requireWriteAccess
     const updatedPatient = await storage.updatePatient(id, { [fieldName]: imageUrl });
     res.json(updatedPatient);
   } catch (error) {
-    console.error("Error updating patient card image:", error);
+    logger.error("Error updating patient card image:", error);
     res.status(500).json({ message: "Failed to update card image" });
   }
 });
@@ -334,7 +335,7 @@ router.delete('/api/patients/:id/card-image', isAuthenticated, requireWriteAcces
           await objectStorageService.deleteObject(currentUrl);
         }
       } catch (deleteError) {
-        console.error("Error deleting card image from storage:", deleteError);
+        logger.error("Error deleting card image from storage:", deleteError);
         // Continue anyway - clear the reference
       }
     }
@@ -342,7 +343,7 @@ router.delete('/api/patients/:id/card-image', isAuthenticated, requireWriteAcces
     const updatedPatient = await storage.updatePatient(id, { [fieldName]: null });
     res.json(updatedPatient);
   } catch (error) {
-    console.error("Error deleting patient card image:", error);
+    logger.error("Error deleting patient card image:", error);
     res.status(500).json({ message: "Failed to delete card image" });
   }
 });
@@ -397,7 +398,7 @@ router.get('/api/patients/:id/card-image/:cardType/:side', isAuthenticated, asyn
     const downloadUrl = await objectStorageService.getObjectDownloadURL(storageUrl, 3600);
     res.json({ downloadUrl, storageUrl });
   } catch (error) {
-    console.error("Error getting card image download URL:", error);
+    logger.error("Error getting card image download URL:", error);
     res.status(500).json({ message: "Failed to get download URL" });
   }
 });
@@ -409,18 +410,18 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
   const { id } = req.params;
   const userId = req.user?.id;
   
-  console.log(`[Documents] Starting fetch for patient ${id}, user ${userId}`);
+  logger.info(`[Documents] Starting fetch for patient ${id}, user ${userId}`);
   
   try {
     const patient = await storage.getPatient(id);
-    console.log(`[Documents] getPatient took ${Date.now() - startTime}ms`);
+    logger.info(`[Documents] getPatient took ${Date.now() - startTime}ms`);
     
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    console.log(`[Documents] getUserHospitals took ${Date.now() - startTime}ms total`);
+    logger.info(`[Documents] getUserHospitals took ${Date.now() - startTime}ms total`);
     
     const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
     
@@ -429,10 +430,10 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
     }
 
     const staffDocuments = await storage.getPatientDocuments(id);
-    console.log(`[Documents] getPatientDocuments returned ${staffDocuments.length} docs, took ${Date.now() - startTime}ms total`);
+    logger.info(`[Documents] getPatientDocuments returned ${staffDocuments.length} docs, took ${Date.now() - startTime}ms total`);
 
     const questionnaireLinks = await storage.getQuestionnaireLinksForPatient(id);
-    console.log(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
+    logger.info(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
     
     const questionnaireDocuments: any[] = [];
     
@@ -463,11 +464,11 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
           }
         }
       } catch (linkError) {
-        console.error(`[Documents] Error processing questionnaire link ${link.id}:`, linkError);
+        logger.error(`[Documents] Error processing questionnaire link ${link.id}:`, linkError);
       }
     }
     
-    console.log(`[Documents] Processed ${submittedLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
+    logger.info(`[Documents] Processed ${submittedLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
 
     const allDocuments = [...staffDocuments, ...questionnaireDocuments].sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();
@@ -475,11 +476,11 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
       return dateB - dateA;
     });
 
-    console.log(`[Documents] Returning ${allDocuments.length} total documents, took ${Date.now() - startTime}ms total`);
+    logger.info(`[Documents] Returning ${allDocuments.length} total documents, took ${Date.now() - startTime}ms total`);
     res.json(allDocuments);
   } catch (error: any) {
-    console.error(`[Documents] Error after ${Date.now() - startTime}ms:`, error);
-    console.error("[Documents] Patient ID:", id, "User ID:", userId);
+    logger.error(`[Documents] Error after ${Date.now() - startTime}ms:`, error);
+    logger.error("[Documents] Patient ID:", id, "User ID:", userId);
     res.status(500).json({ 
       message: "Failed to fetch patient documents",
       error: error?.message || String(error)
@@ -546,7 +547,7 @@ router.post('/api/patients/:id/documents/upload-url', isAuthenticated, requireWr
       key,
     });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error("Error generating upload URL:", error);
     res.status(500).json({ message: "Failed to generate upload URL" });
   }
 });
@@ -584,8 +585,8 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
 
     res.status(201).json(document);
   } catch (error: any) {
-    console.error("Error creating patient document:", error);
-    console.error("Document data:", { category, fileName, fileUrl, mimeType, fileSize, description });
+    logger.error("Error creating patient document:", error);
+    logger.error("Document data:", { category, fileName, fileUrl, mimeType, fileSize, description });
     res.status(500).json({ 
       message: "Failed to create patient document",
       error: error?.message || String(error)
@@ -662,7 +663,7 @@ router.patch('/api/patients/:id/documents/:docId', isAuthenticated, requireWrite
     const updated = await storage.updatePatientDocument(docId, updateData);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating patient document:", error);
+    logger.error("Error updating patient document:", error);
     res.status(500).json({ message: "Failed to update patient document" });
   }
 });
@@ -719,14 +720,14 @@ router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWrit
         }));
       }
     } catch (s3Error) {
-      console.error("Error deleting file from S3:", s3Error);
+      logger.error("Error deleting file from S3:", s3Error);
     }
 
     await storage.deletePatientDocument(docId);
 
     res.json({ message: "Document deleted successfully" });
   } catch (error) {
-    console.error("Error deleting patient document:", error);
+    logger.error("Error deleting patient document:", error);
     res.status(500).json({ message: "Failed to delete patient document" });
   }
 });
@@ -835,7 +836,7 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
       res.status(500).json({ message: "Error streaming file" });
     }
   } catch (error: any) {
-    console.error("Error streaming patient document:", error);
+    logger.error("Error streaming patient document:", error);
     if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
       res.status(404).json({ message: "File not found in storage" });
     } else if (!res.headersSent) {
@@ -905,7 +906,7 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
           }
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         } catch (error) {
-          console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+          logger.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
           return { ...flyer, downloadUrl: flyer.flyerUrl };
         }
       })
@@ -913,7 +914,7 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
 
     res.json({ flyers: flyersWithUrls });
   } catch (error) {
-    console.error("Error fetching patient info flyers:", error);
+    logger.error("Error fetching patient info flyers:", error);
     res.status(500).json({ message: "Failed to fetch info flyers" });
   }
 });
@@ -938,7 +939,7 @@ router.get('/api/patients/:id/messages', isAuthenticated, async (req: any, res) 
     const messages = await storage.getPatientMessages(patientId, patient.hospitalId);
     res.json(messages);
   } catch (error) {
-    console.error("Error fetching patient messages:", error);
+    logger.error("Error fetching patient messages:", error);
     res.status(500).json({ message: "Failed to fetch messages" });
   }
 });
@@ -980,16 +981,16 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
       if (!(await isSmsConfiguredForHospital(hospitalId))) {
         return res.status(503).json({ message: "SMS service is not configured" });
       }
-      console.log(`[Patient Messages] Sending SMS to ${recipient} for patient ${patientId}`);
+      logger.info(`[Patient Messages] Sending SMS to ${recipient} for patient ${patientId}`);
       sendResult = await sendSms(recipient, message, hospitalId);
       if (!sendResult.success) {
-        console.error(`[Patient Messages] SMS failed: ${sendResult.error}`);
+        logger.error(`[Patient Messages] SMS failed: ${sendResult.error}`);
         return res.status(500).json({ message: `Failed to send SMS: ${sendResult.error}` });
       }
-      console.log(`[Patient Messages] SMS sent successfully`);
+      logger.info(`[Patient Messages] SMS sent successfully`);
     } else if (channel === 'email') {
       const hospital = await storage.getHospital(hospitalId);
-      console.log(`[Patient Messages] Sending email to ${recipient} for patient ${patientId}`);
+      logger.info(`[Patient Messages] Sending email to ${recipient} for patient ${patientId}`);
       try {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -1009,9 +1010,9 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
           `,
         });
         sendResult = { success: true };
-        console.log(`[Patient Messages] Email sent successfully`);
+        logger.info(`[Patient Messages] Email sent successfully`);
       } catch (emailError) {
-        console.error(`[Patient Messages] Email failed:`, emailError);
+        logger.error(`[Patient Messages] Email failed:`, emailError);
         return res.status(500).json({ message: `Failed to send email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}` });
       }
     }
@@ -1029,7 +1030,7 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
 
     res.json(savedMessage);
   } catch (error) {
-    console.error("Error sending patient message:", error);
+    logger.error("Error sending patient message:", error);
     res.status(500).json({ message: "Failed to send message" });
   }
 });

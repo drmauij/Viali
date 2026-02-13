@@ -1,6 +1,7 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { Server as HTTPServer } from "http";
 import type { SessionData } from "express-session";
+import logger from "./logger";
 
 declare module "socket.io" {
   interface Socket {
@@ -58,7 +59,7 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
   io.use((socket, next) => {
     sessionMiddleware(socket.request, {} as any, (err: any) => {
       if (err) {
-        console.error('[Socket.IO] Session middleware error:', err);
+        logger.error('[Socket.IO] Session middleware error:', err);
         return next(new Error('Session error'));
       }
       
@@ -74,11 +75,11 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
   });
 
   io.on('connection', (socket: Socket) => {
-    console.log(`[Socket.IO] Client connected: ${socket.id} (User: ${socket.userId})`);
+    logger.info(`[Socket.IO] Client connected: ${socket.id} (User: ${socket.userId})`);
     
     if (socket.userId) {
       socket.join(`user:${socket.userId}`);
-      console.log(`[Socket.IO] ${socket.id} joined user room user:${socket.userId}`);
+      logger.info(`[Socket.IO] ${socket.id} joined user room user:${socket.userId}`);
     }
 
     socket.on('join-surgery', (recordId: string) => {
@@ -86,7 +87,7 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       
       const room = `surgery:${recordId}`;
       socket.join(room);
-      console.log(`[Socket.IO] ${socket.id} joined room ${room}`);
+      logger.info(`[Socket.IO] ${socket.id} joined room ${room}`);
       
       const roomSize = io?.sockets.adapter.rooms.get(room)?.size || 0;
       socket.emit('room-joined', { recordId, viewers: roomSize });
@@ -102,7 +103,7 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       
       const room = `surgery:${recordId}`;
       socket.leave(room);
-      console.log(`[Socket.IO] ${socket.id} left room ${room}`);
+      logger.info(`[Socket.IO] ${socket.id} left room ${room}`);
       
       const roomSize = io?.sockets.adapter.rooms.get(room)?.size || 0;
       socket.to(room).emit('viewer-left', { 
@@ -120,7 +121,7 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       
       const room = `chat:${conversationId}`;
       socket.join(room);
-      console.log(`[Socket.IO] ${socket.id} joined chat room ${room}`);
+      logger.info(`[Socket.IO] ${socket.id} joined chat room ${room}`);
       
       socket.to(room).emit('chat:user-joined', {
         conversationId,
@@ -134,7 +135,7 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       
       const room = `chat:${conversationId}`;
       socket.leave(room);
-      console.log(`[Socket.IO] ${socket.id} left chat room ${room}`);
+      logger.info(`[Socket.IO] ${socket.id} left chat room ${room}`);
       
       socket.to(room).emit('chat:user-left', {
         conversationId,
@@ -167,28 +168,28 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
     });
 
     socket.on('disconnect', (reason) => {
-      console.log(`[Socket.IO] Client disconnected: ${socket.id} (${reason})`);
+      logger.info(`[Socket.IO] Client disconnected: ${socket.id} (${reason})`);
     });
 
     socket.on('error', (error) => {
-      console.error(`[Socket.IO] Socket error for ${socket.id}:`, error);
+      logger.error(`[Socket.IO] Socket error for ${socket.id}:`, error);
     });
   });
 
-  console.log('[Socket.IO] Server initialized');
+  logger.info('[Socket.IO] Server initialized');
   return io;
 }
 
 export function broadcastAnesthesiaUpdate(payload: AnesthesiaUpdatePayload): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot broadcast');
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast');
     return;
   }
   
   const room = `surgery:${payload.recordId}`;
   io.to(room).emit('anesthesia-update', payload);
   
-  console.log(`[Socket.IO] Broadcast to ${room}: ${payload.section}`);
+  logger.info(`[Socket.IO] Broadcast to ${room}: ${payload.section}`);
 }
 
 export interface HospitalChecklistUpdatePayload {
@@ -233,14 +234,14 @@ export interface ChatReadReceiptPayload {
 
 export function broadcastChecklistUpdate(payload: HospitalChecklistUpdatePayload): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot broadcast checklist update');
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast checklist update');
     return;
   }
   
   // Broadcast to all connected clients - they will filter by hospitalId on the frontend
   io.emit('checklist-update', payload);
   
-  console.log(`[Socket.IO] Broadcast checklist update for hospital: ${payload.hospitalId}`);
+  logger.info(`[Socket.IO] Broadcast checklist update for hospital: ${payload.hospitalId}`);
 }
 
 export function getSocketIO(): SocketIOServer | null {
@@ -255,19 +256,19 @@ export function getRoomViewerCount(recordId: string): number {
 
 export function broadcastChatMessage(payload: ChatMessagePayload): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot broadcast chat message');
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast chat message');
     return;
   }
   
   const room = `chat:${payload.conversationId}`;
   io.to(room).emit('chat:new-message', payload);
   
-  console.log(`[Socket.IO] Broadcast chat message to ${room}`);
+  logger.info(`[Socket.IO] Broadcast chat message to ${room}`);
 }
 
 export function broadcastChatMessageDeleted(conversationId: string, messageId: string): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot broadcast message deletion');
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast message deletion');
     return;
   }
   
@@ -278,12 +279,12 @@ export function broadcastChatMessageDeleted(conversationId: string, messageId: s
     timestamp: Date.now()
   });
   
-  console.log(`[Socket.IO] Broadcast message deletion to ${room}`);
+  logger.info(`[Socket.IO] Broadcast message deletion to ${room}`);
 }
 
 export function broadcastChatMessageEdited(conversationId: string, message: any): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot broadcast message edit');
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast message edit');
     return;
   }
   
@@ -294,12 +295,12 @@ export function broadcastChatMessageEdited(conversationId: string, message: any)
     timestamp: Date.now()
   });
   
-  console.log(`[Socket.IO] Broadcast message edit to ${room}`);
+  logger.info(`[Socket.IO] Broadcast message edit to ${room}`);
 }
 
 export function notifyUserOfNewMessage(userId: string, notification: any): void {
   if (!io) {
-    console.warn('[Socket.IO] Server not initialized, cannot notify user');
+    logger.warn('[Socket.IO] Server not initialized, cannot notify user');
     return;
   }
   
@@ -308,5 +309,5 @@ export function notifyUserOfNewMessage(userId: string, notification: any): void 
     timestamp: Date.now()
   });
   
-  console.log(`[Socket.IO] Sent notification to user room user:${userId}`);
+  logger.info(`[Socket.IO] Sent notification to user room user:${userId}`);
 }

@@ -18,6 +18,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
+import logger from "../../logger";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -67,7 +68,7 @@ router.post('/api/anesthesia/ventilation-modes', isAuthenticated, requireWriteAc
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding ventilation mode point:", error);
+    logger.error("Error adding ventilation mode point:", error);
     res.status(500).json({ message: "Failed to add ventilation mode point" });
   }
 });
@@ -127,7 +128,7 @@ router.patch('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, requ
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating ventilation mode point:", error);
+    logger.error("Error updating ventilation mode point:", error);
     res.status(500).json({ message: "Failed to update ventilation mode point" });
   }
 });
@@ -176,7 +177,7 @@ router.delete('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, req
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting ventilation mode point:", error);
+    logger.error("Error deleting ventilation mode point:", error);
     res.status(500).json({ message: "Failed to delete ventilation mode point" });
   }
 });
@@ -222,11 +223,11 @@ router.post('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcc
     res.status(201).json(updatedSnapshot);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error("[VENTILATION-BULK] Zod validation error:", JSON.stringify(error.errors, null, 2));
-      console.error("[VENTILATION-BULK] Request body was:", JSON.stringify(req.body, null, 2));
+      logger.error("[VENTILATION-BULK] Zod validation error:", JSON.stringify(error.errors, null, 2));
+      logger.error("[VENTILATION-BULK] Request body was:", JSON.stringify(req.body, null, 2));
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding bulk ventilation parameters:", error);
+    logger.error("Error adding bulk ventilation parameters:", error);
     res.status(500).json({ message: "Failed to add bulk ventilation parameters" });
   }
 });
@@ -275,7 +276,7 @@ router.put('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcce
     
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error updating bulk ventilation parameters:", error);
+    logger.error("Error updating bulk ventilation parameters:", error);
     res.status(500).json({ message: "Failed to update bulk ventilation parameters" });
   }
 });
@@ -322,7 +323,7 @@ router.delete('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteA
     
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting bulk ventilation parameters:", error);
+    logger.error("Error deleting bulk ventilation parameters:", error);
     res.status(500).json({ message: "Failed to delete bulk ventilation parameters" });
   }
 });
@@ -370,7 +371,7 @@ router.post('/api/anesthesia/output', isAuthenticated, requireWriteAccess, async
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding output point:", error);
+    logger.error("Error adding output point:", error);
     res.status(500).json({ message: "Failed to add output point" });
   }
 });
@@ -431,7 +432,7 @@ router.patch('/api/anesthesia/output/:pointId', isAuthenticated, requireWriteAcc
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating output point:", error);
+    logger.error("Error updating output point:", error);
     res.status(500).json({ message: "Failed to update output point" });
   }
 });
@@ -482,7 +483,7 @@ router.delete('/api/anesthesia/output/:pointId', isAuthenticated, requireWriteAc
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting output point:", error);
+    logger.error("Error deleting output point:", error);
     res.status(500).json({ message: "Failed to delete output point" });
   }
 });
@@ -514,7 +515,7 @@ router.get('/api/anesthesia/events/:recordId', isAuthenticated, async (req: any,
     
     res.json(events);
   } catch (error) {
-    console.error("Error fetching events:", error);
+    logger.error("Error fetching events:", error);
     res.status(500).json({ message: "Failed to fetch events" });
   }
 });
@@ -559,7 +560,7 @@ router.post('/api/anesthesia/events', isAuthenticated, requireWriteAccess, async
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating event:", error);
+    logger.error("Error creating event:", error);
     res.status(500).json({ message: "Failed to create event" });
   }
 });
@@ -612,7 +613,7 @@ router.patch('/api/anesthesia/events/:id', isAuthenticated, requireWriteAccess, 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating event:", error);
+    logger.error("Error updating event:", error);
     res.status(500).json({ message: "Failed to update event" });
   }
 });
@@ -657,7 +658,7 @@ router.delete('/api/anesthesia/events/:id', isAuthenticated, requireWriteAccess,
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting event:", error);
+    logger.error("Error deleting event:", error);
     res.status(500).json({ message: "Failed to delete event" });
   }
 });
@@ -689,7 +690,7 @@ router.get('/api/anesthesia/positions/:recordId', isAuthenticated, async (req: a
     
     res.json(positions);
   } catch (error) {
-    console.error("Error fetching positions:", error);
+    logger.error("Error fetching positions:", error);
     res.status(500).json({ message: "Failed to fetch positions" });
   }
 });
@@ -736,7 +737,7 @@ router.post('/api/anesthesia/positions', isAuthenticated, requireWriteAccess, as
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating position:", error);
+    logger.error("Error creating position:", error);
     res.status(500).json({ message: "Failed to create position" });
   }
 });
@@ -795,7 +796,7 @@ router.patch('/api/anesthesia/positions/:id', isAuthenticated, requireWriteAcces
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating position:", error);
+    logger.error("Error updating position:", error);
     res.status(500).json({ message: "Failed to update position" });
   }
 });
@@ -840,7 +841,7 @@ router.delete('/api/anesthesia/positions/:id', isAuthenticated, requireWriteAcce
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting position:", error);
+    logger.error("Error deleting position:", error);
     res.status(500).json({ message: "Failed to delete position" });
   }
 });

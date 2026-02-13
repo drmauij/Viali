@@ -1,5 +1,6 @@
 import { chromium, Browser, BrowserContext, Page, Cookie } from 'playwright';
 import { encryptCredential, decryptCredential } from '../utils/encryption';
+import logger from "../logger";
 
 export interface PolymedCredentials {
   username: string;
@@ -78,7 +79,7 @@ export class PolymedBrowserClient {
   async initialize(): Promise<void> {
     if (this.browser) return;
 
-    console.log('[Polymed] Initializing browser...');
+    logger.info('[Polymed] Initializing browser...');
     
     this.browser = await chromium.launch({
       headless: true,
@@ -97,14 +98,14 @@ export class PolymedBrowserClient {
     });
 
     this.page = await this.context.newPage();
-    console.log('[Polymed] Browser initialized');
+    logger.info('[Polymed] Browser initialized');
   }
 
   async restoreSession(encryptedSession: string): Promise<boolean> {
     try {
       const sessionJson = decryptCredential(encryptedSession);
       if (!sessionJson) {
-        console.log('[Polymed] Could not decrypt session');
+        logger.info('[Polymed] Could not decrypt session');
         return false;
       }
       const session: PolymedSession = JSON.parse(sessionJson);
@@ -113,7 +114,7 @@ export class PolymedBrowserClient {
       const maxSessionAge = 24 * 60 * 60 * 1000;
       
       if (sessionAge > maxSessionAge) {
-        console.log('[Polymed] Session expired, need to re-login');
+        logger.info('[Polymed] Session expired, need to re-login');
         return false;
       }
 
@@ -130,15 +131,15 @@ export class PolymedBrowserClient {
       const isStillLoggedIn = await this.checkLoginStatus();
       
       if (isStillLoggedIn) {
-        console.log('[Polymed] Session restored successfully');
+        logger.info('[Polymed] Session restored successfully');
         this.isLoggedIn = true;
         return true;
       }
       
-      console.log('[Polymed] Session invalid, need to re-login');
+      logger.info('[Polymed] Session invalid, need to re-login');
       return false;
     } catch (error) {
-      console.error('[Polymed] Error restoring session:', error);
+      logger.error('[Polymed] Error restoring session:', error);
       return false;
     }
   }
@@ -160,14 +161,14 @@ export class PolymedBrowserClient {
         await this.initialize();
       }
 
-      console.log('[Polymed] Navigating to login page...');
+      logger.info('[Polymed] Navigating to login page...');
       await this.page!.goto(this.loginUrl, { waitUntil: 'networkidle' });
       await this.delay(1000);
 
       // Polymed has login form that may be collapsed - look for reveal button
       const loginRevealButton = await this.page!.$('button:has-text("Hier gehts zum Login"), button:has-text("Login"), [class*="login"] button');
       if (loginRevealButton) {
-        console.log('[Polymed] Clicking to reveal login form...');
+        logger.info('[Polymed] Clicking to reveal login form...');
         await loginRevealButton.click();
         await this.delay(500);
       }
@@ -184,7 +185,7 @@ export class PolymedBrowserClient {
         };
       }
 
-      console.log('[Polymed] Filling login form...');
+      logger.info('[Polymed] Filling login form...');
       await usernameInput.fill(this.username);
       await this.delay(200);
       await passwordInput.fill(this.password);
@@ -214,7 +215,7 @@ export class PolymedBrowserClient {
         
         const encryptedSession = encryptCredential(JSON.stringify(session));
         
-        console.log('[Polymed] Login successful');
+        logger.info('[Polymed] Login successful');
         return {
           success: true,
           message: 'Login successful',
@@ -229,14 +230,14 @@ export class PolymedBrowserClient {
         errorMessage = await errorElement.textContent() || errorMessage;
       }
 
-      console.log('[Polymed] Login failed:', errorMessage);
+      logger.info('[Polymed] Login failed:', errorMessage);
       return {
         success: false,
         message: errorMessage,
       };
 
     } catch (error: any) {
-      console.error('[Polymed] Login error:', error);
+      logger.error('[Polymed] Login error:', error);
       return {
         success: false,
         message: error.message || 'Login failed due to an error',
@@ -256,7 +257,7 @@ export class PolymedBrowserClient {
         };
       }
 
-      console.log(`[Polymed] Searching for code: ${code}`);
+      logger.info(`[Polymed] Searching for code: ${code}`);
       
       // Polymed search input uses placeholder="Produktsuche…"
       let searchInput = await this.page!.$('input[placeholder*="Produktsuche"], input[placeholder*="suche"], input[name="search"], input[name="q"], input[type="search"], input.search-input, input#search');
@@ -288,7 +289,7 @@ export class PolymedBrowserClient {
 
       const products = await this.parseSearchResults();
       
-      console.log(`[Polymed] Found ${products.length} products for code: ${code}`);
+      logger.info(`[Polymed] Found ${products.length} products for code: ${code}`);
       
       return {
         success: true,
@@ -298,7 +299,7 @@ export class PolymedBrowserClient {
       };
 
     } catch (error: any) {
-      console.error('[Polymed] Search error:', error);
+      logger.error('[Polymed] Search error:', error);
       return {
         success: false,
         products: [],
@@ -317,7 +318,7 @@ export class PolymedBrowserClient {
     const products: PolymedPriceData[] = [];
 
     try {
-      console.log('[Polymed] Waiting for page content to load...');
+      logger.info('[Polymed] Waiting for page content to load...');
       
       // Wait for Next.js to hydrate
       await this.delay(2000);
@@ -345,12 +346,12 @@ export class PolymedBrowserClient {
       });
       
       if (nextData) {
-        console.log('[Polymed] Found Next.js data, extracting products...');
+        logger.info('[Polymed] Found Next.js data, extracting products...');
         
         // Try to extract products from pageProps or apolloState
         const extractedProducts = this.extractProductsFromNextData(nextData);
         if (extractedProducts.length > 0) {
-          console.log(`[Polymed] Extracted ${extractedProducts.length} products from Next.js data`);
+          logger.info(`[Polymed] Extracted ${extractedProducts.length} products from Next.js data`);
           return extractedProducts;
         }
       }
@@ -378,11 +379,11 @@ export class PolymedBrowserClient {
       });
       
       if (pageJsonData && pageJsonData.length > 0) {
-        console.log(`[Polymed] Found ${pageJsonData.length} JSON blocks in page`);
+        logger.info(`[Polymed] Found ${pageJsonData.length} JSON blocks in page`);
         for (const data of pageJsonData) {
           const extracted = this.extractProductsFromNextData(data);
           if (extracted.length > 0) {
-            console.log(`[Polymed] Extracted ${extracted.length} products from JSON block`);
+            logger.info(`[Polymed] Extracted ${extracted.length} products from JSON block`);
             products.push(...extracted);
           }
         }
@@ -392,11 +393,11 @@ export class PolymedBrowserClient {
       }
       
       // Strategy 3: Fall back to DOM scraping with improved selectors
-      console.log('[Polymed] Falling back to DOM scraping...');
+      logger.info('[Polymed] Falling back to DOM scraping...');
       
       // Get product URLs from links
       const productLinks = await this.page!.$$('a[href*="/de/product/"]');
-      console.log(`[Polymed] Found ${productLinks.length} product links`);
+      logger.info(`[Polymed] Found ${productLinks.length} product links`);
       
       const seenUrls = new Set<string>();
       
@@ -424,7 +425,7 @@ export class PolymedBrowserClient {
               currency: 'CHF',
               catalogUrl: new URL(href, this.loginUrl).href,
             });
-            console.log(`[Polymed] Found: ${cleanText.substring(0, 40)}... | PMC: ${articleCode}`);
+            logger.info(`[Polymed] Found: ${cleanText.substring(0, 40)}... | PMC: ${articleCode}`);
           }
         } catch {
           // Skip errors
@@ -433,14 +434,14 @@ export class PolymedBrowserClient {
       
       // If we have products but no prices, try to fetch prices from product pages
       if (products.length > 0 && products.every(p => p.price === 0)) {
-        console.log('[Polymed] Fetching prices from product pages...');
+        logger.info('[Polymed] Fetching prices from product pages...');
         for (const product of products.slice(0, 10)) { // Limit to first 10 to avoid timeout
           if (product.catalogUrl) {
             try {
               const details = await this.getProductDetails(product.catalogUrl);
               if (details && details.price > 0) {
                 product.price = details.price;
-                console.log(`[Polymed] Got price for ${product.articleCode}: CHF ${product.price}`);
+                logger.info(`[Polymed] Got price for ${product.articleCode}: CHF ${product.price}`);
               }
             } catch {
               // Skip price fetch errors
@@ -450,7 +451,7 @@ export class PolymedBrowserClient {
       }
 
     } catch (error) {
-      console.error('[Polymed] Error parsing search results:', error);
+      logger.error('[Polymed] Error parsing search results:', error);
     }
 
     return products;
@@ -501,7 +502,7 @@ export class PolymedBrowserClient {
       findProducts(data);
       
     } catch (error) {
-      console.error('[Polymed] Error extracting products from Next.js data:', error);
+      logger.error('[Polymed] Error extracting products from Next.js data:', error);
     }
     
     return products;
@@ -524,7 +525,7 @@ export class PolymedBrowserClient {
   async getProductDetails(productUrl: string): Promise<PolymedPriceData | null> {
     try {
       if (!this.isLoggedIn) {
-        console.log('[Polymed] Not logged in, cannot get product details');
+        logger.info('[Polymed] Not logged in, cannot get product details');
         return null;
       }
 
@@ -552,7 +553,7 @@ export class PolymedBrowserClient {
         const products = this.extractProductsFromNextData(nextData);
         if (products.length > 0) {
           const product = products[0];
-          console.log(`[Polymed] Extracted from Next.js data: ${product.productName} = CHF ${product.price}`);
+          logger.info(`[Polymed] Extracted from Next.js data: ${product.productName} = CHF ${product.price}`);
           product.catalogUrl = productUrl;
           if (!product.articleCode && urlArticleCode) {
             product.articleCode = urlArticleCode;
@@ -597,7 +598,7 @@ export class PolymedBrowserClient {
         price = productData.price || 0;
         name = productData.name || '';
         if (price > 0) {
-          console.log(`[Polymed] Found price from page data: CHF ${price}`);
+          logger.info(`[Polymed] Found price from page data: CHF ${price}`);
         }
       }
 
@@ -640,7 +641,7 @@ export class PolymedBrowserClient {
       };
 
     } catch (error) {
-      console.error('[Polymed] Error getting product details:', error);
+      logger.error('[Polymed] Error getting product details:', error);
       return null;
     }
   }
@@ -653,7 +654,7 @@ export class PolymedBrowserClient {
   async getProductMetadataByPmcCode(pmcCode: string): Promise<PolymedProductMetadata | null> {
     try {
       if (!this.isLoggedIn) {
-        console.log('[Polymed] Not logged in, cannot get product metadata');
+        logger.info('[Polymed] Not logged in, cannot get product metadata');
         return null;
       }
 
@@ -679,7 +680,7 @@ export class PolymedBrowserClient {
       }, apiUrl);
 
       if (response.error) {
-        console.log(`[Polymed] API error for PMC ${pmcCode}: ${response.error}`);
+        logger.info(`[Polymed] API error for PMC ${pmcCode}: ${response.error}`);
         return null;
       }
 
@@ -728,11 +729,11 @@ export class PolymedBrowserClient {
         imageUrl,
       };
 
-      console.log(`[Polymed] Fetched metadata for PMC ${pmcCode}: ${metadata.productName}${gtin ? ` (GTIN: ${gtin})` : ''}`);
+      logger.info(`[Polymed] Fetched metadata for PMC ${pmcCode}: ${metadata.productName}${gtin ? ` (GTIN: ${gtin})` : ''}`);
       return metadata;
 
     } catch (error) {
-      console.error(`[Polymed] Error fetching metadata for PMC ${pmcCode}:`, error);
+      logger.error(`[Polymed] Error fetching metadata for PMC ${pmcCode}:`, error);
       return null;
     }
   }
@@ -760,7 +761,7 @@ export class PolymedBrowserClient {
     try {
       await this.initialize();
       
-      console.log('[Polymed] Testing connection...');
+      logger.info('[Polymed] Testing connection...');
       await this.page!.goto(this.loginUrl, { waitUntil: 'networkidle' });
       
       const title = await this.page!.title();
@@ -799,7 +800,7 @@ export class PolymedBrowserClient {
       this.browser = null;
     }
     this.isLoggedIn = false;
-    console.log('[Polymed] Browser closed');
+    logger.info('[Polymed] Browser closed');
   }
 
   getSessionCookies(): Cookie[] {

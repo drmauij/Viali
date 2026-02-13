@@ -14,6 +14,7 @@ import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
+import logger from "../../logger";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -48,7 +49,7 @@ router.get('/api/anesthesia/medications/:recordId', isAuthenticated, async (req:
     
     res.json(medications);
   } catch (error) {
-    console.error("Error fetching medications:", error);
+    logger.error("Error fetching medications:", error);
     res.status(500).json({ message: "Failed to fetch medications" });
   }
 });
@@ -57,14 +58,14 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
   try {
     const userId = req.user.id;
     
-    console.log('[TIMESTAMP-DEBUG] Backend received medication POST:', {
+    logger.info('[TIMESTAMP-DEBUG] Backend received medication POST:', {
       rawTimestamp: req.body.timestamp,
       rawTimestampType: typeof req.body.timestamp,
     });
 
     const validatedData = insertAnesthesiaMedicationSchema.parse(req.body);
     
-    console.log('[TIMESTAMP-DEBUG] After Zod validation:', {
+    logger.info('[TIMESTAMP-DEBUG] After Zod validation:', {
       validatedTimestamp: validatedData.timestamp,
       validatedTimestampType: typeof validatedData.timestamp,
       validatedTimestampISO: validatedData.timestamp instanceof Date ? validatedData.timestamp.toISOString() : 'not a date',
@@ -142,7 +143,7 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
               importedBy: userId,
             });
 
-            console.log(`[COUPLED-MEDS] Auto-imported coupled medication ${coupling.coupledMedicationConfigId} for record ${validatedData.anesthesiaRecordId}`);
+            logger.info(`[COUPLED-MEDS] Auto-imported coupled medication ${coupling.coupledMedicationConfigId} for record ${validatedData.anesthesiaRecordId}`);
             
             // Broadcast the import update for real-time UI
             broadcastAnesthesiaUpdate({
@@ -180,7 +181,7 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
               dose: effectiveDose,
             });
 
-            console.log(`[COUPLED-MEDS] Added inventory usage for coupled medication ${coupling.coupledItemId}`);
+            logger.info(`[COUPLED-MEDS] Added inventory usage for coupled medication ${coupling.coupledItemId}`);
             
             // Broadcast the coupled medication for real-time UI
             broadcastAnesthesiaUpdate({
@@ -196,7 +197,7 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
       }
     } catch (couplingError) {
       // Log but don't fail the main medication creation
-      console.error('[COUPLED-MEDS] Error processing coupled medications:', couplingError);
+      logger.error('[COUPLED-MEDS] Error processing coupled medications:', couplingError);
     }
     
     res.status(201).json(newMedication);
@@ -204,7 +205,7 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating medication:", error);
+    logger.error("Error creating medication:", error);
     res.status(500).json({ message: "Failed to create medication" });
   }
 });
@@ -248,11 +249,11 @@ router.patch('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAcc
       updates.endTimestamp = new Date(updates.endTimestamp);
     }
 
-    console.log('[MEDICATION-UPDATE] Updating medication:', { id, updates });
+    logger.info('[MEDICATION-UPDATE] Updating medication:', { id, updates });
 
     const updatedMedication = await storage.updateAnesthesiaMedication(id, updates, userId);
     
-    console.log('[MEDICATION-UPDATE] Updated result:', updatedMedication);
+    logger.info('[MEDICATION-UPDATE] Updated result:', updatedMedication);
     
     broadcastAnesthesiaUpdate({
       recordId: medication.anesthesiaRecordId,
@@ -265,7 +266,7 @@ router.patch('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAcc
     
     res.json(updatedMedication);
   } catch (error) {
-    console.error("Error updating medication:", error);
+    logger.error("Error updating medication:", error);
     res.status(500).json({ message: "Failed to update medication" });
   }
 });
@@ -314,7 +315,7 @@ router.delete('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAc
     
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting medication:", error);
+    logger.error("Error deleting medication:", error);
     res.status(500).json({ message: "Failed to delete medication" });
   }
 });

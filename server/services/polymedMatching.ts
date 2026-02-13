@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { PolymedPriceData } from './polymedClient';
+import logger from "../logger";
 
 const openai = new OpenAI();
 
@@ -50,7 +51,7 @@ export async function findBestMatch(
     const result = await matchWithAI(item, candidates);
     return result;
   } catch (error) {
-    console.error('[Polymed Matching] AI matching failed, falling back to simple matching:', error);
+    logger.error('[Polymed Matching] AI matching failed, falling back to simple matching:', error);
     return simpleFuzzyMatch(item, candidates);
   }
 }
@@ -285,7 +286,7 @@ export async function batchMatchItems(
         }
 
       } catch (error) {
-        console.error(`[Polymed Matching] Search failed for query "${query}":`, error);
+        logger.error(`[Polymed Matching] Search failed for query "${query}":`, error);
       }
 
       await new Promise(resolve => setTimeout(resolve, 1500));

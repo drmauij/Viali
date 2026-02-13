@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
+import logger from "../logger";
 
 export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'guest'] as const;
 export type UserRole = typeof ROLE_HIERARCHY[number];
@@ -153,15 +154,15 @@ export function requireResourceAccess(paramName: string, requireWrite: boolean =
       params[paramName] = resourceId;
 
       const hospitalId = await getHospitalIdFromResource(params);
-      console.log(`[AccessControl] Resource ${paramName}=${resourceId} -> hospitalId=${hospitalId}`);
+      logger.info(`[AccessControl] Resource ${paramName}=${resourceId} -> hospitalId=${hospitalId}`);
       if (!hospitalId) {
-        console.log(`[AccessControl] Resource not found for ${paramName}=${resourceId}`);
+        logger.info(`[AccessControl] Resource not found for ${paramName}=${resourceId}`);
         return res.status(404).json({ message: "Resource not found" });
       }
 
       // Verify user has access to this hospital
       const hasAccess = await userHasHospitalAccess(userId, hospitalId);
-      console.log(`[AccessControl] User ${userId} access to hospital ${hospitalId}: ${hasAccess}`);
+      logger.info(`[AccessControl] User ${userId} access to hospital ${hospitalId}: ${hasAccess}`);
       if (!hasAccess) {
         return res.status(403).json({ 
           message: "Access denied. You do not have access to this resource.",
@@ -186,7 +187,7 @@ export function requireResourceAccess(paramName: string, requireWrite: boolean =
       req.resolvedHospitalId = hospitalId;
       next();
     } catch (error) {
-      console.error(`Error checking resource access for ${paramName}:`, error);
+      logger.error(`Error checking resource access for ${paramName}:`, error);
       res.status(500).json({ message: "Error checking resource permissions" });
     }
   };
@@ -231,7 +232,7 @@ export function requireResourceAdmin(paramName: string) {
       req.resolvedHospitalId = hospitalId;
       next();
     } catch (error) {
-      console.error(`Error checking admin resource access for ${paramName}:`, error);
+      logger.error(`Error checking admin resource access for ${paramName}:`, error);
       res.status(500).json({ message: "Error checking resource permissions" });
     }
   };
@@ -398,7 +399,7 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
     if (!hospitalId) {
       // If we can't determine hospitalId, allow the request but log it
       // The route handler should handle data isolation
-      console.warn(`[Access Control] Could not resolve hospitalId for ${req.method} ${req.path}`);
+      logger.warn(`[Access Control] Could not resolve hospitalId for ${req.method} ${req.path}`);
       return next();
     }
     
@@ -415,7 +416,7 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
     req.resolvedHospitalId = hospitalId;
     next();
   } catch (error) {
-    console.error("Error checking hospital access:", error);
+    logger.error("Error checking hospital access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -431,7 +432,7 @@ export async function requireStrictHospitalAccess(req: any, res: Response, next:
     const hospitalId = await resolveHospitalIdFromRequest(req);
     
     if (!hospitalId) {
-      console.error(`[Access Control] STRICT: Missing hospitalId for ${req.method} ${req.path}`);
+      logger.error(`[Access Control] STRICT: Missing hospitalId for ${req.method} ${req.path}`);
       return res.status(400).json({ 
         message: "Hospital context required. Please select a hospital.",
         code: "HOSPITAL_ID_REQUIRED"
@@ -452,7 +453,7 @@ export async function requireStrictHospitalAccess(req: any, res: Response, next:
     req.verifiedHospitalId = hospitalId; // Alias for clarity
     next();
   } catch (error) {
-    console.error("Error checking hospital access:", error);
+    logger.error("Error checking hospital access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -489,7 +490,7 @@ export async function requireHospitalAdmin(req: any, res: Response, next: NextFu
     req.resolvedRole = 'admin';
     next();
   } catch (error) {
-    console.error("Error checking admin access:", error);
+    logger.error("Error checking admin access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -559,7 +560,7 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
         }
       }
       
-      console.warn(`[Access Control] Could not resolve hospitalId for write check on ${req.method} ${req.path}`);
+      logger.warn(`[Access Control] Could not resolve hospitalId for write check on ${req.method} ${req.path}`);
       return next();
     }
     
@@ -587,7 +588,7 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
     req.resolvedRole = role;
     next();
   } catch (error) {
-    console.error("Error checking write access:", error);
+    logger.error("Error checking write access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -603,7 +604,7 @@ export async function requireStrictWriteAccess(req: any, res: Response, next: Ne
     const hospitalId = await resolveHospitalIdFromRequest(req);
     
     if (!hospitalId) {
-      console.error(`[Access Control] STRICT: Missing hospitalId for write on ${req.method} ${req.path}`);
+      logger.error(`[Access Control] STRICT: Missing hospitalId for write on ${req.method} ${req.path}`);
       return res.status(400).json({ 
         message: "Hospital context required. Please select a hospital.",
         code: "HOSPITAL_ID_REQUIRED"
@@ -635,7 +636,7 @@ export async function requireStrictWriteAccess(req: any, res: Response, next: Ne
     req.resolvedRole = role;
     next();
   } catch (error) {
-    console.error("Error checking write access:", error);
+    logger.error("Error checking write access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -650,7 +651,7 @@ export async function verifyRecordBelongsToHospital(
     return { valid: false, error: `${recordType} not found` };
   }
   if (recordHospitalId !== expectedHospitalId) {
-    console.error(`[Access Control] Hospital mismatch: ${recordType} belongs to ${recordHospitalId}, user accessing ${expectedHospitalId}`);
+    logger.error(`[Access Control] Hospital mismatch: ${recordType} belongs to ${recordHospitalId}, user accessing ${expectedHospitalId}`);
     return { valid: false, error: `Access denied to this ${recordType.toLowerCase()}` };
   }
   return { valid: true };

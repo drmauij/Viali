@@ -22,6 +22,7 @@ import {
   requireResourceAccess,
   getActiveUnitIdFromRequest,
 } from "../../utils";
+import logger from "../../logger";
 
 const router = Router();
 
@@ -99,7 +100,7 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
 
     res.json(anesthesiaItems);
   } catch (error: any) {
-    console.error("Error fetching anesthesia items:", error);
+    logger.error("Error fetching anesthesia items:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia items" });
   }
 });
@@ -194,7 +195,7 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
 
     res.json(result[0] || await storage.getItem(itemId));
   } catch (error: any) {
-    console.error("Error updating anesthesia config:", error);
+    logger.error("Error updating anesthesia config:", error);
     res.status(500).json({ message: "Failed to update anesthesia configuration" });
   }
 });
@@ -230,7 +231,7 @@ router.post('/api/anesthesia/items/reorder', isAuthenticated, requireWriteAccess
 
     res.json({ success: true, updated: itemsToReorder.length });
   } catch (error: any) {
-    console.error("Error reordering medications:", error);
+    logger.error("Error reordering medications:", error);
     res.status(500).json({ message: "Failed to reorder medications" });
   }
 });
@@ -241,7 +242,7 @@ router.get('/api/medication-groups/:hospitalId', isAuthenticated, async (req: an
     const groups = await storage.getMedicationGroups(hospitalId);
     res.json(groups);
   } catch (error: any) {
-    console.error("Error fetching medication groups:", error);
+    logger.error("Error fetching medication groups:", error);
     res.status(500).json({ message: "Failed to fetch medication groups" });
   }
 });
@@ -257,7 +258,7 @@ router.post('/api/medication-groups', isAuthenticated, requireWriteAccess, async
     const newGroup = await storage.createMedicationGroup({ hospitalId, name });
     res.status(201).json(newGroup);
   } catch (error: any) {
-    console.error("Error creating medication group:", error);
+    logger.error("Error creating medication group:", error);
     res.status(500).json({ message: "Failed to create medication group" });
   }
 });
@@ -268,7 +269,7 @@ router.delete('/api/medication-groups/:groupId', isAuthenticated, requireResourc
     await storage.deleteMedicationGroup(groupId);
     res.status(204).send();
   } catch (error: any) {
-    console.error("Error deleting medication group:", error);
+    logger.error("Error deleting medication group:", error);
     res.status(500).json({ message: "Failed to delete medication group" });
   }
 });
@@ -279,7 +280,7 @@ router.get('/api/administration-groups/:hospitalId', isAuthenticated, async (req
     const groups = await storage.getAdministrationGroups(hospitalId);
     res.json(groups);
   } catch (error: any) {
-    console.error("Error fetching administration groups:", error);
+    logger.error("Error fetching administration groups:", error);
     res.status(500).json({ message: "Failed to fetch administration groups" });
   }
 });
@@ -299,7 +300,7 @@ router.post('/api/administration-groups', isAuthenticated, requireWriteAccess, a
     const newGroup = await storage.createAdministrationGroup({ hospitalId, name, sortOrder: nextSortOrder });
     res.status(201).json(newGroup);
   } catch (error: any) {
-    console.error("Error creating administration group:", error);
+    logger.error("Error creating administration group:", error);
     res.status(500).json({ message: "Failed to create administration group" });
   }
 });
@@ -315,7 +316,7 @@ router.put('/api/administration-groups/reorder', isAuthenticated, requireWriteAc
     await storage.reorderAdministrationGroups(groupIds);
     res.status(200).json({ message: "Groups reordered successfully" });
   } catch (error: any) {
-    console.error("Error reordering administration groups:", error);
+    logger.error("Error reordering administration groups:", error);
     res.status(500).json({ message: "Failed to reorder administration groups" });
   }
 });
@@ -332,7 +333,7 @@ router.put('/api/administration-groups/:groupId', isAuthenticated, requireResour
     const updatedGroup = await storage.updateAdministrationGroup(groupId, { name });
     res.json(updatedGroup);
   } catch (error: any) {
-    console.error("Error updating administration group:", error);
+    logger.error("Error updating administration group:", error);
     res.status(500).json({ message: "Failed to update administration group" });
   }
 });
@@ -343,7 +344,7 @@ router.delete('/api/administration-groups/:groupId', isAuthenticated, requireRes
     await storage.deleteAdministrationGroup(groupId);
     res.status(204).send();
   } catch (error: any) {
-    console.error("Error deleting administration group:", error);
+    logger.error("Error deleting administration group:", error);
     res.status(500).json({ message: "Failed to delete administration group" });
   }
 });
@@ -354,7 +355,7 @@ router.get('/api/surgery-rooms/:hospitalId', isAuthenticated, async (req: any, r
     const rooms = await storage.getSurgeryRooms(hospitalId);
     res.json(rooms);
   } catch (error: any) {
-    console.error("Error fetching surgery rooms:", error);
+    logger.error("Error fetching surgery rooms:", error);
     res.status(500).json({ message: "Failed to fetch surgery rooms" });
   }
 });
@@ -370,7 +371,7 @@ router.post('/api/surgery-rooms', isAuthenticated, requireWriteAccess, async (re
     const newRoom = await storage.createSurgeryRoom({ hospitalId, name, type: type || 'OP', sortOrder: 0 });
     res.status(201).json(newRoom);
   } catch (error: any) {
-    console.error("Error creating surgery room:", error);
+    logger.error("Error creating surgery room:", error);
     res.status(500).json({ message: "Failed to create surgery room" });
   }
 });
@@ -391,7 +392,7 @@ router.put('/api/surgery-rooms/:roomId', isAuthenticated, requireResourceAccess(
     const updatedRoom = await storage.updateSurgeryRoom(roomId, updateData);
     res.json(updatedRoom);
   } catch (error: any) {
-    console.error("Error updating surgery room:", error);
+    logger.error("Error updating surgery room:", error);
     res.status(500).json({ message: "Failed to update surgery room" });
   }
 });
@@ -402,7 +403,7 @@ router.delete('/api/surgery-rooms/:roomId', isAuthenticated, requireResourceAcce
     await storage.deleteSurgeryRoom(roomId);
     res.status(204).send();
   } catch (error: any) {
-    console.error("Error deleting surgery room:", error);
+    logger.error("Error deleting surgery room:", error);
     res.status(500).json({ message: "Failed to delete surgery room" });
   }
 });
@@ -418,7 +419,7 @@ router.put('/api/surgery-rooms/reorder', isAuthenticated, requireWriteAccess, as
     await storage.reorderSurgeryRooms(roomIds);
     res.status(200).json({ message: "Rooms reordered successfully" });
   } catch (error: any) {
-    console.error("Error reordering surgery rooms:", error);
+    logger.error("Error reordering surgery rooms:", error);
     res.status(500).json({ message: "Failed to reorder surgery rooms" });
   }
 });
@@ -443,7 +444,7 @@ router.get('/api/anesthesia/settings/:hospitalId', isAuthenticated, async (req: 
 
     res.json(settings);
   } catch (error) {
-    console.error("Error fetching anesthesia settings:", error);
+    logger.error("Error fetching anesthesia settings:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia settings" });
   }
 });
@@ -470,7 +471,7 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating anesthesia settings:", error);
+    logger.error("Error updating anesthesia settings:", error);
     res.status(500).json({ message: "Failed to update anesthesia settings" });
   }
 });
@@ -534,7 +535,7 @@ router.get('/api/anesthesia/medication-couplings/:medicationConfigId', isAuthent
     
     res.json(couplings);
   } catch (error) {
-    console.error("Error fetching medication couplings:", error);
+    logger.error("Error fetching medication couplings:", error);
     res.status(500).json({ message: "Failed to fetch medication couplings" });
   }
 });
@@ -584,7 +585,7 @@ router.get('/api/anesthesia/medication-couplings/:medicationConfigId/available',
     
     res.json(available);
   } catch (error) {
-    console.error("Error searching available medications:", error);
+    logger.error("Error searching available medications:", error);
     res.status(500).json({ message: "Failed to search medications" });
   }
 });
@@ -649,7 +650,7 @@ router.post('/api/anesthesia/medication-couplings', isAuthenticated, requireWrit
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating medication coupling:", error);
+    logger.error("Error creating medication coupling:", error);
     res.status(500).json({ message: "Failed to create medication coupling" });
   }
 });
@@ -685,7 +686,7 @@ router.patch('/api/anesthesia/medication-couplings/:id', isAuthenticated, requir
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating medication coupling:", error);
+    logger.error("Error updating medication coupling:", error);
     res.status(500).json({ message: "Failed to update medication coupling" });
   }
 });
@@ -718,7 +719,7 @@ router.delete('/api/anesthesia/medication-couplings/:id', isAuthenticated, requi
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting medication coupling:", error);
+    logger.error("Error deleting medication coupling:", error);
     res.status(500).json({ message: "Failed to delete medication coupling" });
   }
 });
@@ -753,7 +754,7 @@ router.get('/api/anesthesia/medication-sets/:hospitalId', isAuthenticated, async
     
     res.json(sets);
   } catch (error) {
-    console.error("Error fetching medication sets:", error);
+    logger.error("Error fetching medication sets:", error);
     res.status(500).json({ message: "Failed to fetch medication sets" });
   }
 });
@@ -800,7 +801,7 @@ router.get('/api/anesthesia/medication-sets/:hospitalId/:setId', isAuthenticated
     
     res.json({ ...set, items: setItems });
   } catch (error) {
-    console.error("Error fetching medication set:", error);
+    logger.error("Error fetching medication set:", error);
     res.status(500).json({ message: "Failed to fetch medication set" });
   }
 });
@@ -844,7 +845,7 @@ router.post('/api/anesthesia/medication-sets', isAuthenticated, requireWriteAcce
     
     res.status(201).json(newSet);
   } catch (error) {
-    console.error("Error creating medication set:", error);
+    logger.error("Error creating medication set:", error);
     res.status(500).json({ message: "Failed to create medication set" });
   }
 });
@@ -898,7 +899,7 @@ router.patch('/api/anesthesia/medication-sets/:setId', isAuthenticated, requireW
     
     res.json(updated);
   } catch (error) {
-    console.error("Error updating medication set:", error);
+    logger.error("Error updating medication set:", error);
     res.status(500).json({ message: "Failed to update medication set" });
   }
 });
@@ -929,7 +930,7 @@ router.delete('/api/anesthesia/medication-sets/:setId', isAuthenticated, require
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting medication set:", error);
+    logger.error("Error deleting medication set:", error);
     res.status(500).json({ message: "Failed to delete medication set" });
   }
 });

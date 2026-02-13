@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 import { sendSignedContractEmail } from "../resend";
+import logger from "../logger";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ async function isBusinessAccess(req: any, res: Response, next: any) {
     
     next();
   } catch (error) {
-    console.error("Error checking business access:", error);
+    logger.error("Error checking business access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -52,7 +53,7 @@ async function isBusinessManager(req: any, res: Response, next: any) {
     
     next();
   } catch (error) {
-    console.error("Error checking business access:", error);
+    logger.error("Error checking business access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -112,7 +113,7 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
     const staffList = Array.from(userMap.values());
     res.json(staffList);
   } catch (error) {
-    console.error("Error fetching staff:", error);
+    logger.error("Error fetching staff:", error);
     res.status(500).json({ message: "Failed to fetch staff" });
   }
 });
@@ -190,7 +191,7 @@ router.post('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManage
       canLogin: newUser.canLogin,
     });
   } catch (error) {
-    console.error("Error creating staff:", error);
+    logger.error("Error creating staff:", error);
     res.status(500).json({ message: "Failed to create staff member" });
   }
 });
@@ -297,7 +298,7 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
       canLogin: updatedUser.canLogin,
     });
   } catch (error) {
-    console.error("Error updating staff:", error);
+    logger.error("Error updating staff:", error);
     res.status(500).json({ message: "Failed to update staff member" });
   }
 });
@@ -328,7 +329,7 @@ router.patch('/api/business/:hospitalId/staff/:userId/type', isAuthenticated, is
     
     res.json({ success: true, staffType });
   } catch (error) {
-    console.error("Error updating staff type:", error);
+    logger.error("Error updating staff type:", error);
     res.status(500).json({ message: "Failed to update staff type" });
   }
 });
@@ -345,7 +346,7 @@ router.get('/api/business/:hospitalId/units', isAuthenticated, isBusinessAccess,
     
     res.json(hospitalUnits);
   } catch (error) {
-    console.error("Error fetching units:", error);
+    logger.error("Error fetching units:", error);
     res.status(500).json({ message: "Failed to fetch units" });
   }
 });
@@ -395,7 +396,7 @@ router.get('/api/business/:hospitalId/staff/:userId/roles', isAuthenticated, isB
     
     res.json(rolesList);
   } catch (error) {
-    console.error("Error fetching user roles:", error);
+    logger.error("Error fetching user roles:", error);
     res.status(500).json({ message: "Failed to fetch user roles" });
   }
 });
@@ -463,7 +464,7 @@ router.post('/api/business/:hospitalId/staff/:userId/roles', isAuthenticated, is
       unitType: unit.type,
     });
   } catch (error) {
-    console.error("Error adding user role:", error);
+    logger.error("Error adding user role:", error);
     res.status(500).json({ message: "Failed to add role" });
   }
 });
@@ -550,7 +551,7 @@ router.patch('/api/business/:hospitalId/staff/:userId/roles/:roleId', isAuthenti
       unitType: unit?.type || null,
     });
   } catch (error) {
-    console.error("Error updating user role:", error);
+    logger.error("Error updating user role:", error);
     res.status(500).json({ message: "Failed to update role" });
   }
 });
@@ -599,7 +600,7 @@ router.delete('/api/business/:hospitalId/staff/:userId/roles/:roleId', isAuthent
     
     res.json({ success: true, message: "Role deleted successfully" });
   } catch (error) {
-    console.error("Error deleting user role:", error);
+    logger.error("Error deleting user role:", error);
     res.status(500).json({ message: "Failed to delete role" });
   }
 });
@@ -629,7 +630,7 @@ router.get('/api/business/:hospitalId/contract-token', isAuthenticated, isBusine
     
     res.json({ contractToken });
   } catch (error) {
-    console.error("Error getting contract token:", error);
+    logger.error("Error getting contract token:", error);
     res.status(500).json({ message: "Failed to get contract token" });
   }
 });
@@ -648,7 +649,7 @@ router.post('/api/business/:hospitalId/contract-token/regenerate', isAuthenticat
     
     res.json({ contractToken: newToken });
   } catch (error) {
-    console.error("Error regenerating contract token:", error);
+    logger.error("Error regenerating contract token:", error);
     res.status(500).json({ message: "Failed to regenerate token" });
   }
 });
@@ -679,7 +680,7 @@ router.get('/api/public/contracts/:token/hospital', async (req, res) => {
       companyLogoUrl: hospital.companyLogoUrl || '',
     });
   } catch (error) {
-    console.error("Error fetching hospital for contract:", error);
+    logger.error("Error fetching hospital for contract:", error);
     res.status(500).json({ message: "Failed to fetch hospital info" });
   }
 });
@@ -745,7 +746,7 @@ router.post('/api/public/contracts/:token/submit', async (req, res) => {
     
     res.status(201).json(newContract);
   } catch (error) {
-    console.error("Error submitting contract:", error);
+    logger.error("Error submitting contract:", error);
     if ((error as any).name === 'ZodError') {
       return res.status(400).json({ message: "Invalid contract data", errors: (error as any).errors });
     }
@@ -766,7 +767,7 @@ router.get('/api/business/:hospitalId/contracts', isAuthenticated, isBusinessMan
     
     res.json(contracts);
   } catch (error) {
-    console.error("Error fetching contracts:", error);
+    logger.error("Error fetching contracts:", error);
     res.status(500).json({ message: "Failed to fetch contracts" });
   }
 });
@@ -790,7 +791,7 @@ router.get('/api/business/:hospitalId/contracts/:contractId', isAuthenticated, i
     
     res.json(contract);
   } catch (error) {
-    console.error("Error fetching contract:", error);
+    logger.error("Error fetching contract:", error);
     res.status(500).json({ message: "Failed to fetch contract" });
   }
 });
@@ -843,7 +844,7 @@ router.post('/api/business/:hospitalId/contracts/:contractId/sign', isAuthentica
     
     res.json(updated);
   } catch (error) {
-    console.error("Error signing contract:", error);
+    logger.error("Error signing contract:", error);
     res.status(500).json({ message: "Failed to sign contract" });
   }
 });
@@ -871,7 +872,7 @@ router.post('/api/business/:hospitalId/contracts/:contractId/reject', isAuthenti
     
     res.json(updated);
   } catch (error) {
-    console.error("Error rejecting contract:", error);
+    logger.error("Error rejecting contract:", error);
     res.status(500).json({ message: "Failed to reject contract" });
   }
 });
@@ -890,7 +891,7 @@ router.delete('/api/business/:hospitalId/contracts/:contractId', isAuthenticated
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting contract:", error);
+    logger.error("Error deleting contract:", error);
     res.status(500).json({ message: "Failed to delete contract" });
   }
 });
@@ -918,7 +919,7 @@ router.post('/api/business/:hospitalId/contracts/:contractId/archive', isAuthent
     
     res.json(updated);
   } catch (error) {
-    console.error("Error archiving contract:", error);
+    logger.error("Error archiving contract:", error);
     res.status(500).json({ message: "Failed to archive contract" });
   }
 });
@@ -946,7 +947,7 @@ router.post('/api/business/:hospitalId/contracts/:contractId/unarchive', isAuthe
     
     res.json(updated);
   } catch (error) {
-    console.error("Error unarchiving contract:", error);
+    logger.error("Error unarchiving contract:", error);
     res.status(500).json({ message: "Failed to unarchive contract" });
   }
 });
@@ -1000,13 +1001,13 @@ router.post('/api/business/:hospitalId/contracts/:contractId/send-email', isAuth
     );
     
     if (!result.success) {
-      console.error('Failed to send signed contract email:', result.error);
+      logger.error('Failed to send signed contract email:', result.error);
       return res.status(500).json({ message: "Failed to send email" });
     }
     
     res.json({ success: true, message: "Email sent successfully" });
   } catch (error) {
-    console.error("Error sending signed contract email:", error);
+    logger.error("Error sending signed contract email:", error);
     res.status(500).json({ message: "Failed to send email" });
   }
 });
@@ -1047,7 +1048,7 @@ router.get('/api/business/:hospitalId/inventory-overview', isAuthenticated, isBu
       supplierCodes: supplierCodesData 
     });
   } catch (error) {
-    console.error("Error fetching inventory overview:", error);
+    logger.error("Error fetching inventory overview:", error);
     res.status(500).json({ message: "Failed to fetch inventory overview" });
   }
 });
@@ -1093,7 +1094,7 @@ router.get('/api/business/:hospitalId/inventory-snapshots', isAuthenticated, isB
     
     res.json(snapshotsWithUnitName);
   } catch (error) {
-    console.error("Error fetching inventory snapshots:", error);
+    logger.error("Error fetching inventory snapshots:", error);
     res.status(500).json({ message: "Failed to fetch inventory snapshots" });
   }
 });
@@ -1304,7 +1305,7 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
     
     res.json(results);
   } catch (error) {
-    console.error("Error fetching business surgeries:", error);
+    logger.error("Error fetching business surgeries:", error);
     res.status(500).json({ message: "Failed to fetch surgeries" });
   }
 });
@@ -1543,7 +1544,7 @@ router.get('/api/business/:hospitalId/surgeries/:surgeryId/costs', isAuthenticat
       grandTotal: Math.round((staffTotal + anesthesiaTotal + surgeryTotal) * 100) / 100,
     });
   } catch (error) {
-    console.error("Error fetching surgery cost breakdown:", error);
+    logger.error("Error fetching surgery cost breakdown:", error);
     res.status(500).json({ message: "Failed to fetch cost breakdown" });
   }
 });

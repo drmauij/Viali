@@ -8,6 +8,7 @@ import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
 import { requireWriteAccess, requireResourceAdmin } from "../utils";
+import logger from "../logger";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -34,7 +35,7 @@ async function isAdmin(req: any, res: Response, next: NextFunction) {
     
     next();
   } catch (error) {
-    console.error("Error checking admin:", error);
+    logger.error("Error checking admin:", error);
     res.status(500).json({ message: "Failed to verify admin access" });
   }
 }
@@ -50,7 +51,7 @@ router.get('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) 
     
     res.json(hospital);
   } catch (error) {
-    console.error("Error fetching hospital:", error);
+    logger.error("Error fetching hospital:", error);
     res.status(500).json({ message: "Failed to fetch hospital" });
   }
 });
@@ -93,7 +94,7 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
     const updated = await storage.updateHospital(hospitalId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating hospital:", error);
+    logger.error("Error updating hospital:", error);
     res.status(500).json({ message: "Failed to update hospital" });
   }
 });
@@ -122,7 +123,7 @@ router.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, isAd
     const updated = await storage.updateUnit(anesthesiaUnitId, { type: 'anesthesia' });
     res.json(updated);
   } catch (error) {
-    console.error("Error updating anesthesia location:", error);
+    logger.error("Error updating anesthesia location:", error);
     res.status(500).json({ message: "Failed to update anesthesia location" });
   }
 });
@@ -151,7 +152,7 @@ router.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin
     const updated = await storage.updateUnit(surgeryUnitId, { type: 'or' });
     res.json(updated);
   } catch (error) {
-    console.error("Error updating surgery location:", error);
+    logger.error("Error updating surgery location:", error);
     res.status(500).json({ message: "Failed to update surgery location" });
   }
 });
@@ -191,7 +192,7 @@ router.get('/api/surgeons', isAuthenticated, async (req: any, res) => {
 
     res.json(surgeons);
   } catch (error) {
-    console.error("Error fetching surgeons:", error);
+    logger.error("Error fetching surgeons:", error);
     res.status(500).json({ message: "Failed to fetch surgeons" });
   }
 });
@@ -202,7 +203,7 @@ router.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req,
     const units = await storage.getUnits(hospitalId);
     res.json(units);
   } catch (error) {
-    console.error("Error fetching units:", error);
+    logger.error("Error fetching units:", error);
     res.status(500).json({ message: "Failed to fetch units" });
   }
 });
@@ -242,7 +243,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
     });
     res.status(201).json(unit);
   } catch (error) {
-    console.error("Error creating unit:", error);
+    logger.error("Error creating unit:", error);
     res.status(500).json({ message: "Failed to create unit" });
   }
 });
@@ -280,7 +281,7 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('
     const updated = await storage.updateUnit(unitId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating unit:", error);
+    logger.error("Error updating unit:", error);
     res.status(500).json({ message: "Failed to update unit" });
   }
 });
@@ -291,7 +292,7 @@ router.delete('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin(
     await storage.deleteUnit(unitId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting unit:", error);
+    logger.error("Error deleting unit:", error);
     res.status(500).json({ message: "Failed to delete unit" });
   }
 });
@@ -322,7 +323,7 @@ router.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req,
     
     res.json(sanitizedUsers);
   } catch (error) {
-    console.error("Error fetching hospital users:", error);
+    logger.error("Error fetching hospital users:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 });
@@ -366,7 +367,7 @@ router.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, async 
     
     res.json(result);
   } catch (error) {
-    console.error("Error fetching users by module:", error);
+    logger.error("Error fetching users by module:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 });
@@ -406,7 +407,7 @@ router.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => 
     const { passwordHash, ...sanitizedUser } = user;
     res.json(sanitizedUser);
   } catch (error) {
-    console.error("Error searching user:", error);
+    logger.error("Error searching user:", error);
     res.status(500).json({ message: "Failed to search user" });
   }
 });
@@ -433,7 +434,7 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
     });
     res.status(201).json(userRole);
   } catch (error) {
-    console.error("Error creating user role:", error);
+    logger.error("Error creating user role:", error);
     res.status(500).json({ message: "Failed to create user role" });
   }
 });
@@ -450,7 +451,7 @@ router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('
     const updated = await storage.updateUserHospitalRole(roleId, updates);
     res.json(updated);
   } catch (error) {
-    console.error("Error updating user role:", error);
+    logger.error("Error updating user role:", error);
     res.status(500).json({ message: "Failed to update user role" });
   }
 });
@@ -461,7 +462,7 @@ router.delete('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin(
     await storage.deleteUserHospitalRole(roleId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting user role:", error);
+    logger.error("Error deleting user role:", error);
     res.status(500).json({ message: "Failed to delete user role" });
   }
 });
@@ -515,7 +516,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
     
     try {
       const { sendHospitalAddedNotification } = await import('../resend');
-      console.log('[Add Existing User] Sending notification to:', existingUser.email);
+      logger.info('[Add Existing User] Sending notification to:', existingUser.email);
       const result = await sendHospitalAddedNotification(
         existingUser.email!,
         existingUser.firstName || 'User',
@@ -524,12 +525,12 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
         loginUrl
       );
       if (result.success) {
-        console.log('[Add Existing User] Notification email sent successfully');
+        logger.info('[Add Existing User] Notification email sent successfully');
       } else {
-        console.error('[Add Existing User] Failed to send notification:', result.error);
+        logger.error('[Add Existing User] Failed to send notification:', result.error);
       }
     } catch (emailError) {
-      console.error('[Add Existing User] Exception sending notification:', emailError);
+      logger.error('[Add Existing User] Exception sending notification:', emailError);
     }
 
     const { passwordHash: _, ...sanitizedUser } = existingUser;
@@ -539,7 +540,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       hospitalName: hospital?.name 
     });
   } catch (error) {
-    console.error("Error adding existing user:", error);
+    logger.error("Error adding existing user:", error);
     res.status(500).json({ message: "Failed to add user to hospital" });
   }
 });
@@ -591,7 +592,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       // Send notification email to existing user
       try {
         const { sendHospitalAddedNotification } = await import('../resend');
-        console.log('[User Creation] User exists, adding to hospital and sending notification:', existingUser.email);
+        logger.info('[User Creation] User exists, adding to hospital and sending notification:', existingUser.email);
         const result = await sendHospitalAddedNotification(
           existingUser.email!,
           existingUser.firstName || 'User',
@@ -600,12 +601,12 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
           loginUrl
         );
         if (result.success) {
-          console.log('[User Creation] Hospital added notification sent successfully');
+          logger.info('[User Creation] Hospital added notification sent successfully');
         } else {
-          console.error('[User Creation] Failed to send notification:', result.error);
+          logger.error('[User Creation] Failed to send notification:', result.error);
         }
       } catch (emailError) {
-        console.error('[User Creation] Exception sending notification:', emailError);
+        logger.error('[User Creation] Exception sending notification:', emailError);
       }
 
       const { passwordHash: _, ...sanitizedUser } = existingUser;
@@ -650,11 +651,11 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
     // Skip sending welcome email to .local addresses (test/internal users)
     const emailDomain = newUser.email?.toLowerCase().split('@')[1] || '';
     if (emailDomain.endsWith('.local') || emailDomain === 'local') {
-      console.log('[User Creation] Skipping welcome email for .local address:', newUser.email);
+      logger.info('[User Creation] Skipping welcome email for .local address:', newUser.email);
     } else {
       try {
         const { sendWelcomeEmail } = await import('../resend');
-        console.log('[User Creation] Attempting to send welcome email to:', newUser.email);
+        logger.info('[User Creation] Attempting to send welcome email to:', newUser.email);
         const result = await sendWelcomeEmail(
           newUser.email!,
           newUser.firstName!,
@@ -663,19 +664,19 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
           loginUrl
         );
         if (result.success) {
-          console.log('[User Creation] Welcome email sent successfully:', result.data);
+          logger.info('[User Creation] Welcome email sent successfully:', result.data);
         } else {
-          console.error('[User Creation] Failed to send welcome email:', result.error);
+          logger.error('[User Creation] Failed to send welcome email:', result.error);
         }
       } catch (emailError) {
-        console.error('[User Creation] Exception sending welcome email:', emailError);
+        logger.error('[User Creation] Exception sending welcome email:', emailError);
       }
     }
 
     const { passwordHash: _, ...sanitizedUser } = newUser;
     res.status(201).json({ ...sanitizedUser, mustChangePassword: true });
   } catch (error) {
-    console.error("Error creating user:", error);
+    logger.error("Error creating user:", error);
     res.status(500).json({ message: "Failed to create user" });
   }
 });
@@ -721,7 +722,7 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
     await storage.updateUser(userId, updateData);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error updating user details:", error);
+    logger.error("Error updating user details:", error);
     res.status(500).json({ message: "Failed to update user details" });
   }
 });
@@ -756,7 +757,7 @@ router.patch('/api/admin/users/:userId/notes', isAuthenticated, requireWriteAcce
     await storage.updateUser(userId, { adminNotes: adminNotes || null });
     res.json({ success: true });
   } catch (error) {
-    console.error("Error updating user notes:", error);
+    logger.error("Error updating user notes:", error);
     res.status(500).json({ message: "Failed to update user notes" });
   }
 });
@@ -813,7 +814,7 @@ router.patch('/api/admin/users/:userId/email', isAuthenticated, requireWriteAcce
 
     res.json({ success: true, email });
   } catch (error) {
-    console.error("Error updating user email:", error);
+    logger.error("Error updating user email:", error);
     res.status(500).json({ message: "Failed to update user email" });
   }
 });
@@ -854,7 +855,7 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
 
     res.json({ success: true, message: "Password reset successfully" });
   } catch (error) {
-    console.error("Error resetting user password:", error);
+    logger.error("Error resetting user password:", error);
     res.status(500).json({ message: "Failed to reset password" });
   }
 });
@@ -914,7 +915,7 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
       staffType: staffType ?? targetUser.staffType
     });
   } catch (error) {
-    console.error("Error updating user access settings:", error);
+    logger.error("Error updating user access settings:", error);
     res.status(500).json({ message: "Failed to update user access settings" });
   }
 });
@@ -981,7 +982,7 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
 
     res.json({ success: true, isBookable });
   } catch (error) {
-    console.error("Error updating role bookable status:", error);
+    logger.error("Error updating role bookable status:", error);
     res.status(500).json({ message: "Failed to update bookable status" });
   }
 });
@@ -1042,7 +1043,7 @@ router.patch('/api/admin/user-roles/:roleId/default-login', isAuthenticated, req
 
     res.json({ success: true, isDefaultLogin });
   } catch (error) {
-    console.error("Error updating role default login status:", error);
+    logger.error("Error updating role default login status:", error);
     res.status(500).json({ message: "Failed to update default login status" });
   }
 });
@@ -1074,7 +1075,7 @@ router.get('/api/admin/:hospitalId/check-email', isAuthenticated, isAdmin, async
       user: sanitizedUser
     });
   } catch (error) {
-    console.error("Error checking email:", error);
+    logger.error("Error checking email:", error);
     res.status(500).json({ message: "Failed to check email" });
   }
 });
@@ -1084,20 +1085,20 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
     const { userId } = req.params;
     const { hospitalId } = req.query;
     
-    console.log('[Archive User] Request received:', { userId, hospitalId, query: req.query });
+    logger.info('[Archive User] Request received:', { userId, hospitalId, query: req.query });
     
     if (!hospitalId) {
-      console.log('[Archive User] ERROR: No hospitalId provided in query');
+      logger.info('[Archive User] ERROR: No hospitalId provided in query');
       return res.status(400).json({ message: "Hospital ID is required" });
     }
     
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    console.log('[Archive User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
+    logger.info('[Archive User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
     
     const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
     if (!hasAdminRole) {
-      console.log('[Archive User] Admin check failed - no admin role found for hospital:', hospitalId);
+      logger.info('[Archive User] Admin check failed - no admin role found for hospital:', hospitalId);
       return res.status(403).json({ message: "Admin access required" });
     }
 
@@ -1133,7 +1134,7 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
         .set({ archivedAt: new Date() })
         .where(eq(users.id, userId));
       
-      console.log('[Archive User] User archived:', userId);
+      logger.info('[Archive User] User archived:', userId);
       res.json({ 
         success: true, 
         archived: true,
@@ -1147,7 +1148,7 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
       });
     }
   } catch (error) {
-    console.error("Error archiving user:", error);
+    logger.error("Error archiving user:", error);
     res.status(500).json({ message: "Failed to archive user" });
   }
 });
@@ -1166,7 +1167,7 @@ router.get('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmi
       questionnaireToken: hospital.questionnaireToken || null 
     });
   } catch (error) {
-    console.error("Error fetching questionnaire token:", error);
+    logger.error("Error fetching questionnaire token:", error);
     res.status(500).json({ message: "Failed to fetch questionnaire token" });
   }
 });
@@ -1183,7 +1184,7 @@ router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticat
       questionnaireToken: hospital.questionnaireToken 
     });
   } catch (error) {
-    console.error("Error generating questionnaire token:", error);
+    logger.error("Error generating questionnaire token:", error);
     res.status(500).json({ message: "Failed to generate questionnaire token" });
   }
 });
@@ -1196,7 +1197,7 @@ router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isA
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting questionnaire token:", error);
+    logger.error("Error deleting questionnaire token:", error);
     res.status(500).json({ message: "Failed to delete questionnaire token" });
   }
 });
@@ -1223,7 +1224,7 @@ router.post('/api/admin/:hospitalId/upload', isAuthenticated, isAdmin, async (re
     const result = await objectStorageService.getUploadURLForFolder(uploadFolder, filename);
     res.json(result);
   } catch (error) {
-    console.error("Error getting upload URL:", error);
+    logger.error("Error getting upload URL:", error);
     res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
@@ -1242,7 +1243,7 @@ router.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => 
     
     await objectStorageService.downloadObject(objectPath, res);
   } catch (error: any) {
-    console.error("Error serving object:", error);
+    logger.error("Error serving object:", error);
     if (error.name === 'ObjectNotFoundError') {
       return res.status(404).json({ message: "File not found" });
     }
@@ -1310,7 +1311,7 @@ router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, isAd
       updates
     });
   } catch (error: any) {
-    console.error("Error fixing stock levels:", error);
+    logger.error("Error fixing stock levels:", error);
     res.status(500).json({ message: "Failed to fix stock levels", error: error.message });
   }
 });
@@ -1334,9 +1335,9 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
     const existingCount = Number(countBefore?.count || 0);
     
     // Run the import (uses upsert - inserts new, updates existing)
-    console.log('[Admin] Starting CHOP 2026 import/update...');
+    logger.info('[Admin] Starting CHOP 2026 import/update...');
     const result = await importChopProcedures();
-    console.log(`[Admin] CHOP import complete: ${result.imported} processed, ${result.skipped} skipped`);
+    logger.info(`[Admin] CHOP import complete: ${result.imported} processed, ${result.skipped} skipped`);
     
     // Check count after import
     const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
@@ -1356,7 +1357,7 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
       updated: existingCount > 0 ? existingCount : 0
     });
   } catch (error: any) {
-    console.error("[Admin] CHOP import error:", error);
+    logger.error("[Admin] CHOP import error:", error);
     res.status(500).json({ 
       message: "Failed to import CHOP procedures", 
       error: error.message 
@@ -1371,11 +1372,11 @@ router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
     
     // Check if user is admin of any hospital
     const hospitals = await storage.getUserHospitals(userId);
-    console.log('[Admin] CHOP status check - userId:', userId, 'hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
+    logger.info('[Admin] CHOP status check - userId:', userId, 'hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
     const isAnyAdmin = hospitals.some(h => h.role === 'admin');
     
     if (!isAnyAdmin) {
-      console.log('[Admin] CHOP status - not admin, roles found:', hospitals.map(h => h.role));
+      logger.info('[Admin] CHOP status - not admin, roles found:', hospitals.map(h => h.role));
       return res.status(403).json({ message: "Admin access required" });
     }
     
@@ -1387,7 +1388,7 @@ router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
       count
     });
   } catch (error: any) {
-    console.error("[Admin] CHOP status error:", error);
+    logger.error("[Admin] CHOP status error:", error);
     res.status(500).json({ message: "Failed to get CHOP status", error: error.message });
   }
 });
@@ -1431,7 +1432,7 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
 
     res.json({ headers, sampleRows, totalRows });
   } catch (error: any) {
-    console.error("[Admin] Catalog preview error:", error);
+    logger.error("[Admin] Catalog preview error:", error);
     res.status(500).json({ message: "Failed to preview file", error: error.message });
   }
 });
@@ -1535,7 +1536,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
         await db.insert(hinArticles).values(batch);
         imported += batch.length;
       } catch (batchError: any) {
-        console.error("[Admin] Batch insert error:", batchError.message);
+        logger.error("[Admin] Batch insert error:", batchError.message);
         errors.push(`Final batch error: ${batchError.message}`);
         skipped += batch.length;
       }
@@ -1543,7 +1544,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
 
     res.json({ success: true, imported, skipped, errors });
   } catch (error: any) {
-    console.error("[Admin] Catalog import error:", error);
+    logger.error("[Admin] Catalog import error:", error);
     res.status(500).json({ message: "Failed to import catalog", error: error.message });
   }
 });
@@ -1565,7 +1566,7 @@ router.get('/api/admin/catalog/status', isAuthenticated, async (req: any, res) =
 
     res.json({ articlesCount, lastUpdated });
   } catch (error: any) {
-    console.error("[Admin] Catalog status error:", error);
+    logger.error("[Admin] Catalog status error:", error);
     res.status(500).json({ message: "Failed to get catalog status", error: error.message });
   }
 });
@@ -1670,7 +1671,7 @@ router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, isAdmi
 
     res.json({ success: true, matched, updated, created, unmatched });
   } catch (error: any) {
-    console.error("[Admin] Catalog sync error:", error);
+    logger.error("[Admin] Catalog sync error:", error);
     res.status(500).json({ message: "Failed to sync items with catalog", error: error.message });
   }
 });

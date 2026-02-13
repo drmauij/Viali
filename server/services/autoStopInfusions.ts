@@ -1,5 +1,6 @@
 import { calculateDepletionTime, normalizeRateUnit } from './inventoryCalculations';
 import type { IStorage } from '../storage';
+import logger from "../logger";
 
 let intervalId: NodeJS.Timeout | null = null;
 
@@ -35,11 +36,11 @@ function isWeightBasedDosing(rateUnit: string | null | undefined): boolean {
 
 export function startAutoStopService(storage: IStorage) {
   if (intervalId) {
-    console.log('[AUTO-STOP] Service already running');
+    logger.info('[AUTO-STOP] Service already running');
     return;
   }
 
-  console.log('[AUTO-STOP] Starting auto-stop service (check interval: 60 seconds)');
+  logger.info('[AUTO-STOP] Starting auto-stop service (check interval: 60 seconds)');
 
   // Run check immediately, then every 60 seconds
   checkAndStopDepletedInfusions(storage);
@@ -52,7 +53,7 @@ export function stopAutoStopService() {
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
-    console.log('[AUTO-STOP] Service stopped');
+    logger.info('[AUTO-STOP] Service stopped');
   }
 }
 
@@ -111,7 +112,7 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
 
       // Check if infusion has depleted (with 5% safety buffer already applied)
       if (now.getTime() >= depletionTime) {
-        console.log(`[AUTO-STOP] Stopping depleted infusion: ${item.name} (ID: ${infusion.id})`);
+        logger.info(`[AUTO-STOP] Stopping depleted infusion: ${item.name} (ID: ${infusion.id})`);
         
         // Create stop event with auto-stop marker
         // Pass Date object directly - Drizzle expects timestamp type, not string
@@ -121,10 +122,10 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
           // TODO: Add autoStopped flag to schema in future migration
         });
 
-        console.log(`[AUTO-STOP] Auto-stopped depleted infusion: ${item.name} at ${stopTime.toISOString()}`);
+        logger.info(`[AUTO-STOP] Auto-stopped depleted infusion: ${item.name} at ${stopTime.toISOString()}`);
       }
     }
   } catch (error) {
-    console.error('[AUTO-STOP] Error checking infusions:', error);
+    logger.error('[AUTO-STOP] Error checking infusions:', error);
   }
 }

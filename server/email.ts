@@ -1,5 +1,6 @@
 // Resend email integration - uses same env vars as server/resend.ts
 import { Resend } from 'resend';
+import logger from "./logger";
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -70,9 +71,9 @@ export async function sendNewMessageEmail(
   conversationId?: string
 ): Promise<boolean> {
   try {
-    console.log(`[Email] Attempting to send new message email to: ${toEmail}`);
+    logger.info(`[Email] Attempting to send new message email to: ${toEmail}`);
     const { client, fromEmail } = await getUncachableResendClient();
-    console.log(`[Email] Got Resend client, sending from: ${fromEmail}`);
+    logger.info(`[Email] Got Resend client, sending from: ${fromEmail}`);
     
     const subject = conversationTitle 
       ? `New message from ${senderName} in "${conversationTitle}"`
@@ -101,10 +102,10 @@ export async function sendNewMessageEmail(
       `
     });
     
-    console.log(`[Email] Successfully sent email to ${toEmail}:`, result);
+    logger.info(`[Email] Successfully sent email to ${toEmail}:`, result);
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send email notification:', error);
+    logger.error('[Email] Failed to send email notification:', error);
     return false;
   }
 }
@@ -116,9 +117,9 @@ export async function sendNewConversationEmail(
   conversationId?: string
 ): Promise<boolean> {
   try {
-    console.log(`[Email] Attempting to send new conversation email to: ${toEmail}`);
+    logger.info(`[Email] Attempting to send new conversation email to: ${toEmail}`);
     const { client, fromEmail } = await getUncachableResendClient();
-    console.log(`[Email] Got Resend client, sending from: ${fromEmail}`);
+    logger.info(`[Email] Got Resend client, sending from: ${fromEmail}`);
     
     const subject = `${senderName} started a conversation with you`;
     const chatLink = buildChatDeepLink(conversationId);
@@ -141,10 +142,10 @@ export async function sendNewConversationEmail(
       `
     });
     
-    console.log(`[Email] Successfully sent new conversation email to ${toEmail}:`, result);
+    logger.info(`[Email] Successfully sent new conversation email to ${toEmail}:`, result);
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send new conversation email notification:', error);
+    logger.error('[Email] Failed to send new conversation email notification:', error);
     return false;
   }
 }
@@ -185,7 +186,7 @@ export async function sendMentionEmail(
     
     return true;
   } catch (error) {
-    console.error('Failed to send mention email notification:', error);
+    logger.error('Failed to send mention email notification:', error);
     return false;
   }
 }
@@ -229,10 +230,10 @@ export async function sendSurgeryNoteMentionEmail(
       `
     });
     
-    console.log(`[Email] Successfully sent surgery note mention email to ${toEmail}`);
+    logger.info(`[Email] Successfully sent surgery note mention email to ${toEmail}`);
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send surgery note mention email:', error);
+    logger.error('[Email] Failed to send surgery note mention email:', error);
     return false;
   }
 }
@@ -273,10 +274,10 @@ export async function sendWorklogLinkEmail(
       `
     });
     
-    console.log(`[Email] Successfully sent worklog link email to ${toEmail}`);
+    logger.info(`[Email] Successfully sent worklog link email to ${toEmail}`);
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send worklog link email:', error);
+    logger.error('[Email] Failed to send worklog link email:', error);
     return false;
   }
 }
@@ -307,10 +308,10 @@ export async function sendCustomPatientEmail(toEmail: string, messageText: strin
       `
     });
     
-    console.log(`[Email] Successfully sent custom message to ${toEmail}`);
+    logger.info(`[Email] Successfully sent custom message to ${toEmail}`);
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send custom patient email:', error);
+    logger.error('[Email] Failed to send custom patient email:', error);
     throw error;
   }
 }

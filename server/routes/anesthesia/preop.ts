@@ -8,6 +8,7 @@ import { requireWriteAccess } from "../../utils";
 import { Resend } from "resend";
 import { sendSms, isSmsConfiguredForHospital } from "../../sms";
 import { nanoid } from "nanoid";
+import logger from "../../logger";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
     
     res.json(assessments);
   } catch (error) {
-    console.error("Error fetching pre-op assessments:", error);
+    logger.error("Error fetching pre-op assessments:", error);
     res.status(500).json({ message: "Failed to fetch pre-op assessments" });
   }
 });
@@ -58,7 +59,7 @@ router.get('/api/anesthesia/preop/surgery/:surgeryId', isAuthenticated, async (r
     
     res.json(assessment || null);
   } catch (error) {
-    console.error("Error fetching pre-op assessment:", error);
+    logger.error("Error fetching pre-op assessment:", error);
     res.status(500).json({ message: "Failed to fetch pre-op assessment" });
   }
 });
@@ -81,7 +82,7 @@ router.get('/api/anesthesia/preop-assessments/bulk', isAuthenticated, async (req
     
     res.json(assessments);
   } catch (error) {
-    console.error("Error fetching bulk pre-op assessments:", error);
+    logger.error("Error fetching bulk pre-op assessments:", error);
     res.status(500).json({ message: "Failed to fetch pre-op assessments" });
   }
 });
@@ -126,7 +127,7 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireWriteAccess, async 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating pre-op assessment:", error);
+    logger.error("Error creating pre-op assessment:", error);
     res.status(500).json({ message: "Failed to create pre-op assessment" });
   }
 });
@@ -172,7 +173,7 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, a
     
     res.json(updatedAssessment);
   } catch (error) {
-    console.error("Error updating pre-op assessment:", error);
+    logger.error("Error updating pre-op assessment:", error);
     res.status(500).json({ message: "Failed to update pre-op assessment" });
   }
 });
@@ -466,7 +467,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
           const dataUrl = `data:${mimeType};base64,${base64}`;
           doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
         } catch (e) {
-          console.warn('Could not load hospital logo:', e);
+          logger.warn('Could not load hospital logo:', e);
         }
       }
       
@@ -996,7 +997,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
 
     await archive.finalize();
   } catch (error) {
-    console.error("Error exporting pre-op assessments:", error);
+    logger.error("Error exporting pre-op assessments:", error);
     if (!res.headersSent) {
       res.status(500).json({ message: "Failed to export pre-op assessments" });
     }
@@ -1285,7 +1286,7 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (re
         const dataUrl = `data:${mimeType};base64,${base64}`;
         doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
       } catch (e) {
-        console.warn('Could not load hospital logo:', e);
+        logger.warn('Could not load hospital logo:', e);
       }
     }
     
@@ -1813,7 +1814,7 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (re
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error downloading pre-op PDF:", error);
+    logger.error("Error downloading pre-op PDF:", error);
     res.status(500).json({ message: "Failed to download pre-op PDF" });
   }
 });
@@ -1823,15 +1824,15 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const { assessmentId } = req.params;
     const userId = req.user.id;
     
-    console.log("[Email] Starting email send for assessment:", assessmentId);
+    logger.info("[Email] Starting email send for assessment:", assessmentId);
     
     const assessment = await storage.getPreOpAssessmentById(assessmentId);
     if (!assessment) {
-      console.log("[Email] Assessment not found:", assessmentId);
+      logger.info("[Email] Assessment not found:", assessmentId);
       return res.status(404).json({ message: "Assessment not found" });
     }
     
-    console.log("[Email] Assessment found, emailForCopy:", assessment.emailForCopy, "emailLanguage:", assessment.emailLanguage);
+    logger.info("[Email] Assessment found, emailForCopy:", assessment.emailForCopy, "emailLanguage:", assessment.emailLanguage);
     
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
@@ -1980,7 +1981,7 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
         const dataUrl = `data:${mimeType};base64,${base64}`;
         doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
       } catch (e) {
-        console.warn('Could not load hospital logo:', e);
+        logger.warn('Could not load hospital logo:', e);
       }
     }
     
@@ -2105,7 +2106,7 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const safeFullName = `${patientSurname}_${patientFirstName}`.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '_');
     const filename = `preop-${dateStr}-${safeFullName}.pdf`;
     
-    console.log("[Email] PDF size:", pdfBuffer.length, "bytes");
+    logger.info("[Email] PDF size:", pdfBuffer.length, "bytes");
     
     const resend = new Resend(process.env.RESEND_API_KEY);
     
@@ -2135,7 +2136,7 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       ]
     });
     
-    console.log("[Email] Email sent successfully:", emailResult);
+    logger.info("[Email] Email sent successfully:", emailResult);
     
     await storage.updatePreOpAssessment(assessmentId, {
       emailSentAt: new Date()
@@ -2147,7 +2148,7 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       sentTo: recipientEmail
     });
   } catch (error: any) {
-    console.error("Error sending pre-op email:", {
+    logger.error("Error sending pre-op email:", {
       message: error.message,
       name: error.name,
       statusCode: error.statusCode,
@@ -2287,7 +2288,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
             sentMessageContent = `${emailSubject}\n\nSie können Ihre Einwilligungserklärung online unterschreiben. / You can sign the informed consent online.\n${portalUrl}`;
           }
         } catch (emailError) {
-          console.error("Error sending consent invitation email:", emailError);
+          logger.error("Error sending consent invitation email:", emailError);
         }
       }
     }
@@ -2314,7 +2315,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
         messageType: 'auto_consent_invitation',
       });
     } catch (msgErr) {
-      console.error("Error saving consent invitation to communication history:", msgErr);
+      logger.error("Error saving consent invitation to communication history:", msgErr);
     }
 
     res.json({
@@ -2323,7 +2324,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
       portalUrl,
     });
   } catch (error) {
-    console.error("Error sending consent invitation:", error);
+    logger.error("Error sending consent invitation:", error);
     res.status(500).json({ message: "Failed to send consent invitation" });
   }
 });
@@ -2482,7 +2483,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
             sentMessageContent = `${emailSubject}\n\nTel: ${phoneNumber}\n\n${slotsTextDe}\n\n${portalUrl}`;
           }
         } catch (emailError) {
-          console.error("Error sending callback appointment email:", emailError);
+          logger.error("Error sending callback appointment email:", emailError);
         }
       }
     }
@@ -2511,7 +2512,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
         messageType: 'auto_callback_appointment',
       });
     } catch (msgErr) {
-      console.error("Error saving callback appointment to communication history:", msgErr);
+      logger.error("Error saving callback appointment to communication history:", msgErr);
     }
 
     res.json({
@@ -2520,7 +2521,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
       portalUrl,
     });
   } catch (error) {
-    console.error("Error sending callback appointment:", error);
+    logger.error("Error sending callback appointment:", error);
     res.status(500).json({ message: "Failed to send callback appointment" });
   }
 });

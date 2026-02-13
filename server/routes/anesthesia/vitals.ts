@@ -23,6 +23,7 @@ import {
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
+import logger from "../../logger";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -57,7 +58,7 @@ router.get('/api/anesthesia/vitals/:recordId', isAuthenticated, async (req: any,
     
     res.json(vitals);
   } catch (error) {
-    console.error("Error fetching vitals snapshots:", error);
+    logger.error("Error fetching vitals snapshots:", error);
     res.status(500).json({ message: "Failed to fetch vitals snapshots" });
   }
 });
@@ -66,9 +67,9 @@ router.post('/api/anesthesia/vitals', isAuthenticated, requireWriteAccess, async
   try {
     const userId = req.user.id;
     
-    console.log('[VITALS] Received payload:', JSON.stringify(req.body, null, 2));
+    logger.info('[VITALS] Received payload:', JSON.stringify(req.body, null, 2));
     const validatedData = insertVitalsSnapshotSchema.parse(req.body);
-    console.log('[VITALS] Validation successful:', JSON.stringify(validatedData, null, 2));
+    logger.info('[VITALS] Validation successful:', JSON.stringify(validatedData, null, 2));
 
     const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
     
@@ -93,10 +94,10 @@ router.post('/api/anesthesia/vitals', isAuthenticated, requireWriteAccess, async
     res.status(201).json(newVital);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('[VITALS] Zod validation error:', JSON.stringify(error.errors, null, 2));
+      logger.error('[VITALS] Zod validation error:', JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating vitals snapshot:", error);
+    logger.error("Error creating vitals snapshot:", error);
     res.status(500).json({ message: "Failed to create vitals snapshot" });
   }
 });
@@ -125,12 +126,12 @@ router.get('/api/anesthesia/vitals/snapshot/:recordId', isAuthenticated, async (
 
     const snapshot = await storage.getClinicalSnapshot(recordId);
     const snapshotData = snapshot?.data as any;
-    console.log('[SNAPSHOT-GET] Returning snapshot for', recordId, 'keys:', snapshotData ? Object.keys(snapshotData) : 'null');
-    if (snapshotData?.pip) console.log('[SNAPSHOT-GET] pip count:', snapshotData.pip.length);
-    if (snapshotData?.peep) console.log('[SNAPSHOT-GET] peep count:', snapshotData.peep.length);
+    logger.info('[SNAPSHOT-GET] Returning snapshot for', recordId, 'keys:', snapshotData ? Object.keys(snapshotData) : 'null');
+    if (snapshotData?.pip) logger.info('[SNAPSHOT-GET] pip count:', snapshotData.pip.length);
+    if (snapshotData?.peep) logger.info('[SNAPSHOT-GET] peep count:', snapshotData.peep.length);
     res.json(snapshot);
   } catch (error) {
-    console.error("Error getting clinical snapshot:", error);
+    logger.error("Error getting clinical snapshot:", error);
     res.status(500).json({ message: "Failed to get clinical snapshot" });
   }
 });
@@ -179,7 +180,7 @@ router.post('/api/anesthesia/vitals/points', isAuthenticated, requireWriteAccess
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding vital point:", error);
+    logger.error("Error adding vital point:", error);
     res.status(500).json({ message: "Failed to add vital point" });
   }
 });
@@ -229,7 +230,7 @@ router.post('/api/anesthesia/vitals/bp', isAuthenticated, requireWriteAccess, as
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding BP point:", error);
+    logger.error("Error adding BP point:", error);
     res.status(500).json({ message: "Failed to add BP point" });
   }
 });
@@ -264,7 +265,7 @@ router.patch('/api/anesthesia/vitals/points/:pointId', isAuthenticated, requireW
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating vital point:", error);
+    logger.error("Error updating vital point:", error);
     res.status(500).json({ message: "Failed to update vital point" });
   }
 });
@@ -299,7 +300,7 @@ router.patch('/api/anesthesia/vitals/bp/:pointId', isAuthenticated, requireWrite
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating BP point:", error);
+    logger.error("Error updating BP point:", error);
     res.status(500).json({ message: "Failed to update BP point" });
   }
 });
@@ -326,7 +327,7 @@ router.delete('/api/anesthesia/vitals/points/:pointId', isAuthenticated, require
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting vital point:", error);
+    logger.error("Error deleting vital point:", error);
     res.status(500).json({ message: "Failed to delete vital point" });
   }
 });
@@ -364,7 +365,7 @@ router.post('/api/anesthesia/rhythm', isAuthenticated, requireWriteAccess, async
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding rhythm point:", error);
+    logger.error("Error adding rhythm point:", error);
     res.status(500).json({ message: "Failed to add rhythm point" });
   }
 });
@@ -422,7 +423,7 @@ router.patch('/api/anesthesia/rhythm/:pointId', isAuthenticated, requireWriteAcc
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating rhythm point:", error);
+    logger.error("Error updating rhythm point:", error);
     res.status(500).json({ message: "Failed to update rhythm point" });
   }
 });
@@ -472,7 +473,7 @@ router.delete('/api/anesthesia/rhythm/:pointId', isAuthenticated, requireWriteAc
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting rhythm point:", error);
+    logger.error("Error deleting rhythm point:", error);
     res.status(500).json({ message: "Failed to delete rhythm point" });
   }
 });
@@ -511,7 +512,7 @@ router.post('/api/anesthesia/tof', isAuthenticated, requireWriteAccess, async (r
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding TOF point:", error);
+    logger.error("Error adding TOF point:", error);
     res.status(500).json({ message: "Failed to add TOF point" });
   }
 });
@@ -569,7 +570,7 @@ router.patch('/api/anesthesia/tof/:pointId', isAuthenticated, requireWriteAccess
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating TOF point:", error);
+    logger.error("Error updating TOF point:", error);
     res.status(500).json({ message: "Failed to update TOF point" });
   }
 });
@@ -619,7 +620,7 @@ router.delete('/api/anesthesia/tof/:pointId', isAuthenticated, requireWriteAcces
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting TOF point:", error);
+    logger.error("Error deleting TOF point:", error);
     res.status(500).json({ message: "Failed to delete TOF point" });
   }
 });
@@ -666,7 +667,7 @@ router.post('/api/anesthesia/vas', isAuthenticated, requireWriteAccess, async (r
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding VAS point:", error);
+    logger.error("Error adding VAS point:", error);
     res.status(500).json({ message: "Failed to add VAS point" });
   }
 });
@@ -736,7 +737,7 @@ router.patch('/api/anesthesia/vas/:pointId', isAuthenticated, requireWriteAccess
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating VAS point:", error);
+    logger.error("Error updating VAS point:", error);
     res.status(500).json({ message: "Failed to update VAS point" });
   }
 });
@@ -795,7 +796,7 @@ router.delete('/api/anesthesia/vas/:pointId', isAuthenticated, requireWriteAcces
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting VAS point:", error);
+    logger.error("Error deleting VAS point:", error);
     res.status(500).json({ message: "Failed to delete VAS point" });
   }
 });
@@ -843,7 +844,7 @@ router.post('/api/anesthesia/aldrete', isAuthenticated, requireWriteAccess, asyn
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding Aldrete point:", error);
+    logger.error("Error adding Aldrete point:", error);
     res.status(500).json({ message: "Failed to add Aldrete point" });
   }
 });
@@ -914,7 +915,7 @@ router.patch('/api/anesthesia/aldrete/:pointId', isAuthenticated, requireWriteAc
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating Aldrete point:", error);
+    logger.error("Error updating Aldrete point:", error);
     res.status(500).json({ message: "Failed to update Aldrete point" });
   }
 });
@@ -973,7 +974,7 @@ router.delete('/api/anesthesia/aldrete/:pointId', isAuthenticated, requireWriteA
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting Aldrete point:", error);
+    logger.error("Error deleting Aldrete point:", error);
     res.status(500).json({ message: "Failed to delete Aldrete point" });
   }
 });
@@ -1023,7 +1024,7 @@ router.post('/api/anesthesia/scores', isAuthenticated, requireWriteAccess, async
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error adding score point:", error);
+    logger.error("Error adding score point:", error);
     res.status(500).json({ message: "Failed to add score point" });
   }
 });
@@ -1096,7 +1097,7 @@ router.patch('/api/anesthesia/scores/:pointId', isAuthenticated, requireWriteAcc
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error updating score point:", error);
+    logger.error("Error updating score point:", error);
     res.status(500).json({ message: "Failed to update score point" });
   }
 });
@@ -1155,7 +1156,7 @@ router.delete('/api/anesthesia/scores/:pointId', isAuthenticated, requireWriteAc
 
     res.json(updatedSnapshot);
   } catch (error) {
-    console.error("Error deleting score point:", error);
+    logger.error("Error deleting score point:", error);
     res.status(500).json({ message: "Failed to delete score point" });
   }
 });

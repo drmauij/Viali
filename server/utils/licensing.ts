@@ -2,6 +2,7 @@ import { storage, db } from "../storage";
 import { items } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { Response, NextFunction } from "express";
+import logger from "../logger";
 
 // Limits removed - all plans now have unlimited access
 // Billing is usage-based (per anesthesia record) for "basic" plan
@@ -116,7 +117,7 @@ export function requireBillingSetup(req: any, res: Response, next: NextFunction)
       
       next();
     } catch (error) {
-      console.error("Error checking billing status:", error);
+      logger.error("Error checking billing status:", error);
       next();
     }
   };

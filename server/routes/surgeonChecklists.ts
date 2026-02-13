@@ -7,6 +7,7 @@ import {
   updateSurgeonChecklistTemplateSchema,
   updateSurgeryChecklistSchema 
 } from "@shared/schema";
+import logger from "../logger";
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get("/api/surgeon-checklists/templates", isAuthenticated, async (req: any
     const templates = await storage.getSurgeonChecklistTemplates(hospitalId, isAdmin ? undefined : userId);
     res.json(templates);
   } catch (error) {
-    console.error("Error fetching surgeon checklist templates:", error);
+    logger.error("Error fetching surgeon checklist templates:", error);
     res.status(500).json({ error: "Failed to fetch templates" });
   }
 });
@@ -49,7 +50,7 @@ router.get("/api/surgeon-checklists/templates/:id", isAuthenticated, async (req:
 
     res.json(template);
   } catch (error) {
-    console.error("Error fetching surgeon checklist template:", error);
+    logger.error("Error fetching surgeon checklist template:", error);
     res.status(500).json({ error: "Failed to fetch template" });
   }
 });
@@ -78,7 +79,7 @@ router.post("/api/surgeon-checklists/templates", isAuthenticated, requireWriteAc
     const fullTemplate = await storage.getSurgeonChecklistTemplate(template.id);
     res.json(fullTemplate);
   } catch (error) {
-    console.error("Error creating surgeon checklist template:", error);
+    logger.error("Error creating surgeon checklist template:", error);
     res.status(500).json({ error: "Failed to create template" });
   }
 });
@@ -104,7 +105,7 @@ router.patch("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWr
     const fullTemplate = await storage.getSurgeonChecklistTemplate(updated.id);
     res.json(fullTemplate);
   } catch (error) {
-    console.error("Error updating surgeon checklist template:", error);
+    logger.error("Error updating surgeon checklist template:", error);
     res.status(500).json({ error: "Failed to update template" });
   }
 });
@@ -123,7 +124,7 @@ router.delete("/api/surgeon-checklists/templates/:id", isAuthenticated, requireW
     await storage.deleteSurgeonChecklistTemplate(req.params.id);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting surgeon checklist template:", error);
+    logger.error("Error deleting surgeon checklist template:", error);
     res.status(500).json({ error: "Failed to delete template" });
   }
 });
@@ -133,7 +134,7 @@ router.get("/api/surgeries/:surgeryId/checklist", isAuthenticated, async (req, r
     const checklist = await storage.getSurgeryPreOpChecklist(req.params.surgeryId);
     res.json(checklist);
   } catch (error) {
-    console.error("Error fetching surgery checklist:", error);
+    logger.error("Error fetching surgery checklist:", error);
     res.status(500).json({ error: "Failed to fetch checklist" });
   }
 });
@@ -149,7 +150,7 @@ router.put("/api/surgeries/:surgeryId/checklist", isAuthenticated, requireWriteA
     const saved = await storage.saveSurgeryPreOpChecklist(req.params.surgeryId, templateId, entries);
     res.json({ templateId, entries: saved });
   } catch (error) {
-    console.error("Error saving surgery checklist:", error);
+    logger.error("Error saving surgery checklist:", error);
     res.status(500).json({ error: "Failed to save checklist" });
   }
 });
@@ -170,7 +171,7 @@ router.put("/api/surgeries/:surgeryId/checklist/entry", isAuthenticated, require
     );
     res.json(saved);
   } catch (error) {
-    console.error("Error saving surgery checklist entry:", error);
+    logger.error("Error saving surgery checklist entry:", error);
     res.status(500).json({ error: "Failed to save checklist entry" });
   }
 });
@@ -192,7 +193,7 @@ router.get("/api/surgeries/future", isAuthenticated, async (req: any, res) => {
     const surgeries = await storage.getFutureSurgeriesWithPatients(hospitalId);
     res.json(surgeries);
   } catch (error) {
-    console.error("Error fetching future surgeries:", error);
+    logger.error("Error fetching future surgeries:", error);
     res.status(500).json({ error: "Failed to fetch future surgeries" });
   }
 });
@@ -215,7 +216,7 @@ router.get("/api/surgeries/past", isAuthenticated, async (req: any, res) => {
     const surgeries = await storage.getPastSurgeriesWithPatients(hospitalId, limit);
     res.json(surgeries);
   } catch (error) {
-    console.error("Error fetching past surgeries:", error);
+    logger.error("Error fetching past surgeries:", error);
     res.status(500).json({ error: "Failed to fetch past surgeries" });
   }
 });
@@ -237,7 +238,7 @@ router.get("/api/surgeon-checklists/matrix", isAuthenticated, async (req: any, r
     const entries = await storage.getChecklistMatrixEntries(templateId as string, hospitalId as string);
     res.json({ entries });
   } catch (error) {
-    console.error("Error fetching checklist matrix:", error);
+    logger.error("Error fetching checklist matrix:", error);
     res.status(500).json({ error: "Failed to fetch matrix data" });
   }
 });
@@ -264,7 +265,7 @@ router.get("/api/surgeon-checklists/matrix/past", isAuthenticated, async (req: a
     
     res.json({ entries });
   } catch (error) {
-    console.error("Error fetching past checklist matrix:", error);
+    logger.error("Error fetching past checklist matrix:", error);
     res.status(500).json({ error: "Failed to fetch past matrix data" });
   }
 });
@@ -286,7 +287,7 @@ router.put("/api/surgeon-checklists/templates/:id/default", isAuthenticated, req
     const updated = await storage.toggleSurgeonChecklistTemplateDefault(templateId, userId);
     res.json(updated);
   } catch (error) {
-    console.error("Error toggling template default:", error);
+    logger.error("Error toggling template default:", error);
     res.status(500).json({ error: "Failed to toggle default" });
   }
 });
@@ -314,7 +315,7 @@ router.post("/api/surgeon-checklists/templates/:id/apply-to-future", isAuthentic
     const applied = await storage.applyTemplateToFutureSurgeries(templateId, hospitalId);
     res.json({ applied });
   } catch (error) {
-    console.error("Error applying template to future surgeries:", error);
+    logger.error("Error applying template to future surgeries:", error);
     res.status(500).json({ error: "Failed to apply template" });
   }
 });

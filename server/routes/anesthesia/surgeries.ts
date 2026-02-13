@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
+import logger from "../../logger";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get('/api/anesthesia/cases', isAuthenticated, async (req: any, res) => {
     
     res.json(cases);
   } catch (error) {
-    console.error("Error fetching cases:", error);
+    logger.error("Error fetching cases:", error);
     res.status(500).json({ message: "Failed to fetch cases" });
   }
 });
@@ -61,7 +62,7 @@ router.get('/api/anesthesia/cases/:id', isAuthenticated, async (req: any, res) =
 
     res.json(caseData);
   } catch (error) {
-    console.error("Error fetching case:", error);
+    logger.error("Error fetching case:", error);
     res.status(500).json({ message: "Failed to fetch case" });
   }
 });
@@ -86,7 +87,7 @@ router.post('/api/anesthesia/cases', isAuthenticated, requireWriteAccess, async 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating case:", error);
+    logger.error("Error creating case:", error);
     res.status(500).json({ message: "Failed to create case" });
   }
 });
@@ -113,7 +114,7 @@ router.patch('/api/anesthesia/cases/:id', isAuthenticated, requireWriteAccess, a
     
     res.json(updatedCase);
   } catch (error) {
-    console.error("Error updating case:", error);
+    logger.error("Error updating case:", error);
     res.status(500).json({ message: "Failed to update case" });
   }
 });
@@ -158,7 +159,7 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) =
     
     res.json(enrichedSurgeries);
   } catch (error) {
-    console.error("Error fetching surgeries:", error);
+    logger.error("Error fetching surgeries:", error);
     res.status(500).json({ message: "Failed to fetch surgeries" });
   }
 });
@@ -194,7 +195,7 @@ router.get('/api/anesthesia/surgeries/today/:hospitalId', isAuthenticated, async
 
     res.json(simpleSurgeries);
   } catch (error) {
-    console.error("Error fetching today's surgeries:", error);
+    logger.error("Error fetching today's surgeries:", error);
     res.status(500).json({ message: "Failed to fetch today's surgeries" });
   }
 });
@@ -228,7 +229,7 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
 
     res.json({ ...surgery, surgeonPhone });
   } catch (error) {
-    console.error("Error fetching surgery:", error);
+    logger.error("Error fetching surgery:", error);
     res.status(500).json({ message: "Failed to fetch surgery" });
   }
 });
@@ -237,11 +238,11 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireWriteAccess, as
   try {
     const userId = req.user.id;
     
-    console.log("Received surgery creation request:", JSON.stringify(req.body, null, 2));
+    logger.info("Received surgery creation request:", JSON.stringify(req.body, null, 2));
 
     const validatedData = insertSurgerySchema.parse(req.body);
     
-    console.log("Validated surgery data:", JSON.stringify(validatedData, null, 2));
+    logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
@@ -257,17 +258,17 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireWriteAccess, as
         const { syncSingleSurgery } = await import("../../services/calcomSync");
         await syncSingleSurgery(newSurgery.id);
       } catch (err) {
-        console.error(`Failed to sync surgery ${newSurgery.id} to Cal.com:`, err);
+        logger.error(`Failed to sync surgery ${newSurgery.id} to Cal.com:`, err);
       }
     })();
     
     res.status(201).json(newSurgery);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error("Zod validation error:", JSON.stringify(error.errors, null, 2));
+      logger.error("Zod validation error:", JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating surgery:", error);
+    logger.error("Error creating surgery:", error);
     res.status(500).json({ message: "Failed to create surgery" });
   }
 });
@@ -326,13 +327,13 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
           await syncSingleSurgery(updatedSurgery.id);
         }
       } catch (err) {
-        console.error(`Failed to sync surgery ${updatedSurgery.id} to Cal.com:`, err);
+        logger.error(`Failed to sync surgery ${updatedSurgery.id} to Cal.com:`, err);
       }
     })();
     
     res.json(updatedSurgery);
   } catch (error) {
-    console.error("Error updating surgery:", error);
+    logger.error("Error updating surgery:", error);
     res.status(500).json({ message: "Failed to update surgery" });
   }
 });
@@ -363,14 +364,14 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
           const { deleteCalcomBlock } = await import("../../services/calcomSync");
           await deleteCalcomBlock(archivedSurgery.calcomBusyBlockUid!, archivedSurgery.hospitalId);
         } catch (err) {
-          console.error(`Failed to delete Cal.com block for archived surgery ${id}:`, err);
+          logger.error(`Failed to delete Cal.com block for archived surgery ${id}:`, err);
         }
       })();
     }
     
     res.json({ message: "Surgery archived successfully", surgery: archivedSurgery });
   } catch (error) {
-    console.error("Error archiving surgery:", error);
+    logger.error("Error archiving surgery:", error);
     res.status(500).json({ message: "Failed to archive surgery" });
   }
 });
@@ -400,13 +401,13 @@ router.post('/api/anesthesia/surgeries/:id/unarchive', isAuthenticated, requireW
         const { syncSingleSurgery } = await import("../../services/calcomSync");
         await syncSingleSurgery(restoredSurgery.id);
       } catch (err) {
-        console.error(`Failed to sync restored surgery ${id} to Cal.com:`, err);
+        logger.error(`Failed to sync restored surgery ${id} to Cal.com:`, err);
       }
     })();
     
     res.json({ message: "Surgery restored successfully", surgery: restoredSurgery });
   } catch (error) {
-    console.error("Error restoring surgery:", error);
+    logger.error("Error restoring surgery:", error);
     res.status(500).json({ message: "Failed to restore surgery" });
   }
 });
@@ -432,7 +433,7 @@ router.get('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, async 
     const notes = await storage.getSurgeryNotes(surgeryId);
     res.json(notes);
   } catch (error) {
-    console.error("Error fetching surgery notes:", error);
+    logger.error("Error fetching surgery notes:", error);
     res.status(500).json({ message: "Failed to fetch surgery notes" });
   }
 });
@@ -492,7 +493,7 @@ router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requi
               content.trim(),
               patientName,
               surgery.plannedSurgery || 'Surgery'
-            ).catch(err => console.error('[Email] Failed to send surgery note mention:', err));
+            ).catch(err => logger.error('[Email] Failed to send surgery note mention:', err));
           }
         }
       }
@@ -503,7 +504,7 @@ router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requi
     
     res.status(201).json(noteWithAuthor || newNote);
   } catch (error) {
-    console.error("Error creating surgery note:", error);
+    logger.error("Error creating surgery note:", error);
     res.status(500).json({ message: "Failed to create surgery note" });
   }
 });
@@ -521,7 +522,7 @@ router.patch('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireWr
     const updatedNote = await storage.updateSurgeryNote(noteId, content.trim());
     res.json(updatedNote);
   } catch (error) {
-    console.error("Error updating surgery note:", error);
+    logger.error("Error updating surgery note:", error);
     res.status(500).json({ message: "Failed to update surgery note" });
   }
 });
@@ -532,7 +533,7 @@ router.delete('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireW
     await storage.deleteSurgeryNote(noteId);
     res.json({ message: "Note deleted successfully" });
   } catch (error) {
-    console.error("Error deleting surgery note:", error);
+    logger.error("Error deleting surgery note:", error);
     res.status(500).json({ message: "Failed to delete surgery note" });
   }
 });
@@ -555,7 +556,7 @@ router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, async (req: any,
     
     res.json(pacuPatients);
   } catch (error) {
-    console.error("Error fetching PACU patients:", error);
+    logger.error("Error fetching PACU patients:", error);
     res.status(500).json({ message: "Failed to fetch PACU patients" });
   }
 });
@@ -580,7 +581,7 @@ router.get('/api/surgery/preop-assessments/bulk', isAuthenticated, async (req: a
     
     res.json(assessments);
   } catch (error) {
-    console.error("Error fetching bulk surgery pre-op assessments:", error);
+    logger.error("Error fetching bulk surgery pre-op assessments:", error);
     res.status(500).json({ message: "Failed to fetch surgery pre-op assessments" });
   }
 });
@@ -605,7 +606,7 @@ router.get('/api/surgery/preop', isAuthenticated, async (req: any, res) => {
     
     res.json(assessments);
   } catch (error) {
-    console.error("Error fetching surgery pre-op assessments:", error);
+    logger.error("Error fetching surgery pre-op assessments:", error);
     res.status(500).json({ message: "Failed to fetch surgery pre-op assessments" });
   }
 });
@@ -632,7 +633,7 @@ router.get('/api/surgery/preop/surgery/:surgeryId', isAuthenticated, async (req:
     
     res.json(assessment || null);
   } catch (error) {
-    console.error("Error fetching surgery pre-op assessment:", error);
+    logger.error("Error fetching surgery pre-op assessment:", error);
     res.status(500).json({ message: "Failed to fetch surgery pre-op assessment" });
   }
 });
@@ -663,7 +664,7 @@ router.post('/api/surgery/preop', isAuthenticated, requireWriteAccess, async (re
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
-    console.error("Error creating surgery pre-op assessment:", error);
+    logger.error("Error creating surgery pre-op assessment:", error);
     res.status(500).json({ message: "Failed to create surgery pre-op assessment" });
   }
 });
@@ -695,7 +696,7 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
     
     res.json(updatedAssessment);
   } catch (error) {
-    console.error("Error updating surgery pre-op assessment:", error);
+    logger.error("Error updating surgery pre-op assessment:", error);
     res.status(500).json({ message: "Failed to update surgery pre-op assessment" });
   }
 });
@@ -747,7 +748,7 @@ router.post('/api/anesthesia/surgeries/:id/send-summary', isAuthenticated, async
       res.status(500).json({ success: false, message: "Failed to send email", error: result.error });
     }
   } catch (error) {
-    console.error("Error sending surgery summary email:", error);
+    logger.error("Error sending surgery summary email:", error);
     res.status(500).json({ message: "Failed to send surgery summary email" });
   }
 });

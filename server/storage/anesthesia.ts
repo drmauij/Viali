@@ -138,6 +138,7 @@ import {
   type PatientDischargeMedicationItem,
   type InsertPatientDischargeMedicationItem,
 } from "@shared/schema";
+import logger from "../logger";
 
 // ========== HOSPITAL ANESTHESIA SETTINGS ==========
 
@@ -2788,7 +2789,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     return medTime > lastCommitTime;
   });
 
-  console.log('[INVENTORY-CALC] Filtered medications:', {
+  logger.info('[INVENTORY-CALC] Filtered medications:', {
     totalMedications: allMedications.length,
     filteredMedications: medications.length,
     lastCommitTimes: Array.from(lastCommitTimeByItem.entries()).map(([itemId, time]) => ({
@@ -2905,7 +2906,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
         totalQty = Math.ceil(totalDose / ampuleValue);
       }
       
-      console.log('[INVENTORY-CALC] TCI infusion usage:', {
+      logger.info('[INVENTORY-CALC] TCI infusion usage:', {
         itemId,
         startRecordsCount: startMeds.length,
         stopRecordsCount: stopMeds.length,
@@ -3073,7 +3074,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
             segment.end,
             patientWeight
           );
-          console.log('[INVENTORY-CALC] Rate-controlled segment volume:', {
+          logger.info('[INVENTORY-CALC] Rate-controlled segment volume:', {
             itemId,
             rate: segment.rate,
             rateUnit: item.rateUnit,
@@ -3087,7 +3088,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
       
       if (totalRawVolume > 0) {
         totalQty = volumeToAmpules(totalRawVolume, item.ampuleTotalContent);
-        console.log('[INVENTORY-CALC] Final ampule calculation:', {
+        logger.info('[INVENTORY-CALC] Final ampule calculation:', {
           itemId,
           totalRawVolume,
           ampuleTotalContent: item.ampuleTotalContent,

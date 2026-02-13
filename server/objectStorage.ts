@@ -11,6 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
+import logger from "./logger";
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -46,7 +47,7 @@ function getS3Config() {
   const bucket = process.env.S3_BUCKET;
 
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
-    console.warn("S3 storage not fully configured. File uploads will not work.");
+    logger.warn("S3 storage not fully configured. File uploads will not work.");
     return null;
   }
 
@@ -219,7 +220,7 @@ export class ObjectStorageService {
         res.status(500).json({ error: "Error streaming file" });
       }
     } catch (error: any) {
-      console.error("Error downloading file:", error);
+      logger.error("Error downloading file:", error);
       if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
         res.status(404).json({ error: "File not found" });
       } else if (!res.headersSent) {
