@@ -56,13 +56,14 @@ export default function ModuleDrawer() {
   const isAdmin = activeHospital?.role === "admin";
   const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
 
-  const { data: pendingCountData } = useQuery<{ count: number }>({
+  const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
     queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
     refetchInterval: 30000,
   });
 
-  const hasPendingChecklists = (pendingCountData?.count || 0) > 0;
+  const hasPendingChecklists = (pendingCountData?.total || 0) > 0;
+  const hasOverdueChecklists = (pendingCountData?.overdue || 0) > 0;
 
   const allModules: ModuleCard[] = [
     {
@@ -251,12 +252,12 @@ export default function ModuleDrawer() {
         icon: <ClipboardCheck className="w-4 h-4" />,
         label: t('bottomNav.checklists', 'Checklists'),
         route: checklistRoute,
-        ...(hasPendingChecklists ? { badge: pendingCountData?.count } : {}),
+        ...(hasOverdueChecklists ? { badge: pendingCountData?.overdue } : {}),
       });
     }
 
     return items;
-  }, [addons.worktime, addons.surgery, hasAnesthesiaAccess, hasSurgeryAccess, canAccessPreOp, hasPendingChecklists, pendingCountData?.count, t]);
+  }, [addons.worktime, addons.surgery, hasAnesthesiaAccess, hasSurgeryAccess, canAccessPreOp, hasPendingChecklists, hasOverdueChecklists, pendingCountData?.overdue, t]);
 
   if (!isDrawerOpen) return null;
 

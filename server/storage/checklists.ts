@@ -456,9 +456,22 @@ export async function getChecklistCompletion(id: string): Promise<(ChecklistComp
   return completion as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined;
 }
 
-export async function getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number> {
-  const pending = await getPendingChecklists(hospitalId, unitId, role);
-  return pending.filter(c => c.isOverdue).length;
+export async function getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<{ total: number; overdue: number }> {
+  const [pending, roomPending] = await Promise.all([
+    getPendingChecklists(hospitalId, unitId, role),
+    getRoomPendingChecklists(hospitalId),
+  ]);
+  const roomFiltered = roomPending.filter(c => {
+    const assignments = c.assignments || [];
+    if (assignments.length === 0) return c.unitId === unitId;
+    return assignments.some(a =>
+      (a.unitId === unitId || a.unitId === null) &&
+      (!role || a.role === null || a.role === role)
+    );
+  });
+  const allPending = [...pending, ...roomFiltered.filter(c => !c.completedToday)];
+  const allOverdue = [...pending.filter(c => c.isOverdue), ...roomFiltered.filter(c => c.isOverdue)];
+  return { total: allPending.length, overdue: allOverdue.length };
 }
 
 export async function backfillChecklistTemplateAssignments(): Promise<number> {

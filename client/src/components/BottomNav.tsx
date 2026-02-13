@@ -43,13 +43,14 @@ export default function BottomNav() {
   const isAdmin = activeHospital?.role === "admin";
 
   // Fetch pending checklist count for the active unit
-  const { data: pendingCountData } = useQuery<{ count: number }>({
+  const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
     queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  const hasPendingChecklists = (pendingCountData?.count || 0) > 0;
+  const hasPendingChecklists = (pendingCountData?.total || 0) > 0;
+  const hasOverdueChecklists = (pendingCountData?.overdue || 0) > 0;
 
   // Poll for import job status and update localStorage
   useEffect(() => {
@@ -268,7 +269,7 @@ export default function BottomNav() {
                 data-testid="import-badge"
               />
             )}
-            {item.id === 'checklists' && hasPendingChecklists && (
+            {item.id === 'checklists' && hasOverdueChecklists && (
               <span
                 className="pending-badge"
                 style={{

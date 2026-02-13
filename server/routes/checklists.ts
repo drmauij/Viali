@@ -246,9 +246,10 @@ router.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any
       )
     );
     
-    const totalCount = counts.reduce((sum, count) => sum + count, 0);
+    const total = counts.reduce((sum, c) => sum + c.total, 0);
+    const overdue = counts.reduce((sum, c) => sum + c.overdue, 0);
     
-    res.json({ count: totalCount });
+    res.json({ count: overdue, total, overdue });
   } catch (error) {
     logger.error("Error fetching pending checklist count:", error);
     res.status(500).json({ message: "Failed to fetch pending checklist count" });

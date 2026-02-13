@@ -330,7 +330,7 @@ export interface IStorage {
   dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal>;
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
   getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined>;
-  getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number>;
+  getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<{ total: number; overdue: number }>;
   
   // Import Jobs
   createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
