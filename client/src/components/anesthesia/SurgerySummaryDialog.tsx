@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare } from "lucide-react";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
@@ -17,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
+import { format } from "date-fns";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -52,11 +54,15 @@ export default function SurgerySummaryDialog({
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [sendSummaryDialogOpen, setSendSummaryDialogOpen] = useState(false);
   const [isPhoneRevealed, setIsPhoneRevealed] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState("");
 
   // Reset phone reveal state when dialog opens
   useEffect(() => {
     if (open) {
       setIsPhoneRevealed(false);
+      setNotesExpanded(false);
+      setNewNoteContent("");
     }
   }, [open]);
 
@@ -118,6 +124,32 @@ export default function SurgerySummaryDialog({
   
   // Treat 404 as "no data" rather than an error
   const isRealError = isPreOpError && (preOpError as any)?.status !== 404;
+
+  // Fetch case notes for this surgery
+  const { data: caseNotes = [] } = useQuery<any[]>({
+    queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/surgeries/${surgeryId}/notes`, { credentials: 'include' });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!surgeryId && open,
+  });
+
+  const createNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/notes`, { content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      setNewNoteContent("");
+      toast({ title: t('anesthesia.caseNotes.noteAdded') });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('anesthesia.caseNotes.errorCreating'), variant: "destructive" });
+    },
+  });
 
   // Fetch surgery pre-op assessment data (for surgery module)
   const { data: surgeryPreOpAssessment, isLoading: isLoadingSurgeryPreOp, isError: isSurgeryPreOpError, error: surgeryPreOpError } = useQuery<any>({
@@ -695,6 +727,92 @@ export default function SurgerySummaryDialog({
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </div>
+
+          {/* Collapsible Case Notes Section */}
+          <div className="px-6 pb-4" data-testid="section-case-notes">
+            <button
+              onClick={() => setNotesExpanded(!notesExpanded)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+              data-testid="button-toggle-case-notes"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium">{t('anesthesia.caseNotes.title')}</span>
+                {caseNotes.length > 0 && (
+                  <span className="text-xs bg-primary/10 text-primary font-medium rounded-full px-1.5 py-0.5" data-testid="badge-notes-count">
+                    {caseNotes.length}
+                  </span>
+                )}
+                {!notesExpanded && caseNotes.length > 0 && (
+                  <span className="text-xs text-muted-foreground truncate ml-1" data-testid="text-latest-note-preview">
+                    {caseNotes[0]?.author?.firstName ? `${caseNotes[0].author.firstName}: ` : ''}
+                    {caseNotes[0]?.content?.slice(0, 60)}{caseNotes[0]?.content?.length > 60 ? '…' : ''}
+                  </span>
+                )}
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${notesExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {notesExpanded && (
+              <div className="mt-2 space-y-3 px-1">
+                {/* Add new note input */}
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder={t('anesthesia.caseNotes.placeholder')}
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    rows={2}
+                    className="text-sm min-h-[60px]"
+                    data-testid="textarea-summary-case-note"
+                  />
+                  <Button
+                    size="icon"
+                    className="shrink-0 h-[60px] w-10"
+                    onClick={() => {
+                      if (newNoteContent.trim()) {
+                        createNoteMutation.mutate(newNoteContent.trim());
+                      }
+                    }}
+                    disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                    data-testid="button-add-summary-note"
+                  >
+                    {createNoteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Notes list */}
+                {caseNotes.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <StickyNote className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                    <p className="text-xs">{t('anesthesia.caseNotes.noNotes')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {caseNotes.map((note: any) => (
+                      <div
+                        key={note.id}
+                        className="border rounded-md p-2.5 text-sm"
+                        data-testid={`summary-case-note-${note.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                          <span className="font-medium text-foreground">
+                            {note.author?.firstName} {note.author?.lastName}
+                          </span>
+                          <span>•</span>
+                          {note.createdAt && format(new Date(note.createdAt), 'dd.MM HH:mm')}
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm leading-snug">{note.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
