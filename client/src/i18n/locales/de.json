@@ -2547,6 +2547,7 @@
       "errorLoading": "Fehler beim Laden der Bewertungsdaten",
       "errorLoadingRecord": "Fehler beim Laden des Anästhesieprotokolls",
       "viewManage": "Intraoperative Anästhesie-Überwachung anzeigen und verwalten",
+      "noAnesthesiaPlanned": "Keine Anästhesie geplant",
       "notes": "Notizen:",
       "editPatient": "Patient bearbeiten",
       "viewPatientDetail": "Patient anzeigen",
@@ -4563,6 +4564,8 @@
     "removalFailedDesc": "Personal konnte nicht aus dem Saal entfernt werden.",
     "noSurgeries": "Keine OPs",
     "noSurgeriesDesc": "Für diesen Tag sind keine OPs geplant.",
+    "localAnesthesia": "LA",
+    "localAnesthesiaTooltip": "Lokalanästhesie – kein Anästhesie-Team",
     "weekView": {
       "earlier": "früher",
       "later": "später",

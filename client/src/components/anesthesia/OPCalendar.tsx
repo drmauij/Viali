@@ -48,6 +48,7 @@ interface CalendarEvent {
   isCancelled: boolean;
   isSuspended: boolean;
   suspendedReason?: string | null;
+  anesthesiaType?: string | null;
   pacuBedName?: string | null;
   timeMarkers?: Array<{
     id: string;
@@ -525,6 +526,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         isCancelled,
         isSuspended,
         suspendedReason: surgery.suspendedReason || null,
+        anesthesiaType: surgery.anesthesiaType || null,
         pacuBedName: pacuBedRoom?.name || null,
         timeMarkers: surgery.timeMarkers || null,
       };
@@ -1038,10 +1040,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
         {!event.isCancelled && !event.isSuspended && (
-          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
-            <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
-            <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
-          </div>
+          event.anesthesiaType ? (
+            <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
+              <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
+              <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-0.5 leading-tight mt-0.5" data-testid={`badge-la-${event.surgeryId}`} title={t('opCalendar.localAnesthesiaTooltip')}>
+              <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
+            </div>
+          )
         )}
         {event.isSuspended && (
           <div className="text-[10px] sm:text-xs font-bold mt-0.5 truncate" data-testid={`badge-suspended-${event.surgeryId}`} title={event.suspendedReason || ''}>

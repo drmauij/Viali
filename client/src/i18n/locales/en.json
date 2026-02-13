@@ -2520,6 +2520,7 @@
       "errorLoading": "Error loading assessment data",
       "errorLoadingRecord": "Error loading anesthesia record",
       "viewManage": "View and manage operative anesthesia monitoring",
+      "noAnesthesiaPlanned": "No anesthesia planned",
       "notes": "Notes:",
       "editPatient": "Edit Patient",
       "viewPatientDetail": "View Patient",
@@ -4511,6 +4512,8 @@
     "removalFailedDesc": "Failed to remove staff from room.",
     "noSurgeries": "No surgeries",
     "noSurgeriesDesc": "There are no surgeries planned for this day.",
+    "localAnesthesia": "LA",
+    "localAnesthesiaTooltip": "Local anesthesia – no anesthesia team",
     "weekView": {
       "earlier": "earlier",
       "later": "later",

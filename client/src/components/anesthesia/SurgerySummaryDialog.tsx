@@ -435,19 +435,23 @@ export default function SurgerySummaryDialog({
             {/* Pre-OP Assessment - Only shown in anesthesia module */}
             {activeModule !== 'surgery' && (
               <Card 
-                className="cursor-pointer hover:bg-accent transition-colors"
-                onClick={onOpenPreOp}
+                className={surgery?.anesthesiaType ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
+                onClick={surgery?.anesthesiaType ? onOpenPreOp : undefined}
                 data-testid="card-open-preop"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
-                        <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div className={`p-2 rounded-lg shrink-0 ${surgery?.anesthesiaType ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
+                        <ClipboardList className={`h-5 w-5 ${surgery?.anesthesiaType ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.preOpAssessment')}</div>
-                        {isLoadingPreOp ? (
+                        {!surgery?.anesthesiaType ? (
+                          <div className="text-sm text-muted-foreground">
+                            {t('anesthesia.surgerySummary.noAnesthesiaPlanned')}
+                          </div>
+                        ) : isLoadingPreOp ? (
                           <div className="text-sm text-muted-foreground">
                             {t('anesthesia.surgerySummary.loading')}
                           </div>
@@ -559,24 +563,27 @@ export default function SurgerySummaryDialog({
             {/* Anesthesia Record - Only shown in anesthesia module */}
             {activeModule !== 'surgery' && (
               <Card 
-                className="cursor-pointer hover:bg-accent transition-colors"
-                onClick={onOpenAnesthesia}
+                className={surgery?.anesthesiaType ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
+                onClick={surgery?.anesthesiaType ? onOpenAnesthesia : undefined}
                 data-testid="card-open-anesthesia"
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                        <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      <div className={`p-2 rounded-lg ${surgery?.anesthesiaType ? 'bg-red-100 dark:bg-red-900' : 'bg-muted'}`}>
+                        <Activity className={`h-5 w-5 ${surgery?.anesthesiaType ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
                       </div>
                       <div>
                         <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
                         <div className="text-sm text-muted-foreground">
-                          {t('anesthesia.surgerySummary.viewManage')}
+                          {surgery?.anesthesiaType
+                            ? t('anesthesia.surgerySummary.viewManage')
+                            : t('anesthesia.surgerySummary.noAnesthesiaPlanned')
+                          }
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    {surgery?.anesthesiaType && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
                   </div>
                 </CardContent>
               </Card>
