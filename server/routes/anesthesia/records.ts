@@ -17,7 +17,7 @@ import {
   items,
 } from "@shared/schema";
 import { z } from "zod";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
 import { db } from "../../db";
 import { eq, and } from "drizzle-orm";
@@ -29,22 +29,14 @@ function getClientSessionId(req: Request): string | undefined {
 
 const router = Router();
 
-router.get('/api/anesthesia/records/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/surgery/:surgeryId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
-    const userId = req.user.id;
 
     const surgery = await storage.getSurgery(surgeryId);
-    
+
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const record = await storage.getAnesthesiaRecord(surgeryId);
@@ -60,22 +52,14 @@ router.get('/api/anesthesia/records/surgery/:surgeryId', isAuthenticated, async 
   }
 });
 
-router.get('/api/anesthesia/records/surgery/:surgeryId/all', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/surgery/:surgeryId/all', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
-    const userId = req.user.id;
 
     const surgery = await storage.getSurgery(surgeryId);
-    
+
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const records = await storage.getAllAnesthesiaRecordsForSurgery(surgeryId);
@@ -98,27 +82,14 @@ router.get('/api/anesthesia/records/surgery/:surgeryId/all', isAuthenticated, as
   }
 });
 
-router.get('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/:id', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     res.json(record);
@@ -128,23 +99,16 @@ router.get('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res)
   }
 });
 
-router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, requireBillingSetup, async (req: any, res) => {
+router.post('/api/anesthesia/records', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, requireBillingSetup, async (req: any, res) => {
   try {
     const userId = req.user.id;
 
     const validatedData = insertAnesthesiaRecordSchema.parse(req.body);
 
     const surgery = await storage.getSurgery(validatedData.surgeryId);
-    
+
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const existingRecord = await storage.getAnesthesiaRecord(validatedData.surgeryId);
@@ -166,27 +130,14 @@ router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, requ
   }
 });
 
-router.patch('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -202,27 +153,14 @@ router.patch('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess,
   }
 });
 
-router.delete('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/anesthesia/records/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const allRecords = await storage.getAllAnesthesiaRecordsForSurgery(record.surgeryId);
@@ -244,28 +182,16 @@ router.delete('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess
   }
 });
 
-router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const { timeMarkers } = req.body;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -342,27 +268,15 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
   }
 });
 
-router.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -398,27 +312,15 @@ router.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, r
   }
 });
 
-router.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -454,27 +356,15 @@ router.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, 
   }
 });
 
-router.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -510,27 +400,14 @@ router.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, 
   }
 });
 
-router.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -556,27 +433,15 @@ router.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireWrite
   }
 });
 
-router.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -611,27 +476,15 @@ router.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requi
   }
 });
 
-router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -686,27 +539,15 @@ router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireWri
   }
 });
 
-router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -747,26 +588,14 @@ router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requ
   }
 });
 
-router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const { filename, contentType } = req.body;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -789,25 +618,13 @@ router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticate
   }
 });
 
-router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { id, docId } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const stickerDoc = (record.countsSterileData?.stickerDocs || []).find(doc => doc.id === docId);
@@ -835,27 +652,15 @@ router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuth
   }
 });
 
-router.post('/api/anesthesia/records/:id/close', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:id/close', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
@@ -871,7 +676,7 @@ router.post('/api/anesthesia/records/:id/close', isAuthenticated, requireWriteAc
   }
 });
 
-router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const { reason, updates } = req.body;
@@ -882,21 +687,9 @@ router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAc
     }
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.caseStatus !== 'closed') {
@@ -912,27 +705,15 @@ router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAc
   }
 });
 
-router.post('/api/anesthesia/records/:id/lock', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:id/lock', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (record.isLocked) {
@@ -948,7 +729,7 @@ router.post('/api/anesthesia/records/:id/lock', isAuthenticated, requireWriteAcc
   }
 });
 
-router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -959,21 +740,9 @@ router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteA
     }
 
     const record = await storage.getAnesthesiaRecordById(id);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (!record.isLocked) {
@@ -992,27 +761,9 @@ router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteA
 // ==================== ON-DEMAND MEDICATION ENDPOINTS ====================
 
 // Get on-demand medications available for a specific administration group
-router.get('/api/anesthesia/records/:recordId/on-demand-medications/:administrationGroupId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/:recordId/on-demand-medications/:administrationGroupId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordId, administrationGroupId } = req.params;
-    const userId = req.user.id;
-
-    // Get the record and verify access
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     // Get all on-demand medications for this administration group
     const onDemandMeds = await db
@@ -1063,27 +814,9 @@ router.get('/api/anesthesia/records/:recordId/on-demand-medications/:administrat
 });
 
 // Get imported on-demand medications for a record
-router.get('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
-    const userId = req.user.id;
-
-    // Verify access
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     // Get all imported on-demand medications with their config details
     const importedMeds = await db
@@ -1115,7 +848,7 @@ router.get('/api/anesthesia/records/:recordId/imported-medications', isAuthentic
 });
 
 // Import an on-demand medication to a record
-router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
     const { medicationConfigId } = req.body;
@@ -1123,23 +856,6 @@ router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenti
 
     if (!medicationConfigId) {
       return res.status(400).json({ message: "medicationConfigId is required" });
-    }
-
-    // Verify access
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     // Verify the medication config exists and is on-demand
@@ -1202,27 +918,9 @@ router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenti
 });
 
 // Remove an imported on-demand medication from a record
-router.delete('/api/anesthesia/records/:recordId/imported-medications/:medicationConfigId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/anesthesia/records/:recordId/imported-medications/:medicationConfigId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { recordId, medicationConfigId } = req.params;
-    const userId = req.user.id;
-
-    // Verify access
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     // Delete the imported medication
     await db

@@ -672,3 +672,13 @@ export async function reorderSurgeryRooms(roomIds: string[]): Promise<void> {
     )
   );
 }
+
+export async function getItemsByIds(itemIds: string[]): Promise<Item[]> {
+  if (itemIds.length === 0) return [];
+  return db.select().from(items).where(inArray(items.id, itemIds));
+}
+
+export async function getMedicationConfigsByItemIds(itemIds: string[]): Promise<any[]> {
+  if (itemIds.length === 0) return [];
+  return db.select().from(medicationConfigs).where(inArray(medicationConfigs.itemId, itemIds));
+}

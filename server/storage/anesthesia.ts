@@ -4369,3 +4369,18 @@ export async function deletePatientDischargeMedication(id: string): Promise<Pati
   await db.delete(patientDischargeMedications).where(eq(patientDischargeMedications.id, id));
   return deletedItems;
 }
+
+export async function getAnesthesiaRecordsByIds(recordIds: string[]): Promise<any[]> {
+  if (recordIds.length === 0) return [];
+  return db.select().from(anesthesiaRecords).where(inArray(anesthesiaRecords.id, recordIds));
+}
+
+export async function getAnesthesiaRecordsBySurgeryIds(surgeryIds: string[]): Promise<Map<string, any>> {
+  if (surgeryIds.length === 0) return new Map();
+  const records = await db.select().from(anesthesiaRecords).where(inArray(anesthesiaRecords.surgeryId, surgeryIds));
+  const map = new Map<string, any>();
+  for (const r of records) {
+    if (r.surgeryId) map.set(r.surgeryId, r);
+  }
+  return map;
+}

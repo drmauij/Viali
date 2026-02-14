@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess } from "../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
 import { 
   clinicInvoices, 
   clinicInvoiceItems,
@@ -281,36 +281,13 @@ async function getCalendarScope(unitId: string, hospitalId: string): Promise<{
 
 const router = Router();
 
-// Middleware to check clinic module access
-async function isClinicAccess(req: any, res: Response, next: any) {
-  try {
-    const userId = req.user.id;
-    const hospitalId = req.params.hospitalId || req.body.hospitalId || req.query.hospitalId;
-    
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID is required" });
-    }
-    
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
-    next();
-  } catch (error) {
-    logger.error("Error checking clinic access:", error);
-    res.status(500).json({ message: "Failed to verify access" });
-  }
-}
 
 // ========================================
 // Clinic Services CRUD
 // ========================================
 
 // List services for a hospital (optionally filtered by unit)
-router.get('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId, includeShared } = req.query;
@@ -359,7 +336,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, 
 });
 
 // Get single service
-router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
     
@@ -386,7 +363,7 @@ router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isCli
 });
 
 // Create service
-router.post('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -411,7 +388,7 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess,
 });
 
 // Update service
-router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
     
@@ -456,7 +433,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
 });
 
 // Delete service
-router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
     
@@ -488,7 +465,7 @@ router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, is
 });
 
 // Bulk move services to another unit
-router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { serviceIds, targetUnitId } = req.body;
@@ -536,7 +513,7 @@ router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, isCli
 });
 
 // Bulk set billable status for services
-router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { serviceIds, isBillable } = req.body;
@@ -572,7 +549,7 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
 // ========================================
 
 // Get next invoice number for a hospital
-router.get('/api/clinic/:hospitalId/next-invoice-number', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/next-invoice-number', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -591,7 +568,7 @@ router.get('/api/clinic/:hospitalId/next-invoice-number', isAuthenticated, isCli
 });
 
 // List all invoices for a hospital
-router.get('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/invoices', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { status, patientId } = req.query;
@@ -640,7 +617,7 @@ router.get('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess, 
 });
 
 // Get single invoice with items
-router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     
@@ -736,7 +713,7 @@ const createInvoiceWithItemsSchema = z.object({
 });
 
 // Create invoice with items
-router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -823,7 +800,7 @@ router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess,
 });
 
 // Update invoice status
-router.patch('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.patch('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     const { status, comments } = req.body;
@@ -862,7 +839,7 @@ router.patch('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isC
 });
 
 // Delete invoice
-router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     
@@ -895,7 +872,7 @@ router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, is
 });
 
 // Update invoice status
-router.patch('/api/clinic/:hospitalId/invoices/:invoiceId/status', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.patch('/api/clinic/:hospitalId/invoices/:invoiceId/status', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     const { status } = req.body;
@@ -933,7 +910,7 @@ router.patch('/api/clinic/:hospitalId/invoices/:invoiceId/status', isAuthenticat
 });
 
 // Get items with patient prices for invoice item picker
-router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
@@ -986,7 +963,7 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
 });
 
 // Get all billable items from all hospital units
-router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1047,7 +1024,7 @@ router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, isClinicAc
 });
 
 // Get all billable services from all hospital units
-router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1091,7 +1068,7 @@ router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, isClini
 });
 
 // Get hospital company data for invoices
-router.get('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/company-data', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1118,7 +1095,7 @@ router.get('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAcce
 });
 
 // Update hospital company data for invoices
-router.patch('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/clinic/:hospitalId/company-data', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -1178,7 +1155,7 @@ router.patch('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAc
 });
 
 // Send invoice via email
-router.post('/api/clinic/:hospitalId/invoices/:invoiceId/send-email', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.post('/api/clinic/:hospitalId/invoices/:invoiceId/send-email', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     const { email, pdfBase64, language, saveEmailToPatient } = req.body;
@@ -1260,7 +1237,7 @@ router.post('/api/clinic/:hospitalId/invoices/:invoiceId/send-email', isAuthenti
 });
 
 // Get patient email for invoice
-router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, invoiceId } = req.params;
     
@@ -1310,7 +1287,7 @@ import {
 } from "@shared/schema";
 
 // List appointments for entire hospital (shared calendar)
-router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, isClinicAccess, async (req: any, res) => {
+router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { providerId, patientId, startDate, endDate, status, unitId } = req.query;
@@ -1332,7 +1309,7 @@ router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, isClinicAcce
 });
 
 // List appointments for a unit (legacy endpoint - redirects to hospital query)
-router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, async (req: any, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     const { providerId, patientId, startDate, endDate, status } = req.query;
@@ -1353,7 +1330,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated
 });
 
 // Get single appointment
-router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { appointmentId } = req.params;
     
@@ -1371,7 +1348,7 @@ router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticate
 });
 
 // Get staff availability for a specific date (for Plan Staff dialog)
-router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, isClinicAccess, async (req: any, res) => {
+router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { staffIds, date } = req.query;
@@ -1403,7 +1380,7 @@ router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, isClin
 });
 
 // Create appointment
-router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     const userId = req.user.id;
@@ -1516,7 +1493,7 @@ const updateAppointmentSchema = z.object({
 });
 
 // Update appointment
-router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, appointmentId } = req.params;
     
@@ -1581,7 +1558,7 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
 });
 
 // Delete appointment
-router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId, appointmentId } = req.params;
     
@@ -1617,7 +1594,7 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
 });
 
 // Get available slots for a provider on a specific date
-router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/available-slots', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/available-slots', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { unitId, providerId } = req.params;
     const { date, duration } = req.query;
@@ -1642,7 +1619,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabl
 // ========================================
 
 // Get all clinic providers for hospital (includes non-bookable)
-router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1656,7 +1633,7 @@ router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, isClinic
 });
 
 // Get bookable providers for hospital (only those with isBookable=true)
-router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1670,18 +1647,11 @@ router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, isClin
 });
 
 // Search hospital users for internal booking (colleague search)
-router.get('/api/hospitals/:hospitalId/users', isAuthenticated, async (req: any, res) => {
+router.get('/api/hospitals/:hospitalId/users', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { search } = req.query;
-    
-    // Verify user has access to this hospital
-    const userHospitals = req.user.hospitals || [];
-    const hasAccess = userHospitals.some((h: any) => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
+
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
     
     // Filter by search term if provided
@@ -1720,7 +1690,7 @@ router.get('/api/hospitals/:hospitalId/users', isAuthenticated, async (req: any,
 });
 
 // Legacy: Get bookable providers for a unit (redirects to hospital-level)
-router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -1736,7 +1706,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
 
 // Toggle provider bookable status (hospital level)
 // Updates userHospitalRoles.isBookable for all roles of this user in this hospital
-router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
     const { isBookable } = req.body;
@@ -1807,7 +1777,7 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
 
 // Get provider availability
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     
@@ -1829,7 +1799,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 
 // Get all weekly schedules for a unit (for calendar availability display)
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     
@@ -1860,7 +1830,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthentic
 
 // Set provider availability (replaces all for this provider/unit)
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     const { availability } = req.body;
@@ -1892,7 +1862,7 @@ router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 
 // Get provider time off
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     const { startDate, endDate } = req.query;
@@ -1917,7 +1887,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off
 
 // Create time off
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     const userId = req.user.id;
@@ -1948,7 +1918,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
 // Get all time off for a unit (for calendar display)
 // Expands recurring time off into individual occurrences for the requested date range
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     const { startDate, endDate, expand } = req.query;
@@ -1987,7 +1957,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, is
 });
 
 // Update time off
-router.put('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.put('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { timeOffId } = req.params;
     const { date, startTime, endTime, reason, notes } = req.body;
@@ -2009,7 +1979,7 @@ router.put('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isCli
 });
 
 // Delete time off
-router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { timeOffId } = req.params;
     
@@ -2027,7 +1997,7 @@ router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, is
 // ========================================
 
 // Update provider availability mode
-router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
     const { mode } = req.body;
@@ -2051,7 +2021,7 @@ router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuth
 
 // Get provider availability windows
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     const { startDate, endDate } = req.query;
@@ -2076,7 +2046,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 
 // Get all availability windows for a unit (for calendar display)
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     const { startDate, endDate } = req.query;
@@ -2106,7 +2076,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthe
 
 // Create availability window
 // Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
-router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId, providerId } = req.params;
     const userId = req.user.id;
@@ -2140,7 +2110,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
 });
 
 // Update availability window
-router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { windowId } = req.params;
     const { startTime, endTime, slotDurationMinutes, notes } = req.body;
@@ -2160,7 +2130,7 @@ router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthentic
 });
 
 // Delete availability window
-router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { windowId } = req.params;
     
@@ -2178,7 +2148,7 @@ router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthen
 // ========================================
 
 // Get provider absences
-router.get('/api/clinic/:hospitalId/absences', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/absences', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { startDate, endDate } = req.query;
@@ -2201,7 +2171,7 @@ router.get('/api/clinic/:hospitalId/absences', isAuthenticated, isClinicAccess, 
 // ========================================
 
 // Get Timebutler config
-router.get('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2224,7 +2194,7 @@ router.get('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClini
 });
 
 // Update Timebutler config
-router.put('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { apiToken, userMapping, isEnabled } = req.body;
@@ -2251,7 +2221,7 @@ router.put('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClini
 });
 
 // Trigger Timebutler sync
-router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2388,7 +2358,7 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
 });
 
 // Sync absences from user's personal Timebutler ICS URL
-router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
     const ical = await import('node-ical');
@@ -2461,7 +2431,7 @@ router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, is
 });
 
 // Queue a Timebutler ICS sync job for the hospital (background worker will process)
-router.post('/api/clinic/:hospitalId/queue-ics-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/queue-ics-sync', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2484,7 +2454,7 @@ router.post('/api/clinic/:hospitalId/queue-ics-sync', isAuthenticated, isClinicA
 });
 
 // Sync all users' ICS URLs for a hospital
-router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const ical = await import('node-ical');
@@ -2593,7 +2563,7 @@ router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, isClinicAcc
 // ========================================
 
 // Get providers for a hospital (all staff members who can receive appointments)
-router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { userHospitalRoles } = await import("@shared/schema");
@@ -2630,7 +2600,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
 // ========================================
 
 // Get all surgeries for a hospital in a date range (for calendar blocking)
-router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { startDate, endDate } = req.query;
@@ -2720,7 +2690,7 @@ router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, isClinicAcc
 });
 
 // Get surgeries where providers are assigned as surgeons
-router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { providerIds, startDate, endDate } = req.query;
@@ -2822,7 +2792,7 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
 // ========================================
 
 // Get sync status for Timebutler ICS and Cal.com
-router.get('/api/clinic/:hospitalId/sync-status', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/sync-status', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2859,7 +2829,7 @@ router.get('/api/clinic/:hospitalId/sync-status', isAuthenticated, isClinicAcces
 // ========================================
 
 // Get Cal.com config
-router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2884,7 +2854,7 @@ router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
 });
 
 // Update Cal.com config
-router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { apiKey, webhookSecret, isEnabled } = req.body;
@@ -2912,7 +2882,7 @@ router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
 });
 
 // Get Cal.com provider mappings
-router.get('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const mappings = await storage.getCalcomProviderMappings(hospitalId);
@@ -2924,7 +2894,7 @@ router.get('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicA
 });
 
 // Create/update Cal.com provider mapping
-router.post('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { providerId, calcomEventTypeId, calcomUserId, calcomScheduleId, isEnabled } = req.body;
@@ -2950,7 +2920,7 @@ router.post('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinic
 });
 
 // Delete Cal.com provider mapping
-router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { mappingId } = req.params;
     await storage.deleteCalcomProviderMapping(mappingId);
@@ -2962,7 +2932,7 @@ router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthentica
 });
 
 // Trigger full Cal.com sync for ALL providers with mappings (push appointments + surgeries as busy blocks)
-router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -2992,7 +2962,7 @@ router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, isClinicAcce
 });
 
 // Trigger Cal.com sync for a specific provider (push appointments + absences as busy blocks)
-router.post('/api/clinic/:hospitalId/calcom-sync/:providerId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/clinic/:hospitalId/calcom-sync/:providerId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, providerId } = req.params;
     const { startDate, endDate } = req.body;
@@ -3494,7 +3464,7 @@ function generateIcsEvent(params: {
 }
 
 // Test Cal.com API connection
-router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAccess, async (req, res) => {
+router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -3529,7 +3499,7 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAcce
 });
 
 // Get ICS feed URLs for all mapped providers
-router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, isClinicAccess, async (req, res) => {
+router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -3552,7 +3522,7 @@ router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, isClinicAcce
     const enabledMappings = mappings.filter(m => m.isEnabled);
     
     // Get base URL from request or environment
-    const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     
     const feeds = enabledMappings.map(m => ({
       providerId: m.providerId,
@@ -3571,7 +3541,7 @@ router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, isClinicAcce
 });
 
 // Subscribe ICS feeds to Cal.com
-router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, isClinicAccess, async (req, res) => {
+router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     

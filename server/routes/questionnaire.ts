@@ -5,7 +5,7 @@ import { db } from "../db";
 import { userMessageTemplates } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, getUserUnitForHospital } from "../utils";
+import { requireWriteAccess, requireStrictHospitalAccess, getUserUnitForHospital } from "../utils";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -189,17 +189,9 @@ interface AuthenticatedRequest extends Request {
 // ========== AUTHENTICATED ROUTES (for staff) ==========
 
 // Generate a questionnaire link for a patient
-router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/generate-link', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const parsed = generateLinkSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -225,7 +217,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
 
     if (activeLink) {
       // Return existing active link instead of creating new one
-      const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
+      const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
       const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
       return res.json({ 
         link: activeLink, 
@@ -263,7 +255,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
     });
 
     // Generate full URL - link to patient portal instead of questionnaire directly
-    const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${token}`;
 
     res.json({ 
@@ -279,17 +271,9 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
 });
 
 // Get all questionnaire links for a patient
-router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { patientId } = req.params;
     const links = await storage.getQuestionnaireLinksForPatient(patientId);
@@ -335,17 +319,9 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async
 });
 
 // Get all submitted questionnaire responses for hospital
-router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/responses', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const status = req.query.status as string | undefined;
     const responses = await storage.getQuestionnaireResponsesForHospital(hospitalId, status);
@@ -377,17 +353,9 @@ router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res
 });
 
 // Get unassociated questionnaire responses (where patientId is null)
-router.get('/api/questionnaire/unassociated', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/unassociated', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const responses = await storage.getUnassociatedQuestionnaireResponsesForHospital(hospitalId);
     
@@ -399,17 +367,9 @@ router.get('/api/questionnaire/unassociated', isAuthenticated, async (req: any, 
 });
 
 // Associate a questionnaire response with a patient
-router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { responseId } = req.params;
     const { patientId } = req.body;
@@ -456,17 +416,9 @@ router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticate
 });
 
 // Get response details (for staff review)
-router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/responses/:responseId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { responseId } = req.params;
     const response = await storage.getQuestionnaireResponse(responseId);
@@ -515,17 +467,9 @@ router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (r
 });
 
 // Import questionnaire uploads as patient documents (persist to patientDocuments table)
-router.post('/api/questionnaire/responses/:responseId/import-documents', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/responses/:responseId/import-documents', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { responseId } = req.params;
     const { patientId } = req.body;
@@ -592,17 +536,9 @@ router.post('/api/questionnaire/responses/:responseId/import-documents', isAuthe
 });
 
 // Save review/mapping of questionnaire data
-router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { responseId } = req.params;
     const response = await storage.getQuestionnaireResponse(responseId);
@@ -691,17 +627,11 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
 });
 
 // Send questionnaire link via email
-router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
 
     const { linkId } = req.params;
     const { email } = req.body;
@@ -736,7 +666,7 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
       }
     }
 
-    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${link.token}`;
     const expiryDate = link.expiresAt ? new Date(link.expiresAt).toLocaleDateString('de-DE') : '';
     
@@ -819,17 +749,11 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
 });
 
 // Send questionnaire link via SMS
-router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
 
     if (!(await isSmsConfiguredForHospital(hospitalId))) {
       return res.status(503).json({ message: "SMS service is not configured" });
@@ -853,7 +777,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
     const unit = await storage.getUnit(unitId);
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
     
-    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${link.token}`;
     
     // Build a short bilingual SMS message
@@ -895,17 +819,9 @@ router.get('/api/questionnaire/sms-status', isAuthenticated, async (req: any, re
 });
 
 // Invalidate/expire a questionnaire link
-router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     const { linkId } = req.params;
     await storage.invalidateQuestionnaireLink(linkId);
@@ -1615,14 +1531,10 @@ router.delete('/api/public/questionnaire/:token/upload/:uploadId', questionnaire
 // ========== AUTHENTICATED ROUTES FOR ACCESSING QUESTIONNAIRE UPLOADS ==========
 
 // Get presigned download URL for a questionnaire upload file (authenticated)
-router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const { uploadId } = req.params;
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     // Get the upload record
     const upload = await storage.getQuestionnaireUploadById(uploadId);
@@ -1640,12 +1552,6 @@ router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (r
     const link = await storage.getQuestionnaireLink(response.linkId);
     if (!link || link.hospitalId !== hospitalId) {
       return res.status(403).json({ message: "Access denied to this upload" });
-    }
-
-    // Verify user has access to this hospital
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     // Check S3 configuration
@@ -1692,15 +1598,10 @@ router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (r
 });
 
 // Stream questionnaire upload file directly (authenticated) - for embedding in UI
-router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const { uploadId } = req.params;
-    // Accept hospital_id from query params (for direct URL access) or headers
-    const hospitalId = (req.query.hospital_id || req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     // Get the upload record
     const upload = await storage.getQuestionnaireUploadById(uploadId);
@@ -1718,12 +1619,6 @@ router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (
     const link = await storage.getQuestionnaireLink(response.linkId);
     if (!link || link.hospitalId !== hospitalId) {
       return res.status(403).json({ message: "Access denied to this upload" });
-    }
-
-    // Verify user has access to this hospital
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     // Check S3 configuration
@@ -1791,14 +1686,10 @@ router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (
 });
 
 // Delete questionnaire upload (authenticated - for staff)
-router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { uploadId } = req.params;
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
+    const hospitalId = req.resolvedHospitalId;
 
     // Get the upload record
     const upload = await storage.getQuestionnaireUploadById(uploadId);
@@ -1816,12 +1707,6 @@ router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWr
     const link = await storage.getQuestionnaireLink(response.linkId);
     if (!link || link.hospitalId !== hospitalId) {
       return res.status(403).json({ message: "Access denied to this upload" });
-    }
-
-    // Verify user has access to this hospital
-    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
-    if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     // Delete from S3 if configured

@@ -34,7 +34,18 @@ const migrationsPath = path.resolve(__dirname, "..", "migrations");
 const app = express();
 
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "wss:", "https:"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 

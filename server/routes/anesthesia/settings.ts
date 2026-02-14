@@ -19,6 +19,7 @@ import {
   getUserUnitForHospital,
   getUserRole,
   requireWriteAccess,
+  requireStrictHospitalAccess,
   requireResourceAccess,
   getActiveUnitIdFromRequest,
 } from "../../utils";
@@ -424,17 +425,10 @@ router.put('/api/surgery-rooms/reorder', isAuthenticated, requireWriteAccess, as
   }
 });
 
-router.get('/api/anesthesia/settings/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
 
     const settings = await storage.getHospitalAnesthesiaSettings(hospitalId);
     

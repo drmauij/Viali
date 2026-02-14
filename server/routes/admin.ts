@@ -7,8 +7,53 @@ import { importChopProcedures } from "../scripts/importChop";
 import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
-import { requireWriteAccess, requireResourceAdmin } from "../utils";
+import { requireWriteAccess, requireResourceAdmin, requireStrictHospitalAccess } from "../utils";
 import logger from "../logger";
+import { z } from "zod";
+
+const updateHospitalSchema = z.object({
+  name: z.string().min(1).optional(),
+  companyName: z.string().optional(),
+  companyStreet: z.string().optional(),
+  companyPostalCode: z.string().optional(),
+  companyCity: z.string().optional(),
+  companyPhone: z.string().optional(),
+  companyFax: z.string().optional(),
+  companyEmail: z.string().email().optional().or(z.literal('')),
+  companyLogoUrl: z.string().optional(),
+  questionnaireDisabled: z.boolean().optional(),
+  preSurgeryReminderDisabled: z.boolean().optional(),
+});
+
+const updateUnitSchema = z.object({
+  name: z.string().min(1).optional(),
+  type: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional(),
+  showInventory: z.boolean().optional(),
+  showAppointments: z.boolean().optional(),
+  showControlledMedications: z.boolean().optional(),
+  questionnairePhone: z.string().optional(),
+  infoFlyerUrl: z.string().optional(),
+});
+
+const updateUserRoleSchema = z.object({
+  unitId: z.string().optional(),
+  role: z.enum(['admin', 'user', 'viewer']).optional(),
+});
+
+const updateUserAccessSchema = z.object({
+  canLogin: z.boolean().optional(),
+  staffType: z.enum(['internal', 'external']).optional(),
+  hospitalId: z.string(),
+});
+
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return "Password must be at least 8 characters";
+  if (!/[a-z]/.test(pw)) return "Password must contain a lowercase letter";
+  if (!/[A-Z]/.test(pw)) return "Password must contain an uppercase letter";
+  if (!/[0-9]/.test(pw)) return "Password must contain a number";
+  return null;
+}
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -59,33 +104,15 @@ router.get('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) 
 router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { 
-      name,
-      companyName,
-      companyStreet,
-      companyPostalCode,
-      companyCity,
-      companyPhone,
-      companyFax,
-      companyEmail,
-      companyLogoUrl,
-      questionnaireDisabled,
-      preSurgeryReminderDisabled
-    } = req.body;
+    const parsed = updateHospitalSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
+    }
 
     const updates: Record<string, any> = {};
-    
-    if (name !== undefined) updates.name = name;
-    if (companyName !== undefined) updates.companyName = companyName;
-    if (companyStreet !== undefined) updates.companyStreet = companyStreet;
-    if (companyPostalCode !== undefined) updates.companyPostalCode = companyPostalCode;
-    if (companyCity !== undefined) updates.companyCity = companyCity;
-    if (companyPhone !== undefined) updates.companyPhone = companyPhone;
-    if (companyFax !== undefined) updates.companyFax = companyFax;
-    if (companyEmail !== undefined) updates.companyEmail = companyEmail;
-    if (companyLogoUrl !== undefined) updates.companyLogoUrl = companyLogoUrl;
-    if (questionnaireDisabled !== undefined) updates.questionnaireDisabled = questionnaireDisabled;
-    if (preSurgeryReminderDisabled !== undefined) updates.preSurgeryReminderDisabled = preSurgeryReminderDisabled;
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (value !== undefined) updates[key] = value;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No updates provided" });
@@ -157,19 +184,12 @@ router.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin
   }
 });
 
-router.get('/api/surgeons', isAuthenticated, async (req: any, res) => {
+router.get('/api/surgeons', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.query;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const userHospitals = await storage.getUserHospitals(req.user.id);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const allUnits = await storage.getUnits(hospitalId);
@@ -251,8 +271,13 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('unitId'), async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId, showInventory, showAppointments, showControlledMedications, questionnairePhone, infoFlyerUrl } = req.body;
-    
+    const parsed = updateUnitSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
+    }
+
+    const { name, type, parentId, showInventory, showAppointments, showControlledMedications, questionnairePhone, infoFlyerUrl } = parsed.data;
+
     const updates: any = {};
     if (name !== undefined) updates.name = name;
     if (type !== undefined) updates.type = type;
@@ -328,19 +353,11 @@ router.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req,
   }
 });
 
-router.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, async (req: any, res) => {
+router.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { module, role } = req.query;
-    
-    const userId = req.user.id;
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const allUsers = await storage.getHospitalUsers(hospitalId);
     
     const filteredUsers = allUsers.filter(u => {
@@ -442,8 +459,13 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('roleId'), async (req: any, res) => {
   try {
     const { roleId } = req.params;
-    const { unitId, role } = req.body;
-    
+    const parsed = updateUserRoleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
+    }
+
+    const { unitId, role } = parsed.data;
+
     const updates: any = {};
     if (unitId !== undefined) updates.unitId = unitId;
     if (role !== undefined) updates.role = role;
@@ -828,8 +850,9 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
       return res.status(400).json({ message: "New password is required" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const currentUserId = req.user.id;
@@ -864,17 +887,12 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
 router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { canLogin, staffType, hospitalId } = req.body;
-    
-    // Validate hospitalId is provided
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID is required" });
+    const parsed = updateUserAccessSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
     }
-    
-    // Validate staffType if provided
-    if (staffType !== undefined && !['internal', 'external'].includes(staffType)) {
-      return res.status(400).json({ message: "Staff type must be 'internal' or 'external'" });
-    }
+
+    const { canLogin, staffType, hospitalId } = parsed.data;
 
     // Check admin access
     const currentUserId = req.user.id;

@@ -8,6 +8,7 @@ import {
   getUserRole,
   verifyUserHospitalUnitAccess,
   requireWriteAccess,
+  requireStrictHospitalAccess,
   ENCRYPTION_KEY,
   decryptPatientData,
 } from "../utils";
@@ -65,7 +66,7 @@ function decryptNote(text: string): string {
   }
 }
 
-router.get('/api/notes/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/notes/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;
@@ -267,7 +268,7 @@ router.delete('/api/notes/:noteId', isAuthenticated, requireWriteAccess, async (
   }
 });
 
-router.get('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any, res) => {
+router.get('/api/hospitals/:hospitalId/todos', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;
@@ -279,7 +280,7 @@ router.get('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any,
   }
 });
 
-router.post('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any, res) => {
+router.post('/api/hospitals/:hospitalId/todos', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;
@@ -342,7 +343,7 @@ router.delete('/api/todos/:todoId', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.post('/api/hospitals/:hospitalId/todos/reorder', isAuthenticated, async (req: any, res) => {
+router.post('/api/hospitals/:hospitalId/todos/reorder', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;

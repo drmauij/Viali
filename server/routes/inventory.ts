@@ -21,6 +21,7 @@ import {
   getActiveUnitIdFromRequest,
   checkLicenseLimit,
   requireWriteAccess,
+  requireStrictHospitalAccess,
   hasLogisticsAccess
 } from "../utils";
 import logger from "../logger";
@@ -36,7 +37,7 @@ interface AuthenticatedRequest extends Request {
 
 const router = Router();
 
-router.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, async (req, res) => {
+router.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const kpis = await storage.getDashboardKPIs(hospitalId);
@@ -48,17 +49,10 @@ router.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, async (req, res) 
 });
 
 // Get all units for a hospital (for transfer destination selection)
-router.get('/api/units/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/units/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasHospitalAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const units = await storage.getUnits(hospitalId);
     res.json(units);
   } catch (error) {
@@ -67,20 +61,14 @@ router.get('/api/units/:hospitalId', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/folders/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId, module: moduleType } = req.query;
     const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasHospitalAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     let effectiveUnitId = unitId;
-    
+
     if (moduleType) {
       const units = await storage.getUnits(hospitalId);
       if (moduleType === 'anesthesia') {
@@ -95,8 +83,9 @@ router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) =>
         }
       }
     }
-    
+
     if (!moduleType && unitId) {
+      const userHospitals = await storage.getUserHospitals(userId);
       const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
       // Allow logistics users to access any unit in their hospital
       const isLogisticsUser = userHospitals.some(h => h.id === hospitalId && h.isLogisticModule);
@@ -231,20 +220,14 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
   }
 });
 
-router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/items/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { critical, controlled, belowMin, expiring, unitId, module: moduleType, includeArchived } = req.query;
     const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasHospitalAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     let effectiveUnitId = unitId;
-    
+
     if (moduleType) {
       const units = await storage.getUnits(hospitalId);
       if (moduleType === 'anesthesia') {
@@ -259,8 +242,9 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
         }
       }
     }
-    
+
     if (!moduleType && unitId) {
+      const userHospitals = await storage.getUserHospitals(userId);
       const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
       // Allow logistics users to access any unit in their hospital
       const isLogisticsUser = userHospitals.some(h => h.id === hospitalId && h.isLogisticModule);
@@ -291,18 +275,11 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
 });
 
 // Get all item codes for a hospital (for search functionality)
-router.get('/api/item-codes/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/item-codes/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
+
     // Get all item codes for items in this hospital/unit
     const codes = await db
       .select({
@@ -325,21 +302,15 @@ router.get('/api/item-codes/:hospitalId', isAuthenticated, async (req: any, res)
 });
 
 // Get preferred supplier codes for all items in a hospital/unit (for PDF export)
-router.get('/api/preferred-supplier-codes/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/preferred-supplier-codes/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
     const userId = req.user.id;
-    
-    // Validate hospital and unit access
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
+
     const effectiveUnitId = unitId as string | undefined;
-    
+    const userHospitals = await storage.getUserHospitals(userId);
+
     if (effectiveUnitId) {
       // Check if user has a role in this unit or in a logistics unit
       const hasUnitAccess = userHospitals.some(
@@ -615,21 +586,13 @@ router.patch('/api/items/bulk-sort', isAuthenticated, requireWriteAccess, async 
 router.patch('/api/items/bulk-billable', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { itemIds, isBillable, hospitalId } = req.body;
-    const userId = req.user.id;
-    
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({ message: "Item IDs array is required" });
     }
-    
+
     if (typeof isBillable !== 'boolean') {
       return res.status(400).json({ message: "isBillable must be a boolean" });
-    }
-
-    // Verify user has access to the hospital
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const results = {
@@ -945,21 +908,13 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
 router.post('/api/items/bulk-move', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { itemIds, targetUnitId, hospitalId } = req.body;
-    const userId = req.user.id;
-    
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({ message: "Item IDs array is required" });
     }
-    
+
     if (!targetUnitId) {
       return res.status(400).json({ message: "Target unit ID is required" });
-    }
-
-    // Verify user has access to the hospital
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     // Verify target unit exists and belongs to the same hospital
@@ -1028,14 +983,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
     if (sourceUnitId === destinationUnitId) {
       return res.status(400).json({ message: "Source and destination units must be different" });
     }
-    
-    // Verify user has access to the hospital
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     // Verify both units exist and belong to the same hospital
     const sourceUnit = await storage.getUnit(sourceUnitId);
     const destUnit = await storage.getUnit(destinationUnitId);
@@ -1294,17 +1242,10 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
 
 // ============ Price Sync Routes ============
 
-router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const catalogs = await storage.getSupplierCatalogs(hospitalId);
     res.json(catalogs);
   } catch (error) {
@@ -1407,17 +1348,10 @@ router.delete('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: 
   }
 });
 
-router.get('/api/price-sync-jobs/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/price-sync-jobs/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const jobs = await storage.getPriceSyncJobs(hospitalId);
     res.json(jobs);
   } catch (error) {
@@ -1486,17 +1420,10 @@ router.get('/api/price-sync-jobs/status/:jobId', isAuthenticated, async (req: an
 });
 
 // Supplier Matches endpoints
-router.get('/api/supplier-matches/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/supplier-matches/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const pendingMatches = await storage.getPendingSupplierMatches(hospitalId);
     
     // Group matches: direct (high confidence single match) vs suggested (multiple or lower confidence)
@@ -1540,17 +1467,10 @@ router.get('/api/supplier-matches/:hospitalId', isAuthenticated, async (req: any
 });
 
 // Get confirmed supplier matches for a hospital
-router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async (req: any, res) => {
+router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const confirmedMatches = await storage.getConfirmedSupplierMatches(hospitalId);
     res.json(confirmedMatches);
   } catch (error) {
@@ -1561,18 +1481,12 @@ router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async
 
 // Get items categorized by match status for improved UI
 // Categories: unmatched, to-verify, confirmed-with-price, confirmed-no-price
-router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, async (req: any, res) => {
+router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId: queryUnitId } = req.query;
     const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     // Get active unit from request header to filter items by unit (same as standard inventory)
     const activeUnitId = getActiveUnitIdFromRequest(req);
     const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
@@ -1870,18 +1784,11 @@ router.put('/api/item-codes/:itemId', isAuthenticated, async (req: any, res) => 
 });
 
 // Stock Runway Calculation - Usage-based intelligent stock alerts
-router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, res) => {
+router.get('/api/items/:hospitalId/runway', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
+
     // Get hospital config for runway settings
     const hospital = await storage.getHospital(hospitalId);
     if (!hospital) {
@@ -2034,17 +1941,11 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
 });
 
 // Send stock alert email for low runway items
-router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (req: any, res) => {
+router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { email, language = 'en' } = req.body;
     const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
     
     // Get hospital name
     const hospital = await storage.getHospital(hospitalId);
@@ -2207,17 +2108,10 @@ router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (
   }
 });
 
-router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req: any, res) => {
+router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
-    const userId = req.user.id;
-    
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
     
     const items = await storage.getItems(hospitalId, unitId);
     
@@ -2239,21 +2133,16 @@ router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req:
 });
 
 // Get inventory snapshots for historical analysis
-router.get('/api/inventory-snapshots/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/inventory-snapshots/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId, days = 30 } = req.query;
     const userId = req.user.id;
-    
-    // Validate hospital access
+
+    // Require manager or admin role for business analytics
     const userHospitals = await storage.getUserHospitals(userId);
     const hospitalAccess = userHospitals.find(h => h.id === hospitalId);
-    if (!hospitalAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
-    // Require manager or admin role for business analytics
-    if (hospitalAccess.role !== 'manager' && hospitalAccess.role !== 'admin') {
+    if (!hospitalAccess || (hospitalAccess.role !== 'manager' && hospitalAccess.role !== 'admin')) {
       return res.status(403).json({ message: "Manager or admin role required" });
     }
     

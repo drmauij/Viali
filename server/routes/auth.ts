@@ -7,14 +7,27 @@ import logger from "../logger";
 
 const router = Router();
 
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return "Password must be at least 8 characters";
+  if (!/[a-z]/.test(pw)) return "Password must contain a lowercase letter";
+  if (!/[A-Z]/.test(pw)) return "Password must contain an uppercase letter";
+  if (!/[0-9]/.test(pw)) return "Password must contain a number";
+  return null;
+}
+
 router.post('/api/auth/signup', async (req, res) => {
   try {
     const { email, password, firstName, lastName, hospitalName } = req.body;
 
     if (!email || !password || !firstName || !lastName || !hospitalName) {
-      return res.status(400).json({ 
-        message: "Email, password, first name, last name, and hospital name are required" 
+      return res.status(400).json({
+        message: "Email, password, first name, last name, and hospital name are required"
       });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const existingUser = await storage.searchUserByEmail(email);
@@ -122,8 +135,9 @@ router.post('/api/auth/change-password', isAuthenticated, async (req: any, res) 
       return res.status(400).json({ message: "Current and new password are required" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "New password must be at least 6 characters" });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const user = await storage.getUser(userId);
@@ -177,7 +191,8 @@ router.post('/api/auth/forgot-password', async (req, res) => {
       .where(eq(users.id, foundUser.id));
 
     const { sendPasswordResetEmail } = await import('../resend.js');
-    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
     
     await sendPasswordResetEmail(
       foundUser.email!,
@@ -200,8 +215,9 @@ router.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ message: "Token and new password are required" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const user = await db.select()

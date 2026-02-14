@@ -4,7 +4,7 @@ import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
 import { insertPreOpAssessmentSchema } from "@shared/schema";
 import { z } from "zod";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { Resend } from "resend";
 import { sendSms, isSmsConfiguredForHospital } from "../../sms";
 import { nanoid } from "nanoid";
@@ -12,20 +12,13 @@ import logger from "../../logger";
 
 const router = Router();
 
-router.get('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.query;
     const userId = req.user.id;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const assessments = await storage.getPreOpAssessments(hospitalId as string);
@@ -37,22 +30,15 @@ router.get('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.get('/api/anesthesia/preop/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/preop/surgery/:surgeryId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
     const userId = req.user.id;
 
     const surgery = await storage.getSurgery(surgeryId);
-    
+
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const assessment = await storage.getPreOpAssessment(surgeryId);
@@ -87,23 +73,16 @@ router.get('/api/anesthesia/preop-assessments/bulk', isAuthenticated, async (req
   }
 });
 
-router.post('/api/anesthesia/preop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
 
     const validatedData = insertPreOpAssessmentSchema.parse(req.body);
 
     const surgery = await storage.getSurgery(validatedData.surgeryId);
-    
+
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (validatedData.allergies !== undefined || validatedData.allergiesOther !== undefined) {
@@ -132,13 +111,13 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireWriteAccess, async 
   }
 });
 
-router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const assessment = await storage.getPreOpAssessmentById(id);
-    
+
     if (!assessment) {
       return res.status(404).json({ message: "Pre-op assessment not found" });
     }
@@ -146,13 +125,6 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, a
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     if (req.body.allergies !== undefined || req.body.allergiesOther !== undefined) {
@@ -1004,7 +976,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
   }
 });
 
-router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { assessmentId } = req.params;
     const language = (req.query.language as string) || 'de';
@@ -1018,12 +990,6 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (re
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const patient = await storage.getPatient(surgery.patientId);
@@ -1819,32 +1785,26 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (re
   }
 });
 
-router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { assessmentId } = req.params;
     const userId = req.user.id;
-    
+
     logger.info("[Email] Starting email send for assessment:", assessmentId);
-    
+
     const assessment = await storage.getPreOpAssessmentById(assessmentId);
     if (!assessment) {
       logger.info("[Email] Assessment not found:", assessmentId);
       return res.status(404).json({ message: "Assessment not found" });
     }
-    
+
     logger.info("[Email] Assessment found, emailForCopy:", assessment.emailForCopy, "emailLanguage:", assessment.emailLanguage);
-    
+
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
     }
-    
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
+
     const recipientEmail = assessment.emailForCopy;
     if (!recipientEmail) {
       return res.status(400).json({ message: "No email address specified for this assessment" });
@@ -2174,22 +2134,13 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
   }
 });
 
-router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
     const { method } = req.body as { method?: 'sms' | 'email' };
 
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId as string;
 
     const assessment = await storage.getPreOpAssessmentById(id);
     if (!assessment) {
@@ -2235,7 +2186,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
       });
     }
 
-    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
 
     const hospital = await storage.getHospital(hospitalId);
@@ -2329,7 +2280,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
   }
 });
 
-router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
@@ -2347,16 +2298,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
       return res.status(400).json({ message: "Phone number is required" });
     }
 
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
-    if (!hospitalId) {
-      return res.status(400).json({ message: "Hospital ID required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    const hospitalId = req.resolvedHospitalId as string;
 
     const assessment = await storage.getPreOpAssessmentById(id);
     if (!assessment) {
@@ -2402,7 +2344,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
       });
     }
 
-    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
 
     const hospital = await storage.getHospital(hospitalId);

@@ -14,7 +14,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
 import { broadcastAnesthesiaUpdate } from "../../socket";
 import logger from "../../logger";
@@ -61,18 +61,11 @@ router.get('/api/anesthesia/staff/:recordId', isAuthenticated, async (req: any, 
   }
 });
 
-router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { staffRole } = req.query;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const allUnits = await storage.getUnits(hospitalId);
     const surgeryUnit = allUnits.find(u => u.type === 'or');
@@ -124,17 +117,10 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (
   }
 });
 
-router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const allUnits = await storage.getUnits(hospitalId);
     const surgeryUnit = allUnits.find(u => u.type === 'or');
@@ -419,17 +405,10 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
 // Staff Pool Endpoints (Daily Staff Pool)
 // =====================================
 
-router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, async (req: any, res) => {
+router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, date } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const staffPool = await db
       .select({
@@ -727,17 +706,10 @@ router.delete('/api/planned-staff/by-pool/:surgeryId/:dailyStaffPoolId', isAuthe
 // Daily Room Staff Endpoints (Room-based staff assignments)
 // =====================================
 
-router.get('/api/room-staff/all/:hospitalId/:date', isAuthenticated, async (req: any, res) => {
+router.get('/api/room-staff/all/:hospitalId/:date', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, date } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const roomStaffAssignments = await db
       .select({

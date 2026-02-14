@@ -15,6 +15,7 @@ import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
   requireWriteAccess,
+  requireStrictHospitalAccess,
   hasLogisticsAccess,
   canAccessOrder,
 } from "../utils";
@@ -23,19 +24,14 @@ import logger from "../logger";
 
 const router = Router();
 
-router.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/logistic/orders/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { status } = req.query;
     const userId = req.user.id;
-    
+
     const userHospitals = await storage.getUserHospitals(userId);
     const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
-    
-    if (userUnitsForHospital.length === 0) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
     const unitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
     let hasLogisticAccess = false;
     
@@ -59,19 +55,15 @@ router.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any,
   }
 });
 
-router.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/orders/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { status, unitId: queryUnitId } = req.query;
     const userId = req.user.id;
-    
+
     const userHospitals = await storage.getUserHospitals(userId);
     const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
-    
-    if (userUnitsForHospital.length === 0) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-    
+
     const activeUnitId = getActiveUnitIdFromRequest(req);
     const filterUnitId = (queryUnitId as string) || activeUnitId;
     
@@ -100,7 +92,7 @@ router.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => 
   }
 });
 
-router.get('/api/orders/open-items/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/orders/open-items/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -175,7 +167,7 @@ router.post('/api/orders', isAuthenticated, requireWriteAccess, async (req: any,
   }
 });
 
-router.post('/api/orders/:hospitalId/merge', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/orders/:hospitalId/merge', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { orderIds } = req.body;
@@ -327,9 +319,9 @@ router.post('/api/orders/quick-add', isAuthenticated, requireWriteAccess, async 
     }
     
     const userHospitals = await storage.getUserHospitals(userId);
-    const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital or unit" });
+    const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
+    if (!hasUnitAccess) {
+      return res.status(403).json({ message: "Access denied to this unit" });
     }
 
     const order = await storage.findOrCreateDraftOrder(hospitalId, unitId, vendorId || null, userId);

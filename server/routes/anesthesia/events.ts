@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
 import logger from "../../logger";
 

@@ -928,6 +928,12 @@ export interface IStorage {
   createPatientDischargeMedication(data: InsertPatientDischargeMedication, items: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
+
+  // Batch query methods
+  getItemsByIds(itemIds: string[]): Promise<any[]>;
+  getMedicationConfigsByItemIds(itemIds: string[]): Promise<any[]>;
+  getAnesthesiaRecordsByIds(recordIds: string[]): Promise<any[]>;
+  getAnesthesiaRecordsBySurgeryIds(surgeryIds: string[]): Promise<Map<string, any>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1272,6 +1278,12 @@ export class DatabaseStorage implements IStorage {
   createPatientDischargeMedication = anesthesiaStorage.createPatientDischargeMedication;
   updatePatientDischargeMedication = anesthesiaStorage.updatePatientDischargeMedication;
   deletePatientDischargeMedication = anesthesiaStorage.deletePatientDischargeMedication;
+
+  // ========== BATCH QUERY OPERATIONS ==========
+  getItemsByIds = inventoryStorage.getItemsByIds;
+  getMedicationConfigsByItemIds = inventoryStorage.getMedicationConfigsByItemIds;
+  getAnesthesiaRecordsByIds = anesthesiaStorage.getAnesthesiaRecordsByIds;
+  getAnesthesiaRecordsBySurgeryIds = anesthesiaStorage.getAnesthesiaRecordsBySurgeryIds;
 
   // ========== CHAT OPERATIONS ==========
   getConversations = chatStorage.getConversations;

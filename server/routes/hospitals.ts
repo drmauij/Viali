@@ -15,6 +15,7 @@ import {
   getActiveUnitIdFromRequest,
   getBulkImportImageLimit,
   requireWriteAccess,
+  requireStrictHospitalAccess,
 } from "../utils";
 import { z, ZodError } from "zod";
 import { eq, and, or, inArray, sql, asc } from "drizzle-orm";
@@ -63,7 +64,7 @@ router.get('/api/chop-procedures', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {
+router.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -79,7 +80,7 @@ router.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, asyn
   }
 });
 
-router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -116,7 +117,7 @@ router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireWriteAccess, 
   }
 });
 
-router.post('/api/hospitals/:id/seed', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/hospitals/:id/seed', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
@@ -142,7 +143,7 @@ router.post('/api/hospitals/:id/seed', isAuthenticated, requireWriteAccess, asyn
   }
 });
 
-router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
@@ -160,7 +161,7 @@ router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireWriteAcces
   }
 });
 
-router.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
@@ -381,7 +382,7 @@ router.delete("/api/discharge-medications/:id", isAuthenticated, requireWriteAcc
   }
 });
 
-router.get("/api/hospitals/:hospitalId/doctors", isAuthenticated, async (req: any, res) => {
+router.get("/api/hospitals/:hospitalId/doctors", isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const hospitalUsers = await storage.getHospitalUsers(req.params.hospitalId);
     const seenIds = new Set<string>();

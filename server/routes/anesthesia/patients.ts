@@ -3,26 +3,19 @@ import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
 import { insertPatientSchema } from "@shared/schema";
 import { z } from "zod";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
 import logger from "../../logger";
 
 const router = Router();
 
-router.get('/api/patients', isAuthenticated, async (req: any, res) => {
+router.get('/api/patients', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, search } = req.query;
     const userId = req.user.id;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const patients = await storage.getPatients(hospitalId as string, search as string | undefined);
@@ -59,18 +52,11 @@ router.get('/api/patients/:id', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.post('/api/patients', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/patients', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
 
     const validatedData = insertPatientSchema.parse(req.body);
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
 
     let patientNumber = validatedData.patientNumber;
     if (!patientNumber) {

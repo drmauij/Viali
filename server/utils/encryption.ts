@@ -5,9 +5,14 @@ if (!process.env.ENCRYPTION_SECRET) {
   throw new Error("ENCRYPTION_SECRET environment variable is required for patient data encryption");
 }
 
+const encryptionSalt = process.env.ENCRYPTION_SALT || "salt";
+if (!process.env.ENCRYPTION_SALT || encryptionSalt === "salt") {
+  logger.warn("[Security] ENCRYPTION_SALT is not set or uses the default value. Set a proper random salt in production.");
+}
+
 export const ENCRYPTION_KEY = crypto.scryptSync(
   process.env.ENCRYPTION_SECRET,
-  "salt",
+  encryptionSalt,
   32
 );
 const IV_LENGTH = 16;

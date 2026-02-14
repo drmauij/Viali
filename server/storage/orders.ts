@@ -19,11 +19,11 @@ import {
 
 export async function getOrders(hospitalId: string, status?: string, unitId?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {
   const conditions = [eq(orders.hospitalId, hospitalId)];
-  
+
   if (status) {
     conditions.push(eq(orders.status, status));
   }
-  
+
   if (unitId) {
     conditions.push(eq(orders.unitId, unitId));
   }
@@ -33,106 +33,115 @@ export async function getOrders(hospitalId: string, status?: string, unitId?: st
     .from(orders)
     .where(and(...conditions))
     .orderBy(desc(orders.createdAt));
-  
-  const ordersWithDetails = await Promise.all(
-    ordersResult.map(async (order) => {
-      const vendor = order.vendorId 
-        ? (await db.select().from(vendors).where(eq(vendors.id, order.vendorId)))[0] || null
-        : null;
-      const lines = await db
-        .select({
-          id: orderLines.id,
-          orderId: orderLines.orderId,
-          itemId: orderLines.itemId,
-          qty: orderLines.qty,
-          packSize: orderLines.packSize,
-          unitPrice: orderLines.unitPrice,
-          totalPrice: orderLines.totalPrice,
-          received: orderLines.received,
-          receivedAt: orderLines.receivedAt,
-          receivedBy: orderLines.receivedBy,
-          receiveNotes: orderLines.receiveNotes,
-          receiveSignature: orderLines.receiveSignature,
-          notes: orderLines.notes,
-          offlineWorked: orderLines.offlineWorked,
-          item: items,
-          hospitalUnit: units,
-          stockLevel: stockLevels,
-        })
-        .from(orderLines)
-        .innerJoin(items, eq(orderLines.itemId, items.id))
-        .innerJoin(units, eq(items.unitId, units.id))
-        .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.unitId, items.unitId)))
-        .where(eq(orderLines.orderId, order.id));
 
-      const itemIds = lines.map(l => l.item.id);
-      
-      const [allSupplierCodesResult, itemCodesResult] = await Promise.all([
-        itemIds.length > 0 
-          ? db
-              .select()
-              .from(supplierCodes)
-              .where(inArray(supplierCodes.itemId, itemIds))
-          : Promise.resolve([]),
-        itemIds.length > 0
-          ? db
-              .select()
-              .from(itemCodes)
-              .where(inArray(itemCodes.itemId, itemIds))
-          : Promise.resolve([])
-      ]);
-      
-      const supplierCodesByItemId = new Map<string, typeof allSupplierCodesResult[0]>();
-      for (const sc of allSupplierCodesResult) {
-        const existing = supplierCodesByItemId.get(sc.itemId);
-        if (!existing) {
-          supplierCodesByItemId.set(sc.itemId, sc);
-        } else if (sc.isPreferred && !existing.isPreferred) {
-          supplierCodesByItemId.set(sc.itemId, sc);
-        } else if (!existing.isPreferred && !sc.isPreferred) {
-          const scCreated = sc.createdAt ? new Date(sc.createdAt).getTime() : 0;
-          const existingCreated = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
-          if (scCreated > existingCreated) {
-            supplierCodesByItemId.set(sc.itemId, sc);
-          }
-        }
-      }
-      
-      const itemCodesByItemId = new Map(
-        itemCodesResult.map(ic => [ic.itemId, ic])
-      );
+  if (ordersResult.length === 0) return [];
 
-      return {
-        ...order,
-        vendor,
-        orderLines: lines.map(line => ({
-          id: line.id,
-          orderId: line.orderId,
-          itemId: line.itemId,
-          qty: line.qty,
-          packSize: line.packSize,
-          unitPrice: line.unitPrice,
-          totalPrice: line.totalPrice,
-          received: line.received,
-          receivedAt: line.receivedAt,
-          receivedBy: line.receivedBy,
-          receiveNotes: line.receiveNotes,
-          receiveSignature: line.receiveSignature,
-          notes: line.notes,
-          offlineWorked: line.offlineWorked,
-          item: {
-            ...line.item,
-            hospitalUnit: line.hospitalUnit,
-            stockLevel: line.stockLevel,
-            preferredSupplierCode: supplierCodesByItemId.get(line.item.id) || null,
-            itemCodes: itemCodesByItemId.get(line.item.id) || null,
-          },
-        })),
-      };
+  // Batch-fetch vendors
+  const vendorIds = Array.from(new Set(ordersResult.map(o => o.vendorId).filter((id): id is string => !!id)));
+  const vendorsResult = vendorIds.length > 0
+    ? await db.select().from(vendors).where(inArray(vendors.id, vendorIds))
+    : [];
+  const vendorsMap = new Map(vendorsResult.map(v => [v.id, v]));
+
+  // Batch-fetch all order lines
+  const orderIds = ordersResult.map(o => o.id);
+  const allLines = await db
+    .select({
+      id: orderLines.id,
+      orderId: orderLines.orderId,
+      itemId: orderLines.itemId,
+      qty: orderLines.qty,
+      packSize: orderLines.packSize,
+      unitPrice: orderLines.unitPrice,
+      totalPrice: orderLines.totalPrice,
+      received: orderLines.received,
+      receivedAt: orderLines.receivedAt,
+      receivedBy: orderLines.receivedBy,
+      receiveNotes: orderLines.receiveNotes,
+      receiveSignature: orderLines.receiveSignature,
+      notes: orderLines.notes,
+      offlineWorked: orderLines.offlineWorked,
+      item: items,
+      hospitalUnit: units,
+      stockLevel: stockLevels,
     })
+    .from(orderLines)
+    .innerJoin(items, eq(orderLines.itemId, items.id))
+    .innerJoin(units, eq(items.unitId, units.id))
+    .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.unitId, items.unitId)))
+    .where(inArray(orderLines.orderId, orderIds));
+
+  // Batch-fetch supplier codes and item codes
+  const allItemIds = Array.from(new Set(allLines.map(l => l.item.id)));
+
+  const [allSupplierCodesResult, allItemCodesResult] = await Promise.all([
+    allItemIds.length > 0
+      ? db.select().from(supplierCodes).where(inArray(supplierCodes.itemId, allItemIds))
+      : Promise.resolve([]),
+    allItemIds.length > 0
+      ? db.select().from(itemCodes).where(inArray(itemCodes.itemId, allItemIds))
+      : Promise.resolve([]),
+  ]);
+
+  const supplierCodesByItemId = new Map<string, typeof allSupplierCodesResult[0]>();
+  for (const sc of allSupplierCodesResult) {
+    const existing = supplierCodesByItemId.get(sc.itemId);
+    if (!existing) {
+      supplierCodesByItemId.set(sc.itemId, sc);
+    } else if (sc.isPreferred && !existing.isPreferred) {
+      supplierCodesByItemId.set(sc.itemId, sc);
+    } else if (!existing.isPreferred && !sc.isPreferred) {
+      const scCreated = sc.createdAt ? new Date(sc.createdAt).getTime() : 0;
+      const existingCreated = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+      if (scCreated > existingCreated) {
+        supplierCodesByItemId.set(sc.itemId, sc);
+      }
+    }
+  }
+
+  const itemCodesByItemId = new Map(
+    allItemCodesResult.map(ic => [ic.itemId, ic])
   );
 
-  return ordersWithDetails;
+  // Group lines by order ID
+  const linesByOrderId = new Map<string, typeof allLines>();
+  for (const line of allLines) {
+    const existing = linesByOrderId.get(line.orderId);
+    if (existing) {
+      existing.push(line);
+    } else {
+      linesByOrderId.set(line.orderId, [line]);
+    }
+  }
+
+  // Assemble results
+  return ordersResult.map(order => ({
+    ...order,
+    vendor: (order.vendorId ? vendorsMap.get(order.vendorId) : null) ?? null,
+    orderLines: (linesByOrderId.get(order.id) || []).map(line => ({
+      id: line.id,
+      orderId: line.orderId,
+      itemId: line.itemId,
+      qty: line.qty,
+      packSize: line.packSize,
+      unitPrice: line.unitPrice,
+      totalPrice: line.totalPrice,
+      received: line.received,
+      receivedAt: line.receivedAt,
+      receivedBy: line.receivedBy,
+      receiveNotes: line.receiveNotes,
+      receiveSignature: line.receiveSignature,
+      notes: line.notes,
+      offlineWorked: line.offlineWorked,
+      item: {
+        ...line.item,
+        hospitalUnit: line.hospitalUnit,
+        stockLevel: line.stockLevel,
+        preferredSupplierCode: supplierCodesByItemId.get(line.item.id) || null,
+        itemCodes: itemCodesByItemId.get(line.item.id) || null,
+      },
+    })),
+  })) as any;
 }
 
 export async function createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {

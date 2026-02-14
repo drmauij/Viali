@@ -3,7 +3,7 @@ import { storage, db } from "../../storage";
 import { anesthesiaRecordMedications, medicationConfigs, administrationGroups, anesthesiaRecords, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
 import logger from "../../logger";
 
@@ -13,31 +13,12 @@ const router = Router();
 // Inventory Usage Endpoints
 // =====================================
 
-router.get('/api/anesthesia/inventory/:recordId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/inventory/:recordId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
-    const userId = req.user.id;
-
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const inventory = await storage.getInventoryUsage(recordId);
-    
+
     res.json(inventory);
   } catch (error) {
     logger.error("Error fetching inventory usage:", error);
@@ -48,28 +29,9 @@ router.get('/api/anesthesia/inventory/:recordId', isAuthenticated, async (req: a
 router.post('/api/anesthesia/inventory/:recordId/calculate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
-    const userId = req.user.id;
-
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const inventory = await storage.calculateInventoryUsage(recordId);
-    
+
     res.json(inventory);
   } catch (error) {
     logger.error("Error calculating inventory usage:", error);
@@ -91,24 +53,6 @@ router.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, requi
       return res.status(400).json({ message: "Invalid quantity" });
     }
 
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const created = await storage.createManualInventoryUsage(
       recordId,
       itemId,
@@ -116,7 +60,7 @@ router.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, requi
       reason || "Manual adjustment",
       userId
     );
-    
+
     res.json(created);
   } catch (error) {
     logger.error("Error creating manual inventory usage:", error);
@@ -138,36 +82,13 @@ router.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, requireW
       return res.status(400).json({ message: "Override reason is required" });
     }
 
-    const inventory = await storage.getInventoryUsageById(id);
-    
-    if (!inventory) {
-      return res.status(404).json({ message: "Inventory usage not found" });
-    }
-
-    const record = await storage.getAnesthesiaRecordById(inventory.anesthesiaRecordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const updatedInventory = await storage.updateInventoryUsage(
       id,
       overrideQty,
       overrideReason,
       userId
     );
-    
+
     res.json(updatedInventory);
   } catch (error) {
     logger.error("Error setting inventory override:", error);
@@ -178,33 +99,9 @@ router.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, requireW
 router.delete('/api/anesthesia/inventory/:id/override', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
-
-    const inventory = await storage.getInventoryUsageById(id);
-    
-    if (!inventory) {
-      return res.status(404).json({ message: "Inventory usage not found" });
-    }
-
-    const record = await storage.getAnesthesiaRecordById(inventory.anesthesiaRecordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const updatedInventory = await storage.clearInventoryOverride(id);
-    
+
     res.json(updatedInventory);
   } catch (error) {
     logger.error("Error clearing inventory override:", error);
@@ -232,13 +129,6 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
       return res.status(404).json({ message: "Surgery not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const unitsData = await storage.getUnits(surgery.hospitalId);
     let targetUnitId: string | null = null;
 
@@ -256,12 +146,13 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
       targetUnitId = surgeryUnit.id;
     }
 
+    const hospitals = await storage.getUserHospitals(userId);
     const hasModuleAccess = hospitals.some(h => {
       if (h.id !== surgery.hospitalId || h.unitId !== targetUnitId) return false;
-      
+
       if (moduleType === 'anesthesia' && h.unitType !== 'anesthesia') return false;
       if (moduleType === 'surgery' && h.unitType !== 'or') return false;
-      
+
       return true;
     });
     if (!hasModuleAccess) {
@@ -284,31 +175,15 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
   }
 });
 
-router.get('/api/anesthesia/inventory/:recordId/commits', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/inventory/:recordId/commits', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
     const { unitId } = req.query;
-    const userId = req.user.id;
-
-    const record = await storage.getAnesthesiaRecordById(recordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     if (unitId) {
-      const hasUnitAccess = hospitals.some(h => h.id === surgery.hospitalId && h.unitId === unitId);
+      const userId = req.user.id;
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasUnitAccess = hospitals.some(h => h.id === req.resolvedHospitalId && h.unitId === unitId);
       if (!hasUnitAccess) {
         return res.status(403).json({ message: "Access denied to this unit" });
       }
@@ -333,25 +208,9 @@ router.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthentica
       return res.status(404).json({ message: "Commit not found" });
     }
 
-    const record = await storage.getAnesthesiaRecordById(commit.anesthesiaRecordId);
-    if (!record) {
-      return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     if (commit.unitId) {
-      const hasUnitAccess = hospitals.some(h => h.id === surgery.hospitalId && h.unitId === commit.unitId);
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasUnitAccess = hospitals.some(h => h.id === req.resolvedHospitalId && h.unitId === commit.unitId);
       if (!hasUnitAccess) {
         return res.status(403).json({ message: "Access denied: You can only rollback commits from your own module/unit" });
       }
@@ -369,10 +228,9 @@ router.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthentica
 // Audit Trail Endpoint
 // =====================================
 
-router.get('/api/anesthesia/audit/:recordType/:recordId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/audit/:recordType/:recordId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordType, recordId } = req.params;
-    const userId = req.user.id;
 
     const validRecordTypes = ['anesthesia_record', 'vitals_snapshot', 'medication', 'preop_assessment'];
     if (!validRecordTypes.includes(recordType)) {
@@ -380,7 +238,7 @@ router.get('/api/anesthesia/audit/:recordType/:recordId', isAuthenticated, async
     }
 
     const auditTrail = await storage.getAuditTrail(recordType, recordId);
-    
+
     res.json(auditTrail);
   } catch (error) {
     logger.error("Error fetching audit trail:", error);
@@ -392,27 +250,14 @@ router.get('/api/anesthesia/audit/:recordType/:recordId', isAuthenticated, async
 // Billing Endpoint
 // =====================================
 
-router.get('/api/anesthesia/billing/:recordId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/billing/:recordId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;
-    const userId = req.user.id;
 
     const record = await storage.getAnesthesiaRecordById(recordId);
-    
+
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
-    }
-
-    const surgery = await storage.getSurgery(record.surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     let timeUnits = 0;
@@ -422,12 +267,12 @@ router.get('/api/anesthesia/billing/:recordId', isAuthenticated, async (req: any
       const startTime = new Date(record.anesthesiaStartTime).getTime();
       const endTime = new Date(record.anesthesiaEndTime).getTime();
       totalMinutes = Math.floor((endTime - startTime) / (1000 * 60));
-      
+
       timeUnits = Math.ceil(totalMinutes / 15);
     }
 
     const modifiers: string[] = [];
-    
+
     if (record.physicalStatus) {
       modifiers.push(record.physicalStatus);
     }
@@ -462,20 +307,12 @@ router.get('/api/anesthesia/billing/:recordId', isAuthenticated, async (req: any
 // Anesthesia Sets Endpoints
 // =====================================
 
-router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const sets = await storage.getAnesthesiaSets(hospitalId);
-    
+
     const enrichedSets = await Promise.all(
       sets.map(async (set) => {
         const [items, rawMedications, rawInventoryItems] = await Promise.all([
@@ -507,7 +344,7 @@ router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any,
         return { ...set, items, medications, inventoryItems };
       })
     );
-    
+
     res.json(enrichedSets);
   } catch (error) {
     logger.error("Error fetching anesthesia sets:", error);
@@ -515,21 +352,13 @@ router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any,
   }
 });
 
-router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
-    const userId = req.user.id;
 
     const set = await storage.getAnesthesiaSet(setId);
     if (!set) {
       return res.status(404).json({ message: "Anesthesia set not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     // Fetch all three categories for unified sets
@@ -538,7 +367,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
       storage.getAnesthesiaSetMedications(setId),
       storage.getAnesthesiaSetInventory(setId),
     ]);
-    
+
     // Enrich medications with config and item details
     const medications = await Promise.all(
       rawMedications.map(async (med) => {
@@ -553,7 +382,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
         };
       })
     );
-    
+
     // Enrich inventory items with item details
     const inventoryItems = await Promise.all(
       rawInventoryItems.map(async (inv) => {
@@ -564,7 +393,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
         };
       })
     );
-    
+
     res.json({ ...set, items, medications, inventoryItems });
   } catch (error) {
     logger.error("Error fetching anesthesia set:", error);
@@ -579,13 +408,6 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
 
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "hospitalId and name are required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const set = await storage.createAnesthesiaSet({
@@ -639,7 +461,7 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
       storage.getAnesthesiaSetMedications(set.id),
       storage.getAnesthesiaSetInventory(set.id),
     ]);
-    
+
     res.status(201).json({ ...set, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
     logger.error("Error creating anesthesia set:", error);
@@ -660,7 +482,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === 'admin');
-    
+
     if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -714,7 +536,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
       storage.getAnesthesiaSetMedications(setId),
       storage.getAnesthesiaSetInventory(setId),
     ]);
-    
+
     res.json({ ...updatedSet, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
     logger.error("Error updating anesthesia set:", error);
@@ -734,7 +556,7 @@ router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === 'admin');
-    
+
     if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -762,20 +584,13 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       return res.status(404).json({ message: "Anesthesia record not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     // Fetch all three categories
     const [setItems, setMedications, setInventoryItems] = await Promise.all([
       storage.getAnesthesiaSetItems(setId),
       storage.getAnesthesiaSetMedications(setId),
       storage.getAnesthesiaSetInventory(setId),
     ]);
-    
+
     logger.info(`[Apply Set] Set ${setId} has ${setItems.length} technique items, ${setMedications.length} medications, ${setInventoryItems.length} inventory items`);
     let appliedCount = 0;
     let medicationsApplied = 0;
@@ -787,7 +602,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
         const config = (item.config || {}) as Record<string, any>;
         const itemType = item.itemType as string;
         logger.info(`[Apply Set] Processing item type: ${itemType}`, config);
-        
+
         switch (itemType) {
           case 'peripheral_iv':
           case 'peripheral_venous':
@@ -802,7 +617,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'arterial_line':
             await storage.createAnesthesiaInstallation({
               anesthesiaRecordId,
@@ -815,7 +630,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'central_line':
           case 'central_venous':
             await storage.createAnesthesiaInstallation({
@@ -829,7 +644,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'bladder_catheter':
             await storage.createAnesthesiaInstallation({
               anesthesiaRecordId,
@@ -842,7 +657,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'airway_management':
             await storage.upsertAirwayManagement({
               anesthesiaRecordId,
@@ -874,7 +689,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'general_anesthesia':
             await storage.upsertGeneralTechnique({
               anesthesiaRecordId,
@@ -909,7 +724,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'epidural':
           case 'regional_epidural':
             await storage.createNeuraxialBlock({
@@ -930,7 +745,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           case 'nerve_block':
           case 'regional_peripheral':
           case 'peripheral_block':
@@ -943,7 +758,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-            
+
           default:
             logger.info(`[Apply Set] Skipping unsupported item type: ${item.itemType}`);
         }
@@ -961,14 +776,14 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           .from(anesthesiaRecordMedications)
           .where(eq(anesthesiaRecordMedications.anesthesiaRecordId, anesthesiaRecordId));
         const alreadyImported = existingMeds.some(m => m.medicationConfigId === med.medicationConfigId);
-        
+
         if (!alreadyImported) {
           await db.insert(anesthesiaRecordMedications).values({
             anesthesiaRecordId,
             medicationConfigId: med.medicationConfigId,
           });
         }
-        
+
         // Look up the medication config to get item details and administration group
         const [medConfig] = await db
           .select({
@@ -981,7 +796,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           })
           .from(medicationConfigs)
           .where(eq(medicationConfigs.id, med.medicationConfigId));
-        
+
         if (medConfig) {
           // Determine administration group name to decide event type
           let groupName = '';
@@ -992,11 +807,11 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
               .where(eq(administrationGroups.id, medConfig.administrationGroup));
             groupName = group?.name?.toLowerCase() || '';
           }
-          
+
           const dose = med.customDose || medConfig.defaultDose;
           const isInfusion = groupName.includes('infusion') || !!medConfig.rateUnit;
           const timestamp = new Date();
-          
+
           if (isInfusion) {
             const { nanoid } = await import('nanoid');
             const sessionId = nanoid();
@@ -1029,7 +844,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             logger.info(`[Apply Set] Created bolus for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
           }
         }
-        
+
         medicationsApplied++;
       } catch (medError) {
         logger.error(`Error applying medication ${med.medicationConfigId}:`, medError);
@@ -1041,7 +856,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       try {
         // Get or create inventory usage entry for this item
         const existingUsage = await storage.getInventoryUsageByItem(anesthesiaRecordId, inv.itemId);
-        
+
         if (existingUsage) {
           // Already exists - no need to add again
           inventoryApplied++;
@@ -1059,8 +874,8 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       }
     }
 
-    res.json({ 
-      message: "Set applied successfully", 
+    res.json({
+      message: "Set applied successfully",
       appliedCount,
       medicationsApplied,
       inventoryApplied,
@@ -1075,18 +890,10 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
 // Inventory Sets Endpoints
 // =====================================
 
-router.get('/api/inventory-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/inventory-sets/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;
-    const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const sets = await storage.getInventorySets(hospitalId, unitId as string | undefined);
     res.json(sets);
@@ -1096,21 +903,13 @@ router.get('/api/inventory-sets/:hospitalId', isAuthenticated, async (req: any, 
   }
 });
 
-router.get('/api/inventory-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+router.get('/api/inventory-sets/set/:setId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
-    const userId = req.user.id;
 
     const set = await storage.getInventorySet(setId);
     if (!set) {
       return res.status(404).json({ message: "Inventory set not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const items = await storage.getInventorySetItems(setId);
@@ -1128,13 +927,6 @@ router.post('/api/inventory-sets', isAuthenticated, requireAdminRole, requireWri
 
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "hospitalId and name are required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const set = await storage.createInventorySet({
@@ -1177,7 +969,7 @@ router.patch('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess, 
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === "admin");
-    
+
     if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1216,7 +1008,7 @@ router.delete('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess,
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === "admin");
-    
+
     if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -1244,21 +1036,14 @@ router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAcc
       return res.status(404).json({ message: "Inventory set not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const setItems = await storage.getInventorySetItems(setId);
-    
+
     for (const setItem of setItems) {
       const existingUsage = await storage.getInventoryUsageByItem(anesthesiaRecordId, setItem.itemId);
-      
+
       if (existingUsage) {
-        const currentQty = existingUsage.overrideQty !== null 
-          ? Number(existingUsage.overrideQty) 
+        const currentQty = existingUsage.overrideQty !== null
+          ? Number(existingUsage.overrideQty)
           : Number(existingUsage.calculatedQty);
         const newQty = currentQty + setItem.quantity;
         await storage.updateInventoryUsage(existingUsage.id, newQty, `Applied set: ${set.name}`, userId);
@@ -1286,20 +1071,12 @@ router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAcc
 // Surgery Sets Endpoints
 // =====================================
 
-router.get('/api/surgery-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/surgery-sets/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const sets = await storage.getSurgerySets(hospitalId);
-    
+
     const setsWithDetails = await Promise.all(sets.map(async (set) => {
       const inventoryItems = await storage.getSurgerySetInventory(set.id);
       const inventoryWithNames = await Promise.all(inventoryItems.map(async (inv) => {
@@ -1308,7 +1085,7 @@ router.get('/api/surgery-sets/:hospitalId', isAuthenticated, async (req: any, re
       }));
       return { ...set, inventoryItems: inventoryWithNames };
     }));
-    
+
     res.json(setsWithDetails);
   } catch (error) {
     logger.error("Error fetching surgery sets:", error);
@@ -1316,20 +1093,13 @@ router.get('/api/surgery-sets/:hospitalId', isAuthenticated, async (req: any, re
   }
 });
 
-router.get('/api/surgery-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+router.get('/api/surgery-sets/set/:setId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
-    const userId = req.user.id;
 
     const set = await storage.getSurgerySet(setId);
     if (!set) {
       return res.status(404).json({ message: "Surgery set not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const inventoryItems = await storage.getSurgerySetInventory(set.id);
@@ -1352,12 +1122,6 @@ router.post('/api/surgery-sets', isAuthenticated, requireAdminRole, requireWrite
 
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "hospitalId and name are required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const set = await storage.createSurgerySet({
@@ -1390,17 +1154,10 @@ router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requ
   try {
     const { setId } = req.params;
     const { name, description, intraOpData, inventoryItems } = req.body;
-    const userId = req.user.id;
 
     const set = await storage.getSurgerySet(setId);
     if (!set) {
       return res.status(404).json({ message: "Surgery set not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const updated = await storage.updateSurgerySet(setId, {
@@ -1431,17 +1188,10 @@ router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requ
 router.delete('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
-    const userId = req.user.id;
 
     const set = await storage.getSurgerySet(setId);
     if (!set) {
       return res.status(404).json({ message: "Surgery set not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     await storage.deleteSurgerySet(setId);
@@ -1467,19 +1217,13 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
       return res.status(404).json({ message: "Anesthesia record not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     let intraOpApplied = false;
     let inventoryApplied = 0;
 
     if (set.intraOpData && Object.keys(set.intraOpData).length > 0) {
       const existingIntraOp = (record as any).intraOpData || (record as any).intra_op_data || {};
       const mergedIntraOp = { ...existingIntraOp };
-      
+
       const setData = set.intraOpData as Record<string, any>;
       for (const [section, values] of Object.entries(setData)) {
         if (typeof values === 'object' && values !== null && !Array.isArray(values)) {
@@ -1493,7 +1237,7 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
         .update(anesthesiaRecords)
         .set({ intraOpData: mergedIntraOp })
         .where(eq(anesthesiaRecords.id, anesthesiaRecordId));
-      
+
       intraOpApplied = true;
     }
 

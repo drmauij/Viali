@@ -6,12 +6,13 @@ import {
   getActiveUnitIdFromRequest,
   getBulkImportImageLimit,
   requireWriteAccess,
+  requireStrictHospitalAccess,
 } from "../utils";
 import logger from "../logger";
 
 const router = Router();
 
-router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/import-jobs', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { images, hospitalId } = req.body;
     const userId = req.user.id;
@@ -26,7 +27,7 @@ router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req:
     const activeUnitId = getActiveUnitIdFromRequest(req);
     const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
+      return res.status(400).json({ message: "Could not resolve unit for this hospital" });
     }
 
     const hospital = await storage.getHospital(hospitalId);
@@ -63,7 +64,7 @@ router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req:
 
     logger.info(`[Import Job] Created job ${job.id} with ${base64Images.length} images for user ${userId}`);
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     fetch(`${baseUrl}/api/import-jobs/process-next`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
@@ -80,21 +81,13 @@ router.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req:
   }
 });
 
-router.get('/api/import-jobs/:id', isAuthenticated, async (req: any, res) => {
+router.get('/api/import-jobs/:id', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
     const job = await storage.getImportJob(id);
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
-    }
-
-    if (job.userId !== userId) {
-      const unitId = await getUserUnitForHospital(userId, job.hospitalId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     res.json({
@@ -161,7 +154,7 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
 
     const user = await storage.getUser(job.userId);
     if (user?.email) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
       const previewUrl = `${baseUrl}/bulk-import/preview/${job.id}`;
       const { sendBulkImportCompleteEmail } = await import('../resend');
       await sendBulkImportCompleteEmail(

@@ -10,27 +10,19 @@ import {
   insertSurgeryPreOpAssessmentSchema,
 } from "@shared/schema";
 import { z } from "zod";
-import { requireWriteAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import logger from "../../logger";
 
 const router = Router();
 
 // ========== CASES ROUTES ==========
 
-router.get('/api/anesthesia/cases', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/cases', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, patientId, status } = req.query;
-    const userId = req.user.id;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const cases = await storage.getCases(hospitalId, patientId, status);
@@ -67,18 +59,9 @@ router.get('/api/anesthesia/cases/:id', isAuthenticated, async (req: any, res) =
   }
 });
 
-router.post('/api/anesthesia/cases', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/cases', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const userId = req.user.id;
-
     const validatedData = insertCaseSchema.parse(req.body);
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
 
     const newCase = await storage.createCase(validatedData);
     
@@ -121,20 +104,12 @@ router.patch('/api/anesthesia/cases/:id', isAuthenticated, requireWriteAccess, a
 
 // ========== SURGERIES ROUTES ==========
 
-router.get('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId, caseId, patientId, status, roomId, dateFrom, dateTo } = req.query;
-    const userId = req.user.id;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const filters: any = {};
@@ -147,16 +122,18 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) =
 
     const surgeries = await storage.getSurgeries(hospitalId as string, filters);
     
-    const enrichedSurgeries = await Promise.all(
-      surgeries.map(async (surgery) => {
-        const anesthesiaRecord = await storage.getAnesthesiaRecord(surgery.id);
-        return {
-          ...surgery,
-          timeMarkers: anesthesiaRecord?.timeMarkers || null,
-        };
-      })
-    );
-    
+    // Batch-fetch all anesthesia records for these surgeries
+    const surgeryIds = surgeries.map(s => s.id);
+    const recordsMap = await storage.getAnesthesiaRecordsBySurgeryIds(surgeryIds);
+
+    const enrichedSurgeries = surgeries.map(surgery => {
+      const anesthesiaRecord = recordsMap.get(surgery.id);
+      return {
+        ...surgery,
+        timeMarkers: anesthesiaRecord?.timeMarkers || null,
+      };
+    });
+
     res.json(enrichedSurgeries);
   } catch (error) {
     logger.error("Error fetching surgeries:", error);
@@ -164,17 +141,10 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) =
   }
 });
 
-router.get('/api/anesthesia/surgeries/today/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/surgeries/today/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
@@ -234,22 +204,13 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
   }
 });
 
-router.post('/api/anesthesia/surgeries', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const userId = req.user.id;
-    
     logger.info("Received surgery creation request:", JSON.stringify(req.body, null, 2));
 
     const validatedData = insertSurgerySchema.parse(req.body);
-    
-    logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
+    logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
     const newSurgery = await storage.createSurgery(validatedData);
     
@@ -414,21 +375,9 @@ router.post('/api/anesthesia/surgeries/:id/unarchive', isAuthenticated, requireW
 
 // ========== SURGERY NOTES ROUTES ==========
 
-router.get('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
-    const userId = req.user.id;
-
-    const surgery = await storage.getSurgery(surgeryId);
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const notes = await storage.getSurgeryNotes(surgeryId);
     res.json(notes);
@@ -438,7 +387,7 @@ router.get('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, async 
   }
 });
 
-router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
     const userId = req.user.id;
@@ -451,12 +400,6 @@ router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requi
     const surgery = await storage.getSurgery(surgeryId);
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     const newNote = await storage.createSurgeryNote({
@@ -540,17 +483,10 @@ router.delete('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireW
 
 // ========== PACU ROUTES ==========
 
-router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const pacuPatients = await storage.getPacuPatients(hospitalId);
     
@@ -586,20 +522,12 @@ router.get('/api/surgery/preop-assessments/bulk', isAuthenticated, async (req: a
   }
 });
 
-router.get('/api/surgery/preop', isAuthenticated, async (req: any, res) => {
+router.get('/api/surgery/preop', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.query;
-    const userId = req.user.id;
 
     if (!hospitalId) {
       return res.status(400).json({ message: "hospitalId is required" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
     const assessments = await storage.getSurgeryPreOpAssessments(hospitalId as string);
@@ -611,23 +539,9 @@ router.get('/api/surgery/preop', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.get('/api/surgery/preop/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
+router.get('/api/surgery/preop/surgery/:surgeryId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { surgeryId } = req.params;
-    const userId = req.user.id;
-
-    const surgery = await storage.getSurgery(surgeryId);
-    
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const assessment = await storage.getSurgeryPreOpAssessment(surgeryId);
     
@@ -638,24 +552,9 @@ router.get('/api/surgery/preop/surgery/:surgeryId', isAuthenticated, async (req:
   }
 });
 
-router.post('/api/surgery/preop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/surgery/preop', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const userId = req.user.id;
-
     const validatedData = insertSurgeryPreOpAssessmentSchema.parse(req.body);
-
-    const surgery = await storage.getSurgery(validatedData.surgeryId);
-    
-    if (!surgery) {
-      return res.status(404).json({ message: "Surgery not found" });
-    }
-
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
 
     const newAssessment = await storage.createSurgeryPreOpAssessment(validatedData);
     
