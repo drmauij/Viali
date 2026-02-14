@@ -63,13 +63,25 @@ export async function checkBillingRequired(hospitalId: string): Promise<{
   
   // Free plan doesn't require billing
   if (licenseType === "free") {
+    return { billingRequired: false, hasPaymentMethod, licenseType };
+  }
+
+  // Test plan — allow during 15-day trial
+  if (licenseType === "test") {
+    const TRIAL_DAYS = 15;
+    let trialExpired = true;
+    if (hospital.trialStartDate) {
+      const trialEndsAt = new Date(hospital.trialStartDate);
+      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+      trialExpired = new Date() >= trialEndsAt;
+    }
     return {
-      billingRequired: false,
+      billingRequired: trialExpired && !hasPaymentMethod,
       hasPaymentMethod,
       licenseType,
     };
   }
-  
+
   // Basic plan requires payment method
   return {
     billingRequired: !hasPaymentMethod,
