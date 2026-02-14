@@ -2043,7 +2043,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
 
     // Always include OR unit flyers (for both anesthesia and LA surgeries)
     for (const unit of hospitalUnits) {
-      if (unit.type === 'OR' && unit.infoFlyerUrl && !flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
+      if (unit.type?.toLowerCase() === 'or' && unit.infoFlyerUrl && !flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
         flyers.push({
           unitName: unit.name,
           unitType: unit.type,
