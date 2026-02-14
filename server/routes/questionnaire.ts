@@ -2008,6 +2008,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           roomName,
           anesthesiaType,
           surgeonName,
+          noPreOpRequired: surgery.noPreOpRequired,
         };
         
         // Check if surgery is actually completed
@@ -2023,35 +2024,32 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     // Get info flyers
     const flyers: Array<{ unitName: string; unitType: string | null; flyerUrl: string; downloadUrl?: string }> = [];
     
-    // Get unit info flyers based on surgery room
-    if (surgeryInfo && resolvedSurgeryId) {
-      const surgery = await storage.getSurgery(resolvedSurgeryId);
-      if (surgery?.surgeryRoomId) {
-        const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
-        if (room) {
-          // Surgery rooms are linked to hospital, try to get anesthesia unit info flyer
-          const hospitalUnitsForRoom = await storage.getUnits(room.hospitalId);
-          const anesthesiaUnitForRoom = hospitalUnitsForRoom.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
-          if (anesthesiaUnitForRoom) {
-            flyers.push({
-              unitName: anesthesiaUnitForRoom.name,
-              unitType: anesthesiaUnitForRoom.type,
-              flyerUrl: anesthesiaUnitForRoom.infoFlyerUrl!,
-            });
-          }
+    // Get unit info flyers based on surgery type
+    const hospitalUnits = await storage.getUnits(link.hospitalId);
+    const isLASurgery = surgeryInfo?.noPreOpRequired === true;
+
+    // Include anesthesia unit flyers only for surgeries with anesthesia
+    if (!isLASurgery) {
+      for (const unit of hospitalUnits) {
+        if (unit.type === 'anesthesia' && unit.infoFlyerUrl && !flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
+          flyers.push({
+            unitName: unit.name,
+            unitType: unit.type,
+            flyerUrl: unit.infoFlyerUrl,
+          });
         }
       }
     }
-    
-    // Also get the anesthesia module's info flyer
-    const hospitalUnits = await storage.getUnits(link.hospitalId);
-    const anesthesiaUnit = hospitalUnits.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
-    if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
-      flyers.push({
-        unitName: anesthesiaUnit.name,
-        unitType: anesthesiaUnit.type,
-        flyerUrl: anesthesiaUnit.infoFlyerUrl!,
-      });
+
+    // Always include OR unit flyers (for both anesthesia and LA surgeries)
+    for (const unit of hospitalUnits) {
+      if (unit.type === 'OR' && unit.infoFlyerUrl && !flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
+        flyers.push({
+          unitName: unit.name,
+          unitType: unit.type,
+          flyerUrl: unit.infoFlyerUrl,
+        });
+      }
     }
     
     // Generate download URLs
