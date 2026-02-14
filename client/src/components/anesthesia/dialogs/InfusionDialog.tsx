@@ -70,8 +70,8 @@ export function InfusionDialog({
           onOpenChange(true);
         }
       }}
-      title="Add Infusion Rate"
-      description={pendingInfusionValue ? `${pendingInfusionValue.label}` : 'Add a new infusion rate value'}
+      title={t('dialogs.addInfusionRate')}
+      description={pendingInfusionValue ? `${pendingInfusionValue.label}` : t('dialogs.addInfusionRateDesc')}
       testId="dialog-infusion-value"
       time={pendingInfusionValue?.time}
       onTimeChange={(newTime) => {
@@ -80,12 +80,12 @@ export function InfusionDialog({
       onSave={handleSave}
       onCancel={handleClose}
       saveDisabled={!infusionInput.trim()}
-      saveLabel="Add"
+      saveLabel={t('common.add')}
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
           <Label htmlFor="infusion-value">
-            {isTciMode ? "Target Concentration (Tc)" : "Rate"}
+            {isTciMode ? t('dialogs.targetConcentration') : t('common.rate')}
           </Label>
           <Input
             id="infusion-value"
@@ -106,7 +106,7 @@ export function InfusionDialog({
         {!isTciMode && (
           <div className="grid gap-2 pt-2">
             <Label htmlFor="initial-bolus" className="text-sm">
-              Initial Bolus {pendingInfusionValue?.administrationUnit ? `(${pendingInfusionValue.administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
+              {t('dialogs.initialBolus')} {pendingInfusionValue?.administrationUnit ? `(${pendingInfusionValue.administrationUnit})` : ''} <span className="text-muted-foreground">({t('common.optional')})</span>
             </Label>
             <Input
               id="initial-bolus"
@@ -118,7 +118,7 @@ export function InfusionDialog({
               placeholder="e.g., 150"
             />
             <p className="text-xs text-muted-foreground">
-              Bolus dose given at infusion start (added to total medication count)
+              {t('dialogs.initialBolusHint')}
             </p>
           </div>
         )}

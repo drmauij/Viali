@@ -60,7 +60,6 @@ export default function OpList() {
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
   const activeHospital = useActiveHospital();
-  const isGerman = i18n.language === 'de';
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && activeHospital?.role === 'admin';
   const [openRequestsFromUrl] = useState(() => {
@@ -304,7 +303,7 @@ export default function OpList() {
                   data-testid="button-external-requests"
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  {isGerman ? 'Anfragen' : 'Requests'}
+                  {t('anesthesia.opList.requests')}
                   <ExternalRequestsBadge />
                 </Button>
               }

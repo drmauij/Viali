@@ -86,14 +86,15 @@ const ABSENCE_TYPE_ICONS: Record<string, string> = {
   default: '🚫',
 };
 
-const ABSENCE_TYPE_LABELS: Record<string, string> = {
-  vacation: 'Vacation',
-  sick: 'Sick Leave',
-  training: 'Training',
-  parental: 'Parental Leave',
-  homeoffice: 'Home Office',
-  sabbatical: 'Sabbatical',
-  default: 'Absent',
+// Labels are resolved at render time via t() — these are fallback defaults
+const ABSENCE_TYPE_KEYS: Record<string, string> = {
+  vacation: 'clinic.absenceVacation',
+  sick: 'clinic.absenceSickLeave',
+  training: 'clinic.absenceTraining',
+  parental: 'clinic.absenceParentalLeave',
+  homeoffice: 'clinic.absenceHomeOffice',
+  sabbatical: 'clinic.absenceSabbatical',
+  default: 'clinic.absenceAbsent',
 };
 
 interface AppointmentsTimelineWeekViewProps {
@@ -139,7 +140,7 @@ export default function AppointmentsTimelineWeekView({
   onCanvasClick,
   onProviderClick,
 }: AppointmentsTimelineWeekViewProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const currentStateRef = useRef<Map<string, { providerId: string; start: Date; end: Date }>>(new Map());
 
   const [visibleTimeStart, setVisibleTimeStart] = useState<number>(0);
@@ -308,7 +309,8 @@ export default function AppointmentsTimelineWeekView({
           dayEnd.setHours(18, 0, 0, 0);
           
           const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
-          const defaultLabel = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const absenceKey = ABSENCE_TYPE_KEYS[absence.absenceType] || ABSENCE_TYPE_KEYS.default;
+          const defaultLabel = t(absenceKey);
           const displayLabel = absence.notes || defaultLabel;
           const absenceStatus = `absence_${absence.absenceType}`;
           const statusClass = STATUS_COLORS[absenceStatus] || 'timeline-item-absence-other';
@@ -383,7 +385,7 @@ export default function AppointmentsTimelineWeekView({
       });
 
     return [...appointmentItems, ...surgeryItems, ...absenceItems, ...timeOffItems];
-  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, providers, weekRange, onEventClick]);
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, providers, weekRange, onEventClick, t]);
 
   const handleItemMove = (itemId: string | number, dragTime: number, newGroupOrder: number) => {
     if (!onEventDrop) return;
@@ -460,7 +462,7 @@ export default function AppointmentsTimelineWeekView({
   };
 
   if (!visibleTimeStart || !visibleTimeEnd) {
-    return <div className="timeline-week-view">Loading...</div>;
+    return <div className="timeline-week-view">{t("common.loading")}</div>;
   }
 
   return (
@@ -491,7 +493,7 @@ export default function AppointmentsTimelineWeekView({
             <button
               onClick={() => onProviderClick?.(group.id as string)}
               className="w-full h-full flex items-center justify-center gap-1 hover:bg-muted/50 transition-colors cursor-pointer text-sm font-medium px-1"
-              title="Click to manage availability"
+              title={t("clinic.clickToManageAvailability")}
               data-testid={`provider-sidebar-${group.id}`}
             >
               <Settings className="h-3 w-3 opacity-50 flex-shrink-0" />

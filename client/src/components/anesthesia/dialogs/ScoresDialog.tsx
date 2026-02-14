@@ -6,6 +6,7 @@ import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddScorePoint, useUpdateScorePoint, useDeleteScorePoint } from "@/hooks/useVitalsQuery";
 import type { AldreteScore, PARSAPScore } from "@/hooks/useEventState";
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface EditingScore {
   id: string;
@@ -156,6 +157,7 @@ export function ScoresDialog({
   onScoreDeleted,
   readOnly = false,
 }: ScoresDialogProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'aldrete' | 'parsap'>('aldrete');
   const [aldreteScore, setAldreteScore] = useState<AldreteScore>(DEFAULT_ALDRETE);
   const [parsapScore, setParsapScore] = useState<PARSAPScore>(DEFAULT_PARSAP);
@@ -293,8 +295,8 @@ export function ScoresDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="PACU Discharge Scores"
-      description={editingScore ? 'Edit or delete the score' : 'Document Aldrete or PARSAP score for discharge criteria'}
+      title={t('dialogs.scoresTitle')}
+      description={editingScore ? t('dialogs.scoresEditDesc') : t('dialogs.scoresDesc')}
       className="sm:max-w-[600px] max-h-[90vh]"
       testId="dialog-scores"
       time={editingScore ? scoreEditTime : pendingScore?.time}
@@ -304,15 +306,15 @@ export function ScoresDialog({
       onCancel={handleClose}
       onSave={handleSave}
       saveDisabled={readOnly}
-      saveLabel={editingScore ? 'Save' : 'Add'}
+      saveLabel={editingScore ? t('common.save') : t('common.add')}
     >
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'aldrete' | 'parsap')}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="aldrete" data-testid="tab-aldrete">
-            Aldrete Score
+            {t('dialogs.aldreteScore')}
           </TabsTrigger>
           <TabsTrigger value="parsap" data-testid="tab-parsap">
-            PARSAP Score
+            {t('dialogs.parsapScore')}
           </TabsTrigger>
         </TabsList>
 
@@ -334,11 +336,11 @@ export function ScoresDialog({
       }`}>
         {isDischargeReady && <CheckCircle2 className="h-5 w-5" />}
         <span className="font-bold text-lg">
-          Total: {currentTotal}/10
+          {t('dialogs.scoresTotal')}: {currentTotal}/10
         </span>
         {isDischargeReady && (
           <span className="text-sm font-medium">
-            - Discharge Ready
+            - {t('dialogs.dischargeReady')}
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingInfusionStart {
   id: string;
@@ -33,6 +34,7 @@ export function InfusionStartEditDialog({
   onInfusionUpdated,
   onInfusionDeleted,
 }: InfusionStartEditDialogProps) {
+  const { t } = useTranslation();
   const [doseInput, setDoseInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
   const [editTime, setEditTime] = useState<number>(Date.now());
@@ -105,8 +107,8 @@ export function InfusionStartEditDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Infusion Start"
-      description={`${editingInfusionStart?.medicationName || 'Edit or delete the infusion'} ${editingInfusionStart?.isFreeFlow ? ' (Free-flow)' : ' (Rate-controlled)'}`}
+      title={t('dialogs.editInfusionStart')}
+      description={`${editingInfusionStart?.medicationName || t('dialogs.editOrDeleteInfusion')} ${editingInfusionStart?.isFreeFlow ? ` (${t('dialogs.freeFlow')})` : ` (${t('dialogs.rateControlled')})`}`}
       testId="dialog-infusion-start-edit"
       time={editTime}
       onTimeChange={setEditTime}
@@ -126,7 +128,7 @@ export function InfusionStartEditDialog({
             return (
               <>
                 <Label htmlFor="infusion-dose-edit-value">
-                  Starting {editingInfusionStart?.isFreeFlow ? 'Dose' : 'Rate'}{displayUnit ? ` (${displayUnit})` : ''}
+                  {t('dialogs.starting')} {editingInfusionStart?.isFreeFlow ? t('dialogs.dose') : t('common.rate')}{displayUnit ? ` (${displayUnit})` : ''}
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -156,7 +158,7 @@ export function InfusionStartEditDialog({
 
         {/* Note Input */}
         <div className="grid gap-2">
-          <Label htmlFor="infusion-note-edit-value">Note (optional)</Label>
+          <Label htmlFor="infusion-note-edit-value">{t('dialogs.noteOptional')}</Label>
           <Input
             id="infusion-note-edit-value"
             data-testid="input-infusion-note-edit-value"

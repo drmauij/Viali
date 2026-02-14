@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingStaff {
   id: string;
@@ -46,6 +47,7 @@ export function StaffDialog({
   onStaffDeleted,
   readOnly = false,
 }: StaffDialogProps) {
+  const { t } = useTranslation();
   const [staffInput, setStaffInput] = useState("");
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -155,8 +157,8 @@ export function StaffDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Staff Entry"
-      description={editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
+      title={t('dialogs.staffEntry')}
+      description={editingStaff ? t('dialogs.staffEditDesc', { role: editingStaff.role }) : t('dialogs.staffAddDesc')}
       testId="dialog-staff"
       time={editingStaff ? staffEditTime : pendingStaff?.time}
       onTimeChange={editingStaff ? setStaffEditTime : undefined}
@@ -165,18 +167,18 @@ export function StaffDialog({
       onCancel={handleClose}
       onSave={handleSave}
       saveDisabled={!staffInput.trim() || readOnly}
-      saveLabel={editingStaff ? 'Save' : 'Add'}
+      saveLabel={editingStaff ? t('common.save') : t('common.add')}
     >
       <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
         {currentRole === 'assistant' ? (
           // For assistant role, show free text input
           <div className="grid gap-2">
-            <Label htmlFor="staff-name">Name</Label>
+            <Label htmlFor="staff-name">{t('common.name')}</Label>
             <Input
               ref={inputRef}
               id="staff-name"
               data-testid="input-staff-name"
-              placeholder="Enter name..."
+              placeholder={t('dialogs.staffEnterName')}
               value={staffInput}
               onChange={(e) => setStaffInput(e.target.value)}
               onKeyDown={(e) => {
@@ -191,7 +193,7 @@ export function StaffDialog({
         ) : (
           // For doctor/nurse roles, show selectable user list
           <div className="grid gap-2">
-            <Label>Select {currentRole}</Label>
+            <Label>{t('dialogs.staffSelectRole', { role: currentRole })}</Label>
             <div className="grid grid-cols-1 gap-2">
               {filteredUsers.map((hospitalUser) => {
                 // Use name from endpoint (already formatted as "lastName firstName") or fallback
@@ -251,16 +253,16 @@ export function StaffDialog({
             </div>
             {filteredUsers.length === 0 && (
               <div className="text-sm text-muted-foreground py-4 text-center">
-                No {currentRole}s found in this unit
+                {t('dialogs.staffNoUsersFound', { role: currentRole })}
               </div>
             )}
             {/* Custom input for other names */}
             <div className="mt-2 pt-2 border-t">
-              <Label htmlFor="staff-name-custom">Or enter custom name</Label>
+              <Label htmlFor="staff-name-custom">{t('dialogs.staffOrEnterCustom')}</Label>
               <Input
                 id="staff-name-custom"
                 data-testid="input-staff-name-custom"
-                placeholder="Enter custom name..."
+                placeholder={t('dialogs.staffEnterCustomName')}
                 value={staffInput}
                 onChange={(e) => setStaffInput(e.target.value)}
                 onKeyDown={(e) => {

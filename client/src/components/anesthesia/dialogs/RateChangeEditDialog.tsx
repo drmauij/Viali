@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
+import { useTranslation } from "react-i18next";
 
 interface RateChangeEditDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ export function RateChangeEditDialog({
   onDelete,
   formatTime,
 }: RateChangeEditDialogProps) {
+  const { t } = useTranslation();
   const [rateValue, setRateValue] = useState("");
   const [editTime, setEditTime] = useState<number>(Date.now());
 
@@ -61,7 +63,7 @@ export function RateChangeEditDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Rate Change"
+      title={t('dialogs.editRateChange')}
       description={rateChangeData.medicationName}
       className="sm:max-w-md"
       testId="dialog-rate-change-edit"
@@ -75,7 +77,7 @@ export function RateChangeEditDialog({
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="rate-value">Rate ({rateChangeData.rateUnit})</Label>
+          <Label htmlFor="rate-value">{t('common.rate')} ({rateChangeData.rateUnit})</Label>
           <Input
             id="rate-value"
             type="number"
@@ -86,7 +88,7 @@ export function RateChangeEditDialog({
                 handleSave();
               }
             }}
-            placeholder="Enter rate"
+            placeholder={t('dialogs.enterRate')}
             data-testid="input-rate-value"
             autoFocus
           />

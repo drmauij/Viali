@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 
 interface KPIData {
   belowMin: number;
@@ -27,6 +28,7 @@ interface Activity {
 
 export default function Home() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [activeHospital, setActiveHospital] = useState<any>(null);
 
@@ -49,20 +51,21 @@ export default function Home() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
-    return "Good Evening";
+    if (hour < 12) return t("home.goodMorning");
+    if (hour < 18) return t("home.goodAfternoon");
+    return t("home.goodEvening");
   };
 
   const formatTimeAgo = (timestamp: string) => {
     const now = new Date();
     const time = new Date(timestamp);
-    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours === 1) return "1 hour ago";
-    if (diffInHours < 24) return `${diffInHours} hours ago`;
-    return "Yesterday";
+    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+
+    if (diffInMinutes < 1) return t("home.justNow");
+    if (diffInMinutes < 60) return t("home.minutesAgo", { count: diffInMinutes });
+    if (diffInHours < 24) return t("home.hoursAgo", { count: diffInHours });
+    return t("home.yesterday");
   };
 
   const getActivityIcon = (action: string) => {
@@ -101,16 +104,16 @@ export default function Home() {
           <i className="fas fa-exclamation-triangle text-xl"></i>
           <div className="flex-1">
             <p className="font-semibold">
-              {kpis?.belowMin} Critical Items Below Minimum
+              {t("home.criticalItemsBelowMin", { count: kpis?.belowMin || 0 })}
             </p>
-            <p className="text-sm opacity-90">Immediate attention required</p>
+            <p className="text-sm opacity-90">{t("home.immediateAttentionRequired")}</p>
           </div>
           <button
             className="px-4 py-2 bg-white/20 rounded-lg text-sm font-medium"
             onClick={() => navigate("/alerts")}
             data-testid="view-critical-alerts"
           >
-            View
+            {t("home.view")}
           </button>
         </div>
       )}
@@ -120,7 +123,7 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-foreground">
           {getGreeting()}, <span data-testid="user-name">{(user as any)?.firstName || "User"}</span>
         </h2>
-        <p className="text-muted-foreground mt-1">Today's Overview</p>
+        <p className="text-muted-foreground mt-1">{t("home.todaysOverview")}</p>
       </div>
 
       {/* KPI Cards */}
@@ -131,17 +134,17 @@ export default function Home() {
             <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
               <i className="fas fa-arrow-down text-lg text-destructive"></i>
             </div>
-            <span className="text-xs text-muted-foreground">Critical</span>
+            <span className="text-xs text-muted-foreground">{t("home.critical")}</span>
           </div>
           <h3 className="text-3xl font-bold text-foreground" data-testid="kpi-below-min">
             {kpis?.belowMin || 0}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">Below Min</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("home.belowMin")}</p>
           <div className="mt-3 flex items-center gap-2 text-xs">
             <span className="text-destructive font-medium">
               {kpis?.belowMin ? `↑ ${Math.min(3, kpis.belowMin)}` : "—"}
             </span>
-            <span className="text-muted-foreground">from yesterday</span>
+            <span className="text-muted-foreground">{t("home.fromYesterday")}</span>
           </div>
         </div>
 
@@ -156,12 +159,12 @@ export default function Home() {
           <h3 className="text-3xl font-bold text-foreground" data-testid="kpi-expiring-soon">
             {kpis?.expiringSoon || 0}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">Expiring Soon</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("home.expiringSoon")}</p>
           <div className="mt-3 flex items-center gap-2 text-xs">
             <span className="text-warning font-medium">
-              {kpis?.expiringSoon ? `${Math.min(2, kpis.expiringSoon)} lots` : "No lots"}
+              {kpis?.expiringSoon ? t("home.lotsCount", { count: Math.min(2, kpis.expiringSoon) }) : t("home.noLots")}
             </span>
-            <span className="text-muted-foreground">need rotation</span>
+            <span className="text-muted-foreground">{t("home.needRotation")}</span>
           </div>
         </div>
 
@@ -171,17 +174,17 @@ export default function Home() {
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <i className="fas fa-file-invoice text-lg text-primary"></i>
             </div>
-            <span className="text-xs text-muted-foreground">Active</span>
+            <span className="text-xs text-muted-foreground">{t("home.active")}</span>
           </div>
           <h3 className="text-3xl font-bold text-foreground" data-testid="kpi-pending-orders">
             {kpis?.pendingOrders || 0}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">Pending Orders</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("home.pendingOrders")}</p>
           <div className="mt-3 flex items-center gap-2 text-xs">
             <span className="text-primary font-medium">
-              {kpis?.pendingOrders ? `${Math.min(2, kpis.pendingOrders)} receiving` : "None"}
+              {kpis?.pendingOrders ? t("home.receivingCount", { count: Math.min(2, kpis.pendingOrders) }) : t("home.none")}
             </span>
-            <span className="text-muted-foreground">today</span>
+            <span className="text-muted-foreground">{t("home.today")}</span>
           </div>
         </div>
 
@@ -191,21 +194,21 @@ export default function Home() {
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
               <i className="fas fa-shield-halved text-lg text-accent"></i>
             </div>
-            <span className="text-xs text-muted-foreground">Monthly</span>
+            <span className="text-xs text-muted-foreground">{t("home.monthly")}</span>
           </div>
           <h3 className="text-3xl font-bold text-foreground" data-testid="kpi-audit-due">
             {kpis?.auditDue || 0}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">Audit Due</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("home.auditDue")}</p>
           <div className="mt-3 flex items-center gap-2 text-xs">
-            <span className="text-accent font-medium">Due in 3 days</span>
+            <span className="text-accent font-medium">{t("home.dueInDays", { count: 3 })}</span>
           </div>
         </div>
       </div>
 
       {/* Quick Actions */}
       <div>
-        <h3 className="font-semibold text-foreground mb-3">Quick Actions</h3>
+        <h3 className="font-semibold text-foreground mb-3">{t("home.quickActions")}</h3>
         <div className="grid grid-cols-1 gap-3">
           <button
             className="action-button btn-primary justify-start"
@@ -213,7 +216,7 @@ export default function Home() {
             data-testid="start-daily-count"
           >
             <i className="fas fa-barcode"></i>
-            <span>Start Daily Count</span>
+            <span>{t("home.startDailyCount")}</span>
           </button>
 
           <button
@@ -221,7 +224,7 @@ export default function Home() {
             data-testid="receive-delivery"
           >
             <i className="fas fa-truck-loading"></i>
-            <span>Receive Delivery</span>
+            <span>{t("home.receiveDelivery")}</span>
           </button>
 
           <button
@@ -229,7 +232,7 @@ export default function Home() {
             data-testid="new-transfer"
           >
             <i className="fas fa-exchange-alt"></i>
-            <span>New Transfer</span>
+            <span>{t("home.newTransfer")}</span>
           </button>
         </div>
       </div>
@@ -237,13 +240,13 @@ export default function Home() {
       {/* Recent Activity */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-foreground">Recent Activity</h3>
+          <h3 className="font-semibold text-foreground">{t("home.recentActivity")}</h3>
           <button 
             className="text-sm text-primary"
             onClick={() => navigate("/activities")}
             data-testid="view-all-activities"
           >
-            View All
+            {t("home.viewAll")}
           </button>
         </div>
 
@@ -251,7 +254,7 @@ export default function Home() {
           {activities.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-6 text-center">
               <i className="fas fa-clipboard-list text-3xl text-muted-foreground mb-2"></i>
-              <p className="text-muted-foreground">No recent activity</p>
+              <p className="text-muted-foreground">{t("home.noRecentActivity")}</p>
             </div>
           ) : (
             activities.slice(0, 3).map((activity) => (
@@ -262,13 +265,13 @@ export default function Home() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground">
-                      {activity.action === "receive" && "Stock Received"}
-                      {activity.action === "dispense" && "Controlled Dispensed"}
-                      {activity.action === "count" && "Stock Counted"}
-                      {activity.action === "order" && "Order Submitted"}
+                      {activity.action === "receive" && t("home.stockReceived")}
+                      {activity.action === "dispense" && t("home.controlledDispensed")}
+                      {activity.action === "count" && t("home.stockCounted")}
+                      {activity.action === "order" && t("home.orderSubmitted")}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {activity.item?.name || "Unknown item"} - {Math.abs(activity.delta || 0)} units
+                      {activity.item?.name || t("home.unknownItem")} - {Math.abs(activity.delta || 0)} {t("home.units")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {formatTimeAgo(activity.timestamp)} • {activity.user.firstName} {activity.user.lastName}

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TimeAdjustInput } from "@/components/anesthesia/TimeAdjustInput";
 import { Heart, Activity } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ManualVitalsDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ export function ManualVitalsDialog({
   initialValues,
   onSave,
 }: ManualVitalsDialogProps) {
+  const { t } = useTranslation();
   const [time, setTime] = useState(initialTime);
   const [hr, setHr] = useState<string>("");
   const [sys, setSys] = useState<string>("");
@@ -109,9 +111,9 @@ export function ManualVitalsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" data-testid="dialog-manual-vitals">
         <DialogHeader>
-          <DialogTitle>Manual Vital Signs Entry</DialogTitle>
+          <DialogTitle>{t('dialogs.manualVitalSigns')}</DialogTitle>
           <DialogDescription>
-            Enter vital signs manually. Use Tab to navigate between fields, Enter to save.
+            {t('dialogs.manualVitalsDesc')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -119,7 +121,7 @@ export function ManualVitalsDialog({
             <div className="grid gap-2">
               <Label htmlFor="hr" className="flex items-center gap-2">
                 <Heart className="w-4 h-4 text-red-500" />
-                Heart Rate (bpm)
+                {t('dialogs.heartRate')}
               </Label>
               <Input
                 id="hr"
@@ -137,7 +139,7 @@ export function ManualVitalsDialog({
             <div className="grid gap-2">
               <Label htmlFor="spo2" className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-500" />
-                SpO2 (%)
+                {t('dialogs.spo2')}
               </Label>
               <Input
                 id="spo2"
@@ -155,7 +157,7 @@ export function ManualVitalsDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="sys">Systolic BP (mmHg)</Label>
+              <Label htmlFor="sys">{t('dialogs.systolic')}</Label>
               <Input
                 id="sys"
                 ref={sysRef}
@@ -170,7 +172,7 @@ export function ManualVitalsDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="dia">Diastolic BP (mmHg)</Label>
+              <Label htmlFor="dia">{t('dialogs.diastolic')}</Label>
               <Input
                 id="dia"
                 ref={diaRef}
@@ -186,7 +188,7 @@ export function ManualVitalsDialog({
             </div>
           </div>
           <div className="grid gap-2">
-            <Label>Time</Label>
+            <Label>{t('common.time')}</Label>
             <TimeAdjustInput
               value={time}
               onChange={setTime}
@@ -200,14 +202,14 @@ export function ManualVitalsDialog({
             onClick={() => onOpenChange(false)}
             data-testid="button-cancel"
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={!hasAnyValue}
             data-testid="button-save"
           >
-            Save
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

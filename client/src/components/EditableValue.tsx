@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,20 +115,22 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
     setEditedTime(newTime);
   };
 
+  const { t } = useTranslation();
+
   return (
     <EditValueContext.Provider value={{ openEdit, closeEdit }}>
       {children}
-      
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md" data-testid="dialog-edit-value">
           <DialogHeader>
-            <DialogTitle>Edit {config?.label}</DialogTitle>
+            <DialogTitle>{t('editableValue.editTitle', { label: config?.label })}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Value Input */}
             <div className="space-y-2">
-              <Label htmlFor="edit-value">Value</Label>
+              <Label htmlFor="edit-value">{t('common.value')}</Label>
               {config?.type === "number" || config?.type === "vital-point" ? (
                 <Input
                   id="edit-value"
@@ -149,7 +152,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
                       data-testid="button-date-picker"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editedValue ? formatDateLong(new Date(editedValue)) : <span>Pick a date</span>}
+                      {editedValue ? formatDateLong(new Date(editedValue)) : <span>{t('editableValue.pickDate')}</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -176,7 +179,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
             {/* Time Edit Section */}
             {config?.allowTimeEdit && (
               <div className="space-y-2">
-                <Label>Time</Label>
+                <Label>{t('common.time')}</Label>
                 <div className="flex items-center gap-2">
                   {/* Date Picker */}
                   <Popover>
@@ -240,7 +243,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
                 data-testid="button-delete-value"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                {t('common.delete')}
               </Button>
             )}
             <div className="flex-1 flex gap-2">
@@ -251,7 +254,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
                 className="flex-1"
                 data-testid="button-cancel-edit"
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleSave}
@@ -259,7 +262,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
                 className="flex-1"
                 data-testid="button-save-value"
               >
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? t('common.saving') : t('common.save')}
               </Button>
             </div>
           </DialogFooter>

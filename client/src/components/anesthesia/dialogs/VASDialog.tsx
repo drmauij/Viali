@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVASPoint, useUpdateVASPoint, useDeleteVASPoint } from "@/hooks/useVitalsQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingVAS {
   id: string;
@@ -38,12 +39,12 @@ function getVASButtonColor(value: number, isSelected: boolean): string {
   return '';
 }
 
-function getVASLabel(value: number): string {
-  if (value === 0) return 'No pain';
-  if (value <= 3) return 'Mild';
-  if (value <= 6) return 'Moderate';
-  if (value <= 9) return 'Severe';
-  return 'Worst pain';
+function getVASLabelKey(value: number): string {
+  if (value === 0) return 'dialogs.vasNoPain';
+  if (value <= 3) return 'dialogs.vasMild';
+  if (value <= 6) return 'dialogs.vasModerate';
+  if (value <= 9) return 'dialogs.vasSevere';
+  return 'dialogs.vasWorstPain';
 }
 
 export function VASDialog({
@@ -57,6 +58,7 @@ export function VASDialog({
   onVASDeleted,
   readOnly = false,
 }: VASDialogProps) {
+  const { t } = useTranslation();
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
   const [vasEditTime, setVasEditTime] = useState<number>(0);
 
@@ -130,8 +132,8 @@ export function VASDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="VAS (Visual Analog Scale)"
-      description={editingVAS ? 'Edit or delete the pain score' : 'Select current pain level (0-10)'}
+      title={t('dialogs.vasTitle')}
+      description={editingVAS ? t('dialogs.vasEditDesc') : t('dialogs.vasDesc')}
       className="sm:max-w-[500px]"
       testId="dialog-vas"
       time={editingVAS ? vasEditTime : pendingVAS?.time}
@@ -141,11 +143,11 @@ export function VASDialog({
       onCancel={handleClose}
       onSave={() => handleSave()}
       saveDisabled={selectedValue === null || readOnly}
-      saveLabel={editingVAS ? 'Save' : 'Add'}
+      saveLabel={editingVAS ? t('common.save') : t('common.add')}
     >
       <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
         <div className="grid gap-2">
-          <Label>Pain Level (0 = No pain, 10 = Worst pain)</Label>
+          <Label>{t('dialogs.vasPainLevel')}</Label>
           <div className="grid grid-cols-11 gap-1">
             {editingVAS ? (
               VAS_VALUES.map((value) => (
@@ -183,14 +185,14 @@ export function VASDialog({
           </div>
           {selectedValue !== null && (
             <p className="text-sm text-muted-foreground text-center mt-2">
-              {getVASLabel(selectedValue)}
+              {t(getVASLabelKey(selectedValue))}
             </p>
           )}
         </div>
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span className="text-green-600">0-3: Mild</span>
-          <span className="text-yellow-600">4-6: Moderate</span>
-          <span className="text-red-600">7-10: Severe</span>
+          <span className="text-green-600">0-3: {t('dialogs.vasMild')}</span>
+          <span className="text-yellow-600">4-6: {t('dialogs.vasModerate')}</span>
+          <span className="text-red-600">7-10: {t('dialogs.vasSevere')}</span>
         </div>
       </div>
     </BaseTimelineDialog>

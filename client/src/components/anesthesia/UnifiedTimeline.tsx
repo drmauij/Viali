@@ -331,8 +331,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     onError: (error) => {
       console.error('[MEDICATION] Save failed', error);
       toast({
-        title: "Error saving medication",
-        description: error instanceof Error ? error.message : "Failed to save medication",
+        title: t("anesthesia.timeline.toasts.errorSavingMedication", "Error saving medication"),
+        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.errorSavingMedicationDesc", "Failed to save medication"),
         variant: "destructive",
       });
     },
@@ -357,8 +357,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     onError: (error) => {
       console.error('[TIME_MARKERS] Save failed', error);
       toast({
-        title: "Error saving time markers",
-        description: error instanceof Error ? error.message : "Failed to save time markers",
+        title: t("anesthesia.timeline.toasts.errorSavingTimeMarkers", "Error saving time markers"),
+        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.errorSavingTimeMarkersDesc", "Failed to save time markers"),
         variant: "destructive",
       });
     },
@@ -2294,8 +2294,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (isNaN(timestamp.getTime())) {
       console.error('[EDIT] Invalid timestamp:', { originalTime, time, lookupTime });
       toast({
-        title: "Error updating vital",
-        description: "Invalid timestamp for update",
+        title: t("anesthesia.timeline.toasts.errorUpdatingVital", "Error updating vital"),
+        description: t("anesthesia.timeline.toasts.invalidTimestamp", "Invalid timestamp for update"),
         variant: "destructive",
       });
       setEditDialogOpen(false);
@@ -2338,8 +2338,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!pointId) {
       console.error('[EDIT] No point ID available - was not captured on click:', { type });
       toast({
-        title: "Error updating vital",
-        description: "Could not locate vital point. Please try clicking the point again.",
+        title: t("anesthesia.timeline.toasts.errorUpdatingVital", "Error updating vital"),
+        description: t("anesthesia.timeline.toasts.couldNotLocateVital", "Could not locate vital point. Please try clicking the point again."),
         variant: "destructive",
       });
       setEditDialogOpen(false);
@@ -2390,8 +2390,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!pointId) {
       console.error('[DELETE] No point ID available for deletion');
       toast({
-        title: "Error deleting vital",
-        description: "Point ID is missing",
+        title: t("anesthesia.timeline.toasts.errorDeletingVital", "Error deleting vital"),
+        description: t("anesthesia.timeline.toasts.pointIdMissing", "Point ID is missing"),
         variant: "destructive",
       });
       setEditDialogOpen(false);
@@ -2459,8 +2459,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
 
     toast({
-      title: "Vitals added",
-      description: "Manual vital signs have been recorded",
+      title: t("anesthesia.timeline.toasts.vitalsAdded", "Vitals added"),
+      description: t("anesthesia.timeline.toasts.vitalsAddedDesc", "Manual vital signs have been recorded"),
       duration: 2000,
     });
   };
@@ -2666,8 +2666,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     console.log('[UNDO] Undo functionality disabled with mutation-based architecture');
     toast({
-      title: "Undo not available",
-      description: "Use the edit/delete dialogs to modify vitals",
+      title: t("anesthesia.timeline.toasts.undoNotAvailable", "Undo not available"),
+      description: t("anesthesia.timeline.toasts.undoNotAvailableDesc", "Use the edit/delete dialogs to modify vitals"),
       variant: "default",
     });
     
@@ -3218,8 +3218,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       setConfirmationDialogOpen(true);
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to analyze image",
+        title: t("common.error", "Error"),
+        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.failedToAnalyzeImage", "Failed to analyze image"),
         variant: "destructive",
       });
     } finally {
@@ -3458,7 +3458,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
 
     toast({
-      title: "Data Processed",
+      title: t("anesthesia.timeline.toasts.dataProcessed", "Data Processed"),
       description,
       duration: 4000,
       variant: warningItems.length > 0 ? "default" : "default",
@@ -3510,8 +3510,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       if (!response.drugs || response.drugs.length === 0) {
         toast({
-          title: "Could not understand command",
-          description: `Heard: "${transcription}"`,
+          title: t("anesthesia.timeline.toasts.couldNotUnderstand", "Could not understand command"),
+          description: t("anesthesia.timeline.toasts.couldNotUnderstandDesc", "Heard: \"{{transcription}}\"", { transcription }),
           variant: "destructive",
         });
         return;
@@ -3556,17 +3556,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       // TODO: Store in backend anesthesia case data for persistence
       
-      const title = addedDrugs.length === 1 ? "Drug Recorded" : `${addedDrugs.length} Drugs Recorded`;
+      const toastTitle = addedDrugs.length === 1
+        ? t("anesthesia.timeline.toasts.drugRecorded", "Drug Recorded")
+        : t("anesthesia.timeline.toasts.drugsRecorded", "{{count}} Drugs Recorded", { count: addedDrugs.length });
       toast({
-        title,
+        title: toastTitle,
         description: addedDrugs.join(", "),
       });
       
     } catch (error: any) {
       console.error('[Voice] Error:', error);
       toast({
-        title: "Voice command failed",
-        description: error.message || "Failed to process voice command",
+        title: t("anesthesia.timeline.toasts.voiceCommandFailed", "Voice command failed"),
+        description: error.message || t("anesthesia.timeline.toasts.voiceCommandFailedDesc", "Failed to process voice command"),
         variant: "destructive",
       });
     }
@@ -3649,8 +3651,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const doseValue = freeFlowDoseInput.trim();
     if (!doseValue || isNaN(Number(doseValue)) || Number(doseValue) <= 0) {
       toast({
-        title: "Invalid dose",
-        description: "Please enter a valid numeric dose value",
+        title: t("anesthesia.timeline.toasts.invalidDose", "Invalid dose"),
+        description: t("anesthesia.timeline.toasts.invalidDoseDesc", "Please enter a valid numeric dose value"),
         variant: "destructive",
       });
       return;
@@ -3717,8 +3719,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Administration stopped",
-      description: `${managingFreeFlowSession.label} stopped at ${formatTime(new Date(stopTime))}`,
+      title: t("anesthesia.timeline.toasts.administrationStopped", "Administration stopped"),
+      description: t("anesthesia.timeline.toasts.administrationStoppedDesc", "{{label}} stopped at {{time}}", { label: managingFreeFlowSession.label, time: formatTime(new Date(stopTime)) }),
     });
     
     // Reset dialog state
@@ -3761,8 +3763,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Administration resumed",
-      description: `${label} resumed with dose ${dose}`,
+      title: t("anesthesia.timeline.toasts.administrationResumed", "Administration resumed"),
+      description: t("anesthesia.timeline.toasts.administrationResumedDesc", "{{label}} resumed with dose {{dose}}", { label, dose }),
     });
     
     // Reset dialog state
@@ -3820,8 +3822,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "New administration started",
-      description: `${label} started with dose ${dose}`,
+      title: t("anesthesia.timeline.toasts.newAdministrationStarted", "New administration started"),
+      description: t("anesthesia.timeline.toasts.newAdministrationStartedDesc", "{{label}} started with dose {{dose}}", { label, dose }),
     });
     
     // Reset dialog state
@@ -3883,8 +3885,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Administration deleted",
-      description: `${managingFreeFlowSession.label} administration removed`,
+      title: t("anesthesia.timeline.toasts.administrationDeleted", "Administration deleted"),
+      description: t("anesthesia.timeline.toasts.administrationDeletedDesc", "{{label}} administration removed", { label: managingFreeFlowSession.label }),
     });
     
     // Reset dialog state
@@ -3903,8 +3905,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newDose) {
       toast({
-        title: "Invalid quantity",
-        description: "Please enter a quantity value",
+        title: t("anesthesia.timeline.toasts.invalidQuantity", "Invalid quantity"),
+        description: t("anesthesia.timeline.toasts.invalidQuantityDesc", "Please enter a quantity value"),
         variant: "destructive",
       });
       return;
@@ -3949,8 +3951,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     } : null);
     
     toast({
-      title: "Infusion updated",
-      description: `${label} updated`,
+      title: t("anesthesia.timeline.toasts.infusionUpdated", "Infusion updated"),
+      description: t("anesthesia.timeline.toasts.infusionUpdatedDesc", "{{label}} updated", { label }),
     });
     
     // Reset sheet state
@@ -4011,8 +4013,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion deleted",
-      description: `${freeFlowSheetSession.label} removed`,
+      title: t("anesthesia.timeline.toasts.infusionDeleted", "Infusion deleted"),
+      description: t("anesthesia.timeline.toasts.infusionDeletedDesc", "{{label}} removed", { label: freeFlowSheetSession.label }),
     });
     
     // Reset sheet state
@@ -4157,14 +4159,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       
       toast({
-        title: "Infusion stopped",
-        description: `${label} stopped`,
+        title: t("anesthesia.timeline.toasts.infusionStopped", "Infusion stopped"),
+        description: t("anesthesia.timeline.toasts.infusionStoppedDesc", "{{label}} stopped", { label }),
       });
     } catch (error) {
       console.error('[SHEET-STOP] Error saving stop:', error);
       toast({
-        title: "Error",
-        description: "Failed to save infusion stop",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.failedToSaveInfusionStop", "Failed to save infusion stop"),
         variant: "destructive",
       });
       return;
@@ -4216,10 +4218,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion resumed",
-      description: `${label} resumed with dose ${dose}`,
+      title: t("anesthesia.timeline.toasts.infusionResumed", "Infusion resumed"),
+      description: t("anesthesia.timeline.toasts.infusionResumedDesc", "{{label}} resumed with dose {{dose}}", { label, dose }),
     });
-    
+
     // Close sheet
     setShowFreeFlowSheet(false);
     setFreeFlowSheetSession(null);
@@ -4238,19 +4240,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newDose) {
       toast({
-        title: "Quantity required",
-        description: "Please enter the quantity for the new bag",
+        title: t("anesthesia.timeline.toasts.quantityRequired", "Quantity required"),
+        description: t("anesthesia.timeline.toasts.quantityRequiredDesc", "Please enter the quantity for the new bag"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Get item ID from swimlane
     const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
     if (!item) {
       toast({
-        title: "Error",
-        description: "Could not find medication item",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.couldNotFindMedicationItem", "Could not find medication item"),
         variant: "destructive",
       });
       return;
@@ -4300,14 +4302,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       
       toast({
-        title: "New bag started",
-        description: `${label} - new bag with ${newDose}ml started`,
+        title: t("anesthesia.timeline.toasts.newBagStarted", "New bag started"),
+        description: t("anesthesia.timeline.toasts.newBagStartedDesc", "{{label}} - new bag with {{dose}}ml started", { label, dose: newDose }),
       });
     } catch (error) {
       console.error('[SHEET-START-NEW] Failed to save:', error);
       toast({
-        title: "Error saving infusion",
-        description: error instanceof Error ? error.message : "Failed to save",
+        title: t("anesthesia.timeline.toasts.errorSavingInfusion", "Error saving infusion"),
+        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.failedToSave", "Failed to save"),
         variant: "destructive",
       });
     }
@@ -4329,19 +4331,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newDose) {
       toast({
-        title: "Quantity required",
-        description: "Please enter the quantity for the parallel infusion",
+        title: t("anesthesia.timeline.toasts.quantityRequired", "Quantity required"),
+        description: t("anesthesia.timeline.toasts.quantityRequiredParallel", "Please enter the quantity for the parallel infusion"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Get item ID from swimlane
     const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
     if (!item) {
       toast({
-        title: "Error",
-        description: "Could not find medication item",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.couldNotFindMedicationItem", "Could not find medication item"),
         variant: "destructive",
       });
       return;
@@ -4391,14 +4393,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       
       toast({
-        title: "Parallel infusion started",
-        description: `${label} - parallel infusion with ${newDose}ml started`,
+        title: t("anesthesia.timeline.toasts.parallelInfusionStarted", "Parallel infusion started"),
+        description: t("anesthesia.timeline.toasts.parallelInfusionStartedDesc", "{{label}} - parallel infusion with {{dose}}ml started", { label, dose: newDose }),
       });
     } catch (error) {
       console.error('[SHEET-DUPLICATE] Failed to save:', error);
       toast({
-        title: "Error saving infusion",
-        description: error instanceof Error ? error.message : "Failed to save",
+        title: t("anesthesia.timeline.toasts.errorSavingInfusion", "Error saving infusion"),
+        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.failedToSave", "Failed to save"),
         variant: "destructive",
       });
     }
@@ -4422,13 +4424,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newRate) {
       toast({
-        title: "Invalid rate",
-        description: "Please enter a rate value",
+        title: t("anesthesia.timeline.toasts.invalidRate", "Invalid rate"),
+        description: t("anesthesia.timeline.toasts.invalidRateDesc", "Please enter a rate value"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Update the rate in infusionData and session segments
     const session = getActiveSession(swimlaneId);
     if (session) {
@@ -4481,8 +4483,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Rate updated",
-      description: `${label} rate updated to ${newRate}`,
+      title: t("anesthesia.timeline.toasts.rateUpdated", "Rate updated"),
+      description: t("anesthesia.timeline.toasts.rateUpdatedDesc", "{{label}} rate updated to {{rate}}", { label, rate: newRate }),
     });
     
     setShowRateSheet(false);
@@ -4511,8 +4513,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion paused",
-      description: `${label} paused`,
+      title: t("anesthesia.timeline.toasts.infusionPaused", "Infusion paused"),
+      description: t("anesthesia.timeline.toasts.infusionPausedDesc", "{{label}} paused", { label }),
     });
     
     setShowRateSheet(false);
@@ -4539,14 +4541,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion resumed",
-      description: `${label} resumed`,
+      title: t("anesthesia.timeline.toasts.infusionResumed", "Infusion resumed"),
+      description: t("anesthesia.timeline.toasts.infusionResumedSimple", "{{label}} resumed", { label }),
     });
-    
+
     setShowRateSheet(false);
     setRateSheetSession(null);
   };
-  
+
   // Handle rate sheet stop
   const handleRateSheetStop = () => {
     if (!rateSheetSession) return;
@@ -4578,14 +4580,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion stopped",
-      description: `${label} stopped`,
+      title: t("anesthesia.timeline.toasts.infusionStopped", "Infusion stopped"),
+      description: t("anesthesia.timeline.toasts.infusionStoppedDesc", "{{label}} stopped", { label }),
     });
-    
+
     setShowRateSheet(false);
     setRateSheetSession(null);
   };
-  
+
   // Handle rate sheet change rate (creates new segment at current time)
   const handleRateSheetChangeRate = () => {
     if (!rateSheetSession) return;
@@ -4596,13 +4598,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newRate) {
       toast({
-        title: "Invalid rate",
-        description: "Please enter a rate value",
+        title: t("anesthesia.timeline.toasts.invalidRate", "Invalid rate"),
+        description: t("anesthesia.timeline.toasts.invalidRateDesc", "Please enter a rate value"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Add new rate segment
     setRateInfusionSessions(prev => {
       const sessions = prev[swimlaneId];
@@ -4634,10 +4636,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Rate changed",
-      description: `${label} rate changed to ${newRate} ${rateUnit}`,
+      title: t("anesthesia.timeline.toasts.rateChanged", "Rate changed"),
+      description: t("anesthesia.timeline.toasts.rateChangedDesc", "{{label}} rate changed to {{rate}} {{unit}}", { label, rate: newRate, unit: rateUnit }),
     });
-    
+
     setShowRateSheet(false);
     setRateSheetSession(null);
     setSheetRateInput("");
@@ -4654,8 +4656,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!newRate) {
       toast({
-        title: "Rate required",
-        description: "Please enter a rate value",
+        title: t("anesthesia.timeline.toasts.rateRequired", "Rate required"),
+        description: t("anesthesia.timeline.toasts.rateRequiredDesc", "Please enter a rate value"),
         variant: "destructive",
       });
       return;
@@ -4699,10 +4701,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "New infusion started",
-      description: `${label} started at ${newRate} ${rateUnit}`,
+      title: t("anesthesia.timeline.toasts.newInfusionStarted", "New infusion started"),
+      description: t("anesthesia.timeline.toasts.newInfusionStartedDesc", "{{label}} started at {{rate}} {{unit}}", { label, rate: newRate, unit: rateUnit }),
     });
-    
+
     setShowRateSheet(false);
     setRateSheetSession(null);
     setSheetRateInput("");
@@ -4730,10 +4732,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion deleted",
-      description: `${label} removed`,
+      title: t("anesthesia.timeline.toasts.infusionDeleted", "Infusion deleted"),
+      description: t("anesthesia.timeline.toasts.infusionDeletedDesc", "{{label}} removed", { label }),
     });
-    
+
     setShowRateSheet(false);
     setRateSheetSession(null);
     setSheetRateInput("");
@@ -4792,8 +4794,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
     
     toast({
-      title: "Rate set",
-      description: `${label} set to ${selectedRate}${initialBolus ? ` with ${initialBolus} bolus` : ''}`,
+      title: t("anesthesia.timeline.toasts.rateSet", "Rate set"),
+      description: initialBolus
+        ? t("anesthesia.timeline.toasts.rateSetWithBolus", "{{label}} set to {{rate}} with {{bolus}} bolus", { label, rate: selectedRate, bolus: initialBolus })
+        : t("anesthesia.timeline.toasts.rateSetDesc", "{{label}} set to {{rate}}", { label, rate: selectedRate }),
     });
     
     // Reset dialog state
@@ -4807,8 +4811,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const rate = customRate.trim();
     if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
       toast({
-        title: "Invalid rate",
-        description: "Please enter a valid positive number",
+        title: t("anesthesia.timeline.toasts.invalidRate", "Invalid rate"),
+        description: t("anesthesia.timeline.toasts.invalidRatePositive", "Please enter a valid positive number"),
         variant: "destructive",
       });
       return;
@@ -4833,10 +4837,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Infusion resumed",
-      description: `${label} resumed at ${rate}`,
+      title: t("anesthesia.timeline.toasts.infusionResumed", "Infusion resumed"),
+      description: t("anesthesia.timeline.toasts.infusionResumedAtRate", "{{label}} resumed at {{rate}}", { label, rate }),
     });
-    
+
     // Reset dialog state
     setShowRateManageDialog(false);
     setManagingRate(null);
@@ -4853,24 +4857,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!sessionId) {
       toast({
-        title: "Error",
-        description: "Session not identified",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.sessionNotIdentified", "Session not identified"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Update the infusion_start record with endTimestamp
     updateMedication.mutate({
       id: sessionId,
       endTimestamp: new Date(stopTime),
     });
-    
+
     toast({
-      title: "Infusion stopped",
-      description: `${label} stopped`,
+      title: t("anesthesia.timeline.toasts.infusionStopped", "Infusion stopped"),
+      description: t("anesthesia.timeline.toasts.infusionStoppedDesc", "{{label}} stopped", { label }),
     });
-    
+
     // Reset dialog state
     setShowRateManageDialog(false);
     setManagingRate(null);
@@ -4881,34 +4885,34 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Handle TCI stop (stop infusion and record actual amount used for inventory calculation)
   const handleTciStop = (amountUsed: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
-    
+
     const { label, sessionId, itemId, administrationUnit, ampuleUnit } = managingRate;
     const stopTime = rateManageTime;
-    
+
     // Validate amount input
     const parsedAmount = parseFloat(amountUsed);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast({
-        title: "Error",
-        description: "Please enter a valid amount",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.pleaseEnterValidAmount", "Please enter a valid amount"),
         variant: "destructive",
       });
       return;
     }
-    
+
     if (!sessionId) {
       toast({
-        title: "Error",
-        description: "Session not identified",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.sessionNotIdentified", "Session not identified"),
         variant: "destructive",
       });
       return;
     }
-    
+
     if (!itemId) {
       toast({
-        title: "Error",
-        description: "Medication item not identified",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.medicationItemNotIdentified", "Medication item not identified"),
         variant: "destructive",
       });
       return;
@@ -4952,8 +4956,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           },
           onError: (error) => {
             toast({
-              title: "Error",
-              description: "Failed to record TCI amount. Please try again.",
+              title: t("common.error", "Error"),
+              description: t("anesthesia.timeline.toasts.failedToRecordTciAmount", "Failed to record TCI amount. Please try again."),
               variant: "destructive",
             });
             console.error('[TCI-STOP] Failed to create stop record:', error);
@@ -4962,8 +4966,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       },
       onError: (error) => {
         toast({
-          title: "Error",
-          description: "Failed to stop TCI infusion. Please try again.",
+          title: t("common.error", "Error"),
+          description: t("anesthesia.timeline.toasts.failedToStopTciInfusion", "Failed to stop TCI infusion. Please try again."),
           variant: "destructive",
         });
         console.error('[TCI-STOP] Failed to update session:', error);
@@ -4983,13 +4987,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!itemId) {
       toast({
-        title: "Error",
-        description: "Medication item not identified",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.medicationItemNotIdentified", "Medication item not identified"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Get current session for syringe quantity
     const sessions = rateInfusionSessions[swimlaneId];
     const currentSession = sessions?.find(s => s.id === sessionId);
@@ -5014,10 +5018,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "New infusion started",
-      description: `${label} started at ${newRate}`,
+      title: t("anesthesia.timeline.toasts.newInfusionStarted", "New infusion started"),
+      description: t("anesthesia.timeline.toasts.newInfusionStartedSimple", "{{label}} started at {{rate}}", { label, rate: newRate }),
     });
-    
+
     // Reset dialog state
     setShowRateManageDialog(false);
     setManagingRate(null);
@@ -5034,13 +5038,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     if (!itemId) {
       toast({
-        title: "Error",
-        description: "Medication item not identified",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.medicationItemNotIdentified", "Medication item not identified"),
         variant: "destructive",
       });
       return;
     }
-    
+
     // Create a rate_change medication record
     createMedication.mutate({
       anesthesiaRecordId,
@@ -5051,10 +5055,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     toast({
-      title: "Rate changed",
-      description: `${label} changed to ${newRate}`,
+      title: t("anesthesia.timeline.toasts.rateChanged", "Rate changed"),
+      description: t("anesthesia.timeline.toasts.rateChangedSimple", "{{label}} changed to {{rate}}", { label, rate: newRate }),
     });
-    
+
     // Reset dialog state
     setShowRateManageDialog(false);
     setManagingRate(null);
@@ -6071,14 +6075,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             });
             
             toast({
-              title: "Dose saved",
-              description: `Added ${dose} at ${formatTime(new Date(time))}`,
+              title: t("anesthesia.timeline.toasts.doseSaved", "Dose saved"),
+              description: t("anesthesia.timeline.toasts.doseSavedDesc", "Added {{dose}} at {{time}}", { dose, time: formatTime(new Date(time)) }),
             });
           } catch (error) {
             console.error('[INSTANT-SAVE] Error saving medication:', error);
             toast({
-              title: "Error saving dose",
-              description: "Please try again",
+              title: t("anesthesia.timeline.toasts.errorSavingDose", "Error saving dose"),
+              description: t("anesthesia.timeline.toasts.pleaseTryAgain", "Please try again"),
               variant: "destructive",
             });
           }
@@ -6746,8 +6750,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           
           setPendingFreeFlowDose(null);
           toast({
-            title: "Free-flow started",
-            description: `${label} started with dose ${dose}`,
+            title: t("anesthesia.timeline.toasts.freeFlowStarted", "Free-flow started"),
+            description: t("anesthesia.timeline.toasts.freeFlowStartedDesc", "{{label}} started with dose {{dose}}", { label, dose }),
           });
         }}
       />
@@ -6777,24 +6781,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
-                    title: "Error",
-                    description: "Unable to start new infusion",
+                    title: t("common.error", "Error"),
+                    description: t("anesthesia.timeline.toasts.unableToStartNewInfusion", "Unable to start new infusion"),
                   });
                   return;
                 }
-                
+
                 const itemId = groupMatch[2];
                 const item = anesthesiaItems.find(i => i.id === itemId);
-                
+
                 if (!item) {
                   toast({
                     variant: "destructive",
-                    title: "Error",
-                    description: "Item not found",
+                    title: t("common.error", "Error"),
+                    description: t("anesthesia.timeline.toasts.itemNotFound", "Item not found"),
                   });
                   return;
                 }
-                
+
                 // Optimistic update: Immediately update UI
                 setFreeFlowSessions(prev => {
                   const sessions = prev[session.swimlaneId] || [];
@@ -6825,8 +6829,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "New infusion started",
-                  description: `${session.label} stopped and restarted with dose ${session.dose}`,
+                  title: t("anesthesia.timeline.toasts.newInfusionStarted", "New infusion started"),
+                  description: t("anesthesia.timeline.toasts.stoppedAndRestarted", "{{label}} stopped and restarted with dose {{dose}}", { label: session.label, dose: session.dose }),
                 });
                 
                 // 1. Stop the current infusion (background)
@@ -6886,8 +6890,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "Infusion stopped",
-                  description: `${session.label} stopped at ${formatTime(clickTime)}`,
+                  title: t("anesthesia.timeline.toasts.infusionStopped", "Infusion stopped"),
+                  description: t("anesthesia.timeline.toasts.infusionStoppedAt", "{{label}} stopped at {{time}}", { label: session.label, time: formatTime(clickTime) }),
                 });
                 
                 // Background: Persist to database
@@ -6927,24 +6931,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
-                    title: "Error",
-                    description: "Unable to duplicate infusion",
+                    title: t("common.error", "Error"),
+                    description: t("anesthesia.timeline.toasts.unableToDuplicateInfusion", "Unable to duplicate infusion"),
                   });
                   return;
                 }
-                
+
                 const itemId = groupMatch[2];
                 const item = anesthesiaItems.find(i => i.id === itemId);
-                
+
                 if (!item) {
                   toast({
                     variant: "destructive",
-                    title: "Error",
-                    description: "Item not found",
+                    title: t("common.error", "Error"),
+                    description: t("anesthesia.timeline.toasts.itemNotFound", "Item not found"),
                   });
                   return;
                 }
-                
+
                 const duplicateStartTime = clickTime; // Start at current time
                 
                 // Optimistic update: Add new parallel session
@@ -6981,8 +6985,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "Parallel infusion created",
-                  description: `Duplicate ${session.label} started with dose ${session.dose}`,
+                  title: t("anesthesia.timeline.toasts.parallelInfusionCreated", "Parallel infusion created"),
+                  description: t("anesthesia.timeline.toasts.parallelInfusionCreatedDesc", "Duplicate {{label}} started with dose {{dose}}", { label: session.label, dose: session.dose }),
                 });
                 
                 // Background: Persist to database
@@ -7042,8 +7046,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "Infusion resumed",
-                  description: `${previousSession.label} continues with dose ${previousSession.dose}`,
+                  title: t("anesthesia.timeline.toasts.infusionResumed", "Infusion resumed"),
+                  description: t("anesthesia.timeline.toasts.infusionContinuesWithDose", "{{label}} continues with dose {{dose}}", { label: previousSession.label, dose: previousSession.dose }),
                 });
                 
                 // Background: Persist to database (clear the stop timestamp)
@@ -7100,8 +7104,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "Rate infusion stopped",
-                  description: `${session.label} stopped at ${new Date(clickTime).toLocaleTimeString()}`,
+                  title: t("anesthesia.timeline.toasts.rateInfusionStopped", "Rate infusion stopped"),
+                  description: t("anesthesia.timeline.toasts.rateInfusionStoppedDesc", "{{label}} stopped at {{time}}", { label: session.label, time: new Date(clickTime).toLocaleTimeString() }),
                 });
                 
                 // Background: Persist to database (set the stop timestamp)
@@ -7144,8 +7148,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "New rate infusion started",
-                  description: `Stopped at ${new Date(clickTime).toLocaleTimeString()}, new infusion starts at ${new Date(newStartTime).toLocaleTimeString()}`,
+                  title: t("anesthesia.timeline.toasts.newRateInfusionStarted", "New rate infusion started"),
+                  description: t("anesthesia.timeline.toasts.newRateInfusionStartedDesc", "Stopped at {{stopTime}}, new infusion starts at {{startTime}}", { stopTime: new Date(clickTime).toLocaleTimeString(), startTime: new Date(newStartTime).toLocaleTimeString() }),
                 });
                 
                 // Background: 1. Stop current (set the stop timestamp)
@@ -7224,8 +7228,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // Show success message immediately
                 toast({
-                  title: "Rate infusion resumed",
-                  description: `${previousSession.label} continues at ${previousSession.segments?.[previousSession.segments.length - 1]?.rate || '?'} ${previousSession.segments?.[0]?.rateUnit || ''}`,
+                  title: t("anesthesia.timeline.toasts.rateInfusionResumed", "Rate infusion resumed"),
+                  description: t("anesthesia.timeline.toasts.rateInfusionResumedDesc", "{{label}} continues at {{rate}} {{unit}}", { label: previousSession.label, rate: previousSession.segments?.[previousSession.segments.length - 1]?.rate || '?', unit: previousSession.segments?.[0]?.rateUnit || '' }),
                 });
                 
                 // Background: Persist to database (clear the stop timestamp)
@@ -7665,7 +7669,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                             setTciAmountEditInput("");
                           },
                           onError: () => {
-                            toast({ title: "Error", description: "Failed to update", variant: "destructive" });
+                            toast({ title: t("common.error", "Error"), description: t("anesthesia.timeline.toasts.failedToUpdate", "Failed to update"), variant: "destructive" });
                           }
                         });
                       } else if (editingTciAmount.itemId && anesthesiaRecordId) {
@@ -7687,7 +7691,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                             setTciAmountEditInput("");
                           },
                           onError: () => {
-                            toast({ title: "Error", description: "Failed to set manual total", variant: "destructive" });
+                            toast({ title: t("common.error", "Error"), description: t("anesthesia.timeline.toasts.failedToSetManualTotal", "Failed to set manual total"), variant: "destructive" });
                           }
                         });
                       }
@@ -7731,7 +7735,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           setTciAmountEditInput("");
                         },
                         onError: () => {
-                          toast({ title: "Error", description: "Failed to update", variant: "destructive" });
+                          toast({ title: t("common.error", "Error"), description: t("anesthesia.timeline.toasts.failedToUpdate", "Failed to update"), variant: "destructive" });
                         }
                       });
                     } else if (editingTciAmount.itemId && anesthesiaRecordId) {
@@ -7753,7 +7757,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           setTciAmountEditInput("");
                         },
                         onError: () => {
-                          toast({ title: "Error", description: "Failed to set manual total", variant: "destructive" });
+                          toast({ title: t("common.error", "Error"), description: t("anesthesia.timeline.toasts.failedToSetManualTotal", "Failed to set manual total"), variant: "destructive" });
                         }
                       });
                     }
@@ -8010,7 +8014,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       console.error('[TIME_MARKERS] Save failed', error);
                       toast({
                         title: t('anesthesia.timeline.bulkEditTimes.errorSaving'),
-                        description: error instanceof Error ? error.message : "Failed to save times",
+                        description: error instanceof Error ? error.message : t("anesthesia.timeline.toasts.failedToSaveTimes", "Failed to save times"),
                         variant: "destructive",
                       });
                     }

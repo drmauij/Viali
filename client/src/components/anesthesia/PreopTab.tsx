@@ -20,6 +20,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import { useTranslation } from "react-i18next";
 import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
@@ -83,6 +84,7 @@ const preOpFormSchema = z.object({
 type PreOpFormData = z.infer<typeof preOpFormSchema>;
 
 export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const canWrite = useCanWrite();
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -395,9 +397,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       } else {
         await updateMutation.mutateAsync(formData);
       }
-      toast({ title: "Saved", description: "Pre-op assessment saved successfully" });
+      toast({ title: t("anesthesia.preop.saved"), description: t("anesthesia.preop.savedDesc") });
     } catch (error) {
-      toast({ title: "Error", description: "Failed to save assessment", variant: "destructive" });
+      toast({ title: t("error"), description: t("anesthesia.preop.saveError"), variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -421,26 +423,26 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
           <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           <div>
-            <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
-            <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access. Contact an administrator to request edit permissions.</p>
+            <p className="font-medium text-amber-800 dark:text-amber-200">{t("anesthesia.preop.viewOnlyMode")}</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400">{t("anesthesia.preop.viewOnlyDesc")}</p>
           </div>
         </div>
       )}
       
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pre-operative Assessment</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t("anesthesia.preop.title")}</h2>
           {lastSaved && canWrite && (
             <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
               {isSaving ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Saving...
+                  {t("saving")}
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="h-3 w-3 text-green-600" />
-                  Last saved: {lastSaved.toLocaleTimeString()}
+                  {t("anesthesia.preop.lastSaved", { time: lastSaved.toLocaleTimeString() })}
                 </>
               )}
             </p>
@@ -450,7 +452,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           {isCompleted && (
             <Badge className="bg-green-600">
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Completed
+              {t("anesthesia.preop.completed")}
             </Badge>
           )}
           {!isCompleted && canWrite && (
@@ -461,7 +463,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               data-testid="button-save"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save
+              {t("save")}
             </Button>
           )}
         </div>
@@ -471,12 +473,12 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Vitals & ASA</CardTitle>
+              <CardTitle>{t("anesthesia.preop.vitalsAndAsa")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="height">Height (cm)</Label>
+                  <Label htmlFor="height">{t("anesthesia.preop.height")}</Label>
                   <Input 
                     id="height" 
                     {...form.register("height")}
@@ -485,7 +487,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Label htmlFor="weight">{t("anesthesia.preop.weight")}</Label>
                   <Input 
                     id="weight" 
                     {...form.register("weight")}
@@ -495,14 +497,14 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="asa">ASA Classification</Label>
+                <Label htmlFor="asa">{t("anesthesia.preop.asaClassification")}</Label>
                 <Select 
                   value={form.watch("asa") || ""}
                   onValueChange={(value) => form.setValue("asa", value)}
                   disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-asa">
-                    <SelectValue placeholder="Select ASA class" />
+                    <SelectValue placeholder={t("anesthesia.preop.selectAsaClass")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="I">I - Healthy</SelectItem>
@@ -515,7 +517,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="specialNotes">Special Notes</Label>
+                <Label htmlFor="specialNotes">{t("anesthesia.preop.specialNotes")}</Label>
                 <Textarea 
                   id="specialNotes" 
                   {...form.register("specialNotes")}
@@ -529,27 +531,27 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Allergies & CAVE</CardTitle>
+              <CardTitle>{t("anesthesia.preop.allergiesAndCave")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="allergiesOther">Allergies</Label>
-                <Textarea 
-                  id="allergiesOther" 
+                <Label htmlFor="allergiesOther">{t("anesthesia.preop.allergies")}</Label>
+                <Textarea
+                  id="allergiesOther"
                   {...form.register("allergiesOther")}
                   disabled={isReadOnly}
-                  placeholder="List any allergies..."
+                  placeholder={t("anesthesia.preop.allergiesPlaceholder")}
                   rows={3}
                   data-testid="textarea-allergies" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cave">CAVE (Contraindications/Warnings)</Label>
-                <Textarea 
-                  id="cave" 
+                <Label htmlFor="cave">{t("anesthesia.preop.cave")}</Label>
+                <Textarea
+                  id="cave"
                   {...form.register("cave")}
                   disabled={isReadOnly}
-                  placeholder="Any contraindications or warnings..."
+                  placeholder={t("anesthesia.preop.cavePlaceholder")}
                   rows={3}
                   data-testid="textarea-cave" 
                 />
@@ -559,38 +561,38 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Medications</CardTitle>
+              <CardTitle>{t("anesthesia.preop.medications")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="anticoagulationMedsOther">Anticoagulation Medications</Label>
-                <Textarea 
-                  id="anticoagulationMedsOther" 
+                <Label htmlFor="anticoagulationMedsOther">{t("anesthesia.preop.anticoagulationMeds")}</Label>
+                <Textarea
+                  id="anticoagulationMedsOther"
                   {...form.register("anticoagulationMedsOther")}
                   disabled={isReadOnly}
-                  placeholder="List anticoagulation medications..."
+                  placeholder={t("anesthesia.preop.anticoagulationMedsPlaceholder")}
                   rows={2}
                   data-testid="textarea-anticoagulation-meds" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="generalMedsOther">General Medications</Label>
-                <Textarea 
-                  id="generalMedsOther" 
+                <Label htmlFor="generalMedsOther">{t("anesthesia.preop.generalMeds")}</Label>
+                <Textarea
+                  id="generalMedsOther"
                   {...form.register("generalMedsOther")}
                   disabled={isReadOnly}
-                  placeholder="List other medications..."
+                  placeholder={t("anesthesia.preop.generalMedsPlaceholder")}
                   rows={3}
                   data-testid="textarea-general-meds" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="medicationsNotes">Medication Notes</Label>
-                <Textarea 
-                  id="medicationsNotes" 
+                <Label htmlFor="medicationsNotes">{t("anesthesia.preop.medicationNotes")}</Label>
+                <Textarea
+                  id="medicationsNotes"
                   {...form.register("medicationsNotes")}
                   disabled={isReadOnly}
-                  placeholder="Additional medication notes..."
+                  placeholder={t("anesthesia.preop.medicationNotesPlaceholder")}
                   rows={2}
                   data-testid="textarea-medications-notes" 
                 />
@@ -602,82 +604,82 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Medical History</CardTitle>
+              <CardTitle>{t("anesthesia.preop.medicalHistory")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="heartNotes">Cardiovascular History</Label>
-                <Textarea 
-                  id="heartNotes" 
+                <Label htmlFor="heartNotes">{t("anesthesia.preop.cardiovascularHistory")}</Label>
+                <Textarea
+                  id="heartNotes"
                   {...form.register("heartNotes")}
                   disabled={isReadOnly}
-                  placeholder="HTN, CHD, arrhythmia, etc..."
+                  placeholder={t("anesthesia.preop.cardiovascularPlaceholder")}
                   rows={2}
                   data-testid="textarea-heart-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lungNotes">Respiratory History</Label>
-                <Textarea 
-                  id="lungNotes" 
+                <Label htmlFor="lungNotes">{t("anesthesia.preop.respiratoryHistory")}</Label>
+                <Textarea
+                  id="lungNotes"
                   {...form.register("lungNotes")}
                   disabled={isReadOnly}
-                  placeholder="Asthma, COPD, sleep apnea, etc..."
+                  placeholder={t("anesthesia.preop.respiratoryPlaceholder")}
                   rows={2}
                   data-testid="textarea-lung-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="giKidneyMetabolicNotes">GI / Renal / Metabolic History</Label>
-                <Textarea 
-                  id="giKidneyMetabolicNotes" 
+                <Label htmlFor="giKidneyMetabolicNotes">{t("anesthesia.preop.giRenalMetabolicHistory")}</Label>
+                <Textarea
+                  id="giKidneyMetabolicNotes"
                   {...form.register("giKidneyMetabolicNotes")}
                   disabled={isReadOnly}
-                  placeholder="Diabetes, CKD, liver disease, reflux, etc..."
+                  placeholder={t("anesthesia.preop.giRenalMetabolicPlaceholder")}
                   rows={2}
                   data-testid="textarea-gi-kidney-metabolic-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="neuroPsychSkeletalNotes">Neuro / Psych / Skeletal History</Label>
-                <Textarea 
-                  id="neuroPsychSkeletalNotes" 
+                <Label htmlFor="neuroPsychSkeletalNotes">{t("anesthesia.preop.neuroPsychSkeletalHistory")}</Label>
+                <Textarea
+                  id="neuroPsychSkeletalNotes"
                   {...form.register("neuroPsychSkeletalNotes")}
                   disabled={isReadOnly}
-                  placeholder="Stroke, epilepsy, arthritis, depression, etc..."
+                  placeholder={t("anesthesia.preop.neuroPsychSkeletalPlaceholder")}
                   rows={2}
                   data-testid="textarea-neuro-psych-skeletal-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="womanNotes">Women's Health (if applicable)</Label>
-                <Textarea 
-                  id="womanNotes" 
+                <Label htmlFor="womanNotes">{t("anesthesia.preop.womensHealth")}</Label>
+                <Textarea
+                  id="womanNotes"
                   {...form.register("womanNotes")}
                   disabled={isReadOnly}
-                  placeholder="Pregnancy, breastfeeding, menopause, etc..."
+                  placeholder={t("anesthesia.preop.womensHealthPlaceholder")}
                   rows={2}
                   data-testid="textarea-woman-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="noxenNotes">Substance Use</Label>
-                <Textarea 
-                  id="noxenNotes" 
+                <Label htmlFor="noxenNotes">{t("anesthesia.preop.substanceUse")}</Label>
+                <Textarea
+                  id="noxenNotes"
                   {...form.register("noxenNotes")}
                   disabled={isReadOnly}
-                  placeholder="Nicotine, alcohol, drugs..."
+                  placeholder={t("anesthesia.preop.substanceUsePlaceholder")}
                   rows={2}
                   data-testid="textarea-noxen-notes" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="childrenNotes">Pediatric Issues (if applicable)</Label>
-                <Textarea 
-                  id="childrenNotes" 
+                <Label htmlFor="childrenNotes">{t("anesthesia.preop.pediatricIssues")}</Label>
+                <Textarea
+                  id="childrenNotes"
                   {...form.register("childrenNotes")}
                   disabled={isReadOnly}
-                  placeholder="Prematurity, developmental delays, vaccinations, etc..."
+                  placeholder={t("anesthesia.preop.pediatricPlaceholder")}
                   rows={2}
                   data-testid="textarea-children-notes" 
                 />
@@ -687,16 +689,16 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Anesthesia & Surgical History</CardTitle>
+              <CardTitle>{t("anesthesia.preop.anesthesiaSurgicalHistory")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="previousSurgeries">Previous Surgeries</Label>
-                <Textarea 
-                  id="previousSurgeries" 
+                <Label htmlFor="previousSurgeries">{t("anesthesia.preop.previousSurgeries")}</Label>
+                <Textarea
+                  id="previousSurgeries"
                   {...form.register("previousSurgeries")}
                   disabled={isReadOnly}
-                  placeholder="List previous surgeries with dates if known..."
+                  placeholder={t("anesthesia.preop.previousSurgeriesPlaceholder")}
                   rows={3}
                   data-testid="textarea-previous-surgeries" 
                 />
@@ -705,7 +707,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               {/* Anesthesia History Checkboxes */}
               {anesthesiaSettings?.illnessLists?.anesthesiaHistory && anesthesiaSettings.illnessLists.anesthesiaHistory.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Previous Anesthesia Issues</Label>
+                  <Label>{t("anesthesia.preop.previousAnesthesiaIssues")}</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {anesthesiaSettings.illnessLists.anesthesiaHistory.map((item) => (
                       <div key={item.id} className="flex items-center space-x-2">
@@ -731,7 +733,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               {/* Dental Status Checkboxes */}
               {anesthesiaSettings?.illnessLists?.dental && anesthesiaSettings.illnessLists.dental.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Dental Status</Label>
+                  <Label>{t("anesthesia.preop.dentalStatus")}</Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {anesthesiaSettings.illnessLists.dental.map((item) => (
                       <div key={item.id} className="flex items-center space-x-2">
@@ -757,7 +759,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               {/* PONV & Transfusion Checkboxes */}
               {anesthesiaSettings?.illnessLists?.ponvTransfusion && anesthesiaSettings.illnessLists.ponvTransfusion.length > 0 && (
                 <div className="space-y-2">
-                  <Label>PONV & Transfusion History</Label>
+                  <Label>{t("anesthesia.preop.ponvTransfusionHistory")}</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {anesthesiaSettings.illnessLists.ponvTransfusion.map((item) => (
                       <div key={item.id} className="flex items-center space-x-2">
@@ -781,12 +783,12 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="anesthesiaSurgicalHistoryNotes">Additional Notes</Label>
-                <Textarea 
-                  id="anesthesiaSurgicalHistoryNotes" 
+                <Label htmlFor="anesthesiaSurgicalHistoryNotes">{t("anesthesia.preop.additionalNotes")}</Label>
+                <Textarea
+                  id="anesthesiaSurgicalHistoryNotes"
                   {...form.register("anesthesiaSurgicalHistoryNotes")}
                   disabled={isReadOnly}
-                  placeholder="Any additional details about previous anesthesia or surgery..."
+                  placeholder={t("anesthesia.preop.additionalNotesPlaceholder")}
                   rows={3}
                   data-testid="textarea-anesthesia-surgical-history-notes" 
                 />
@@ -796,34 +798,34 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Outpatient Care</CardTitle>
+              <CardTitle>{t("anesthesia.preop.outpatientCare")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">For outpatient procedures, provide caregiver contact information.</p>
+              <p className="text-sm text-muted-foreground">{t("anesthesia.preop.outpatientCareDesc")}</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="outpatientCaregiverFirstName">Caregiver First Name</Label>
+                  <Label htmlFor="outpatientCaregiverFirstName">{t("anesthesia.preop.caregiverFirstName")}</Label>
                   <Input 
                     id="outpatientCaregiverFirstName" 
                     {...form.register("outpatientCaregiverFirstName")}
                     disabled={isReadOnly}
-                    placeholder="First name"
-                    data-testid="input-caregiver-first-name" 
+                    placeholder={t("anesthesia.preop.firstName")}
+                    data-testid="input-caregiver-first-name"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="outpatientCaregiverLastName">Caregiver Last Name</Label>
+                  <Label htmlFor="outpatientCaregiverLastName">{t("anesthesia.preop.caregiverLastName")}</Label>
                   <Input 
                     id="outpatientCaregiverLastName" 
                     {...form.register("outpatientCaregiverLastName")}
                     disabled={isReadOnly}
-                    placeholder="Last name"
-                    data-testid="input-caregiver-last-name" 
+                    placeholder={t("anesthesia.preop.lastName")}
+                    data-testid="input-caregiver-last-name"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="outpatientCaregiverPhone">Caregiver Phone</Label>
+                <Label htmlFor="outpatientCaregiverPhone">{t("anesthesia.preop.caregiverPhone")}</Label>
                 <Controller
                   name="outpatientCaregiverPhone"
                   control={form.control}
@@ -833,7 +835,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       value={field.value || ""}
                       onChange={field.onChange}
                       disabled={isReadOnly}
-                      placeholder="Phone number"
+                      placeholder={t("anesthesia.preop.phoneNumber")}
                       data-testid="input-caregiver-phone"
                     />
                   )}
@@ -844,18 +846,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Airway Assessment</CardTitle>
+              <CardTitle>{t("anesthesia.preop.airwayAssessment")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="mallampati">Mallampati Class</Label>
+                <Label htmlFor="mallampati">{t("anesthesia.preop.mallampatiClass")}</Label>
                 <Select 
                   value={form.watch("mallampati") || ""}
                   onValueChange={(value) => form.setValue("mallampati", value)}
                   disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-mallampati">
-                    <SelectValue placeholder="Select class" />
+                    <SelectValue placeholder={t("anesthesia.preop.selectClass")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="I">I</SelectItem>
@@ -866,34 +868,34 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mouthOpening">Mouth Opening</Label>
-                <Input 
-                  id="mouthOpening" 
+                <Label htmlFor="mouthOpening">{t("anesthesia.preop.mouthOpening")}</Label>
+                <Input
+                  id="mouthOpening"
                   {...form.register("mouthOpening")}
                   disabled={isReadOnly}
-                  placeholder="e.g., Normal, Reduced"
+                  placeholder={t("anesthesia.preop.mouthOpeningPlaceholder")}
                   data-testid="input-mouth-opening" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dentition">Dentition</Label>
-                <Input 
-                  id="dentition" 
+                <Label htmlFor="dentition">{t("anesthesia.preop.dentition")}</Label>
+                <Input
+                  id="dentition"
                   {...form.register("dentition")}
                   disabled={isReadOnly}
-                  placeholder="e.g., Good, Poor, Dentures"
+                  placeholder={t("anesthesia.preop.dentitionPlaceholder")}
                   data-testid="input-dentition" 
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="airwayDifficult">Difficult Airway Predicted</Label>
+                <Label htmlFor="airwayDifficult">{t("anesthesia.preop.difficultAirway")}</Label>
                 <Select 
                   value={form.watch("airwayDifficult") || ""}
                   onValueChange={(value) => form.setValue("airwayDifficult", value)}
                   disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-airway-difficult">
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder={t("anesthesia.preop.select")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="No">No</SelectItem>
@@ -903,7 +905,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="airwayNotes">Airway Notes</Label>
+                <Label htmlFor="airwayNotes">{t("anesthesia.preop.airwayNotes")}</Label>
                 <Textarea 
                   id="airwayNotes" 
                   {...form.register("airwayNotes")}
@@ -917,11 +919,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Fasting Status</CardTitle>
+              <CardTitle>{t("anesthesia.preop.fastingStatus")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="lastSolids">Last Solids</Label>
+                <Label htmlFor="lastSolids">{t("anesthesia.preop.lastSolids")}</Label>
                 <Input
                   id="lastSolids"
                   type="datetime-local"
@@ -931,7 +933,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastClear">Last Clear Fluids</Label>
+                <Label htmlFor="lastClear">{t("anesthesia.preop.lastClearFluids")}</Label>
                 <Input
                   id="lastClear"
                   type="datetime-local"
@@ -945,16 +947,16 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Anesthesia Plan</CardTitle>
+              <CardTitle>{t("anesthesia.preop.anesthesiaPlan")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="anesthesiaOther">Planned Anesthesia</Label>
-                <Textarea 
-                  id="anesthesiaOther" 
+                <Label htmlFor="anesthesiaOther">{t("anesthesia.preop.plannedAnesthesia")}</Label>
+                <Textarea
+                  id="anesthesiaOther"
                   {...form.register("anesthesiaOther")}
                   disabled={isReadOnly}
-                  placeholder="e.g., GA with ETT, Spinal, Regional..."
+                  placeholder={t("anesthesia.preop.plannedAnesthesiaPlaceholder")}
                   rows={3}
                   data-testid="textarea-planned-anesthesia" 
                 />
@@ -967,23 +969,23 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   disabled={isReadOnly}
                   data-testid="checkbox-post-op-icu"
                 />
-                <Label htmlFor="postOpICU">Post-op ICU Planned</Label>
+                <Label htmlFor="postOpICU">{t("anesthesia.preop.postOpIcu")}</Label>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Installations</CardTitle>
+              <CardTitle>{t("anesthesia.preop.installations")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="installationsOther">Planned Installations</Label>
-                <Textarea 
-                  id="installationsOther" 
+                <Label htmlFor="installationsOther">{t("anesthesia.preop.plannedInstallations")}</Label>
+                <Textarea
+                  id="installationsOther"
                   {...form.register("installationsOther")}
                   disabled={isReadOnly}
-                  placeholder="e.g., Arterial line, CVC, urinary catheter..."
+                  placeholder={t("anesthesia.preop.plannedInstallationsPlaceholder")}
                   rows={3}
                   data-testid="textarea-installations" 
                 />
@@ -993,24 +995,24 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Assessment Completion</CardTitle>
+              <CardTitle>{t("anesthesia.preop.assessmentCompletion")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="surgicalApproval">Status</Label>
+                <Label htmlFor="surgicalApproval">{t("anesthesia.preop.status")}</Label>
                 <Select
                   value={form.watch("surgicalApproval") || ""}
                   onValueChange={(value) => form.setValue("surgicalApproval", value)}
                   disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-surgical-approval">
-                    <SelectValue placeholder="Select completion status..." />
+                    <SelectValue placeholder={t("anesthesia.preop.selectCompletionStatus")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="not-assessed">Not yet assessed</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="not-approved">Not Approved</SelectItem>
-                    <SelectItem value="stand-by">Stand-by</SelectItem>
+                    <SelectItem value="not-assessed">{t("anesthesia.preop.notAssessed")}</SelectItem>
+                    <SelectItem value="approved">{t("anesthesia.preop.approved")}</SelectItem>
+                    <SelectItem value="not-approved">{t("anesthesia.preop.notApproved")}</SelectItem>
+                    <SelectItem value="stand-by">{t("anesthesia.preop.standByOption")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1019,7 +1021,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Stand-By Status</CardTitle>
+              <CardTitle>{t("anesthesia.preop.standByStatus")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
@@ -1036,13 +1038,13 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   disabled={isReadOnly}
                   data-testid="switch-stand-by"
                 />
-                <Label htmlFor="standBy">Stand-By</Label>
+                <Label htmlFor="standBy">{t("anesthesia.preop.standBy")}</Label>
               </div>
               
               {form.watch("standBy") && (
                 <div className="space-y-4 pl-8 border-l-2 border-amber-500/50">
                   <div className="space-y-2">
-                    <Label htmlFor="standByReason">Reason</Label>
+                    <Label htmlFor="standByReason">{t("anesthesia.preop.reason")}</Label>
                     <Select
                       value={form.watch("standByReason") || ""}
                       onValueChange={(value) => {
@@ -1054,25 +1056,25 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       disabled={isReadOnly}
                     >
                       <SelectTrigger data-testid="select-stand-by-reason">
-                        <SelectValue placeholder="Select reason..." />
+                        <SelectValue placeholder={t("anesthesia.preop.selectReason")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="signature_missing">Patient informed, only signature missing</SelectItem>
-                        <SelectItem value="consent_required">Only written, consent talk required</SelectItem>
-                        <SelectItem value="waiting_exams">Waiting for EKG/Labs/Other exams</SelectItem>
-                        <SelectItem value="other">Other reason</SelectItem>
+                        <SelectItem value="signature_missing">{t("anesthesia.preop.signatureMissing")}</SelectItem>
+                        <SelectItem value="consent_required">{t("anesthesia.preop.consentRequired")}</SelectItem>
+                        <SelectItem value="waiting_exams">{t("anesthesia.preop.waitingExams")}</SelectItem>
+                        <SelectItem value="other">{t("anesthesia.preop.otherReason")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   {form.watch("standByReason") === "other" && (
                     <div className="space-y-2">
-                      <Label htmlFor="standByReasonNote">Please specify</Label>
-                      <Textarea 
-                        id="standByReasonNote" 
+                      <Label htmlFor="standByReasonNote">{t("anesthesia.preop.pleaseSpecify")}</Label>
+                      <Textarea
+                        id="standByReasonNote"
                         {...form.register("standByReasonNote")}
                         disabled={isReadOnly}
-                        placeholder="Enter the reason..."
+                        placeholder={t("anesthesia.preop.enterReason")}
                         rows={2}
                         data-testid="textarea-stand-by-reason-note" 
                       />
@@ -1085,11 +1087,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Signatures & Consent</CardTitle>
+              <CardTitle>{t("anesthesia.preop.signaturesAndConsent")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="assessmentDate">Assessment Date</Label>
+                <Label htmlFor="assessmentDate">{t("anesthesia.preop.assessmentDate")}</Label>
                 <Controller
                   name="assessmentDate"
                   control={form.control}
@@ -1105,18 +1107,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="doctorName">Doctor Name</Label>
-                <Input 
-                  id="doctorName" 
+                <Label htmlFor="doctorName">{t("anesthesia.preop.doctorName")}</Label>
+                <Input
+                  id="doctorName"
                   {...form.register("doctorName")}
                   disabled={isReadOnly}
-                  placeholder="Anesthesiologist name"
+                  placeholder={t("anesthesia.preop.anesthesiologistName")}
                   data-testid="input-doctor-name" 
                 />
               </div>
               
               <div className="space-y-2">
-                <Label>Doctor Signature</Label>
+                <Label>{t("anesthesia.preop.doctorSignature")}</Label>
                 {form.watch("doctorSignature") ? (
                   <div className="space-y-2">
                     <div className="border rounded-md p-2 bg-muted">
@@ -1130,7 +1132,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                         onClick={() => setDoctorSignatureModalOpen(true)}
                         data-testid="button-change-doctor-signature"
                       >
-                        Change Signature
+                        {t("anesthesia.preop.changeSignature")}
                       </Button>
                     )}
                   </div>
@@ -1142,7 +1144,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       onClick={() => setDoctorSignatureModalOpen(true)}
                       data-testid="button-add-doctor-signature"
                     >
-                      Add Doctor Signature
+                      {t("anesthesia.preop.addDoctorSignature")}
                     </Button>
                   )
                 )}
@@ -1157,26 +1159,26 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     disabled={isReadOnly}
                     data-testid="checkbox-consent-given"
                   />
-                  <Label htmlFor="consentGiven">Patient Consent Given</Label>
+                  <Label htmlFor="consentGiven">{t("anesthesia.preop.patientConsentGiven")}</Label>
                 </div>
               </div>
 
               {form.watch("consentGiven") && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="consentText">Consent Details</Label>
-                    <Textarea 
-                      id="consentText" 
+                    <Label htmlFor="consentText">{t("anesthesia.preop.consentDetails")}</Label>
+                    <Textarea
+                      id="consentText"
                       {...form.register("consentText")}
                       disabled={isReadOnly}
-                      placeholder="Details of consent discussion..."
+                      placeholder={t("anesthesia.preop.consentDetailsPlaceholder")}
                       rows={3}
                       data-testid="textarea-consent-text" 
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="consentDate">Consent Date</Label>
+                    <Label htmlFor="consentDate">{t("anesthesia.preop.consentDate")}</Label>
                     <Controller
                       name="consentDate"
                       control={form.control}
@@ -1193,7 +1195,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Patient Signature</Label>
+                    <Label>{t("anesthesia.preop.patientSignature")}</Label>
                     {form.watch("patientSignature") ? (
                       <div className="space-y-2">
                         <div className="border rounded-md p-2 bg-muted">
@@ -1207,7 +1209,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                             onClick={() => setPatientSignatureModalOpen(true)}
                             data-testid="button-change-patient-signature"
                           >
-                            Change Signature
+                            {t("anesthesia.preop.changeSignature")}
                           </Button>
                         )}
                       </div>
@@ -1219,7 +1221,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                           onClick={() => setPatientSignatureModalOpen(true)}
                           data-testid="button-add-patient-signature"
                         >
-                          Add Patient Signature
+                          {t("anesthesia.preop.addPatientSignature")}
                         </Button>
                       )
                     )}
@@ -1239,7 +1241,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           form.setValue("doctorSignature", signature);
           setDoctorSignatureModalOpen(false);
         }}
-        title="Doctor Signature"
+        title={t("anesthesia.preop.doctorSignature")}
       />
 
       {/* Patient Signature Modal */}
@@ -1250,7 +1252,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           form.setValue("patientSignature", signature);
           setPatientSignatureModalOpen(false);
         }}
-        title="Patient Signature"
+        title={t("anesthesia.preop.patientSignature")}
       />
     </div>
   );

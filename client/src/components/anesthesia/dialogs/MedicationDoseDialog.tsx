@@ -66,8 +66,8 @@ export function MedicationDoseDialog({
     onError: (error) => {
       console.error('[MEDICATION] Save failed', error);
       toast({
-        title: "Error saving medication",
-        description: error instanceof Error ? error.message : "Failed to save medication",
+        title: t('dialogs.errorSavingMedication'),
+        description: error instanceof Error ? error.message : t('dialogs.failedToSaveMedication'),
         variant: "destructive",
       });
     },
@@ -125,7 +125,7 @@ export function MedicationDoseDialog({
 
       const unit = pendingMedicationDose.administrationUnit || '';
       toast({
-        title: "Dose saved",
+        title: t('dialogs.doseSaved'),
         description: `${label}: ${doseValue}${unit ? ` ${unit}` : ''}${noteInput.trim() ? ` (${noteInput.trim()})` : ''}`,
       });
 
@@ -167,7 +167,7 @@ export function MedicationDoseDialog({
 
       const unit = pendingMedicationDose.administrationUnit || '';
       toast({
-        title: "Dose saved",
+        title: t('dialogs.doseSaved'),
         description: `${label}: ${trimmedValue}${unit ? ` ${unit}` : ''}`,
       });
 
@@ -189,21 +189,21 @@ export function MedicationDoseDialog({
           onOpenChange(true);
         }
       }}
-      title="Add Dose"
-      description={pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
+      title={t('dialogs.addDose')}
+      description={pendingMedicationDose ? `${pendingMedicationDose.label}` : t('dialogs.addDoseDesc')}
       testId="dialog-medication-dose"
       time={pendingMedicationDose?.time}
       onTimeChange={onTimeChange}
       onSave={handleSave}
       onCancel={handleClose}
       saveDisabled={!medicationDoseInput.trim() || readOnly}
-      saveLabel="Add"
+      saveLabel={t('common.add')}
     >
       <div className="grid gap-4 py-4">
         {/* Quick-select buttons for range default doses */}
         {pendingMedicationDose?.defaultDose?.includes('-') && !readOnly && (
           <div className="grid gap-2">
-            <Label>Quick Select</Label>
+            <Label>{t('dialogs.quickSelect')}</Label>
             <div className="flex gap-2 flex-wrap">
               {pendingMedicationDose.defaultDose.split('-').map((value) => (
                 <Button
@@ -252,7 +252,7 @@ export function MedicationDoseDialog({
 
         {/* Note Input */}
         <div className="grid gap-2">
-          <Label htmlFor="dose-note-value">Note (optional)</Label>
+          <Label htmlFor="dose-note-value">{t('dialogs.noteOptional')}</Label>
           <Input
             id="dose-note-value"
             data-testid="input-dose-note-value"

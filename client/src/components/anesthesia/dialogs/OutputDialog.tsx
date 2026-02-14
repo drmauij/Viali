@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateOutput, type OutputParamKey } from "@/hooks/useOutputQuery";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface PendingOutputValue {
   paramKey: OutputParamKey;
@@ -28,6 +29,7 @@ export function OutputDialog({
   onOutputCreated,
   readOnly = false,
 }: OutputDialogProps) {
+  const { t } = useTranslation();
   const [outputValueInput, setOutputValueInput] = useState("");
   const { toast } = useToast();
 
@@ -48,8 +50,8 @@ export function OutputDialog({
 
     if (isNaN(value)) {
       toast({
-        title: "Invalid Value",
-        description: "Please enter a valid number",
+        title: t('dialogs.invalidValue'),
+        description: t('dialogs.enterValidNumber'),
         variant: "destructive",
       });
       return;
@@ -80,8 +82,8 @@ export function OutputDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Add Output Value"
-      description={pendingOutputValue ? `${pendingOutputValue.label}` : 'Add a new output value'}
+      title={t('dialogs.addOutputValue')}
+      description={pendingOutputValue ? `${pendingOutputValue.label}` : t('dialogs.addOutputValueDesc')}
       testId="dialog-output-value"
       time={pendingOutputValue?.time}
       onTimeChange={(newTime) => {
@@ -92,11 +94,11 @@ export function OutputDialog({
       onCancel={handleClose}
       onSave={handleSave}
       saveDisabled={!outputValueInput.trim() || readOnly}
-      saveLabel="Add"
+      saveLabel={t('common.add')}
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="output-value">Volume (ml)</Label>
+          <Label htmlFor="output-value">{t('dialogs.volumeMl')}</Label>
           <Input
             id="output-value"
             data-testid="input-output-value"

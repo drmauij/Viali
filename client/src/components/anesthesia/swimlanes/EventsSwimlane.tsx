@@ -153,20 +153,20 @@ export function EventsSwimlane({
           // Show different message based on state: loading, error, or actual pending commits
           if (inventoryLoading || commitsLoading) {
             toast({
-              title: "Cannot set PACU End",
-              description: "Still loading inventory status. Please wait a moment and try again.",
+              title: t("anesthesia.timeline.toasts.cannotSetPacuEnd", "Cannot set PACU End"),
+              description: t("anesthesia.timeline.toasts.stillLoadingInventory", "Still loading inventory status. Please wait a moment and try again."),
               variant: "destructive",
             });
           } else if (inventoryError || commitsError) {
             toast({
-              title: "Cannot set PACU End",
-              description: "Unable to verify inventory status. Please check your connection and try again.",
+              title: t("anesthesia.timeline.toasts.cannotSetPacuEnd", "Cannot set PACU End"),
+              description: t("anesthesia.timeline.toasts.unableToVerifyInventory", "Unable to verify inventory status. Please check your connection and try again."),
               variant: "destructive",
             });
           } else {
             toast({
-              title: "Cannot set PACU End",
-              description: "Please commit all inventory items before marking PACU End.",
+              title: t("anesthesia.timeline.toasts.cannotSetPacuEnd", "Cannot set PACU End"),
+              description: t("anesthesia.timeline.toasts.commitInventoryFirst", "Please commit all inventory items before marking PACU End."),
               variant: "destructive",
             });
           }

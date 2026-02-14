@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVitalPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface PendingVentilationValue {
   paramKey: string;
@@ -28,6 +29,7 @@ export function VentilationDialog({
   onVentilationCreated,
   readOnly = false,
 }: VentilationDialogProps) {
+  const { t } = useTranslation();
   const [ventilationValueInput, setVentilationValueInput] = useState("");
   const { toast } = useToast();
 
@@ -48,8 +50,8 @@ export function VentilationDialog({
 
     if (isNaN(value)) {
       toast({
-        title: "Invalid Value",
-        description: "Please enter a valid number",
+        title: t('dialogs.invalidValue'),
+        description: t('dialogs.enterValidNumber'),
         variant: "destructive",
       });
       return;
@@ -79,8 +81,8 @@ export function VentilationDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Add Value"
-      description={pendingVentilationValue ? `${pendingVentilationValue.label}` : 'Add a new ventilation parameter value'}
+      title={t('dialogs.addValue')}
+      description={pendingVentilationValue ? `${pendingVentilationValue.label}` : t('dialogs.addVentilationValueDesc')}
       testId="dialog-ventilation-value"
       time={pendingVentilationValue?.time}
       onTimeChange={(newTime) => {
@@ -91,11 +93,11 @@ export function VentilationDialog({
       onCancel={handleClose}
       onSave={handleSave}
       saveDisabled={!ventilationValueInput.trim() || readOnly}
-      saveLabel="Add"
+      saveLabel={t('common.add')}
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="ventilation-value">Value</Label>
+          <Label htmlFor="ventilation-value">{t('common.value')}</Label>
           <Input
             id="ventilation-value"
             data-testid="input-ventilation-value"

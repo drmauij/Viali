@@ -74,17 +74,15 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
     },
     onSuccess: () => {
       toast({
-        title: isGerman ? "OP geplant" : "Surgery scheduled",
-        description: isGerman 
-          ? "Der Termin wurde erfolgreich geplant." 
-          : "The appointment has been scheduled successfully.",
+        title: t('surgery.externalRequests.surgeryScheduled'),
+        description: t('surgery.externalRequests.surgeryScheduledDesc'),
       });
       onScheduled();
       onOpenChange(false);
     },
     onError: (error: any) => {
       toast({
-        title: isGerman ? "Fehler" : "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -96,7 +94,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isGerman ? 'OP-Termin planen' : 'Schedule Surgery'}
+            {t('surgery.externalRequests.scheduleSurgery')}
           </DialogTitle>
         </DialogHeader>
         
@@ -104,7 +102,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           {/* Patient Info */}
           <div className="bg-muted p-3 rounded-lg space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase">
-              {isGerman ? 'Patient' : 'Patient'}
+              {t('surgery.externalRequests.patient')}
             </p>
             <p className="font-medium">
               {request.patientLastName}, {request.patientFirstName}
@@ -119,7 +117,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           {/* Surgery Info */}
           <div className="bg-muted p-3 rounded-lg space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase">
-              {isGerman ? 'Eingriff' : 'Surgery'}
+              {t('surgery.externalRequests.surgery')}
             </p>
             <p className="font-medium">{request.surgeryName}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -130,14 +128,14 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
             )}
             {request.patientPosition && (
               <p className="text-sm text-muted-foreground">
-                {isGerman ? 'Lagerung' : 'Position'}: {getPositionDisplayLabel(request.patientPosition, isGerman)}
+                {t('surgery.externalRequests.position')}: {getPositionDisplayLabel(request.patientPosition, isGerman)}
               </p>
             )}
             {(request.leftArmPosition || request.rightArmPosition) && (
               <p className="text-sm text-muted-foreground">
-                {request.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(request.leftArmPosition, isGerman)}`}
+                {request.leftArmPosition && `${t('surgery.externalRequests.leftArm')}: ${getArmDisplayLabel(request.leftArmPosition, isGerman)}`}
                 {request.leftArmPosition && request.rightArmPosition && ' | '}
-                {request.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(request.rightArmPosition, isGerman)}`}
+                {request.rightArmPosition && `${t('surgery.externalRequests.rightArm')}: ${getArmDisplayLabel(request.rightArmPosition, isGerman)}`}
               </p>
             )}
           </div>
@@ -145,7 +143,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           {/* Surgeon Info */}
           <div className="bg-muted p-3 rounded-lg space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase">
-              {isGerman ? 'Anfragender Chirurg' : 'Requesting Surgeon'}
+              {t('surgery.externalRequests.requestingSurgeon')}
             </p>
             <p className="font-medium">
               Dr. {request.surgeonLastName}, {request.surgeonFirstName}
@@ -162,7 +160,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{isGerman ? 'Datum' : 'Date'}</Label>
+              <Label>{t('surgery.externalRequests.date')}</Label>
               <Input
                 type="date"
                 value={plannedDate}
@@ -171,7 +169,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
               />
             </div>
             <div className="space-y-2">
-              <Label>{isGerman ? 'Uhrzeit' : 'Time'}</Label>
+              <Label>{t('surgery.externalRequests.time')}</Label>
               <Input
                 type="time"
                 value={plannedTime}
@@ -183,10 +181,10 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
 
           {surgeryRooms.length > 0 && (
             <div className="space-y-2">
-              <Label>{isGerman ? 'OP-Saal' : 'Surgery Room'} *</Label>
+              <Label>{t('surgery.externalRequests.surgeryRoom')} *</Label>
               <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={isGerman ? 'Saal wählen...' : 'Select room...'} />
+                  <SelectValue placeholder={t('surgery.externalRequests.selectRoom')} />
                 </SelectTrigger>
                 <SelectContent>
                   {surgeryRooms.map((room) => (
@@ -206,23 +204,21 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
               onCheckedChange={(checked) => setSendConfirmation(!!checked)}
             />
             <Label htmlFor="sendConfirmation" className="cursor-pointer text-sm">
-              {isGerman 
-                ? 'Bestätigung an Chirurg senden (E-Mail/SMS)' 
-                : 'Send confirmation to surgeon (Email/SMS)'}
+              {t('surgery.externalRequests.sendConfirmation')}
             </Label>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-schedule-cancel">
-            {isGerman ? 'Abbrechen' : 'Cancel'}
+            {t('common.cancel')}
           </Button>
           <Button data-testid="button-schedule-confirm" 
             onClick={() => scheduleMutation.mutate()}
             disabled={!plannedDate || (surgeryRooms.length > 0 && !surgeryRoomId) || scheduleMutation.isPending}
           >
             {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isGerman ? 'Termin planen' : 'Schedule'}
+            {t('surgery.externalRequests.schedule')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -262,10 +258,8 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
     },
     onSuccess: () => {
       toast({
-        title: isGerman ? "Abgelehnt" : "Declined",
-        description: isGerman 
-          ? "Die Anfrage wurde abgelehnt." 
-          : "The request has been declined.",
+        title: t('surgery.externalRequests.declined'),
+        description: t('surgery.externalRequests.declinedDesc'),
       });
       refetch();
       queryClient.invalidateQueries({ predicate: (query) => 
@@ -301,7 +295,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
           {trigger || (
             <Button variant="outline" className="relative" data-testid="button-external-requests">
               <Calendar className="mr-2 h-4 w-4" />
-              {isGerman ? 'Anfragen' : 'Requests'}
+              {t('surgery.externalRequests.requests')}
             </Button>
           )}
         </SheetTrigger>
@@ -309,7 +303,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {isGerman ? 'Externe OP-Anfragen' : 'External Surgery Requests'}
+              {t('surgery.externalRequests.externalSurgeryRequests')}
               {requests.length > 0 && (
                 <Badge variant="destructive" className="ml-2">
                   {requests.length}
@@ -326,7 +320,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
             ) : requests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>{isGerman ? 'Keine ausstehenden Anfragen' : 'No pending requests'}</p>
+                <p>{t('surgery.externalRequests.noPendingRequests')}</p>
               </div>
             ) : (
               requests.map((request: ExternalSurgeryRequest & { documents?: any[] }) => (
@@ -342,9 +336,9 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                         </p>
                       </div>
                       <Badge variant={request.withAnesthesia ? "default" : "secondary"}>
-                        {request.withAnesthesia 
-                          ? (isGerman ? 'Mit Anästhesie' : 'With anesthesia')
-                          : (isGerman ? 'Ohne Anästhesie' : 'No anesthesia')}
+                        {request.withAnesthesia
+                          ? t('surgery.externalRequests.withAnesthesia')
+                          : t('surgery.externalRequests.noAnesthesia')}
                       </Badge>
                     </div>
 
@@ -363,7 +357,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
 
                     <div className="bg-muted/50 rounded-lg p-2 space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase">
-                        {isGerman ? 'Chirurg' : 'Surgeon'}
+                        {t('surgery.externalRequests.surgeon')}
                       </p>
                       <p className="text-sm font-medium">
                         Dr. {request.surgeonLastName}, {request.surgeonFirstName}
@@ -383,7 +377,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                     {request.surgeryNotes && (
                       <div className="text-sm">
                         <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
-                          {isGerman ? 'Notizen' : 'Notes'}
+                          {t('surgery.externalRequests.notes')}
                         </p>
                         <p className="text-muted-foreground">{request.surgeryNotes}</p>
                       </div>
@@ -392,7 +386,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                     {request.documents && request.documents.length > 0 && (
                       <div className="text-sm">
                         <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
-                          {isGerman ? 'Dokumente' : 'Documents'} ({request.documents.length})
+                          {t('surgery.externalRequests.documents')} ({request.documents.length})
                         </p>
                         <div className="space-y-1">
                           {request.documents.map((doc: { id: string; fileName: string; fileUrl: string }) => (
@@ -420,7 +414,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                         onClick={() => handleSchedule(request)}
                       >
                         <Check className="mr-1 h-4 w-4" />
-                        {isGerman ? 'Planen' : 'Schedule'}
+                        {t('surgery.externalRequests.schedule')}
                       </Button>
                       <Button 
                         size="sm" 
@@ -430,7 +424,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                         disabled={declineMutation.isPending}
                       >
                         <X className="mr-1 h-4 w-4" />
-                        {isGerman ? 'Ablehnen' : 'Decline'}
+                        {t('surgery.externalRequests.decline')}
                       </Button>
                     </div>
                   </CardContent>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Item } from "@shared/schema";
 
 interface ItemQuickPanelProps {
@@ -21,6 +22,7 @@ export default function ItemQuickPanel({
   onControlledDispense,
   canWrite = true,
 }: ItemQuickPanelProps) {
+  const { t } = useTranslation();
   const [adjustmentQty, setAdjustmentQty] = useState<string>("");
 
   if (!isOpen || !item) return null;
@@ -96,13 +98,13 @@ export default function ItemQuickPanel({
               {isCritical && (
                 <span className="status-chip chip-critical" data-testid="critical-chip">
                   <i className="fas fa-exclamation-circle text-xs"></i>
-                  Critical
+                  {t("items.critical")}
                 </span>
               )}
               {isControlled && (
                 <span className="status-chip chip-controlled" data-testid="controlled-chip">
                   <i className="fas fa-shield-halved text-xs"></i>
-                  Controlled
+                  {t("items.controlled")}
                 </span>
               )}
             </div>
@@ -112,28 +114,28 @@ export default function ItemQuickPanel({
         {/* Stock Status */}
         <div className="bg-muted rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">Stock Level</span>
-            <span className="text-sm text-muted-foreground">Location: OR Storage</span>
+            <span className="text-sm font-medium text-foreground">{t("items.stockLevel")}</span>
+            <span className="text-sm text-muted-foreground">{t("items.locationOrStorage")}</span>
           </div>
           <div className="flex items-end gap-6 mb-3">
             <div>
               <p className="text-3xl font-bold text-foreground" data-testid="current-qty">
                 {currentQty}
               </p>
-              <p className="text-xs text-muted-foreground">On Hand</p>
+              <p className="text-xs text-muted-foreground">{t("items.onHand")}</p>
             </div>
             <div className="flex-1 flex items-end gap-4">
               <div>
                 <p className="text-lg font-semibold text-warning" data-testid="min-threshold">
                   {minThreshold}
                 </p>
-                <p className="text-xs text-muted-foreground">Min</p>
+                <p className="text-xs text-muted-foreground">{t("items.min")}</p>
               </div>
               <div>
                 <p className="text-lg font-semibold text-success" data-testid="max-threshold">
                   {maxThreshold}
                 </p>
-                <p className="text-xs text-muted-foreground">Max</p>
+                <p className="text-xs text-muted-foreground">{t("items.max")}</p>
               </div>
             </div>
           </div>
@@ -145,7 +147,7 @@ export default function ItemQuickPanel({
           </div>
           {isLow && (
             <p className="text-xs text-warning font-medium mt-2">
-              ⚠️ Below minimum threshold
+              {t("items.belowMinimumThreshold")}
             </p>
           )}
 
@@ -153,7 +155,7 @@ export default function ItemQuickPanel({
             <div className="flex items-center gap-2 mt-3">
               <div className={`expiry-indicator ${getExpiryColor(daysUntilExpiry)}`}></div>
               <span className="text-sm text-muted-foreground">
-                Expires in {Math.max(0, daysUntilExpiry)} days
+                {t("items.expiresInDays", { count: Math.max(0, daysUntilExpiry) })}
               </span>
             </div>
           )}
@@ -175,7 +177,7 @@ export default function ItemQuickPanel({
                 <div className="flex flex-col h-20 gap-1">
                   <input
                     type="number"
-                    placeholder="New qty"
+                    placeholder={t("items.newQty")}
                     value={adjustmentQty}
                     onChange={(e) => setAdjustmentQty(e.target.value)}
                     className="flex-1 px-2 py-1 rounded border border-input bg-background text-foreground text-center text-sm"
@@ -187,7 +189,7 @@ export default function ItemQuickPanel({
                     disabled={!adjustmentQty}
                     data-testid="set-count-button"
                   >
-                    Set
+                    {t("items.set")}
                   </button>
                 </div>
                 <button
@@ -205,7 +207,7 @@ export default function ItemQuickPanel({
                 data-testid="add-lot-button"
               >
                 <i className="fas fa-calendar-plus"></i>
-                <span>Add Lot / Expiry</span>
+                <span>{t("items.addLotExpiry")}</span>
               </button>
 
               <button
@@ -213,7 +215,7 @@ export default function ItemQuickPanel({
                 data-testid="move-stock-button"
               >
                 <i className="fas fa-exchange-alt"></i>
-                <span>Move Stock</span>
+                <span>{t("items.moveStock")}</span>
               </button>
 
               <button
@@ -221,7 +223,7 @@ export default function ItemQuickPanel({
                 data-testid="mark-expired-button"
               >
                 <i className="fas fa-times-circle"></i>
-                <span>Mark Expired / Damaged</span>
+                <span>{t("items.markExpiredDamaged")}</span>
               </button>
 
               {isControlled && (
@@ -231,7 +233,7 @@ export default function ItemQuickPanel({
                   data-testid="record-administration-button"
                 >
                   <i className="fas fa-shield-halved"></i>
-                  <span>Record Administration</span>
+                  <span>{t("items.recordAdministration")}</span>
                 </button>
               )}
             </>
@@ -243,7 +245,7 @@ export default function ItemQuickPanel({
           onClick={onClose}
           data-testid="close-panel-button"
         >
-          <span>Close</span>
+          <span>{t("common.close")}</span>
         </button>
       </div>
     </div>

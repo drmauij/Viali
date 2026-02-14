@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +18,13 @@ export function EditValueForm({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initialValue.toString());
+  const { t } = useTranslation();
 
   const getLabel = () => {
-    if (type === 'hr') return 'Heart Rate (bpm)';
-    if (type === 'sys') return 'Systolic BP (mmHg)';
-    if (type === 'dia') return 'Diastolic BP (mmHg)';
-    return 'SpO₂ (%)';
+    if (type === 'hr') return t('anesthesia.timeline.editValue.heartRate', 'Heart Rate (bpm)');
+    if (type === 'sys') return t('anesthesia.timeline.editValue.systolicBP', 'Systolic BP (mmHg)');
+    if (type === 'dia') return t('anesthesia.timeline.editValue.diastolicBP', 'Diastolic BP (mmHg)');
+    return t('anesthesia.timeline.editValue.spo2', 'SpO\u2082 (%)');
   };
 
   const handleSave = () => {
@@ -58,7 +60,7 @@ export function EditValueForm({
           onClick={onDelete}
           data-testid="button-delete-value"
         >
-          Delete
+          {t('common.delete', 'Delete')}
         </Button>
         <div className="flex gap-2">
           <Button
@@ -66,14 +68,14 @@ export function EditValueForm({
             onClick={onCancel}
             data-testid="button-cancel-edit"
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             onClick={handleSave}
             data-testid="button-save-edit"
             disabled={!value || isNaN(parseInt(value))}
           >
-            Save
+            {t('common.save', 'Save')}
           </Button>
         </div>
       </div>

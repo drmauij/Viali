@@ -231,7 +231,7 @@ export function BulkVitalsDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="oxygen">Oxygen (%)</Label>
+            <Label htmlFor="oxygen">{t('dialogs.spo2')}</Label>
             <Input
               ref={oxygenRef}
               id="oxygen"

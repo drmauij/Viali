@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateVitalPoint, useDeleteVitalPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface EditingVentilationValue {
   paramKey: string;
@@ -33,6 +34,7 @@ export function VentilationEditDialog({
   onVentilationDeleted,
   readOnly = false,
 }: VentilationEditDialogProps) {
+  const { t } = useTranslation();
   const [ventilationEditInput, setVentilationEditInput] = useState("");
   const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,8 +65,8 @@ export function VentilationEditDialog({
 
     if (isNaN(value)) {
       toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
+        title: t('dialogs.invalidValue'),
+        description: t('dialogs.enterValidNumber'),
         variant: "destructive",
       });
       return;
@@ -112,8 +114,8 @@ export function VentilationEditDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Edit ${editingVentilationValue?.label}`}
-      description="Edit or delete the ventilation value"
+      title={t('dialogs.editParam', { param: editingVentilationValue?.label })}
+      description={t('dialogs.editOrDeleteVentilationValue')}
       testId="dialog-ventilation-edit"
       time={ventilationEditTime}
       onTimeChange={setVentilationEditTime}
@@ -125,7 +127,7 @@ export function VentilationEditDialog({
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="ventilation-edit-value">Value</Label>
+          <Label htmlFor="ventilation-edit-value">{t('common.value')}</Label>
           <Input
             ref={inputRef}
             id="ventilation-edit-value"
@@ -139,7 +141,7 @@ export function VentilationEditDialog({
                 handleSave();
               }
             }}
-            placeholder="Enter value"
+            placeholder={t('dialogs.enterValue')}
             autoFocus
             disabled={readOnly}
           />

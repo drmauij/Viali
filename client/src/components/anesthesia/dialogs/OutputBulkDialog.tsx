@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateOutput } from "@/hooks/useOutputQuery";
+import { useTranslation } from "react-i18next";
 
 interface PendingOutputBulk {
   time: number;
@@ -25,6 +26,7 @@ export function OutputBulkDialog({
   onOutputBulkCreated,
   readOnly = false,
 }: OutputBulkDialogProps) {
+  const { t } = useTranslation();
   const [bulkOutputParams, setBulkOutputParams] = useState({
     urine: "",
     blood: "",
@@ -91,8 +93,8 @@ export function OutputBulkDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Output Bulk Entry"
-      description="Add output parameters to the timeline"
+      title={t('dialogs.outputBulkEntry')}
+      description={t('dialogs.outputBulkDesc')}
       className="sm:max-w-[550px]"
       testId="dialog-output-bulk"
       time={pendingOutputBulk?.time}
@@ -102,13 +104,13 @@ export function OutputBulkDialog({
       showDelete={false}
       onCancel={handleClose}
       onSave={!readOnly ? handleSave : undefined}
-      saveLabel="Add All"
+      saveLabel={t('dialogs.addAll')}
       saveDisabled={readOnly}
     >
       <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="bulk-urine">Urine (ml)</Label>
+            <Label htmlFor="bulk-urine">{t('dialogs.outputUrine')}</Label>
             <Input
               id="bulk-urine"
               type="number"
@@ -116,12 +118,12 @@ export function OutputBulkDialog({
               value={bulkOutputParams.urine}
               onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
               data-testid="input-bulk-urine"
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               disabled={readOnly}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="bulk-blood">Blood (ml)</Label>
+            <Label htmlFor="bulk-blood">{t('dialogs.outputBlood')}</Label>
             <Input
               id="bulk-blood"
               type="number"
@@ -129,12 +131,12 @@ export function OutputBulkDialog({
               value={bulkOutputParams.blood}
               onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
               data-testid="input-bulk-blood"
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               disabled={readOnly}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="bulk-gastrictube">Gastric Tube (ml)</Label>
+            <Label htmlFor="bulk-gastrictube">{t('dialogs.outputGastricTube')}</Label>
             <Input
               id="bulk-gastrictube"
               type="number"
@@ -142,12 +144,12 @@ export function OutputBulkDialog({
               value={bulkOutputParams.gastricTube}
               onChange={(e) => setBulkOutputParams(prev => ({ ...prev, gastricTube: e.target.value }))}
               data-testid="input-bulk-gastrictube"
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               disabled={readOnly}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="bulk-drainage">Drainage (ml)</Label>
+            <Label htmlFor="bulk-drainage">{t('dialogs.outputDrainage')}</Label>
             <Input
               id="bulk-drainage"
               type="number"
@@ -155,12 +157,12 @@ export function OutputBulkDialog({
               value={bulkOutputParams.drainage}
               onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
               data-testid="input-bulk-drainage"
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               disabled={readOnly}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="bulk-vomit">Vomit (ml)</Label>
+            <Label htmlFor="bulk-vomit">{t('dialogs.outputVomit')}</Label>
             <Input
               id="bulk-vomit"
               type="number"
@@ -168,7 +170,7 @@ export function OutputBulkDialog({
               value={bulkOutputParams.vomit}
               onChange={(e) => setBulkOutputParams(prev => ({ ...prev, vomit: e.target.value }))}
               data-testid="input-bulk-vomit"
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               disabled={readOnly}
             />
           </div>

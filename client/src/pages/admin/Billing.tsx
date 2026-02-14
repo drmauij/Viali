@@ -288,18 +288,18 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       setSignerName("");
       setSignatureImage(null);
       const docLabel = DOCUMENT_LABELS[activeDocumentType];
-      toast({ 
-        title: isGerman ? `${docLabel.de} akzeptiert` : `${docLabel.en} accepted`,
-        description: data.emailSent 
-          ? (isGerman ? "Eine Kopie wurde zur Gegenzeichnung gesendet" : "A copy has been sent for countersigning")
+      toast({
+        title: t('billing.documentAccepted', { document: isGerman ? docLabel.de : docLabel.en }),
+        description: data.emailSent
+          ? t('billing.copySentForCountersigning')
           : undefined,
       });
     },
     onError: () => {
       const docLabel = DOCUMENT_LABELS[activeDocumentType];
-      toast({ 
-        title: isGerman ? `Fehler beim Akzeptieren: ${docLabel.de}` : `Failed to accept: ${docLabel.en}`, 
-        variant: "destructive" 
+      toast({
+        title: t('billing.failedToAccept', { document: isGerman ? docLabel.de : docLabel.en }),
+        variant: "destructive"
       });
     },
   });
@@ -335,7 +335,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "status"] });
     },
     onError: () => {
-      toast({ title: isGerman ? "Fehler beim Aktualisieren" : "Failed to update add-on", variant: "destructive" });
+      toast({ title: t('billing.failedToUpdateAddon'), variant: "destructive" });
     },
   });
 
@@ -346,16 +346,16 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "billing-invoices"] });
-      toast({ 
-        title: isGerman ? "Rechnung erstellt" : "Invoice Generated", 
-        description: `${data.invoice?.recordCount || 0} ${isGerman ? 'Datensätze' : 'records'} - CHF ${data.invoice?.totalAmount || '0.00'}` 
+      toast({
+        title: t('billing.invoiceGenerated'),
+        description: `${data.invoice?.recordCount || 0} ${t('billing.records')} - CHF ${data.invoice?.totalAmount || '0.00'}`
       });
     },
     onError: (error: any) => {
-      toast({ 
-        title: isGerman ? "Fehler beim Erstellen der Rechnung" : "Failed to generate invoice", 
+      toast({
+        title: t('billing.failedToGenerateInvoice'),
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -386,31 +386,23 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
           <AlertDescription>
-            {isGerman 
-              ? <>Ihre Klinik nutzt den <strong>Free Plan</strong>. Keine Zahlung erforderlich.</>
-              : <>Your clinic is on the <strong>Free Plan</strong>. No payment required.</>}
+            {t('billing.freePlanMessage')}
           </AlertDescription>
         </Alert>
       ) : billingStatus.licenseType === "test" && !billingStatus.trialExpired ? (
         <Alert>
           <Clock className="h-4 w-4" />
           <AlertDescription>
-            {isGerman 
-              ? <>Sie haben noch <strong>{billingStatus.trialDaysRemaining} Tag(e)</strong> in Ihrer Testphase. Alle Funktionen sind während der Testphase verfügbar.</>
-              : <>You have <strong>{billingStatus.trialDaysRemaining} day(s)</strong> remaining in your trial. All features are available during your trial period.</>}
+            {t('billing.trialMessage', { days: billingStatus.trialDaysRemaining })}
           </AlertDescription>
         </Alert>
       ) : billingStatus.billingRequired ? (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {billingStatus.licenseType === "test" && billingStatus.trialExpired 
-              ? (isGerman 
-                  ? "Ihre Testphase ist abgelaufen. Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
-                  : "Your trial has expired. Please add a payment method to continue using the app.")
-              : (isGerman 
-                  ? "Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
-                  : "Please add a payment method to continue using the app.")}
+            {billingStatus.licenseType === "test" && billingStatus.trialExpired
+              ? t('billing.trialExpiredMessage')
+              : t('billing.addPaymentMethodMessage')}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -421,12 +413,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calculator className="h-5 w-5" />
-              {isGerman ? "Preisübersicht" : "Pricing Overview"}
+              {t('billing.pricingOverview')}
             </CardTitle>
             <CardDescription>
-              {isGerman 
-                ? "Basisgebühr und optionale Zusatzmodule pro Anästhesie-Protokoll"
-                : "Base fee and optional add-on modules per anesthesia record"}
+              {t('billing.pricingDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -435,11 +425,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="font-medium">{isGerman ? "Basisgebühr" : "Base Fee"}</p>
+                  <p className="font-medium">{t('billing.baseFee')}</p>
                   <p className="text-sm text-muted-foreground">
-                    {isGerman 
-                      ? "Anästhesie-Protokolle, Patientenfragebögen, Chirurgie-Modul, Inventar, Cloud-Hosting" 
-                      : "Anesthesia records, patient questionnaires, surgery module, inventory, cloud hosting"}
+                    {t('billing.baseFeeDescription')}
                   </p>
                 </div>
               </div>
@@ -450,7 +438,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
 
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">
-                {isGerman ? "Optionale Zusatzmodule" : "Optional Add-ons"}
+                {t('billing.optionalAddons')}
               </p>
 
               {/* Camera Monitor Connection */}
@@ -459,17 +447,17 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <Camera className="h-5 w-5 text-orange-500" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Monitor-Kamera" : "Monitor Camera"}</p>
+                      <p className="font-medium">{t('billing.addon.monitorCamera')}</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Pro Protokoll" : "Per record"}
+                        {t('billing.perRecord')}
                       </Badge>
                       <Badge variant="secondary" className="text-xs">
                         <Clock className="h-3 w-3 mr-1" />
-                        {isGerman ? "In Entwicklung" : "Coming soon"}
+                        {t('billing.comingSoon')}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatische Vitaldaten via Kamera" : "Automatic vital data via camera"}
+                      {t('billing.addon.monitorCameraDesc')}
                     </p>
                   </div>
                 </div>
@@ -490,13 +478,13 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <Timer className="h-5 w-5 text-indigo-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Arbeitszeitnachweise" : "Work Time Logs"}</p>
+                      <p className="font-medium">{t('billing.addon.workTimeLogs')}</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Monatlich" : "Monthly"}
+                        {t('billing.monthly')}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Externe Arbeitszeiterfassung & Dokumentation" : "External work time tracking & documentation"}
+                      {t('billing.addon.workTimeLogsDesc')}
                     </p>
                   </div>
                 </div>
@@ -519,17 +507,14 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">Dispocura</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Pro Protokoll" : "Per record"}
+                        {t('billing.perRecord')}
                       </Badge>
                     </div>
                     <p className="text-sm font-bold">
-                      {isGerman 
-                        ? <>Erfordert <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Kundenkonto</>
-                        : <>Requires <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Customer account</>
-                      }
+                      {t('billing.addon.dispocuraRequires')} <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatische OP-Kostenberechnung und Statistiken" : "Automatic surgery cost calculation and statistics"}
+                      {t('billing.addon.dispocuraDesc')}
                     </p>
                   </div>
                 </div>
@@ -550,13 +535,13 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <Truck className="h-5 w-5 text-orange-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Logistik-Modul" : "Logistics Module"}</p>
+                      <p className="font-medium">{t('billing.addon.logistics')}</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Monatlich" : "Monthly"}
+                        {t('billing.monthly')}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Zentrales Bestellmanagementsystem" : "Centralized order management system"}
+                      {t('billing.addon.logisticsDesc')}
                     </p>
                   </div>
                 </div>
@@ -577,13 +562,13 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <Building2 className="h-5 w-5 text-emerald-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Klinik-Modul" : "Clinic Module"}</p>
+                      <p className="font-medium">{t('billing.addon.clinic')}</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Monatlich" : "Monthly"}
+                        {t('billing.monthly')}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Ambulante Rechnungen & Terminverwaltung" : "Outpatient invoices & appointment management"}
+                      {t('billing.addon.clinicDesc')}
                     </p>
                   </div>
                 </div>
@@ -606,11 +591,11 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">Retell.ai</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Monatlich" : "Monthly"}
+                        {t('billing.monthly')}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatisches Telefon-Buchungssystem" : "Automatic phone booking system"}
+                      {t('billing.addon.retellDesc')}
                     </p>
                   </div>
                 </div>
@@ -632,7 +617,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             <div className="space-y-2">
               <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                 <p className="font-medium">
-                  {isGerman ? "Gesamt pro Protokoll" : "Total per Record"}
+                  {t('billing.totalPerRecord')}
                 </p>
                 <p className="text-xl font-bold text-primary">
                   {(3 + 
@@ -644,7 +629,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               {(billingStatus.addons.worktime || billingStatus.addons.logistics || billingStatus.addons.clinic || billingStatus.addons.retell) && (
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium text-muted-foreground">
-                    {isGerman ? "Zusätzlich monatlich" : "Additional Monthly"}
+                    {t('billing.additionalMonthly')}
                   </p>
                   <p className="text-lg font-semibold text-muted-foreground">
                     +{(
@@ -659,9 +644,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              {isGerman 
-                ? "Alle Preise verstehen sich netto. MwSt. kann bei der Zahlung anfallen."
-                : "All prices are net. VAT may apply on payment."}
+              {t('billing.pricesNetVat')}
             </p>
           </CardContent>
         </Card>
@@ -672,19 +655,17 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
-              {isGerman ? "Rechtliche Dokumente" : "Legal Documents"}
+              {t('billing.legalDocuments')}
             </CardTitle>
             <CardDescription>
-              {isGerman 
-                ? "Alle Dokumente müssen unterzeichnet werden, um die Zahlungseinrichtung zu aktivieren"
-                : "All documents must be signed to enable payment setup"}
+              {t('billing.legalDocumentsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Preview PDF Downloads for WhatsApp sharing */}
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm font-medium mb-3">
-                {isGerman ? "Vorschau-PDFs herunterladen (zum Weiterleiten)" : "Download Preview PDFs (for sharing)"}
+                {t('billing.downloadPreviewPdfs')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {(["terms", "privacy", "avv"] as const).map((docType) => {
@@ -700,9 +681,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       data-testid={`button-preview-${docType}`}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      {docType === "terms" ? (isGerman ? "Nutzung" : "Terms") : 
-                       docType === "privacy" ? (isGerman ? "Datenschutz" : "Privacy") : 
-                       (isGerman ? "AVV" : "Data")}
+                      {docType === "terms" ? t('billing.doc.terms') :
+                       docType === "privacy" ? t('billing.doc.privacy') :
+                       t('billing.doc.avv')}
                     </Button>
                   );
                 })}
@@ -713,9 +694,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {isGerman 
-                    ? "Bitte unterzeichnen Sie alle Dokumente, bevor Sie eine Zahlungsmethode einrichten."
-                    : "Please sign all documents before setting up a payment method."}
+                  {t('billing.signAllDocumentsFirst')}
                 </AlertDescription>
               </Alert>
             )}
@@ -747,8 +726,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                           </p>
                           {acceptance && (
                             <p className="text-sm text-muted-foreground truncate">
-                              {isGerman ? "Unterzeichnet von" : "Signed by"} {acceptance.signedByName}{" "}
-                              {isGerman ? "am" : "on"} {new Date(acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                              {t('billing.signedBy')} {acceptance.signedByName}{" "}
+                              {t('billing.on')} {new Date(acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
                             </p>
                           )}
                         </div>
@@ -775,14 +754,14 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                                   if (res.ok) {
                                     queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "terms-status"] });
                                     toast({
-                                      title: isGerman ? "PDF erstellt" : "PDF Generated",
-                                      description: isGerman ? "Sie können das Dokument jetzt herunterladen" : "You can now download the document",
+                                      title: t('billing.pdfGenerated'),
+                                      description: t('billing.pdfGeneratedDesc'),
                                     });
                                   }
                                 } catch (error) {
                                   toast({
-                                    title: isGerman ? "Fehler" : "Error",
-                                    description: isGerman ? "PDF konnte nicht erstellt werden" : "Failed to generate PDF",
+                                    title: t('common.error'),
+                                    description: t('billing.failedToGeneratePdf'),
                                     variant: "destructive",
                                   });
                                 }
@@ -790,7 +769,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                               data-testid={`button-generate-${docType}-pdf`}
                             >
                               <FileText className="h-4 w-4 mr-2" />
-                              {isGerman ? "PDF erstellen" : "Generate PDF"}
+                              {t('billing.generatePdf')}
                             </Button>
                           )
                         )}
@@ -802,7 +781,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       >
                         <CollapsibleTrigger asChild>
                           <Button variant="ghost" className="w-full justify-between rounded-none border-t" data-testid={`button-expand-${docType}`}>
-                            <span>{isGerman ? `${docLabel.de} anzeigen` : `View ${docLabel.en}`}</span>
+                            <span>{t('billing.viewDocument', { document: isGerman ? docLabel.de : docLabel.en })}</span>
                             <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                           </Button>
                         </CollapsibleTrigger>
@@ -820,7 +799,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                         <div className="flex-1">
                           <p className="font-medium">{isGerman ? docLabel.de : docLabel.en}</p>
                           <p className="text-sm text-muted-foreground">
-                            {isGerman ? "Noch nicht unterzeichnet" : "Not yet signed"}
+                            {t('billing.notYetSigned')}
                           </p>
                         </div>
                       </div>
@@ -833,7 +812,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                         data-testid={`button-sign-${docType}`}
                       >
                         <FileSignature className="mr-2 h-4 w-4" />
-                        {isGerman ? `${docLabel.de} lesen & unterschreiben` : `Read & Sign ${docLabel.en}`}
+                        {t('billing.readAndSign', { document: isGerman ? docLabel.de : docLabel.en })}
                       </Button>
                     </div>
                   )}
@@ -852,9 +831,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               {isGerman ? DOCUMENT_LABELS[activeDocumentType].de : DOCUMENT_LABELS[activeDocumentType].en} - Viali.app
             </DialogTitle>
             <DialogDescription>
-              {isGerman 
-                ? "Bitte lesen Sie das Dokument sorgfältig durch und unterschreiben Sie zur Bestätigung."
-                : "Please read the document carefully and sign to confirm your acceptance."}
+              {t('billing.readDocumentCarefully')}
             </DialogDescription>
           </DialogHeader>
           
@@ -874,27 +851,25 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   data-testid="checkbox-accept-terms"
                 />
                 <Label htmlFor="accept-terms" className="text-sm leading-relaxed">
-                  {isGerman 
-                    ? `Ich habe die ${DOCUMENT_LABELS[activeDocumentType].de} gelesen und akzeptiere sie im Namen meiner Klinik.`
-                    : `I have read and accept the ${DOCUMENT_LABELS[activeDocumentType].en} on behalf of my clinic.`}
+                  {t('billing.acceptOnBehalf', { document: isGerman ? DOCUMENT_LABELS[activeDocumentType].de : DOCUMENT_LABELS[activeDocumentType].en })}
                 </Label>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="signer-name">
-                  {isGerman ? "Vollständiger Name" : "Full Name"}
+                  {t('billing.fullName')}
                 </Label>
                 <Input 
                   id="signer-name"
                   value={signerName}
                   onChange={(e) => setSignerName(e.target.value)}
-                  placeholder={isGerman ? "Max Mustermann" : "John Doe"}
+                  placeholder={t('billing.fullNamePlaceholder')}
                   data-testid="input-signer-name"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label>{isGerman ? "Unterschrift" : "Signature"}</Label>
+                <Label>{t('billing.signature')}</Label>
                 {signatureImage ? (
                   <div className="space-y-2">
                     <div className="border rounded-lg p-2 bg-white">
@@ -906,7 +881,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       onClick={() => setSignatureImage(null)}
                       data-testid="button-clear-signature"
                     >
-                      {isGerman ? "Unterschrift löschen" : "Clear Signature"}
+                      {t('billing.clearSignature')}
                     </Button>
                   </div>
                 ) : (
@@ -917,20 +892,20 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     data-testid="button-add-signature"
                   >
                     <Pen className="mr-2 h-4 w-4" />
-                    {isGerman ? "Unterschrift hinzufügen" : "Add Signature"}
+                    {t('billing.addSignature')}
                   </Button>
                 )}
               </div>
               
               <div className="text-sm text-muted-foreground">
-                {isGerman ? "Datum" : "Date"}: {new Date().toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                {t('billing.date')}: {new Date().toLocaleDateString(isGerman ? "de-DE" : "en-US")}
               </div>
             </div>
           </div>
           
           <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setShowTermsDialog(false)}>
-              {isGerman ? "Abbrechen" : "Cancel"}
+              {t('common.cancel')}
             </Button>
             <Button 
               onClick={() => acceptTermsMutation.mutate()}
@@ -938,7 +913,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               data-testid="button-submit-terms"
             >
               {acceptTermsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isGerman ? "Akzeptieren & Unterschreiben" : "Accept & Sign"}
+              {t('billing.acceptAndSign')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -951,7 +926,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           setSignatureImage(sig);
           setShowSignaturePad(false);
         }}
-        title={isGerman ? "Ihre Unterschrift" : "Your Signature"}
+        title={t('billing.yourSignature')}
       />
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -959,12 +934,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              {isGerman ? "Zahlungsmethode" : "Payment Method"}
+              {t('billing.paymentMethod')}
             </CardTitle>
             <CardDescription>
-              {isGerman 
-                ? "Verwalten Sie Ihre Zahlungsmethode für die monatliche Abrechnung"
-                : "Manage your payment method for monthly billing"}
+              {t('billing.paymentMethodDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -972,9 +945,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {isGerman 
-                    ? "Bitte akzeptieren Sie zuerst die Nutzungsbedingungen."
-                    : "Please accept the terms of use first."}
+                  {t('billing.acceptTermsFirst')}
                 </AlertDescription>
               </Alert>
             ) : billingStatus.paymentMethod ? (
@@ -1129,7 +1100,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   ) : (
                     <Calculator className="mr-2 h-4 w-4" />
                   )}
-                  {isGerman ? "Rechnung erstellen" : "Generate Invoice"}
+                  {t('billing.generateInvoice')}
                 </Button>
               )}
               {billingStatus.stripeCustomerId && (
@@ -1174,7 +1145,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       <div>
                         <p className="font-medium">{periodLabel}</p>
                         <p className="text-sm text-muted-foreground">
-                          {invoice.recordCount} {isGerman ? 'Datensätze' : 'records'}
+                          {invoice.recordCount} {t('billing.records')}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1189,9 +1160,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                               : "outline"
                           }
                         >
-                          {invoice.status === "paid" ? (isGerman ? "Bezahlt" : "Paid") :
-                           invoice.status === "pending" ? (isGerman ? "Ausstehend" : "Pending") :
-                           invoice.status === "failed" ? (isGerman ? "Fehlgeschlagen" : "Failed") :
+                          {invoice.status === "paid" ? t('billing.status.paid') :
+                           invoice.status === "pending" ? t('billing.status.pending') :
+                           invoice.status === "failed" ? t('billing.status.failed') :
                            invoice.status}
                         </Badge>
                         <span className="font-medium">

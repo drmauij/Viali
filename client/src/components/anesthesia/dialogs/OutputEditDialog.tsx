@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateOutput, useDeleteOutput, type OutputParamKey } from "@/hooks/useOutputQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingOutputValue {
   paramKey: OutputParamKey;
@@ -32,6 +33,7 @@ export function OutputEditDialog({
   onOutputDeleted,
   readOnly = false,
 }: OutputEditDialogProps) {
+  const { t } = useTranslation();
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,8 +112,8 @@ export function OutputEditDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Output Value"
-      description={editingOutputValue ? `Edit or delete the ${editingOutputValue.label} value` : 'Edit output value'}
+      title={t('dialogs.editOutputValue')}
+      description={editingOutputValue ? t('dialogs.editOrDeleteParam', { param: editingOutputValue.label }) : t('dialogs.editOutputValueDesc')}
       testId="dialog-output-edit"
       time={outputEditTime}
       onTimeChange={setOutputEditTime}
@@ -123,7 +125,7 @@ export function OutputEditDialog({
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="output-edit-value">Value (ml)</Label>
+          <Label htmlFor="output-edit-value">{t('dialogs.valueMl')}</Label>
           <Input
             ref={inputRef}
             id="output-edit-value"
@@ -137,7 +139,7 @@ export function OutputEditDialog({
                 handleSave();
               }
             }}
-            placeholder="Enter value"
+            placeholder={t('dialogs.enterValue')}
             autoFocus
             disabled={readOnly}
           />

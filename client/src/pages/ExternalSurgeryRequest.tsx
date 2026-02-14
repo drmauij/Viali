@@ -293,12 +293,10 @@ export default function ExternalSurgeryRequest() {
             <div className="text-center">
               <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
               <h2 className="text-xl font-semibold mb-2">
-                {isGerman ? 'Ungültiger Link' : 'Invalid Link'}
+                {t('surgery.externalRequest.invalidLink')}
               </h2>
               <p className="text-muted-foreground">
-                {isGerman 
-                  ? 'Dieser Link ist ungültig oder abgelaufen.'
-                  : 'This link is invalid or has expired.'}
+                {t('surgery.externalRequest.invalidLinkDesc')}
               </p>
             </div>
           </CardContent>
@@ -315,12 +313,10 @@ export default function ExternalSurgeryRequest() {
             <div className="text-center">
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-semibold mb-2">
-                {isGerman ? 'Anfrage gesendet!' : 'Request Submitted!'}
+                {t('surgery.externalRequest.requestSubmitted')}
               </h2>
               <p className="text-muted-foreground mb-4">
-                {isGerman 
-                  ? 'Ihre OP-Reservierungsanfrage wurde erfolgreich eingereicht. Sie erhalten eine Bestätigung, sobald der Termin geplant wurde.'
-                  : 'Your surgery reservation request has been successfully submitted. You will receive a confirmation once the appointment has been scheduled.'}
+                {t('surgery.externalRequest.requestSubmittedDesc')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {hospitalData.hospitalName}
@@ -347,7 +343,7 @@ export default function ExternalSurgeryRequest() {
             <h1 className="text-2xl font-bold">{hospitalData.hospitalName}</h1>
           </div>
           <p className="text-muted-foreground">
-            {isGerman ? 'OP-Terminreservierung' : 'Surgery Reservation Request'}
+            {t('surgery.externalRequest.surgeryReservation')}
           </p>
           <div className="flex justify-center mt-3">
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
@@ -379,7 +375,7 @@ export default function ExternalSurgeryRequest() {
 
         <div className="mb-6">
           <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>{isGerman ? STEPS[currentStep].titleDe : STEPS[currentStep].title}</span>
+            <span>{t(`surgery.externalRequest.steps.${STEPS[currentStep].id}`)}</span>
             <span>{currentStep + 1} / {STEPS.length}</span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -392,14 +388,14 @@ export default function ExternalSurgeryRequest() {
                 <div className="flex items-center gap-2 mb-4">
                   <User className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-medium">
-                    {isGerman ? 'Ihre Informationen' : 'Your Information'}
+                    {t('surgery.externalRequest.yourInformation')}
                   </h3>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="surgeonFirstName">
-                      {isGerman ? 'Vorname' : 'First Name'} *
+                      {t('surgery.externalRequest.firstName')} *
                     </Label>
                     <Input
                       id="surgeonFirstName"
@@ -410,7 +406,7 @@ export default function ExternalSurgeryRequest() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgeonLastName">
-                      {isGerman ? 'Nachname' : 'Last Name'} *
+                      {t('surgery.externalRequest.lastName')} *
                     </Label>
                     <Input
                       id="surgeonLastName"
@@ -438,7 +434,7 @@ export default function ExternalSurgeryRequest() {
                 <div className="space-y-2">
                   <Label htmlFor="surgeonPhone">
                     <Phone className="h-4 w-4 inline mr-1" />
-                    {isGerman ? 'Telefon' : 'Phone'} *
+                    {t('surgery.externalRequest.phone')} *
                   </Label>
                   <PhoneInputWithCountry
                     id="surgeonPhone"
@@ -455,13 +451,13 @@ export default function ExternalSurgeryRequest() {
                 <div className="flex items-center gap-2 mb-4">
                   <Stethoscope className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-medium">
-                    {isGerman ? 'OP Details' : 'Surgery Details'}
+                    {t('surgery.externalRequest.surgeryDetails')}
                   </h3>
                 </div>
                 
                 <div className="space-y-2">
                   <Label>
-                    {isGerman ? 'OP Name / Eingriff' : 'Surgery Name'} *
+                    {t('surgery.externalRequest.surgeryName')} *
                   </Label>
                   <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
                     <PopoverTrigger asChild>
@@ -481,7 +477,7 @@ export default function ExternalSurgeryRequest() {
                           </div>
                         ) : (
                           <span className="text-muted-foreground">
-                            {isGerman ? 'Suchen oder eingeben...' : 'Search or enter procedure...'}
+                            {t('surgery.externalRequest.searchOrEnter')}
                           </span>
                         )}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -490,7 +486,7 @@ export default function ExternalSurgeryRequest() {
                     <PopoverContent className="w-[450px] p-0" align="start">
                       <Command shouldFilter={false}>
                         <CommandInput 
-                          placeholder={isGerman ? 'CHOP-Eingriff suchen...' : 'Search CHOP procedures...'}
+                          placeholder={t('surgery.externalRequest.searchChop')}
                           value={chopSearchTerm}
                           onValueChange={setChopSearchTerm}
                           data-testid="input-chop-search-external"
@@ -498,7 +494,7 @@ export default function ExternalSurgeryRequest() {
                         <CommandList className="max-h-[300px] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                           {chopSearchTerm.length < 2 ? (
                             <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
-                              {isGerman ? 'Mind. 2 Zeichen eingeben' : 'Type at least 2 characters'}
+                              {t('surgery.externalRequest.minChars')}
                             </CommandEmpty>
                           ) : isLoadingChop ? (
                             <div className="flex items-center justify-center py-4">
@@ -507,7 +503,7 @@ export default function ExternalSurgeryRequest() {
                           ) : chopProcedures.length === 0 ? (
                             <CommandEmpty>
                               <div className="py-2 px-2 space-y-2">
-                                <p className="text-sm">{isGerman ? 'Keine CHOP-Eingriffe gefunden' : 'No CHOP procedures found'}</p>
+                                <p className="text-sm">{t('surgery.externalRequest.noChopFound')}</p>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -519,7 +515,7 @@ export default function ExternalSurgeryRequest() {
                                   }}
                                   data-testid="button-use-custom-surgery-external"
                                 >
-                                  {isGerman ? `"${chopSearchTerm}" verwenden` : `Use "${chopSearchTerm}"`}
+                                  {t('surgery.externalRequest.useCustom', { term: chopSearchTerm })}
                                 </Button>
                               </div>
                             </CommandEmpty>
@@ -573,7 +569,7 @@ export default function ExternalSurgeryRequest() {
                             >
                               <Check className="h-4 w-4 shrink-0 opacity-0" />
                               <span className="text-sm text-muted-foreground">
-                                {isGerman ? `Als eigene Eingabe: "${chopSearchTerm}"` : `Use as custom: "${chopSearchTerm}"`}
+                                {t('surgery.externalRequest.useAsCustom', { term: chopSearchTerm })}
                               </span>
                             </CommandItem>
                           </div>
@@ -586,7 +582,7 @@ export default function ExternalSurgeryRequest() {
                 {/* Surgery Side */}
                 <div className="space-y-2">
                   <Label>
-                    {isGerman ? 'OP-Seite' : 'Surgery Side'}
+                    {t('surgery.externalRequest.surgerySide')}
                   </Label>
                   <div className="flex gap-2 flex-wrap">
                     <label 
@@ -605,12 +601,12 @@ export default function ExternalSurgeryRequest() {
                         onChange={() => updateField('surgerySide', 'left')}
                         className="sr-only"
                       />
-                      <span className="text-sm font-medium">{isGerman ? 'Links' : 'Left'}</span>
+                      <span className="text-sm font-medium">{t('surgery.externalRequest.sideLeft')}</span>
                     </label>
-                    <label 
+                    <label
                       className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                        formData.surgerySide === "right" 
-                          ? "border-primary bg-primary/10 text-primary" 
+                        formData.surgerySide === "right"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-input bg-background hover:bg-accent"
                       }`}
                       data-testid="radio-external-surgery-side-right"
@@ -623,12 +619,12 @@ export default function ExternalSurgeryRequest() {
                         onChange={() => updateField('surgerySide', 'right')}
                         className="sr-only"
                       />
-                      <span className="text-sm font-medium">{isGerman ? 'Rechts' : 'Right'}</span>
+                      <span className="text-sm font-medium">{t('surgery.externalRequest.sideRight')}</span>
                     </label>
-                    <label 
+                    <label
                       className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                        formData.surgerySide === "both" 
-                          ? "border-primary bg-primary/10 text-primary" 
+                        formData.surgerySide === "both"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-input bg-background hover:bg-accent"
                       }`}
                       data-testid="radio-external-surgery-side-both"
@@ -641,7 +637,7 @@ export default function ExternalSurgeryRequest() {
                         onChange={() => updateField('surgerySide', 'both')}
                         className="sr-only"
                       />
-                      <span className="text-sm font-medium">{isGerman ? 'Beidseitig' : 'Both'}</span>
+                      <span className="text-sm font-medium">{t('surgery.externalRequest.sideBoth')}</span>
                     </label>
                     {formData.surgerySide && (
                       <Button
@@ -651,7 +647,7 @@ export default function ExternalSurgeryRequest() {
                         onClick={() => updateField('surgerySide', '')}
                         className="text-xs min-h-[44px] px-3"
                       >
-                        {isGerman ? 'Löschen' : 'Clear'}
+                        {t('surgery.externalRequest.clear')}
                       </Button>
                     )}
                   </div>
@@ -671,14 +667,14 @@ export default function ExternalSurgeryRequest() {
                 {/* Section Divider: Scheduling */}
                 <div className="flex items-center gap-2 pt-2">
                   <div className="h-px bg-border flex-1" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Terminplanung' : 'Scheduling'}</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.externalRequest.scheduling')}</span>
                   <div className="h-px bg-border flex-1" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="surgeryDuration">
-                      {isGerman ? 'Dauer (Minuten)' : 'Duration (minutes)'} *
+                      {t('surgery.externalRequest.durationMinutes')} *
                     </Label>
                     <Input
                       id="surgeryDuration"
@@ -693,7 +689,7 @@ export default function ExternalSurgeryRequest() {
                   <div className="space-y-2">
                     <Label htmlFor="wishedDate">
                       <Calendar className="h-4 w-4 inline mr-1" />
-                      {isGerman ? 'Wunschdatum' : 'Wished Date'} *
+                      {t('surgery.externalRequest.wishedDate')} *
                     </Label>
                     <Input
                       id="wishedDate"
@@ -709,14 +705,14 @@ export default function ExternalSurgeryRequest() {
                 {/* Section Divider: Requirements */}
                 <div className="flex items-center gap-2 pt-2">
                   <div className="h-px bg-border flex-1" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Anforderungen' : 'Requirements'}</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.externalRequest.requirements')}</span>
                   <div className="h-px bg-border flex-1" />
                 </div>
 
                 {/* Antibiose Prophylaxe */}
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <Label htmlFor="antibioseProphylaxe" className="cursor-pointer">
-                    {isGerman ? 'Antibiose-Prophylaxe erforderlich' : 'Antibiotic Prophylaxis Required'}
+                    {t('surgery.externalRequest.antibioticProphylaxis')}
                   </Label>
                   <Switch
                     id="antibioseProphylaxe"
@@ -728,7 +724,7 @@ export default function ExternalSurgeryRequest() {
 
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <Label htmlFor="withAnesthesia" className="cursor-pointer">
-                    {isGerman ? 'Mit Anästhesie' : 'With Anesthesia'}
+                    {t('surgery.externalRequest.withAnesthesia')}
                   </Label>
                   <Switch
                     id="withAnesthesia"
@@ -741,13 +737,13 @@ export default function ExternalSurgeryRequest() {
                 <div className="space-y-2">
                   <Label htmlFor="surgeryNotes">
                     <FileText className="h-4 w-4 inline mr-1" />
-                    {isGerman ? 'OP Notizen' : 'Surgery Notes'}
+                    {t('surgery.externalRequest.surgeryNotes')}
                   </Label>
                   <Textarea
                     id="surgeryNotes"
                     value={formData.surgeryNotes}
                     onChange={(e) => updateField('surgeryNotes', e.target.value)}
-                    placeholder={isGerman ? 'Zusätzliche Informationen...' : 'Additional information...'}
+                    placeholder={t('surgery.externalRequest.additionalInfo')}
                     rows={3}
                     data-testid="textarea-surgery-notes"
                   />
@@ -760,14 +756,14 @@ export default function ExternalSurgeryRequest() {
                 <div className="flex items-center gap-2 mb-4">
                   <User className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-medium">
-                    {isGerman ? 'Patienten Daten' : 'Patient Information'}
+                    {t('surgery.externalRequest.patientInformation')}
                   </h3>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="patientFirstName">
-                      {isGerman ? 'Vorname' : 'First Name'} *
+                      {t('surgery.externalRequest.firstName')} *
                     </Label>
                     <Input
                       id="patientFirstName"
@@ -778,7 +774,7 @@ export default function ExternalSurgeryRequest() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="patientLastName">
-                      {isGerman ? 'Nachname' : 'Last Name'} *
+                      {t('surgery.externalRequest.lastName')} *
                     </Label>
                     <Input
                       id="patientLastName"
@@ -791,7 +787,7 @@ export default function ExternalSurgeryRequest() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="patientBirthday">
-                    {isGerman ? 'Geburtsdatum' : 'Birthday'} *
+                    {t('surgery.externalRequest.birthday')} *
                   </Label>
                   <FlexibleDateInput
                     value={formData.patientBirthday}
@@ -803,7 +799,7 @@ export default function ExternalSurgeryRequest() {
                 <div className="space-y-2">
                   <Label htmlFor="patientPhone">
                     <Phone className="h-4 w-4 inline mr-1" />
-                    {isGerman ? 'Telefon' : 'Phone'} *
+                    {t('surgery.externalRequest.phone')} *
                   </Label>
                   <PhoneInputWithCountry
                     id="patientPhone"
@@ -816,7 +812,7 @@ export default function ExternalSurgeryRequest() {
                 <div className="space-y-2">
                   <Label htmlFor="patientEmail">
                     <Mail className="h-4 w-4 inline mr-1" />
-                    Email ({isGerman ? 'optional' : 'optional'})
+                    Email ({t('surgery.externalRequest.optional')})
                   </Label>
                   <Input
                     id="patientEmail"
@@ -834,21 +830,19 @@ export default function ExternalSurgeryRequest() {
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
                   <span className="text-sm text-green-600 font-medium">
-                    {isGerman ? 'Anfrage erfolgreich übermittelt!' : 'Request successfully submitted!'}
+                    {t('surgery.externalRequest.requestSuccess')}
                   </span>
                 </div>
                 
                 <div className="flex items-center gap-2 mb-4">
                   <Upload className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-medium">
-                    {isGerman ? 'Dokumente hochladen (optional)' : 'Upload Documents (optional)'}
+                    {t('surgery.externalRequest.uploadDocuments')}
                   </h3>
                 </div>
                 
                 <p className="text-sm text-muted-foreground mb-4">
-                  {isGerman 
-                    ? 'Sie können relevante Dokumente hochladen (Befunde, Laborergebnisse, etc.). Diese werden mit der Patientenakte verknüpft.'
-                    : 'You can upload relevant documents (findings, lab results, etc.). These will be linked to the patient record.'}
+                  {t('surgery.externalRequest.uploadDocumentsDesc')}
                 </p>
                 
                 <div
@@ -864,9 +858,7 @@ export default function ExternalSurgeryRequest() {
                 >
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    {isGerman 
-                      ? 'Dateien hierher ziehen oder klicken zum Auswählen'
-                      : 'Drag files here or click to select'}
+                    {t('surgery.externalRequest.dragOrClick')}
                   </p>
                   <input
                     id="file-upload"
@@ -915,7 +907,7 @@ export default function ExternalSurgeryRequest() {
                 data-testid="button-back"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                {isGerman ? 'Zurück' : 'Back'}
+                {t('surgery.externalRequest.back')}
               </Button>
               
               <Button
@@ -926,15 +918,15 @@ export default function ExternalSurgeryRequest() {
                 {submitMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : currentStep === STEPS.length - 1 ? (
-                  isGerman ? 'Fertig' : 'Finish'
+                  t('surgery.externalRequest.finish')
                 ) : currentStep === 2 ? (
                   <>
-                    {isGerman ? 'Weiter & Absenden' : 'Continue & Submit'}
+                    {t('surgery.externalRequest.continueAndSubmit')}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </>
                 ) : (
                   <>
-                    {isGerman ? 'Weiter' : 'Next'}
+                    {t('surgery.externalRequest.next')}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </>
                 )}

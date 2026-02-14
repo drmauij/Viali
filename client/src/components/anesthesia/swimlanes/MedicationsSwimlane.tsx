@@ -581,13 +581,13 @@ export function MedicationsSwimlane({
         timestamp: newTime,
       });
       toast({
-        title: "Rate change updated",
-        description: "The rate change has been successfully updated.",
+        title: t("anesthesia.timeline.toasts.rateChangeUpdated", "Rate change updated"),
+        description: t("anesthesia.timeline.toasts.rateChangeUpdatedDesc", "The rate change has been successfully updated."),
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to update rate change.",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.failedToUpdateRateChange", "Failed to update rate change."),
         variant: "destructive",
       });
     }
@@ -598,13 +598,13 @@ export function MedicationsSwimlane({
     try {
       await deleteMedicationMutation.mutateAsync(medicationId);
       toast({
-        title: "Rate change deleted",
-        description: "The rate change has been successfully deleted.",
+        title: t("anesthesia.timeline.toasts.rateChangeDeleted", "Rate change deleted"),
+        description: t("anesthesia.timeline.toasts.rateChangeDeletedDesc", "The rate change has been successfully deleted."),
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to delete rate change.",
+        title: t("common.error", "Error"),
+        description: t("anesthesia.timeline.toasts.failedToDeleteRateChange", "Failed to delete rate change."),
         variant: "destructive",
       });
     }
@@ -788,8 +788,8 @@ export function MedicationsSwimlane({
                 
                 if (!rateChangeMedication) {
                   toast({
-                    title: "Error",
-                    description: "Could not find medication record for this rate change.",
+                    title: t("common.error", "Error"),
+                    description: t("anesthesia.timeline.toasts.couldNotFindRateChangeRecord", "Could not find medication record for this rate change."),
                     variant: "destructive",
                   });
                   return;
@@ -886,8 +886,8 @@ export function MedicationsSwimlane({
                   if (hasLaterSessions) {
                     // Cannot resume a historical session - show informational toast
                     toast({
-                      title: "Cannot resume",
-                      description: "You can only resume the most recent infusion session. This session has newer infusions after it.",
+                      title: t("anesthesia.timeline.toasts.cannotResume", "Cannot resume"),
+                      description: t("anesthesia.timeline.toasts.cannotResumeDesc", "You can only resume the most recent infusion session. This session has newer infusions after it."),
                       variant: "default",
                     });
                   } else {
@@ -1006,8 +1006,8 @@ export function MedicationsSwimlane({
                   if (!lane.itemId) {
                     console.error('[MED] Lane missing itemId, cannot add dose:', lane);
                     toast({
-                      title: "Configuration Error",
-                      description: "This medication is not properly configured. Please contact support.",
+                      title: t("anesthesia.timeline.toasts.configurationError", "Configuration Error"),
+                      description: t("anesthesia.timeline.toasts.configurationErrorDesc", "This medication is not properly configured. Please contact support."),
                       variant: "destructive",
                     });
                     return;

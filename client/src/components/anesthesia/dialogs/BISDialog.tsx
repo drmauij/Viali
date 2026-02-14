@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVitalPoint, useUpdateVitalPoint, useDeleteVitalPoint } from "@/hooks/useVitalsQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingBIS {
   id: string;
@@ -38,6 +39,7 @@ export function BISDialog({
   onBISDeleted,
   readOnly = false,
 }: BISDialogProps) {
+  const { t } = useTranslation();
   const [bisValue, setBisValue] = useState("");
   const [bisEditTime, setBisEditTime] = useState<number>(0);
 
@@ -117,8 +119,8 @@ export function BISDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="BIS (Bispectral Index)"
-      description={editingBIS ? 'Edit or delete the BIS value' : 'Enter BIS value (0-100)'}
+      title={t('dialogs.bisTitle')}
+      description={editingBIS ? t('dialogs.editOrDeleteValue') : t('dialogs.bisDesc')}
       testId="dialog-bis"
       time={editingBIS ? bisEditTime : pendingBIS?.time}
       onTimeChange={editingBIS ? setBisEditTime : undefined}
@@ -127,11 +129,11 @@ export function BISDialog({
       onCancel={handleClose}
       onSave={handleSave}
       saveDisabled={!isValid() || readOnly}
-      saveLabel={editingBIS ? 'Save' : 'Add'}
+      saveLabel={editingBIS ? t('common.save') : t('common.add')}
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="bis-value">BIS Value</Label>
+          <Label htmlFor="bis-value">{t('dialogs.bisValueLabel')}</Label>
           <Input
             id="bis-value"
             type="number"

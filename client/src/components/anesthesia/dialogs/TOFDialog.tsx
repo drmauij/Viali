@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddTOFPoint, useUpdateTOFPoint, useDeleteTOFPoint } from "@/hooks/useVitalsQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingTOF {
   id: string;
@@ -42,6 +43,7 @@ export function TOFDialog({
   onTOFDeleted,
   readOnly = false,
 }: TOFDialogProps) {
+  const { t } = useTranslation();
   const [fractionValue, setFractionValue] = useState("");
   const [percentageValue, setPercentageValue] = useState("");
   const [tofEditTime, setTofEditTime] = useState<number>(0);
@@ -133,8 +135,8 @@ export function TOFDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="TOF (Train of Four)"
-      description={editingTOF ? 'Edit or delete the TOF value' : 'Select TOF fraction value'}
+      title={t('dialogs.tofTitle')}
+      description={editingTOF ? t('dialogs.editOrDeleteValue') : t('dialogs.tofDesc')}
       testId="dialog-tof"
       time={editingTOF ? tofEditTime : pendingTOF?.time}
       onTimeChange={editingTOF ? setTofEditTime : undefined}
@@ -143,11 +145,11 @@ export function TOFDialog({
       onCancel={handleClose}
       onSave={() => handleSave()}
       saveDisabled={!isValid() || readOnly}
-      saveLabel={editingTOF ? 'Save' : 'Add'}
+      saveLabel={editingTOF ? t('common.save') : t('common.add')}
     >
       <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
         <div className="grid gap-2">
-          <Label>TOF Fraction</Label>
+          <Label>{t('dialogs.tofCount')}</Label>
           <div className="grid grid-cols-5 gap-2">
             {editingTOF ? (
               TOF_FRACTIONS.map((fraction) => (
@@ -189,7 +191,7 @@ export function TOFDialog({
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="tof-percentage">T4/T1 Ratio (%) - Optional</Label>
+          <Label htmlFor="tof-percentage">{t('dialogs.tofRatio')} - {t('common.optional')}</Label>
           <Input
             id="tof-percentage"
             type="number"

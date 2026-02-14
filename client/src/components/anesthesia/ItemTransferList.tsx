@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 import {
   DndContext,
   closestCenter,
@@ -118,6 +119,7 @@ export function ItemTransferList({
   onItemClick,
   onReorder,
 }: ItemTransferListProps) {
+  const { t } = useTranslation();
   const [availableSearch, setAvailableSearch] = useState("");
   const [selectedSearch, setSelectedSearch] = useState("");
   const [availableChecked, setAvailableChecked] = useState<Set<string>>(new Set());
@@ -225,11 +227,11 @@ export function ItemTransferList({
       {/* Available Items */}
       <div className="border rounded-lg p-4 bg-card dark:bg-card">
         <div className="mb-3">
-          <h3 className="font-semibold mb-2 text-foreground dark:text-foreground">Available Inventory Items</h3>
+          <h3 className="font-semibold mb-2 text-foreground dark:text-foreground">{t("anesthesia.settings.availableItems")}</h3>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search items..."
+              placeholder={t("anesthesia.settings.searchItems")}
               value={availableSearch}
               onChange={(e) => setAvailableSearch(e.target.value)}
               className="pl-8"
@@ -242,7 +244,7 @@ export function ItemTransferList({
           <div className="p-2 space-y-1">
             {filteredAvailable.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                {availableSearch ? "No items found" : "All items are configured"}
+                {availableSearch ? t("anesthesia.settings.noItemsFound") : t("anesthesia.settings.allItemsConfigured")}
               </p>
             ) : (
               filteredAvailable.map((item) => (
@@ -279,7 +281,7 @@ export function ItemTransferList({
           size="icon"
           onClick={moveAllToSelected}
           disabled={availableItems.length === 0}
-          title="Move all to anesthesia"
+          title={t("anesthesia.settings.moveAllToAnesthesia")}
           data-testid="button-move-all-right"
         >
           <ChevronsRight className="h-4 w-4 md:rotate-0 rotate-90" />
@@ -289,7 +291,7 @@ export function ItemTransferList({
           size="icon"
           onClick={moveToSelected}
           disabled={availableChecked.size === 0}
-          title="Move selected to anesthesia"
+          title={t("anesthesia.settings.moveSelectedToAnesthesia")}
           data-testid="button-move-selected-right"
         >
           <ChevronRight className="h-4 w-4 md:rotate-0 rotate-90" />
@@ -299,7 +301,7 @@ export function ItemTransferList({
           size="icon"
           onClick={moveToAvailable}
           disabled={selectedChecked.size === 0}
-          title="Remove selected from anesthesia"
+          title={t("anesthesia.settings.removeSelectedFromAnesthesia")}
           data-testid="button-move-selected-left"
         >
           <ChevronLeft className="h-4 w-4 md:rotate-0 rotate-90" />
@@ -309,7 +311,7 @@ export function ItemTransferList({
           size="icon"
           onClick={moveAllToAvailable}
           disabled={selectedItems.length === 0}
-          title="Remove all from anesthesia"
+          title={t("anesthesia.settings.removeAllFromAnesthesia")}
           data-testid="button-move-all-left"
         >
           <ChevronsLeft className="h-4 w-4 md:rotate-0 rotate-90" />
@@ -319,11 +321,11 @@ export function ItemTransferList({
       {/* Selected Items (Anesthesia Items) - with Drag and Drop */}
       <div className="border rounded-lg p-4 bg-card dark:bg-card">
         <div className="mb-3">
-          <h3 className="font-semibold mb-2 text-foreground dark:text-foreground">Anesthesia Items</h3>
+          <h3 className="font-semibold mb-2 text-foreground dark:text-foreground">{t("anesthesia.settings.anesthesiaItems")}</h3>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search items..."
+              placeholder={t("anesthesia.settings.searchItems")}
               value={selectedSearch}
               onChange={(e) => setSelectedSearch(e.target.value)}
               className="pl-8"
@@ -336,7 +338,7 @@ export function ItemTransferList({
           <div className="p-2 space-y-1">
             {filteredSelected.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                {selectedSearch ? "No items found" : "No items configured yet"}
+                {selectedSearch ? t("anesthesia.settings.noItemsFound") : t("anesthesia.settings.noItemsConfigured")}
               </p>
             ) : (
               <DndContext
@@ -364,7 +366,7 @@ export function ItemTransferList({
         </ScrollArea>
         
         <p className="text-xs text-muted-foreground mt-2">
-          {filteredSelected.length} items configured • Drag to reorder
+          {filteredSelected.length} {t("anesthesia.settings.itemsConfigured")} {t("anesthesia.settings.dragToReorder")}
         </p>
       </div>
     </div>

@@ -237,13 +237,13 @@ export function PatientInfoHeader({
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Eingriff' : 'Procedure'}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.op.procedureLabel')}</p>
                   <p className="font-semibold text-base mt-0.5">{surgery.plannedSurgery}</p>
                 </div>
 
                 {surgery.surgeon && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Chirurg' : 'Surgeon'}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.op.surgeon')}</p>
                     <p className="font-semibold text-base mt-0.5">{surgery.surgeon}</p>
                     {surgery.surgeonPhone && (
                       <a href={`tel:${surgery.surgeonPhone}`} className="text-xs text-primary underline mt-0.5 block" data-testid="link-surgeon-phone">
@@ -255,7 +255,7 @@ export function PatientInfoHeader({
 
                 {surgery.plannedDate && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Datum & Dauer' : 'Date & Duration'}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.op.dateDuration')}</p>
                     <p className="font-semibold text-base mt-0.5">
                       {formatDate(surgery.plannedDate)}
                       {surgery.actualEndTime && (() => {
@@ -271,12 +271,12 @@ export function PatientInfoHeader({
 
                 {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Lagerung' : 'Positioning'}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.op.positioning')}</p>
                     <p className="font-semibold text-base mt-0.5">
                       {[
                         surgery.patientPosition && getPositionDisplayLabel(surgery.patientPosition, isGerman),
-                        surgery.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(surgery.leftArmPosition, isGerman)}`,
-                        surgery.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(surgery.rightArmPosition, isGerman)}`,
+                        surgery.leftArmPosition && `${t('anesthesia.op.leftArm')}: ${getArmDisplayLabel(surgery.leftArmPosition, isGerman)}`,
+                        surgery.rightArmPosition && `${t('anesthesia.op.rightArm')}: ${getArmDisplayLabel(surgery.rightArmPosition, isGerman)}`,
                       ].filter(Boolean).join(' · ')}
                     </p>
                   </div>
@@ -284,7 +284,7 @@ export function PatientInfoHeader({
 
                 {surgery.notes && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Bemerkungen' : 'Notes'}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.op.notes')}</p>
                     <p className="text-sm mt-0.5 whitespace-pre-wrap">{surgery.notes}</p>
                   </div>
                 )}

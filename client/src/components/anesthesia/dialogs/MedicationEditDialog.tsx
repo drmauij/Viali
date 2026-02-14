@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingMedicationDose {
   swimlaneId: string;
@@ -42,6 +43,7 @@ export function MedicationEditDialog({
   onMedicationDoseDeleted,
   readOnly = false,
 }: MedicationEditDialogProps) {
+  const { t } = useTranslation();
   const [medicationEditInput, setMedicationEditInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
   const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
@@ -124,8 +126,8 @@ export function MedicationEditDialog({
     <BaseTimelineDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Dose"
-      description={swimlane?.label || 'Edit or delete the medication dose'}
+      title={t('dialogs.editDose')}
+      description={swimlane?.label || t('dialogs.editDoseDesc')}
       testId="dialog-medication-edit"
       time={medicationEditTime}
       onTimeChange={setMedicationEditTime}
@@ -139,7 +141,7 @@ export function MedicationEditDialog({
         {/* Preset Buttons if available */}
         {dosePresets.length > 0 && (
           <>
-            <div className="text-sm font-medium">Quick doses:</div>
+            <div className="text-sm font-medium">{t('dialogs.quickDoses')}</div>
             <div className="grid grid-cols-3 gap-2">
               {dosePresets.map((dose, idx) => (
                 <Button
@@ -163,7 +165,7 @@ export function MedicationEditDialog({
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Or custom
+                  {t('dialogs.orCustom')}
                 </span>
               </div>
             </div>
@@ -173,7 +175,7 @@ export function MedicationEditDialog({
         {/* Dose Input */}
         <div className="grid gap-2">
           <Label htmlFor="dose-edit-value">
-            Dose{swimlane?.administrationUnit ? ` (${swimlane.administrationUnit})` : ''}
+            {t('dialogs.dose')}{swimlane?.administrationUnit ? ` (${swimlane.administrationUnit})` : ''}
           </Label>
           <div className="flex items-center gap-2">
             <Input
@@ -201,7 +203,7 @@ export function MedicationEditDialog({
 
         {/* Note Input */}
         <div className="grid gap-2">
-          <Label htmlFor="dose-note-value">Note (optional)</Label>
+          <Label htmlFor="dose-note-value">{t('dialogs.noteOptional')}</Label>
           <Input
             id="dose-note-value"
             data-testid="input-dose-note-value"

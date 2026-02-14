@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Upload, Mic, Plus, LineChart, Camera, Activity } from "lucide-react";
 import { formatTime } from "@/lib/dateUtils";
+import { useTranslation } from "react-i18next";
 
 interface AnesthesiaTabProps {
   caseId: string;
@@ -59,6 +60,7 @@ const mockTimelineEntries = [
 ];
 
 export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
+  const { t } = useTranslation();
   const [isAddVitalsOpen, setIsAddVitalsOpen] = useState(false);
   const [isAddDrugOpen, setIsAddDrugOpen] = useState(false);
   const [isAddLineOpen, setIsAddLineOpen] = useState(false);
@@ -66,11 +68,11 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
   const getSourceBadge = (source: string) => {
     switch (source) {
       case "manual":
-        return <Badge variant="outline">Manual</Badge>;
+        return <Badge variant="outline">{t("anesthesia.op.manual")}</Badge>;
       case "vision":
-        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">AI Vision</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{t("anesthesia.op.aiVision")}</Badge>;
       case "voice":
-        return <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">AI Voice</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">{t("anesthesia.op.aiVoice")}</Badge>;
       default:
         return <Badge variant="secondary">{source}</Badge>;
     }
@@ -92,7 +94,7 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Intra-operative Record</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t("anesthesia.op.intraoperativeRecord")}</h2>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" data-testid="button-upload-monitor">
             <Camera className="h-4 w-4" />
@@ -104,12 +106,12 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
               id="monitor-upload"
             />
             <label htmlFor="monitor-upload" className="cursor-pointer">
-              Monitor Photo
+              {t("anesthesia.op.monitorPhoto")}
             </label>
           </Button>
           <Button variant="outline" className="gap-2" onClick={handleVoiceRecord} data-testid="button-voice-record">
             <Mic className="h-4 w-4" />
-            Voice Note
+            {t("anesthesia.op.voiceNote")}
           </Button>
         </div>
       </div>
@@ -120,7 +122,7 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4 text-red-500" />
-              Heart Rate
+              {t("anesthesia.op.heartRate")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -184,18 +186,18 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Timeline</CardTitle>
+            <CardTitle>{t("anesthesia.op.timeline")}</CardTitle>
             <div className="flex gap-2">
               <Dialog open={isAddVitalsOpen} onOpenChange={setIsAddVitalsOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-2" data-testid="button-add-vitals">
                     <Plus className="h-3 w-3" />
-                    Vitals
+                    {t("anesthesia.op.vitals")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Vitals Entry</DialogTitle>
+                    <DialogTitle>{t("anesthesia.op.addVitalsEntry")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -225,7 +227,7 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                       </div>
                     </div>
                     <Button className="w-full" onClick={() => setIsAddVitalsOpen(false)} data-testid="button-submit-vitals">
-                      Add Entry
+                      {t("anesthesia.op.addEntry")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -235,33 +237,33 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-2" data-testid="button-add-drug">
                     <Plus className="h-3 w-3" />
-                    Drug
+                    {t("anesthesia.op.drug")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Drug Administration</DialogTitle>
+                    <DialogTitle>{t("anesthesia.op.addDrugAdmin")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="drug">Drug Name</Label>
+                      <Label htmlFor="drug">{t("anesthesia.op.drugName")}</Label>
                       <Input id="drug" placeholder="e.g., Propofol" data-testid="input-drug-name" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="dose">Dose</Label>
+                        <Label htmlFor="dose">{t("anesthesia.op.dose")}</Label>
                         <Input id="dose" placeholder="200" data-testid="input-dose" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="unit">Unit</Label>
+                        <Label htmlFor="unit">{t("anesthesia.op.unit")}</Label>
                         <Input id="unit" placeholder="mg" data-testid="input-unit" />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="route">Route</Label>
+                      <Label htmlFor="route">{t("anesthesia.op.route")}</Label>
                       <Select>
                         <SelectTrigger data-testid="select-route">
-                          <SelectValue placeholder="Select route" />
+                          <SelectValue placeholder={t("anesthesia.op.selectRoute")} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="IV">IV</SelectItem>
@@ -272,10 +274,10 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mode">Mode</Label>
+                      <Label htmlFor="mode">{t("mode")}</Label>
                       <Select>
                         <SelectTrigger data-testid="select-mode">
-                          <SelectValue placeholder="Select mode" />
+                          <SelectValue placeholder={t("anesthesia.op.selectMode")} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="bolus">Bolus</SelectItem>
@@ -285,7 +287,7 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                       </Select>
                     </div>
                     <Button className="w-full" onClick={() => setIsAddDrugOpen(false)} data-testid="button-submit-drug">
-                      Add Drug
+                      {t("anesthesia.op.addDrug")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -295,44 +297,44 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-2" data-testid="button-add-line">
                     <Plus className="h-3 w-3" />
-                    Line/Airway
+                    {t("anesthesia.op.lineAirway")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Line/Airway</DialogTitle>
+                    <DialogTitle>{t("anesthesia.op.addLineAirway")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="type">Type</Label>
+                      <Label htmlFor="type">{t("anesthesia.op.type")}</Label>
                       <Select>
                         <SelectTrigger data-testid="select-line-type">
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder={t("anesthesia.op.selectType")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="airway">Airway</SelectItem>
-                          <SelectItem value="iv">IV Line</SelectItem>
-                          <SelectItem value="arterial">Arterial Line</SelectItem>
-                          <SelectItem value="cvl">Central Line</SelectItem>
+                          <SelectItem value="airway">{t("anesthesia.op.airway")}</SelectItem>
+                          <SelectItem value="iv">{t("anesthesia.op.ivLine")}</SelectItem>
+                          <SelectItem value="arterial">{t("anesthesia.op.arterialLine")}</SelectItem>
+                          <SelectItem value="cvl">{t("anesthesia.op.centralLine")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="device">Device</Label>
+                        <Label htmlFor="device">{t("anesthesia.op.device")}</Label>
                         <Input id="device" placeholder="e.g., ETT, 18G" data-testid="input-device" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="size">Size</Label>
+                        <Label htmlFor="size">{t("anesthesia.op.size")}</Label>
                         <Input id="size" placeholder="e.g., 7.5" data-testid="input-size" />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="site">Site/Details</Label>
+                      <Label htmlFor="site">{t("anesthesia.op.siteDetails")}</Label>
                       <Input id="site" placeholder="e.g., Left forearm, Grade I" data-testid="input-site" />
                     </div>
                     <Button className="w-full" onClick={() => setIsAddLineOpen(false)} data-testid="button-submit-line">
-                      Add Entry
+                      {t("anesthesia.op.addEntry")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -344,10 +346,10 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Details</TableHead>
+                <TableHead>{t("time")}</TableHead>
+                <TableHead>{t("anesthesia.op.source")}</TableHead>
+                <TableHead>{t("anesthesia.op.type")}</TableHead>
+                <TableHead>{t("anesthesia.op.details")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -358,9 +360,9 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
                   </TableCell>
                   <TableCell>{getSourceBadge(entry.source)}</TableCell>
                   <TableCell>
-                    {entry.vitals && <Badge variant="outline">Vitals</Badge>}
-                    {entry.events && <Badge variant="outline">Event</Badge>}
-                    {entry.installations && <Badge variant="outline">Installation</Badge>}
+                    {entry.vitals && <Badge variant="outline">{t("anesthesia.op.vitals")}</Badge>}
+                    {entry.events && <Badge variant="outline">{t("anesthesia.op.event")}</Badge>}
+                    {entry.installations && <Badge variant="outline">{t("anesthesia.op.installation")}</Badge>}
                   </TableCell>
                   <TableCell className="text-sm">
                     {entry.vitals && (

@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Search, GripVertical, Camera, Mic, Square, Loader2, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -56,6 +57,7 @@ export function StickyTimelineHeader({
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
+  const { t } = useTranslation();
   
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -101,7 +103,7 @@ export function StickyTimelineHeader({
       setShowCamera(true);
     } catch (error) {
       console.error('Error accessing camera:', error);
-      alert('Unable to access camera. Please check permissions.');
+      alert(t("anesthesia.timeline.cameraError"));
     }
   };
 
@@ -179,8 +181,8 @@ export function StickyTimelineHeader({
       
       // Show recording toast and store reference for manual dismissal
       const toastResult = toast({
-        title: "🎤 Recording...",
-        description: "Release button to process voice command",
+        title: t("anesthesia.timeline.recording"),
+        description: t("anesthesia.timeline.releaseToProcess"),
         duration: 30000, // Will auto-dismiss if user holds for 30 seconds
       });
       recordingToastRef.current = toastResult;
@@ -190,8 +192,8 @@ export function StickyTimelineHeader({
         if (mediaRecorderRef.current?.state === 'recording') {
           stopRecording();
           toast({
-            title: "Recording stopped",
-            description: "Maximum recording time (30s) reached",
+            title: t("anesthesia.timeline.recordingStopped"),
+            description: t("anesthesia.timeline.maxRecordingTime"),
             variant: "default",
           });
         }
@@ -199,8 +201,8 @@ export function StickyTimelineHeader({
     } catch (error) {
       console.error('Error accessing microphone:', error);
       toast({
-        title: "Microphone Error",
-        description: "Unable to access microphone. Check permissions.",
+        title: t("anesthesia.timeline.micError"),
+        description: t("anesthesia.timeline.micErrorDesc"),
         variant: "destructive",
       });
     }
@@ -577,9 +579,9 @@ export function StickyTimelineHeader({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md text-xs sm:text-sm font-medium h-8 sm:h-10 md:h-12 px-2 sm:px-3 md:px-4 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Reset Zoom"
+          title={t("anesthesia.timeline.reset")}
         >
-          Reset
+          {t("anesthesia.timeline.reset")}
         </button>
       </div>
       )}
@@ -660,7 +662,7 @@ export function StickyTimelineHeader({
                 ? 'bg-muted/50 cursor-not-allowed' 
                 : 'hover:bg-muted active:bg-muted/80 cursor-pointer'
           }`}
-          title={isRecording ? "Recording... (Release to stop)" : isProcessing ? "Processing..." : "Press & Hold to Record"}
+          title={isRecording ? t("anesthesia.timeline.recordingRelease") : isProcessing ? t("anesthesia.timeline.processing") : t("anesthesia.timeline.pressToRecord")}
         >
           {isProcessing ? (
             <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
@@ -677,7 +679,7 @@ export function StickyTimelineHeader({
         <div className="fixed inset-0 z-[10000] bg-black/90 flex flex-col portrait:justify-center landscape:justify-start items-center">
           {/* Warning Banner - Compact in landscape */}
           <div className="w-full bg-yellow-500 text-black px-2 py-1.5 portrait:py-3 text-center text-xs portrait:text-sm font-semibold portrait:absolute portrait:top-0 landscape:relative landscape:flex-shrink-0">
-            ⚠️ All photos sent to AI. No patient data.
+            {t("anesthesia.timeline.aiPhotoWarning")}
           </div>
 
           {/* Video Preview - Flexible sizing for orientation */}
@@ -698,14 +700,14 @@ export function StickyTimelineHeader({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
               data-testid="button-close-camera"
             >
-              Cancel
+              {t("cancel")}
             </button>
             <button
               onClick={capturePhoto}
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
               data-testid="button-capture-photo"
             >
-              Capture
+              {t("anesthesia.timeline.capture")}
             </button>
           </div>
         </div>

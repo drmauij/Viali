@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
+import { useTranslation } from "react-i18next";
 
 interface EditingInfusionValue {
   swimlaneId: string;
@@ -25,6 +26,7 @@ export function InfusionEditDialog({
   onInfusionValueEditSave,
   onInfusionValueDelete,
 }: InfusionEditDialogProps) {
+  const { t } = useTranslation();
   const [infusionEditInput, setInfusionEditInput] = useState("");
   const [infusionEditTime, setInfusionEditTime] = useState<number>(0);
 
@@ -73,8 +75,8 @@ export function InfusionEditDialog({
           onOpenChange(true);
         }
       }}
-      title="Edit Infusion Rate"
-      description="Edit or delete the infusion rate"
+      title={t('dialogs.editInfusionRate')}
+      description={t('dialogs.editInfusionRateDesc')}
       testId="dialog-infusion-edit"
       time={infusionEditTime}
       onTimeChange={setInfusionEditTime}
@@ -86,7 +88,7 @@ export function InfusionEditDialog({
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="infusion-edit-value">Rate</Label>
+          <Label htmlFor="infusion-edit-value">{t('common.rate')}</Label>
           <Input
             id="infusion-edit-value"
             data-testid="input-infusion-edit-value"

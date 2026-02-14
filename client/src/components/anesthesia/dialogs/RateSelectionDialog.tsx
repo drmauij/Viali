@@ -47,8 +47,8 @@ export function RateSelectionDialog({
     const rate = customRateInput.trim();
     if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
       toast({
-        title: "Invalid rate",
-        description: "Please enter a valid positive number",
+        title: t('dialogs.invalidRate'),
+        description: t('dialogs.enterValidPositiveNumber'),
         variant: "destructive",
       });
       return;
@@ -80,8 +80,8 @@ export function RateSelectionDialog({
           onOpenChange(true);
         }
       }}
-      title="Select Rate"
-      description={pendingRateSelection ? `${pendingRateSelection.label}` : 'Select a rate or enter a custom value'}
+      title={t('dialogs.selectRate')}
+      description={pendingRateSelection ? `${pendingRateSelection.label}` : t('dialogs.selectRateDesc')}
       testId="dialog-rate-selection"
       time={pendingRateSelection?.time}
       onTimeChange={(newTime) => {
@@ -91,10 +91,10 @@ export function RateSelectionDialog({
       onCancel={handleClose}
       onSave={handleCustomRate}
       saveDisabled={!customRateInput.trim()}
-      saveLabel="Set Custom"
+      saveLabel={t('dialogs.setCustom')}
     >
       <div className="grid gap-4 py-4">
-        <div className="text-sm font-medium">Choose from preset rates:</div>
+        <div className="text-sm font-medium">{t('dialogs.choosePresetRates')}</div>
         <div className="grid grid-cols-3 gap-2">
           {pendingRateSelection?.rateOptions.map((rate, idx) => (
             <Button
@@ -119,7 +119,7 @@ export function RateSelectionDialog({
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="custom-rate">Custom Rate</Label>
+          <Label htmlFor="custom-rate">{t('dialogs.customRate')}</Label>
           <Input
             id="custom-rate"
             type="number"
@@ -139,7 +139,7 @@ export function RateSelectionDialog({
         {/* Initial Bolus (optional) */}
         <div className="grid gap-2 pt-2">
           <Label htmlFor="initial-bolus" className="text-sm">
-            Initial Bolus {administrationUnit ? `(${administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
+            {t('dialogs.initialBolus')} {administrationUnit ? `(${administrationUnit})` : ''} <span className="text-muted-foreground">({t('common.optional')})</span>
           </Label>
           <Input
             id="initial-bolus"
@@ -151,7 +151,7 @@ export function RateSelectionDialog({
             placeholder="e.g., 150"
           />
           <p className="text-xs text-muted-foreground">
-            Bolus dose given at infusion start (added to total medication count)
+            {t('dialogs.initialBolusHint')}
           </p>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface PendingFreeFlowDose {
   swimlaneId: string;
@@ -24,6 +25,7 @@ export function FreeFlowDoseDialog({
   pendingFreeFlowDose,
   onFreeFlowDoseEntry,
 }: FreeFlowDoseDialogProps) {
+  const { t } = useTranslation();
   const [freeFlowDoseInput, setFreeFlowDoseInput] = useState("");
   const { toast } = useToast();
 
@@ -43,8 +45,8 @@ export function FreeFlowDoseDialog({
     const doseValue = freeFlowDoseInput.trim();
     if (!doseValue || isNaN(Number(doseValue)) || Number(doseValue) <= 0) {
       toast({
-        title: "Invalid dose",
-        description: "Please enter a valid numeric dose value",
+        title: t('dialogs.invalidDose'),
+        description: t('dialogs.enterValidDose'),
         variant: "destructive",
       });
       return;
@@ -70,8 +72,8 @@ export function FreeFlowDoseDialog({
           onOpenChange(true);
         }
       }}
-      title="Enter Dose"
-      description={pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : 'Enter the dose for this free-flow infusion'}
+      title={t('dialogs.enterDose')}
+      description={pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : t('dialogs.enterDoseDesc')}
       testId="dialog-freeflow-dose"
       time={pendingFreeFlowDose?.time}
       onTimeChange={(newTime) => {
@@ -80,12 +82,12 @@ export function FreeFlowDoseDialog({
       onSave={handleSave}
       onCancel={handleClose}
       saveDisabled={!freeFlowDoseInput.trim()}
-      saveLabel="Start"
+      saveLabel={t('dialogs.start')}
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
           <Label htmlFor="freeflow-dose">
-            Dose{pendingFreeFlowDose?.administrationUnit ? ` (${pendingFreeFlowDose.administrationUnit})` : ''}
+            {t('dialogs.dose')}{pendingFreeFlowDose?.administrationUnit ? ` (${pendingFreeFlowDose.administrationUnit})` : ''}
           </Label>
           <div className="flex items-center gap-2">
             <Input

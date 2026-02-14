@@ -10,6 +10,7 @@ import { X, Trash2, Edit2, Save } from "lucide-react";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useTranslation } from "react-i18next";
 import type { Note } from "@shared/schema";
 
 interface NotesPanelProps {
@@ -25,6 +26,7 @@ interface NotesPanelProps {
 
 export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPanelProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -117,7 +119,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
   };
 
   const handleDeleteNote = (noteId: string) => {
-    if (confirm("Are you sure you want to delete this note?")) {
+    if (confirm(t("notes.deleteConfirm"))) {
       deleteNoteMutation.mutate(noteId);
     }
   };
@@ -148,7 +150,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border relative z-10">
-            <h2 className="text-lg font-semibold text-foreground">Notes</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("notes.title")}</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg hover:bg-accent flex items-center justify-center transition-colors relative z-10"
@@ -163,13 +165,13 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "personal" | "unit" | "hospital")}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="personal" data-testid="tab-personal-notes">
-                  My Notes
+                  {t("notes.myNotes")}
                 </TabsTrigger>
                 <TabsTrigger value="unit" data-testid="tab-unit-notes">
-                  Unit Notes
+                  {t("notes.unitNotes")}
                 </TabsTrigger>
                 <TabsTrigger value="hospital" data-testid="tab-hospital-notes">
-                  Hospital Notes
+                  {t("notes.hospitalNotes")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -179,11 +181,11 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
           <div className="p-4 border-b border-border">
             <Textarea
               placeholder={
-                activeTab === "personal" 
-                  ? "Add a personal note..." 
+                activeTab === "personal"
+                  ? t("notes.addPersonalNote")
                   : activeTab === "unit"
-                  ? "Add a shared note for your unit..."
-                  : "Add a hospital-wide note..."
+                  ? t("notes.addUnitNote")
+                  : t("notes.addHospitalNote")
               }
               value={newNoteContent}
               onChange={(e) => setNewNoteContent(e.target.value)}
@@ -196,17 +198,17 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
               className="w-full"
               data-testid="button-add-note"
             >
-              {createNoteMutation.isPending ? "Adding..." : "Add Note"}
+              {createNoteMutation.isPending ? t("common.adding") : t("notes.addNote")}
             </Button>
           </div>
 
           {/* Notes List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {isLoading ? (
-              <div className="text-center text-muted-foreground">Loading notes...</div>
+              <div className="text-center text-muted-foreground">{t("notes.loadingNotes")}</div>
             ) : displayedNotes.length === 0 ? (
               <div className="text-center text-muted-foreground" data-testid={`empty-${activeTab}-notes`}>
-                {activeTab === "personal" ? "No personal notes yet" : activeTab === "unit" ? "No unit notes yet" : "No hospital notes yet"}
+                {activeTab === "personal" ? t("notes.noPersonalNotes") : activeTab === "unit" ? t("notes.noUnitNotes") : t("notes.noHospitalNotes")}
               </div>
             ) : (
               <>
@@ -232,7 +234,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
                             data-testid={`button-save-note-${note.id}`}
                           >
                             <Save className="w-4 h-4 mr-1" />
-                            Save
+                            {t("common.save")}
                           </Button>
                           <Button
                             size="sm"
@@ -243,7 +245,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
                             }}
                             data-testid={`button-cancel-edit-${note.id}`}
                           >
-                            Cancel
+                            {t("common.cancel")}
                           </Button>
                         </div>
                       </>
