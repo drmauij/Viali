@@ -798,34 +798,6 @@ export default function PatientDetail() {
     },
   });
 
-  // Fetch all patient uploads using a dedicated query with proper dependencies
-  // The query key includes the response IDs to ensure refetch when new questionnaires are submitted
-  const submittedResponseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean).sort().join(',');
-  
-  const { data: patientUploads = [] } = useQuery<QuestionnaireUpload[]>({
-    queryKey: ['/api/questionnaire/patient-uploads', derivedPatientId, submittedResponseIds],
-    queryFn: async () => {
-      // Fetch uploads from all submitted questionnaire responses in parallel
-      const responseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean) as string[];
-      
-      const uploadPromises = responseIds.map(async (responseId) => {
-        const response = await fetch(`/api/questionnaire/responses/${responseId}`, {
-          headers: { 'x-active-hospital-id': activeHospital?.id || '' },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return (data.uploads || []) as QuestionnaireUpload[];
-        }
-        return [];
-      });
-      
-      const results = await Promise.all(uploadPromises);
-      return results.flat();
-    },
-    enabled: !!derivedPatientId && !!activeHospital?.id && submittedResponseIds.length > 0,
-    staleTime: 30000, // Cache for 30 seconds to avoid redundant calls
-  });
-
   // Fetch staff-uploaded documents
   const { data: staffDocuments = [], isLoading: isLoadingStaffDocs } = useQuery<StaffDocument[]>({
     queryKey: [`/api/patients/${derivedPatientId}/documents`, derivedPatientId],
@@ -859,7 +831,6 @@ export default function PatientDetail() {
   const [uploadDescription, setUploadDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<StaffDocument | null>(null);
-  const [patientUploadToDelete, setPatientUploadToDelete] = useState<QuestionnaireUpload | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch hospital anesthesia settings
@@ -1327,28 +1298,6 @@ export default function PatientDetail() {
     },
   });
 
-  // Mutation to delete a patient questionnaire upload
-  const deletePatientUploadMutation = useMutation({
-    mutationFn: async (uploadId: string) => {
-      return await apiRequest("DELETE", `/api/questionnaire/uploads/${uploadId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient-uploads', derivedPatientId] });
-      toast({
-        title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
-        description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
-      });
-      setPatientUploadToDelete(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorDocumentDelete', 'Failed to delete document'),
-        variant: "destructive",
-      });
-    },
-  });
-  
   // Handle file upload to S3
   const handleFileUpload = async (file: File) => {
     if (!derivedPatientId || !activeHospital?.id) return;
@@ -2770,8 +2719,8 @@ export default function PatientDetail() {
           </TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">
             {t('anesthesia.patientDetail.documents', 'Documents')}
-            {(patientUploads.length + staffDocuments.length + noteAttachmentDocs.length) > 0 && (
-              <Badge variant="secondary" className="ml-2">{patientUploads.length + staffDocuments.length + noteAttachmentDocs.length}</Badge>
+            {(staffDocuments.length + noteAttachmentDocs.length) > 0 && (
+              <Badge variant="secondary" className="ml-2">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
@@ -3717,135 +3666,6 @@ export default function PatientDetail() {
               </Card>
             )}
 
-            {/* Patient Questionnaire Uploads Section */}
-            {patientUploads.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
-                    <Badge variant="outline" className="ml-2">{patientUploads.length}</Badge>
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {patientUploads.map((upload) => {
-                      const isImage = upload.mimeType?.startsWith('image/');
-                      const categoryLabels: Record<string, string> = {
-                        medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
-                        diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
-                        exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
-                        consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
-                        lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
-                        imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
-                        referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
-                        external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
-                        other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
-                      };
-                      const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
-                      return (
-                        <div 
-                          key={upload.id}
-                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative"
-                          data-testid={`document-upload-${upload.id}`}
-                        >
-                          {canWrite && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground z-10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPatientUploadToDelete(upload);
-                              }}
-                              data-testid={`button-delete-patient-upload-${upload.id}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <div 
-                            className="cursor-pointer"
-                            onClick={() => {
-                              setPreviewDocument({
-                                id: upload.id,
-                                fileName: upload.fileName,
-                                mimeType: upload.mimeType || '',
-                                url: fileStreamUrl,
-                              });
-                            }}
-                          >
-                          {isImage ? (
-                            <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
-                              <img 
-                                src={fileStreamUrl} 
-                                alt={upload.fileName}
-                                className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  const parent = target.parentElement;
-                                  if (parent) {
-                                    while (parent.firstChild) parent.removeChild(parent.firstChild);
-                                    const wrapper = document.createElement('div');
-                                    wrapper.className = 'w-full h-full flex items-center justify-center';
-                                    const ns = 'http://www.w3.org/2000/svg';
-                                    const svg = document.createElementNS(ns, 'svg');
-                                    svg.setAttribute('width', '48');
-                                    svg.setAttribute('height', '48');
-                                    svg.setAttribute('viewBox', '0 0 24 24');
-                                    svg.setAttribute('fill', 'none');
-                                    svg.setAttribute('stroke', 'currentColor');
-                                    svg.setAttribute('stroke-width', '2');
-                                    svg.setAttribute('stroke-linecap', 'round');
-                                    svg.setAttribute('stroke-linejoin', 'round');
-                                    svg.setAttribute('class', 'text-muted-foreground');
-                                    const rect = document.createElementNS(ns, 'rect');
-                                    rect.setAttribute('width', '18'); rect.setAttribute('height', '18');
-                                    rect.setAttribute('x', '3'); rect.setAttribute('y', '3');
-                                    rect.setAttribute('rx', '2'); rect.setAttribute('ry', '2');
-                                    const circle = document.createElementNS(ns, 'circle');
-                                    circle.setAttribute('cx', '9'); circle.setAttribute('cy', '9'); circle.setAttribute('r', '2');
-                                    const path = document.createElementNS(ns, 'path');
-                                    path.setAttribute('d', 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21');
-                                    svg.appendChild(rect); svg.appendChild(circle); svg.appendChild(path);
-                                    wrapper.appendChild(svg);
-                                    parent.appendChild(wrapper);
-                                  }
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
-                              <FileText className="h-16 w-16 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="space-y-2">
-                            <p className="font-medium truncate group-hover:text-primary transition-colors">
-                              {upload.fileName}
-                            </p>
-                            <div className="flex items-center justify-between text-sm text-muted-foreground">
-                              <Badge variant="secondary">
-                                {categoryLabels[upload.category] || upload.category}
-                              </Badge>
-                              {upload.fileSize && (
-                                <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
-                              )}
-                            </div>
-                            {upload.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{upload.description}</p>
-                            )}
-                          </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </TabsContent>
 
@@ -7478,37 +7298,6 @@ export default function PatientDetail() {
               data-testid="button-confirm-delete-document"
             >
               {deleteDocumentMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t('common.deleting', 'Deleting...')}
-                </>
-              ) : (
-                t('common.delete')
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Patient Upload Confirmation Dialog */}
-      <AlertDialog open={!!patientUploadToDelete} onOpenChange={(open) => !open && setPatientUploadToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('anesthesia.patientDetail.deleteDocument', 'Delete Document')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('anesthesia.patientDetail.deleteDocumentConfirm', 'Are you sure you want to delete "{fileName}"? This action cannot be undone.', { fileName: patientUploadToDelete?.fileName })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-patient-upload">
-              {t('common.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => patientUploadToDelete && deletePatientUploadMutation.mutate(patientUploadToDelete.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-patient-upload"
-            >
-              {deletePatientUploadMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   {t('common.deleting', 'Deleting...')}
