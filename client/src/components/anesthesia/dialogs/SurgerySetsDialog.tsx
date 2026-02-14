@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,14 @@ export function SurgerySetsDialog({
 }: SurgerySetsDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState(isAdmin ? "manage" : "apply");
+  const [activeTab, setActiveTab] = useState(recordId ? "apply" : (isAdmin ? "manage" : "apply"));
+
+  useEffect(() => {
+    if (open && recordId) {
+      setActiveTab("apply");
+    }
+  }, [open, recordId]);
+
   const [editingSet, setEditingSet] = useState<SurgerySetData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formName, setFormName] = useState("");
