@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { OutputData } from '@/hooks/useOutputState';
 
@@ -63,6 +64,7 @@ export function OutputSwimlane({
   onOutputEditDialogOpen,
   onOutputBulkDialogOpen,
 }: OutputSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     outputState,
     currentTime,
@@ -161,7 +163,7 @@ export function OutputSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click for bulk entry
+            {t('anesthesia.timeline.output.clickForBulkEntry', 'Click for bulk entry')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(outputBulkHoverInfo.time)}
@@ -286,7 +288,7 @@ export function OutputSwimlane({
             }}
           >
             <div className="text-sm font-semibold text-primary">
-              {hasExistingValue ? 'Click to edit value' : 'Click to add value'}
+              {hasExistingValue ? t('anesthesia.timeline.output.clickToEdit', 'Click to edit value') : t('anesthesia.timeline.output.clickToAdd', 'Click to add value')}
             </div>
             <div className="text-xs text-muted-foreground">
               {outputHoverInfo.label}

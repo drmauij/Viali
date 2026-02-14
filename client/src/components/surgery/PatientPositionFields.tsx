@@ -49,7 +49,7 @@ export function PatientPositionFields({
   disabled = false,
   testIdPrefix = "",
 }: PatientPositionFieldsProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isGerman = i18n.language === "de";
 
   const getPositionLabel = (key: string) => {
@@ -65,7 +65,7 @@ export function PatientPositionFields({
   return (
     <>
       <div className="space-y-2">
-        <Label>{isGerman ? "Patientenlagerung" : "Patient Position"}</Label>
+        <Label>{t('surgery.position.patientPosition', 'Patient Position')}</Label>
         <div className="flex gap-2 items-center">
           <Select
             value={patientPosition || "__none__"}
@@ -73,10 +73,10 @@ export function PatientPositionFields({
             disabled={disabled}
           >
             <SelectTrigger className="min-h-[44px]" data-testid={`${testIdPrefix}select-patient-position`}>
-              <SelectValue placeholder={isGerman ? "Position wählen..." : "Select position..."} />
+              <SelectValue placeholder={t('surgery.position.selectPosition', 'Select position...')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">{isGerman ? "Keine Auswahl" : "No selection"}</SelectItem>
+              <SelectItem value="__none__">{t('surgery.position.noSelection', 'No selection')}</SelectItem>
               {PATIENT_POSITIONS.map((pos) => (
                 <SelectItem key={pos} value={pos} data-testid={`${testIdPrefix}option-position-${pos}`}>
                   {getPositionLabel(pos)}
@@ -89,7 +89,7 @@ export function PatientPositionFields({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>{isGerman ? "Linker Arm" : "Left Arm"}</Label>
+          <Label>{t('surgery.position.leftArm', 'Left Arm')}</Label>
           <div className="flex gap-1">
             <button
               type="button"
@@ -121,7 +121,7 @@ export function PatientPositionFields({
         </div>
 
         <div className="space-y-2">
-          <Label>{isGerman ? "Rechter Arm" : "Right Arm"}</Label>
+          <Label>{t('surgery.position.rightArm', 'Right Arm')}</Label>
           <div className="flex gap-1">
             <button
               type="button"

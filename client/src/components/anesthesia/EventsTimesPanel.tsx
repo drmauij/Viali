@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { X, MessageSquare, Clock } from "lucide-react";
 import { formatTime, formatElapsedTime } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
 
 interface EventComment {
   id: string;
@@ -36,6 +37,7 @@ export function EventsTimesPanel({
   onEventClick,
   onTimeMarkerClick,
 }: EventsTimesPanelProps) {
+  const { t } = useTranslation();
   // Combine events and time markers into a single sorted list
   const combinedItems = [
     ...events.map(event => ({
@@ -77,7 +79,7 @@ export function EventsTimesPanel({
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold">Events & Times</h2>
+              <h2 className="text-lg font-semibold">{t('anesthesia.timeline.eventsTimesPanel.title', 'Events & Times')}</h2>
             </div>
             <Button
               variant="ghost"
@@ -95,7 +97,7 @@ export function EventsTimesPanel({
               {combinedItems.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                  <p>No events or times recorded yet</p>
+                  <p>{t('anesthesia.timeline.eventsTimesPanel.empty', 'No events or times recorded yet')}</p>
                 </div>
               ) : (
                 combinedItems.map((item, idx) => {
@@ -113,7 +115,7 @@ export function EventsTimesPanel({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="text-xs">
-                                Event
+                                {t('anesthesia.timeline.eventsTimesPanel.eventBadge', 'Event')}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {formatTime(new Date(event.time))}
@@ -146,7 +148,7 @@ export function EventsTimesPanel({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge variant="outline" className="text-xs">
-                                Time Marker
+                                {t('anesthesia.timeline.eventsTimesPanel.timeMarkerBadge', 'Time Marker')}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {marker.time && formatTime(new Date(marker.time))}

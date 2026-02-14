@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { StaffPoint } from '@/hooks/useEventState';
 
@@ -41,6 +42,7 @@ export function StaffSwimlane({
   onStaffDialogOpen,
   onStaffEditDialogOpen,
 }: StaffSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentTime,
@@ -141,7 +143,7 @@ export function StaffSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add {staffHoverInfo.role.toLowerCase()}
+            {t('anesthesia.timeline.staff.clickToAdd', 'Click to add {{role}}', { role: staffHoverInfo.role.toLowerCase() })}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(staffHoverInfo.time))}

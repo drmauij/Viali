@@ -541,13 +541,13 @@ export function ManageAvailabilityDialog({
                                 {item.recurrencePattern === 'biweekly' && t('availability.biweekly', 'Every 2 Weeks')}
                                 {item.recurrencePattern === 'monthly' && t('availability.monthly', 'Monthly')}
                                 {item.recurrenceDaysOfWeek && item.recurrenceDaysOfWeek.length > 0 && (
-                                  <> ({item.recurrenceDaysOfWeek.map(d => DAY_NAMES[d]).join(', ')})</>
+                                  <> ({item.recurrenceDaysOfWeek.map(d => t(DAY_NAME_KEYS[d].key, DAY_NAME_KEYS[d].fallback)).join(', ')})</>
                                 )}
                                 {item.recurrenceEndDate && (
-                                  <> until {format(parseISO(item.recurrenceEndDate), 'PP', { locale: dateLocale })}</>
+                                  <> {t('availability.until', 'until')} {format(parseISO(item.recurrenceEndDate), 'PP', { locale: dateLocale })}</>
                                 )}
                                 {item.recurrenceCount && (
-                                  <> ({item.recurrenceCount} times)</>
+                                  <> ({t('availability.times', '{{count}} times', { count: item.recurrenceCount })})</>
                                 )}
                               </p>
                             )}
@@ -592,7 +592,15 @@ export function ManageAvailabilityDialog({
   );
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAME_KEYS = [
+  { key: 'availability.daysShort.sun', fallback: 'Sun' },
+  { key: 'availability.daysShort.mon', fallback: 'Mon' },
+  { key: 'availability.daysShort.tue', fallback: 'Tue' },
+  { key: 'availability.daysShort.wed', fallback: 'Wed' },
+  { key: 'availability.daysShort.thu', fallback: 'Thu' },
+  { key: 'availability.daysShort.fri', fallback: 'Fri' },
+  { key: 'availability.daysShort.sat', fallback: 'Sat' },
+];
 
 function TimeOffDialog({
   open,
@@ -748,7 +756,7 @@ function TimeOffDialog({
                   <div>
                     <Label className="mb-2 block">{t('availability.daysOfWeek', 'Days of Week')}</Label>
                     <div className="flex flex-wrap gap-2">
-                      {DAY_NAMES.map((day, index) => (
+                      {DAY_NAME_KEYS.map((dayKey, index) => (
                         <Button
                           key={index}
                           type="button"
@@ -757,7 +765,7 @@ function TimeOffDialog({
                           onClick={() => toggleDayOfWeek(index)}
                           data-testid={`button-day-${index}-nested`}
                         >
-                          {day}
+                          {t(dayKey.key, dayKey.fallback)}
                         </Button>
                       ))}
                     </div>

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Activity, AlertTriangle } from "lucide-react";
 import { formatTime } from "@/lib/dateUtils";
+import { useTranslation } from "react-i18next";
 
 interface PostopTabProps {
   caseId: string;
@@ -49,6 +50,7 @@ const mockPostopData = {
 };
 
 export default function PostopTab({ caseId }: PostopTabProps) {
+  const { t } = useTranslation();
   const [isAddVitalsOpen, setIsAddVitalsOpen] = useState(false);
   const [isAddAnalgesiaOpen, setIsAddAnalgesiaOpen] = useState(false);
   const [isAddComplicationOpen, setIsAddComplicationOpen] = useState(false);
@@ -62,39 +64,39 @@ export default function PostopTab({ caseId }: PostopTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Post-operative Record</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.postop.title', 'Post-operative Record')}</h2>
         <Dialog open={isAddVitalsOpen} onOpenChange={setIsAddVitalsOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-add-postop-vitals">
               <Plus className="h-4 w-4" />
-              Add Vitals
+              {t('anesthesia.postop.addVitals', 'Add Vitals')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add PACU Vitals</DialogTitle>
+              <DialogTitle>{t('anesthesia.postop.addPacuVitals', 'Add PACU Vitals')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="postop-hr">HR (bpm)</Label>
+                  <Label htmlFor="postop-hr">{t('anesthesia.postop.hrBpm', 'HR (bpm)')}</Label>
                   <Input id="postop-hr" type="number" placeholder="75" data-testid="input-postop-hr" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="postop-spo2">SpO₂ (%)</Label>
+                  <Label htmlFor="postop-spo2">{t('anesthesia.postop.spo2Percent', 'SpO₂ (%)')}</Label>
                   <Input id="postop-spo2" type="number" placeholder="98" data-testid="input-postop-spo2" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="postop-bp">BP</Label>
+                  <Label htmlFor="postop-bp">{t('anesthesia.postop.bpLabel', 'BP')}</Label>
                   <Input id="postop-bp" placeholder="120/80" data-testid="input-postop-bp" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pain-score">Pain Score (0-10)</Label>
+                  <Label htmlFor="pain-score">{t('anesthesia.postop.painScore', 'Pain Score (0-10)')}</Label>
                   <Input id="pain-score" type="number" min="0" max="10" placeholder="3" data-testid="input-pain-score" />
                 </div>
               </div>
               <Button className="w-full" onClick={() => setIsAddVitalsOpen(false)} data-testid="button-submit-postop-vitals">
-                Add Entry
+                {t('anesthesia.postop.addEntry', 'Add Entry')}
               </Button>
             </div>
           </DialogContent>
@@ -104,21 +106,21 @@ export default function PostopTab({ caseId }: PostopTabProps) {
       {/* Post-operative Destination */}
       <Card>
         <CardHeader>
-          <CardTitle>Post-operative Destination</CardTitle>
+          <CardTitle>{t('anesthesia.postop.destination', 'Post-operative Destination')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <Label htmlFor="postop-destination">Destination</Label>
+            <Label htmlFor="postop-destination">{t('anesthesia.postop.destinationLabel', 'Destination')}</Label>
             <Select>
               <SelectTrigger data-testid="select-postop-destination">
-                <SelectValue placeholder="Select post-operative destination" />
+                <SelectValue placeholder={t('anesthesia.postop.selectDestination', 'Select post-operative destination')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="recovery_room">Recovery Room</SelectItem>
-                <SelectItem value="regular_ward">Regular Ward</SelectItem>
-                <SelectItem value="planned_outpatient_discharge">Planned Outpatient Discharge</SelectItem>
-                <SelectItem value="unplanned_inpatient_admission">Unplanned Inpatient Admission</SelectItem>
-                <SelectItem value="unplanned_transfer_emergency">Unplanned Transfer with Emergency Services</SelectItem>
+                <SelectItem value="recovery_room">{t('anesthesia.postop.recoveryRoom', 'Recovery Room')}</SelectItem>
+                <SelectItem value="regular_ward">{t('anesthesia.postop.regularWard', 'Regular Ward')}</SelectItem>
+                <SelectItem value="planned_outpatient_discharge">{t('anesthesia.postop.plannedOutpatientDischarge', 'Planned Outpatient Discharge')}</SelectItem>
+                <SelectItem value="unplanned_inpatient_admission">{t('anesthesia.postop.unplannedInpatientAdmission', 'Unplanned Inpatient Admission')}</SelectItem>
+                <SelectItem value="unplanned_transfer_emergency">{t('anesthesia.postop.unplannedTransferEmergency', 'Unplanned Transfer with Emergency Services')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -130,19 +132,19 @@ export default function PostopTab({ caseId }: PostopTabProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            PACU Timeline
+            {t('anesthesia.postop.pacuTimeline', 'PACU Timeline')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>HR</TableHead>
-                <TableHead>SpO₂</TableHead>
-                <TableHead>BP</TableHead>
-                <TableHead>Pain (NRS)</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead>{t('anesthesia.postop.time', 'Time')}</TableHead>
+                <TableHead>{t('anesthesia.postop.hr', 'HR')}</TableHead>
+                <TableHead>{t('anesthesia.postop.spo2', 'SpO₂')}</TableHead>
+                <TableHead>{t('anesthesia.postop.bp', 'BP')}</TableHead>
+                <TableHead>{t('anesthesia.postop.painNrs', 'Pain (NRS)')}</TableHead>
+                <TableHead>{t('anesthesia.postop.notes', 'Notes')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -178,33 +180,33 @@ export default function PostopTab({ caseId }: PostopTabProps) {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle>Analgesia Administered</CardTitle>
+              <CardTitle>{t('anesthesia.postop.analgesiaAdministered', 'Analgesia Administered')}</CardTitle>
               <Dialog open={isAddAnalgesiaOpen} onOpenChange={setIsAddAnalgesiaOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-2" data-testid="button-add-analgesia">
                     <Plus className="h-3 w-3" />
-                    Add
+                    {t('common.add', 'Add')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Analgesia</DialogTitle>
+                    <DialogTitle>{t('anesthesia.postop.addAnalgesia', 'Add Analgesia')}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="analgesia-drug">Drug</Label>
+                      <Label htmlFor="analgesia-drug">{t('anesthesia.postop.drug', 'Drug')}</Label>
                       <Input id="analgesia-drug" placeholder="e.g., Morphine" data-testid="input-analgesia-drug" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="analgesia-dose">Dose</Label>
+                        <Label htmlFor="analgesia-dose">{t('anesthesia.postop.dose', 'Dose')}</Label>
                         <Input id="analgesia-dose" placeholder="5 mg" data-testid="input-analgesia-dose" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="analgesia-route">Route</Label>
+                        <Label htmlFor="analgesia-route">{t('anesthesia.postop.route', 'Route')}</Label>
                         <Select>
                           <SelectTrigger data-testid="select-analgesia-route">
-                            <SelectValue placeholder="Route" />
+                            <SelectValue placeholder={t('anesthesia.postop.route', 'Route')} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="IV">IV</SelectItem>
@@ -215,7 +217,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
                       </div>
                     </div>
                     <Button className="w-full" onClick={() => setIsAddAnalgesiaOpen(false)} data-testid="button-submit-analgesia">
-                      Add Analgesia
+                      {t('anesthesia.postop.addAnalgesia', 'Add Analgesia')}
                     </Button>
                   </div>
                 </DialogContent>
@@ -240,30 +242,30 @@ export default function PostopTab({ caseId }: PostopTabProps) {
             <div className="flex justify-between items-center">
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Complications
+                {t('anesthesia.postop.complications', 'Complications')}
               </CardTitle>
               <Dialog open={isAddComplicationOpen} onOpenChange={setIsAddComplicationOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-2" data-testid="button-add-complication">
                     <Plus className="h-3 w-3" />
-                    Add
+                    {t('common.add', 'Add')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Complication</DialogTitle>
+                    <DialogTitle>{t('anesthesia.postop.addComplication', 'Add Complication')}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="complication">Complication</Label>
+                      <Label htmlFor="complication">{t('anesthesia.postop.complication', 'Complication')}</Label>
                       <Input id="complication" placeholder="e.g., PONV, Hypotension" data-testid="input-complication" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="complication-details">Details/Management</Label>
+                      <Label htmlFor="complication-details">{t('anesthesia.postop.detailsManagement', 'Details/Management')}</Label>
                       <Textarea id="complication-details" rows={3} data-testid="textarea-complication-details" />
                     </div>
                     <Button className="w-full" onClick={() => setIsAddComplicationOpen(false)} data-testid="button-submit-complication">
-                      Add Complication
+                      {t('anesthesia.postop.addComplication', 'Add Complication')}
                     </Button>
                   </div>
                 </DialogContent>
@@ -278,7 +280,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No complications recorded</p>
+              <p className="text-sm text-muted-foreground">{t('anesthesia.postop.noComplications', 'No complications recorded')}</p>
             )}
           </CardContent>
         </Card>
@@ -288,13 +290,13 @@ export default function PostopTab({ caseId }: PostopTabProps) {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Summary</CardTitle>
+            <CardTitle>{t('anesthesia.postop.summary', 'Summary')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
               defaultValue={mockPostopData.summary}
               rows={4}
-              placeholder="Post-operative summary..."
+              placeholder={t('anesthesia.postop.summaryPlaceholder', 'Post-operative summary...')}
               data-testid="textarea-postop-summary"
             />
           </CardContent>
@@ -302,11 +304,11 @@ export default function PostopTab({ caseId }: PostopTabProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Disposition & Notes</CardTitle>
+            <CardTitle>{t('anesthesia.postop.dispositionAndNotes', 'Disposition & Notes')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="disposition">Disposition</Label>
+              <Label htmlFor="disposition">{t('anesthesia.postop.disposition', 'Disposition')}</Label>
               <Select defaultValue={mockPostopData.disposition}>
                 <SelectTrigger data-testid="select-disposition">
                   <SelectValue />
@@ -320,7 +322,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="postop-notes">Notes</Label>
+              <Label htmlFor="postop-notes">{t('anesthesia.postop.notes', 'Notes')}</Label>
               <Textarea
                 id="postop-notes"
                 defaultValue={mockPostopData.notes}
@@ -333,7 +335,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
       </div>
 
       <Button className="w-full" size="lg" data-testid="button-save-postop">
-        Save Post-op Record
+        {t('anesthesia.postop.saveRecord', 'Save Post-op Record')}
       </Button>
     </div>
   );

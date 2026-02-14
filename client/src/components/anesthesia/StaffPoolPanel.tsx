@@ -411,9 +411,9 @@ export default function StaffPoolPanel({ selectedDate, hospitalId }: StaffPoolPa
             {t('staffPool.title', 'Staff Pool')}
           </CardTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="text-green-600 dark:text-green-400">{availableCount} available</span>
+            <span className="text-green-600 dark:text-green-400">{availableCount} {t('staffPool.available', 'available')}</span>
             {bookedCount > 0 && (
-              <span className="text-muted-foreground">| {bookedCount} assigned</span>
+              <span className="text-muted-foreground">| {bookedCount} {t('staffPool.assigned', 'assigned')}</span>
             )}
           </div>
         </div>

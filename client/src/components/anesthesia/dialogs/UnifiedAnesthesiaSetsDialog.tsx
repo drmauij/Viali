@@ -565,7 +565,7 @@ export function UnifiedAnesthesiaSetsDialog({
     
     return (
       <div className="mt-3 p-3 border rounded-md bg-muted/30 space-y-3">
-        <div className="text-sm font-medium">{selectedTechniqueCategory.label} - Template Fields</div>
+        <div className="text-sm font-medium">{selectedTechniqueCategory.label} - {t('anesthesia.sets.templateFields', 'Template Fields')}</div>
         <div className="grid grid-cols-2 gap-3">
           {selectedTechniqueCategory.fields.map((field: any) => (
             <div key={field.key} className="space-y-1">
@@ -576,7 +576,7 @@ export function UnifiedAnesthesiaSetsDialog({
                   value={currentTechniqueMetadata[field.key] || ""}
                   onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.value }))}
                 >
-                  <option value="">Select...</option>
+                  <option value="">{t('common.select', 'Select...')}</option>
                   {field.options?.map((opt: string) => (
                     <option key={opt} value={opt}>
                       {opt.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
@@ -591,7 +591,7 @@ export function UnifiedAnesthesiaSetsDialog({
                     onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.checked }))}
                     className="h-4 w-4"
                   />
-                  <span className="text-sm">Yes</span>
+                  <span className="text-sm">{t('common.yes', 'Yes')}</span>
                 </label>
               ) : field.type === 'number' ? (
                 <Input
@@ -679,23 +679,23 @@ export function UnifiedAnesthesiaSetsDialog({
                     <SelectValue placeholder={t("anesthesia.sets.selectType", "Select technique type...")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__header_install" disabled className="font-semibold text-muted-foreground">Installations</SelectItem>
+                    <SelectItem value="__header_install" disabled className="font-semibold text-muted-foreground">{t('anesthesia.sets.installations', 'Installations')}</SelectItem>
                     {TECHNIQUE_CATEGORIES.filter(c => c.category === 'installation').map(cat => (
                       <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}
-                    <SelectItem value="__header_anesthesia" disabled className="font-semibold text-muted-foreground">Anesthesia</SelectItem>
+                    <SelectItem value="__header_anesthesia" disabled className="font-semibold text-muted-foreground">{t('anesthesia.sets.anesthesia', 'Anesthesia')}</SelectItem>
                     {TECHNIQUE_CATEGORIES.filter(c => c.category === 'anesthesia').map(cat => (
                       <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}
-                    <SelectItem value="__header_neuraxial" disabled className="font-semibold text-muted-foreground">Neuraxial</SelectItem>
+                    <SelectItem value="__header_neuraxial" disabled className="font-semibold text-muted-foreground">{t('anesthesia.sets.neuraxial', 'Neuraxial')}</SelectItem>
                     {TECHNIQUE_CATEGORIES.filter(c => c.category === 'neuraxial').map(cat => (
                       <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}
-                    <SelectItem value="__header_regional" disabled className="font-semibold text-muted-foreground">Regional</SelectItem>
+                    <SelectItem value="__header_regional" disabled className="font-semibold text-muted-foreground">{t('anesthesia.sets.regional', 'Regional')}</SelectItem>
                     {TECHNIQUE_CATEGORIES.filter(c => c.category === 'regional').map(cat => (
                       <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}
-                    <SelectItem value="__header_assessment" disabled className="font-semibold text-muted-foreground">Assessment</SelectItem>
+                    <SelectItem value="__header_assessment" disabled className="font-semibold text-muted-foreground">{t('anesthesia.sets.assessment', 'Assessment')}</SelectItem>
                     {TECHNIQUE_CATEGORIES.filter(c => c.category === 'assessment').map(cat => (
                       <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}

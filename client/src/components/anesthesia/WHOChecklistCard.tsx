@@ -106,7 +106,7 @@ export function WHOChecklistCard({
               <Label htmlFor={`${checklistType}-notes`}>{t('anesthesia.op.additionalNotes')}</Label>
               <Textarea
                 id={`${checklistType}-notes`}
-                placeholder="Add any additional notes or observations..."
+                placeholder={t('anesthesia.op.notesPlaceholder', 'Add any additional notes or observations...')}
                 value={notes}
                 onChange={(e) => handleNotesChange(e.target.value)}
                 rows={3}

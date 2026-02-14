@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, StopCircle, PlayCircle, Copy } from "lucide-react";
 import { TimeAdjustInput } from "@/components/anesthesia/TimeAdjustInput";
+import { useTranslation } from "react-i18next";
 
 interface FreeFlowSession {
   swimlaneId: string;
@@ -54,7 +55,8 @@ export function FreeFlowManageDialog({
   sheetTimeInput,
   onSheetTimeInputChange,
 }: FreeFlowManageDialogProps) {
-  
+  const { t } = useTranslation();
+
   // Sync session data to form when session changes
   useEffect(() => {
     if (freeFlowSheetSession) {
@@ -77,9 +79,9 @@ export function FreeFlowManageDialog({
     }}>
       <DialogContent className="sm:max-w-[450px]" data-testid="dialog-freeflow-sheet">
         <DialogHeader>
-          <DialogTitle>{freeFlowSheetSession?.label || 'Free-Flow Infusion'}</DialogTitle>
+          <DialogTitle>{freeFlowSheetSession?.label || t('anesthesia.timeline.freeFlowInfusion', 'Free-Flow Infusion')}</DialogTitle>
           <DialogDescription>
-            Manage this free-flow infusion
+            {t('anesthesia.timeline.manageFreeFlow', 'Manage this free-flow infusion')}
           </DialogDescription>
         </DialogHeader>
         
@@ -101,7 +103,7 @@ export function FreeFlowManageDialog({
               {/* Parameters - always visible */}
               <div className="grid gap-3 mb-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
+                  <Label htmlFor="sheet-dose" className="text-xs">{t('anesthesia.timeline.quantity', 'Quantity')}</Label>
                   <Input
                     id="sheet-dose"
                     type="number"
@@ -114,7 +116,7 @@ export function FreeFlowManageDialog({
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
+                  <Label htmlFor="sheet-time" className="text-xs">{t('anesthesia.timeline.startTime', 'Start Time')}</Label>
                   <TimeAdjustInput
                     value={sheetTimeInput}
                     onChange={onSheetTimeInputChange}
@@ -133,7 +135,7 @@ export function FreeFlowManageDialog({
                     data-testid="button-sheet-delete"
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
+                    {t('common.delete', 'Delete')}
                   </Button>
                   
                   <div className="flex gap-2">
@@ -146,7 +148,7 @@ export function FreeFlowManageDialog({
                         data-testid="button-sheet-stop"
                       >
                         <StopCircle className="w-4 h-4 mr-1" />
-                        Stop
+                        {t('anesthesia.timeline.stop', 'Stop')}
                       </Button>
                     )}
                     
@@ -159,7 +161,7 @@ export function FreeFlowManageDialog({
                         data-testid="button-sheet-save"
                         disabled={!sheetDoseInput.trim()}
                       >
-                        Save
+                        {t('common.save', 'Save')}
                       </Button>
                     )}
                     
@@ -172,7 +174,7 @@ export function FreeFlowManageDialog({
                         data-testid="button-sheet-start-new"
                       >
                         <PlayCircle className="w-4 h-4 mr-1" />
-                        Start New
+                        {t('anesthesia.timeline.startNew', 'Start New')}
                       </Button>
                     )}
                   </div>
@@ -182,7 +184,7 @@ export function FreeFlowManageDialog({
                 {isRunning && onSheetDuplicate && (
                   <div className="flex flex-col gap-2">
                     <div className="text-xs text-muted-foreground text-center">
-                      Create a parallel infusion:
+                      {t('anesthesia.timeline.createParallelInfusion', 'Create a parallel infusion:')}
                     </div>
                     <Button
                       variant="outline"
@@ -192,7 +194,7 @@ export function FreeFlowManageDialog({
                       className="w-full"
                     >
                       <Copy className="w-4 h-4 mr-1" />
-                      Duplicate (Parallel Infusion)
+                      {t('anesthesia.timeline.duplicateParallel', 'Duplicate (Parallel Infusion)')}
                     </Button>
                   </div>
                 )}

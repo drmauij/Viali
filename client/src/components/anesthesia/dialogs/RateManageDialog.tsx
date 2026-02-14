@@ -142,12 +142,12 @@ export function RateManageDialog({
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
         <DialogHeader>
           <DialogTitle>
-            {managingRate?.label ? managingRate.label.split('(')[0].trim() : 'Rate-Controlled Infusion'}
+            {managingRate?.label ? managingRate.label.split('(')[0].trim() : t('anesthesia.timeline.rateControlledInfusion', 'Rate-Controlled Infusion')}
           </DialogTitle>
           <DialogDescription>
             {isTciMode 
-              ? (isRunning ? t("anesthesia.timeline.tciManageDescription", "Adjust target concentration or stop infusion") : "TCI infusion stopped")
-              : (isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped")
+              ? (isRunning ? t("anesthesia.timeline.tciManageDescription", "Adjust target concentration or stop infusion") : t("anesthesia.timeline.tciStopped", "TCI infusion stopped"))
+              : (isRunning ? t("anesthesia.timeline.adjustInfusionRate", "Adjust or change infusion rate") : t("anesthesia.timeline.infusionStopped", "This infusion is currently stopped"))
             }
           </DialogDescription>
         </DialogHeader>
@@ -261,7 +261,7 @@ export function RateManageDialog({
               {/* Rate Adjustment Section - For non-TCI mode */}
               <div className="grid gap-3">
                 <Label htmlFor="rate-input" className="text-sm font-medium">
-                  {managingRate?.label ? `${managingRate.label.split(' ')[0]} Rate` : "Rate"}
+                  {managingRate?.label ? `${managingRate.label.split(' ')[0]} ${t("anesthesia.timeline.rate", "Rate")}` : t("anesthesia.timeline.rate", "Rate")}
                 </Label>
                 <div className="flex items-center gap-2">
                   <Button
@@ -307,7 +307,7 @@ export function RateManageDialog({
                   className="w-full"
                   data-testid="button-save-rate"
                 >
-                  Save
+                  {t('common.save', 'Save')}
                 </Button>
               </div>
 
@@ -321,7 +321,7 @@ export function RateManageDialog({
                     data-testid="button-rate-stop"
                   >
                     <StopCircle className="w-4 h-4 mr-2" />
-                    Stop Infusion
+                    {t('anesthesia.timeline.stopInfusion', 'Stop Infusion')}
                   </Button>
                 )}
                 
@@ -332,7 +332,7 @@ export function RateManageDialog({
                   data-testid="button-rate-start-new"
                 >
                   <PlayCircle className="w-4 h-4 mr-2" />
-                  Start New Infusion
+                  {t('anesthesia.timeline.startNewInfusion', 'Start New Infusion')}
                 </Button>
               </div>
             </>
@@ -346,7 +346,7 @@ export function RateManageDialog({
               size="sm"
               data-testid="button-cancel"
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
           </div>
         </div>

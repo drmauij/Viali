@@ -5381,7 +5381,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 : 'border-border bg-background hover:border-foreground hover:bg-foreground/10'
             } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-bp"
-            title="Blood Pressure (NIBP)"
+            title={t('timeline.bloodPressure', 'Blood Pressure (NIBP)')}
           >
             <ChevronsDownUp className={`w-5 h-5 transition-colors ${activeToolMode === 'bp' ? 'text-foreground' : 'text-foreground/70 hover:text-foreground'}`} />
           </button>
@@ -5394,7 +5394,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 : 'border-border bg-background hover:border-red-500 hover:bg-red-500/10'
             } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-heart"
-            title="Heart Rate"
+            title={t('timeline.heartRate', 'Heart Rate')}
           >
             <Heart className={`w-5 h-5 transition-colors ${activeToolMode === 'hr' ? 'text-red-500' : 'hover:text-red-500'}`} />
           </button>
@@ -5407,7 +5407,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 : 'border-border bg-background hover:border-blue-500 hover:bg-blue-500/10'
             } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-oxygen"
-            title="Oxygenation (SpO2)"
+            title={t('timeline.oxygenation', 'Oxygenation (SpO2)')}
           >
             <CircleDot className={`w-5 h-5 transition-colors ${activeToolMode === 'spo2' ? 'text-blue-500' : 'hover:text-blue-500'}`} />
           </button>
@@ -5428,7 +5428,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 : 'border-border bg-background hover:border-purple-500 hover:bg-purple-500/10'
             } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-combo"
-            title="Sequential Vitals Mode"
+            title={t('timeline.sequentialVitals', 'Sequential Vitals Mode')}
           >
             <Blend className={`w-5 h-5 transition-colors ${activeToolMode === 'blend' ? 'text-purple-500' : 'hover:text-purple-500'}`} />
           </button>
@@ -5449,7 +5449,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 : 'border-border bg-background hover:border-amber-500 hover:bg-amber-500/10'
             } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-edit"
-            title="Edit Mode - Move Vital Points"
+            title={t('timeline.editMode', 'Edit Mode - Move Vital Points')}
           >
             <Pencil className={`w-5 h-5 transition-colors ${activeToolMode === 'edit' ? 'text-amber-500' : 'hover:text-amber-500'}`} />
           </button>
@@ -5655,7 +5655,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   onClick={() => setShowEventsTimesPanel(true)}
                   className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
                   data-testid="button-toggle-events-panel"
-                  title="View Events & Times"
+                  title={t('timeline.viewEventsTimes', 'View Events & Times')}
                 >
                   <span className={`${labelClass} text-black dark:text-white`}>
                     {lane.label}
@@ -5726,7 +5726,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       onMouseLeave={() => setAdminGroupHoverInfo(null)}
                       className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
                       data-testid={`button-configure-${lane.id}`}
-                      title="Configure Medications"
+                      title={t('timeline.configureMedications', 'Configure Medications')}
                     >
                       <span className={`${labelClass} text-black dark:text-white`}>
                         {lane.label}
@@ -5797,7 +5797,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       }}
                       className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer min-w-0"
                       data-testid={`button-edit-medication-${lane.id}`}
-                      title="Edit Medication Configuration"
+                      title={t('timeline.editMedicationConfig', 'Edit Medication Configuration')}
                     >
                       <span className={`${labelClass} text-black dark:text-white truncate`}>
                         {lane.label}

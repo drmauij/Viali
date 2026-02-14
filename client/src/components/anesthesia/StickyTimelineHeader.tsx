@@ -525,18 +525,18 @@ export function StickyTimelineHeader({
         {/* Drag Handle - Re-enable pointer events for individual buttons in edit mode */}
         <div 
           className="p-0.5 sm:p-1 -ml-0.5 sm:-ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation pointer-events-auto"
-          title="Drag to reposition"
+          title={t('timeline.dragToReposition', 'Drag to reposition')}
         >
           <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        
+
         <button
           data-testid="button-pan-left"
           onClick={(e) => { e.stopPropagation(); onPanLeft?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md text-lg sm:text-xl md:text-2xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Pan Left"
+          title={t('timeline.panLeft', 'Pan Left')}
         >
           ‹
         </button>
@@ -546,7 +546,7 @@ export function StickyTimelineHeader({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md text-lg sm:text-xl md:text-2xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Pan Right"
+          title={t('timeline.panRight', 'Pan Right')}
         >
           ›
         </button>
@@ -557,7 +557,7 @@ export function StickyTimelineHeader({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md text-base sm:text-lg md:text-xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Zoom In"
+          title={t('timeline.zoomIn', 'Zoom In')}
         >
           <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
           +
@@ -568,7 +568,7 @@ export function StickyTimelineHeader({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md text-base sm:text-lg md:text-xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Zoom Out"
+          title={t('timeline.zoomOut', 'Zoom Out')}
         >
           <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
           -
@@ -600,7 +600,7 @@ export function StickyTimelineHeader({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-          title="Camera"
+          title={t('common.camera', 'Camera')}
         >
           <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
@@ -610,7 +610,7 @@ export function StickyTimelineHeader({
           onMouseDown={handleDragStartMedia}
           onTouchStart={handleDragStartMedia}
           className="py-2 sm:py-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-grab active:cursor-grabbing pointer-events-auto"
-          title="Drag to reposition"
+          title={t('timeline.dragToReposition', 'Drag to reposition')}
         >
           <GripVertical className="h-6 w-6 sm:h-5 sm:w-5 rotate-90" />
         </div>

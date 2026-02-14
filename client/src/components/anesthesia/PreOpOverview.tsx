@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ListTodo, Send } from "lucide-react";
@@ -95,61 +96,70 @@ interface PreOpOverviewProps {
   patientPhone?: string | null;
 }
 
-const illnessLabels: Record<string, string> = {
-  htn: "Hypertension", 
-  chd: "Coronary Heart Disease", 
-  heartValve: "Heart Valve Disease", 
-  arrhythmia: "Arrhythmia", 
-  heartFailure: "Heart Failure",
-  asthma: "Asthma", 
-  copd: "Chronic Obstructive Pulmonary Disease", 
-  sleepApnea: "Sleep Apnea", 
-  pneumonia: "Pneumonia",
-  reflux: "Gastroesophageal Reflux Disease", 
-  ibd: "Inflammatory Bowel Disease", 
-  liverDisease: "Liver Disease",
-  ckd: "Chronic Kidney Disease", 
-  dialysis: "Dialysis",
-  diabetes: "Diabetes Mellitus", 
-  thyroid: "Thyroid Disease",
-  stroke: "Cerebrovascular Accident", 
-  epilepsy: "Epilepsy", 
-  parkinsons: "Parkinson's Disease", 
-  dementia: "Dementia",
-  depression: "Depression", 
-  anxiety: "Anxiety", 
-  psychosis: "Psychosis",
-  arthritis: "Arthritis", 
-  osteoporosis: "Osteoporosis", 
-  spineDisorders: "Spine Disorders",
-  pregnancy: "Pregnancy", 
-  breastfeeding: "Breastfeeding", 
-  menopause: "Menopause", 
-  gynecologicalSurgery: "Gynecological Surgery History",
-  nicotine: "Nicotine Use", 
-  alcohol: "Alcohol Use", 
-  drugs: "Drug Use",
-  prematurity: "Prematurity", 
-  developmentalDelay: "Developmental Delay", 
-  congenitalAnomalies: "Congenital Anomalies", 
-  vaccination: "Vaccination Issues",
-};
+function useIllnessLabels() {
+  const { t } = useTranslation();
+  return {
+    htn: t('anesthesia.preop.illness.htn', 'Hypertension'),
+    chd: t('anesthesia.preop.illness.chd', 'Coronary Heart Disease'),
+    heartValve: t('anesthesia.preop.illness.heartValve', 'Heart Valve Disease'),
+    arrhythmia: t('anesthesia.preop.illness.arrhythmia', 'Arrhythmia'),
+    heartFailure: t('anesthesia.preop.illness.heartFailure', 'Heart Failure'),
+    asthma: t('anesthesia.preop.illness.asthma', 'Asthma'),
+    copd: t('anesthesia.preop.illness.copd', 'Chronic Obstructive Pulmonary Disease'),
+    sleepApnea: t('anesthesia.preop.illness.sleepApnea', 'Sleep Apnea'),
+    pneumonia: t('anesthesia.preop.illness.pneumonia', 'Pneumonia'),
+    reflux: t('anesthesia.preop.illness.reflux', 'Gastroesophageal Reflux Disease'),
+    ibd: t('anesthesia.preop.illness.ibd', 'Inflammatory Bowel Disease'),
+    liverDisease: t('anesthesia.preop.illness.liverDisease', 'Liver Disease'),
+    ckd: t('anesthesia.preop.illness.ckd', 'Chronic Kidney Disease'),
+    dialysis: t('anesthesia.preop.illness.dialysis', 'Dialysis'),
+    diabetes: t('anesthesia.preop.illness.diabetes', 'Diabetes Mellitus'),
+    thyroid: t('anesthesia.preop.illness.thyroid', 'Thyroid Disease'),
+    stroke: t('anesthesia.preop.illness.stroke', 'Cerebrovascular Accident'),
+    epilepsy: t('anesthesia.preop.illness.epilepsy', 'Epilepsy'),
+    parkinsons: t('anesthesia.preop.illness.parkinsons', "Parkinson's Disease"),
+    dementia: t('anesthesia.preop.illness.dementia', 'Dementia'),
+    depression: t('anesthesia.preop.illness.depression', 'Depression'),
+    anxiety: t('anesthesia.preop.illness.anxiety', 'Anxiety'),
+    psychosis: t('anesthesia.preop.illness.psychosis', 'Psychosis'),
+    arthritis: t('anesthesia.preop.illness.arthritis', 'Arthritis'),
+    osteoporosis: t('anesthesia.preop.illness.osteoporosis', 'Osteoporosis'),
+    spineDisorders: t('anesthesia.preop.illness.spineDisorders', 'Spine Disorders'),
+    pregnancy: t('anesthesia.preop.illness.pregnancy', 'Pregnancy'),
+    breastfeeding: t('anesthesia.preop.illness.breastfeeding', 'Breastfeeding'),
+    menopause: t('anesthesia.preop.illness.menopause', 'Menopause'),
+    gynecologicalSurgery: t('anesthesia.preop.illness.gynecologicalSurgery', 'Gynecological Surgery History'),
+    nicotine: t('anesthesia.preop.illness.nicotine', 'Nicotine Use'),
+    alcohol: t('anesthesia.preop.illness.alcohol', 'Alcohol Use'),
+    drugs: t('anesthesia.preop.illness.drugs', 'Drug Use'),
+    prematurity: t('anesthesia.preop.illness.prematurity', 'Prematurity'),
+    developmentalDelay: t('anesthesia.preop.illness.developmentalDelay', 'Developmental Delay'),
+    congenitalAnomalies: t('anesthesia.preop.illness.congenitalAnomalies', 'Congenital Anomalies'),
+    vaccination: t('anesthesia.preop.illness.vaccination', 'Vaccination Issues'),
+  } as Record<string, string>;
+}
 
-const installationLabels: Record<string, string> = {
-  arterialLine: "Arterial Line", 
-  cvc: "Central Venous Catheter", 
-  picLine: "Peripherally Inserted Central Catheter", 
-  urinaryCatheter: "Urinary Catheter", 
-  nasogastricTube: "Nasogastric Tube", 
-  drainageTube: "Drainage Tube",
-};
+function useInstallationLabels() {
+  const { t } = useTranslation();
+  return {
+    arterialLine: t('anesthesia.preop.installation.arterialLine', 'Arterial Line'),
+    cvc: t('anesthesia.preop.installation.cvc', 'Central Venous Catheter'),
+    picLine: t('anesthesia.preop.installation.picLine', 'Peripherally Inserted Central Catheter'),
+    urinaryCatheter: t('anesthesia.preop.installation.urinaryCatheter', 'Urinary Catheter'),
+    nasogastricTube: t('anesthesia.preop.installation.nasogastricTube', 'Nasogastric Tube'),
+    drainageTube: t('anesthesia.preop.installation.drainageTube', 'Drainage Tube'),
+  } as Record<string, string>;
+}
 
 export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, patientEmail, patientPhone }: PreOpOverviewProps) {
+  const { t } = useTranslation();
   const { createTodo, isPending: isTodoPending } = useCreateTodo(hospitalId);
   const canWrite = useCanWrite();
   const { addons } = useHospitalAddons();
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  
+  const illnessLabels = useIllnessLabels();
+  const installationLabels = useInstallationLabels();
+
   const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
@@ -179,7 +189,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
               variant="ghost"
               size="icon"
               onClick={() => setSendDialogOpen(true)}
-              title="Patient Communication"
+              title={t('common.patientCommunication', 'Contact')}
               data-testid="button-send-questionnaire-preop-no-data"
             >
               <Send className="h-5 w-5 text-white" />
@@ -187,7 +197,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           </div>
         )}
         <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-          <p>No assessment data</p>
+          <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
         </div>
         
         {/* Send Questionnaire Dialog */}
@@ -210,67 +220,67 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
   // Build medical history sections with data check
   const medicalSections = [
     {
-      title: "Heart and Circulation",
+      title: t('anesthesia.preop.medHistory.heart', 'Heart and Circulation'),
       color: "red",
       items: getSelectedItems(data.heartIllnesses, illnessLabels),
       notes: data.heartNotes,
     },
     {
-      title: "Lungs",
+      title: t('anesthesia.preop.medHistory.lungs', 'Lungs'),
       color: "blue",
       items: getSelectedItems(data.lungIllnesses, illnessLabels),
       notes: data.lungNotes,
     },
     {
-      title: "GI-Tract",
+      title: t('anesthesia.preop.medHistory.giTract', 'GI-Tract'),
       color: "yellow",
       items: getSelectedItems(data.giIllnesses, illnessLabels),
       notes: null,
     },
     {
-      title: "Kidney",
+      title: t('anesthesia.preop.medHistory.kidney', 'Kidney'),
       color: "yellow",
       items: getSelectedItems(data.kidneyIllnesses, illnessLabels),
       notes: null,
     },
     {
-      title: "Metabolic",
+      title: t('anesthesia.preop.medHistory.metabolic', 'Metabolic'),
       color: "yellow",
       items: getSelectedItems(data.metabolicIllnesses, illnessLabels),
-      notes: data.giKidneyMetabolicNotes, // Combined notes for GI/Kidney/Metabolic
+      notes: data.giKidneyMetabolicNotes,
     },
     {
-      title: "Neurological",
+      title: t('anesthesia.preop.medHistory.neurological', 'Neurological'),
       color: "orange",
       items: getSelectedItems(data.neuroIllnesses, illnessLabels),
       notes: null,
     },
     {
-      title: "Psychiatry",
+      title: t('anesthesia.preop.medHistory.psychiatry', 'Psychiatry'),
       color: "orange",
       items: getSelectedItems(data.psychIllnesses, illnessLabels),
       notes: null,
     },
     {
-      title: "Skeletal",
+      title: t('anesthesia.preop.medHistory.skeletal', 'Skeletal'),
       color: "orange",
       items: getSelectedItems(data.skeletalIllnesses, illnessLabels),
-      notes: data.neuroPsychSkeletalNotes, // Combined notes
+      notes: data.neuroPsychSkeletalNotes,
     },
     {
-      title: "Gynecology",
+      title: t('anesthesia.preop.medHistory.gynecology', 'Gynecology'),
       color: "pink",
       items: getSelectedItems(data.womanIssues, illnessLabels),
       notes: data.womanNotes,
     },
     {
-      title: "Pediatric",
+      title: t('anesthesia.preop.medHistory.pediatric', 'Pediatric'),
       color: "green",
       items: getSelectedItems(data.childrenIssues, illnessLabels),
       notes: data.childrenNotes,
     },
     {
-      title: "Dependencies (Substances)",
+      title: t('anesthesia.preop.medHistory.dependencies', 'Dependencies (Substances)'),
       color: "gray",
       items: getSelectedItems(data.noxen, illnessLabels),
       notes: data.noxenNotes,
@@ -294,51 +304,54 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       .map(([key]) => {
         const labels: Record<string, string> = {
           'tiva-tci': 'TIVA/TCI',
-          'tubus': 'Endotracheal Tube',
+          'tubus': t('anesthesia.preop.techniques.tubus', 'Endotracheal Tube'),
           'rsi': 'RSI',
-          'larynxmask': 'Laryngeal Mask',
-          'larynxmask-auragain': 'Laryngeal Mask AuraGain',
-          'rae-tubus': 'Ring-Adair-Elwyn Tube',
-          'spiralfedertubus': 'Spiral Reinforced Tube',
-          'doppellumentubus': 'Double Lumen Tube',
-          'nasal-intubation': 'Nasal Intubation',
-          'awake-intubation': 'Awake Intubation',
-          'ponv-prophylaxis': 'PONV Prophylaxis',
+          'larynxmask': t('anesthesia.preop.techniques.larynxmask', 'Laryngeal Mask'),
+          'larynxmask-auragain': t('anesthesia.preop.techniques.larynxmaskAuragain', 'Laryngeal Mask AuraGain'),
+          'rae-tubus': t('anesthesia.preop.techniques.raeTubus', 'Ring-Adair-Elwyn Tube'),
+          'spiralfedertubus': t('anesthesia.preop.techniques.spiralTubus', 'Spiral Reinforced Tube'),
+          'doppellumentubus': t('anesthesia.preop.techniques.doubleLumen', 'Double Lumen Tube'),
+          'nasal-intubation': t('anesthesia.preop.techniques.nasalIntubation', 'Nasal Intubation'),
+          'awake-intubation': t('anesthesia.preop.techniques.awakeIntubation', 'Awake Intubation'),
+          'ponv-prophylaxis': t('anesthesia.preop.techniques.ponvProphylaxis', 'PONV Prophylaxis'),
         };
         return labels[key] || key;
       });
-    anesthesiaWithDetails.push(subOptions.length > 0 ? `General Anesthesia (${subOptions.join(', ')})` : 'General Anesthesia');
+    const generalLabel = t('anesthesia.preop.techniques.general', 'General Anesthesia');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `${generalLabel} (${subOptions.join(', ')})` : generalLabel);
   }
-  if (techniques.spinal) anesthesiaWithDetails.push('Spinal');
+  if (techniques.spinal) anesthesiaWithDetails.push(t('anesthesia.preop.techniques.spinal', 'Spinal'));
   if (techniques.epidural) {
     const subOptions = Object.entries(techniques.epiduralOptions || {})
       .filter(([_, value]) => value)
-      .map(([key]) => key === 'thoracic' ? 'Thoracic' : 'Lumbar');
-    anesthesiaWithDetails.push(subOptions.length > 0 ? `Epidural (${subOptions.join(', ')})` : 'Epidural');
+      .map(([key]) => key === 'thoracic' ? t('anesthesia.preop.techniques.thoracic', 'Thoracic') : t('anesthesia.preop.techniques.lumbar', 'Lumbar'));
+    const epiduralLabel = t('anesthesia.preop.techniques.epidural', 'Epidural');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `${epiduralLabel} (${subOptions.join(', ')})` : epiduralLabel);
   }
   if (techniques.regional) {
     const subOptions = Object.entries(techniques.regionalOptions || {})
       .filter(([_, value]) => value)
       .map(([key]) => {
         const labels: Record<string, string> = {
-          'interscalene-block': 'Interscalene Block',
-          'supraclavicular-block': 'Supraclavicular Block',
-          'infraclavicular-block': 'Infraclavicular Block',
-          'axillary-block': 'Axillary Block',
-          'femoral-block': 'Femoral Block',
-          'sciatic-block': 'Sciatic Block',
-          'popliteal-block': 'Popliteal Block',
-          'tap-block': 'Transversus Abdominis Plane Block',
-          'pecs-block': 'Pectoral Nerve Block',
-          'serratus-block': 'Serratus Plane Block',
-          'with-catheter': 'with Catheter',
+          'interscalene-block': t('anesthesia.preop.blocks.interscalene', 'Interscalene Block'),
+          'supraclavicular-block': t('anesthesia.preop.blocks.supraclavicular', 'Supraclavicular Block'),
+          'infraclavicular-block': t('anesthesia.preop.blocks.infraclavicular', 'Infraclavicular Block'),
+          'axillary-block': t('anesthesia.preop.blocks.axillary', 'Axillary Block'),
+          'femoral-block': t('anesthesia.preop.blocks.femoral', 'Femoral Block'),
+          'sciatic-block': t('anesthesia.preop.blocks.sciatic', 'Sciatic Block'),
+          'popliteal-block': t('anesthesia.preop.blocks.popliteal', 'Popliteal Block'),
+          'tap-block': t('anesthesia.preop.blocks.tap', 'Transversus Abdominis Plane Block'),
+          'pecs-block': t('anesthesia.preop.blocks.pecs', 'Pectoral Nerve Block'),
+          'serratus-block': t('anesthesia.preop.blocks.serratus', 'Serratus Plane Block'),
+          'with-catheter': t('anesthesia.preop.blocks.withCatheter', 'with Catheter'),
         };
         return labels[key] || key;
       });
-    anesthesiaWithDetails.push(subOptions.length > 0 ? `Regional Anesthesia (${subOptions.join(', ')})` : 'Regional Anesthesia');
+    const regionalLabel = t('anesthesia.preop.techniques.regional', 'Regional Anesthesia');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `${regionalLabel} (${subOptions.join(', ')})` : regionalLabel);
   }
-  if (techniques.sedation) anesthesiaWithDetails.push('Sedation');
-  if (techniques.combined) anesthesiaWithDetails.push('Combined');
+  if (techniques.sedation) anesthesiaWithDetails.push(t('anesthesia.preop.techniques.sedation', 'Sedation'));
+  if (techniques.combined) anesthesiaWithDetails.push(t('anesthesia.preop.techniques.combined', 'Combined'));
 
   const selectedAnesthesia = anesthesiaWithDetails;
   const selectedInstallations = getSelectedItems(data.installations, installationLabels);
@@ -382,7 +395,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
   if (!hasAnyData) {
     return (
       <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        <p>No assessment data</p>
+        <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
       </div>
     );
   }
@@ -396,7 +409,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             variant="ghost"
             size="icon"
             onClick={() => setSendDialogOpen(true)}
-            title="Patient Communication"
+            title={t('common.patientCommunication', 'Contact')}
             data-testid="button-send-questionnaire-preop"
           >
             <Send className="h-5 w-5 text-white" />
@@ -412,7 +425,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
               <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold text-blue-900 dark:text-blue-100 text-sm">Special Notes</div>
+                  <div className="font-semibold text-blue-900 dark:text-blue-100 text-sm">{t('anesthesia.preop.specialNotes', 'Special Notes')}</div>
                   {hospitalId && (
                     <Button
                       variant="ghost"
@@ -420,7 +433,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
                       className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => createTodo(data.specialNotes!, patientId, patientName)}
                       disabled={isTodoPending}
-                      title="Add to To-Do list"
+                      title={t('anesthesia.preop.addToTodo', 'Add to To-Do list')}
                       data-testid="button-add-todo-from-special-notes"
                     >
                       <ListTodo className="w-3.5 h-3.5" />
@@ -442,7 +455,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             <div className="md:col-span-7">
               <Card className="border-gray-300 dark:border-gray-600">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">General Data</CardTitle>
+                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.generalData', 'General Data')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="text-sm">
@@ -458,7 +471,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             <div className="md:col-span-3">
               <Card className="border-gray-300 dark:border-gray-600">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Surgical Approval</CardTitle>
+                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.surgicalApproval', 'Surgical Approval')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className={`text-sm font-semibold ${
@@ -479,7 +492,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       {(allMedications.length > 0 || data.medicationsNotes?.trim()) && (
         <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Medications</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.medications', 'Medications')}</CardTitle>
           </CardHeader>
           <CardContent>
             {allMedications.length > 0 && (
@@ -520,15 +533,15 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       {(data.mallampati?.trim() || data.mouthOpening?.trim() || data.dentition?.trim() || data.airwayDifficult?.trim() || data.airwayNotes?.trim()) && (
         <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Airway</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.airway', 'Airway')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {data.mallampati?.trim() && <div><span className="font-semibold">Mallampati:</span> {data.mallampati}</div>}
-            {data.mouthOpening?.trim() && <div><span className="font-semibold">Mouth Opening:</span> {data.mouthOpening}</div>}
-            {data.dentition?.trim() && <div><span className="font-semibold">Dentition:</span> {data.dentition}</div>}
+            {data.mouthOpening?.trim() && <div><span className="font-semibold">{t('anesthesia.preop.mouthOpening', 'Mouth Opening')}:</span> {data.mouthOpening}</div>}
+            {data.dentition?.trim() && <div><span className="font-semibold">{t('anesthesia.preop.dentition', 'Dentition')}:</span> {data.dentition}</div>}
             {data.airwayDifficult?.trim() && (
               <div className="font-semibold text-red-600 dark:text-red-400">
-                Difficult Airway: {data.airwayDifficult}
+                {t('anesthesia.preop.difficultAirway', 'Difficult Airway')}: {data.airwayDifficult}
               </div>
             )}
             {data.airwayNotes?.trim() && (
@@ -542,11 +555,11 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
       {(data.lastSolids?.trim() || data.lastClear?.trim()) && (
         <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Fasting</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.fasting', 'Fasting')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            {data.lastSolids?.trim() && <div><span className="font-semibold">Last Solids:</span> {formatDateTime(data.lastSolids)}</div>}
-            {data.lastClear?.trim() && <div><span className="font-semibold">Last Clear:</span> {formatDateTime(data.lastClear)}</div>}
+            {data.lastSolids?.trim() && <div><span className="font-semibold">{t('anesthesia.preop.lastSolids', 'Last Solids')}:</span> {formatDateTime(data.lastSolids)}</div>}
+            {data.lastClear?.trim() && <div><span className="font-semibold">{t('anesthesia.preop.lastClear', 'Last Clear')}:</span> {formatDateTime(data.lastClear)}</div>}
           </CardContent>
         </Card>
       )}
@@ -559,7 +572,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
             <Card className="border-gray-300 dark:border-gray-600">
               <CardHeader className="pb-3">
-                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Anesthesia</CardTitle>
+                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.plannedAnesthesia', 'Planned Anesthesia')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {selectedAnesthesia.length > 0 && (
@@ -568,7 +581,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
                   </div>
                 )}
                 {data.postOpICU && (
-                  <div className="text-sm">Post-Op ICU</div>
+                  <div className="text-sm">{t('anesthesia.preop.postOpICU', 'Post-Op ICU')}</div>
                 )}
                 {data.anesthesiaOther?.trim() && (
                   <div className="text-sm italic text-muted-foreground">{data.anesthesiaOther}</div>
@@ -581,7 +594,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
             <Card className="border-gray-300 dark:border-gray-600">
               <CardHeader className="pb-3">
-                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Installations</CardTitle>
+                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">{t('anesthesia.preop.plannedInstallations', 'Planned Installations')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {selectedInstallations.length > 0 && (

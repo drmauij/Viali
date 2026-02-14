@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { HeartRhythmPoint } from '@/hooks/useEventState';
 
@@ -37,6 +38,7 @@ export function HeartRhythmSwimlane({
   onHeartRhythmDialogOpen,
   onHeartRhythmEditDialogOpen,
 }: HeartRhythmSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentTime,
@@ -123,7 +125,7 @@ export function HeartRhythmSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add rhythm
+            {t('anesthesia.timeline.heartRhythm.clickToAdd', 'Click to add rhythm')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(heartRhythmHoverInfo.time))}
@@ -160,7 +162,7 @@ export function HeartRhythmSwimlane({
                 index,
               });
             }}
-            title={`${rhythm} at ${formatTime(new Date(timestamp))}`}
+            title={`${rhythm} ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}`}
             data-testid={`heart-rhythm-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-pink-600 dark:text-pink-400">

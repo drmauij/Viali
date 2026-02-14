@@ -777,6 +777,7 @@ function EditableCurrencyCell({ value, surgeryId, field, onUpdate, isPending }: 
 }
 
 function EditableDateCell({ value, surgeryId, field, onUpdate, isPending }: EditableDateCellProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const currentDate = value ? (typeof value === "string" ? parseISO(value) : value) : undefined;
 
@@ -818,7 +819,7 @@ function EditableDateCell({ value, surgeryId, field, onUpdate, isPending }: Edit
                 setOpen(false);
               }}
             >
-              Clear Date
+              {t('surgeryPlanning.clearDate', 'Clear Date')}
             </Button>
           </div>
         )}
@@ -861,6 +862,7 @@ interface EditableTimeCellProps {
 }
 
 function EditableTimeCell({ value, surgeryId, plannedDate, field, onUpdate, isPending }: EditableTimeCellProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
@@ -920,7 +922,7 @@ function EditableTimeCell({ value, surgeryId, plannedDate, field, onUpdate, isPe
       className="h-8 px-2 justify-start font-normal w-full"
       disabled={isPending || !canEdit}
       onClick={handleStartEdit}
-      title={!canEdit ? "Set surgery date first" : undefined}
+      title={!canEdit ? t('surgeryPlanning.setSurgeryDateFirst', 'Set surgery date first') : undefined}
       data-testid={`button-edit-${field}-${surgeryId}`}
     >
       {isPending ? (

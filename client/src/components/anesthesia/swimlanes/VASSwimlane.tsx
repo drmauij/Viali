@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { VASPoint } from '@/hooks/useEventState';
 
@@ -28,6 +29,7 @@ export function VASSwimlane({
   onVASDialogOpen,
   onVASEditDialogOpen,
 }: VASSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentZoomStart,
@@ -105,7 +107,7 @@ export function VASSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add VAS pain score
+            {t('anesthesia.timeline.vas.clickToAdd', 'Click to add VAS pain score')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(vasHoverInfo.time))}
@@ -141,7 +143,7 @@ export function VASSwimlane({
                 index,
               });
             }}
-            title={`VAS: ${value} at ${formatTime(new Date(timestamp))}`}
+            title={`${t('anesthesia.timeline.vas.title', 'VAS')}: ${value} ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}`}
             data-testid={`vas-${index}`}
           >
             <span className={`group-hover:scale-110 transition-transform ${getVASColor(value)}`}>

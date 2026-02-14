@@ -761,7 +761,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                                 handleQuantityChange(item.id, -1);
                               }}
                               disabled={overrideMutation.isPending || finalQty === 0}
-                              title="Decrease quantity"
+                              title={t('inventory.decreaseQuantity', 'Decrease quantity')}
                               data-testid={`button-decrease-${item.id}`}
                             >
                               <Minus className="h-4 w-4" />
@@ -778,7 +778,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                                 handleQuantityChange(item.id, 1);
                               }}
                               disabled={overrideMutation.isPending}
-                              title="Increase quantity"
+                              title={t('inventory.increaseQuantity', 'Increase quantity')}
                               data-testid={`button-increase-${item.id}`}
                             >
                               <Plus className="h-4 w-4" />
@@ -792,7 +792,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                                 handleReset(item.id);
                               }}
                               disabled={!hasOverride || clearOverrideMutation.isPending}
-                              title={hasOverride ? "Reset to calculated value" : "No manual override"}
+                              title={hasOverride ? t('inventory.resetToCalculated', 'Reset to calculated value') : t('inventory.noManualOverride', 'No manual override')}
                               data-testid={`button-reset-${item.id}`}
                             >
                               <RotateCcw className="h-4 w-4" />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
 
@@ -77,6 +78,7 @@ export function VentilationSwimlane({
   onVentilationModeAddDialogOpen,
   clinicalSnapshot,
 }: VentilationSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     ventilationState,
     currentTime,
@@ -175,7 +177,7 @@ export function VentilationSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add mode
+            {t('anesthesia.timeline.ventilation.clickToAddMode', 'Click to add mode')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(ventilationModeHoverInfo.time)}
@@ -263,7 +265,7 @@ export function VentilationSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add value
+            {t('anesthesia.timeline.ventilation.clickToAddValue', 'Click to add value')}
           </div>
           <div className="text-xs text-muted-foreground">
             {ventilationHoverInfo.label}

@@ -58,7 +58,7 @@ export function VitalsSection({ form, isReadOnly = false }: BaseFormSectionProps
               <Input 
                 id="bloodPressureSystolic"
                 type="number" 
-                placeholder="Sys"
+                placeholder={t('preop.placeholders.systolic', 'Sys')}
                 {...form.register("bloodPressureSystolic")}
                 disabled={isReadOnly}
                 className="w-20"
@@ -68,7 +68,7 @@ export function VitalsSection({ form, isReadOnly = false }: BaseFormSectionProps
               <Input 
                 id="bloodPressureDiastolic"
                 type="number" 
-                placeholder="Dia"
+                placeholder={t('preop.placeholders.diastolic', 'Dia')}
                 {...form.register("bloodPressureDiastolic")}
                 disabled={isReadOnly}
                 className="w-20"

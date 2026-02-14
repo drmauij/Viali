@@ -1437,16 +1437,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
 
   const getConversationTitle = (convo: Conversation) => {
     if (convo.title) return convo.title;
-    if (convo.scopeType === 'self') return 'Personal Notes';
+    if (convo.scopeType === 'self') return t('chat.personalNotes', 'Personal Notes');
     if (convo.scopeType === 'direct') {
       const otherParticipant = convo.participants.find(p => p.userId !== (user as any)?.id);
       if (otherParticipant?.user) {
         return `${otherParticipant.user.firstName || ''} ${otherParticipant.user.lastName || ''}`.trim() || otherParticipant.user.email;
       }
     }
-    if (convo.scopeType === 'unit') return 'Unit Chat';
-    if (convo.scopeType === 'hospital') return 'Hospital Chat';
-    return 'Conversation';
+    if (convo.scopeType === 'unit') return t('chat.unitChat', 'Unit Chat');
+    if (convo.scopeType === 'hospital') return t('chat.hospitalChat', 'Hospital Chat');
+    return t('chat.conversation', 'Conversation');
   };
 
   const getConversationIcon = (scopeType: string) => {
@@ -1462,7 +1462,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const formatMessageTime = (dateStr: string) => {
     const date = new Date(dateStr);
     if (isToday(date)) return format(date, 'HH:mm');
-    if (isYesterday(date)) return `Yesterday ${format(date, 'HH:mm')}`;
+    if (isYesterday(date)) return `${t('chat.yesterday', 'Yesterday')} ${format(date, 'HH:mm')}`;
     return format(date, 'MMM d, HH:mm');
   };
 
@@ -1564,7 +1564,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                       <div className="p-4 text-center text-muted-foreground">Loading...</div>
                     ) : filteredConversations.length === 0 ? (
                       <div className="p-4 text-center text-muted-foreground">
-                        No conversations yet
+                        {t('chat.noConversations', 'No conversations yet')}
                       </div>
                     ) : (
                       <div className="divide-y divide-border">
@@ -2198,9 +2198,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     onClick={() => {
                                       const plainText = msg.content.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').replace(/#\[([^\]]+)\]\([^)]+\)/g, '#$1');
                                       createTodoMutation.mutate(plainText.slice(0, 200));
-                                      toast({ title: "Added to To-Do", description: "Message converted to a task" });
+                                      toast({ title: t('chat.addedToTodo', 'Added to To-Do'), description: t('chat.messageConvertedToTask', 'Message converted to a task') });
                                     }}
-                                    title="Add to To-Do list"
+                                    title={t('chat.addToTodoList', 'Add to To-Do list')}
                                     data-testid={`button-add-todo-from-message-${msg.id}`}
                                   >
                                     <ListTodo className="w-3 h-3" />
@@ -2559,7 +2559,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="font-medium">Personal Notes</span>
+                    <span className="font-medium">{t('chat.personalNotes', 'Personal Notes')}</span>
                   </button>
 
                   <button

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { TOFPoint } from '@/hooks/useEventState';
 
@@ -23,6 +24,7 @@ export function TOFSwimlane({
   onTOFDialogOpen,
   onTOFEditDialogOpen,
 }: TOFSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentTime,
@@ -102,7 +104,7 @@ export function TOFSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add TOF value
+            {t('anesthesia.timeline.tof.clickToAdd', 'Click to add TOF value')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(tofHoverInfo.time))}
@@ -141,7 +143,7 @@ export function TOFSwimlane({
                 index,
               });
             }}
-            title={`TOF: ${displayText} at ${formatTime(new Date(timestamp))}`}
+            title={`${t('anesthesia.timeline.tof.title', 'TOF')}: ${displayText} ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}`}
             data-testid={`tof-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-purple-600 dark:text-purple-400">

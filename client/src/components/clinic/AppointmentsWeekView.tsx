@@ -74,6 +74,16 @@ const ABSENCE_ICONS: Record<string, string> = {
   default: "🚫",
 };
 
+const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }> = {
+  vacation: { key: 'appointments.absence.vacation', fallback: 'Vacation' },
+  sick: { key: 'appointments.absence.sick', fallback: 'Sick Leave' },
+  training: { key: 'appointments.absence.training', fallback: 'Training' },
+  parental: { key: 'appointments.absence.parental', fallback: 'Parental Leave' },
+  homeoffice: { key: 'appointments.absence.homeoffice', fallback: 'Home Office' },
+  sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
+  default: { key: 'appointments.absence.default', fallback: 'Absent' },
+};
+
 const MIN_ROW_HEIGHT = 80;
 
 export default function AppointmentsWeekView({
@@ -100,6 +110,11 @@ export default function AppointmentsWeekView({
     }
     return days;
   }, [selectedDate, momentLocale]);
+
+  const getAbsenceLabel = (type: string): string => {
+    const cfg = ABSENCE_TYPE_LABEL_KEYS[type] || ABSENCE_TYPE_LABEL_KEYS.default;
+    return t(cfg.key, cfg.fallback);
+  };
 
   const getProviderName = (provider: { firstName: string | null; lastName: string | null }) => {
     const firstName = provider.firstName || '';
@@ -231,7 +246,7 @@ export default function AppointmentsWeekView({
                     {absence ? (
                       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
-                        <span className="capitalize">{absence.type}</span>
+                        <span>{getAbsenceLabel(absence.type)}</span>
                       </div>
                     ) : (
                       <div className="space-y-1">

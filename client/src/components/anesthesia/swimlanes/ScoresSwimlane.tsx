@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { ScorePoint } from '@/hooks/useEventState';
 
@@ -38,6 +39,7 @@ export function ScoresSwimlane({
   onScoresDialogOpen,
   onScoresEditDialogOpen,
 }: ScoresSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentZoomStart,
@@ -115,7 +117,7 @@ export function ScoresSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add Aldrete/PARSAP score
+            {t('anesthesia.timeline.scores.clickToAdd', 'Click to add Aldrete/PARSAP score')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(scoresHoverInfo.time))}
@@ -159,7 +161,7 @@ export function ScoresSwimlane({
                 index,
               });
             }}
-            title={`${scoreType === 'aldrete' ? 'Aldrete' : 'PARSAP'}: ${totalScore}/10 at ${formatTime(new Date(timestamp))}${isDischargeReady ? ' - Discharge Ready' : ''}`}
+            title={`${scoreType === 'aldrete' ? t('anesthesia.timeline.scores.aldrete', 'Aldrete') : t('anesthesia.timeline.scores.parsap', 'PARSAP')}: ${totalScore}/10 ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}${isDischargeReady ? ` - ${t('anesthesia.timeline.scores.dischargeReady', 'Discharge Ready')}` : ''}`}
             data-testid={`scores-${index}`}
           >
             <span className={`group-hover:scale-110 transition-transform ${

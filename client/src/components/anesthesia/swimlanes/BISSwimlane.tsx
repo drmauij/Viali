@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { BISPoint } from '@/hooks/useEventState';
 
@@ -22,6 +23,7 @@ export function BISSwimlane({
   onBISDialogOpen,
   onBISEditDialogOpen,
 }: BISSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentTime,
@@ -101,7 +103,7 @@ export function BISSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add BIS value
+            {t('anesthesia.timeline.bis.clickToAdd', 'Click to add BIS value')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(bisHoverInfo.time))}
@@ -137,7 +139,7 @@ export function BISSwimlane({
                 index,
               });
             }}
-            title={`BIS: ${value} at ${formatTime(new Date(timestamp))}`}
+            title={`${t('anesthesia.timeline.bis.title', 'BIS')}: ${value} ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}`}
             data-testid={`bis-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-blue-600 dark:text-blue-400">

@@ -151,14 +151,14 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   absence_other: { bg: '#dc2626', border: '#b91c1c' },
 };
 
-const ABSENCE_TYPE_LABELS: Record<string, string> = {
-  vacation: 'Vacation',
-  sick: 'Sick Leave',
-  training: 'Training',
-  parental: 'Parental Leave',
-  homeoffice: 'Home Office',
-  sabbatical: 'Sabbatical',
-  default: 'Absent',
+const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }> = {
+  vacation: { key: 'appointments.absence.vacation', fallback: 'Vacation' },
+  sick: { key: 'appointments.absence.sick', fallback: 'Sick Leave' },
+  training: { key: 'appointments.absence.training', fallback: 'Training' },
+  parental: { key: 'appointments.absence.parental', fallback: 'Parental Leave' },
+  homeoffice: { key: 'appointments.absence.homeoffice', fallback: 'Home Office' },
+  sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
+  default: { key: 'appointments.absence.default', fallback: 'Absent' },
 };
 
 const ABSENCE_TYPE_ICONS: Record<string, string> = {
@@ -610,9 +610,9 @@ export default function ClinicCalendar({
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
-      const patientName = appt.patient 
-        ? `${appt.patient.surname}, ${appt.patient.firstName}` 
-        : "Unknown Patient";
+      const patientName = appt.patient
+        ? `${appt.patient.surname}, ${appt.patient.firstName}`
+        : t('appointments.unknownPatient', 'Unknown Patient');
       const serviceName = appt.service?.name || "";
       
       const appointmentDate = new Date(appt.appointmentDate);
@@ -671,7 +671,7 @@ export default function ClinicCalendar({
       .map((surgery) => {
         const patientName = surgery.patientSurname && surgery.patientFirstName
           ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
-          : 'Patient';
+          : t('appointments.patient', 'Patient');
         
         const start = new Date(surgery.plannedDate);
         
@@ -687,7 +687,7 @@ export default function ClinicCalendar({
         
         return {
           id: `surgery-${surgery.id}`,
-          title: surgery.plannedSurgery || 'Surgery',
+          title: surgery.plannedSurgery || t('appointments.surgery', 'Surgery'),
           start,
           end,
           resource: resourceId!,
@@ -726,7 +726,8 @@ export default function ClinicCalendar({
           dayEnd.setHours(18, 0, 0, 0); // End at 6 PM
           
           const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
-          const defaultLabel = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const labelConfig = ABSENCE_TYPE_LABEL_KEYS[absence.absenceType] || ABSENCE_TYPE_LABEL_KEYS.default;
+          const defaultLabel = t(labelConfig.key, labelConfig.fallback);
           const displayLabel = absence.notes || defaultLabel;
           
           absenceBlockEvents.push({
@@ -782,7 +783,7 @@ export default function ClinicCalendar({
             dayEnd.setHours(18, 0, 0, 0);
           }
           
-          const reason = timeOff.reason || 'Time Off';
+          const reason = timeOff.reason || t('appointments.timeOff', 'Time Off');
           
           timeOffBlockEvents.push({
             id: `timeoff-${timeOff.id}-${format(currentDate, 'yyyy-MM-dd')}`,
@@ -823,7 +824,7 @@ export default function ClinicCalendar({
         const dayEnd = new Date(windowDate);
         dayEnd.setHours(endH, endM, 0, 0);
         
-        const notes = window.notes || 'Available';
+        const notes = window.notes || t('appointments.available', 'Available');
         
         availabilityWindowEvents.push({
           id: `window-${window.id}`,
@@ -846,7 +847,7 @@ export default function ClinicCalendar({
       });
 
     return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents, ...availabilityWindowEvents];
-  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, availabilityWindows, filteredProviders, dateRange]);
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, availabilityWindows, filteredProviders, dateRange, t]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({

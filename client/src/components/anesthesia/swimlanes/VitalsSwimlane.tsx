@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from "react-i18next";
 import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
@@ -33,6 +34,7 @@ export function VitalsSwimlane({
   onBulkVitalsOpen,
   onVitalPointEdit,
 }: VitalsSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     vitalsState,
     currentTime,
@@ -918,19 +920,19 @@ export function VitalsSwimlane({
           <div className="text-sm font-semibold text-primary">
             {activeToolMode === 'edit' && selectedPoint && (
               <>
-                {selectedPoint.type === 'hr' && `Dragging HR: ${hoverInfo.value}`}
-                {selectedPoint.type === 'bp-sys' && `Dragging Systolic: ${hoverInfo.value}`}
-                {selectedPoint.type === 'bp-dia' && `Dragging Diastolic: ${hoverInfo.value}`}
-                {selectedPoint.type === 'spo2' && `Dragging SpO2: ${hoverInfo.value}%`}
+                {selectedPoint.type === 'hr' && `${t('anesthesia.timeline.vitals.draggingHR', 'Dragging HR')}: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-sys' && `${t('anesthesia.timeline.vitals.draggingSystolic', 'Dragging Systolic')}: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-dia' && `${t('anesthesia.timeline.vitals.draggingDiastolic', 'Dragging Diastolic')}: ${hoverInfo.value}`}
+                {selectedPoint.type === 'spo2' && `${t('anesthesia.timeline.vitals.draggingSpO2', 'Dragging SpO2')}: ${hoverInfo.value}%`}
               </>
             )}
-            {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
-            {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
-            {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
-            {activeToolMode === 'blend' && blendSequenceStep === 'sys' && `Systolic: ${hoverInfo.value}`}
-            {activeToolMode === 'blend' && blendSequenceStep === 'dia' && `Diastolic: ${hoverInfo.value}`}
-            {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `HR: ${hoverInfo.value}`}
-            {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `SpO2: ${hoverInfo.value}%`}
+            {activeToolMode === 'hr' && `${t('anesthesia.timeline.vitals.hr', 'HR')}: ${hoverInfo.value}`}
+            {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? t('anesthesia.timeline.vitals.systolic', 'Systolic') : t('anesthesia.timeline.vitals.diastolic', 'Diastolic')}: ${hoverInfo.value}`}
+            {activeToolMode === 'spo2' && `${t('anesthesia.timeline.vitals.spo2', 'SpO2')}: ${hoverInfo.value}%`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'sys' && `${t('anesthesia.timeline.vitals.systolic', 'Systolic')}: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'dia' && `${t('anesthesia.timeline.vitals.diastolic', 'Diastolic')}: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `${t('anesthesia.timeline.vitals.hr', 'HR')}: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `${t('anesthesia.timeline.vitals.spo2', 'SpO2')}: ${hoverInfo.value}%`}
           </div>
         </div>
       )}

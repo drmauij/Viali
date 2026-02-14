@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { useTimelineContext } from '../TimelineContext';
 import type { PositionPoint } from '@/hooks/useEventState';
 
@@ -32,6 +33,7 @@ export function PositionSwimlane({
   onPositionDialogOpen,
   onPositionEditDialogOpen,
 }: PositionSwimlaneProps) {
+  const { t } = useTranslation();
   const {
     eventState,
     currentTime,
@@ -118,7 +120,7 @@ export function PositionSwimlane({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add position
+            {t('anesthesia.timeline.position.clickToAdd', 'Click to add position')}
           </div>
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(positionHoverInfo.time))}
@@ -155,7 +157,7 @@ export function PositionSwimlane({
                 index,
               });
             }}
-            title={`${position} at ${formatTime(new Date(timestamp))}`}
+            title={`${position} ${t('anesthesia.timeline.at', 'at')} ${formatTime(new Date(timestamp))}`}
             data-testid={`position-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-400">
