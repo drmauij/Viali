@@ -960,7 +960,8 @@ async function sendQuestionnaireEmail(
   patientName: string,
   hospitalId: string,
   unitId: string | null,
-  infoFlyers: InfoFlyerData[] = []
+  infoFlyers: InfoFlyerData[] = [],
+  isLASurgery: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const hospital = await storage.getHospital(hospitalId);
@@ -1016,15 +1017,58 @@ async function sendQuestionnaireEmail(
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
-      to: patientEmail,
-      subject: `Pre-Op Questionnaire / Präoperativer Fragebogen - ${hospital?.name || 'Hospital'}`,
-      html: `
+    // Branch email content based on surgery type
+    const emailSubject = isLASurgery
+      ? `Patient Portal / Patientenportal - ${hospital?.name || 'Hospital'}`
+      : `Pre-Op Questionnaire / Präoperativer Fragebogen - ${hospital?.name || 'Hospital'}`;
+
+    const emailHtml = isLASurgery
+      ? `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <!-- English Section -->
           <div style="margin-bottom: 40px;">
-            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">🇬🇧 Pre-Operative Questionnaire</h2>
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">Patient Portal</h2>
+            <p>Dear ${patientName},</p>
+            <p>Your patient portal for your upcoming procedure at ${hospital?.name || 'our facility'} is now available. Here you can find all important information about your planned surgery.</p>
+            <p>Please click the button below to access your patient portal:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${portalUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Open Patient Portal
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${portalUrl}</p>
+            ${flyerSectionEN}
+            <p>${helpContactEN}</p>
+          </div>
+
+          <!-- German Section -->
+          <div>
+            <h2 style="color: #333; border-bottom: 2px solid #cc0000; padding-bottom: 10px;">Patientenportal</h2>
+            <p>Liebe(r) ${patientName},</p>
+            <p>Ihr Patientenportal für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} ist jetzt verfügbar. Hier finden Sie alle wichtigen Informationen zu Ihrer geplanten Operation.</p>
+            <p>Bitte klicken Sie auf die Schaltfläche unten, um Ihr Patientenportal aufzurufen:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${portalUrl}" style="background-color: #cc0000; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Patientenportal öffnen
+              </a>
+            </p>
+            ${flyerSectionDE}
+            <p>${helpContactDE}</p>
+          </div>
+
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
+          <p style="color: #999; font-size: 12px; text-align: center;">
+            This is an automated message from ${hospital?.name || 'Hospital'}.<br/>
+            Dies ist eine automatische Nachricht von ${hospital?.name || 'Hospital'}.
+          </p>
+        </div>
+      `
+      : `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <!-- English Section -->
+          <div style="margin-bottom: 40px;">
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">Pre-Operative Questionnaire</h2>
             <p>Dear ${patientName},</p>
             <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
             <p>Please click the button below to access and complete the questionnaire:</p>
@@ -1038,10 +1082,10 @@ async function sendQuestionnaireEmail(
             ${flyerSectionEN}
             <p>${helpContactEN}</p>
           </div>
-          
+
           <!-- German Section -->
           <div>
-            <h2 style="color: #333; border-bottom: 2px solid #cc0000; padding-bottom: 10px;">🇩🇪 Präoperativer Fragebogen</h2>
+            <h2 style="color: #333; border-bottom: 2px solid #cc0000; padding-bottom: 10px;">Präoperativer Fragebogen</h2>
             <p>Liebe(r) ${patientName},</p>
             <p>Sie wurden eingeladen, einen präoperativen Fragebogen für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} auszufüllen.</p>
             <p>Bitte klicken Sie auf die Schaltfläche unten, um den Fragebogen aufzurufen und auszufüllen:</p>
@@ -1053,14 +1097,20 @@ async function sendQuestionnaireEmail(
             ${flyerSectionDE}
             <p>${helpContactDE}</p>
           </div>
-          
+
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
           <p style="color: #999; font-size: 12px; text-align: center;">
             This is an automated message from ${hospital?.name || 'Hospital'}.<br/>
             Dies ist eine automatische Nachricht von ${hospital?.name || 'Hospital'}.
           </p>
         </div>
-      `,
+      `;
+
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      to: patientEmail,
+      subject: emailSubject,
+      html: emailHtml,
     });
 
     return { success: true };
@@ -1080,7 +1130,8 @@ async function sendQuestionnaireSms(
   patientName: string,
   hospitalId: string,
   unitId: string | null,
-  infoFlyers: InfoFlyerData[] = []
+  infoFlyers: InfoFlyerData[] = [],
+  isLASurgery: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!(await isSmsConfiguredForHospital(hospitalId))) {
@@ -1088,7 +1139,7 @@ async function sendQuestionnaireSms(
     }
 
     const hospital = await storage.getHospital(hospitalId);
-    
+
     // Get unit info for the help line phone number
     let helpPhone: string | null = null;
     if (unitId) {
@@ -1100,10 +1151,15 @@ async function sendQuestionnaireSms(
 
     const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${linkToken}`;
-    
+
     // Build a short bilingual SMS message (SMS has character limits)
     // Standard SMS = 160 chars, concatenated can be longer but charged per segment
-    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
+    let message: string;
+    if (isLASurgery) {
+      message = `${hospital?.name || 'Hospital'}: Ihr Patientenportal für Ihre geplante Operation ist bereit. Hier finden Sie alle wichtigen Informationen:\n${portalUrl}\n\nYour patient portal for your planned surgery is ready. Here you can find all important information:\n${portalUrl}`;
+    } else {
+      message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
+    }
     
     // Add info flyer links if available
     if (infoFlyers.length > 0) {
@@ -1207,7 +1263,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     }
     
     // Skip if patient already has a filled/submitted questionnaire (via tablet or previous visit)
-    if (surgery.hasExistingQuestionnaire) {
+    // LA surgeries don't have questionnaires, so skip this check for them
+    if (!surgery.noPreOpRequired && surgery.hasExistingQuestionnaire) {
       logger.info(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
       processedPatientIds.add(surgery.patientId);
       results.push({
@@ -1299,7 +1356,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           patientName,
           hospitalId,
           null,
-          flyersWithUrls
+          flyersWithUrls,
+          surgery.noPreOpRequired
         );
         
         if (emailResult.success) {
@@ -1324,7 +1382,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           patientName,
           hospitalId,
           null,
-          flyersWithUrls
+          flyersWithUrls,
+          surgery.noPreOpRequired
         );
         
         if (smsResult.success) {
@@ -1346,10 +1405,18 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         const hospital = await storage.getHospital(hospitalId);
         
         let messageText: string;
-        if (usedMethod === 'email') {
-          messageText = `[Automatisch / Automatic] Präoperativer Fragebogen / Pre-operative Questionnaire\n\nLiebe(r) ${patientName},\n\nSie wurden eingeladen, einen präoperativen Fragebogen auszufüllen.\n\nDear ${patientName},\n\nYou have been invited to complete a pre-operative questionnaire.\n\n📋 ${portalUrl}`;
+        if (surgery.noPreOpRequired) {
+          if (usedMethod === 'email') {
+            messageText = `[Automatisch / Automatic] Patientenportal / Patient Portal\n\nLiebe(r) ${patientName},\n\nIhr Patientenportal ist verfügbar. Hier finden Sie alle Informationen zu Ihrer geplanten Operation.\n\nDear ${patientName},\n\nYour patient portal is available with all information about your planned surgery.\n\n📋 ${portalUrl}`;
+          } else {
+            messageText = `${hospital?.name || 'Hospital'}: Ihr Patientenportal für Ihre geplante Operation ist bereit. Hier finden Sie alle wichtigen Informationen:\n${portalUrl}\n\nYour patient portal for your planned surgery is ready. Here you can find all important information:\n${portalUrl}`;
+          }
         } else {
-          messageText = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
+          if (usedMethod === 'email') {
+            messageText = `[Automatisch / Automatic] Präoperativer Fragebogen / Pre-operative Questionnaire\n\nLiebe(r) ${patientName},\n\nSie wurden eingeladen, einen präoperativen Fragebogen auszufüllen.\n\nDear ${patientName},\n\nYou have been invited to complete a pre-operative questionnaire.\n\n📋 ${portalUrl}`;
+          } else {
+            messageText = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
+          }
         }
         
         try {
@@ -1859,32 +1926,42 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         }
       }
       
-      // Fasting instructions in German/English bilingual format
+      const isLASurgery = surgery.noPreOpRequired;
+
+      // Fasting instructions in German/English bilingual format (only for non-LA surgeries)
       const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
       const fastingInstructionsEn = 'Fasting rules: No solid food 6 hours before surgery. Clear liquids (water, tea without milk) allowed until 2 hours before.';
-      
+
       let sendSuccess = false;
       let usedMethod: 'sms' | 'email' = 'sms';
-      
+
       // Try SMS first (preferred for urgent reminders)
       let sentMessageText = '';
       if (hasPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         // Build SMS message - only include time if admissionTime is provided
-        const surgeryInfoDe = surgery.admissionTime 
+        const surgeryInfoDe = surgery.admissionTime
           ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })} in die Klinik.`
           : `Erinnerung an Ihre OP morgen.`;
         const surgeryInfoEn = surgery.admissionTime
           ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })}.`
           : `Reminder: Your surgery tomorrow.`;
-        
-        let smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}`;
-        
-        // Add patient portal link if available
-        if (portalUrl) {
-          smsMessage += `\n\n📋 Alle Infos zu Ihrer OP / All info about your surgery:\n${portalUrl}`;
+
+        let smsMessage: string;
+        if (isLASurgery) {
+          // LA surgery: simple reminder without fasting instructions
+          smsMessage = `${hospitalName}: ${surgeryInfoDe}`;
+          if (portalUrl) {
+            smsMessage += `\n\nAlle Infos / All info:\n${portalUrl}`;
+          }
+          smsMessage += `\n\n---\n\n${surgeryInfoEn}`;
+        } else {
+          // Non-LA surgery: full reminder with fasting instructions
+          smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}`;
+          if (portalUrl) {
+            smsMessage += `\n\n📋 Alle Infos zu Ihrer OP / All info about your surgery:\n${portalUrl}`;
+          }
+          smsMessage += `\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
         }
-        
-        smsMessage += `\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
         
         const smsResult = await sendSms(surgery.patientPhone!, smsMessage, hospitalId);
         
@@ -1904,7 +1981,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           hospitalName,
           surgeryDate,
           surgery.admissionTime ? new Date(surgery.admissionTime) : null,
-          portalUrl
+          portalUrl,
+          isLASurgery
         );
         
         if (emailResult.success) {
@@ -1912,10 +1990,14 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           usedMethod = 'email';
           // Build email summary text for patient communication history
           const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Zurich' });
-          const admissionTimeStr = surgery.admissionTime 
+          const admissionTimeStr = surgery.admissionTime
             ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })
             : '';
-          sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}\n\n${fastingInstructionsDe}\n\n---\n\n${fastingInstructionsEn}`;
+          if (isLASurgery) {
+            sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}`;
+          } else {
+            sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}\n\n${fastingInstructionsDe}\n\n---\n\n${fastingInstructionsEn}`;
+          }
           logger.info(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
         }
       }
@@ -1989,7 +2071,8 @@ async function sendPreSurgeryReminderEmail(
   hospitalName: string,
   surgeryDate: Date,
   admissionTime: Date | null,
-  portalUrl: string = ''
+  portalUrl: string = '',
+  isLASurgery: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { Resend } = await import('resend');
@@ -2033,10 +2116,30 @@ async function sendPreSurgeryReminderEmail(
       `;
     }
     
+    // Fasting sections - only included for non-LA surgeries
+    const fastingSectionDE = isLASurgery ? '' : `
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #92400e;">Wichtige Nüchternheitsregeln / Fasting Rules</h3>
+          <ul style="margin-bottom: 0;">
+            <li><strong>6 Stunden vor der OP:</strong> Keine feste Nahrung</li>
+            <li><strong>2 Stunden vor der OP:</strong> Keine Flüssigkeiten (auch kein Wasser)</li>
+            <li>Klare Flüssigkeiten (Wasser, Tee ohne Milch) sind bis 2 Stunden vorher erlaubt</li>
+          </ul>
+        </div>`;
+    const fastingSectionEN = isLASurgery ? '' : `
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #92400e;">Important Fasting Rules</h3>
+          <ul style="margin-bottom: 0;">
+            <li><strong>6 hours before surgery:</strong> No solid food</li>
+            <li><strong>2 hours before surgery:</strong> No liquids (including water)</li>
+            <li>Clear liquids (water, tea without milk) are allowed until 2 hours before</li>
+          </ul>
+        </div>`;
+
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Erinnerung an Ihre OP / Surgery Reminder</h2>
-        
+
         <div style="margin-bottom: 20px;">
           <p>Liebe(r) ${patientName},</p>
           <p>Dies ist eine Erinnerung an Ihre geplante Operation:</p>
@@ -2046,20 +2149,13 @@ async function sendPreSurgeryReminderEmail(
           </p>
           ${admissionInfoDe}
         </div>
-        
-        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
-          <h3 style="margin-top: 0; color: #92400e;">Wichtige Nüchternheitsregeln / Fasting Rules</h3>
-          <ul style="margin-bottom: 0;">
-            <li><strong>6 Stunden vor der OP:</strong> Keine feste Nahrung</li>
-            <li><strong>2 Stunden vor der OP:</strong> Keine Flüssigkeiten (auch kein Wasser)</li>
-            <li>Klare Flüssigkeiten (Wasser, Tee ohne Milch) sind bis 2 Stunden vorher erlaubt</li>
-          </ul>
-        </div>
-        
+
+        ${fastingSectionDE}
+
         ${portalSectionDE}
-        
+
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
-        
+
         <div style="margin-bottom: 20px;">
           <p>Dear ${patientName},</p>
           <p>This is a reminder of your scheduled surgery:</p>
@@ -2069,18 +2165,11 @@ async function sendPreSurgeryReminderEmail(
           </p>
           ${admissionInfoEn}
         </div>
-        
-        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
-          <h3 style="margin-top: 0; color: #92400e;">Important Fasting Rules</h3>
-          <ul style="margin-bottom: 0;">
-            <li><strong>6 hours before surgery:</strong> No solid food</li>
-            <li><strong>2 hours before surgery:</strong> No liquids (including water)</li>
-            <li>Clear liquids (water, tea without milk) are allowed until 2 hours before</li>
-          </ul>
-        </div>
-        
+
+        ${fastingSectionEN}
+
         ${portalSectionEN}
-        
+
         <p style="color: #6b7280; font-size: 14px;">
           Bei Fragen kontaktieren Sie uns bitte. / Please contact us if you have questions.
         </p>

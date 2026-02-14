@@ -1022,6 +1022,8 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
   patientBirthday: Date | null;
   plannedDate: Date;
   plannedSurgery: string;
+  surgeryRoomId: string | null;
+  noPreOpRequired: boolean;
   hasQuestionnaireSent: boolean;
   hasExistingQuestionnaire: boolean;
 }>> {
@@ -1044,6 +1046,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
       plannedDate: surgeries.plannedDate,
       plannedSurgery: surgeries.plannedSurgery,
       surgeryRoomId: surgeries.surgeryRoomId,
+      noPreOpRequired: surgeries.noPreOpRequired,
     })
     .from(surgeries)
     .innerJoin(patients, eq(patients.id, surgeries.patientId))
@@ -1057,7 +1060,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
 
   const surgeryIds = surgeryResults.map(s => s.surgeryId);
   const patientIds = surgeryResults.map(s => s.patientId);
-  
+
   const sentLinks = surgeryIds.length > 0 ? await db
     .select({ surgeryId: patientQuestionnaireLinks.surgeryId, patientId: patientQuestionnaireLinks.patientId })
     .from(patientQuestionnaireLinks)
@@ -1102,6 +1105,7 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
   plannedDate: Date;
   admissionTime: Date | null;
   surgeryRoomId: string | null;
+  noPreOpRequired: boolean;
   reminderSent: boolean;
 }>> {
   const now = new Date();
@@ -1124,6 +1128,7 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
       plannedDate: surgeries.plannedDate,
       admissionTime: surgeries.admissionTime,
       surgeryRoomId: surgeries.surgeryRoomId,
+      noPreOpRequired: surgeries.noPreOpRequired,
       reminderSent: surgeries.reminderSent,
     })
     .from(surgeries)
@@ -1136,7 +1141,6 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
       sql`${surgeries.status} IN ('planned', 'in-progress')`,
       eq(surgeries.isArchived, false),
       eq(surgeries.isSuspended, false),
-      eq(surgeries.noPreOpRequired, false)
     ));
 
   return results.map(r => ({
