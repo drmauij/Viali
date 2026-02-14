@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVitalPoint, useUpdateVitalPoint, useDeleteVitalPoint } from "@/hooks/useVitalsQuery";
 
 interface EditingBIS {
@@ -115,48 +114,44 @@ export function BISDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-bis">
-        <DialogHeader>
-          <DialogTitle>BIS (Bispectral Index)</DialogTitle>
-          <DialogDescription>
-            {editingBIS ? 'Edit or delete the BIS value' : 'Enter BIS value (0-100)'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="bis-value">BIS Value</Label>
-            <Input
-              id="bis-value"
-              type="number"
-              placeholder="0-100"
-              value={bisValue}
-              onChange={(e) => setBisValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && isValid() && !readOnly) {
-                  handleSave();
-                }
-              }}
-              min={0}
-              max={100}
-              step={1}
-              autoFocus
-              data-testid="input-bis-value"
-              disabled={readOnly}
-            />
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="BIS (Bispectral Index)"
+      description={editingBIS ? 'Edit or delete the BIS value' : 'Enter BIS value (0-100)'}
+      testId="dialog-bis"
+      time={editingBIS ? bisEditTime : pendingBIS?.time}
+      onTimeChange={editingBIS ? setBisEditTime : undefined}
+      showDelete={!!editingBIS && !readOnly}
+      onDelete={editingBIS && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveDisabled={!isValid() || readOnly}
+      saveLabel={editingBIS ? 'Save' : 'Add'}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="bis-value">BIS Value</Label>
+          <Input
+            id="bis-value"
+            type="number"
+            placeholder="0-100"
+            value={bisValue}
+            onChange={(e) => setBisValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && isValid() && !readOnly) {
+                handleSave();
+              }
+            }}
+            min={0}
+            max={100}
+            step={1}
+            autoFocus
+            data-testid="input-bis-value"
+            disabled={readOnly}
+          />
         </div>
-        <DialogFooterWithTime
-          time={editingBIS ? bisEditTime : pendingBIS?.time}
-          onTimeChange={editingBIS ? setBisEditTime : undefined}
-          showDelete={!!editingBIS && !readOnly}
-          onDelete={editingBIS && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!isValid() || readOnly}
-          saveLabel={editingBIS ? 'Save' : 'Add'}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

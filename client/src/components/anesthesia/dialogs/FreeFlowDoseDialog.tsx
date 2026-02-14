@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface PendingFreeFlowDose {
@@ -37,9 +36,9 @@ export function FreeFlowDoseDialog({
 
   const handleSave = () => {
     if (!pendingFreeFlowDose) return;
-    
+
     const { swimlaneId, time, label } = pendingFreeFlowDose;
-    
+
     // Validate numeric input only
     const doseValue = freeFlowDoseInput.trim();
     if (!doseValue || isNaN(Number(doseValue)) || Number(doseValue) <= 0) {
@@ -50,9 +49,9 @@ export function FreeFlowDoseDialog({
       });
       return;
     }
-    
+
     onFreeFlowDoseEntry(swimlaneId, time, doseValue, label);
-    
+
     handleClose();
   };
 
@@ -62,61 +61,56 @@ export function FreeFlowDoseDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      if (!open) {
-        handleClose();
-      } else {
-        onOpenChange(true);
-      }
-    }}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-freeflow-dose">
-        <DialogHeader>
-          <DialogTitle>Enter Dose</DialogTitle>
-          <DialogDescription>
-            {pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : 'Enter the dose for this free-flow infusion'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="freeflow-dose">
-              Dose{pendingFreeFlowDose?.administrationUnit ? ` (${pendingFreeFlowDose.administrationUnit})` : ''}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="freeflow-dose"
-                type="number"
-                inputMode="decimal"
-                data-testid="input-freeflow-dose"
-                value={freeFlowDoseInput}
-                onChange={(e) => setFreeFlowDoseInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-                placeholder="e.g., 100"
-                autoFocus
-              />
-              {pendingFreeFlowDose?.administrationUnit && (
-                <span className="text-sm text-muted-foreground min-w-fit">
-                  {pendingFreeFlowDose.administrationUnit}
-                </span>
-              )}
-            </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        } else {
+          onOpenChange(true);
+        }
+      }}
+      title="Enter Dose"
+      description={pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : 'Enter the dose for this free-flow infusion'}
+      testId="dialog-freeflow-dose"
+      time={pendingFreeFlowDose?.time}
+      onTimeChange={(newTime) => {
+        // Time change handled externally in parent component
+      }}
+      onSave={handleSave}
+      onCancel={handleClose}
+      saveDisabled={!freeFlowDoseInput.trim()}
+      saveLabel="Start"
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="freeflow-dose">
+            Dose{pendingFreeFlowDose?.administrationUnit ? ` (${pendingFreeFlowDose.administrationUnit})` : ''}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="freeflow-dose"
+              type="number"
+              inputMode="decimal"
+              data-testid="input-freeflow-dose"
+              value={freeFlowDoseInput}
+              onChange={(e) => setFreeFlowDoseInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+              placeholder="e.g., 100"
+              autoFocus
+            />
+            {pendingFreeFlowDose?.administrationUnit && (
+              <span className="text-sm text-muted-foreground min-w-fit">
+                {pendingFreeFlowDose.administrationUnit}
+              </span>
+            )}
           </div>
         </div>
-        <DialogFooterWithTime
-          time={pendingFreeFlowDose?.time}
-          onTimeChange={(newTime) => {
-            // Time change handled externally in parent component
-          }}
-          showDelete={false}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!freeFlowDoseInput.trim()}
-          saveLabel="Start"
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddTOFPoint, useUpdateTOFPoint, useDeleteTOFPoint } from "@/hooks/useVitalsQuery";
 
 interface EditingTOF {
@@ -131,89 +130,85 @@ export function TOFDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-tof">
-        <DialogHeader>
-          <DialogTitle>TOF (Train of Four)</DialogTitle>
-          <DialogDescription>
-            {editingTOF ? 'Edit or delete the TOF value' : 'Select TOF fraction value'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          <div className="grid gap-2">
-            <Label>TOF Fraction</Label>
-            <div className="grid grid-cols-5 gap-2">
-              {editingTOF ? (
-                TOF_FRACTIONS.map((fraction) => (
-                  <Button
-                    key={fraction}
-                    variant={fractionValue === fraction ? 'default' : 'outline'}
-                    className="h-12 text-base font-semibold"
-                    disabled={readOnly}
-                    onClick={() => {
-                      if (readOnly) return;
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="TOF (Train of Four)"
+      description={editingTOF ? 'Edit or delete the TOF value' : 'Select TOF fraction value'}
+      testId="dialog-tof"
+      time={editingTOF ? tofEditTime : pendingTOF?.time}
+      onTimeChange={editingTOF ? setTofEditTime : undefined}
+      showDelete={!!editingTOF && !readOnly}
+      onDelete={editingTOF && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={() => handleSave()}
+      saveDisabled={!isValid() || readOnly}
+      saveLabel={editingTOF ? 'Save' : 'Add'}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="grid gap-2">
+          <Label>TOF Fraction</Label>
+          <div className="grid grid-cols-5 gap-2">
+            {editingTOF ? (
+              TOF_FRACTIONS.map((fraction) => (
+                <Button
+                  key={fraction}
+                  variant={fractionValue === fraction ? 'default' : 'outline'}
+                  className="h-12 text-base font-semibold"
+                  disabled={readOnly}
+                  onClick={() => {
+                    if (readOnly) return;
+                    setFractionValue(fraction);
+                  }}
+                  data-testid={`button-tof-${fraction.replace('/', '-')}`}
+                >
+                  {fraction}
+                </Button>
+              ))
+            ) : (
+              TOF_FRACTIONS.map((fraction) => (
+                <Button
+                  key={fraction}
+                  variant="outline"
+                  className="h-12 text-base font-semibold"
+                  disabled={readOnly}
+                  onClick={() => {
+                    if (readOnly) return;
+                    if (!percentageValue) {
+                      handleSave(fraction);
+                    } else {
                       setFractionValue(fraction);
-                    }}
-                    data-testid={`button-tof-${fraction.replace('/', '-')}`}
-                  >
-                    {fraction}
-                  </Button>
-                ))
-              ) : (
-                TOF_FRACTIONS.map((fraction) => (
-                  <Button
-                    key={fraction}
-                    variant="outline"
-                    className="h-12 text-base font-semibold"
-                    disabled={readOnly}
-                    onClick={() => {
-                      if (readOnly) return;
-                      if (!percentageValue) {
-                        handleSave(fraction);
-                      } else {
-                        setFractionValue(fraction);
-                      }
-                    }}
-                    data-testid={`button-tof-${fraction.replace('/', '-')}`}
-                  >
-                    {fraction}
-                  </Button>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="tof-percentage">T4/T1 Ratio (%) - Optional</Label>
-            <Input
-              id="tof-percentage"
-              type="number"
-              placeholder="0-100"
-              value={percentageValue}
-              onChange={(e) => setPercentageValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && isValid() && !readOnly) {
-                  handleSave();
-                }
-              }}
-              min={0}
-              max={100}
-              step={1}
-              data-testid="input-tof-percentage"
-              disabled={readOnly}
-            />
+                    }
+                  }}
+                  data-testid={`button-tof-${fraction.replace('/', '-')}`}
+                >
+                  {fraction}
+                </Button>
+              ))
+            )}
           </div>
         </div>
-        <DialogFooterWithTime
-          time={editingTOF ? tofEditTime : pendingTOF?.time}
-          onTimeChange={editingTOF ? setTofEditTime : undefined}
-          showDelete={!!editingTOF && !readOnly}
-          onDelete={editingTOF && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={() => handleSave()}
-          saveDisabled={!isValid() || readOnly}
-          saveLabel={editingTOF ? 'Save' : 'Add'}
-        />
-      </DialogContent>
-    </Dialog>
+        <div className="grid gap-2">
+          <Label htmlFor="tof-percentage">T4/T1 Ratio (%) - Optional</Label>
+          <Input
+            id="tof-percentage"
+            type="number"
+            placeholder="0-100"
+            value={percentageValue}
+            onChange={(e) => setPercentageValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && isValid() && !readOnly) {
+                handleSave();
+              }
+            }}
+            min={0}
+            max={100}
+            step={1}
+            data-testid="input-tof-percentage"
+            disabled={readOnly}
+          />
+        </div>
+      </div>
+    </BaseTimelineDialog>
   );
 }

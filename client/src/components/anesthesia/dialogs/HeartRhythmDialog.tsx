@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddRhythmPoint, useUpdateRhythmPoint, useDeleteRhythmPoint } from "@/hooks/useRhythmQuery";
 
 interface EditingHeartRhythm {
@@ -128,97 +127,93 @@ export function HeartRhythmDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-heart-rhythm">
-        <DialogHeader>
-          <DialogTitle>{t('anesthesia.timeline.heartRhythmDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {editingHeartRhythm 
-              ? t('anesthesia.timeline.heartRhythmDialog.editRhythm') 
-              : t('anesthesia.timeline.heartRhythmDialog.selectRhythm')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          <div className="grid gap-2">
-            <Label>{t('anesthesia.timeline.heartRhythmDialog.selectLabel')}</Label>
-            <div className="grid gap-1">
-              {editingHeartRhythm ? (
-                <>
-                  {rhythmOptions.map((rhythm) => (
-                    <Button
-                      key={rhythm.key}
-                      variant={heartRhythmInput === rhythm.label ? 'default' : 'outline'}
-                      className="justify-start h-12 text-left"
-                      disabled={readOnly}
-                      onClick={() => {
-                        if (readOnly) return;
-                        setHeartRhythmInput(rhythm.label);
-                      }}
-                      data-testid={`button-rhythm-${rhythm.key}`}
-                    >
-                      {rhythm.label}
-                    </Button>
-                  ))}
-                  <Input
-                    placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
-                    value={heartRhythmInput && !isPresetRhythm(heartRhythmInput) ? heartRhythmInput : ''}
-                    onChange={(e) => setHeartRhythmInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
-                        handleSave();
-                      }
-                    }}
-                    className="mt-2"
-                    data-testid="input-heart-rhythm-custom"
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('anesthesia.timeline.heartRhythmDialog.title')}
+      description={editingHeartRhythm
+        ? t('anesthesia.timeline.heartRhythmDialog.editRhythm')
+        : t('anesthesia.timeline.heartRhythmDialog.selectRhythm')}
+      testId="dialog-heart-rhythm"
+      time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
+      onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
+      showDelete={!!editingHeartRhythm && !readOnly}
+      onDelete={editingHeartRhythm && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={() => handleSave()}
+      saveDisabled={!heartRhythmInput.trim() || readOnly}
+      saveLabel={editingHeartRhythm ? t('anesthesia.timeline.heartRhythmDialog.save', 'Save') : t('anesthesia.timeline.heartRhythmDialog.add', 'Add')}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="grid gap-2">
+          <Label>{t('anesthesia.timeline.heartRhythmDialog.selectLabel')}</Label>
+          <div className="grid gap-1">
+            {editingHeartRhythm ? (
+              <>
+                {rhythmOptions.map((rhythm) => (
+                  <Button
+                    key={rhythm.key}
+                    variant={heartRhythmInput === rhythm.label ? 'default' : 'outline'}
+                    className="justify-start h-12 text-left"
                     disabled={readOnly}
-                  />
-                </>
-              ) : (
-                <>
-                  {rhythmOptions.map((rhythm) => (
-                    <Button
-                      key={rhythm.key}
-                      variant="outline"
-                      className="justify-start h-12 text-left"
-                      disabled={readOnly}
-                      onClick={() => {
-                        if (readOnly) return;
-                        handleSave(rhythm.label);
-                      }}
-                      data-testid={`button-rhythm-${rhythm.key}`}
-                    >
-                      {rhythm.label}
-                    </Button>
-                  ))}
-                  <Input
-                    placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
-                    value={heartRhythmInput}
-                    onChange={(e) => setHeartRhythmInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
-                        handleSave();
-                      }
+                    onClick={() => {
+                      if (readOnly) return;
+                      setHeartRhythmInput(rhythm.label);
                     }}
-                    className="mt-2"
-                    data-testid="input-heart-rhythm-custom"
+                    data-testid={`button-rhythm-${rhythm.key}`}
+                  >
+                    {rhythm.label}
+                  </Button>
+                ))}
+                <Input
+                  placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
+                  value={heartRhythmInput && !isPresetRhythm(heartRhythmInput) ? heartRhythmInput : ''}
+                  onChange={(e) => setHeartRhythmInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
+                      handleSave();
+                    }
+                  }}
+                  className="mt-2"
+                  data-testid="input-heart-rhythm-custom"
+                  disabled={readOnly}
+                />
+              </>
+            ) : (
+              <>
+                {rhythmOptions.map((rhythm) => (
+                  <Button
+                    key={rhythm.key}
+                    variant="outline"
+                    className="justify-start h-12 text-left"
                     disabled={readOnly}
-                  />
-                </>
-              )}
-            </div>
+                    onClick={() => {
+                      if (readOnly) return;
+                      handleSave(rhythm.label);
+                    }}
+                    data-testid={`button-rhythm-${rhythm.key}`}
+                  >
+                    {rhythm.label}
+                  </Button>
+                ))}
+                <Input
+                  placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
+                  value={heartRhythmInput}
+                  onChange={(e) => setHeartRhythmInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
+                      handleSave();
+                    }
+                  }}
+                  className="mt-2"
+                  data-testid="input-heart-rhythm-custom"
+                  disabled={readOnly}
+                />
+              </>
+            )}
           </div>
         </div>
-        <DialogFooterWithTime
-          time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
-          onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
-          showDelete={!!editingHeartRhythm && !readOnly}
-          onDelete={editingHeartRhythm && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={() => handleSave()}
-          saveDisabled={!heartRhythmInput.trim() || readOnly}
-          saveLabel={editingHeartRhythm ? t('anesthesia.timeline.heartRhythmDialog.save', 'Save') : t('anesthesia.timeline.heartRhythmDialog.add', 'Add')}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

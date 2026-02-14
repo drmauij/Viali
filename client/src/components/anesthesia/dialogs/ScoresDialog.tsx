@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddScorePoint, useUpdateScorePoint, useDeleteScorePoint } from "@/hooks/useVitalsQuery";
 import type { AldreteScore, PARSAPScore } from "@/hooks/useEventState";
 import { CheckCircle2 } from "lucide-react";
@@ -291,63 +290,58 @@ export function ScoresDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh]" data-testid="dialog-scores">
-        <DialogHeader>
-          <DialogTitle>PACU Discharge Scores</DialogTitle>
-          <DialogDescription>
-            {editingScore ? 'Edit or delete the score' : 'Document Aldrete or PARSAP score for discharge criteria'}
-          </DialogDescription>
-        </DialogHeader>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="PACU Discharge Scores"
+      description={editingScore ? 'Edit or delete the score' : 'Document Aldrete or PARSAP score for discharge criteria'}
+      className="sm:max-w-[600px] max-h-[90vh]"
+      testId="dialog-scores"
+      time={editingScore ? scoreEditTime : pendingScore?.time}
+      onTimeChange={editingScore ? setScoreEditTime : undefined}
+      showDelete={!!editingScore && !readOnly}
+      onDelete={editingScore && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveDisabled={readOnly}
+      saveLabel={editingScore ? 'Save' : 'Add'}
+    >
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'aldrete' | 'parsap')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="aldrete" data-testid="tab-aldrete">
+            Aldrete Score
+          </TabsTrigger>
+          <TabsTrigger value="parsap" data-testid="tab-parsap">
+            PARSAP Score
+          </TabsTrigger>
+        </TabsList>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'aldrete' | 'parsap')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="aldrete" data-testid="tab-aldrete">
-              Aldrete Score
-            </TabsTrigger>
-            <TabsTrigger value="parsap" data-testid="tab-parsap">
-              PARSAP Score
-            </TabsTrigger>
-          </TabsList>
+        <div className="mt-4 max-h-[50vh] overflow-y-auto pr-2">
+          <TabsContent value="aldrete" className="mt-0">
+            {renderCriteriaButtons(ALDRETE_CRITERIA, aldreteScore, setAldreteScore)}
+          </TabsContent>
 
-          <div className="mt-4 max-h-[50vh] overflow-y-auto pr-2">
-            <TabsContent value="aldrete" className="mt-0">
-              {renderCriteriaButtons(ALDRETE_CRITERIA, aldreteScore, setAldreteScore)}
-            </TabsContent>
-
-            <TabsContent value="parsap" className="mt-0">
-              {renderCriteriaButtons(PARSAP_CRITERIA, parsapScore, setParsapScore)}
-            </TabsContent>
-          </div>
-        </Tabs>
-
-        <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg ${
-          isDischargeReady 
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
-            : 'bg-muted text-muted-foreground'
-        }`}>
-          {isDischargeReady && <CheckCircle2 className="h-5 w-5" />}
-          <span className="font-bold text-lg">
-            Total: {currentTotal}/10
-          </span>
-          {isDischargeReady && (
-            <span className="text-sm font-medium">
-              - Discharge Ready
-            </span>
-          )}
+          <TabsContent value="parsap" className="mt-0">
+            {renderCriteriaButtons(PARSAP_CRITERIA, parsapScore, setParsapScore)}
+          </TabsContent>
         </div>
+      </Tabs>
 
-        <DialogFooterWithTime
-          time={editingScore ? scoreEditTime : pendingScore?.time}
-          onTimeChange={editingScore ? setScoreEditTime : undefined}
-          showDelete={!!editingScore && !readOnly}
-          onDelete={editingScore && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={readOnly}
-          saveLabel={editingScore ? 'Save' : 'Add'}
-        />
-      </DialogContent>
-    </Dialog>
+      <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg ${
+        isDischargeReady
+          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+          : 'bg-muted text-muted-foreground'
+      }`}>
+        {isDischargeReady && <CheckCircle2 className="h-5 w-5" />}
+        <span className="font-bold text-lg">
+          Total: {currentTotal}/10
+        </span>
+        {isDischargeReady && (
+          <span className="text-sm font-medium">
+            - Discharge Ready
+          </span>
+        )}
+      </div>
+    </BaseTimelineDialog>
   );
 }

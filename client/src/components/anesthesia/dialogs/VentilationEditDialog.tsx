@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateVitalPoint, useDeleteVitalPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
 
@@ -58,10 +57,10 @@ export function VentilationEditDialog({
     if (readOnly) return;
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { id } = editingVentilationValue;
     const value = parseFloat(ventilationEditInput.trim());
-    
+
     if (isNaN(value)) {
       toast({
         title: "Invalid value",
@@ -70,9 +69,9 @@ export function VentilationEditDialog({
       });
       return;
     }
-    
+
     const newTimestamp = ventilationEditTime;
-    
+
     updateVitalPointMutation.mutate(
       {
         pointId: id,
@@ -92,9 +91,9 @@ export function VentilationEditDialog({
     if (readOnly) return;
     if (!editingVentilationValue) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { id } = editingVentilationValue;
-    
+
     deleteVitalPointMutation.mutate(id, {
       onSuccess: () => {
         onVentilationDeleted?.();
@@ -110,46 +109,42 @@ export function VentilationEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-edit">
-        <DialogHeader>
-          <DialogTitle>Edit {editingVentilationValue?.label}</DialogTitle>
-          <DialogDescription>
-            Edit or delete the ventilation value
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="ventilation-edit-value">Value</Label>
-            <Input
-              ref={inputRef}
-              id="ventilation-edit-value"
-              data-testid="input-ventilation-edit-value"
-              type="number"
-              step="any"
-              value={ventilationEditInput}
-              onChange={(e) => setVentilationEditInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !readOnly) {
-                  handleSave();
-                }
-              }}
-              placeholder="Enter value"
-              autoFocus
-              disabled={readOnly}
-            />
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Edit ${editingVentilationValue?.label}`}
+      description="Edit or delete the ventilation value"
+      testId="dialog-ventilation-edit"
+      time={ventilationEditTime}
+      onTimeChange={setVentilationEditTime}
+      showDelete={!readOnly}
+      onDelete={!readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={!readOnly ? handleSave : undefined}
+      saveDisabled={!ventilationEditInput.trim() || readOnly}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="ventilation-edit-value">Value</Label>
+          <Input
+            ref={inputRef}
+            id="ventilation-edit-value"
+            data-testid="input-ventilation-edit-value"
+            type="number"
+            step="any"
+            value={ventilationEditInput}
+            onChange={(e) => setVentilationEditInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !readOnly) {
+                handleSave();
+              }
+            }}
+            placeholder="Enter value"
+            autoFocus
+            disabled={readOnly}
+          />
         </div>
-        <DialogFooterWithTime
-          time={ventilationEditTime}
-          onTimeChange={setVentilationEditTime}
-          showDelete={!readOnly}
-          onDelete={!readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={!readOnly ? handleSave : undefined}
-          saveDisabled={!ventilationEditInput.trim() || readOnly}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

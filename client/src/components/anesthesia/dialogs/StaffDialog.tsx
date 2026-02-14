@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
 
 interface EditingStaff {
@@ -153,24 +152,115 @@ export function StaffDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-staff">
-        <DialogHeader>
-          <DialogTitle>Staff Entry</DialogTitle>
-          <DialogDescription>
-            {editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          {currentRole === 'assistant' ? (
-            // For assistant role, show free text input
-            <div className="grid gap-2">
-              <Label htmlFor="staff-name">Name</Label>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Staff Entry"
+      description={editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
+      testId="dialog-staff"
+      time={editingStaff ? staffEditTime : pendingStaff?.time}
+      onTimeChange={editingStaff ? setStaffEditTime : undefined}
+      showDelete={!!editingStaff && !readOnly}
+      onDelete={editingStaff && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveDisabled={!staffInput.trim() || readOnly}
+      saveLabel={editingStaff ? 'Save' : 'Add'}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        {currentRole === 'assistant' ? (
+          // For assistant role, show free text input
+          <div className="grid gap-2">
+            <Label htmlFor="staff-name">Name</Label>
+            <Input
+              ref={inputRef}
+              id="staff-name"
+              data-testid="input-staff-name"
+              placeholder="Enter name..."
+              value={staffInput}
+              onChange={(e) => setStaffInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && staffInput.trim() && !readOnly) {
+                  handleSave();
+                }
+              }}
+              autoFocus
+              disabled={readOnly}
+            />
+          </div>
+        ) : (
+          // For doctor/nurse roles, show selectable user list
+          <div className="grid gap-2">
+            <Label>Select {currentRole}</Label>
+            <div className="grid grid-cols-1 gap-2">
+              {filteredUsers.map((hospitalUser) => {
+                // Use name from endpoint (already formatted as "lastName firstName") or fallback
+                const displayName = hospitalUser.name ||
+                  [hospitalUser.firstName, hospitalUser.lastName].filter(Boolean).join(' ') ||
+                  hospitalUser.email;
+
+                return (
+                  <Button
+                    key={hospitalUser.id}
+                    variant={staffInput === displayName ? 'default' : 'outline'}
+                    className="justify-start h-auto py-3 text-left"
+                    disabled={readOnly}
+                    onClick={() => {
+                      if (!anesthesiaRecordId || readOnly) return;
+
+                      // Update staffInput for variant highlighting
+                      setStaffInput(displayName);
+
+                      if (editingStaff) {
+                        updateStaff.mutate(
+                          {
+                            id: editingStaff.id,
+                            timestamp: new Date(staffEditTime),
+                            name: displayName,
+                          },
+                          {
+                            onSuccess: () => {
+                              onStaffUpdated?.();
+                              handleClose();
+                            },
+                          }
+                        );
+                      } else if (pendingStaff) {
+                        createStaff.mutate(
+                          {
+                            anesthesiaRecordId,
+                            timestamp: new Date(pendingStaff.time),
+                            role: pendingStaff.role,
+                            name: displayName,
+                          },
+                          {
+                            onSuccess: () => {
+                              onStaffCreated?.();
+                              handleClose();
+                            },
+                          }
+                        );
+                      }
+                    }}
+                    data-testid={`button-staff-${hospitalUser.id}`}
+                  >
+                    {displayName}
+                  </Button>
+                );
+              })}
+            </div>
+            {filteredUsers.length === 0 && (
+              <div className="text-sm text-muted-foreground py-4 text-center">
+                No {currentRole}s found in this unit
+              </div>
+            )}
+            {/* Custom input for other names */}
+            <div className="mt-2 pt-2 border-t">
+              <Label htmlFor="staff-name-custom">Or enter custom name</Label>
               <Input
-                ref={inputRef}
-                id="staff-name"
-                data-testid="input-staff-name"
-                placeholder="Enter name..."
+                id="staff-name-custom"
+                data-testid="input-staff-name-custom"
+                placeholder="Enter custom name..."
                 value={staffInput}
                 onChange={(e) => setStaffInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -178,107 +268,12 @@ export function StaffDialog({
                     handleSave();
                   }
                 }}
-                autoFocus
                 disabled={readOnly}
               />
             </div>
-          ) : (
-            // For doctor/nurse roles, show selectable user list
-            <div className="grid gap-2">
-              <Label>Select {currentRole}</Label>
-              <div className="grid grid-cols-1 gap-2">
-                {filteredUsers.map((hospitalUser) => {
-                  // Use name from endpoint (already formatted as "lastName firstName") or fallback
-                  const displayName = hospitalUser.name || 
-                    [hospitalUser.firstName, hospitalUser.lastName].filter(Boolean).join(' ') || 
-                    hospitalUser.email;
-                  
-                  return (
-                    <Button
-                      key={hospitalUser.id}
-                      variant={staffInput === displayName ? 'default' : 'outline'}
-                      className="justify-start h-auto py-3 text-left"
-                      disabled={readOnly}
-                      onClick={() => {
-                        if (!anesthesiaRecordId || readOnly) return;
-                        
-                        // Update staffInput for variant highlighting
-                        setStaffInput(displayName);
-                        
-                        if (editingStaff) {
-                          updateStaff.mutate(
-                            {
-                              id: editingStaff.id,
-                              timestamp: new Date(staffEditTime),
-                              name: displayName,
-                            },
-                            {
-                              onSuccess: () => {
-                                onStaffUpdated?.();
-                                handleClose();
-                              },
-                            }
-                          );
-                        } else if (pendingStaff) {
-                          createStaff.mutate(
-                            {
-                              anesthesiaRecordId,
-                              timestamp: new Date(pendingStaff.time),
-                              role: pendingStaff.role,
-                              name: displayName,
-                            },
-                            {
-                              onSuccess: () => {
-                                onStaffCreated?.();
-                                handleClose();
-                              },
-                            }
-                          );
-                        }
-                      }}
-                      data-testid={`button-staff-${hospitalUser.id}`}
-                    >
-                      {displayName}
-                    </Button>
-                  );
-                })}
-              </div>
-              {filteredUsers.length === 0 && (
-                <div className="text-sm text-muted-foreground py-4 text-center">
-                  No {currentRole}s found in this unit
-                </div>
-              )}
-              {/* Custom input for other names */}
-              <div className="mt-2 pt-2 border-t">
-                <Label htmlFor="staff-name-custom">Or enter custom name</Label>
-                <Input
-                  id="staff-name-custom"
-                  data-testid="input-staff-name-custom"
-                  placeholder="Enter custom name..."
-                  value={staffInput}
-                  onChange={(e) => setStaffInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && staffInput.trim() && !readOnly) {
-                      handleSave();
-                    }
-                  }}
-                  disabled={readOnly}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-        <DialogFooterWithTime
-          time={editingStaff ? staffEditTime : pendingStaff?.time}
-          onTimeChange={editingStaff ? setStaffEditTime : undefined}
-          showDelete={!!editingStaff && !readOnly}
-          onDelete={editingStaff && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!staffInput.trim() || readOnly}
-          saveLabel={editingStaff ? 'Save' : 'Add'}
-        />
-      </DialogContent>
-    </Dialog>
+          </div>
+        )}
+      </div>
+    </BaseTimelineDialog>
   );
 }

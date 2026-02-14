@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { COMMON_EVENTS } from "@/constants/commonEvents";
 import { useTranslation } from "react-i18next";
@@ -161,62 +160,59 @@ export function EventDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-event-comment">
-        <DialogHeader>
-          <DialogTitle>{editingEvent ? t("anesthesia.timeline.editEvent") : t("anesthesia.timeline.addEvent")}</DialogTitle>
-          <DialogDescription>
-            {editingEvent ? t("anesthesia.timeline.editDeleteEvent") : t("anesthesia.timeline.quickSelectEvent")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          {!editingEvent && !readOnly && (
-            <div className="grid gap-2">
-              <Label>{t("anesthesia.timeline.commonEvents")}</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto p-1">
-                {COMMON_EVENTS.map((event) => {
-                  const IconComponent = event.icon;
-                  return (
-                    <Button
-                      key={event.type}
-                      variant="outline"
-                      className="justify-start h-auto py-2 px-3"
-                      onClick={() => handleQuickEvent(event.type)}
-                      data-testid={`button-quick-event-${event.type}`}
-                    >
-                      <IconComponent className="w-4 h-4 mr-2 shrink-0" />
-                      <span className="text-sm">{getEventLabel(event.type)}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editingEvent ? t("anesthesia.timeline.editEvent") : t("anesthesia.timeline.addEvent")}
+      description={editingEvent ? t("anesthesia.timeline.editDeleteEvent") : t("anesthesia.timeline.quickSelectEvent")}
+      className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+      testId="dialog-event-comment"
+      time={editingEvent ? eventEditTime : pendingEvent?.time}
+      onTimeChange={setEventEditTime}
+      showDelete={!!editingEvent && !readOnly}
+      onDelete={editingEvent && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveDisabled={!eventTextInput?.trim() || readOnly}
+      saveLabel={editingEvent ? t('common.save') : t('common.add')}
+    >
+      <div className="grid gap-4 py-4">
+        {!editingEvent && !readOnly && (
           <div className="grid gap-2">
-            <Label htmlFor="event-text">{t("anesthesia.timeline.eventComment")}</Label>
-            <Textarea
-              id="event-text"
-              data-testid="input-event-text"
-              value={eventTextInput}
-              onChange={(e) => setEventTextInput(e.target.value)}
-              placeholder={t("anesthesia.timeline.enterEventDescription")}
-              rows={4}
-              autoFocus={!!editingEvent}
-              disabled={readOnly}
-            />
+            <Label>{t("anesthesia.timeline.commonEvents")}</Label>
+            <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto p-1">
+              {COMMON_EVENTS.map((event) => {
+                const IconComponent = event.icon;
+                return (
+                  <Button
+                    key={event.type}
+                    variant="outline"
+                    className="justify-start h-auto py-2 px-3"
+                    onClick={() => handleQuickEvent(event.type)}
+                    data-testid={`button-quick-event-${event.type}`}
+                  >
+                    <IconComponent className="w-4 h-4 mr-2 shrink-0" />
+                    <span className="text-sm">{getEventLabel(event.type)}</span>
+                  </Button>
+                );
+              })}
+            </div>
           </div>
+        )}
+        <div className="grid gap-2">
+          <Label htmlFor="event-text">{t("anesthesia.timeline.eventComment")}</Label>
+          <Textarea
+            id="event-text"
+            data-testid="input-event-text"
+            value={eventTextInput}
+            onChange={(e) => setEventTextInput(e.target.value)}
+            placeholder={t("anesthesia.timeline.enterEventDescription")}
+            rows={4}
+            autoFocus={!!editingEvent}
+            disabled={readOnly}
+          />
         </div>
-        <DialogFooterWithTime
-          time={editingEvent ? eventEditTime : pendingEvent?.time}
-          onTimeChange={setEventEditTime}
-          showDelete={!!editingEvent && !readOnly}
-          onDelete={editingEvent && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!eventTextInput?.trim() || readOnly}
-          saveLabel={editingEvent ? t('common.save') : t('common.add')}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

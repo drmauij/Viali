@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 
 interface EditingInfusionStart {
@@ -62,9 +60,9 @@ export function InfusionStartEditDialog({
   const handleSave = () => {
     if (!editingInfusionStart || !doseInput.trim()) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { id } = editingInfusionStart;
-    
+
     // Call update mutation
     updateMedication.mutate(
       {
@@ -85,9 +83,9 @@ export function InfusionStartEditDialog({
   const handleDelete = () => {
     if (!editingInfusionStart) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { id } = editingInfusionStart;
-    
+
     // Call delete mutation
     deleteMedication.mutate(id, {
       onSuccess: () => {
@@ -104,80 +102,75 @@ export function InfusionStartEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-start-edit">
-        <DialogHeader>
-          <DialogTitle>Edit Infusion Start</DialogTitle>
-          <DialogDescription>
-            {editingInfusionStart?.medicationName || 'Edit or delete the infusion'} 
-            {editingInfusionStart?.isFreeFlow ? ' (Free-flow)' : ' (Rate-controlled)'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          {/* Dose Input - use rateUnit for rate-controlled infusions, administrationUnit for free-flow */}
-          <div className="grid gap-2">
-            {(() => {
-              const displayUnit = editingInfusionStart?.isFreeFlow 
-                ? editingInfusionStart?.administrationUnit 
-                : editingInfusionStart?.rateUnit || editingInfusionStart?.administrationUnit;
-              return (
-                <>
-                  <Label htmlFor="infusion-dose-edit-value">
-                    Starting {editingInfusionStart?.isFreeFlow ? 'Dose' : 'Rate'}{displayUnit ? ` (${displayUnit})` : ''}
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      ref={inputRef}
-                      id="infusion-dose-edit-value"
-                      data-testid="input-infusion-dose-edit-value"
-                      value={doseInput}
-                      onChange={(e) => setDoseInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSave();
-                        }
-                      }}
-                      placeholder="e.g., 5, 100, 500"
-                      autoFocus
-                    />
-                    {displayUnit && (
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">
-                        {displayUnit}
-                      </span>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-          
-          {/* Note Input */}
-          <div className="grid gap-2">
-            <Label htmlFor="infusion-note-edit-value">Note (optional)</Label>
-            <Input
-              id="infusion-note-edit-value"
-              data-testid="input-infusion-note-edit-value"
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., Bolus 150mg"
-            />
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit Infusion Start"
+      description={`${editingInfusionStart?.medicationName || 'Edit or delete the infusion'} ${editingInfusionStart?.isFreeFlow ? ' (Free-flow)' : ' (Rate-controlled)'}`}
+      testId="dialog-infusion-start-edit"
+      time={editTime}
+      onTimeChange={setEditTime}
+      showDelete={true}
+      onDelete={handleDelete}
+      onSave={handleSave}
+      onCancel={handleClose}
+      saveDisabled={!doseInput.trim()}
+    >
+      <div className="grid gap-4 py-4">
+        {/* Dose Input - use rateUnit for rate-controlled infusions, administrationUnit for free-flow */}
+        <div className="grid gap-2">
+          {(() => {
+            const displayUnit = editingInfusionStart?.isFreeFlow
+              ? editingInfusionStart?.administrationUnit
+              : editingInfusionStart?.rateUnit || editingInfusionStart?.administrationUnit;
+            return (
+              <>
+                <Label htmlFor="infusion-dose-edit-value">
+                  Starting {editingInfusionStart?.isFreeFlow ? 'Dose' : 'Rate'}{displayUnit ? ` (${displayUnit})` : ''}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={inputRef}
+                    id="infusion-dose-edit-value"
+                    data-testid="input-infusion-dose-edit-value"
+                    value={doseInput}
+                    onChange={(e) => setDoseInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSave();
+                      }
+                    }}
+                    placeholder="e.g., 5, 100, 500"
+                    autoFocus
+                  />
+                  {displayUnit && (
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      {displayUnit}
+                    </span>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
-        <DialogFooterWithTime
-          time={editTime}
-          onTimeChange={setEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!doseInput.trim()}
-        />
-      </DialogContent>
-    </Dialog>
+
+        {/* Note Input */}
+        <div className="grid gap-2">
+          <Label htmlFor="infusion-note-edit-value">Note (optional)</Label>
+          <Input
+            id="infusion-note-edit-value"
+            data-testid="input-infusion-note-edit-value"
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSave();
+              }
+            }}
+            placeholder="e.g., Bolus 150mg"
+          />
+        </div>
+      </div>
+    </BaseTimelineDialog>
   );
 }

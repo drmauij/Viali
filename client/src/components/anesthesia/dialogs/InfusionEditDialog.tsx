@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 
 interface EditingInfusionValue {
   swimlaneId: string;
@@ -42,19 +41,19 @@ export function InfusionEditDialog({
 
   const handleSave = () => {
     if (!editingInfusionValue || !infusionEditInput.trim()) return;
-    
+
     const { swimlaneId, index } = editingInfusionValue;
     onInfusionValueEditSave(swimlaneId, index, infusionEditTime, infusionEditInput.trim());
-    
+
     handleClose();
   };
 
   const handleDelete = () => {
     if (!editingInfusionValue) return;
-    
+
     const { swimlaneId, index } = editingInfusionValue;
     onInfusionValueDelete(swimlaneId, index);
-    
+
     handleClose();
   };
 
@@ -65,48 +64,44 @@ export function InfusionEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      if (!open) {
-        handleClose();
-      } else {
-        onOpenChange(true);
-      }
-    }}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-edit">
-        <DialogHeader>
-          <DialogTitle>Edit Infusion Rate</DialogTitle>
-          <DialogDescription>
-            Edit or delete the infusion rate
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="infusion-edit-value">Rate</Label>
-            <Input
-              id="infusion-edit-value"
-              data-testid="input-infusion-edit-value"
-              value={infusionEditInput}
-              onChange={(e) => setInfusionEditInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 100ml/h, 50ml/h"
-              autoFocus
-            />
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        } else {
+          onOpenChange(true);
+        }
+      }}
+      title="Edit Infusion Rate"
+      description="Edit or delete the infusion rate"
+      testId="dialog-infusion-edit"
+      time={infusionEditTime}
+      onTimeChange={setInfusionEditTime}
+      showDelete={true}
+      onDelete={handleDelete}
+      onSave={handleSave}
+      onCancel={handleClose}
+      saveDisabled={!infusionEditInput.trim()}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="infusion-edit-value">Rate</Label>
+          <Input
+            id="infusion-edit-value"
+            data-testid="input-infusion-edit-value"
+            value={infusionEditInput}
+            onChange={(e) => setInfusionEditInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSave();
+              }
+            }}
+            placeholder="e.g., 100ml/h, 50ml/h"
+            autoFocus
+          />
         </div>
-        <DialogFooterWithTime
-          time={infusionEditTime}
-          onTimeChange={setInfusionEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!infusionEditInput.trim()}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

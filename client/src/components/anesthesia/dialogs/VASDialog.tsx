@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVASPoint, useUpdateVASPoint, useDeleteVASPoint } from "@/hooks/useVitalsQuery";
 
 interface EditingVAS {
@@ -128,75 +127,72 @@ export function VASDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="dialog-vas">
-        <DialogHeader>
-          <DialogTitle>VAS (Visual Analog Scale)</DialogTitle>
-          <DialogDescription>
-            {editingVAS ? 'Edit or delete the pain score' : 'Select current pain level (0-10)'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          <div className="grid gap-2">
-            <Label>Pain Level (0 = No pain, 10 = Worst pain)</Label>
-            <div className="grid grid-cols-11 gap-1">
-              {editingVAS ? (
-                VAS_VALUES.map((value) => (
-                  <Button
-                    key={value}
-                    variant={selectedValue === value ? 'default' : 'outline'}
-                    className={`h-12 text-base font-semibold ${getVASButtonColor(value, selectedValue === value)}`}
-                    disabled={readOnly}
-                    onClick={() => {
-                      if (readOnly) return;
-                      setSelectedValue(value);
-                    }}
-                    data-testid={`button-vas-${value}`}
-                  >
-                    {value}
-                  </Button>
-                ))
-              ) : (
-                VAS_VALUES.map((value) => (
-                  <Button
-                    key={value}
-                    variant="outline"
-                    className={`h-12 text-base font-semibold hover:${getVASButtonColor(value, true)}`}
-                    disabled={readOnly}
-                    onClick={() => {
-                      if (readOnly) return;
-                      handleSave(value);
-                    }}
-                    data-testid={`button-vas-${value}`}
-                  >
-                    {value}
-                  </Button>
-                ))
-              )}
-            </div>
-            {selectedValue !== null && (
-              <p className="text-sm text-muted-foreground text-center mt-2">
-                {getVASLabel(selectedValue)}
-              </p>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="VAS (Visual Analog Scale)"
+      description={editingVAS ? 'Edit or delete the pain score' : 'Select current pain level (0-10)'}
+      className="sm:max-w-[500px]"
+      testId="dialog-vas"
+      time={editingVAS ? vasEditTime : pendingVAS?.time}
+      onTimeChange={editingVAS ? setVasEditTime : undefined}
+      showDelete={!!editingVAS && !readOnly}
+      onDelete={editingVAS && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={() => handleSave()}
+      saveDisabled={selectedValue === null || readOnly}
+      saveLabel={editingVAS ? 'Save' : 'Add'}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="grid gap-2">
+          <Label>Pain Level (0 = No pain, 10 = Worst pain)</Label>
+          <div className="grid grid-cols-11 gap-1">
+            {editingVAS ? (
+              VAS_VALUES.map((value) => (
+                <Button
+                  key={value}
+                  variant={selectedValue === value ? 'default' : 'outline'}
+                  className={`h-12 text-base font-semibold ${getVASButtonColor(value, selectedValue === value)}`}
+                  disabled={readOnly}
+                  onClick={() => {
+                    if (readOnly) return;
+                    setSelectedValue(value);
+                  }}
+                  data-testid={`button-vas-${value}`}
+                >
+                  {value}
+                </Button>
+              ))
+            ) : (
+              VAS_VALUES.map((value) => (
+                <Button
+                  key={value}
+                  variant="outline"
+                  className={`h-12 text-base font-semibold hover:${getVASButtonColor(value, true)}`}
+                  disabled={readOnly}
+                  onClick={() => {
+                    if (readOnly) return;
+                    handleSave(value);
+                  }}
+                  data-testid={`button-vas-${value}`}
+                >
+                  {value}
+                </Button>
+              ))
             )}
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span className="text-green-600">0-3: Mild</span>
-            <span className="text-yellow-600">4-6: Moderate</span>
-            <span className="text-red-600">7-10: Severe</span>
-          </div>
+          {selectedValue !== null && (
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              {getVASLabel(selectedValue)}
+            </p>
+          )}
         </div>
-        <DialogFooterWithTime
-          time={editingVAS ? vasEditTime : pendingVAS?.time}
-          onTimeChange={editingVAS ? setVasEditTime : undefined}
-          showDelete={!!editingVAS && !readOnly}
-          onDelete={editingVAS && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={() => handleSave()}
-          saveDisabled={selectedValue === null || readOnly}
-          saveLabel={editingVAS ? 'Save' : 'Add'}
-        />
-      </DialogContent>
-    </Dialog>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span className="text-green-600">0-3: Mild</span>
+          <span className="text-yellow-600">4-6: Moderate</span>
+          <span className="text-red-600">7-10: Severe</span>
+        </div>
+      </div>
+    </BaseTimelineDialog>
   );
 }

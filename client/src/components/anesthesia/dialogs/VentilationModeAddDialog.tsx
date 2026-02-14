@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -121,101 +120,95 @@ export function VentilationModeAddDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-mode-add">
-        <DialogHeader>
-          <DialogTitle>{t('anesthesia.timeline.addMode', 'Add Ventilation Mode')}</DialogTitle>
-          <DialogDescription>
-            {t('anesthesia.timeline.addModeDescription', 'Select ventilation mode or spontaneous breathing')}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          {!isSpontaneousBreathing && (
-            <div className="grid gap-2">
-              <Label htmlFor="ventilation-mode">
-                {t('anesthesia.timeline.mode', 'Ventilation Mode')}
-              </Label>
-              <Select 
-                value={ventilationMode} 
-                onValueChange={setVentilationMode} 
-                disabled={readOnly}
-              >
-                <SelectTrigger id="ventilation-mode" data-testid="select-ventilation-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VENTILATION_MODES.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="spontaneous-breathing"
-              checked={isSpontaneousBreathing}
-              onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
-              disabled={readOnly}
-              data-testid="checkbox-spontaneous-breathing"
-            />
-            <Label htmlFor="spontaneous-breathing" className="font-medium">
-              {t('anesthesia.timeline.spontaneousBreathing', 'Spontaneous Breathing')}
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('anesthesia.timeline.addMode', 'Add Ventilation Mode')}
+      description={t('anesthesia.timeline.addModeDescription', 'Select ventilation mode or spontaneous breathing')}
+      testId="dialog-ventilation-mode-add"
+      time={dialogTime}
+      onTimeChange={setDialogTime}
+      showDelete={false}
+      onCancel={handleClose}
+      onSave={!readOnly ? handleSave : undefined}
+      saveDisabled={readOnly || isSaving}
+      saveLabel={t('common.add', 'Add')}
+    >
+      <div className="grid gap-4 py-4">
+        {!isSpontaneousBreathing && (
+          <div className="grid gap-2">
+            <Label htmlFor="ventilation-mode">
+              {t('anesthesia.timeline.mode', 'Ventilation Mode')}
             </Label>
+            <Select
+              value={ventilationMode}
+              onValueChange={setVentilationMode}
+              disabled={readOnly}
+            >
+              <SelectTrigger id="ventilation-mode" data-testid="select-ventilation-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VENTILATION_MODES.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          
-          {isSpontaneousBreathing && (
-            <div className="space-y-4 pl-6 border-l-2 border-muted">
-              <div className="grid gap-2">
-                <Label htmlFor="oxygen-flow">
-                  {t('anesthesia.timeline.oxygenFlow', 'O₂ Flow Rate (l/min)')}
-                </Label>
-                <Input
-                  id="oxygen-flow"
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  value={oxygenFlowRate}
-                  onChange={(e) => setOxygenFlowRate(e.target.value)}
-                  placeholder="e.g., 2, 4, 6"
-                  disabled={readOnly}
-                  data-testid="input-oxygen-flow"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="etco2-spontaneous">
-                  {t('anesthesia.timeline.etCO2', 'etCO₂ (mmHg)')}
-                </Label>
-                <Input
-                  id="etco2-spontaneous"
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={etCO2}
-                  onChange={(e) => setEtCO2(e.target.value)}
-                  placeholder="e.g., 38"
-                  disabled={readOnly}
-                  data-testid="input-etco2-spontaneous"
-                />
-              </div>
-            </div>
-          )}
+        )}
+
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="spontaneous-breathing"
+            checked={isSpontaneousBreathing}
+            onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
+            disabled={readOnly}
+            data-testid="checkbox-spontaneous-breathing"
+          />
+          <Label htmlFor="spontaneous-breathing" className="font-medium">
+            {t('anesthesia.timeline.spontaneousBreathing', 'Spontaneous Breathing')}
+          </Label>
         </div>
-        
-        <DialogFooterWithTime
-          time={dialogTime}
-          onTimeChange={setDialogTime}
-          showDelete={false}
-          onCancel={handleClose}
-          onSave={!readOnly ? handleSave : undefined}
-          saveDisabled={readOnly || isSaving}
-          saveLabel={t('common.add', 'Add')}
-        />
-      </DialogContent>
-    </Dialog>
+
+        {isSpontaneousBreathing && (
+          <div className="space-y-4 pl-6 border-l-2 border-muted">
+            <div className="grid gap-2">
+              <Label htmlFor="oxygen-flow">
+                {t('anesthesia.timeline.oxygenFlow', 'O₂ Flow Rate (l/min)')}
+              </Label>
+              <Input
+                id="oxygen-flow"
+                type="number"
+                step="0.5"
+                min="0"
+                value={oxygenFlowRate}
+                onChange={(e) => setOxygenFlowRate(e.target.value)}
+                placeholder="e.g., 2, 4, 6"
+                disabled={readOnly}
+                data-testid="input-oxygen-flow"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="etco2-spontaneous">
+                {t('anesthesia.timeline.etCO2', 'etCO₂ (mmHg)')}
+              </Label>
+              <Input
+                id="etco2-spontaneous"
+                type="number"
+                step="1"
+                min="0"
+                value={etCO2}
+                onChange={(e) => setEtCO2(e.target.value)}
+                placeholder="e.g., 38"
+                disabled={readOnly}
+                data-testid="input-etco2-spontaneous"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </BaseTimelineDialog>
   );
 }

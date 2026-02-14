@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateOutput, useDeleteOutput, type OutputParamKey } from "@/hooks/useOutputQuery";
 
 interface EditingOutputValue {
@@ -56,14 +55,14 @@ export function OutputEditDialog({
     if (readOnly) return;
     if (!editingOutputValue || !outputEditInput.trim()) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { paramKey, id } = editingOutputValue;
     const value = parseFloat(outputEditInput.trim());
-    
+
     if (isNaN(value)) {
       return;
     }
-    
+
     updateOutput.mutate(
       {
         pointId: id,
@@ -84,9 +83,9 @@ export function OutputEditDialog({
     if (readOnly) return;
     if (!editingOutputValue) return;
     if (!anesthesiaRecordId) return;
-    
+
     const { paramKey, id } = editingOutputValue;
-    
+
     deleteOutput.mutate(
       {
         pointId: id,
@@ -108,46 +107,42 @@ export function OutputEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-edit">
-        <DialogHeader>
-          <DialogTitle>Edit Output Value</DialogTitle>
-          <DialogDescription>
-            {editingOutputValue ? `Edit or delete the ${editingOutputValue.label} value` : 'Edit output value'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="output-edit-value">Value (ml)</Label>
-            <Input
-              ref={inputRef}
-              id="output-edit-value"
-              data-testid="input-output-edit-value"
-              type="number"
-              step="1"
-              value={outputEditInput}
-              onChange={(e) => setOutputEditInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !readOnly) {
-                  handleSave();
-                }
-              }}
-              placeholder="Enter value"
-              autoFocus
-              disabled={readOnly}
-            />
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit Output Value"
+      description={editingOutputValue ? `Edit or delete the ${editingOutputValue.label} value` : 'Edit output value'}
+      testId="dialog-output-edit"
+      time={outputEditTime}
+      onTimeChange={setOutputEditTime}
+      showDelete={!readOnly}
+      onDelete={!readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={!readOnly ? handleSave : undefined}
+      saveDisabled={!outputEditInput.trim() || readOnly}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="output-edit-value">Value (ml)</Label>
+          <Input
+            ref={inputRef}
+            id="output-edit-value"
+            data-testid="input-output-edit-value"
+            type="number"
+            step="1"
+            value={outputEditInput}
+            onChange={(e) => setOutputEditInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !readOnly) {
+                handleSave();
+              }
+            }}
+            placeholder="Enter value"
+            autoFocus
+            disabled={readOnly}
+          />
         </div>
-        <DialogFooterWithTime
-          time={outputEditTime}
-          onTimeChange={setOutputEditTime}
-          showDelete={!readOnly}
-          onDelete={!readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={!readOnly ? handleSave : undefined}
-          saveDisabled={!outputEditInput.trim() || readOnly}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

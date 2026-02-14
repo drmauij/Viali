@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useMutation } from "@tanstack/react-query";
 import { saveMedication } from "@/services/timelinePersistence";
 import { useToast } from "@/hooks/use-toast";
@@ -59,8 +58,8 @@ export function MedicationDoseDialog({
       console.log('[MEDICATION] Save successful', { data, variables });
       // Invalidate medication cache to trigger refetch and sync
       if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`]
         });
       }
     },
@@ -83,23 +82,23 @@ export function MedicationDoseDialog({
   }, [open]);
 
   const handleSave = async () => {
-    console.log('[MED] handleMedicationDoseEntry called', { 
-      pendingMedicationDose, 
-      medicationDoseInput, 
-      anesthesiaRecordId 
+    console.log('[MED] handleMedicationDoseEntry called', {
+      pendingMedicationDose,
+      medicationDoseInput,
+      anesthesiaRecordId
     });
-    
+
     if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) {
       console.log('[MED] Early return - missing data');
       return;
     }
-    
+
     const { swimlaneId, time, label, itemId } = pendingMedicationDose;
-    
+
     console.log('[MED] Using itemId from pending dose:', itemId);
-    
+
     const doseValue = medicationDoseInput.trim();
-    
+
     // Save to database
     try {
       console.log('[MED] Calling mutation with:', {
@@ -109,7 +108,7 @@ export function MedicationDoseDialog({
         type: "bolus",
         dose: doseValue,
       });
-      
+
       await saveMedicationMutation.mutateAsync({
         anesthesiaRecordId,
         itemId,
@@ -118,12 +117,12 @@ export function MedicationDoseDialog({
         dose: doseValue,
         note: noteInput.trim() || undefined,
       });
-      
+
       console.log('[MED] Mutation successful - updating local state');
-      
+
       // Manually update local state so the dose appears immediately
       onLocalStateUpdate?.(swimlaneId, time, doseValue, noteInput.trim() || null);
-      
+
       const unit = pendingMedicationDose.administrationUnit || '';
       toast({
         title: "Dose saved",
@@ -147,13 +146,13 @@ export function MedicationDoseDialog({
 
   const handleQuickSelect = async (value: string) => {
     const trimmedValue = value.trim();
-    
+
     if (!pendingMedicationDose || !anesthesiaRecordId) {
       return;
     }
-    
+
     const { swimlaneId, time, label, itemId } = pendingMedicationDose;
-    
+
     // Save immediately
     try {
       await saveMedicationMutation.mutateAsync({
@@ -163,9 +162,9 @@ export function MedicationDoseDialog({
         type: "bolus",
         dose: trimmedValue,
       });
-      
+
       onLocalStateUpdate?.(swimlaneId, time, trimmedValue);
-      
+
       const unit = pendingMedicationDose.administrationUnit || '';
       toast({
         title: "Dose saved",
@@ -180,100 +179,95 @@ export function MedicationDoseDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      console.log('[DIALOG] Medication dose dialog open changed:', open);
-      if (!open) {
-        handleClose();
-      } else {
-        onOpenChange(true);
-      }
-    }}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
-        <DialogHeader>
-          <DialogTitle>Add Dose</DialogTitle>
-          <DialogDescription>
-            {pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          {/* Quick-select buttons for range default doses */}
-          {pendingMedicationDose?.defaultDose?.includes('-') && !readOnly && (
-            <div className="grid gap-2">
-              <Label>Quick Select</Label>
-              <div className="flex gap-2 flex-wrap">
-                {pendingMedicationDose.defaultDose.split('-').map((value) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickSelect(value)}
-                    data-testid={`button-quick-select-${value.trim()}`}
-                    className="min-w-[60px]"
-                  >
-                    {value.trim()}{pendingMedicationDose.administrationUnit ? ` ${pendingMedicationDose.administrationUnit}` : ''}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-          
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={(open) => {
+        console.log('[DIALOG] Medication dose dialog open changed:', open);
+        if (!open) {
+          handleClose();
+        } else {
+          onOpenChange(true);
+        }
+      }}
+      title="Add Dose"
+      description={pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
+      testId="dialog-medication-dose"
+      time={pendingMedicationDose?.time}
+      onTimeChange={onTimeChange}
+      onSave={handleSave}
+      onCancel={handleClose}
+      saveDisabled={!medicationDoseInput.trim() || readOnly}
+      saveLabel="Add"
+    >
+      <div className="grid gap-4 py-4">
+        {/* Quick-select buttons for range default doses */}
+        {pendingMedicationDose?.defaultDose?.includes('-') && !readOnly && (
           <div className="grid gap-2">
-            <Label htmlFor="dose-value">
-              {pendingMedicationDose?.defaultDose?.includes('-') ? t('anesthesia.pdf.orEnterCustom') : t('anesthesia.pdf.dose')}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="dose-value"
-                data-testid="input-dose-value"
-                value={medicationDoseInput}
-                onChange={(e) => setMedicationDoseInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !readOnly) {
-                    handleSave();
-                  }
-                }}
-                placeholder="e.g., 5, 100, 2"
-                autoFocus
-                disabled={readOnly}
-                className="flex-1"
-              />
-              {pendingMedicationDose?.administrationUnit && (
-                <span className="text-sm text-muted-foreground font-medium min-w-fit">
-                  {pendingMedicationDose.administrationUnit}
-                </span>
-              )}
+            <Label>Quick Select</Label>
+            <div className="flex gap-2 flex-wrap">
+              {pendingMedicationDose.defaultDose.split('-').map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickSelect(value)}
+                  data-testid={`button-quick-select-${value.trim()}`}
+                  className="min-w-[60px]"
+                >
+                  {value.trim()}{pendingMedicationDose.administrationUnit ? ` ${pendingMedicationDose.administrationUnit}` : ''}
+                </Button>
+              ))}
             </div>
           </div>
-          
-          {/* Note Input */}
-          <div className="grid gap-2">
-            <Label htmlFor="dose-note-value">Note (optional)</Label>
+        )}
+
+        <div className="grid gap-2">
+          <Label htmlFor="dose-value">
+            {pendingMedicationDose?.defaultDose?.includes('-') ? t('anesthesia.pdf.orEnterCustom') : t('anesthesia.pdf.dose')}
+          </Label>
+          <div className="flex items-center gap-2">
             <Input
-              id="dose-note-value"
-              data-testid="input-dose-note-value"
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
+              id="dose-value"
+              data-testid="input-dose-value"
+              value={medicationDoseInput}
+              onChange={(e) => setMedicationDoseInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
-              placeholder="e.g., Bolus 150mg"
+              placeholder="e.g., 5, 100, 2"
+              autoFocus
               disabled={readOnly}
+              className="flex-1"
             />
+            {pendingMedicationDose?.administrationUnit && (
+              <span className="text-sm text-muted-foreground font-medium min-w-fit">
+                {pendingMedicationDose.administrationUnit}
+              </span>
+            )}
           </div>
         </div>
-        <DialogFooterWithTime
-          time={pendingMedicationDose?.time}
-          onTimeChange={onTimeChange}
-          showDelete={false}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!medicationDoseInput.trim() || readOnly}
-          saveLabel="Add"
-        />
-      </DialogContent>
-    </Dialog>
+
+        {/* Note Input */}
+        <div className="grid gap-2">
+          <Label htmlFor="dose-note-value">Note (optional)</Label>
+          <Input
+            id="dose-note-value"
+            data-testid="input-dose-note-value"
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !readOnly) {
+                handleSave();
+              }
+            }}
+            placeholder="e.g., Bolus 150mg"
+            disabled={readOnly}
+          />
+        </div>
+      </div>
+    </BaseTimelineDialog>
   );
 }

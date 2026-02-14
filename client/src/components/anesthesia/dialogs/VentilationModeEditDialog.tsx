@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { useTranslation } from "react-i18next";
 
@@ -101,41 +100,37 @@ export function VentilationModeEditDialog({
   const { t } = useTranslation();
   
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-mode-edit">
-        <DialogHeader>
-          <DialogTitle>{t('dialogs.editVentilationMode')}</DialogTitle>
-          <DialogDescription>
-            {t('dialogs.editVentilationModeDesc')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="mode-edit-value">{t('common.mode')}</Label>
-            <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput} disabled={readOnly}>
-              <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VENTILATION_MODES.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('dialogs.editVentilationMode')}
+      description={t('dialogs.editVentilationModeDesc')}
+      testId="dialog-ventilation-mode-edit"
+      time={ventilationModeEditTime}
+      onTimeChange={setVentilationModeEditTime}
+      showDelete={!readOnly}
+      onDelete={!readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={!readOnly ? handleSave : undefined}
+      saveDisabled={!ventilationModeEditInput.trim() || readOnly}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="mode-edit-value">{t('common.mode')}</Label>
+          <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput} disabled={readOnly}>
+            <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {VENTILATION_MODES.map((mode) => (
+                <SelectItem key={mode.value} value={mode.value}>
+                  {mode.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <DialogFooterWithTime
-          time={ventilationModeEditTime}
-          onTimeChange={setVentilationModeEditTime}
-          showDelete={!readOnly}
-          onDelete={!readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={!readOnly ? handleSave : undefined}
-          saveDisabled={!ventilationModeEditInput.trim() || readOnly}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface PendingVentilationBulk {
@@ -223,19 +222,164 @@ export function VentilationBulkDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]" data-testid="dialog-ventilation-bulk">
-        <DialogHeader>
-          <DialogTitle>{skipModeSelection ? t('anesthesia.timeline.ventParamsTitle') : t('anesthesia.timeline.ventBulkTitle')}</DialogTitle>
-          <DialogDescription>
-            {skipModeSelection 
-              ? t('anesthesia.timeline.ventParamsDescription') 
-              : t('anesthesia.timeline.ventBulkDescription')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          {skipModeSelection ? (
-            // Skip mode selection - show only parameters grid
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={skipModeSelection ? t('anesthesia.timeline.ventParamsTitle') : t('anesthesia.timeline.ventBulkTitle')}
+      description={skipModeSelection
+        ? t('anesthesia.timeline.ventParamsDescription')
+        : t('anesthesia.timeline.ventBulkDescription')}
+      className="sm:max-w-[550px]"
+      testId="dialog-ventilation-bulk"
+      time={dialogTime}
+      onTimeChange={setDialogTime}
+      showDelete={isEditing}
+      onDelete={handleDelete}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveLabel={isEditing ? t('common.save', 'Save') : (skipModeSelection ? t('anesthesia.timeline.save') : t('anesthesia.timeline.addAll'))}
+      saveDisabled={readOnly}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        {skipModeSelection ? (
+          // Skip mode selection - show only parameters grid
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
+              <Input
+                id="bulk-peep"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.peep}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, peep: e.target.value }))}
+                data-testid="input-bulk-peep"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-fio2">FiO₂ (%)</Label>
+              <Input
+                id="bulk-fio2"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.fiO2}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, fiO2: e.target.value }))}
+                data-testid="input-bulk-fio2"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-vt">Tidal Volume (ml)</Label>
+              <Input
+                id="bulk-vt"
+                type="number"
+                step="10"
+                value={bulkVentilationParams.tidalVolume}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, tidalVolume: e.target.value }))}
+                data-testid="input-bulk-vt"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-rr">Resp. Rate (/min)</Label>
+              <Input
+                id="bulk-rr"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.respiratoryRate}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, respiratoryRate: e.target.value }))}
+                data-testid="input-bulk-rr"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-mv">Minute Volume (l/min)</Label>
+              <Input
+                id="bulk-mv"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.minuteVolume}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, minuteVolume: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-mv"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-etco2">EtCO₂ (mmHg)</Label>
+              <Input
+                id="bulk-etco2"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.etCO2}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-etco2"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-pip">P insp (cmH₂O)</Label>
+              <Input
+                id="bulk-pip"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.pip}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-pip"
+                disabled={readOnly}
+              />
+            </div>
+          </div>
+        ) : isSpontaneousBreathing ? (
+          // Spontaneous breathing mode - only show O2 flow and etCO2
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-o2-flow">O₂ Flow (l/min)</Label>
+              <Input
+                id="bulk-o2-flow"
+                type="number"
+                step="0.5"
+                value={oxygenFlowRate}
+                onChange={(e) => setOxygenFlowRate(e.target.value)}
+                placeholder="e.g., 2"
+                data-testid="input-bulk-o2-flow"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-etco2-spontaneous">EtCO₂ (mmHg)</Label>
+              <Input
+                id="bulk-etco2-spontaneous"
+                type="number"
+                step="1"
+                value={bulkVentilationParams.etCO2}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-etco2"
+                disabled={readOnly}
+              />
+            </div>
+          </div>
+        ) : (
+          // Normal ventilation mode - show all parameters
+          <>
+            <div className="grid gap-2">
+              <Label htmlFor="vent-mode">Ventilation Mode</Label>
+              <Select value={ventilationMode} onValueChange={setVentilationMode} disabled={readOnly}>
+                <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VENTILATION_MODES.map((mode) => (
+                    <SelectItem key={mode.value} value={mode.value}>
+                      {mode.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
@@ -325,176 +469,28 @@ export function VentilationBulkDialog({
                 />
               </div>
             </div>
-          ) : isSpontaneousBreathing ? (
-            // Spontaneous breathing mode - only show O2 flow and etCO2
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-o2-flow">O₂ Flow (l/min)</Label>
-                <Input
-                  id="bulk-o2-flow"
-                  type="number"
-                  step="0.5"
-                  value={oxygenFlowRate}
-                  onChange={(e) => setOxygenFlowRate(e.target.value)}
-                  placeholder="e.g., 2"
-                  data-testid="input-bulk-o2-flow"
-                  disabled={readOnly}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-etco2-spontaneous">EtCO₂ (mmHg)</Label>
-                <Input
-                  id="bulk-etco2-spontaneous"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.etCO2}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
-                  placeholder="Optional"
-                  data-testid="input-bulk-etco2"
-                  disabled={readOnly}
-                />
-              </div>
-            </div>
-          ) : (
-            // Normal ventilation mode - show all parameters
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="vent-mode">Ventilation Mode</Label>
-                <Select value={ventilationMode} onValueChange={setVentilationMode} disabled={readOnly}>
-                  <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VENTILATION_MODES.map((mode) => (
-                      <SelectItem key={mode.value} value={mode.value}>
-                        {mode.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
-              <Input
-                id="bulk-peep"
-                type="number"
-                step="1"
-                value={bulkVentilationParams.peep}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, peep: e.target.value }))}
-                data-testid="input-bulk-peep"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-fio2">FiO₂ (%)</Label>
-              <Input
-                id="bulk-fio2"
-                type="number"
-                step="1"
-                value={bulkVentilationParams.fiO2}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, fiO2: e.target.value }))}
-                data-testid="input-bulk-fio2"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-vt">Tidal Volume (ml)</Label>
-              <Input
-                id="bulk-vt"
-                type="number"
-                step="10"
-                value={bulkVentilationParams.tidalVolume}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, tidalVolume: e.target.value }))}
-                data-testid="input-bulk-vt"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-rr">Resp. Rate (/min)</Label>
-              <Input
-                id="bulk-rr"
-                type="number"
-                step="1"
-                value={bulkVentilationParams.respiratoryRate}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, respiratoryRate: e.target.value }))}
-                data-testid="input-bulk-rr"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-mv">Minute Volume (l/min)</Label>
-              <Input
-                id="bulk-mv"
-                type="number"
-                step="0.1"
-                value={bulkVentilationParams.minuteVolume}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, minuteVolume: e.target.value }))}
-                placeholder="Optional"
-                data-testid="input-bulk-mv"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-etco2">EtCO₂ (mmHg)</Label>
-              <Input
-                id="bulk-etco2"
-                type="number"
-                step="1"
-                value={bulkVentilationParams.etCO2}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
-                placeholder="Optional"
-                data-testid="input-bulk-etco2"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-pip">P insp (cmH₂O)</Label>
-              <Input
-                id="bulk-pip"
-                type="number"
-                step="1"
-                value={bulkVentilationParams.pip}
-                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
-                placeholder="Optional"
-                data-testid="input-bulk-pip"
-                disabled={readOnly}
-              />
-            </div>
-          </div>
-            </>
-          )}
+          </>
+        )}
 
-          {/* Spontaneous Breathing Checkbox - at the end (hide when skipModeSelection) */}
-          {!skipModeSelection && (
-            <div className="flex items-center space-x-2 pt-4 border-t">
-              <Checkbox 
-                id="spontaneous-breathing" 
-                checked={isSpontaneousBreathing}
-                onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
-                data-testid="checkbox-spontaneous-breathing"
-                disabled={readOnly}
-              />
-              <Label 
-                htmlFor="spontaneous-breathing" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Spontaneous Breathing
-              </Label>
-            </div>
-          )}
-        </div>
-        <DialogFooterWithTime
-          time={dialogTime}
-          onTimeChange={setDialogTime}
-          showDelete={isEditing}
-          onDelete={handleDelete}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveLabel={isEditing ? t('common.save', 'Save') : (skipModeSelection ? t('anesthesia.timeline.save') : t('anesthesia.timeline.addAll'))}
-          saveDisabled={readOnly}
-        />
-      </DialogContent>
-    </Dialog>
+        {/* Spontaneous Breathing Checkbox - at the end (hide when skipModeSelection) */}
+        {!skipModeSelection && (
+          <div className="flex items-center space-x-2 pt-4 border-t">
+            <Checkbox
+              id="spontaneous-breathing"
+              checked={isSpontaneousBreathing}
+              onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
+              data-testid="checkbox-spontaneous-breathing"
+              disabled={readOnly}
+            />
+            <Label
+              htmlFor="spontaneous-breathing"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Spontaneous Breathing
+            </Label>
+          </div>
+        )}
+      </div>
+    </BaseTimelineDialog>
   );
 }

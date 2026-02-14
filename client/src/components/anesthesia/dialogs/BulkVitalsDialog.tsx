@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useAddVitalPoint, useAddBPPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -171,86 +170,82 @@ export function BulkVitalsDialog({
   const hasAnyValue = systolic.trim() || diastolic.trim() || heartRate.trim() || oxygen.trim();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-bulk-vitals">
-        <DialogHeader>
-          <DialogTitle>{t('dialogs.bulkVitalsEntry')}</DialogTitle>
-          <DialogDescription>
-            {t('dialogs.bulkVitalsEntryDesc')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="systolic">{t('dialogs.systolic')}</Label>
-              <Input
-                ref={systolicRef}
-                id="systolic"
-                data-testid="input-systolic"
-                type="number"
-                value={systolic}
-                onChange={(e) => setSystolic(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, diastolicRef)}
-                placeholder="e.g., 120"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="diastolic">{t('dialogs.diastolic')}</Label>
-              <Input
-                ref={diastolicRef}
-                id="diastolic"
-                data-testid="input-diastolic"
-                type="number"
-                value={diastolic}
-                onChange={(e) => setDiastolic(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, heartRateRef)}
-                placeholder="e.g., 80"
-                disabled={readOnly}
-              />
-            </div>
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('dialogs.bulkVitalsEntry')}
+      description={t('dialogs.bulkVitalsEntryDesc')}
+      testId="dialog-bulk-vitals"
+      time={currentTime}
+      onTimeChange={setCurrentTime}
+      showDelete={false}
+      onCancel={handleClose}
+      onSave={!readOnly ? handleSave : undefined}
+      saveDisabled={!hasAnyValue || addVitalPointMutation.isPending || readOnly}
+      saveLabel={addVitalPointMutation.isPending ? t('common.saving') : t('dialogs.saveAll')}
+    >
+      <div className="grid gap-4 py-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="systolic">{t('dialogs.systolic')}</Label>
+            <Input
+              ref={systolicRef}
+              id="systolic"
+              data-testid="input-systolic"
+              type="number"
+              value={systolic}
+              onChange={(e) => setSystolic(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, diastolicRef)}
+              placeholder="e.g., 120"
+              disabled={readOnly}
+            />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="heartRate">{t('dialogs.heartRate')}</Label>
-              <Input
-                ref={heartRateRef}
-                id="heartRate"
-                data-testid="input-heart-rate"
-                type="number"
-                value={heartRate}
-                onChange={(e) => setHeartRate(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, oxygenRef)}
-                placeholder="e.g., 75"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="oxygen">Oxygen (%)</Label>
-              <Input
-                ref={oxygenRef}
-                id="oxygen"
-                data-testid="input-oxygen"
-                type="number"
-                value={oxygen}
-                onChange={(e) => setOxygen(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e)}
-                placeholder="e.g., 98"
-                disabled={readOnly}
-              />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="diastolic">{t('dialogs.diastolic')}</Label>
+            <Input
+              ref={diastolicRef}
+              id="diastolic"
+              data-testid="input-diastolic"
+              type="number"
+              value={diastolic}
+              onChange={(e) => setDiastolic(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, heartRateRef)}
+              placeholder="e.g., 80"
+              disabled={readOnly}
+            />
           </div>
         </div>
-        <DialogFooterWithTime
-          time={currentTime}
-          onTimeChange={setCurrentTime}
-          showDelete={false}
-          onCancel={handleClose}
-          onSave={!readOnly ? handleSave : undefined}
-          saveDisabled={!hasAnyValue || addVitalPointMutation.isPending || readOnly}
-          saveLabel={addVitalPointMutation.isPending ? t('common.saving') : t('dialogs.saveAll')}
-        />
-      </DialogContent>
-    </Dialog>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="heartRate">{t('dialogs.heartRate')}</Label>
+            <Input
+              ref={heartRateRef}
+              id="heartRate"
+              data-testid="input-heart-rate"
+              type="number"
+              value={heartRate}
+              onChange={(e) => setHeartRate(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, oxygenRef)}
+              placeholder="e.g., 75"
+              disabled={readOnly}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="oxygen">Oxygen (%)</Label>
+            <Input
+              ref={oxygenRef}
+              id="oxygen"
+              data-testid="input-oxygen"
+              type="number"
+              value={oxygen}
+              onChange={(e) => setOxygen(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e)}
+              placeholder="e.g., 98"
+              disabled={readOnly}
+            />
+          </div>
+        </div>
+      </div>
+    </BaseTimelineDialog>
   );
 }

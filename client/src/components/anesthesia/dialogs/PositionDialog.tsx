@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreatePosition, useUpdatePosition, useDeletePosition } from "@/hooks/usePositionQuery";
 import { useTranslation } from "react-i18next";
 
@@ -134,89 +133,86 @@ export function PositionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="dialog-position">
-        <DialogHeader>
-          <DialogTitle>{t('anesthesia.timeline.positionDialog.title')}</DialogTitle>
-          <DialogDescription>
-            {editingPosition ? t('anesthesia.timeline.positionDialog.editDescription') : t('anesthesia.timeline.positionDialog.selectDescription')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          <div className="grid gap-2">
-            <Label>{t('anesthesia.timeline.positionDialog.selectLabel')}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {PRESET_POSITIONS.map((pos) => (
-                <Button
-                  key={pos.key}
-                  variant={positionInput === pos.key ? 'default' : 'outline'}
-                  className="justify-start h-12 text-left"
-                  disabled={readOnly}
-                  onClick={() => {
-                    if (!anesthesiaRecordId || readOnly) return;
-                    
-                    if (editingPosition) {
-                      updatePosition.mutate(
-                        {
-                          id: editingPosition.id,
-                          timestamp: new Date(positionEditTime),
-                          position: pos.key,
+    <BaseTimelineDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('anesthesia.timeline.positionDialog.title')}
+      description={editingPosition ? t('anesthesia.timeline.positionDialog.editDescription') : t('anesthesia.timeline.positionDialog.selectDescription')}
+      className="sm:max-w-[500px]"
+      testId="dialog-position"
+      time={editingPosition ? positionEditTime : pendingPosition?.time}
+      onTimeChange={editingPosition ? setPositionEditTime : undefined}
+      showDelete={!!editingPosition && !readOnly}
+      onDelete={editingPosition && !readOnly ? handleDelete : undefined}
+      onCancel={handleClose}
+      onSave={handleSave}
+      saveDisabled={!positionInput.trim() || readOnly}
+      saveLabel={editingPosition ? t('common.save') : t('anesthesia.timeline.add')}
+    >
+      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="grid gap-2">
+          <Label>{t('anesthesia.timeline.positionDialog.selectLabel')}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {PRESET_POSITIONS.map((pos) => (
+              <Button
+                key={pos.key}
+                variant={positionInput === pos.key ? 'default' : 'outline'}
+                className="justify-start h-12 text-left"
+                disabled={readOnly}
+                onClick={() => {
+                  if (!anesthesiaRecordId || readOnly) return;
+
+                  if (editingPosition) {
+                    updatePosition.mutate(
+                      {
+                        id: editingPosition.id,
+                        timestamp: new Date(positionEditTime),
+                        position: pos.key,
+                      },
+                      {
+                        onSuccess: () => {
+                          onPositionUpdated?.();
+                          handleClose();
                         },
-                        {
-                          onSuccess: () => {
-                            onPositionUpdated?.();
-                            handleClose();
-                          },
-                        }
-                      );
-                    } else if (pendingPosition) {
-                      createPosition.mutate(
-                        {
-                          anesthesiaRecordId,
-                          timestamp: new Date(pendingPosition.time),
-                          position: pos.key,
+                      }
+                    );
+                  } else if (pendingPosition) {
+                    createPosition.mutate(
+                      {
+                        anesthesiaRecordId,
+                        timestamp: new Date(pendingPosition.time),
+                        position: pos.key,
+                      },
+                      {
+                        onSuccess: () => {
+                          onPositionCreated?.();
+                          handleClose();
                         },
-                        {
-                          onSuccess: () => {
-                            onPositionCreated?.();
-                            handleClose();
-                          },
-                        }
-                      );
-                    }
-                  }}
-                  data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
-                >
-                  {pos.label}
-                </Button>
-              ))}
-              <Input
-                placeholder={t('anesthesia.timeline.positionDialog.customPlaceholder')}
-                value={positionInput && !PRESET_POSITION_KEYS.includes(positionInput) ? positionInput : ''}
-                onChange={(e) => setPositionInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && positionInput.trim() && pendingPosition && !readOnly) {
-                    handleSave();
+                      }
+                    );
                   }
                 }}
-                className="col-span-2"
-                data-testid="input-position-custom"
-                disabled={readOnly}
-              />
-            </div>
+                data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
+              >
+                {pos.label}
+              </Button>
+            ))}
+            <Input
+              placeholder={t('anesthesia.timeline.positionDialog.customPlaceholder')}
+              value={positionInput && !PRESET_POSITION_KEYS.includes(positionInput) ? positionInput : ''}
+              onChange={(e) => setPositionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && positionInput.trim() && pendingPosition && !readOnly) {
+                  handleSave();
+                }
+              }}
+              className="col-span-2"
+              data-testid="input-position-custom"
+              disabled={readOnly}
+            />
           </div>
         </div>
-        <DialogFooterWithTime
-          time={editingPosition ? positionEditTime : pendingPosition?.time}
-          onTimeChange={editingPosition ? setPositionEditTime : undefined}
-          showDelete={!!editingPosition && !readOnly}
-          onDelete={editingPosition && !readOnly ? handleDelete : undefined}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!positionInput.trim() || readOnly}
-          saveLabel={editingPosition ? t('common.save') : t('anesthesia.timeline.add')}
-        />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BaseTimelineDialog>
   );
 }

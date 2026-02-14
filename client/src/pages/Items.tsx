@@ -1,5 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -19,25 +18,38 @@ import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import type { InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft, ArrowRight, ArrowLeft, Plus, Minus, Search, Loader2 } from "lucide-react";
-import Papa from "papaparse";
-import ExcelJS from "exceljs";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
 import { DirectItemCamera } from "@/components/DirectItemCamera";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
-import { 
-  type FilterType, 
-  type ItemWithStock, 
-  type UnitType, 
+import {
+  type FilterType,
+  type ItemWithStock,
+  type UnitType,
   type ItemsProps,
-  isTouchDevice, 
-  parseCurrencyValue, 
+  isTouchDevice,
+  parseCurrencyValue,
   extractPackSizeFromName,
   DraggableItem,
   DroppableFolder
 } from "./items";
+import { useItemsState } from "./items/useItemsState";
+import { useItemsQueries } from "./items/useItemsQueries";
+import { useItemsMutations } from "./items/useItemsMutations";
+import {
+  compressImage,
+  normalizeUnit,
+  getDaysUntilExpiry,
+  getExpiryColor,
+  getStockStatus,
+  filterAndSortItems,
+  getFilterCounts,
+  downloadInventoryPdf,
+  downloadItemsCatalog,
+  parseCsvFile,
+  parseExcelFile,
+  processCsvData,
+} from "./items/itemHandlers";
 
 export default function Items({ overrideUnitId, readOnly = false }: ItemsProps = {}) {
   const { t } = useTranslation();
@@ -49,265 +61,104 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   // Logistics module users can edit items from any unit they can view
   const hasLogisticsAccess = activeHospital?.unitType === 'logistic';
   const canWrite = canWriteHook && !readOnly && (!overrideUnitId || hasLogisticsAccess);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [sortBy, setSortBy] = useState("name");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [saveAndCloseAdd, setSaveAndCloseAdd] = useState(true);
-  const [directCameraOpen, setDirectCameraOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState<UnitType>("Pack");
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    name: "",
-    description: "",
-    barcode: "",
-    minThreshold: "0",
-    maxThreshold: "0",
-    defaultOrderQty: "0",
-    packSize: "1",
-    currentUnits: "0",
-    actualStock: "0",
-    critical: false,
-    controlled: false,
-    trackExactQuantity: false,
-    imageUrl: "",
-    patientPrice: "",
-    dailyUsageEstimate: "",
-    status: "active" as "active" | "archived",
-    isInvoiceable: false,
-    isService: false,
-  });
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    barcode: "",
-    minThreshold: "5",
-    maxThreshold: "10",
-    defaultOrderQty: "0",
-    packSize: "1",
-    currentUnits: "0",
-    initialStock: "0",
-    critical: false,
-    controlled: false,
-    trackExactQuantity: false,
-    isService: false,
-    imageUrl: "",
-    gtin: "",
-    pharmacode: "",
-    ean: "",
-    supplierCode: "",
-    migel: "",
-    atc: "",
-    manufacturer: "",
-    lotNumber: "",
-    expiryDate: "",
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
-  const editGalleryInputRef = useRef<HTMLInputElement>(null);
-  const packSizeInputRef = useRef<HTMLInputElement>(null);
-  const currentUnitsInputRef = useRef<HTMLInputElement>(null);
-  const initialStockInputRef = useRef<HTMLInputElement>(null);
-  const editPackSizeInputRef = useRef<HTMLInputElement>(null);
-  const editCurrentUnitsInputRef = useRef<HTMLInputElement>(null);
-  const editActualStockInputRef = useRef<HTMLInputElement>(null);
-  const bulkFileInputRef = useRef<HTMLInputElement>(null);
-  const barcodeFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  
-  // Auto-select handler for number inputs (with workaround for browser compatibility)
-  const handleNumberInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Use setTimeout to ensure selection happens after focus is complete
-    // This is necessary for type="number" inputs in some browsers
-    setTimeout(() => {
-      e.target.select();
-    }, 0);
-  };
-  
-  // Bulk import state
-  const [bulkImportOpen, setBulkImportOpen] = useState(false);
-  const [bulkImages, setBulkImages] = useState<string[]>([]);
-  const [bulkItems, setBulkItems] = useState<any[]>([]);
-  const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
-  const [bulkImportLimit, setBulkImportLimit] = useState(10); // Default to free tier limit
-  
-  // CSV import state
-  const [importMode, setImportMode] = useState<'select' | 'image' | 'csv' | 'barcodes'>('select');
-  const [csvData, setCsvData] = useState<any[]>([]);
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
-  const [bulkImportFolderId, setBulkImportFolderId] = useState<string | null>(null);
-  
-  // Import job notification state
-  const [importJob, setImportJob] = useState<{
-    jobId: string;
-    status: 'processing' | 'completed';
-    itemCount: number;
-    currentImage?: number;
-    progressPercent?: number;
-  } | null>(null);
-  
-  // Bulk edit state
-  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
-  const [bulkEditItems, setBulkEditItems] = useState<Record<string, any>>({});
-  
-  // Bulk delete state
-  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
-  // Bulk move state
-  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
-  const [bulkMoveTargetUnitId, setBulkMoveTargetUnitId] = useState<string>("");
-  
-  // Onboarding state
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  
-  // Upgrade dialog state
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [licenseInfo, setLicenseInfo] = useState<{
-    currentCount: number;
-    limit: number;
-    licenseType: string;
-  } | null>(null);
 
-  // Folder state
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
-  const [folderName, setFolderName] = useState("");
-  const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  
-  // Drop indicator state for visual feedback
-  const [dropIndicator, setDropIndicator] = useState<{ overId: string; position: 'above' | 'below' } | null>(null);
-
-  // Image zoom state
-  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
-  const [zoomImageName, setZoomImageName] = useState<string>("");
-
-  // Edit dialog tab state
-  const [editDialogTab, setEditDialogTab] = useState<string>("details");
-  
-  // Item codes and supplier codes state
-  const [itemCodes, setItemCodes] = useState<{
-    gtin?: string;
-    pharmacode?: string;
-    migel?: string;
-    atc?: string;
-    manufacturer?: string;
-    packContent?: string;
-    unitsPerPack?: number;
-    contentPerUnit?: string;
-  } | null>(null);
-  const [supplierCodes, setSupplierCodes] = useState<Array<{
-    id: string;
-    supplierName: string;
-    articleCode?: string;
-    catalogUrl?: string;
-    basispreis?: string;
-    isPreferred: boolean;
-  }>>([]);
-  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
-  const [newSupplier, setNewSupplier] = useState({
-    supplierName: "",
-    articleCode: "",
-    catalogUrl: "",
-    basispreis: "",
-  });
-  const [editingSupplier, setEditingSupplier] = useState<{
-    id: string;
-    supplierName: string;
-    articleCode: string;
-    catalogUrl: string;
-    basispreis: string;
-  } | null>(null);
-  const [codesScanner, setCodesScanner] = useState(false);
-  const [itemLots, setItemLots] = useState<Lot[]>([]);
-  const [isLoadingLots, setIsLoadingLots] = useState(false);
-  const [lotsScanner, setLotsScanner] = useState(false);
-  const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
-  const [addItemScanner, setAddItemScanner] = useState(false);
-  
-  // Wizard-style Add Item stages: step1 (barcode), step2 (product photo), manual (form fields)
-  const [addItemStage, setAddItemStage] = useState<'step1' | 'step2' | 'manual'>('step1');
-  const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
-  const [isLookingUpGalexis, setIsLookingUpGalexis] = useState(false);
-  const [galexisLookupResult, setGalexisLookupResult] = useState<{
-    found: boolean; 
-    message?: string; 
-    noIntegration?: boolean; 
-    source?: 'galexis' | 'hin';
-    packSize?: number;
-    basispreis?: number;
-    publikumspreis?: number;
-    yourPrice?: number;
-    discountPercent?: number;
-  } | null>(null);
-  const [codesImage, setCodesImage] = useState<string | null>(null);
-  const codesFileInputRef = useRef<HTMLInputElement>(null);
-  const codesGalleryInputRef = useRef<HTMLInputElement>(null);
-  
-  // Desktop webcam capture state
-  const [webcamCaptureOpen, setWebcamCaptureOpen] = useState(false);
-  const [webcamCaptureTarget, setWebcamCaptureTarget] = useState<'product' | 'codes' | 'editCodes' | null>(null);
-  
-  // Individual barcode scan state for Add Item codes
-  const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'supplierCode' | null>(null);
-  
-  // Unified barcode scanner state for Add Item step 1
-  
-  // Edit Item codes capture state
-  const [isAnalyzingEditCodes, setIsAnalyzingEditCodes] = useState(false);
-  const [editCodesImage, setEditCodesImage] = useState<string | null>(null);
-  const editCodesFileInputRef = useRef<HTMLInputElement>(null);
-  const editCodesGalleryInputRef = useRef<HTMLInputElement>(null);
-  
-  // Individual barcode scan state for Edit Item codes
-  const [scanningEditCodeField, setScanningEditCodeField] = useState<'gtin' | 'pharmacode' | 'migel' | 'atc' | null>(null);
-  
-  // Edit dialog Galexis auto-lookup state
-  const [isLookingUpGalexisEdit, setIsLookingUpGalexisEdit] = useState(false);
-  const [galexisEditLookupMessage, setGalexisEditLookupMessage] = useState<string | null>(null);
-  const galexisEditLookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Pack size confirmation dialog state
-  const [packSizeConfirmDialog, setPackSizeConfirmDialog] = useState<{
-    open: boolean;
-    extractedSize: number;
-    currentSize: number;
-    mode: 'confirm_add' | 'choose_action';
-  } | null>(null);
-  
-  // Name confirmation dialog state (for when supplier name differs from current)
-  const [nameConfirmDialog, setNameConfirmDialog] = useState<{
-    open: boolean;
-    supplierName: string;
-    currentName: string;
-    selectedName: 'current' | 'supplier';
-  } | null>(null);
-
-  // Transfer items dialog state
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [transferDirection, setTransferDirection] = useState<'to' | 'from'>('to');
-  const [transferItems, setTransferItems] = useState<Array<{
-    itemId: string;
-    name: string;
-    packSize: number;
-    trackExactQuantity: boolean;
-    currentUnits: number;
-    stockQty: number;
-    transferType: 'packs' | 'units';
-    transferQty: number;
-    pharmacode?: string;
-    gtin?: string;
-  }>>([]);
-  const [transferTargetUnitId, setTransferTargetUnitId] = useState<string>("");
-  const [transferSearchTerm, setTransferSearchTerm] = useState("");
-  const [transferScanner, setTransferScanner] = useState(false);
+  // Extracted state hook - all useState/useRef declarations
+  const {
+    searchTerm, setSearchTerm,
+    activeFilter, setActiveFilter,
+    sortBy, setSortBy,
+    addDialogOpen, setAddDialogOpen,
+    saveAndCloseAdd, setSaveAndCloseAdd,
+    directCameraOpen, setDirectCameraOpen,
+    editDialogOpen, setEditDialogOpen,
+    selectedItem, setSelectedItem,
+    selectedUnit, setSelectedUnit,
+    uploadedImages, setUploadedImages,
+    isAnalyzing, setIsAnalyzing,
+    editFormData, setEditFormData,
+    formData, setFormData,
+    fileInputRef,
+    galleryInputRef,
+    editFileInputRef,
+    editGalleryInputRef,
+    packSizeInputRef,
+    currentUnitsInputRef,
+    initialStockInputRef,
+    editPackSizeInputRef,
+    editCurrentUnitsInputRef,
+    editActualStockInputRef,
+    bulkFileInputRef,
+    barcodeFileInputRef,
+    handleNumberInputFocus,
+    bulkImportOpen, setBulkImportOpen,
+    bulkImages, setBulkImages,
+    bulkItems, setBulkItems,
+    isBulkAnalyzing, setIsBulkAnalyzing,
+    bulkImportLimit, setBulkImportLimit,
+    importMode, setImportMode,
+    csvData, setCsvData,
+    csvHeaders, setCsvHeaders,
+    csvMapping, setCsvMapping,
+    bulkImportFolderId, setBulkImportFolderId,
+    importJob, setImportJob,
+    isBulkEditMode, setIsBulkEditMode,
+    bulkEditItems, setBulkEditItems,
+    isBulkDeleteMode, setIsBulkDeleteMode,
+    selectedItems, setSelectedItems,
+    showDeleteConfirm, setShowDeleteConfirm,
+    bulkMoveDialogOpen, setBulkMoveDialogOpen,
+    bulkMoveTargetUnitId, setBulkMoveTargetUnitId,
+    showOnboarding, setShowOnboarding,
+    upgradeDialogOpen, setUpgradeDialogOpen,
+    licenseInfo, setLicenseInfo,
+    expandedFolders, setExpandedFolders,
+    folderDialogOpen, setFolderDialogOpen,
+    editingFolder, setEditingFolder,
+    folderName, setFolderName,
+    activeItemId, setActiveItemId,
+    dropIndicator, setDropIndicator,
+    zoomImageUrl, setZoomImageUrl,
+    zoomImageName, setZoomImageName,
+    editDialogTab, setEditDialogTab,
+    itemCodes, setItemCodes,
+    supplierCodes, setSupplierCodes,
+    isLoadingCodes, setIsLoadingCodes,
+    newSupplier, setNewSupplier,
+    editingSupplier, setEditingSupplier,
+    codesScanner, setCodesScanner,
+    itemLots, setItemLots,
+    isLoadingLots, setIsLoadingLots,
+    lotsScanner, setLotsScanner,
+    newLot, setNewLot,
+    addItemScanner, setAddItemScanner,
+    addItemStage, setAddItemStage,
+    isAnalyzingCodes, setIsAnalyzingCodes,
+    isLookingUpGalexis, setIsLookingUpGalexis,
+    galexisLookupResult, setGalexisLookupResult,
+    codesImage, setCodesImage,
+    codesFileInputRef,
+    codesGalleryInputRef,
+    webcamCaptureOpen, setWebcamCaptureOpen,
+    webcamCaptureTarget, setWebcamCaptureTarget,
+    scanningCodeField, setScanningCodeField,
+    isAnalyzingEditCodes, setIsAnalyzingEditCodes,
+    editCodesImage, setEditCodesImage,
+    editCodesFileInputRef,
+    editCodesGalleryInputRef,
+    scanningEditCodeField, setScanningEditCodeField,
+    isLookingUpGalexisEdit, setIsLookingUpGalexisEdit,
+    galexisEditLookupMessage, setGalexisEditLookupMessage,
+    galexisEditLookupTimeoutRef,
+    packSizeConfirmDialog, setPackSizeConfirmDialog,
+    nameConfirmDialog, setNameConfirmDialog,
+    transferDialogOpen, setTransferDialogOpen,
+    transferDirection, setTransferDirection,
+    transferItems, setTransferItems,
+    transferTargetUnitId, setTransferTargetUnitId,
+    transferSearchTerm, setTransferSearchTerm,
+    transferScanner, setTransferScanner,
+  } = useItemsState();
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -355,105 +206,21 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     return closestCorners({ ...args, droppableContainers: filteredContainers });
   };
 
-  const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}${activeFilter === 'archived' ? '&includeArchived=true' : ''}`, effectiveUnitId, activeFilter],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
+  // Extracted queries hook
+  const {
+    items, isLoading, folders, runwayData, runwayMap,
+    itemCodesData, itemCodesMap, allUnits, availableDestinationUnits,
+    sourceUnitItems, isLoadingSourceItems, sourceUnitCodesData,
+    sourceUnitCodesMap, transferSourceItems, transferSourceCodesMap,
+    vendors, openOrderItems,
+  } = useItemsQueries({
+    hospitalId: activeHospital?.id,
+    unitId: effectiveUnitId,
+    activeUnitId: activeHospital?.unitId,
+    activeFilter,
+    transferTargetUnitId,
+    transferDirection,
   });
-
-  const { data: folders = [] } = useQuery<Folder[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
-  });
-
-  // Fetch runway data for inline stock indicators
-  interface RunwayItem {
-    itemId: string;
-    runwayDays: number | null;
-    dailyUsage: number;
-    status: 'stockout' | 'critical' | 'warning' | 'ok' | 'no_data';
-  }
-  interface RunwayData {
-    items: RunwayItem[];
-    targetRunway: number;
-    warningDays: number;
-  }
-  const { data: runwayData } = useQuery<RunwayData>({
-    queryKey: [`/api/items/${activeHospital?.id}/runway?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
-  });
-
-  // Create a map for quick runway lookup
-  const runwayMap = useMemo(() => {
-    const map = new Map<string, RunwayItem>();
-    if (runwayData?.items) {
-      for (const item of runwayData.items) {
-        map.set(item.itemId, item);
-      }
-    }
-    return map;
-  }, [runwayData]);
-
-  // Fetch item codes for search by pharmacode/GTIN
-  const { data: itemCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
-    queryKey: [`/api/item-codes/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
-  });
-
-  // Fetch all units for transfer destination selection
-  interface UnitData {
-    id: string;
-    name: string;
-    hospitalId: string;
-  }
-  const { data: allUnits = [] } = useQuery<UnitData[]>({
-    queryKey: [`/api/units/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-
-  // Filter out current unit for destination selection
-  const availableDestinationUnits = useMemo(() => {
-    return allUnits.filter(u => u.id !== activeHospital?.unitId);
-  }, [allUnits, activeHospital?.unitId]);
-
-  // Fetch items from source unit when transferring FROM another unit
-  const { data: sourceUnitItems = [], isLoading: isLoadingSourceItems } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${transferTargetUnitId}`, transferTargetUnitId],
-    enabled: !!activeHospital?.id && !!transferTargetUnitId && transferDirection === 'from',
-  });
-
-  // Fetch item codes for source unit when transferring FROM
-  const { data: sourceUnitCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
-    queryKey: [`/api/item-codes/${activeHospital?.id}?unitId=${transferTargetUnitId}`, transferTargetUnitId],
-    enabled: !!activeHospital?.id && !!transferTargetUnitId && transferDirection === 'from',
-  });
-
-  // Create map of source unit item codes
-  const sourceUnitCodesMap = useMemo(() => {
-    const map = new Map<string, { gtin?: string; pharmacode?: string }>();
-    for (const code of sourceUnitCodesData) {
-      map.set(code.itemId, {
-        gtin: code.gtin || undefined,
-        pharmacode: code.pharmacode || undefined,
-      });
-    }
-    return map;
-  }, [sourceUnitCodesData]);
-
-  // Create a map of itemId to codes for efficient lookup during search
-  const itemCodesMap = useMemo(() => {
-    const map = new Map<string, { gtin?: string; pharmacode?: string }>();
-    for (const code of itemCodesData) {
-      map.set(code.itemId, {
-        gtin: code.gtin || undefined,
-        pharmacode: code.pharmacode || undefined,
-      });
-    }
-    return map;
-  }, [itemCodesData]);
-
-  // Get the appropriate items and codes based on transfer direction
-  const transferSourceItems = transferDirection === 'from' ? sourceUnitItems : items;
-  const transferSourceCodesMap = transferDirection === 'from' ? sourceUnitCodesMap : itemCodesMap;
   
   // Show onboarding when there are no items
   useEffect(() => {
@@ -518,108 +285,41 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     return () => clearInterval(checkInterval);
   }, [activeHospital?.id]);
 
-  const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: [`/api/vendors/${activeHospital?.id}`, effectiveUnitId],
-    enabled: !!activeHospital?.id,
-  });
-
-  const { data: openOrderItems = {} } = useQuery<Record<string, { totalQty: number }>>({
-    queryKey: [`/api/orders/open-items/${activeHospital?.id}`, effectiveUnitId],
-    enabled: !!activeHospital?.id,
-  });
-
-  const createItemMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await fetch("/api/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          hospitalId: activeHospital?.id,
-          unitId: effectiveUnitId,
-        }),
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.error === "LICENSE_LIMIT_REACHED") {
-          setLicenseInfo({
-            currentCount: errorData.currentCount,
-            limit: errorData.limit,
-            licenseType: errorData.licenseType,
-          });
-          setUpgradeDialogOpen(true);
-          return null;
-        }
-        throw new Error(errorData.message || t('items.failedToCreate'));
-      }
-      
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      resetForm();
-      if (saveAndCloseAdd) {
-        setAddDialogOpen(false);
-      }
-      toast({
-        title: t('common.success'),
-        description: t('items.itemCreatedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToCreate'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateItemMutation = useMutation({
-    mutationFn: async (data: any) => {
-      // Update item details - include active unitId for access control
-      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, {
-        ...data.itemData,
-        activeUnitId: effectiveUnitId
-      });
-      const updatedItem = await response.json();
-      
-      // Update stock level if provided
-      if (data.actualStock !== undefined && selectedItem) {
-        const currentStock = selectedItem.stockLevel?.qtyOnHand || 0;
-        const newStock = parseInt(data.actualStock);
-        const delta = newStock - currentStock;
-        
-        await apiRequest("POST", "/api/stock/update", {
-          itemId: selectedItem.id,
-          qty: newStock,
-          delta: delta,
-          notes: "Stock updated via item edit",
-          activeUnitId: effectiveUnitId,
-        });
-      }
-      
-      return updatedItem;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}&includeArchived=true`, effectiveUnitId] });
-      toast({
-        title: t('common.success'),
-        description: t('items.itemUpdatedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToUpdate'),
-        variant: "destructive",
-      });
-    },
-  });
+  // Define resetForm and handleCloseEditDialog before mutations (they're passed as callbacks)
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      description: "",
+      barcode: "",
+      minThreshold: "5",
+      maxThreshold: "10",
+      defaultOrderQty: "0",
+      packSize: "1",
+      currentUnits: "0",
+      initialStock: "0",
+      critical: false,
+      controlled: false,
+      trackExactQuantity: false,
+      isService: false,
+      imageUrl: "",
+      gtin: "",
+      pharmacode: "",
+      ean: "",
+      supplierCode: "",
+      migel: "",
+      atc: "",
+      manufacturer: "",
+      lotNumber: "",
+      expiryDate: "",
+    });
+    setSelectedUnit("Pack");
+    setUploadedImages([]);
+    setAddItemStage('step1');
+    setCodesImage(null);
+    setScanningCodeField(null);
+    setGalexisLookupResult(null);
+    setIsLookingUpGalexis(false);
+  };
 
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
@@ -630,177 +330,47 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   };
 
-  const deleteItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      const response = await apiRequest("DELETE", `/api/items/${itemId}`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      handleCloseEditDialog();
-      toast({
-        title: t('items.deleteItem'),
-        description: t('items.itemDeletedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToDelete'),
-        variant: "destructive",
-      });
-    },
+  // Extracted mutations hook
+  const {
+    createItemMutation, updateItemMutation, deleteItemMutation,
+    transferItemsMutation, bulkDeleteMutation, bulkMoveMutation,
+    bulkBillableMutation, quickReduceMutation, quickOrderMutation,
+    createImportJobMutation, bulkCreateMutation, bulkUpdateMutation,
+    createFolderMutation, updateFolderMutation, deleteFolderMutation,
+    updateFoldersSortMutation, moveItemMutation,
+  } = useItemsMutations({
+    hospitalId: activeHospital?.id,
+    unitId: effectiveUnitId,
+    t, toast,
+    setLicenseInfo,
+    setUpgradeDialogOpen,
+    setEditDialogOpen,
+    setAddDialogOpen,
+    setSaveAndCloseAdd,
+    saveAndCloseAdd,
+    resetForm,
+    handleCloseEditDialog,
+    setIsBulkDeleteMode,
+    setSelectedItems,
+    setShowDeleteConfirm,
+    setBulkMoveDialogOpen,
+    setBulkMoveTargetUnitId,
+    setTransferDialogOpen,
+    setTransferItems,
+    setTransferTargetUnitId,
+    setTransferDirection,
+    transferItems,
+    setBulkImportOpen,
+    setImportJob,
+    setBulkImages,
+    setBulkItems,
+    setIsBulkAnalyzing,
+    setIsBulkEditMode,
+    setBulkEditItems,
+    setFolderDialogOpen,
+    setEditingFolder,
+    setFolderName,
   });
-
-  // Transfer items mutation
-  const transferItemsMutation = useMutation({
-    mutationFn: async (data: {
-      sourceUnitId: string;
-      destinationUnitId: string;
-      items: Array<{
-        itemId: string;
-        transferType: 'packs' | 'units';
-        transferQty: number;
-        pharmacode?: string;
-        gtin?: string;
-      }>;
-    }) => {
-      const response = await apiRequest("POST", "/api/items/transfer", {
-        ...data,
-        hospitalId: activeHospital?.id,
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setTransferDialogOpen(false);
-      setTransferItems([]);
-      setTransferTargetUnitId("");
-      setTransferDirection('to');
-      toast({
-        title: t('items.transferSuccess', 'Transfer Complete'),
-        description: t('items.transferSuccessDesc', `Successfully transferred ${data.transferredCount || transferItems.length} item(s)`),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.transferFailed', 'Failed to transfer items'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (itemIds: string[]) => {
-      const response = await apiRequest("POST", "/api/items/bulk-delete", { itemIds });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setIsBulkDeleteMode(false);
-      setSelectedItems(new Set());
-      setShowDeleteConfirm(false);
-      toast({
-        title: t('common.success'),
-        description: `${data.deletedCount} items deleted successfully${data.failedCount > 0 ? ` (${data.failedCount} failed)` : ''}`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || "Failed to delete items",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkMoveMutation = useMutation({
-    mutationFn: async ({ itemIds, targetUnitId }: { itemIds: string[]; targetUnitId: string }) => {
-      const response = await apiRequest("POST", "/api/items/bulk-move", { 
-        itemIds, 
-        targetUnitId,
-        hospitalId: activeHospital?.id 
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setIsBulkDeleteMode(false);
-      setSelectedItems(new Set());
-      setBulkMoveDialogOpen(false);
-      setBulkMoveTargetUnitId("");
-      toast({
-        title: t('common.success'),
-        description: t('items.bulkMoveSuccess', `${data.movedCount || 0} item(s) moved successfully`),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.bulkMoveFailed', 'Failed to move items'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkBillableMutation = useMutation({
-    mutationFn: async ({ itemIds, isBillable }: { itemIds: string[]; isBillable: boolean }) => {
-      const response = await apiRequest("PATCH", "/api/items/bulk-billable", { 
-        itemIds, 
-        isBillable,
-        hospitalId: activeHospital?.id 
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setIsBulkDeleteMode(false);
-      setSelectedItems(new Set());
-      toast({
-        title: t('common.success'),
-        description: t('items.bulkBillableSuccess', `${data.updatedCount || 0} item(s) updated successfully`),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.bulkBillableFailed', 'Failed to update items'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const quickReduceMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      const response = await apiRequest("PATCH", `/api/items/${itemId}/reduce-unit`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      toast({
-        title: t('common.success'),
-        description: "Unit reduced successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || "Failed to reduce unit",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const normalizeUnit = (unit: string | undefined | null): UnitType => {
-    if (!unit) return "Single unit";
-    const normalized = unit.toLowerCase();
-    if (normalized === "pack" || normalized === "box" || normalized.includes("pack")) {
-      return "Pack";
-    }
-    return "Single unit";
-  };
-
 
   // Auto-calculate initial stock for Add Item when trackExactQuantity is enabled
   useEffect(() => {
@@ -839,11 +409,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   // Handle URL parameters for opening edit dialog
   useEffect(() => {
     if (!items.length || isLoading) return;
-    
+
     const params = new URLSearchParams(window.location.search);
     const editItemId = params.get('editItem');
     const tab = params.get('tab');
-    
+
     if (editItemId) {
       // Find the item
       const item = items.find(i => i.id === editItemId);
@@ -878,7 +448,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
         setNewLot({ lotNumber: "", expiryDate: "" });
         setEditDialogOpen(true);
-        
+
         // Load item codes, supplier codes, and lots in background
         setIsLoadingCodes(true);
         setIsLoadingLots(true);
@@ -896,7 +466,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           setIsLoadingCodes(false);
           setIsLoadingLots(false);
         });
-        
+
         // Clear URL params without reload (but keep pathname)
         window.history.replaceState({}, '', window.location.pathname);
       }
@@ -909,22 +479,22 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     if (!selectedItem || !editDialogOpen || editDialogTab !== 'codes' || isLoadingCodes) return;
     if (supplierCodes.length > 0) return; // Already has suppliers
     if (isLookingUpGalexisEdit) return; // Already looking up
-    
+
     const gtin = itemCodes?.gtin?.trim();
     const pharmacode = itemCodes?.pharmacode?.trim();
-    
+
     // Need at least one code to lookup
     if (!gtin && !pharmacode) return;
-    
+
     // Debounce the lookup
     if (galexisEditLookupTimeoutRef.current) {
       clearTimeout(galexisEditLookupTimeoutRef.current);
     }
-    
+
     galexisEditLookupTimeoutRef.current = setTimeout(() => {
       lookupGalexisForEdit(gtin, pharmacode);
     }, 800); // 800ms debounce
-    
+
     return () => {
       if (galexisEditLookupTimeoutRef.current) {
         clearTimeout(galexisEditLookupTimeoutRef.current);
@@ -962,7 +532,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
     setNewLot({ lotNumber: "", expiryDate: "" });
     setEditDialogOpen(true);
-    
+
     // Load item codes, supplier codes, and lots in background
     setIsLoadingCodes(true);
     setIsLoadingLots(true);
@@ -972,7 +542,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         fetch(`/api/items/${item.id}/suppliers`),
         fetch(`/api/items/${item.id}/lots`)
       ]);
-      
+
       if (codesRes.ok) {
         const codes = await codesRes.json();
         console.log('[Items] Fetched item codes:', codes);
@@ -980,14 +550,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       } else {
         console.error('[Items] Failed to fetch codes:', codesRes.status, await codesRes.text());
       }
-      
+
       if (suppliersRes.ok) {
         const suppliers = await suppliersRes.json();
         setSupplierCodes(suppliers);
       } else {
         console.error('[Items] Failed to fetch suppliers:', suppliersRes.status);
       }
-      
+
       if (lotsRes.ok) {
         const lots = await lotsRes.json();
         setItemLots(lots);
@@ -1002,256 +572,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   };
 
-  const quickOrderMutation = useMutation({
-    mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId?: string }) => {
-      const response = await apiRequest("POST", "/api/orders/quick-add", {
-        hospitalId: activeHospital?.id,
-        unitId: effectiveUnitId,
-        itemId: data.itemId,
-        qty: data.qty,
-        packSize: data.packSize,
-        vendorId: data.vendorId || null,
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      // Invalidate orders query with the correct key format (matching Orders page)
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, effectiveUnitId] });
-      // Also invalidate logistic orders if applicable
-      queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.id}`] });
-      toast({
-        title: t('items.addedToOrder'),
-        description: t('items.addedToDraftOrder'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToCreate'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createImportJobMutation = useMutation({
-    mutationFn: async (images: string[]) => {
-      const response = await apiRequest("POST", "/api/import-jobs", { 
-        images,
-        hospitalId: activeHospital?.id 
-      });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      // Close dialog and show notification
-      setBulkImportOpen(false);
-      
-      // Set initial job state - BottomNav will handle polling
-      const processingJob = {
-        jobId: data.jobId,
-        status: 'processing' as const,
-        itemCount: data.totalImages
-      };
-      setImportJob(processingJob);
-      localStorage.setItem(`import-job-${activeHospital?.id}`, JSON.stringify(processingJob));
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('items.analysisFailed'),
-        description: error.message || t('items.failedToAnalyze'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const bulkCreateMutation = useMutation({
-    mutationFn: async (items: any[]) => {
-      const response = await fetch("/api/items/bulk", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Active-Unit-Id": effectiveUnitId || "",
-        },
-        body: JSON.stringify({
-          items,
-          hospitalId: activeHospital?.id,
-          unitId: effectiveUnitId,
-        }),
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.error === "LICENSE_LIMIT_REACHED") {
-          setLicenseInfo({
-            currentCount: errorData.currentCount,
-            limit: errorData.limit,
-            licenseType: errorData.licenseType,
-          });
-          setUpgradeDialogOpen(true);
-          return null;
-        }
-        throw new Error(errorData.message || t('items.failedToImport'));
-      }
-      
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setBulkImportOpen(false);
-      setBulkImages([]);
-      setBulkItems([]);
-      setImportJob(null);
-      // Clear from localStorage so badge disappears
-      if (activeHospital?.id) {
-        localStorage.removeItem(`import-job-${activeHospital.id}`);
-      }
-      toast({
-        title: t('common.success'),
-        description: t('items.itemsImportedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToImport'),
-        variant: "destructive",
-      });
-    },
-  });
-
   // Handler for notification click
   const handleImportNotificationClick = () => {
     if (importJob?.status === 'completed') {
       setBulkImportOpen(true);
     }
   };
-
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async (items: any[]) => {
-      const response = await apiRequest("PATCH", "/api/items/bulk-update", { items });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setIsBulkEditMode(false);
-      setBulkEditItems({});
-      toast({
-        title: t('common.success'),
-        description: t('items.itemsUpdatedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToBulkUpdate'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createFolderMutation = useMutation({
-    mutationFn: async ({ name, hospitalId, unitId }: { name: string; hospitalId: string; unitId: string }) => {
-      const response = await apiRequest("POST", "/api/folders", {
-        name,
-        hospitalId,
-        unitId,
-      });
-      return await response.json();
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${variables.hospitalId}?unitId=${variables.unitId}`, variables.unitId] });
-      setFolderDialogOpen(false);
-      setFolderName("");
-      toast({
-        title: t('common.success'),
-        description: t('items.folderCreatedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToCreateFolder'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateFolderMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const response = await apiRequest("PATCH", `/api/folders/${id}`, { name });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setFolderDialogOpen(false);
-      setEditingFolder(null);
-      setFolderName("");
-      toast({
-        title: t('common.success'),
-        description: t('items.folderUpdatedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToUpdateFolder'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteFolderMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/folders/${id}`);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      toast({
-        title: t('common.success'),
-        description: t('items.folderDeletedSuccess'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToDeleteFolder'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateFoldersSortMutation = useMutation({
-    mutationFn: async (folders: { id: string; sortOrder: number }[]) => {
-      const response = await apiRequest("PATCH", "/api/folders/bulk-sort", { folders });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-    },
-  });
-
-
-  const moveItemMutation = useMutation({
-    mutationFn: async ({ itemId, folderId }: { itemId: string; folderId: string | null }) => {
-      const response = await apiRequest("PATCH", `/api/items/${itemId}`, { folderId });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.failedToMove'),
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleDragStart = (event: any) => {
     setActiveItemId(event.active.id as string);
@@ -1539,45 +865,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     updateItemMutation.mutate({
       itemData,
       actualStock: editFormData.actualStock,
-    });
-  };
-
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Resize if image is too large (max 800px on longest side for better compression)
-          const maxSize = 800;
-          if (width > maxSize || height > maxSize) {
-            if (width > height) {
-              height = (height / width) * maxSize;
-              width = maxSize;
-            } else {
-              width = (width / height) * maxSize;
-              height = maxSize;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Compress to JPEG with 0.7 quality for better size reduction
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          resolve(compressedBase64);
-        };
-        img.onerror = reject;
-        img.src = event.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
     });
   };
 
@@ -1936,41 +1223,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     });
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      barcode: "",
-      minThreshold: "5",
-      maxThreshold: "10",
-      defaultOrderQty: "0",
-      packSize: "1",
-      currentUnits: "0",
-      initialStock: "0",
-      critical: false,
-      controlled: false,
-      trackExactQuantity: false,
-      isService: false,
-      imageUrl: "",
-      gtin: "",
-      pharmacode: "",
-      ean: "",
-      supplierCode: "",
-      migel: "",
-      atc: "",
-      manufacturer: "",
-      lotNumber: "",
-      expiryDate: "",
-    });
-    setSelectedUnit("Pack");
-    setUploadedImages([]);
-    setAddItemStage('step1');
-    setCodesImage(null);
-    setScanningCodeField(null);
-    setGalexisLookupResult(null);
-    setIsLookingUpGalexis(false);
-  };
-  
   // Galexis product lookup by GTIN
   const lookupGalexisProduct = async (gtin: string) => {
     if (!gtin || !activeHospital?.id) return;
@@ -2367,155 +1619,27 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       });
       return;
     }
-    
-    // Fetch preferred supplier codes for all items
-    let supplierCodesMap = new Map<string, { supplierName: string; basispreis: string | null }>();
+
     try {
-      const response = await fetch(`/api/preferred-supplier-codes/${activeHospital.id}?unitId=${effectiveUnitId}`);
-      if (response.ok) {
-        const codes = await response.json();
-        for (const code of codes) {
-          supplierCodesMap.set(code.itemId, { supplierName: code.supplierName, basispreis: code.basispreis });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching supplier codes for PDF:", error);
+      const count = await downloadInventoryPdf({
+        items,
+        folders,
+        hospitalId: activeHospital.id,
+        hospitalName: activeHospital?.name || "Hospital",
+        effectiveUnitId,
+      });
+
+      toast({
+        title: "Inventory Exported",
+        description: `Downloaded ${count} items organized by folder as PDF.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export inventory",
+        variant: "destructive",
+      });
     }
-    
-    const doc = new jsPDF({ orientation: "portrait", format: "a4" });
-    
-    const folderMap = new Map<string, Folder>();
-    folders.forEach(folder => folderMap.set(folder.id, folder));
-
-    // Filter out archived items
-    const activeItems = items.filter(item => item.status !== 'archived');
-
-    const sortedItems = [...activeItems].sort((a, b) => {
-      const aFolder = a.folderId ? folderMap.get(a.folderId) : null;
-      const bFolder = b.folderId ? folderMap.get(b.folderId) : null;
-      const aFolderName = aFolder?.name || "Uncategorized";
-      const bFolderName = bFolder?.name || "Uncategorized";
-      
-      if (aFolderName !== bFolderName) {
-        return aFolderName.localeCompare(bFolderName);
-      }
-      
-      return (a.sortOrder || 0) - (b.sortOrder || 0);
-    });
-
-    // Header (portrait A4: 210mm width, center at 105mm)
-    doc.setFontSize(18);
-    doc.text("INVENTORY LIST", 105, 15, { align: "center" });
-    
-    doc.setFontSize(10);
-    const hospitalName = activeHospital?.name || "Hospital";
-    const exportDate = new Date().toLocaleDateString('en-GB');
-    doc.text(`Hospital: ${hospitalName}`, 15, 25);
-    doc.text(`Date: ${exportDate}`, 150, 25);
-
-    // Build table data with folder grouping
-    const tableData: any[] = [];
-    let currentFolder = "";
-
-    sortedItems.forEach(item => {
-      const folder = item.folderId ? folderMap.get(item.folderId) : null;
-      const folderName = folder?.name || "Uncategorized";
-      const stockQty = item.stockLevel?.qtyOnHand || 0;
-      
-      // Add folder header row when folder changes
-      if (folderName !== currentFolder) {
-        currentFolder = folderName;
-        tableData.push([
-          { content: folderName.toUpperCase(), colSpan: 7, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
-        ]);
-      }
-      
-      // Build row data based on item type and trackExactQuantity setting
-      const isPack = item.unit === "Pack";
-      const tracksExact = item.trackExactQuantity && isPack;
-      
-      // Current Stock: when trackExactQuantity is enabled, calculate from currentUnits
-      // Otherwise, use qtyOnHand directly
-      let displayStock = stockQty;
-      if (tracksExact && item.packSize && item.packSize > 0) {
-        displayStock = Math.ceil((item.currentUnits || 0) / item.packSize);
-      }
-      const stockLabel = isPack ? `${displayStock} packs` : `${displayStock} units`;
-      
-      // Pack Size: only show if Pack AND trackExactQuantity is enabled
-      const packSizeValue = tracksExact ? String(item.packSize || 1) : "-";
-      
-      // Current Items: only show currentUnits if Pack AND trackExactQuantity is enabled
-      const currentItemsValue = tracksExact ? String(item.currentUnits || 0) : "-";
-      
-      // Supplier info from preferred supplier
-      const supplierInfo = supplierCodesMap.get(item.id);
-      const supplierName = supplierInfo?.supplierName || "-";
-      
-      const row = [
-        item.name,
-        stockLabel,
-        packSizeValue,
-        currentItemsValue,
-        String(item.minThreshold || 0),
-        String(item.maxThreshold || 0),
-        supplierName,
-      ];
-
-      tableData.push(row);
-    });
-
-    // Create table (portrait A4 = 210mm width, with 15mm margins = 180mm usable)
-    autoTable(doc, {
-      startY: 30,
-      head: [[
-        "Item Name",
-        "Current Stock",
-        "Pack Size",
-        "Current Items",
-        "Min",
-        "Max",
-        "Supplier"
-      ]],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      columnStyles: {
-        0: { cellWidth: 55 },  // Item Name
-        1: { cellWidth: 25 },  // Current Stock
-        2: { cellWidth: 18, halign: "center" },  // Pack Size
-        3: { cellWidth: 20, halign: "center" },  // Current Items
-        4: { cellWidth: 12, halign: "center" },  // Min
-        5: { cellWidth: 12, halign: "center" },  // Max
-        6: { cellWidth: 38 },  // Supplier
-      },
-      margin: { left: 15, right: 15 },
-    });
-
-    // Footer (portrait A4: 210x297mm, footer at 287mm from top, center at 105mm)
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        105,
-        287,
-        { align: "center" }
-      );
-    }
-
-    // Sanitize hospital name for filename
-    const sanitizedHospitalName = hospitalName.replace(/[^a-zA-Z0-9]/g, '-');
-    const filename = `inventory-${sanitizedHospitalName}-${new Date().toISOString().split('T')[0]}.pdf`;
-    
-    doc.save(filename);
-
-    toast({
-      title: "Inventory Exported",
-      description: `Downloaded ${activeItems.length} items organized by folder as PDF.`,
-    });
   };
 
   const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2652,220 +1776,29 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   };
   
-  const handleCsvUpload = (file: File) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.data.length === 0) {
-          toast({
-            title: "Empty CSV",
-            description: "The CSV file appears to be empty",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        const headers = results.meta.fields || [];
-        setCsvHeaders(headers);
-        setCsvData(results.data);
-        setImportMode('csv');
-        
-        // Auto-map common column names
-        const autoMapping: Record<string, string> = {};
-        headers.forEach(header => {
-          const lowerHeader = header.toLowerCase().trim();
-          if (lowerHeader === 'name' || lowerHeader === 'item name' || lowerHeader === 'product name') {
-            autoMapping[header] = 'name';
-          } else if (lowerHeader === 'description' || lowerHeader === 'desc') {
-            autoMapping[header] = 'description';
-          } else if (lowerHeader === 'stock' || lowerHeader === 'quantity' || lowerHeader === 'initial stock') {
-            autoMapping[header] = 'initialStock';
-          } else if (lowerHeader === 'min' || lowerHeader === 'min threshold' || lowerHeader === 'minimum') {
-            autoMapping[header] = 'minThreshold';
-          } else if (lowerHeader === 'max' || lowerHeader === 'max threshold' || lowerHeader === 'maximum') {
-            autoMapping[header] = 'maxThreshold';
-          } else if (lowerHeader === 'unit' || lowerHeader === 'order unit') {
-            autoMapping[header] = 'unit';
-          } else if (lowerHeader === 'critical') {
-            autoMapping[header] = 'critical';
-          } else if (lowerHeader === 'controlled') {
-            autoMapping[header] = 'controlled';
-          } else if (lowerHeader === 'pack size' || lowerHeader === 'packsize') {
-            autoMapping[header] = 'packSize';
-          }
-          // Medication-specific fields
-          else if (lowerHeader === 'group' || lowerHeader === 'medication group' || lowerHeader === 'drug group') {
-            autoMapping[header] = 'medicationGroup';
-          } else if (lowerHeader === 'route' || lowerHeader === 'administration route') {
-            autoMapping[header] = 'administrationRoute';
-          } else if (lowerHeader === 'defaultdose' || lowerHeader === 'default dose') {
-            autoMapping[header] = 'defaultDose';
-          } else if (lowerHeader === 'ampoulequantity' || lowerHeader === 'ampule quantity' || lowerHeader === 'ampoule quantity') {
-            autoMapping[header] = 'ampuleQuantity';
-          } else if (lowerHeader === 'ampouleunit' || lowerHeader === 'ampule unit' || lowerHeader === 'ampoule unit') {
-            autoMapping[header] = 'ampuleUnit';
-          } else if (lowerHeader === 'administrationunit' || lowerHeader === 'administration unit') {
-            autoMapping[header] = 'administrationUnit';
-          } else if (lowerHeader === 'rateunit' || lowerHeader === 'rate unit') {
-            autoMapping[header] = 'rateUnit';
-          }
-          // Additional fields for full catalog export/import
-          else if (lowerHeader === 'barcode' || lowerHeader === 'sku') {
-            autoMapping[header] = 'barcode';
-          } else if (lowerHeader === 'folderpath' || lowerHeader === 'folder path' || lowerHeader === 'folder' || lowerHeader === 'foldername' || lowerHeader === 'folder name') {
-            autoMapping[header] = 'folderPath';
-          } else if (lowerHeader === 'vendorname' || lowerHeader === 'vendor name' || lowerHeader === 'vendor') {
-            autoMapping[header] = 'vendorName';
-          } else if (lowerHeader === 'currentunits' || lowerHeader === 'current units' || lowerHeader === 'current stock') {
-            autoMapping[header] = 'currentUnits';
-          } else if (lowerHeader === 'reorderpoint' || lowerHeader === 'reorder point') {
-            autoMapping[header] = 'reorderPoint';
-          } else if (lowerHeader === 'trackexactquantity' || lowerHeader === 'track exact quantity' || lowerHeader === 'exact quantity') {
-            autoMapping[header] = 'trackExactQuantity';
-          } else if (lowerHeader === 'minunits' || lowerHeader === 'min units') {
-            autoMapping[header] = 'minUnits';
-          } else if (lowerHeader === 'maxunits' || lowerHeader === 'max units') {
-            autoMapping[header] = 'maxUnits';
-          } else if (lowerHeader === 'imageurl' || lowerHeader === 'image url' || lowerHeader === 'image') {
-            autoMapping[header] = 'imageUrl';
-          } else if (lowerHeader === 'barcodes') {
-            autoMapping[header] = 'barcodes';
-          }
-          // Item codes fields for catalog transfer
-          else if (lowerHeader === 'gtin' || lowerHeader === 'ean' || lowerHeader === 'gtin/ean') {
-            autoMapping[header] = 'gtin';
-          } else if (lowerHeader === 'pharmacode') {
-            autoMapping[header] = 'pharmacode';
-          } else if (lowerHeader === 'swissmedicnr' || lowerHeader === 'swissmedic' || lowerHeader === 'swissmedic nr') {
-            autoMapping[header] = 'swissmedicNr';
-          } else if (lowerHeader === 'migel' || lowerHeader === 'migel nr') {
-            autoMapping[header] = 'migel';
-          } else if (lowerHeader === 'atc' || lowerHeader === 'atc code') {
-            autoMapping[header] = 'atc';
-          } else if (lowerHeader === 'manufacturer' || lowerHeader === 'hersteller') {
-            autoMapping[header] = 'manufacturer';
-          } else if (lowerHeader === 'manufacturerref' || lowerHeader === 'manufacturer ref' || lowerHeader === 'ref' || lowerHeader === 'artikelnr') {
-            autoMapping[header] = 'manufacturerRef';
-          } else if (lowerHeader === 'packcontent' || lowerHeader === 'pack content') {
-            autoMapping[header] = 'packContent';
-          } else if (lowerHeader === 'unitsperpack' || lowerHeader === 'units per pack') {
-            autoMapping[header] = 'unitsPerPack';
-          } else if (lowerHeader === 'contentperunit' || lowerHeader === 'content per unit') {
-            autoMapping[header] = 'contentPerUnit';
-          } else if (lowerHeader === 'abgabekategorie' || lowerHeader === 'abgabe' || lowerHeader === 'dispensation category') {
-            autoMapping[header] = 'abgabekategorie';
-          }
-          // Supplier fields
-          else if (lowerHeader === 'preferredsupplier' || lowerHeader === 'preferred supplier' || lowerHeader === 'supplier') {
-            autoMapping[header] = 'preferredSupplier';
-          } else if (lowerHeader === 'supplierarticlecode' || lowerHeader === 'supplier article code' || lowerHeader === 'article code') {
-            autoMapping[header] = 'supplierArticleCode';
-          } else if (lowerHeader === 'supplierprice' || lowerHeader === 'supplier price' || lowerHeader === 'price') {
-            autoMapping[header] = 'supplierPrice';
-          }
-        });
-        setCsvMapping(autoMapping);
-      },
-      error: (error) => {
-        toast({
-          title: "CSV Parse Error",
-          description: error.message || "Failed to parse CSV file",
-          variant: "destructive",
-        });
-      }
-    });
+  const handleCsvUpload = async (file: File) => {
+    try {
+      const result = await parseCsvFile(file);
+      setCsvHeaders(result.headers);
+      setCsvData(result.data);
+      setImportMode('csv');
+      setCsvMapping(result.autoMapping);
+    } catch (error: any) {
+      toast({
+        title: "CSV Parse Error",
+        description: error.message || "Failed to parse CSV file",
+        variant: "destructive",
+      });
+    }
   };
-  
+
   const handleExcelUpload = async (file: File) => {
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
-      
-      const worksheet = workbook.worksheets[0];
-      if (!worksheet || worksheet.rowCount === 0) {
-        toast({
-          title: "Empty Excel File",
-          description: "The Excel file appears to be empty",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const headerRow = worksheet.getRow(1);
-      const headers: string[] = [];
-      headerRow.eachCell((cell, colNumber) => {
-        headers[colNumber - 1] = String(cell.value || '');
-      });
-      
-      const jsonData: Record<string, any>[] = [];
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
-        const rowData: Record<string, any> = {};
-        row.eachCell((cell, colNumber) => {
-          const header = headers[colNumber - 1];
-          if (header) {
-            rowData[header] = cell.value ?? '';
-          }
-        });
-        if (Object.keys(rowData).length > 0) {
-          jsonData.push(rowData);
-        }
-      });
-      
-      if (jsonData.length === 0) {
-        toast({
-          title: "Empty Excel File",
-          description: "The Excel file appears to be empty",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setCsvHeaders(headers.filter(h => h));
-      setCsvData(jsonData);
+      const result = await parseExcelFile(file);
+      setCsvHeaders(result.headers);
+      setCsvData(result.data);
       setImportMode('csv');
-      
-      const autoMapping: Record<string, string> = {};
-      headers.forEach(header => {
-        if (!header) return;
-        const lowerHeader = header.toLowerCase().trim();
-        if (lowerHeader === 'name' || lowerHeader === 'item name' || lowerHeader === 'product name') {
-          autoMapping[header] = 'name';
-        } else if (lowerHeader === 'description' || lowerHeader === 'desc') {
-          autoMapping[header] = 'description';
-        } else if (lowerHeader === 'stock' || lowerHeader === 'quantity' || lowerHeader === 'initial stock') {
-          autoMapping[header] = 'initialStock';
-        } else if (lowerHeader === 'min' || lowerHeader === 'min threshold' || lowerHeader === 'minimum') {
-          autoMapping[header] = 'minThreshold';
-        } else if (lowerHeader === 'max' || lowerHeader === 'max threshold' || lowerHeader === 'maximum') {
-          autoMapping[header] = 'maxThreshold';
-        } else if (lowerHeader === 'unit' || lowerHeader === 'order unit') {
-          autoMapping[header] = 'unit';
-        } else if (lowerHeader === 'critical') {
-          autoMapping[header] = 'critical';
-        } else if (lowerHeader === 'controlled') {
-          autoMapping[header] = 'controlled';
-        } else if (lowerHeader === 'pack size' || lowerHeader === 'packsize') {
-          autoMapping[header] = 'packSize';
-        } else if (lowerHeader === 'barcode' || lowerHeader === 'sku') {
-          autoMapping[header] = 'barcode';
-        } else if (lowerHeader === 'pharmacode') {
-          autoMapping[header] = 'pharmacode';
-        } else if (lowerHeader === 'gtin' || lowerHeader === 'ean' || lowerHeader === 'gtin/ean') {
-          autoMapping[header] = 'gtin';
-        } else if (lowerHeader === 'manufacturer' || lowerHeader === 'hersteller') {
-          autoMapping[header] = 'manufacturer';
-        } else if (lowerHeader === 'supplierprice' || lowerHeader === 'supplier price' || lowerHeader === 'price' || lowerHeader === 'basispreis') {
-          autoMapping[header] = 'supplierPrice';
-        } else if (lowerHeader === 'preferredsupplier' || lowerHeader === 'preferred supplier' || lowerHeader === 'supplier' || lowerHeader === 'lieferant') {
-          autoMapping[header] = 'preferredSupplier';
-        } else if (lowerHeader === 'patientprice' || lowerHeader === 'patient price' || lowerHeader === 'final price' || lowerHeader === 'endpreis' || lowerHeader === 'abgabepreis') {
-          autoMapping[header] = 'patientPrice';
-        }
-      });
-      setCsvMapping(autoMapping);
+      setCsvMapping(result.autoMapping);
     } catch (error: any) {
       toast({
         title: "Excel Parse Error",
@@ -2875,203 +1808,29 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   };
   
-  const processCsvData = () => {
-    // Validate that name is mapped
-    const nameColumn = Object.entries(csvMapping).find(([_, target]) => target === 'name')?.[0];
-    if (!nameColumn) {
+  const handleProcessCsvData = () => {
+    try {
+      const items = processCsvData(csvData, csvMapping);
+      if (items.length === 0) {
+        toast({
+          title: "No Valid Items",
+          description: "No valid items found in CSV. Make sure the Name column is mapped and contains data.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setBulkItems(items);
+      setImportMode('select'); // Move to review screen
+    } catch (error: any) {
       toast({
         title: "Missing Required Field",
-        description: "Please map a column to 'Name' - this field is required",
+        description: error.message || "Please map a column to 'Name' - this field is required",
         variant: "destructive",
       });
-      return;
     }
-    
-    const items: any[] = [];
-    csvData.forEach((row, index) => {
-      const item: any = {
-        name: '',
-        description: '',
-        unit: 'Pack',
-        packSize: 1,
-        minThreshold: 5,
-        maxThreshold: 20,
-        initialStock: 0,
-        critical: false,
-        controlled: false,
-      };
-      
-      // Temporary storage for ampule data
-      let ampuleQuantity = '';
-      let ampuleUnit = '';
-      
-      Object.entries(csvMapping).forEach(([csvCol, targetField]) => {
-        const value = row[csvCol];
-        if (!value && targetField === 'name') return; // Skip rows without name
-        
-        switch (targetField) {
-          case 'name':
-            item.name = String(value || '');
-            break;
-          case 'description':
-            item[targetField] = String(value || '');
-            break;
-          case 'unit':
-            item[targetField] = value === 'Single unit' ? 'Single unit' : 'Pack';
-            break;
-          case 'initialStock':
-          case 'minThreshold':
-          case 'maxThreshold':
-          case 'packSize':
-            item[targetField] = parseInt(value) || 0;
-            break;
-          case 'critical':
-          case 'controlled':
-            const boolVal = String(value).toLowerCase();
-            item[targetField] = boolVal === 'true' || boolVal === 'yes' || boolVal === '1';
-            break;
-          // Medication fields
-          case 'medicationGroup':
-          case 'administrationRoute':
-          case 'defaultDose':
-          case 'administrationUnit':
-          case 'rateUnit':
-            item[targetField] = value ? String(value) : undefined;
-            break;
-          case 'ampuleQuantity':
-            ampuleQuantity = value ? String(value) : '';
-            break;
-          case 'ampuleUnit':
-            ampuleUnit = value ? String(value) : '';
-            break;
-          // Catalog export fields
-          case 'barcode':
-          case 'folderPath':
-          case 'vendorName':
-            item[targetField] = value ? String(value) : undefined;
-            break;
-          case 'currentUnits':
-          case 'reorderPoint':
-          case 'minUnits':
-          case 'maxUnits':
-            // Only set if value exists and is a valid number
-            const numVal = value ? parseInt(value) : undefined;
-            if (numVal !== undefined && !isNaN(numVal)) {
-              item[targetField] = numVal;
-            }
-            break;
-          case 'trackExactQuantity':
-            const trackVal = String(value).toLowerCase();
-            item[targetField] = trackVal === 'true' || trackVal === 'yes' || trackVal === '1';
-            break;
-          // Image URL
-          case 'imageUrl':
-            item.imageUrl = value ? String(value) : undefined;
-            break;
-          // Barcodes (semicolon-separated)
-          case 'barcodes':
-            if (value) {
-              item.barcodes = String(value).split(';').map(b => b.trim()).filter(b => b);
-            }
-            break;
-          // Item codes for catalog transfer
-          case 'gtin':
-          case 'pharmacode':
-          case 'swissmedicNr':
-          case 'migel':
-          case 'atc':
-          case 'manufacturer':
-          case 'manufacturerRef':
-          case 'packContent':
-          case 'contentPerUnit':
-          case 'abgabekategorie':
-            if (!item.itemCodes) item.itemCodes = {};
-            item.itemCodes[targetField] = value ? String(value) : undefined;
-            break;
-          case 'unitsPerPack':
-            if (!item.itemCodes) item.itemCodes = {};
-            const upVal = value ? parseInt(value) : undefined;
-            if (upVal !== undefined && !isNaN(upVal)) {
-              item.itemCodes.unitsPerPack = upVal;
-            }
-            break;
-          // Supplier fields
-          case 'preferredSupplier':
-          case 'supplierArticleCode':
-            if (!item.supplierInfo) item.supplierInfo = {};
-            item.supplierInfo[targetField] = value ? String(value) : undefined;
-            break;
-          case 'supplierPrice':
-            if (!item.supplierInfo) item.supplierInfo = {};
-            // Parse currency-formatted values like "CHF 12,34" or "€ 45,67"
-            item.supplierInfo[targetField] = parseCurrencyValue(value);
-            break;
-          // Patient price (final dispensing price)
-          case 'patientPrice':
-            // Parse currency-formatted values like "CHF 12,34" or "€ 45,67"
-            item.patientPrice = parseCurrencyValue(value);
-            break;
-        }
-      });
-      
-      // Combine ampule quantity and unit into ampuleTotalContent
-      if (ampuleQuantity && ampuleUnit) {
-        item.ampuleTotalContent = `${ampuleQuantity} ${ampuleUnit}`;
-      } else if (ampuleQuantity) {
-        item.ampuleTotalContent = ampuleQuantity;
-      }
-      
-      if (item.name) {
-        items.push(item);
-      }
-    });
-    
-    if (items.length === 0) {
-      toast({
-        title: "No Valid Items",
-        description: "No valid items found in CSV. Make sure the Name column is mapped and contains data.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setBulkItems(items);
-    setImportMode('select'); // Move to review screen
   };
   
-  const downloadSimpleCsvTemplate = () => {
-    const template = [
-      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled'],
-      ['Bandages 5cm', 'Sterile gauze bandages', 'pack', '10', '50', '10', '30', 'false', 'false'],
-      ['Sodium Chloride 0.9%', '1000ml bag IV solution', 'pack', '12', '100', '20', '50', 'false', 'false'],
-      ['Syringes 10ml', 'Disposable syringes', 'pack', '100', '200', '50', '150', 'false', 'false'],
-    ];
-    
-    const csvContent = template.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'items_simple_template.csv';
-    link.click();
-  };
-
-  const downloadMedicationCsvTemplate = () => {
-    const template = [
-      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'AmpouleQuantity', 'AmpouleUnit', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
-      ['Midazolam (Dormicum) 5mg', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', '5', 'mg', 'mg', 'false', ''],
-      ['Propofol 200mg/20ml', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', '20', 'ml', 'mg', 'true', 'mg/h'],
-      ['Fentanyl 0.5mg', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', '0.5', 'mg', 'µg', 'true', 'µg/h'],
-    ];
-    
-    const csvContent = template.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'medications_template.csv';
-    link.click();
-  };
-
-  const downloadItemsCatalog = async () => {
+  const handleDownloadItemsCatalog = async () => {
     if (!activeHospital?.id || !activeHospital?.name || items.length === 0) {
       toast({
         title: "No Data",
@@ -3087,110 +1846,18 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         description: "Fetching complete item data with codes",
       });
 
-      const response = await fetch(`/api/items/${activeHospital.id}/export-catalog?unitId=${activeHospital.unitId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch catalog data");
-      }
-      const itemsWithCodes = await response.json();
-
-      const folderMap = new Map<string, Folder>();
-      folders.forEach(folder => folderMap.set(folder.id, folder));
-
-      const vendorMap = new Map<string, string>();
-      vendors.forEach(vendor => vendorMap.set(vendor.id, vendor.name));
-
-      const headers = [
-        'Name',
-        'Description',
-        'Unit',
-        'PackSize',
-        'MinThreshold',
-        'MaxThreshold',
-        'DefaultOrderQty',
-        'TrackExactQuantity',
-        'Critical',
-        'Controlled',
-        'CurrentUnits',
-        'FolderName',
-        'VendorName',
-        'ImageUrl',
-        'Barcodes',
-        'GTIN',
-        'Pharmacode',
-        'SwissmedicNr',
-        'MiGeL',
-        'ATC',
-        'Manufacturer',
-        'ManufacturerRef',
-        'PackContent',
-        'UnitsPerPack',
-        'ContentPerUnit',
-        'Abgabekategorie',
-        'PreferredSupplier',
-        'SupplierArticleCode',
-        'SupplierPrice'
-      ];
-
-      const rows = itemsWithCodes.map((item: any) => {
-        const folderName = item.folderId ? (folderMap.get(item.folderId)?.name || '') : '';
-        const vendorName = item.vendorId ? (vendorMap.get(item.vendorId) || '') : '';
-        const codes = item.codes || {};
-        const preferredSupplier = item.suppliers?.find((s: any) => s.isPreferred) || item.suppliers?.[0] || {};
-        
-        return [
-          item.name || '',
-          item.description || '',
-          item.unit || 'Pack',
-          item.packSize || 1,
-          item.minThreshold || 0,
-          item.maxThreshold || 0,
-          item.defaultOrderQty || 0,
-          item.trackExactQuantity ? 'true' : 'false',
-          item.critical ? 'true' : 'false',
-          item.controlled ? 'true' : 'false',
-          item.currentUnits || 0,
-          folderName,
-          vendorName,
-          item.imageUrl || '',
-          (item.barcodes || []).join(';'),
-          codes.gtin || '',
-          codes.pharmacode || '',
-          codes.swissmedicNr || '',
-          codes.migel || '',
-          codes.atc || '',
-          codes.manufacturer || '',
-          codes.manufacturerRef || '',
-          codes.packContent || '',
-          codes.unitsPerPack || '',
-          codes.contentPerUnit || '',
-          codes.abgabekategorie || '',
-          preferredSupplier.supplierName || '',
-          preferredSupplier.articleCode || '',
-          preferredSupplier.basispreis || preferredSupplier.publikumspreis || ''
-        ];
+      const count = await downloadItemsCatalog({
+        hospitalId: activeHospital.id,
+        hospitalName: activeHospital.name,
+        unitId: activeHospital.unitId,
+        items,
+        folders,
+        vendors,
       });
-
-      const csvData = [headers, ...rows];
-      
-      const csvContent = csvData.map(row => 
-        row.map((cell: string | number) => {
-          const cellStr = String(cell);
-          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes(';')) {
-            return `"${cellStr.replace(/"/g, '""')}"`;
-          }
-          return cellStr;
-        }).join(',')
-      ).join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `items_catalog_${activeHospital.name}_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
 
       toast({
         title: "Export Complete",
-        description: `Exported ${itemsWithCodes.length} items with codes successfully`,
+        description: `Exported ${count} items with codes successfully`,
       });
     } catch (error: any) {
       toast({
@@ -3231,78 +1898,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     bulkUpdateMutation.mutate(updates);
   };
 
-  const filterAndSortItems = (itemsToFilter: ItemWithStock[]) => {
-    let filtered = itemsToFilter;
-
-    // Filter by archived status based on active filter
-    if (activeFilter === "archived") {
-      // Show only archived items
-      filtered = filtered.filter(item => item.status === 'archived');
-    } else {
-      // Hide archived items for all other filters
-      filtered = filtered.filter(item => item.status !== 'archived');
-    }
-
-    // Apply search filter (name, description, pharmacode, GTIN)
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => {
-        // Search by name or description
-        if (item.name.toLowerCase().includes(searchLower) ||
-            item.description?.toLowerCase().includes(searchLower)) {
-          return true;
-        }
-        // Search by pharmacode or GTIN
-        const codes = itemCodesMap.get(item.id);
-        if (codes) {
-          if (codes.pharmacode?.toLowerCase().includes(searchLower) ||
-              codes.gtin?.toLowerCase().includes(searchLower)) {
-            return true;
-          }
-        }
-        return false;
-      });
-    }
-
-    // Apply category filter (threshold-based) - skip for archived filter
-    if (activeFilter !== "all" && activeFilter !== "archived") {
-      filtered = filtered.filter(item => {
-        const currentQty = item.stockLevel?.qtyOnHand || 0;
-        const minThreshold = item.minThreshold || 0;
-        switch (activeFilter) {
-          case "runningLow":
-            // Running low: stock > 0 but at or below min threshold
-            return currentQty > 0 && currentQty <= minThreshold;
-          case "stockout":
-            // Stockout: zero stock
-            return currentQty === 0;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "expiry":
-          const aExpiry = a.soonestExpiry ? new Date(a.soonestExpiry).getTime() : Infinity;
-          const bExpiry = b.soonestExpiry ? new Date(b.soonestExpiry).getTime() : Infinity;
-          return aExpiry - bExpiry;
-        case "usage":
-          return Math.random() - 0.5;
-        case "stock":
-          const aStock = a.stockLevel?.qtyOnHand || 0;
-          const bStock = b.stockLevel?.qtyOnHand || 0;
-          return aStock - bStock;
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-    return filtered;
-  };
-
   const organizedItems = useMemo(() => {
     const rootItems = items.filter(item => !item.folderId);
     const folderGroups = folders.map(folder => ({
@@ -3311,10 +1906,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }));
 
     return {
-      rootItems: filterAndSortItems(rootItems),
+      rootItems: filterAndSortItems(rootItems, searchTerm, activeFilter, sortBy, itemCodesMap),
       folderGroups: folderGroups.map(group => ({
         folder: group.folder,
-        items: filterAndSortItems(group.items),
+        items: filterAndSortItems(group.items, searchTerm, activeFilter, sortBy, itemCodesMap),
       })).filter(group => group.items.length > 0 || searchTerm === ""),
     };
   }, [items, folders, searchTerm, activeFilter, sortBy, itemCodesMap, runwayMap]);
@@ -3330,63 +1925,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const foldersWithResults = organizedItems.folderGroups
         .filter(group => group.items.length > 0)
         .map(group => group.folder.id);
-      
+
       setExpandedFolders(new Set(foldersWithResults));
     }
   }, [searchTerm, activeFilter, organizedItems.folderGroups]);
 
-  const getFilterCounts = () => {
-    // Only count active items (not archived) for normal filters
-    const activeItems = items.filter(item => item.status !== 'archived');
-    const archivedItems = items.filter(item => item.status === 'archived');
-    return {
-      all: activeItems.length,
-      // Running low: stock > 0 but at or below min threshold
-      runningLow: activeItems.filter(item => {
-        const currentQty = item.stockLevel?.qtyOnHand || 0;
-        const minThreshold = item.minThreshold || 0;
-        return currentQty > 0 && currentQty <= minThreshold;
-      }).length,
-      // Stockout: zero stock
-      stockout: activeItems.filter(item => {
-        const currentQty = item.stockLevel?.qtyOnHand || 0;
-        return currentQty === 0;
-      }).length,
-      // Archived items count
-      archived: archivedItems.length,
-    };
-  };
-
-  const filterCounts = getFilterCounts();
-
-  const getDaysUntilExpiry = (expiryDate?: Date) => {
-    if (!expiryDate) return null;
-    return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  };
-
-  const getExpiryColor = (days: number | null) => {
-    if (!days || days < 0) return "expiry-red";
-    if (days <= 30) return "expiry-red";
-    if (days <= 60) return "expiry-orange";
-    if (days <= 90) return "expiry-yellow";
-    return "expiry-green";
-  };
-
-  const getStockStatus = (item: ItemWithStock) => {
-    const currentQty = item.stockLevel?.qtyOnHand || 0;
-    const minThreshold = item.minThreshold || 0;
-    
-    // Red for stockout (zero stock)
-    if (currentQty === 0) {
-      return { color: "text-red-500", status: t('items.outOfStock') };
-    }
-    // Yellow for running low (below or at min threshold)
-    if (currentQty <= minThreshold) {
-      return { color: "text-yellow-500", status: t('items.belowMin') };
-    }
-    // Green for enough stock
-    return { color: "text-green-500", status: t('items.good') };
-  };
+  const filterCounts = getFilterCounts(items);
   
   const handleDismissOnboarding = () => {
     if (activeHospital?.id) {
@@ -3743,7 +2287,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   {expandedFolders.has(folder.id) && (
                     <div className="pl-6 space-y-2">
                       {folderItems.map((item) => {
-                        const stockStatus = getStockStatus(item);
+                        const stockStatus = getStockStatus(item, t);
                         const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
                         const currentQty = item.stockLevel?.qtyOnHand || 0;
 
@@ -4020,7 +2564,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               <DroppableFolder id="root">
                 <div className="space-y-3">
                   {organizedItems.rootItems.map((item) => {
-                    const stockStatus = getStockStatus(item);
+                    const stockStatus = getStockStatus(item, t);
                     const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
                     const currentQty = item.stockLevel?.qtyOnHand || 0;
 
@@ -6121,7 +4665,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={downloadItemsCatalog}
+                  onClick={handleDownloadItemsCatalog}
                   data-testid="button-download-items-catalog"
                 >
                   <i className="fas fa-download mr-2"></i>
@@ -6380,7 +4924,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <Button variant="outline" onClick={() => { setImportMode('select'); setCsvData([]); setCsvHeaders([]); setCsvMapping({}); }}>
                   Cancel
                 </Button>
-                <Button onClick={processCsvData} data-testid="button-process-csv">
+                <Button onClick={handleProcessCsvData} data-testid="button-process-csv">
                   Process CSV ({csvData.length} rows)
                 </Button>
               </div>

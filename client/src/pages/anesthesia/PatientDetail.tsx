@@ -1,5 +1,5 @@
 import { useRoute, useLocation, Link } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -43,276 +43,10 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
-
-type Patient = {
-  id: string;
-  hospitalId: string;
-  patientNumber: string;
-  surname: string;
-  firstName: string;
-  birthday: string;
-  sex: "M" | "F" | "O";
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  emergencyContact?: string | null;
-  insuranceProvider?: string | null;
-  insuranceNumber?: string | null;
-  healthInsuranceNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
-  insuranceCardFrontUrl?: string | null;
-  insuranceCardBackUrl?: string | null;
-  allergies?: string[] | null;
-  otherAllergies?: string | null;
-  internalNotes?: string | null;
-  createdBy?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-};
-
-type Surgeon = {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-};
-
-type PatientInvoice = {
-  id: string;
-  hospitalId: string;
-  invoiceNumber: number;
-  date: string;
-  patientId: string | null;
-  customerName: string;
-  customerAddress: string | null;
-  subtotal: string;
-  vatRate: string;
-  vatAmount: string;
-  total: string;
-  comments: string | null;
-  status: "draft" | "sent" | "paid" | "cancelled";
-  createdAt: string;
-};
-
-// Component for uploading/managing patient card images (ID card, insurance card)
-function PatientCardImageUploader({ 
-  patientId, 
-  cardType, 
-  side, 
-  currentUrl, 
-  label,
-  onUpdate 
-}: { 
-  patientId: string;
-  cardType: 'id_card' | 'insurance_card';
-  side: 'front' | 'back';
-  currentUrl?: string | null;
-  label: string;
-  onUpdate: () => void;
-}) {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const [isUploading, setIsUploading] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [isLoadingImage, setIsLoadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Load existing image preview URL
-  useEffect(() => {
-    if (currentUrl) {
-      setIsLoadingImage(true);
-      fetch(`/api/patients/${patientId}/card-image/${cardType}/${side}`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.downloadUrl) {
-            setImagePreviewUrl(data.downloadUrl);
-          }
-        })
-        .catch(err => console.error('Error loading card image:', err))
-        .finally(() => setIsLoadingImage(false));
-    } else {
-      setImagePreviewUrl(null);
-    }
-  }, [patientId, cardType, side, currentUrl]);
-
-  const uploadImage = async (imageData: string) => {
-    setIsUploading(true);
-    try {
-      // Convert base64 to blob
-      const response = await fetch(imageData);
-      const blob = await response.blob();
-      
-      // Get upload URL
-      const uploadUrlResponse = await fetch(`/api/patients/${patientId}/card-image/upload-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          cardType, 
-          side, 
-          filename: `${cardType}_${side}.jpg`,
-          contentType: 'image/jpeg'
-        }),
-      });
-      
-      if (!uploadUrlResponse.ok) throw new Error('Failed to get upload URL');
-      const { uploadUrl, storageKey } = await uploadUrlResponse.json();
-      
-      // Upload to S3
-      const s3Response = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: blob,
-        headers: { 'Content-Type': 'image/jpeg' },
-      });
-      
-      if (!s3Response.ok) throw new Error('Failed to upload image');
-      
-      // Update patient record with storage key
-      const updateResponse = await fetch(`/api/patients/${patientId}/card-image`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ cardType, side, imageUrl: storageKey }),
-      });
-      
-      if (!updateResponse.ok) throw new Error('Failed to update patient record');
-      
-      toast({ title: t('common.success'), description: t('anesthesia.patients.imageUploaded', 'Image uploaded successfully') });
-      onUpdate();
-    } catch (error) {
-      console.error('Error uploading card image:', error);
-      toast({ 
-        title: t('common.error'), 
-        description: t('anesthesia.patients.imageUploadFailed', 'Failed to upload image'),
-        variant: 'destructive'
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        uploadImage(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCameraCapture = (photoData: string) => {
-    setIsCameraOpen(false);
-    uploadImage(photoData);
-  };
-
-  const handleDelete = async () => {
-    try {
-      const response = await fetch(`/api/patients/${patientId}/card-image`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ cardType, side }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete image');
-      
-      setImagePreviewUrl(null);
-      toast({ title: t('common.success'), description: t('anesthesia.patients.imageDeleted', 'Image deleted') });
-      onUpdate();
-    } catch (error) {
-      console.error('Error deleting card image:', error);
-      toast({ 
-        title: t('common.error'), 
-        description: t('anesthesia.patients.imageDeleteFailed', 'Failed to delete image'),
-        variant: 'destructive'
-      });
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      
-      <div className="relative aspect-[3/2] border rounded-lg overflow-hidden bg-muted flex items-center justify-center min-h-[80px]">
-        {isLoadingImage ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        ) : imagePreviewUrl ? (
-          <>
-            <img src={imagePreviewUrl} alt={label} className="w-full h-full object-cover" />
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={handleDelete}
-              disabled={isUploading}
-              data-testid={`btn-delete-${cardType}-${side}`}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-2 p-2">
-            <ImageLucide className="h-8 w-8 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground text-center">{t('anesthesia.patients.noImage', 'No image')}</span>
-          </div>
-        )}
-        
-        {isUploading && (
-          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        )}
-      </div>
-      
-      <div className="flex gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 h-8 text-xs"
-          onClick={() => setIsCameraOpen(true)}
-          disabled={isUploading}
-          data-testid={`btn-camera-${cardType}-${side}`}
-        >
-          <Camera className="h-3 w-3 mr-1" />
-          {t('common.camera', 'Camera')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 h-8 text-xs"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          data-testid={`btn-upload-${cardType}-${side}`}
-        >
-          <Paperclip className="h-3 w-3 mr-1" />
-          {t('common.upload', 'Upload')}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-          data-testid={`input-file-${cardType}-${side}`}
-        />
-      </div>
-      
-      <CameraCapture
-        isOpen={isCameraOpen}
-        onClose={() => setIsCameraOpen(false)}
-        onCapture={handleCameraCapture}
-        fullFrame
-        hint={`${cardType === 'id_card' ? t('anesthesia.patients.idCard', 'ID Card') : t('anesthesia.patients.insuranceCard', 'Insurance Card')} - ${label}`}
-      />
-    </div>
-  );
-}
+import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
+import { usePatientQueries } from "./patientDetail/usePatientQueries";
+import { usePatientMutations } from "./patientDetail/usePatientMutations";
+import { PatientCardImageUploader } from "./patientDetail/components/PatientCardImageUploader";
 
 export default function PatientDetail() {
   const { t, i18n } = useTranslation();
@@ -324,12 +58,69 @@ export default function PatientDetail() {
   const [isPreOpRoute, preOpRouteParams] = useRoute("/anesthesia/preop/:surgeryId");
   const params = anesthesiaParams || surgeryParams || clinicParams;
   const [, setLocation] = useLocation();
-  const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
-  const [isPreOpOpen, setIsPreOpOpen] = useState(false);
-  const [isDownloadingPreOpPdf, setIsDownloadingPreOpPdf] = useState(false);
-  const [selectedCaseId, setSelectedCaseId] = useState<string>("");
-  const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
-  const patientCardRef = useRef<HTMLDivElement>(null);
+  // --- Extracted state hook ---
+  const {
+    isCreateCaseOpen, setIsCreateCaseOpen,
+    isPreOpOpen, setIsPreOpOpen,
+    isDownloadingPreOpPdf, setIsDownloadingPreOpPdf,
+    selectedCaseId, setSelectedCaseId,
+    isPatientCardVisible, setIsPatientCardVisible,
+    patientCardRef,
+    isEditDialogOpen, setIsEditDialogOpen,
+    editOpenedViaUrl,
+    preOpOpenedViaUrl,
+    isSavingRef,
+    isArchiveDialogOpen, setIsArchiveDialogOpen,
+    isSendQuestionnaireOpen, setIsSendQuestionnaireOpen,
+    isImportQuestionnaireOpen, setIsImportQuestionnaireOpen,
+    selectedQuestionnaireForImport, setSelectedQuestionnaireForImport,
+    isFindQuestionnaireOpen, setIsFindQuestionnaireOpen,
+    questionnaireSearchTerm, setQuestionnaireSearchTerm,
+    selectedUnassociatedQuestionnaire, setSelectedUnassociatedQuestionnaire,
+    previewDocument, setPreviewDocument,
+    editForm, setEditForm,
+    isQuickContactOpen, setIsQuickContactOpen,
+    quickContactForm, setQuickContactForm,
+    isQuickContactSaving, setIsQuickContactSaving,
+    newPatientNote, setNewPatientNote,
+    pendingAttachments, setPendingAttachments,
+    isUploadingAttachment, setIsUploadingAttachment,
+    expandedNoteAttachments, setExpandedNoteAttachments,
+    loadingAttachments, setLoadingAttachments,
+    previewImage, setPreviewImage,
+    noteToDelete, setNoteToDelete,
+    noteAttachmentInputRef,
+    isUploadDialogOpen, setIsUploadDialogOpen,
+    isCameraOpen, setIsCameraOpen,
+    uploadCategory, setUploadCategory,
+    uploadDescription, setUploadDescription,
+    isUploading, setIsUploading,
+    documentToDelete, setDocumentToDelete,
+    fileInputRef,
+    newCase, setNewCase,
+    chopSearchTerm, setChopSearchTerm,
+    chopSearchOpen, setChopSearchOpen,
+    surgeonSearchOpen, setSurgeonSearchOpen,
+    editingCaseId, setEditingCaseId,
+    archiveDialogSurgeryId, setArchiveDialogSurgeryId,
+    consentData, setConsentData,
+    showAssessmentSignaturePad, setShowAssessmentSignaturePad,
+    showConsentDoctorSignaturePad, setShowConsentDoctorSignaturePad,
+    showConsentPatientSignaturePad, setShowConsentPatientSignaturePad,
+    showConsentInvitationDialog, setShowConsentInvitationDialog,
+    consentInvitationAssessmentId, setConsentInvitationAssessmentId,
+    consentInvitationSending, setConsentInvitationSending,
+    showCallbackAppointmentDialog, setShowCallbackAppointmentDialog,
+    callbackAssessmentId, setCallbackAssessmentId,
+    callbackSending, setCallbackSending,
+    callbackSlots, setCallbackSlots,
+    callbackPhoneNumber, setCallbackPhoneNumber,
+    assessmentData, setAssessmentData,
+    openSections, setOpenSections,
+    autoSaveTimeout, setAutoSaveTimeout,
+  } = usePatientState();
+
+  // --- Non-state hooks that remain in PatientDetail ---
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const canWrite = useCanWrite();
@@ -342,127 +133,43 @@ export default function PatientDetail() {
   // Clinic users can edit patient data but cannot create/edit/archive surgeries or access surgery details
   const canManageSurgeries = canWrite && !isClinicModule;
   const canViewSurgeryDetails = !isClinicModule;
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  // Track if Edit Patient dialog was opened via URL navigation (should use history.back()) or button click (just close)
-  const editOpenedViaUrl = useRef(false);
-  // Track if Pre-OP dialog was opened via URL navigation (should use history.back()) or button click (just close)
-  const preOpOpenedViaUrl = useRef(false);
-  // Track if we're currently saving to prevent useEffect from resetting form data
-  const isSavingRef = useRef(false);
-  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
-  const [isSendQuestionnaireOpen, setIsSendQuestionnaireOpen] = useState(false);
-  const [isImportQuestionnaireOpen, setIsImportQuestionnaireOpen] = useState(false);
-  const [selectedQuestionnaireForImport, setSelectedQuestionnaireForImport] = useState<string | null>(null);
-  const [isFindQuestionnaireOpen, setIsFindQuestionnaireOpen] = useState(false);
-  const [questionnaireSearchTerm, setQuestionnaireSearchTerm] = useState("");
-  const [selectedUnassociatedQuestionnaire, setSelectedUnassociatedQuestionnaire] = useState<string | null>(null);
-  // Split-screen document preview state
-  const [previewDocument, setPreviewDocument] = useState<{
-    id: string;
-    fileName: string;
-    mimeType: string;
-    url: string;
-  } | null>(null);
-  const [editForm, setEditForm] = useState({
-    surname: "",
-    firstName: "",
-    birthday: "",
-    sex: "M" as "M" | "F" | "O",
-    email: "",
-    phone: "",
-    address: "",
-    street: "",
-    postalCode: "",
-    city: "",
-    emergencyContact: "",
-    insuranceProvider: "",
-    insuranceNumber: "",
-    healthInsuranceNumber: "",
-    allergies: [] as string[],
-    otherAllergies: "",
-    internalNotes: "",
-  });
-  
-  // Quick contact edit state for Pre-Op dialog
-  const [isQuickContactOpen, setIsQuickContactOpen] = useState(false);
-  const [quickContactForm, setQuickContactForm] = useState({ email: "", phone: "" });
-  const [isQuickContactSaving, setIsQuickContactSaving] = useState(false);
-  
-  // Fetch surgery data when in direct pre-op route mode
+
+  // Keep preOpSurgery query here so derivedPatientId can be computed before usePatientQueries
   const { data: preOpSurgery, isLoading: isLoadingPreOpSurgery } = useQuery<Surgery>({
     queryKey: [`/api/anesthesia/surgeries/${preOpRouteParams?.surgeryId}`],
     enabled: !!isPreOpRoute && !!preOpRouteParams?.surgeryId,
   });
-  
-  // Derive patientId from either URL params or surgery (for pre-op route)
   const derivedPatientId = params?.id || preOpSurgery?.patientId;
-  
-  // Fetch patient data from API
-  const { data: patient, isLoading, error } = useQuery<Patient>({
-    queryKey: [`/api/patients/${derivedPatientId}`],
-    enabled: !!derivedPatientId,
+
+  // --- Extracted queries hook ---
+  const {
+    patient, isLoading, error,
+    surgeries, isLoadingSurgeries, surgeriesError,
+    notesTimeline, isLoadingNotes,
+    patientInvoices, isLoadingInvoices,
+    surgeons, isLoadingSurgeons,
+    surgeryRooms, isLoadingSurgeryRooms,
+    hospitalUnits, activeUnitPhone,
+    questionnaireLinks,
+    selectedQuestionnaireResponse, isLoadingQuestionnaireResponse,
+    unassociatedQuestionnaires, isLoadingUnassociated, refetchUnassociated,
+    staffDocuments, isLoadingStaffDocs,
+    noteAttachmentDocs, isLoadingNoteAttachments,
+    existingAssessment,
+    chopProcedures, isLoadingChop,
+  } = usePatientQueries({
+    patientId: params?.id,
+    derivedPatientId,
+    hospitalId: activeHospital?.id,
+    unitId: activeHospital?.unitId,
+    selectedCaseId,
+    isPreOpOpen,
+    isPreOpRoute: !!isPreOpRoute,
+    preOpSurgeryId: preOpRouteParams?.surgeryId,
+    selectedQuestionnaireForImport,
+    isFindQuestionnaireOpen,
+    chopSearchTerm,
   });
-
-  // Fetch surgeries for this patient
-  const { 
-    data: surgeries, 
-    isLoading: isLoadingSurgeries,
-    error: surgeriesError 
-  } = useQuery<Surgery[]>({
-    queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`],
-    enabled: !!derivedPatientId && !!activeHospital?.id,
-  });
-
-  // Timeline note type (combined patient notes + surgery notes)
-  type TimelineNote = {
-    id: string;
-    type: 'patient' | 'surgery';
-    content: string;
-    createdAt: string;
-    updatedAt: string | null;
-    author: {
-      id: string;
-      firstName: string | null;
-      lastName: string | null;
-      email: string | null;
-    };
-    surgery: {
-      id: string;
-      plannedSurgery: string;
-      plannedDate: string;
-    } | null;
-    attachmentCount: number;
-  };
-
-  type NoteAttachment = {
-    id: string;
-    noteType: 'patient' | 'surgery';
-    noteId: string;
-    storageKey: string;
-    fileName: string;
-    mimeType: string;
-    fileSize: number | null;
-    createdAt: string;
-  };
-
-  // Fetch combined notes timeline for this patient
-  const { 
-    data: notesTimeline = [],
-    isLoading: isLoadingNotes,
-  } = useQuery<TimelineNote[]>({
-    queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`],
-    enabled: !!derivedPatientId,
-  });
-
-  // State for new patient note
-  const [newPatientNote, setNewPatientNote] = useState("");
-  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
-  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
-  const [expandedNoteAttachments, setExpandedNoteAttachments] = useState<Record<string, NoteAttachment[]>>({});
-  const [loadingAttachments, setLoadingAttachments] = useState<Record<string, boolean>>({});
-  const [previewImage, setPreviewImage] = useState<{url: string; fileName: string} | null>(null);
-  const [noteToDelete, setNoteToDelete] = useState<{id: string; type: 'patient' | 'surgery'} | null>(null);
-  const noteAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Upload file to S3 and create attachment record
   const uploadNoteAttachment = async (file: File, noteType: 'patient' | 'surgery', noteId: string) => {
@@ -550,288 +257,8 @@ export default function PatientDetail() {
     setIsCameraOpen(false);
   };
 
-  // Create patient note mutation with attachments
-  const createPatientNoteMutation = useMutation({
-    mutationFn: async ({ content, attachments }: { content: string; attachments: File[] }) => {
-      const res = await apiRequest('POST', `/api/patients/${derivedPatientId}/notes`, { content });
-      const noteData = await res.json();
-      
-      // Upload attachments if any
-      for (const file of attachments) {
-        await uploadNoteAttachment(file, 'patient', noteData.id);
-      }
-      
-      return noteData;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
-      setNewPatientNote("");
-      setPendingAttachments([]);
-      toast({
-        title: t('anesthesia.patientDetail.noteAdded', 'Note added'),
-        description: t('anesthesia.patientDetail.noteAddedDesc', 'Your note has been saved.'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.noteError', 'Error'),
-        description: error.message || t('anesthesia.patientDetail.noteErrorDesc', 'Failed to save note.'),
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Delete note mutation
-  const deleteNoteMutation = useMutation({
-    mutationFn: async ({ id, type }: { id: string; type: 'patient' | 'surgery' }) => {
-      const endpoint = type === 'patient' 
-        ? `/api/patient-notes/${id}` 
-        : `/api/anesthesia/surgery-notes/${id}`;
-      return await apiRequest('DELETE', endpoint);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
-      setNoteToDelete(null);
-      toast({
-        title: t('anesthesia.patientDetail.noteDeleted', 'Note deleted'),
-        description: t('anesthesia.patientDetail.noteDeletedDesc', 'The note has been removed.'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error', 'Error'),
-        description: error.message || t('anesthesia.patientDetail.noteDeleteError', 'Failed to delete note.'),
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Fetch invoices for this patient
-  const { 
-    data: patientInvoices = [], 
-    isLoading: isLoadingInvoices 
-  } = useQuery<PatientInvoice[]>({
-    queryKey: [`/api/clinic/${activeHospital?.id}/invoices`, { patientId: derivedPatientId }],
-    queryFn: async () => {
-      const response = await fetch(`/api/clinic/${activeHospital?.id}/invoices?patientId=${derivedPatientId}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        if (response.status === 404) return []; // No invoices module access
-        throw new Error('Failed to fetch invoices');
-      }
-      return response.json();
-    },
-    enabled: !!derivedPatientId && !!activeHospital?.id,
-  });
-
-  // Fetch surgeons for the hospital
-  const {
-    data: surgeons = [],
-    isLoading: isLoadingSurgeons
-  } = useQuery<Surgeon[]>({
-    queryKey: [`/api/surgeons?hospitalId=${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-
-  // Fetch surgery rooms for the hospital
-  const {
-    data: surgeryRooms = [],
-    isLoading: isLoadingSurgeryRooms
-  } = useQuery<{id: string; name: string}[]>({
-    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-
-  const { data: hospitalUnits = [] } = useQuery<Array<{ id: string; questionnairePhone?: string | null }>>({
-    queryKey: [`/api/units/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-  const activeUnitPhone = hospitalUnits.find(u => u.id === activeHospital?.unitId)?.questionnairePhone || '';
-
-  // Fetch questionnaire links/responses for the patient (for import feature)
-  type QuestionnaireLink = {
-    id: string;
-    token: string;
-    status: string;
-    submittedAt: string | null;
-    createdAt: string;
-    response?: {
-      id: string;
-      allergies?: string[];
-      allergiesNotes?: string;
-      medications?: Array<{ name: string; dosage?: string; frequency?: string; reason?: string }>;
-      medicationsNotes?: string;
-      conditions?: Record<string, { checked: boolean; notes?: string }>;
-      smokingStatus?: string;
-      smokingDetails?: string;
-      alcoholStatus?: string;
-      alcoholDetails?: string;
-      height?: string;
-      weight?: string;
-      previousSurgeries?: string;
-      previousAnesthesiaProblems?: string;
-      pregnancyStatus?: string;
-      breastfeeding?: boolean;
-      womanHealthNotes?: string;
-      additionalNotes?: string;
-    };
-  };
-  
-  const { data: questionnaireLinks = [] } = useQuery<QuestionnaireLink[]>({
-    queryKey: ['/api/questionnaire/patient', derivedPatientId, 'links'],
-    queryFn: async () => {
-      const response = await fetch(`/api/questionnaire/patient/${derivedPatientId}/links`, {
-        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
-      });
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!derivedPatientId && !!activeHospital?.id && isPreOpOpen,
-  });
-  
-  // Define type for questionnaire uploads
-  type QuestionnaireUpload = {
-    id: string;
-    responseId: string;
-    category: "medication_list" | "diagnosis" | "exam_result" | "other";
-    fileName: string;
-    fileUrl: string;
-    mimeType?: string;
-    fileSize?: number;
-    description?: string;
-    createdAt: string;
-  };
-  
-  // Define type for staff-uploaded patient documents
-  type StaffDocument = {
-    id: string;
-    hospitalId: string;
-    patientId: string;
-    category: "medication_list" | "diagnosis" | "exam_result" | "consent" | "lab_result" | "imaging" | "referral" | "other";
-    fileName: string;
-    fileUrl: string;
-    mimeType?: string;
-    fileSize?: number;
-    description?: string;
-    uploadedBy: string;
-    createdAt: string;
-  };
-
-  // Get the selected questionnaire response details (including uploads)
-  const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
-    response: QuestionnaireLink['response'];
-    link: QuestionnaireLink;
-    uploads?: QuestionnaireUpload[];
-  }>({
-    queryKey: ['/api/questionnaire/responses', selectedQuestionnaireForImport],
-    queryFn: async () => {
-      const response = await fetch(`/api/questionnaire/responses/${selectedQuestionnaireForImport}`, {
-        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
-      });
-      if (!response.ok) throw new Error('Failed to fetch questionnaire response');
-      return response.json();
-    },
-    enabled: !!selectedQuestionnaireForImport && !!activeHospital?.id,
-  });
-  
   // Filter to only submitted questionnaires that have responses with IDs
-  const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted' && q.response?.id);
-
-  // Type for unassociated questionnaire responses
-  type UnassociatedQuestionnaire = {
-    id: string;
-    linkId: string;
-    patientFirstName: string | null;
-    patientSurname: string | null;
-    patientBirthday: string | null;
-    submittedAt: string | null;
-    link: {
-      id: string;
-      hospitalId: string;
-      patientId: string | null;
-      status: string;
-      submittedAt: string | null;
-      createdAt: string;
-    };
-  };
-
-  // Fetch unassociated questionnaires for quick association
-  const { data: unassociatedQuestionnaires = [], isLoading: isLoadingUnassociated, refetch: refetchUnassociated } = useQuery<UnassociatedQuestionnaire[]>({
-    queryKey: ['/api/questionnaire/unassociated'],
-    queryFn: async () => {
-      const response = await fetch('/api/questionnaire/unassociated', {
-        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
-      });
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!activeHospital?.id && isFindQuestionnaireOpen,
-  });
-
-  // Mutation to associate questionnaire with patient
-  const associateQuestionnaireMutation = useMutation({
-    mutationFn: async ({ responseId, patientId }: { responseId: string; patientId: string }) => {
-      const response = await apiRequest('POST', `/api/questionnaire/responses/${responseId}/associate`, { patientId });
-      return response.json();
-    },
-    onSuccess: () => {
-      // Invalidate questionnaire queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', derivedPatientId, 'links'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/unassociated'] });
-      setIsFindQuestionnaireOpen(false);
-      setSelectedUnassociatedQuestionnaire(null);
-      setQuestionnaireSearchTerm("");
-      toast({
-        title: t('anesthesia.patientDetail.questionnaireAssociated', 'Questionnaire Associated'),
-        description: t('anesthesia.patientDetail.questionnaireAssociatedDesc', 'The questionnaire has been linked to this patient. You can now import the data.'),
-      });
-      // Open the import dialog after successful association
-      setIsImportQuestionnaireOpen(true);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t('common.error', 'Error'),
-        description: error.message || t('anesthesia.patientDetail.associationFailed', 'Failed to associate questionnaire'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Fetch staff-uploaded documents
-  const { data: staffDocuments = [], isLoading: isLoadingStaffDocs } = useQuery<StaffDocument[]>({
-    queryKey: [`/api/patients/${derivedPatientId}/documents`, derivedPatientId],
-    enabled: !!derivedPatientId && !!activeHospital?.id,
-  });
-
-  // Type for note attachments displayed in Documents section
-  type NoteAttachmentDoc = {
-    id: string;
-    noteType: 'patient' | 'surgery';
-    noteId: string;
-    storageKey: string;
-    fileName: string;
-    mimeType: string;
-    fileSize: number | null;
-    uploadedBy: string | null;
-    createdAt: string;
-    noteContent: string | null;
-  };
-
-  // Fetch note attachments for Documents section
-  const { data: noteAttachmentDocs = [], isLoading: isLoadingNoteAttachments } = useQuery<NoteAttachmentDoc[]>({
-    queryKey: [`/api/patients/${derivedPatientId}/note-attachments`, derivedPatientId],
-    enabled: !!derivedPatientId && !!activeHospital?.id,
-  });
-  
-  // Document upload state
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [uploadCategory, setUploadCategory] = useState<StaffDocument['category']>('other');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<StaffDocument | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const submittedQuestionnaires = questionnaireLinks.filter((q: any) => q.status === 'submitted' && q.response?.id);
 
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -943,359 +370,57 @@ export default function PatientDetail() {
     }
   }, [patient]);
 
-  const [newCase, setNewCase] = useState({
-    plannedSurgery: "",
-    chopCode: "",
-    surgerySide: "" as "" | "left" | "right" | "both",
-    patientPosition: "" as "" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies",
-    leftArmPosition: "" as "" | "ausgelagert" | "angelagert",
-    rightArmPosition: "" as "" | "ausgelagert" | "angelagert",
-    antibioseProphylaxe: false,
-    surgeon: "",
-    surgeonId: "",
-    plannedDate: "",
-    surgeryRoomId: "",
-    duration: 180, // Default 3 hours in minutes
-    notes: "",
-    noPreOpRequired: false,
-  });
-  const [chopSearchTerm, setChopSearchTerm] = useState("");
-  const [chopSearchOpen, setChopSearchOpen] = useState(false);
-  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
-  
-  // CHOP procedure search query
-  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
-    id: string;
-    code: string;
-    descriptionDe: string;
-    chapter: string | null;
-    indentLevel: number | null;
-    laterality: string | null;
-  }>>({
-    queryKey: ['/api/chop-procedures', chopSearchTerm],
-    queryFn: async () => {
-      if (chopSearchTerm.length < 2) return [];
-      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
-      if (!response.ok) throw new Error('Failed to search procedures');
-      return response.json();
-    },
-    enabled: chopSearchTerm.length >= 2,
-    staleTime: 60000,
-  });
-  
-  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
-  const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
-  const [consentData, setConsentData] = useState({
-    general: false,
-    analgosedation: false,
-    regional: false,
-    installations: false,
-    icuAdmission: false,
-    notes: "",
-    date: new Date().toISOString().split('T')[0],
-    doctorSignature: "",
-    patientSignature: "",
-    emergencyNoSignature: false,
-    sendEmailCopy: false,
-    emailForCopy: "",
-    emailLanguage: "de" as "en" | "de",
-  });
-  
-  // Signature pad states
-  const [showAssessmentSignaturePad, setShowAssessmentSignaturePad] = useState(false);
-  const [showConsentDoctorSignaturePad, setShowConsentDoctorSignaturePad] = useState(false);
-  const [showConsentPatientSignaturePad, setShowConsentPatientSignaturePad] = useState(false);
-  
-  const [showConsentInvitationDialog, setShowConsentInvitationDialog] = useState(false);
-  const [consentInvitationAssessmentId, setConsentInvitationAssessmentId] = useState<string | null>(null);
-  const [consentInvitationSending, setConsentInvitationSending] = useState(false);
-  
-  const [showCallbackAppointmentDialog, setShowCallbackAppointmentDialog] = useState(false);
-  const [callbackAssessmentId, setCallbackAssessmentId] = useState<string | null>(null);
-  const [callbackSending, setCallbackSending] = useState(false);
-  const [callbackSlots, setCallbackSlots] = useState<Array<{ date: string; fromTime: string; toTime: string }>>([
-    { date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }
-  ]);
-  const [callbackPhoneNumber, setCallbackPhoneNumber] = useState('');
-  
-  const [assessmentData, setAssessmentData] = useState(() => ({
-    // General Data
-    height: "",
-    weight: "",
-    allergies: [] as string[],
-    allergiesOther: "",
-    cave: "",
-    asa: "",
-    specialNotes: "",
-    
-    // Medications
-    anticoagulationMeds: [] as string[],
-    anticoagulationMedsOther: "",
-    generalMeds: [] as string[],
-    generalMedsOther: "",
-    medicationsNotes: "",
-    
-    // Heart and Circulation - dynamically initialized from settings
-    heartIllnesses: {} as Record<string, boolean>,
-    heartNotes: "",
-    
-    // Lungs - dynamically initialized from settings
-    lungIllnesses: {} as Record<string, boolean>,
-    lungNotes: "",
-    
-    // GI-Tract - dynamically initialized from settings
-    giIllnesses: {} as Record<string, boolean>,
-    kidneyIllnesses: {} as Record<string, boolean>,
-    metabolicIllnesses: {} as Record<string, boolean>,
-    giKidneyMetabolicNotes: "",
-    
-    // Neurological, Psychiatry and Skeletal - dynamically initialized from settings
-    neuroIllnesses: {} as Record<string, boolean>,
-    psychIllnesses: {} as Record<string, boolean>,
-    skeletalIllnesses: {} as Record<string, boolean>,
-    neuroPsychSkeletalNotes: "",
-    
-    // Coagulation and Infectious Diseases - dynamically initialized from settings
-    coagulationIllnesses: {} as Record<string, boolean>,
-    infectiousIllnesses: {} as Record<string, boolean>,
-    coagulationInfectiousNotes: "",
-    
-    // Woman (Gynecological) - dynamically initialized from settings
-    womanIssues: {} as Record<string, boolean>,
-    womanNotes: "",
-    
-    // Noxen (Substances) - dynamically initialized from settings
-    noxen: {} as Record<string, boolean>,
-    noxenNotes: "",
-    
-    // Children (Pediatric) - dynamically initialized from settings
-    childrenIssues: {} as Record<string, boolean>,
-    childrenNotes: "",
-    
-    // Anesthesia & Surgical History - dynamically initialized from settings
-    anesthesiaHistoryIssues: {} as Record<string, boolean>,
-    dentalIssues: {} as Record<string, boolean>,
-    ponvTransfusionIssues: {} as Record<string, boolean>,
-    previousSurgeries: "",
-    anesthesiaSurgicalHistoryNotes: "",
-    
-    // Outpatient Care
-    outpatientCaregiverFirstName: "",
-    outpatientCaregiverLastName: "",
-    outpatientCaregiverPhone: "",
-    
-    // Planned Anesthesia
-    anesthesiaTechniques: {
-      general: false,
-      generalOptions: {} as Record<string, boolean>,
-      spinal: false,
-      epidural: false,
-      epiduralOptions: {} as Record<string, boolean>,
-      regional: false,
-      regionalOptions: {} as Record<string, boolean>,
-      sedation: false,
-      combined: false,
-    },
-    postOpICU: false,
-    anesthesiaOther: "",
-    
-    installations: {
-      arterialLine: false,
-      centralLine: false,
-      epiduralCatheter: false,
-      urinaryCatheter: false,
-      nasogastricTube: false,
-      peripheralIV: false,
-    },
-    installationsOther: "",
-    
-    // Surgical Approval
-    surgicalApprovalStatus: "", // "approved", "not-approved", or ""
-    
-    // Stand-By Status
-    standBy: false,
-    standByReason: "", // "signature_missing", "consent_required", "waiting_exams", "other"
-    standByReasonNote: "",
-    
-    // Doctor Info
-    assessmentDate: new Date().toISOString().split('T')[0],
-    doctorName: "",
-    doctorSignature: "",
-  }));
-  
-  const [openSections, setOpenSections] = useState<string[]>(["general", "anesthesia"]);
-  
   // Get medication lists from hospital settings
   const anticoagulationMedications = anesthesiaSettings?.medicationLists?.anticoagulation || [];
   const generalMedications = anesthesiaSettings?.medicationLists?.general || [];
 
   const { toast } = useToast();
 
-  // Mutation to create a surgery
-  const createSurgeryMutation = useMutation({
-    mutationFn: async (surgeryData: {
-      hospitalId: string;
-      patientId: string;
-      plannedSurgery: string;
-      surgeon: string | null;
-      surgeonId?: string | null;
-      plannedDate: string;
-      surgeryRoomId?: string | null;
-      actualEndTime?: string;
-    }) => {
-      return await apiRequest("POST", "/api/anesthesia/surgeries", surgeryData);
-    },
-    onSuccess: () => {
-      // Invalidate patient-specific surgeries query
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`] 
-      });
-      // Invalidate all surgery queries (for OP calendar)
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/anesthesia/surgeries'],
-        exact: false
-      });
-      // Invalidate pre-op assessment list (hospital-specific)
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
-        }
-      });
-      toast({
-        title: t('anesthesia.patientDetail.successSurgeryCreated'),
-        description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
-      });
-      setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", patientPosition: "", leftArmPosition: "", rightArmPosition: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorSurgeryCreated'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to archive a surgery
-  const archiveSurgeryMutation = useMutation({
-    mutationFn: async (surgeryId: string) => {
-      return await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`);
-    },
-    onSuccess: () => {
-      // Invalidate patient-specific surgeries query
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`] 
-      });
-      // Invalidate all surgery queries (for OP calendar)
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/anesthesia/surgeries'],
-        exact: false
-      });
-      // Invalidate pre-op assessment list (hospital-specific)
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
-        }
-      });
-      toast({
-        title: t('anesthesia.patientDetail.successSurgeryArchived', 'Surgery archived'),
-        description: t('anesthesia.patientDetail.successSurgeryArchivedDesc', 'Surgery has been moved to archive'),
-      });
-      setArchiveDialogSurgeryId(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorSurgeryArchived', 'Failed to archive surgery'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to update a patient
-  const updatePatientMutation = useMutation({
-    mutationFn: async (patientData: Partial<Patient> & Record<string, any>) => {
-      return await apiRequest("PATCH", `/api/patients/${patient?.id}`, patientData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.startsWith('/api/patients');
-        }
-      });
-      toast({
-        title: t('anesthesia.patientDetail.successPatientUpdated'),
-        description: t('anesthesia.patientDetail.successPatientUpdatedDesc'),
-      });
-      setIsEditDialogOpen(false);
-      
-      // If edit was opened via URL navigation (e.g., from Surgery Summary), go back
-      if (editOpenedViaUrl.current) {
-        editOpenedViaUrl.current = false;
-        // Use history.back() to return to where the user came from
-        window.history.back();
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorPatientUpdated'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to archive a patient
-  const archivePatientMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", `/api/patients/${patient?.id}/archive`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.startsWith('/api/patients');
-        }
-      });
-      toast({
-        title: t('anesthesia.patientDetail.successPatientArchived', 'Patient archived'),
-        description: t('anesthesia.patientDetail.successPatientArchivedDesc', 'Patient has been moved to archive'),
-      });
-      setLocation(`${moduleBasePath}/patients`);
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorPatientArchived', 'Failed to archive patient'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to delete a staff document
-  const deleteDocumentMutation = useMutation({
-    mutationFn: async (docId: string) => {
-      return await apiRequest("DELETE", `/api/patients/${derivedPatientId}/documents/${docId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/documents`] });
-      toast({
-        title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
-        description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
-      });
-      setDocumentToDelete(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorDocumentDelete', 'Failed to delete document'),
-        variant: "destructive",
-      });
-    },
+  // --- Extracted mutations hook ---
+  const {
+    createPatientNoteMutation,
+    deleteNoteMutation,
+    createSurgeryMutation,
+    archiveSurgeryMutation,
+    updatePatientMutation,
+    archivePatientMutation,
+    deleteDocumentMutation,
+    createPreOpMutation,
+    updatePreOpMutation,
+    sendEmailMutation,
+    associateQuestionnaireMutation,
+  } = usePatientMutations({
+    hospitalId: activeHospital?.id,
+    patientId: patient?.id,
+    derivedPatientId,
+    selectedCaseId,
+    t,
+    toast,
+    setNewPatientNote,
+    setPendingAttachments,
+    setNoteToDelete,
+    setIsCreateCaseOpen,
+    setNewCase,
+    setArchiveDialogSurgeryId,
+    setIsEditDialogOpen,
+    editOpenedViaUrl,
+    setLocation,
+    moduleBasePath,
+    setDocumentToDelete,
+    isSavingRef,
+    existingAssessment,
+    setConsentInvitationAssessmentId,
+    setShowConsentInvitationDialog,
+    setCallbackAssessmentId,
+    setCallbackPhoneNumber,
+    setCallbackSlots,
+    setShowCallbackAppointmentDialog,
+    activeUnitPhone,
+    setIsFindQuestionnaireOpen,
+    setSelectedUnassociatedQuestionnaire,
+    setQuestionnaireSearchTerm,
+    setIsImportQuestionnaireOpen,
+    uploadNoteAttachment,
   });
 
   // Handle file upload to S3
@@ -1407,12 +532,6 @@ export default function PatientDetail() {
       setIsQuickContactSaving(false);
     }
   };
-
-  // Fetch pre-op assessment for selected surgery
-  const { data: existingAssessment } = useQuery<any>({
-    queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`],
-    enabled: !!selectedCaseId && isPreOpOpen,
-  });
 
   // Pre-fill form when assessment is fetched
   useEffect(() => {
@@ -1545,116 +664,6 @@ export default function PatientDetail() {
     }
   }, [existingAssessment, isPreOpOpen, anesthesiaSettings]);
 
-  // Mutation to create pre-op assessment
-  const createPreOpMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/anesthesia/preop", {
-        surgeryId: selectedCaseId,
-        ...data,
-      });
-      const responseData = await response.json();
-      return { response: responseData, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, standByData: { standBy: data.standBy, standByReason: data.standByReason } };
-    },
-    onSuccess: async (result: { response: any; shouldSendEmail: boolean; standByData: { standBy: boolean; standByReason: string } }) => {
-      setTimeout(() => { isSavingRef.current = false; }, 500);
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
-      toast({
-        title: t('anesthesia.patientDetail.saved'),
-        description: t('anesthesia.patientDetail.preOpAssessmentSaved'),
-      });
-      
-      if (result.shouldSendEmail && result.response?.id) {
-        sendEmailMutation.mutate(result.response.id);
-      }
-      
-      if (result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.response?.id) {
-        setConsentInvitationAssessmentId(result.response.id);
-        setShowConsentInvitationDialog(true);
-      }
-      
-      if (result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.response?.id) {
-        setCallbackAssessmentId(result.response.id);
-        setCallbackPhoneNumber(activeUnitPhone);
-        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
-        setShowCallbackAppointmentDialog(true);
-      }
-    },
-    onError: (error: any) => {
-      isSavingRef.current = false;
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorSaveAssessment'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updatePreOpMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const prevStandBy = existingAssessment?.standBy || false;
-      const prevStandByReason = existingAssessment?.standByReason || '';
-      const response = await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
-      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id, standByData: { standBy: data.standBy, standByReason: data.standByReason }, prevStandByData: { standBy: prevStandBy, standByReason: prevStandByReason } };
-    },
-    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined; standByData: { standBy: boolean; standByReason: string }; prevStandByData: { standBy: boolean; standByReason: string } }) => {
-      setTimeout(() => { isSavingRef.current = false; }, 500);
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
-      toast({
-        title: t('anesthesia.patientDetail.updated'),
-        description: t('anesthesia.patientDetail.preOpAssessmentUpdated'),
-      });
-      
-      if (result.shouldSendEmail && result.assessmentId) {
-        sendEmailMutation.mutate(result.assessmentId);
-      }
-      
-      const isNewStandByReason = !(result.prevStandByData.standBy && result.prevStandByData.standByReason === result.standByData.standByReason);
-      
-      if (isNewStandByReason && result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.assessmentId) {
-        setConsentInvitationAssessmentId(result.assessmentId);
-        setShowConsentInvitationDialog(true);
-      }
-      
-      if (isNewStandByReason && result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.assessmentId) {
-        setCallbackAssessmentId(result.assessmentId);
-        setCallbackPhoneNumber(activeUnitPhone);
-        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
-        setShowCallbackAppointmentDialog(true);
-      }
-    },
-    onError: (error: any) => {
-      isSavingRef.current = false;
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorUpdateAssessment'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to send pre-op assessment PDF via email
-  const sendEmailMutation = useMutation({
-    mutationFn: async (assessmentId: string) => {
-      return await apiRequest("POST", `/api/anesthesia/preop/${assessmentId}/send-email`);
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
-      toast({
-        title: t('anesthesia.patientDetail.emailSent', 'Email Sent'),
-        description: t('anesthesia.patientDetail.emailSentDescription', 'Pre-op assessment sent to patient'),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.emailError', 'Email Error'),
-        description: error.message || t('anesthesia.patientDetail.emailSendFailed', 'Failed to send email'),
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleCreateCase = () => {
     if (!newCase.plannedSurgery || !newCase.plannedDate) {
       toast({
@@ -1767,8 +776,6 @@ export default function PatientDetail() {
   };
 
   // Auto-save functionality with debounce
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
-  
   useEffect(() => {
     // Skip auto-save if assessment is already completed
     if (existingAssessment?.status === "completed") {
