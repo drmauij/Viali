@@ -343,21 +343,21 @@
     "checklists": "Checklisten",
     "controlled": "Kontrolle",
     "admin": {
-      "billing": "Abrechnung"
+      "billing": "Abrechnung",
+      "hospital": "Krankenhaus",
+      "users": "Benutzer",
+      "cameras": "Kameras"
     },
     "scan": "Scannen",
     "anesthesia": {
-      "appointments": "Termine"
+      "appointments": "Termine",
+      "patients": "Patienten",
+      "preop": "Prä-OP",
+      "op": "OP",
+      "pacu": "AWR",
+      "clinical": "Statistik",
+      "settings": "Einstellungen"
     },
-    "anesthesia.patients": "Patienten",
-    "anesthesia.preop": "Prä-OP",
-    "anesthesia.op": "OP",
-    "anesthesia.pacu": "AWR",
-    "anesthesia.clinical": "Statistik",
-    "anesthesia.settings": "Einstellungen",
-    "admin.hospital": "Krankenhaus",
-    "admin.users": "Benutzer",
-    "admin.cameras": "Kameras",
     "surgery": {
       "patients": "Patienten",
       "op": "OP",

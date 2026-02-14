@@ -262,21 +262,21 @@
     "checklists": "Checklists",
     "controlled": "Controlled",
     "admin": {
-      "billing": "Billing"
+      "billing": "Billing",
+      "hospital": "Hospital",
+      "users": "Users",
+      "cameras": "Cameras"
     },
     "scan": "Scan",
     "anesthesia": {
-      "appointments": "Appointments"
+      "appointments": "Appointments",
+      "patients": "Patients",
+      "preop": "Pre-OP",
+      "op": "OP",
+      "pacu": "PACU",
+      "clinical": "Statistics",
+      "settings": "Settings"
     },
-    "anesthesia.patients": "Patients",
-    "anesthesia.preop": "Pre-OP",
-    "anesthesia.op": "OP",
-    "anesthesia.pacu": "PACU",
-    "anesthesia.clinical": "Statistics",
-    "anesthesia.settings": "Settings",
-    "admin.hospital": "Hospital",
-    "admin.users": "Users",
-    "admin.cameras": "Cameras",
     "surgery": {
       "patients": "Patients",
       "op": "OP",
