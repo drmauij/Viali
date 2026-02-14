@@ -27,7 +27,8 @@ import {
   PenLine,
   Upload,
   Camera as CameraIcon,
-  ArrowLeft
+  ArrowLeft,
+  CalendarPlus
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -55,6 +56,7 @@ interface PortalData {
     roomName: string | null;
     anesthesiaType: string | null;
     surgeonName: string | null;
+    noPreOpRequired?: boolean;
   } | null;
   surgeryCompleted: boolean;
   flyers: Array<{
@@ -74,7 +76,7 @@ const translations = {
     yourJourney: "Ihre Behandlungsreise",
     yourSurgery: "Ihre Operation",
     date: "Datum",
-    arrivalTime: "Ankunftszeit",
+    arrivalTime: "Eintrittszeit",
     location: "Standort",
     procedure: "Eingriff",
     anesthesiaType: "Narkoseart",
@@ -93,10 +95,12 @@ const translations = {
     companionTitle: "Begleitperson erforderlich",
     companionText: "Nach der Operation dürfen Sie nicht selbst fahren. Bitte organisieren Sie eine Begleitperson, die Sie nach Hause bringt.",
     infoDocuments: "Informationsunterlagen",
+    infoDocumentsDesc: "Bitte lesen Sie die folgenden Dokumente vor Ihrem Termin",
     downloadFlyer: "Herunterladen",
     step3Title: "Operation",
     step3Pending: "Geplant",
     step3Done: "Abgeschlossen",
+    addToCalendar: "Zum Kalender hinzufügen",
     fillQuestionnaire: "Fragebogen ausfüllen",
     continueQuestionnaire: "Fragebogen fortsetzen",
     viewQuestionnaire: "Fragebogen ansehen",
@@ -196,10 +200,12 @@ const translations = {
     companionTitle: "Companion Required",
     companionText: "You will not be allowed to drive after surgery. Please arrange for someone to take you home.",
     infoDocuments: "Information Documents",
+    infoDocumentsDesc: "Please review the following documents before your appointment",
     downloadFlyer: "Download",
     step3Title: "Surgery",
     step3Pending: "Scheduled",
     step3Done: "Completed",
+    addToCalendar: "Add to Calendar",
     fillQuestionnaire: "Fill Questionnaire",
     continueQuestionnaire: "Continue Questionnaire",
     viewQuestionnaire: "View Questionnaire",
@@ -404,6 +410,43 @@ export default function PatientPortal() {
     return t[type as keyof typeof t] || type;
   };
 
+  const downloadIcsFile = () => {
+    if (!data?.surgery) return;
+    const startDate = new Date(data.surgery.admissionTime || data.surgery.plannedDate);
+    // Assume ~2h duration for the surgery event
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const toIcsDate = (d: Date) =>
+      `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+
+    const summary = data.surgery.procedure
+      ? `${t.step3Title} – ${data.surgery.procedure}`
+      : t.step3Title;
+    const location = [data.surgery.roomName, data.hospital.name].filter(Boolean).join(', ');
+
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Viali//PatientPortal//EN',
+      'BEGIN:VEVENT',
+      `DTSTART:${toIcsDate(startDate)}`,
+      `DTEND:${toIcsDate(endDate)}`,
+      `SUMMARY:${summary}`,
+      location ? `LOCATION:${location}` : '',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n');
+
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'surgery.ics';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -510,25 +553,40 @@ export default function PatientPortal() {
     ? `${data.patient.firstName} ${data.patient.surname}` 
     : null;
 
+  const isLocalAnesthesia = !!data.surgery?.noPreOpRequired;
   const step1Complete = data.questionnaireStatus === 'completed';
   const step1InProgress = data.questionnaireStatus === 'in_progress';
   const step3Complete = data.surgeryCompleted;
+  const hasFlyers = data.flyers.length > 0;
+
+  // For LA surgeries, questionnaire and preparation cards are hidden
+  const questionnaireVisible = !isLocalAnesthesia;
+  const preparationVisible = !isLocalAnesthesia;
 
   const consentStepVisible = !!(consentInfo?.needsSignature || consentInfo?.consentRemoteSignedAt);
   const consentAlreadySigned = !!consentInfo?.consentRemoteSignedAt;
   const callbackStepVisible = !!(consentInfo?.needsCallbackAppointment && consentInfo?.callbackAppointmentSlots && consentInfo.callbackAppointmentSlots.length > 0);
-  
-  const intermediateSteps = (consentStepVisible ? 1 : 0) + (callbackStepVisible ? 1 : 0);
-  const callbackStepNum = consentStepVisible ? 3 : 2;
-  const prepStepNum = 2 + intermediateSteps;
-  const surgeryStepNum = 3 + intermediateSteps;
 
-  const step1Active = !step1Complete;
-  const consentStepActive = consentStepVisible && step1Complete && !consentAlreadySigned;
+  // Dynamic step numbering: count visible steps
+  let nextStep = 1;
+  const questionnaireStepNum = questionnaireVisible ? nextStep++ : 0;
+  const flyersStepNum = hasFlyers ? nextStep++ : 0;
+  const consentStepNum = consentStepVisible ? nextStep++ : 0;
+  const callbackStepNum = callbackStepVisible ? nextStep++ : 0;
+  const prepStepNum = preparationVisible ? nextStep++ : 0;
+  const surgeryStepNum = nextStep;
+
+  // For LA surgeries, consider the first visible actionable step as "done" baseline
+  const priorStepsDone = isLocalAnesthesia
+    ? true  // no questionnaire to complete
+    : step1Complete;
+
+  const step1Active = questionnaireVisible && !step1Complete;
+  const consentStepActive = consentStepVisible && priorStepsDone && !consentAlreadySigned;
   const consentStepDone = consentStepVisible && consentAlreadySigned;
-  const callbackStepActive = callbackStepVisible && step1Complete && (!consentStepVisible || consentAlreadySigned);
-  const prepStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
-  const surgeryStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
+  const callbackStepActive = callbackStepVisible && priorStepsDone && (!consentStepVisible || consentAlreadySigned);
+  const prepStepActive = preparationVisible && priorStepsDone && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
+  const surgeryStepActive = priorStepsDone && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
 
   if (showConsentSigning) {
     if (consentAlreadySigned || consentSubmitted) {
@@ -964,69 +1022,121 @@ export default function PatientPortal() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t.yourJourney}</h2>
         </div>
 
-        {/* Step 1: Questionnaire */}
-        <Card 
-          className={`shadow-md bg-white dark:bg-gray-800 border-2 transition-colors ${
-            step1Complete 
-              ? 'border-green-300 dark:border-green-700' 
-              : step1InProgress 
-                ? 'border-amber-300 dark:border-amber-700' 
-                : step1Active
-                  ? 'border-blue-300 dark:border-blue-700'
-                  : 'border-gray-200 dark:border-gray-700'
-          }`} 
-          data-testid="card-step1-questionnaire"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-              {/* Step Indicator */}
-              <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  step1Complete 
-                    ? 'bg-green-100 dark:bg-green-900/50' 
-                    : step1InProgress 
-                      ? 'bg-amber-100 dark:bg-amber-900/50' 
-                      : 'bg-blue-100 dark:bg-blue-900/50'
-                }`}>
-                  {step1Complete ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-                  ) : step1InProgress ? (
-                    <Circle className="h-6 w-6 text-amber-600 dark:text-amber-400 fill-amber-200 dark:fill-amber-800" />
-                  ) : (
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">1</span>
-                  )}
+        {/* Step 1: Questionnaire (hidden for LA surgeries) */}
+        {questionnaireVisible && (
+          <Card
+            className={`shadow-md bg-white dark:bg-gray-800 border-2 transition-colors ${
+              step1Complete
+                ? 'border-green-300 dark:border-green-700'
+                : step1InProgress
+                  ? 'border-amber-300 dark:border-amber-700'
+                  : step1Active
+                    ? 'border-blue-300 dark:border-blue-700'
+                    : 'border-gray-200 dark:border-gray-700'
+            }`}
+            data-testid="card-step1-questionnaire"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                {/* Step Indicator */}
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    step1Complete
+                      ? 'bg-green-100 dark:bg-green-900/50'
+                      : step1InProgress
+                        ? 'bg-amber-100 dark:bg-amber-900/50'
+                        : 'bg-blue-100 dark:bg-blue-900/50'
+                  }`}>
+                    {step1Complete ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    ) : step1InProgress ? (
+                      <Circle className="h-6 w-6 text-amber-600 dark:text-amber-400 fill-amber-200 dark:fill-amber-800" />
+                    ) : (
+                      <span className="text-blue-600 dark:text-blue-400 font-bold">{questionnaireStepNum}</span>
+                    )}
+                  </div>
+                  {/* Connector Line */}
+                  <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
                 </div>
-                {/* Connector Line */}
-                <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
-              </div>
-              
-              {/* Content */}
-              <div className="flex-1 pb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.step1Title}</h3>
-                  <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+
+                {/* Content */}
+                <div className="flex-1 pb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.step1Title}</h3>
+                    <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+                    {step1Complete ? t.step1Done : step1InProgress ? t.step1InProgress : t.step1Desc}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant={step1Complete ? 'outline' : 'default'}
+                    onClick={() => navigate(data.questionnaireUrl)}
+                    className="w-full sm:w-auto"
+                    data-testid="button-questionnaire"
+                  >
+                    {step1Complete
+                      ? t.viewQuestionnaire
+                      : step1InProgress
+                        ? t.continueQuestionnaire
+                        : t.fillQuestionnaire}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
-                  {step1Complete ? t.step1Done : step1InProgress ? t.step1InProgress : t.step1Desc}
-                </p>
-                <Button 
-                  size="sm"
-                  variant={step1Complete ? 'outline' : 'default'}
-                  onClick={() => navigate(data.questionnaireUrl)}
-                  className="w-full sm:w-auto"
-                  data-testid="button-questionnaire"
-                >
-                  {step1Complete 
-                    ? t.viewQuestionnaire 
-                    : step1InProgress
-                      ? t.continueQuestionnaire
-                      : t.fillQuestionnaire}
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Info Documents card (visible for all surgeries when flyers exist) */}
+        {hasFlyers && (
+          <Card
+            className="shadow-md bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800"
+            data-testid="card-step-info-documents"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                {/* Step Indicator */}
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">{flyersStepNum}</span>
+                  </div>
+                  {/* Connector Line */}
+                  <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 pb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.infoDocuments}</h3>
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+                    {t.infoDocumentsDesc}
+                  </p>
+                  <div className="space-y-2">
+                    {data.flyers.map((flyer, index) => (
+                      <a
+                        key={index}
+                        href={flyer.downloadUrl || flyer.flyerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-2.5 rounded-lg border transition-colors border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-700/50 cursor-pointer"
+                        data-testid={`link-flyer-${index}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                          <span className="text-gray-900 dark:text-gray-100">{flyer.unitName}</span>
+                        </div>
+                        <Download className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Step 2 (conditional): Informed Consent */}
         {consentStepVisible && (
@@ -1051,7 +1161,7 @@ export default function PatientPortal() {
                     {consentAlreadySigned ? (
                       <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                     ) : (
-                      <span className="text-amber-600 dark:text-amber-400 font-bold">2</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">{consentStepNum}</span>
                     )}
                   </div>
                   <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
@@ -1146,101 +1256,76 @@ export default function PatientPortal() {
           </Card>
         )}
 
-        {/* Step: Preparation */}
-        <Card 
-          className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
-            prepStepActive
-              ? 'border-blue-200 dark:border-blue-800'
-              : 'border-gray-200 dark:border-gray-700'
-          }`}
-          data-testid="card-step2-preparation"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-              {/* Step Indicator */}
-              <div className="flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{prepStepNum}</span>
-                </div>
-                {/* Connector Line */}
-                <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
-              </div>
-              
-              {/* Content */}
-              <div className="flex-1 pb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    {t.step2Title}
-                  </h3>
-                  <AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
-                </div>
-                <p className="text-sm mb-4 text-muted-foreground dark:text-gray-400">
-                  {t.step2Desc}
-                </p>
-                
-                {/* Fasting Rules */}
-                <div className="p-3 rounded-lg mb-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <h4 className="font-medium text-sm mb-2 flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="h-4 w-4" />
-                    {t.fastingTitle}
-                  </h4>
-                  <ul className="space-y-1.5 text-sm">
-                    <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
-                      {t.fastingNoFood}
-                    </li>
-                    <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
-                      {t.fastingLiquids}
-                    </li>
-                    <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
-                      {t.fastingNoAlcohol}
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Companion Reminder */}
-                <div className="p-3 rounded-lg mb-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" data-testid="card-companion-reminder">
-                  <h4 className="font-medium text-sm mb-1 flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
-                    <Users className="h-4 w-4" />
-                    {t.companionTitle}
-                  </h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {t.companionText}
-                  </p>
-                </div>
-
-                {/* Info Flyers */}
-                {data.flyers.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-sm mb-2 text-gray-700 dark:text-gray-300">
-                      {t.infoDocuments}
-                    </h4>
-                    <div className="space-y-2">
-                      {data.flyers.map((flyer, index) => (
-                        <a
-                          key={index}
-                          href={flyer.downloadUrl || flyer.flyerUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between p-2.5 rounded-lg border transition-colors border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-700/50 cursor-pointer"
-                          data-testid={`link-flyer-${index}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
-                            <span className="text-gray-900 dark:text-gray-100">{flyer.unitName}</span>
-                          </div>
-                          <Download className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
-                        </a>
-                      ))}
-                    </div>
+        {/* Step: Preparation (hidden for LA surgeries) */}
+        {preparationVisible && (
+          <Card
+            className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
+              prepStepActive
+                ? 'border-blue-200 dark:border-blue-800'
+                : 'border-gray-200 dark:border-gray-700'
+            }`}
+            data-testid="card-step2-preparation"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                {/* Step Indicator */}
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{prepStepNum}</span>
                   </div>
-                )}
+                  {/* Connector Line */}
+                  <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 pb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                      {t.step2Title}
+                    </h3>
+                    <AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                  </div>
+                  <p className="text-sm mb-4 text-muted-foreground dark:text-gray-400">
+                    {t.step2Desc}
+                  </p>
+
+                  {/* Fasting Rules */}
+                  <div className="p-3 rounded-lg mb-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="h-4 w-4" />
+                      {t.fastingTitle}
+                    </h4>
+                    <ul className="space-y-1.5 text-sm">
+                      <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
+                        {t.fastingNoFood}
+                      </li>
+                      <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
+                        {t.fastingLiquids}
+                      </li>
+                      <li className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 bg-amber-500" />
+                        {t.fastingNoAlcohol}
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Companion Reminder */}
+                  <div className="p-3 rounded-lg mb-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" data-testid="card-companion-reminder">
+                    <h4 className="font-medium text-sm mb-1 flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
+                      <Users className="h-4 w-4" />
+                      {t.companionTitle}
+                    </h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {t.companionText}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Step: Surgery */}
         <Card 
@@ -1292,22 +1377,22 @@ export default function PatientPortal() {
                       </div>
                     </div>
 
+                    {data.surgery.admissionTime && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+                        <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t.arrivalTime}</p>
+                          <p className="text-base font-semibold text-blue-900 dark:text-blue-100">{formatTime(data.surgery.admissionTime)}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {data.surgery.plannedDate && (
                       <div className="flex items-start gap-3">
                         <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
                         <div>
                           <p className="text-xs text-muted-foreground dark:text-gray-400">{t.plannedTime}</p>
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.plannedDate)}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {data.surgery.admissionTime && (
-                      <div className="flex items-start gap-3">
-                        <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.arrivalTime}</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.admissionTime)}</p>
                         </div>
                       </div>
                     )}
@@ -1350,6 +1435,19 @@ export default function PatientPortal() {
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{getAnesthesiaTypeLabel(data.surgery.anesthesiaType)}</p>
                         </div>
                       </div>
+                    )}
+
+                    {!step3Complete && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={downloadIcsFile}
+                        className="w-full sm:w-auto mt-1"
+                        data-testid="button-add-to-calendar"
+                      >
+                        <CalendarPlus className="h-4 w-4 mr-1.5" />
+                        {t.addToCalendar}
+                      </Button>
                     )}
                   </div>
                 )}
