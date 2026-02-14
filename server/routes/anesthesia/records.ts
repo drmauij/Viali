@@ -660,6 +660,8 @@ router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireWri
       medications: { ...(existingData.medications ?? {}), ...(validated.medications ?? {}) },
       dressing: { ...(existingData.dressing ?? {}), ...(validated.dressing ?? {}) },
       drainage: { ...(existingData.drainage ?? {}), ...(validated.drainage ?? {}) },
+      co2Pressure: { ...(existingData.co2Pressure ?? {}), ...(validated.co2Pressure ?? {}) },
+      tourniquet: { ...(existingData.tourniquet ?? {}), ...(validated.tourniquet ?? {}) },
       signatures: { ...(existingData.signatures ?? {}), ...(validated.signatures ?? {}) },
     };
 

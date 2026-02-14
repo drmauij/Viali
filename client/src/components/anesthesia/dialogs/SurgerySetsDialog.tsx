@@ -63,6 +63,8 @@ export function SurgerySetsDialog({
     positioning: true,
     disinfection: true,
     equipment: true,
+    co2Pressure: false,
+    tourniquet: false,
     irrigation: false,
     infiltration: false,
     medications: false,
@@ -378,6 +380,103 @@ export function SurgerySetsDialog({
           </div>
 
           <div className="px-2">
+            {renderSectionHeader("co2Pressure", "CO2 / Laparoskopie")}
+            {expandedSections.co2Pressure && (
+              <div className="pb-3 pl-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Druck (mmHg)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 w-20 text-xs"
+                    value={formIntraOpData.co2Pressure?.pressure ?? ""}
+                    onChange={e => toggleIntraOpField("co2Pressure", "pressure", e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                    data-testid="input-set-co2-pressure"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Notizen</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    value={formIntraOpData.co2Pressure?.notes ?? ""}
+                    onChange={e => toggleIntraOpField("co2Pressure", "notes", e.target.value)}
+                    data-testid="input-set-co2-notes"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-2">
+            {renderSectionHeader("tourniquet", "Blutsperre / Tourniquet")}
+            {expandedSections.tourniquet && (
+              <div className="pb-3 pl-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Position</Label>
+                  <Select
+                    value={formIntraOpData.tourniquet?.position || ""}
+                    onValueChange={v => toggleIntraOpField("tourniquet", "position", v)}
+                  >
+                    <SelectTrigger className="h-7 text-xs" data-testid="select-set-tourniquet-position">
+                      <SelectValue placeholder="Position..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="arm">Arm</SelectItem>
+                      <SelectItem value="leg">Bein</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Seite</Label>
+                  <Select
+                    value={formIntraOpData.tourniquet?.side || ""}
+                    onValueChange={v => toggleIntraOpField("tourniquet", "side", v)}
+                  >
+                    <SelectTrigger className="h-7 text-xs" data-testid="select-set-tourniquet-side">
+                      <SelectValue placeholder="Seite..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="left">Links</SelectItem>
+                      <SelectItem value="right">Rechts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Druck (mmHg)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 w-20 text-xs"
+                    value={formIntraOpData.tourniquet?.pressure ?? ""}
+                    onChange={e => toggleIntraOpField("tourniquet", "pressure", e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                    data-testid="input-set-tourniquet-pressure"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Dauer (Min.)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 w-20 text-xs"
+                    value={formIntraOpData.tourniquet?.duration ?? ""}
+                    onChange={e => toggleIntraOpField("tourniquet", "duration", e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                    data-testid="input-set-tourniquet-duration"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Notizen</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    value={formIntraOpData.tourniquet?.notes ?? ""}
+                    onChange={e => toggleIntraOpField("tourniquet", "notes", e.target.value)}
+                    data-testid="input-set-tourniquet-notes"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-2">
             {renderSectionHeader("irrigation", t('surgery.intraop.irrigation'))}
             {expandedSections.irrigation && (
               <div className="pb-3 pl-2 grid grid-cols-2 gap-2">
@@ -449,6 +548,18 @@ export function SurgerySetsDialog({
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="px-2 py-2 space-y-1">
+            <Label className="text-sm font-medium">Intraoperative Notizen</Label>
+            <Textarea
+              className="text-xs"
+              rows={2}
+              placeholder="Notizen..."
+              value={formIntraOpData.intraoperativeNotes ?? ""}
+              onChange={e => setFormIntraOpData(prev => ({ ...prev, intraoperativeNotes: e.target.value }))}
+              data-testid="textarea-set-intraoperative-notes"
+            />
           </div>
         </div>
       </div>

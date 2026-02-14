@@ -1173,6 +1173,18 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       redonCount?: number;        // Anzahl (count)
       other?: string;             // Free text for custom entries
     };
+    intraoperativeNotes?: string; // Free-text intraoperative notes
+    co2Pressure?: {
+      pressure?: number;          // mmHg
+      notes?: string;             // Free text
+    };
+    tourniquet?: {
+      position?: string;          // 'arm' | 'leg'
+      side?: string;              // 'left' | 'right'
+      pressure?: number;          // mmHg
+      duration?: number;          // minutes
+      notes?: string;
+    };
     // Legacy fields for backwards compatibility
     irrigationMeds?: {
       irrigation?: string;
@@ -2707,6 +2719,18 @@ export const updateIntraOpDataSchema = z.object({
     redonCH: z.string().optional().nullable(),
     redonCount: z.number().int().min(0).optional().nullable(),
     other: z.string().optional().nullable(),
+  }).optional(),
+  intraoperativeNotes: z.string().optional().nullable(),
+  co2Pressure: z.object({
+    pressure: z.number().min(0).optional().nullable(),
+    notes: z.string().optional().nullable(),
+  }).optional(),
+  tourniquet: z.object({
+    position: z.string().optional().nullable(),
+    side: z.string().optional().nullable(),
+    pressure: z.number().min(0).optional().nullable(),
+    duration: z.number().min(0).optional().nullable(),
+    notes: z.string().optional().nullable(),
   }).optional(),
   // Legacy fields for backwards compatibility
   irrigationMeds: z.object({

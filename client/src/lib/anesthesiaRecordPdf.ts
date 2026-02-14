@@ -2846,6 +2846,62 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         yPos += 2;
       }
 
+      // CO2 / Laparoskopie
+      if (intraOpData.co2Pressure) {
+        const co2 = intraOpData.co2Pressure;
+        if (co2.pressure || co2.notes) {
+          yPos = checkPageBreak(doc, yPos, 15);
+          doc.setFont("helvetica", "bold");
+          doc.text("CO2 / Laparoskopie:", 25, yPos);
+          yPos += 5;
+          doc.setFont("helvetica", "normal");
+          if (co2.pressure != null) {
+            doc.text(`• Druck: ${co2.pressure} mmHg`, 30, yPos);
+            yPos += 4.5;
+          }
+          if (co2.notes) {
+            doc.text(`• Notizen: ${co2.notes}`, 30, yPos);
+            yPos += 4.5;
+          }
+          yPos += 2;
+        }
+      }
+
+      // Blutsperre / Tourniquet
+      if (intraOpData.tourniquet) {
+        const tq = intraOpData.tourniquet;
+        if (tq.position || tq.side || tq.pressure || tq.duration || tq.notes) {
+          yPos = checkPageBreak(doc, yPos, 25);
+          doc.setFont("helvetica", "bold");
+          doc.text("Blutsperre / Tourniquet:", 25, yPos);
+          yPos += 5;
+          doc.setFont("helvetica", "normal");
+          const posLabel = tq.position === 'arm' ? 'Arm' : tq.position === 'leg' ? 'Bein' : tq.position;
+          const sideLabel = tq.side === 'left' ? 'Links' : tq.side === 'right' ? 'Rechts' : tq.side;
+          if (posLabel) {
+            doc.text(`• Position: ${posLabel}`, 30, yPos);
+            yPos += 4.5;
+          }
+          if (sideLabel) {
+            doc.text(`• Seite: ${sideLabel}`, 30, yPos);
+            yPos += 4.5;
+          }
+          if (tq.pressure != null) {
+            doc.text(`• Druck: ${tq.pressure} mmHg`, 30, yPos);
+            yPos += 4.5;
+          }
+          if (tq.duration != null) {
+            doc.text(`• Dauer: ${tq.duration} Min.`, 30, yPos);
+            yPos += 4.5;
+          }
+          if (tq.notes) {
+            doc.text(`• Notizen: ${tq.notes}`, 30, yPos);
+            yPos += 4.5;
+          }
+          yPos += 2;
+        }
+      }
+
       // Irrigation
       if (intraOpData.irrigation) {
         const irr = intraOpData.irrigation;
@@ -2944,6 +3000,22 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
           doc.text(drainInfo.join(", "), 55, yPos);
           yPos += 6;
         }
+      }
+
+      // Intraoperative Notes
+      if (intraOpData.intraoperativeNotes) {
+        yPos = checkPageBreak(doc, yPos, 20);
+        doc.setFont("helvetica", "bold");
+        doc.text("Intraoperative Notizen:", 25, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        const noteLines = doc.splitTextToSize(intraOpData.intraoperativeNotes, 155);
+        noteLines.forEach((line: string) => {
+          yPos = checkPageBreak(doc, yPos, 6);
+          doc.text(line, 25, yPos);
+          yPos += 4.5;
+        });
+        yPos += 2;
       }
 
       // Nurse Signatures (intra-op)

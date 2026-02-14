@@ -2392,9 +2392,10 @@ export default function Op() {
                         { id: "EXT", label: t('surgery.intraop.positions.extension') }
                       ].map((pos) => (
                         <div key={pos.id} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`pos-${pos.id}`} 
+                          <Checkbox
+                            id={`pos-${pos.id}`}
                             data-testid={`checkbox-position-${pos.id}`}
+                            className="h-5 w-5"
                             checked={intraOpData.positioning?.[pos.id as keyof typeof intraOpData.positioning] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2408,7 +2409,7 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`pos-${pos.id}`}>{pos.label}</Label>
+                          <Label htmlFor={`pos-${pos.id}`} className="text-base">{pos.label}</Label>
                         </div>
                       ))}
                     </div>
@@ -2422,9 +2423,10 @@ export default function Op() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="kodan-colored" 
+                        <Checkbox
+                          id="kodan-colored"
                           data-testid="checkbox-kodan-colored"
+                          className="h-5 w-5"
                           checked={intraOpData.disinfection?.kodanColored ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2438,12 +2440,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="kodan-colored">{t('surgery.intraop.kodanColored')}</Label>
+                        <Label htmlFor="kodan-colored" className="text-base">{t('surgery.intraop.kodanColored')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="kodan-colorless" 
+                        <Checkbox
+                          id="kodan-colorless"
                           data-testid="checkbox-kodan-colorless"
+                          className="h-5 w-5"
                           checked={intraOpData.disinfection?.kodanColorless ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2457,12 +2460,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="kodan-colorless">{t('surgery.intraop.kodanColorless')}</Label>
+                        <Label htmlFor="kodan-colorless" className="text-base">{t('surgery.intraop.kodanColorless')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="octanisept" 
+                        <Checkbox
+                          id="octanisept"
                           data-testid="checkbox-octanisept"
+                          className="h-5 w-5"
                           checked={intraOpData.disinfection?.octanisept ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2476,12 +2480,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="octanisept">{t('surgery.intraop.octanisept')}</Label>
+                        <Label htmlFor="octanisept" className="text-base">{t('surgery.intraop.octanisept')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="disinfection-betadine" 
+                        <Checkbox
+                          id="disinfection-betadine"
                           data-testid="checkbox-disinfection-betadine"
+                          className="h-5 w-5"
                           checked={intraOpData.disinfection?.betadine ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2495,7 +2500,7 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="disinfection-betadine">{t('surgery.intraop.betadine')}</Label>
+                        <Label htmlFor="disinfection-betadine" className="text-base">{t('surgery.intraop.betadine')}</Label>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -2849,6 +2854,242 @@ export default function Op() {
                   </CardContent>
                 </Card>
 
+                {/* CO2 / Laparoskopie Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>CO2 / Laparoskopie</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-base">Druck (mmHg)</Label>
+                        <Input
+                          id="co2-pressure"
+                          data-testid="input-co2-pressure"
+                          type="number"
+                          min="0"
+                          className="h-12 text-base"
+                          placeholder="z.B. 12"
+                          value={intraOpData.co2Pressure?.pressure ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              co2Pressure: {
+                                ...intraOpData.co2Pressure,
+                                pressure: value
+                              }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              co2Pressure: {
+                                ...intraOpData.co2Pressure,
+                                pressure: value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-base">Notizen</Label>
+                        <Input
+                          id="co2-notes"
+                          data-testid="input-co2-notes"
+                          className="h-12 text-base"
+                          placeholder="Notizen..."
+                          value={intraOpData.co2Pressure?.notes ?? ''}
+                          onChange={(e) => {
+                            const updated = {
+                              ...intraOpData,
+                              co2Pressure: {
+                                ...intraOpData.co2Pressure,
+                                notes: e.target.value
+                              }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={(e) => {
+                            const updated = {
+                              ...intraOpData,
+                              co2Pressure: {
+                                ...intraOpData.co2Pressure,
+                                notes: e.target.value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Blutsperre / Tourniquet Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Blutsperre / Tourniquet</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-base">Position</Label>
+                        <Select
+                          value={intraOpData.tourniquet?.position ?? ''}
+                          onValueChange={(value) => {
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                position: value
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        >
+                          <SelectTrigger className="h-12 text-base" data-testid="select-tourniquet-position">
+                            <SelectValue placeholder="Position wählen..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="arm">Arm</SelectItem>
+                            <SelectItem value="leg">Bein</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-base">Seite</Label>
+                        <Select
+                          value={intraOpData.tourniquet?.side ?? ''}
+                          onValueChange={(value) => {
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                side: value
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        >
+                          <SelectTrigger className="h-12 text-base" data-testid="select-tourniquet-side">
+                            <SelectValue placeholder="Seite wählen..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="left">Links</SelectItem>
+                            <SelectItem value="right">Rechts</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-base">Druck (mmHg)</Label>
+                        <Input
+                          id="tourniquet-pressure"
+                          data-testid="input-tourniquet-pressure"
+                          type="number"
+                          min="0"
+                          className="h-12 text-base"
+                          placeholder="z.B. 250"
+                          value={intraOpData.tourniquet?.pressure ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                pressure: value
+                              }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                pressure: value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-base">Dauer (Min.)</Label>
+                        <Input
+                          id="tourniquet-duration"
+                          data-testid="input-tourniquet-duration"
+                          type="number"
+                          min="0"
+                          className="h-12 text-base"
+                          placeholder="z.B. 60"
+                          value={intraOpData.tourniquet?.duration ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                duration: value
+                              }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            const updated = {
+                              ...intraOpData,
+                              tourniquet: {
+                                ...intraOpData.tourniquet,
+                                duration: value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-base">Notizen</Label>
+                      <Input
+                        id="tourniquet-notes"
+                        data-testid="input-tourniquet-notes"
+                        className="h-12 text-base"
+                        placeholder="Notizen..."
+                        value={intraOpData.tourniquet?.notes ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            tourniquet: {
+                              ...intraOpData.tourniquet,
+                              notes: e.target.value
+                            }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            tourniquet: {
+                              ...intraOpData.tourniquet,
+                              notes: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Irrigation Section */}
                 <Card>
                   <CardHeader>
@@ -2934,9 +3175,10 @@ export default function Op() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="infiltration-tumor" 
+                      <Checkbox
+                        id="infiltration-tumor"
                         data-testid="checkbox-infiltration-tumor"
+                        className="h-5 w-5"
                         checked={intraOpData.infiltration?.tumorSolution ?? false}
                         onCheckedChange={(checked) => {
                           const updated = {
@@ -2950,7 +3192,7 @@ export default function Op() {
                           intraOpAutoSave.mutate(updated);
                         }}
                       />
-                      <Label htmlFor="infiltration-tumor">{t('surgery.intraop.infiltrationOptions.tumorSolution')}</Label>
+                      <Label htmlFor="infiltration-tumor" className="text-base">{t('surgery.intraop.infiltrationOptions.tumorSolution')}</Label>
                     </div>
                     <div className="space-y-2">
                       <Input
@@ -3211,6 +3453,37 @@ export default function Op() {
                         }}
                       />
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Intraoperative Notes Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Intraoperative Notizen</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      id="intraoperative-notes"
+                      data-testid="textarea-intraoperative-notes"
+                      className="text-base"
+                      style={{ fieldSizing: 'content' } as React.CSSProperties}
+                      placeholder="Notizen..."
+                      value={intraOpData.intraoperativeNotes ?? ''}
+                      onChange={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          intraoperativeNotes: e.target.value
+                        };
+                        setIntraOpData(updated);
+                      }}
+                      onBlur={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          intraoperativeNotes: e.target.value
+                        };
+                        intraOpAutoSave.mutate(updated);
+                      }}
+                    />
                   </CardContent>
                 </Card>
 
