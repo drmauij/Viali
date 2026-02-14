@@ -22,9 +22,9 @@ export function getSession() {
   // Accept self-signed certificates (for Exoscale, Aiven, etc.)
   const sessionPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'false'
-      ? { rejectUnauthorized: false }
-      : true,
+    ssl: {
+      rejectUnauthorized: false,
+    },
   });
   
   const sessionStore = new pgStore({
