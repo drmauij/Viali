@@ -2,6 +2,10 @@
 
 Read `replit.md` for full project context (architecture, stack, conventions).
 
+## Pre-commit rule: migration idempotency
+
+Before committing or pushing, verify that **all migration files** (in `migrations/` or similar) are idempotent — safe to run multiple times. Every migration must use guards such as `IF NOT EXISTS`, `IF EXISTS`, `DO $$ ... END $$` blocks, or equivalent. Never commit a migration that would fail on a second run.
+
 ## Common commands
 
 - `npm run dev` — start dev server
