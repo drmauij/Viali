@@ -436,15 +436,26 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
     logger.info(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
     
     const questionnaireDocuments: any[] = [];
-    
-    const submittedLinks = questionnaireLinks.filter(link => link.response && link.status === 'submitted');
-    
-    for (const link of submittedLinks) {
+
+    // Include both submitted and reviewed questionnaire links
+    const activeLinks = questionnaireLinks.filter(link => link.response && (link.status === 'submitted' || link.status === 'reviewed'));
+
+    // Build a set of questionnaire upload IDs that are already persisted as patientDocuments
+    const importedUploadIds = new Set(
+      staffDocuments
+        .filter(d => d.questionnaireUploadId)
+        .map(d => d.questionnaireUploadId)
+    );
+
+    for (const link of activeLinks) {
       try {
         const response = await storage.getQuestionnaireResponse(link.response!.id);
         if (response) {
           const uploads = await storage.getQuestionnaireUploads(response.id);
           for (const upload of uploads) {
+            // Skip uploads that have already been imported as patientDocuments
+            if (importedUploadIds.has(upload.id)) continue;
+
             questionnaireDocuments.push({
               id: `questionnaire-${upload.id}`,
               hospitalId: patient.hospitalId,
@@ -467,8 +478,8 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
         logger.error(`[Documents] Error processing questionnaire link ${link.id}:`, linkError);
       }
     }
-    
-    logger.info(`[Documents] Processed ${submittedLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
+
+    logger.info(`[Documents] Processed ${activeLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
 
     const allDocuments = [...staffDocuments, ...questionnaireDocuments].sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();

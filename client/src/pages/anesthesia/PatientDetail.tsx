@@ -1906,9 +1906,9 @@ export default function PatientDetail() {
 
 
   // Handle importing questionnaire data into pre-op assessment
-  const handleImportFromQuestionnaire = () => {
+  const handleImportFromQuestionnaire = async () => {
     if (!selectedQuestionnaireResponse?.response) return;
-    
+
     const qResponse = selectedQuestionnaireResponse.response;
     
     // Map questionnaire fields to pre-op assessment fields
@@ -2218,12 +2218,25 @@ export default function PatientDetail() {
       
       return newData;
     });
-    
+
+    // Import questionnaire-uploaded documents into patientDocuments table
+    if (selectedQuestionnaireForImport && derivedPatientId && activeHospital?.id) {
+      try {
+        await apiRequest('POST', `/api/questionnaire/responses/${selectedQuestionnaireForImport}/import-documents`, {
+          patientId: derivedPatientId,
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/documents`] });
+      } catch (err) {
+        // Non-blocking — form data was already imported successfully
+        console.error("Failed to import questionnaire documents:", err);
+      }
+    }
+
     toast({
       title: t('anesthesia.patientDetail.questionnaireImported'),
       description: t('anesthesia.patientDetail.questionnaireImportedDesc'),
     });
-    
+
     setIsImportQuestionnaireOpen(false);
     setSelectedQuestionnaireForImport(null);
   };
@@ -4460,6 +4473,7 @@ export default function PatientDetail() {
                             rows={3}
                             disabled={isPreOpReadOnly}
                             data-testid="textarea-special-notes"
+                            style={{ fieldSizing: 'content' } as React.CSSProperties}
                           />
                         </div>
                       </CardContent>

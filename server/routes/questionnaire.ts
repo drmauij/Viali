@@ -514,6 +514,83 @@ router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (r
   }
 });
 
+// Import questionnaire uploads as patient documents (persist to patientDocuments table)
+router.post('/api/questionnaire/responses/:responseId/import-documents', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const { responseId } = req.params;
+    const { patientId } = req.body;
+
+    if (!patientId) {
+      return res.status(400).json({ message: "Patient ID is required" });
+    }
+
+    const response = await storage.getQuestionnaireResponse(responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Verify the link belongs to this hospital
+    const linkData = await storage.getQuestionnaireLinksForHospital(hospitalId);
+    const matchingLink = linkData.find(l => l.id === response.linkId);
+    if (!matchingLink || matchingLink.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const uploads = await storage.getQuestionnaireUploads(responseId);
+    if (uploads.length === 0) {
+      return res.json({ documents: [], message: "No uploads to import" });
+    }
+
+    // Check which uploads already have corresponding patientDocuments (idempotent)
+    const existingDocs = await storage.getPatientDocuments(patientId);
+    const existingUploadIds = new Set(
+      existingDocs
+        .filter(d => d.questionnaireUploadId)
+        .map(d => d.questionnaireUploadId)
+    );
+
+    const createdDocs = [];
+    for (const upload of uploads) {
+      if (existingUploadIds.has(upload.id)) {
+        // Already imported — skip
+        continue;
+      }
+
+      const doc = await storage.createPatientDocument({
+        hospitalId,
+        patientId,
+        category: (upload.category as any) || 'other',
+        fileName: upload.fileName,
+        fileUrl: upload.fileUrl,
+        mimeType: upload.mimeType || null,
+        fileSize: upload.fileSize || null,
+        description: upload.description || null,
+        uploadedBy: null,
+        source: 'questionnaire',
+        reviewed: false,
+        questionnaireUploadId: upload.id,
+      });
+      createdDocs.push(doc);
+    }
+
+    logger.info(`[ImportDocs] Imported ${createdDocs.length} documents for patient ${patientId} from response ${responseId}`);
+    res.json({ documents: createdDocs, imported: createdDocs.length, skipped: uploads.length - createdDocs.length });
+  } catch (error) {
+    logger.error("Error importing questionnaire documents:", error);
+    res.status(500).json({ message: "Failed to import documents" });
+  }
+});
+
 // Save review/mapping of questionnaire data
 router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
