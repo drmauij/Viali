@@ -2377,13 +2377,13 @@ export default function Op() {
           {isSurgeryMode && (
             <>
               {/* Intraoperative Tab */}
-              <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-intraop">
+              <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-3 mt-0" data-testid="tab-content-intraop">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
+                  <CardContent className="space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { id: "RL", label: t('surgery.intraop.positions.supine') },
                         { id: "SL", label: t('surgery.intraop.positions.lateral') },
@@ -2395,7 +2395,7 @@ export default function Op() {
                           <Checkbox
                             id={`pos-${pos.id}`}
                             data-testid={`checkbox-position-${pos.id}`}
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.positioning?.[pos.id as keyof typeof intraOpData.positioning] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2409,7 +2409,7 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`pos-${pos.id}`} className="text-base">{pos.label}</Label>
+                          <Label htmlFor={`pos-${pos.id}`} className="text-sm">{pos.label}</Label>
                         </div>
                       ))}
                     </div>
@@ -2417,16 +2417,16 @@ export default function Op() {
                 </Card>
 
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.disinfection')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="kodan-colored"
                           data-testid="checkbox-kodan-colored"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.disinfection?.kodanColored ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2440,13 +2440,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="kodan-colored" className="text-base">{t('surgery.intraop.kodanColored')}</Label>
+                        <Label htmlFor="kodan-colored" className="text-sm">{t('surgery.intraop.kodanColored')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="kodan-colorless"
                           data-testid="checkbox-kodan-colorless"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.disinfection?.kodanColorless ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2460,13 +2460,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="kodan-colorless" className="text-base">{t('surgery.intraop.kodanColorless')}</Label>
+                        <Label htmlFor="kodan-colorless" className="text-sm">{t('surgery.intraop.kodanColorless')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="octanisept"
                           data-testid="checkbox-octanisept"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.disinfection?.octanisept ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2480,13 +2480,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="octanisept" className="text-base">{t('surgery.intraop.octanisept')}</Label>
+                        <Label htmlFor="octanisept" className="text-sm">{t('surgery.intraop.octanisept')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="disinfection-betadine"
                           data-testid="checkbox-disinfection-betadine"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.disinfection?.betadine ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2500,7 +2500,7 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="disinfection-betadine" className="text-base">{t('surgery.intraop.betadine')}</Label>
+                        <Label htmlFor="disinfection-betadine" className="text-sm">{t('surgery.intraop.betadine')}</Label>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -2660,19 +2660,19 @@ export default function Op() {
                 </Card>
 
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.equipment')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-4">
                     {/* Coagulation Subsection */}
-                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                    <div className="rounded-lg bg-muted/30 p-3 space-y-2">
                       <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.koagulation')}</Label>
                       <div className="flex flex-wrap gap-4">
-                        <div className="flex items-center space-x-2 min-h-[44px]">
+                        <div className="flex items-center space-x-2">
                           <Checkbox 
                             id="koag-mono" 
                             data-testid="checkbox-koag-mono"
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.equipment?.monopolar ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2686,13 +2686,13 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="koag-mono" className="text-base">Monopolar</Label>
+                          <Label htmlFor="koag-mono" className="text-sm">Monopolar</Label>
                         </div>
-                        <div className="flex items-center space-x-2 min-h-[44px]">
+                        <div className="flex items-center space-x-2">
                           <Checkbox 
                             id="koag-bi" 
                             data-testid="checkbox-koag-bi"
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.equipment?.bipolar ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2706,21 +2706,21 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="koag-bi" className="text-base">Bipolar</Label>
+                          <Label htmlFor="koag-bi" className="text-sm">Bipolar</Label>
                         </div>
                       </div>
                     </div>
 
                     {/* Neutral Electrode Subsection */}
-                    <div className="rounded-lg bg-muted/30 p-4 space-y-4">
+                    <div className="rounded-lg bg-muted/30 p-3 space-y-3">
                       <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.neutralElectrode')}</Label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {["shoulder", "abdomen", "thigh", "back", "forearm"].map((loc) => (
-                          <div key={loc} className="flex items-center space-x-2 min-h-[44px]">
+                          <div key={loc} className="flex items-center space-x-2">
                             <Checkbox 
                               id={`electrode-${loc}`} 
                               data-testid={`checkbox-electrode-${loc}`}
-                              className="h-5 w-5"
+                              className="h-4 w-4"
                               checked={intraOpData.equipment?.neutralElectrodeLocation === loc}
                               onCheckedChange={(checked) => {
                                 const updated = {
@@ -2734,7 +2734,7 @@ export default function Op() {
                                 intraOpAutoSave.mutate(updated);
                               }}
                             />
-                            <Label htmlFor={`electrode-${loc}`} className="text-base">{t(`surgery.intraop.${loc}`)}</Label>
+                            <Label htmlFor={`electrode-${loc}`} className="text-sm">{t(`surgery.intraop.${loc}`)}</Label>
                           </div>
                         ))}
                       </div>
@@ -2742,11 +2742,11 @@ export default function Op() {
                         <Label className="text-sm font-medium mb-2 block">{t('surgery.intraop.bodySide')}</Label>
                         <div className="flex gap-6">
                           {["left", "right"].map((side) => (
-                            <div key={side} className="flex items-center space-x-2 min-h-[44px]">
+                            <div key={side} className="flex items-center space-x-2">
                               <Checkbox 
                                 id={`electrode-side-${side}`} 
                                 data-testid={`checkbox-electrode-side-${side}`}
-                                className="h-5 w-5"
+                                className="h-4 w-4"
                                 checked={intraOpData.equipment?.neutralElectrodeSide === side}
                                 onCheckedChange={(checked) => {
                                   const updated = {
@@ -2760,7 +2760,7 @@ export default function Op() {
                                   intraOpAutoSave.mutate(updated);
                                 }}
                               />
-                              <Label htmlFor={`electrode-side-${side}`} className="text-base">{t(`surgery.intraop.${side}`)}</Label>
+                              <Label htmlFor={`electrode-side-${side}`} className="text-sm">{t(`surgery.intraop.${side}`)}</Label>
                             </div>
                           ))}
                         </div>
@@ -2768,14 +2768,14 @@ export default function Op() {
                     </div>
 
                     {/* Pathology Subsection */}
-                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                    <div className="rounded-lg bg-muted/30 p-3 space-y-2">
                       <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.pathology')}</Label>
                       <div className="flex flex-wrap gap-4">
-                        <div className="flex items-center space-x-2 min-h-[44px]">
+                        <div className="flex items-center space-x-2">
                           <Checkbox 
                             id="path-histo" 
                             data-testid="checkbox-path-histo"
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.equipment?.pathology?.histology ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2792,13 +2792,13 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="path-histo" className="text-base">{t('surgery.intraop.histologie')}</Label>
+                          <Label htmlFor="path-histo" className="text-sm">{t('surgery.intraop.histologie')}</Label>
                         </div>
-                        <div className="flex items-center space-x-2 min-h-[44px]">
+                        <div className="flex items-center space-x-2">
                           <Checkbox 
                             id="path-mikro" 
                             data-testid="checkbox-path-mikro"
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.equipment?.pathology?.microbiology ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2815,18 +2815,18 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="path-mikro" className="text-base">{t('surgery.intraop.mikrobio')}</Label>
+                          <Label htmlFor="path-mikro" className="text-sm">{t('surgery.intraop.mikrobio')}</Label>
                         </div>
                       </div>
                     </div>
 
                     {/* Devices Subsection */}
-                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                    <div className="rounded-lg bg-muted/30 p-3 space-y-2">
                       <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.devices')}</Label>
                       <Input
                         id="equipment-devices"
                         data-testid="input-equipment-devices"
-                        className="h-12 text-base"
+                        className="h-9 text-sm"
                         placeholder={t('surgery.intraop.devicesPlaceholder')}
                         value={intraOpData.equipment?.devices ?? ''}
                         onChange={(e) => {
@@ -2856,19 +2856,19 @@ export default function Op() {
 
                 {/* CO2 / Laparoskopie Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>CO2 / Laparoskopie</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-base">Druck (mmHg)</Label>
+                        <Label className="text-sm">Druck (mmHg)</Label>
                         <Input
                           id="co2-pressure"
                           data-testid="input-co2-pressure"
                           type="number"
                           min="0"
-                          className="h-12 text-base"
+                          className="h-9 text-sm"
                           placeholder="z.B. 12"
                           value={intraOpData.co2Pressure?.pressure ?? ''}
                           onChange={(e) => {
@@ -2896,11 +2896,11 @@ export default function Op() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-base">Notizen</Label>
+                        <Label className="text-sm">Notizen</Label>
                         <Input
                           id="co2-notes"
                           data-testid="input-co2-notes"
-                          className="h-12 text-base"
+                          className="h-9 text-sm"
                           placeholder="Notizen..."
                           value={intraOpData.co2Pressure?.notes ?? ''}
                           onChange={(e) => {
@@ -2931,13 +2931,13 @@ export default function Op() {
 
                 {/* Blutsperre / Tourniquet Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>Blutsperre / Tourniquet</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-base">Position</Label>
+                        <Label className="text-sm">Position</Label>
                         <Select
                           value={intraOpData.tourniquet?.position ?? ''}
                           onValueChange={(value) => {
@@ -2952,7 +2952,7 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         >
-                          <SelectTrigger className="h-12 text-base" data-testid="select-tourniquet-position">
+                          <SelectTrigger className="h-9 text-sm" data-testid="select-tourniquet-position">
                             <SelectValue placeholder="Position wählen..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -2962,7 +2962,7 @@ export default function Op() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-base">Seite</Label>
+                        <Label className="text-sm">Seite</Label>
                         <Select
                           value={intraOpData.tourniquet?.side ?? ''}
                           onValueChange={(value) => {
@@ -2977,7 +2977,7 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         >
-                          <SelectTrigger className="h-12 text-base" data-testid="select-tourniquet-side">
+                          <SelectTrigger className="h-9 text-sm" data-testid="select-tourniquet-side">
                             <SelectValue placeholder="Seite wählen..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -2989,13 +2989,13 @@ export default function Op() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-base">Druck (mmHg)</Label>
+                        <Label className="text-sm">Druck (mmHg)</Label>
                         <Input
                           id="tourniquet-pressure"
                           data-testid="input-tourniquet-pressure"
                           type="number"
                           min="0"
-                          className="h-12 text-base"
+                          className="h-9 text-sm"
                           placeholder="z.B. 250"
                           value={intraOpData.tourniquet?.pressure ?? ''}
                           onChange={(e) => {
@@ -3023,13 +3023,13 @@ export default function Op() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-base">Dauer (Min.)</Label>
+                        <Label className="text-sm">Dauer (Min.)</Label>
                         <Input
                           id="tourniquet-duration"
                           data-testid="input-tourniquet-duration"
                           type="number"
                           min="0"
-                          className="h-12 text-base"
+                          className="h-9 text-sm"
                           placeholder="z.B. 60"
                           value={intraOpData.tourniquet?.duration ?? ''}
                           onChange={(e) => {
@@ -3058,11 +3058,11 @@ export default function Op() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-base">Notizen</Label>
+                      <Label className="text-sm">Notizen</Label>
                       <Input
                         id="tourniquet-notes"
                         data-testid="input-tourniquet-notes"
-                        className="h-12 text-base"
+                        className="h-9 text-sm"
                         placeholder="Notizen..."
                         value={intraOpData.tourniquet?.notes ?? ''}
                         onChange={(e) => {
@@ -3092,16 +3092,16 @@ export default function Op() {
 
                 {/* Irrigation Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.irrigation')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center space-x-2 min-h-[44px]">
+                      <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="irrigation-nacl" 
                           data-testid="checkbox-irrigation-nacl"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.irrigation?.nacl ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -3115,13 +3115,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="irrigation-nacl" className="text-base">{t('surgery.intraop.irrigationOptions.nacl')}</Label>
+                        <Label htmlFor="irrigation-nacl" className="text-sm">{t('surgery.intraop.irrigationOptions.nacl')}</Label>
                       </div>
-                      <div className="flex items-center space-x-2 min-h-[44px]">
+                      <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="irrigation-ringer" 
                           data-testid="checkbox-irrigation-ringer"
-                          className="h-5 w-5"
+                          className="h-4 w-4"
                           checked={intraOpData.irrigation?.ringerSolution ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -3135,13 +3135,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="irrigation-ringer" className="text-base">{t('surgery.intraop.irrigationOptions.ringerSolution')}</Label>
+                        <Label htmlFor="irrigation-ringer" className="text-sm">{t('surgery.intraop.irrigationOptions.ringerSolution')}</Label>
                       </div>
                     </div>
                     <Input
                       id="irrigation-other"
                       data-testid="input-irrigation-other"
-                      className="h-12 text-base"
+                      className="h-9 text-sm"
                       placeholder={t('surgery.intraop.irrigationOther')}
                       value={intraOpData.irrigation?.other ?? ''}
                       onChange={(e) => {
@@ -3170,15 +3170,15 @@ export default function Op() {
 
                 {/* Infiltration Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.infiltration')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="infiltration-tumor"
                         data-testid="checkbox-infiltration-tumor"
-                        className="h-5 w-5"
+                        className="h-4 w-4"
                         checked={intraOpData.infiltration?.tumorSolution ?? false}
                         onCheckedChange={(checked) => {
                           const updated = {
@@ -3192,7 +3192,7 @@ export default function Op() {
                           intraOpAutoSave.mutate(updated);
                         }}
                       />
-                      <Label htmlFor="infiltration-tumor" className="text-base">{t('surgery.intraop.infiltrationOptions.tumorSolution')}</Label>
+                      <Label htmlFor="infiltration-tumor" className="text-sm">{t('surgery.intraop.infiltrationOptions.tumorSolution')}</Label>
                     </div>
                     <div className="space-y-2">
                       <Input
@@ -3227,17 +3227,17 @@ export default function Op() {
 
                 {/* Medications Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.medications')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {["rapidocain1", "ropivacainEpinephrine", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain", "vancomycinImplant", "contrast", "ointments"].map((med) => (
-                        <div key={med} className="flex items-center space-x-2 min-h-[44px] py-1">
+                        <div key={med} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`meds-${med}`} 
                             data-testid={`checkbox-meds-${med}`}
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={(intraOpData.medications as Record<string, boolean>)?.[med] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -3251,14 +3251,14 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`meds-${med}`} className="text-base">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                          <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
                         </div>
                       ))}
                     </div>
                     <Input
                       id="medications-other"
                       data-testid="input-medications-other"
-                      className="h-12 text-base"
+                      className="h-9 text-sm"
                       placeholder={t('surgery.intraop.medicationsOther')}
                       value={intraOpData.medications?.other ?? ''}
                       onChange={(e) => {
@@ -3287,10 +3287,10 @@ export default function Op() {
 
                 {/* Dressing Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.dressing')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
                         { id: 'elasticBandage', key: 'elasticBandage' },
@@ -3303,11 +3303,11 @@ export default function Op() {
                         { id: 'compresses', key: 'compresses' },
                         { id: 'mefix', key: 'mefix' }
                       ].map((item) => (
-                        <div key={item.id} className="flex items-center space-x-2 min-h-[44px]">
+                        <div key={item.id} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`dressing-${item.id}`} 
                             data-testid={`checkbox-dressing-${item.id}`}
-                            className="h-5 w-5"
+                            className="h-4 w-4"
                             checked={intraOpData.dressing?.[item.key as keyof typeof intraOpData.dressing] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -3321,14 +3321,14 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`dressing-${item.id}`} className="text-base">{t(`surgery.intraop.dressingOptions.${item.key}`)}</Label>
+                          <Label htmlFor={`dressing-${item.id}`} className="text-sm">{t(`surgery.intraop.dressingOptions.${item.key}`)}</Label>
                         </div>
                       ))}
                     </div>
                     <Input
                       id="dressing-other"
                       data-testid="input-dressing-other"
-                      className="h-12 text-base"
+                      className="h-9 text-sm"
                       placeholder={t('surgery.intraop.dressingOther')}
                       value={intraOpData.dressing?.other ?? ''}
                       onChange={(e) => {
@@ -3357,10 +3357,10 @@ export default function Op() {
 
                 {/* Drainage Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.drainage')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>{t('surgery.intraop.drainageOptions.redonCH')}</Label>
@@ -3458,14 +3458,14 @@ export default function Op() {
 
                 {/* Intraoperative Notes Section */}
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>Intraoperative Notizen</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Textarea
                       id="intraoperative-notes"
                       data-testid="textarea-intraoperative-notes"
-                      className="text-base"
+                      className="text-sm"
                       style={{ fieldSizing: 'content' } as React.CSSProperties}
                       placeholder="Notizen..."
                       value={intraOpData.intraoperativeNotes ?? ''}
@@ -3488,7 +3488,7 @@ export default function Op() {
                 </Card>
 
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-4">
