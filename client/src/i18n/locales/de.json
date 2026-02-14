@@ -3296,7 +3296,15 @@
       "noIntraOpData": "Keine intraoperativen Daten konfiguriert",
       "noInventoryItems": "Keine Inventar-Artikel",
       "itemsCount": "{{count}} Inventar-Artikel",
-      "sectionsConfigured": "{{count}} Abschnitte konfiguriert"
+      "sectionsConfigured": "{{count}} Abschnitte konfiguriert",
+      "viewDetail": "Detail",
+      "detail": {
+        "pressure": "Druck",
+        "duration": "Dauer",
+        "notes": "Notizen",
+        "intraoperativeNotes": "Intraoperative Notizen",
+        "empty": "Dieses Set hat keine konfigurierten Elemente"
+      }
     },
     "preop": {
       "title": "Präoperative Abklärungen",

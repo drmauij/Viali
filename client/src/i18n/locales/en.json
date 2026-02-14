@@ -3268,7 +3268,15 @@
       "noIntraOpData": "No intraoperative data configured",
       "noInventoryItems": "No inventory items",
       "itemsCount": "{{count}} inventory items",
-      "sectionsConfigured": "{{count}} sections configured"
+      "sectionsConfigured": "{{count}} sections configured",
+      "viewDetail": "Detail",
+      "detail": {
+        "pressure": "Pressure",
+        "duration": "Duration",
+        "notes": "Notes",
+        "intraoperativeNotes": "Intraoperative Notes",
+        "empty": "This set has no configured items"
+      }
     },
     "preop": {
       "title": "Pre-Op Assessments",

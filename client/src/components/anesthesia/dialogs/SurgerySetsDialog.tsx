@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, Trash2, Pencil, Layers, Search, Package, Play, Settings, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, Layers, Search, Package, Play, Settings, X, ChevronDown, ChevronUp, ArrowLeft, Eye, Check } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -59,6 +59,7 @@ export function SurgerySetsDialog({
     }
   }, [open, recordId]);
 
+  const [viewingSet, setViewingSet] = useState<SurgerySetData | null>(null);
   const [editingSet, setEditingSet] = useState<SurgerySetData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formName, setFormName] = useState("");
@@ -147,6 +148,7 @@ export function SurgerySetsDialog({
   });
 
   const resetForm = () => {
+    setViewingSet(null);
     setEditingSet(null);
     setIsCreating(false);
     setFormName("");
@@ -673,6 +675,18 @@ export function SurgerySetsDialog({
               )}
             </div>
             <div className="flex gap-1 shrink-0">
+              {showApply && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setViewingSet(set)}
+                  data-testid={`button-detail-set-${set.id}`}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {t('surgery.sets.viewDetail')}
+                </Button>
+              )}
               {showApply && recordId && (
                 <Button
                   size="sm"
@@ -735,6 +749,314 @@ export function SurgerySetsDialog({
     );
   };
 
+  const renderBooleanSection = (sectionKey: string, sectionData: Record<string, any>, labelMap: Record<string, string>) => {
+    const activeFields = Object.entries(sectionData).filter(([, v]) => v === true);
+    if (activeFields.length === 0) return null;
+    return (
+      <div className="space-y-1">
+        <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{labelMap._title}</h5>
+        <div className="grid grid-cols-2 gap-1">
+          {activeFields.map(([key]) => (
+            <div key={key} className="flex items-center gap-1.5 text-sm">
+              <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+              <span>{labelMap[key] || key}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSetDetail = (set: SurgerySetData) => {
+    const intraOp = set.intraOpData || {};
+    const hasInventory = set.inventoryItems.length > 0;
+
+    // Build label maps for boolean sections
+    const positioningLabels: Record<string, string> = {
+      _title: t('surgery.intraop.positioning'),
+      RL: t('surgery.intraop.positions.supine'),
+      SL: t('surgery.intraop.positions.lateral'),
+      BL: t('surgery.intraop.positions.prone'),
+      SSL: t('surgery.intraop.positions.lithotomy'),
+      EXT: t('surgery.intraop.positions.extension'),
+    };
+    const disinfectionLabels: Record<string, string> = {
+      _title: t('surgery.intraop.disinfection'),
+      kodanColored: t('surgery.intraop.kodanColored'),
+      kodanColorless: t('surgery.intraop.kodanColorless'),
+      octanisept: t('surgery.intraop.octanisept'),
+      betadine: t('surgery.intraop.betadine'),
+    };
+    const irrigationLabels: Record<string, string> = {
+      _title: t('surgery.intraop.irrigation'),
+      nacl: t('surgery.intraop.irrigationOptions.nacl'),
+      ringerSolution: t('surgery.intraop.irrigationOptions.ringerSolution'),
+    };
+    const infiltrationLabels: Record<string, string> = {
+      _title: t('surgery.intraop.infiltration'),
+      tumorSolution: t('surgery.intraop.infiltrationOptions.tumorSolution'),
+    };
+    const medicationLabels: Record<string, string> = {
+      _title: t('surgery.intraop.medications'),
+      rapidocain1: t('surgery.intraop.medicationOptions.rapidocain1'),
+      ropivacainEpinephrine: t('surgery.intraop.medicationOptions.ropivacainEpinephrine'),
+      ropivacain05: t('surgery.intraop.medicationOptions.ropivacain05'),
+      ropivacain075: t('surgery.intraop.medicationOptions.ropivacain075'),
+      ropivacain1: t('surgery.intraop.medicationOptions.ropivacain1'),
+      bupivacain: t('surgery.intraop.medicationOptions.bupivacain'),
+      vancomycinImplant: t('surgery.intraop.medicationOptions.vancomycinImplant'),
+      contrast: t('surgery.intraop.medicationOptions.contrast'),
+      ointments: t('surgery.intraop.medicationOptions.ointments'),
+    };
+    const dressingLabels: Record<string, string> = {
+      _title: t('surgery.intraop.dressing'),
+      elasticBandage: t('surgery.intraop.dressingOptions.elasticBandage'),
+      abdominalBelt: t('surgery.intraop.dressingOptions.abdominalBelt'),
+      bra: t('surgery.intraop.dressingOptions.bra'),
+      faceLiftMask: t('surgery.intraop.dressingOptions.faceLiftMask'),
+      steristrips: t('surgery.intraop.dressingOptions.steristrips'),
+      comfeel: t('surgery.intraop.dressingOptions.comfeel'),
+      opsite: t('surgery.intraop.dressingOptions.opsite'),
+      compresses: t('surgery.intraop.dressingOptions.compresses'),
+      mefix: t('surgery.intraop.dressingOptions.mefix'),
+    };
+
+    // Collect all intraop sections that have content
+    const sections: React.ReactNode[] = [];
+
+    if (intraOp.positioning) {
+      const node = renderBooleanSection("positioning", intraOp.positioning, positioningLabels);
+      if (node) sections.push(<div key="positioning">{node}</div>);
+    }
+    if (intraOp.disinfection) {
+      const node = renderBooleanSection("disinfection", intraOp.disinfection, disinfectionLabels);
+      if (node) sections.push(<div key="disinfection">{node}</div>);
+    }
+    if (intraOp.equipment) {
+      const eq = intraOp.equipment;
+      const boolItems: React.ReactNode[] = [];
+      if (eq.monopolar) boolItems.push(
+        <div key="monopolar" className="flex items-center gap-1.5 text-sm">
+          <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+          <span>{t('surgery.intraop.koagulation')} - Monopolar</span>
+        </div>
+      );
+      if (eq.bipolar) boolItems.push(
+        <div key="bipolar" className="flex items-center gap-1.5 text-sm">
+          <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+          <span>{t('surgery.intraop.koagulation')} - Bipolar</span>
+        </div>
+      );
+      const dropdownItems: React.ReactNode[] = [];
+      if (eq.neutralElectrodeLocation) {
+        const locKey = eq.neutralElectrodeLocation as string;
+        dropdownItems.push(
+          <div key="nel" className="text-sm">
+            <span className="text-muted-foreground">{t('surgery.intraop.neutralElectrode')}:</span>{' '}
+            {t(`surgery.intraop.${locKey}`, locKey)}
+          </div>
+        );
+      }
+      if (eq.neutralElectrodeSide) {
+        const sideKey = eq.neutralElectrodeSide as string;
+        dropdownItems.push(
+          <div key="nes" className="text-sm">
+            <span className="text-muted-foreground">{t('surgery.intraop.bodySide')}:</span>{' '}
+            {t(`surgery.intraop.${sideKey}`, sideKey)}
+          </div>
+        );
+      }
+      if (eq.pathology?.histology || eq.pathology?.microbiology) {
+        if (eq.pathology.histology) boolItems.push(
+          <div key="histology" className="flex items-center gap-1.5 text-sm">
+            <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            <span>{t('surgery.intraop.histologie')}</span>
+          </div>
+        );
+        if (eq.pathology.microbiology) boolItems.push(
+          <div key="microbiology" className="flex items-center gap-1.5 text-sm">
+            <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            <span>{t('surgery.intraop.mikrobio')}</span>
+          </div>
+        );
+      }
+      if (boolItems.length > 0 || dropdownItems.length > 0) {
+        sections.push(
+          <div key="equipment" className="space-y-1">
+            <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.intraop.equipment')}</h5>
+            {boolItems.length > 0 && <div className="grid grid-cols-2 gap-1">{boolItems}</div>}
+            {dropdownItems.length > 0 && <div className="space-y-0.5">{dropdownItems}</div>}
+          </div>
+        );
+      }
+    }
+
+    if (intraOp.irrigation) {
+      const node = renderBooleanSection("irrigation", intraOp.irrigation, irrigationLabels);
+      if (node) sections.push(<div key="irrigation">{node}</div>);
+    }
+    if (intraOp.infiltration) {
+      const node = renderBooleanSection("infiltration", intraOp.infiltration, infiltrationLabels);
+      if (node) sections.push(<div key="infiltration">{node}</div>);
+    }
+    if (intraOp.medications) {
+      const node = renderBooleanSection("medications", intraOp.medications, medicationLabels);
+      if (node) sections.push(<div key="medications">{node}</div>);
+    }
+    if (intraOp.dressing) {
+      const node = renderBooleanSection("dressing", intraOp.dressing, dressingLabels);
+      if (node) sections.push(<div key="dressing">{node}</div>);
+    }
+
+    // CO2 / Laparoskopie
+    if (intraOp.co2Pressure) {
+      const co2 = intraOp.co2Pressure;
+      if (co2.pressure || co2.notes) {
+        sections.push(
+          <div key="co2" className="space-y-1">
+            <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CO2 / Laparoskopie</h5>
+            {co2.pressure != null && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.pressure')} (mmHg):</span> {co2.pressure}</div>
+            )}
+            {co2.notes && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.notes')}:</span> {co2.notes}</div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    // Tourniquet
+    if (intraOp.tourniquet) {
+      const tq = intraOp.tourniquet;
+      if (tq.position || tq.side || tq.pressure || tq.duration || tq.notes) {
+        sections.push(
+          <div key="tourniquet" className="space-y-1">
+            <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Blutsperre / Tourniquet</h5>
+            {tq.position && (
+              <div className="text-sm"><span className="text-muted-foreground">Position:</span> {tq.position === 'arm' ? 'Arm' : 'Bein'}</div>
+            )}
+            {tq.side && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.intraop.bodySide')}:</span> {tq.side === 'left' ? t('surgery.intraop.left') : t('surgery.intraop.right')}</div>
+            )}
+            {tq.pressure != null && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.pressure')} (mmHg):</span> {tq.pressure}</div>
+            )}
+            {tq.duration != null && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.duration')} (Min.):</span> {tq.duration}</div>
+            )}
+            {tq.notes && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.notes')}:</span> {tq.notes}</div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    // Drainage
+    if (intraOp.drainage) {
+      const dr = intraOp.drainage;
+      if (dr.redon || dr.redonCount) {
+        sections.push(
+          <div key="drainage" className="space-y-1">
+            <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.intraop.drainage')}</h5>
+            {dr.redon && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                <span>{t('surgery.intraop.drainageOptions.redonCH')}</span>
+              </div>
+            )}
+            {dr.redonCount && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.intraop.drainageOptions.redonCount')}:</span> {dr.redonCount}</div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    // Intraoperative Notes
+    if (intraOp.intraoperativeNotes) {
+      sections.push(
+        <div key="intraopNotes" className="space-y-1">
+          <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.sets.detail.intraoperativeNotes')}</h5>
+          <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-2">{intraOp.intraoperativeNotes}</p>
+        </div>
+      );
+    }
+
+    const hasAnything = hasInventory || sections.length > 0;
+
+    return (
+      <div className="space-y-4 pr-3">
+        {/* Header */}
+        <div className="flex items-start gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setViewingSet(null)}
+            data-testid="button-back-from-detail"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm truncate">{set.name}</h3>
+            {set.description && (
+              <p className="text-xs text-muted-foreground mt-0.5">{set.description}</p>
+            )}
+          </div>
+          {recordId && (
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs shrink-0"
+              onClick={() => applyMutation.mutate(set.id)}
+              disabled={applyMutation.isPending}
+              data-testid={`button-apply-detail-${set.id}`}
+            >
+              {applyMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <>
+                  <Play className="h-3 w-3 mr-1" />
+                  {t('surgery.sets.apply')}
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {!hasAnything ? (
+          <div className="text-center py-8 space-y-2">
+            <Layers className="h-8 w-8 mx-auto text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{t('surgery.sets.detail.empty')}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Inventory Items first */}
+            {hasInventory && (
+              <div className="space-y-1.5">
+                <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.sets.inventorySection')}</h5>
+                <div className="space-y-1">
+                  {set.inventoryItems.map(item => (
+                    <div key={item.id} className="flex items-center gap-2 text-sm">
+                      <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="flex-1 truncate">{item.itemName}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">x{item.quantity}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* IntraOp sections */}
+            {sections}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[520px] max-h-[85vh] flex flex-col" data-testid="dialog-surgery-sets">
@@ -762,7 +1084,9 @@ export function SurgerySetsDialog({
 
           <TabsContent value="apply" className="flex-1 min-h-0 mt-3">
             <ScrollArea className="h-[55vh]">
-              {setsLoading ? (
+              {viewingSet ? (
+                renderSetDetail(viewingSet)
+              ) : setsLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
