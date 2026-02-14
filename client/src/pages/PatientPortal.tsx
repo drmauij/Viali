@@ -279,15 +279,338 @@ const translations = {
     callbackStepTitle: "Consent Talk",
     callbackStepDesc: "Please call us to schedule your consent talk.",
     callbackSlotsTimes: "Available times",
+  },
+  it: {
+    title: "Portale Paziente",
+    welcomePrefix: "Benvenuto/a",
+    yourJourney: "Il Suo percorso di cura",
+    yourSurgery: "Il Suo intervento",
+    date: "Data",
+    arrivalTime: "Orario di arrivo",
+    location: "Luogo",
+    procedure: "Intervento",
+    anesthesiaType: "Tipo di anestesia",
+    surgeon: "Chirurgo",
+    plannedTime: "Orario previsto dell'intervento",
+    step1Title: "Compilare il questionario",
+    step1Desc: "Si prega di compilare il questionario preoperatorio",
+    step1Done: "Questionario completato",
+    step1InProgress: "Questionario iniziato",
+    step2Title: "Preparazione",
+    step2Desc: "Legga le istruzioni per il Suo intervento",
+    fastingTitle: "Regole di digiuno",
+    fastingNoFood: "Nessun cibo solido 6 ore prima dell'intervento",
+    fastingLiquids: "Liquidi chiari consentiti fino a 2 ore prima",
+    fastingNoAlcohol: "Nessun alcol 24 ore prima dell'intervento",
+    companionTitle: "Accompagnatore necessario",
+    companionText: "Dopo l'intervento non potrà guidare. Si prega di organizzare un accompagnatore che La riporti a casa.",
+    infoDocuments: "Documenti informativi",
+    infoDocumentsDesc: "Si prega di leggere i seguenti documenti prima dell'appuntamento",
+    downloadFlyer: "Scaricare",
+    step3Title: "Intervento",
+    step3Pending: "Programmato",
+    step3Done: "Completato",
+    addToCalendar: "Aggiungi al calendario",
+    fillQuestionnaire: "Compilare il questionario",
+    continueQuestionnaire: "Continuare il questionario",
+    viewQuestionnaire: "Vedere il questionario",
+    contactUs: "Contatti",
+    questions: "Per domande ci contatti al:",
+    linkExpired: "Questo link è scaduto",
+    linkNotFound: "Link non trovato",
+    loading: "Caricamento...",
+    error: "Si è verificato un errore",
+    switchToEnglish: "Switch to English",
+    switchToGerman: "Auf Deutsch wechseln",
+    general: "Anestesia generale",
+    sedation: "Sedazione",
+    regional_spinal: "Anestesia spinale",
+    regional_epidural: "Anestesia epidurale",
+    regional_peripheral: "Anestesia regionale",
+    local: "Anestesia locale",
+    standby: "Standby",
+    consentStepTitle: "Firmare il consenso informato",
+    consentStepDesc: "Si prega di verificare e firmare il consenso informato per l'anestesia",
+    consentStepDone: "Consenso firmato",
+    consentStepAction: "Firmare ora",
+    consentStepView: "Vedere il consenso",
+    consentAnesthesiaTypes: "Procedure di anestesia previste",
+    consentGeneralTitle: "Anestesia generale",
+    consentGeneralDesc: "Perdita completa della coscienza tramite farmaci endovenosi e/o inalati.",
+    consentGeneralRisks: "Nausea, vomito, mal di gola, danni dentali, risveglio durante l'anestesia (raro), reazioni allergiche, complicazioni cardiovascolari.",
+    consentAnalgosedationTitle: "Analgosedazione (Anestesia monitorata)",
+    consentAnalgosedationDesc: "Sedazione leggera per interventi chirurgici minori, tipicamente combinata con anestesia locale somministrata dal chirurgo. Standby anestesiologico per il monitoraggio e la sicurezza del paziente.",
+    consentAnalgosedationRisks: "Reazioni allergiche, depressione respiratoria, necessità di passare all'anestesia generale, nausea, reazioni paradosse.",
+    consentRegionalTitle: "Anestesia regionale",
+    consentRegionalDesc: "Anestesia di una regione specifica mediante iniezioni di anestetici locali (spinale, epidurale, blocchi nervosi).",
+    consentRegionalRisks: "Cefalea, mal di schiena, danni ai nervi (raro), ipotensione, sanguinamento, infezione nel sito di iniezione.",
+    consentInstallationsTitle: "Installazioni previste (accessi IV, cateteri)",
+    consentInstallationsDesc: "Posizionamento di accessi venosi, linee arteriose, cateteri centrali o cateteri vescicali secondo necessità.",
+    consentInstallationsRisks: "Infezione, sanguinamento, ematoma, pneumotorace (per cateteri centrali), trombosi.",
+    consentIcuTitle: "Ricovero postoperatorio in terapia intensiva",
+    consentIcuDesc: "Trasferimento in terapia intensiva per monitoraggio ravvicinato dopo l'intervento.",
+    consentIcuPurpose: "Scopo: monitoraggio emodinamico ravvicinato, supporto respiratorio, gestione del dolore e rilevamento precoce di complicazioni.",
+    consentPossibleRisks: "Possibili eventi avversi:",
+    consentDoctorNotes: "Note aggiuntive del medico",
+    consentIdRequired: "Verifica dell'identità necessaria",
+    consentIdFront: "Fronte",
+    consentIdBack: "Retro",
+    consentUploadId: "Caricare foto",
+    consentTakePhoto: "Scattare foto",
+    consentChangePhoto: "Cambiare",
+    consentSignatureRequired: "Firma",
+    consentAddSignature: "Aggiungere firma",
+    consentChangeSignature: "Cambiare firma",
+    consentProxyCheckbox: "Firmo in rappresentanza del paziente",
+    consentProxyName: "Nome del rappresentante",
+    consentProxyRelation: "Relazione con il paziente",
+    consentProxyRelationLegalGuardian: "Tutore legale",
+    consentProxyRelationSpouse: "Coniuge/Partner",
+    consentProxyRelationParent: "Genitore",
+    consentProxyRelationChild: "Figlio/a",
+    consentProxyRelationOther: "Altro",
+    consentSubmit: "Firmare e inviare",
+    consentSubmitting: "Invio in corso...",
+    consentSuccess: "Consenso firmato con successo",
+    consentSuccessDesc: "Il Suo consenso informato è stato registrato con successo.",
+    consentBackToPortal: "Torna al portale",
+    consentAlreadySigned: "Consenso già firmato",
+    consentAlreadySignedDesc: "Questo consenso è già stato firmato il {date}.",
+    consentMissingFields: "Si prega di compilare tutti i campi obbligatori",
+    consentMissingIdFront: "Si prega di caricare la parte anteriore del documento d'identità",
+    consentMissingIdBack: "Si prega di caricare la parte posteriore del documento d'identità",
+    consentMissingSignature: "Si prega di aggiungere la firma",
+    consentMissingProxyName: "Si prega di inserire il nome del rappresentante",
+    callbackStepTitle: "Colloquio di consenso",
+    callbackStepDesc: "Si prega di chiamarci per fissare un appuntamento per il colloquio di consenso.",
+    callbackSlotsTimes: "Orari disponibili",
+  },
+  es: {
+    title: "Portal del Paciente",
+    welcomePrefix: "Bienvenido/a",
+    yourJourney: "Su proceso de tratamiento",
+    yourSurgery: "Su operación",
+    date: "Fecha",
+    arrivalTime: "Hora de llegada",
+    location: "Ubicación",
+    procedure: "Procedimiento",
+    anesthesiaType: "Tipo de anestesia",
+    surgeon: "Cirujano",
+    plannedTime: "Hora prevista de la operación",
+    step1Title: "Completar el cuestionario",
+    step1Desc: "Por favor complete el cuestionario preoperatorio",
+    step1Done: "Cuestionario completado",
+    step1InProgress: "Cuestionario iniciado",
+    step2Title: "Preparación",
+    step2Desc: "Lea las instrucciones para su operación",
+    fastingTitle: "Reglas de ayuno",
+    fastingNoFood: "No ingerir alimentos sólidos 6 horas antes de la operación",
+    fastingLiquids: "Líquidos claros permitidos hasta 2 horas antes",
+    fastingNoAlcohol: "No consumir alcohol 24 horas antes de la operación",
+    companionTitle: "Acompañante necesario",
+    companionText: "Después de la operación no podrá conducir. Por favor organice un acompañante que le lleve a casa.",
+    infoDocuments: "Documentos informativos",
+    infoDocumentsDesc: "Por favor lea los siguientes documentos antes de su cita",
+    downloadFlyer: "Descargar",
+    step3Title: "Operación",
+    step3Pending: "Programada",
+    step3Done: "Completada",
+    addToCalendar: "Añadir al calendario",
+    fillQuestionnaire: "Completar cuestionario",
+    continueQuestionnaire: "Continuar cuestionario",
+    viewQuestionnaire: "Ver cuestionario",
+    contactUs: "Contacto",
+    questions: "Si tiene preguntas, contáctenos en:",
+    linkExpired: "Este enlace ha caducado",
+    linkNotFound: "Enlace no encontrado",
+    loading: "Cargando...",
+    error: "Se ha producido un error",
+    switchToEnglish: "Switch to English",
+    switchToGerman: "Auf Deutsch wechseln",
+    general: "Anestesia general",
+    sedation: "Sedación",
+    regional_spinal: "Anestesia espinal",
+    regional_epidural: "Anestesia epidural",
+    regional_peripheral: "Anestesia regional",
+    local: "Anestesia local",
+    standby: "Standby",
+    consentStepTitle: "Firmar el consentimiento informado",
+    consentStepDesc: "Por favor revise y firme el consentimiento informado para la anestesia",
+    consentStepDone: "Consentimiento firmado",
+    consentStepAction: "Firmar ahora",
+    consentStepView: "Ver consentimiento",
+    consentAnesthesiaTypes: "Procedimientos de anestesia previstos",
+    consentGeneralTitle: "Anestesia general",
+    consentGeneralDesc: "Pérdida completa de la conciencia mediante medicamentos intravenosos y/o inhalados.",
+    consentGeneralRisks: "Náuseas, vómitos, dolor de garganta, daños dentales, despertar durante la anestesia (raro), reacciones alérgicas, complicaciones cardiovasculares.",
+    consentAnalgosedationTitle: "Analgosedación (Anestesia monitorizada)",
+    consentAnalgosedationDesc: "Sedación ligera para procedimientos quirúrgicos menores, típicamente combinada con anestesia local administrada por el cirujano. Standby anestésico para monitorización y seguridad del paciente.",
+    consentAnalgosedationRisks: "Reacciones alérgicas, depresión respiratoria, necesidad de escalar a anestesia general, náuseas, reacciones paradójicas.",
+    consentRegionalTitle: "Anestesia regional",
+    consentRegionalDesc: "Anestesia de una región específica mediante inyecciones de anestésicos locales (espinal, epidural, bloqueos nerviosos).",
+    consentRegionalRisks: "Cefalea, dolor de espalda, daño nervioso (raro), hipotensión, sangrado, infección en el punto de inyección.",
+    consentInstallationsTitle: "Instalaciones previstas (vías IV, catéteres)",
+    consentInstallationsDesc: "Colocación de vías intravenosas, líneas arteriales, catéteres centrales o sondas vesicales según necesidad.",
+    consentInstallationsRisks: "Infección, sangrado, hematoma, neumotórax (para catéteres centrales), trombosis.",
+    consentIcuTitle: "Ingreso postoperatorio en UCI",
+    consentIcuDesc: "Traslado a la Unidad de Cuidados Intensivos para monitorización estrecha después de la operación.",
+    consentIcuPurpose: "Objetivo: monitorización hemodinámica estrecha, soporte respiratorio, manejo del dolor y detección temprana de complicaciones.",
+    consentPossibleRisks: "Posibles eventos adversos:",
+    consentDoctorNotes: "Notas adicionales del médico",
+    consentIdRequired: "Verificación de identidad necesaria",
+    consentIdFront: "Anverso",
+    consentIdBack: "Reverso",
+    consentUploadId: "Subir foto",
+    consentTakePhoto: "Tomar foto",
+    consentChangePhoto: "Cambiar",
+    consentSignatureRequired: "Firma",
+    consentAddSignature: "Añadir firma",
+    consentChangeSignature: "Cambiar firma",
+    consentProxyCheckbox: "Firmo en representación del paciente",
+    consentProxyName: "Nombre del representante",
+    consentProxyRelation: "Relación con el paciente",
+    consentProxyRelationLegalGuardian: "Tutor legal",
+    consentProxyRelationSpouse: "Cónyuge/Pareja",
+    consentProxyRelationParent: "Padre/Madre",
+    consentProxyRelationChild: "Hijo/a",
+    consentProxyRelationOther: "Otro",
+    consentSubmit: "Firmar y enviar",
+    consentSubmitting: "Enviando...",
+    consentSuccess: "Consentimiento firmado con éxito",
+    consentSuccessDesc: "Su consentimiento informado ha sido registrado con éxito.",
+    consentBackToPortal: "Volver al portal",
+    consentAlreadySigned: "Consentimiento ya firmado",
+    consentAlreadySignedDesc: "Este consentimiento ya fue firmado el {date}.",
+    consentMissingFields: "Por favor complete todos los campos obligatorios",
+    consentMissingIdFront: "Por favor suba el anverso de su documento de identidad",
+    consentMissingIdBack: "Por favor suba el reverso de su documento de identidad",
+    consentMissingSignature: "Por favor añada su firma",
+    consentMissingProxyName: "Por favor introduzca el nombre del representante",
+    callbackStepTitle: "Conversación de consentimiento",
+    callbackStepDesc: "Por favor llámenos para programar su conversación de consentimiento.",
+    callbackSlotsTimes: "Horarios disponibles",
+  },
+  fr: {
+    title: "Portail Patient",
+    welcomePrefix: "Bienvenue",
+    yourJourney: "Votre parcours de soins",
+    yourSurgery: "Votre opération",
+    date: "Date",
+    arrivalTime: "Heure d'arrivée",
+    location: "Lieu",
+    procedure: "Intervention",
+    anesthesiaType: "Type d'anesthésie",
+    surgeon: "Chirurgien",
+    plannedTime: "Heure prévue de l'opération",
+    step1Title: "Remplir le questionnaire",
+    step1Desc: "Veuillez remplir le questionnaire préopératoire",
+    step1Done: "Questionnaire complété",
+    step1InProgress: "Questionnaire commencé",
+    step2Title: "Préparation",
+    step2Desc: "Lisez les instructions pour votre opération",
+    fastingTitle: "Règles de jeûne",
+    fastingNoFood: "Pas de nourriture solide 6 heures avant l'opération",
+    fastingLiquids: "Liquides clairs autorisés jusqu'à 2 heures avant",
+    fastingNoAlcohol: "Pas d'alcool 24 heures avant l'opération",
+    companionTitle: "Accompagnant nécessaire",
+    companionText: "Après l'opération, vous ne pourrez pas conduire. Veuillez organiser un accompagnant pour vous ramener chez vous.",
+    infoDocuments: "Documents d'information",
+    infoDocumentsDesc: "Veuillez lire les documents suivants avant votre rendez-vous",
+    downloadFlyer: "Télécharger",
+    step3Title: "Opération",
+    step3Pending: "Programmée",
+    step3Done: "Terminée",
+    addToCalendar: "Ajouter au calendrier",
+    fillQuestionnaire: "Remplir le questionnaire",
+    continueQuestionnaire: "Continuer le questionnaire",
+    viewQuestionnaire: "Voir le questionnaire",
+    contactUs: "Contact",
+    questions: "Pour toute question, contactez-nous au :",
+    linkExpired: "Ce lien a expiré",
+    linkNotFound: "Lien non trouvé",
+    loading: "Chargement...",
+    error: "Une erreur s'est produite",
+    switchToEnglish: "Switch to English",
+    switchToGerman: "Auf Deutsch wechseln",
+    general: "Anesthésie générale",
+    sedation: "Sédation",
+    regional_spinal: "Anesthésie spinale",
+    regional_epidural: "Anesthésie épidurale",
+    regional_peripheral: "Anesthésie régionale",
+    local: "Anesthésie locale",
+    standby: "Standby",
+    consentStepTitle: "Signer le consentement éclairé",
+    consentStepDesc: "Veuillez vérifier et signer le consentement éclairé pour l'anesthésie",
+    consentStepDone: "Consentement signé",
+    consentStepAction: "Signer maintenant",
+    consentStepView: "Voir le consentement",
+    consentAnesthesiaTypes: "Procédures d'anesthésie prévues",
+    consentGeneralTitle: "Anesthésie générale",
+    consentGeneralDesc: "Perte complète de conscience par médicaments intraveineux et/ou inhalés.",
+    consentGeneralRisks: "Nausées, vomissements, maux de gorge, dommages dentaires, réveil pendant l'anesthésie (rare), réactions allergiques, complications cardiovasculaires.",
+    consentAnalgosedationTitle: "Analgosédation (Anesthésie surveillée)",
+    consentAnalgosedationDesc: "Sédation légère pour les interventions chirurgicales mineures, généralement combinée avec une anesthésie locale administrée par le chirurgien. Standby anesthésique pour la surveillance et la sécurité du patient.",
+    consentAnalgosedationRisks: "Réactions allergiques, dépression respiratoire, nécessité de passer à l'anesthésie générale, nausées, réactions paradoxales.",
+    consentRegionalTitle: "Anesthésie régionale",
+    consentRegionalDesc: "Anesthésie d'une région spécifique par injections d'anesthésiques locaux (spinale, épidurale, blocs nerveux).",
+    consentRegionalRisks: "Maux de tête, douleurs dorsales, lésions nerveuses (rare), hypotension, saignement, infection au point d'injection.",
+    consentInstallationsTitle: "Installations prévues (voies IV, cathéters)",
+    consentInstallationsDesc: "Mise en place de voies intraveineuses, lignes artérielles, cathéters centraux ou sondes urinaires selon les besoins.",
+    consentInstallationsRisks: "Infection, saignement, hématome, pneumothorax (pour cathéters centraux), thrombose.",
+    consentIcuTitle: "Admission postopératoire en soins intensifs",
+    consentIcuDesc: "Transfert en unité de soins intensifs pour une surveillance étroite après l'opération.",
+    consentIcuPurpose: "Objectif : surveillance hémodynamique étroite, assistance respiratoire, gestion de la douleur et détection précoce des complications.",
+    consentPossibleRisks: "Événements indésirables possibles :",
+    consentDoctorNotes: "Notes supplémentaires du médecin",
+    consentIdRequired: "Vérification d'identité nécessaire",
+    consentIdFront: "Recto",
+    consentIdBack: "Verso",
+    consentUploadId: "Télécharger photo",
+    consentTakePhoto: "Prendre photo",
+    consentChangePhoto: "Changer",
+    consentSignatureRequired: "Signature",
+    consentAddSignature: "Ajouter signature",
+    consentChangeSignature: "Changer signature",
+    consentProxyCheckbox: "Je signe au nom du patient",
+    consentProxyName: "Nom du représentant",
+    consentProxyRelation: "Relation avec le patient",
+    consentProxyRelationLegalGuardian: "Tuteur légal",
+    consentProxyRelationSpouse: "Conjoint/Partenaire",
+    consentProxyRelationParent: "Parent",
+    consentProxyRelationChild: "Enfant",
+    consentProxyRelationOther: "Autre",
+    consentSubmit: "Signer et envoyer",
+    consentSubmitting: "Envoi en cours...",
+    consentSuccess: "Consentement signé avec succès",
+    consentSuccessDesc: "Votre consentement éclairé a été enregistré avec succès.",
+    consentBackToPortal: "Retour au portail",
+    consentAlreadySigned: "Consentement déjà signé",
+    consentAlreadySignedDesc: "Ce consentement a déjà été signé le {date}.",
+    consentMissingFields: "Veuillez remplir tous les champs obligatoires",
+    consentMissingIdFront: "Veuillez télécharger le recto de votre pièce d'identité",
+    consentMissingIdBack: "Veuillez télécharger le verso de votre pièce d'identité",
+    consentMissingSignature: "Veuillez ajouter votre signature",
+    consentMissingProxyName: "Veuillez saisir le nom du représentant",
+    callbackStepTitle: "Entretien de consentement",
+    callbackStepDesc: "Veuillez nous appeler pour fixer un rendez-vous pour l'entretien de consentement.",
+    callbackSlotsTimes: "Horaires disponibles",
   }
 };
 
-type Lang = 'de' | 'en';
+type Lang = 'de' | 'en' | 'it' | 'es' | 'fr';
 
 export default function PatientPortal() {
   const { token } = useParams<{ token: string }>();
   const [, navigate] = useLocation();
-  const [lang, setLang] = useState<Lang>('de');
+  const [lang, setLangState] = useState<Lang>(() => {
+    const saved = localStorage.getItem('patient-portal-language');
+    const supported: Lang[] = ['de', 'en', 'it', 'es', 'fr'];
+    return saved && supported.includes(saved as Lang) ? saved as Lang : 'de';
+  });
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    localStorage.setItem('patient-portal-language', l);
+  };
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('patient-portal-theme');
@@ -378,30 +701,35 @@ export default function PatientPortal() {
 
   useEffect(() => {
     if (data?.language) {
-      setLang(data.language === 'en' ? 'en' : 'de');
+      const savedLang = localStorage.getItem('patient-portal-language');
+      if (!savedLang) {
+        const supported: Lang[] = ['de', 'en', 'it', 'es', 'fr'];
+        setLang(supported.includes(data.language as Lang) ? data.language as Lang : 'de');
+      }
     }
   }, [data?.language]);
 
-  const toggleLanguage = () => {
-    setLang(prev => prev === 'de' ? 'en' : 'de');
+
+  const localeMap: Record<Lang, string> = {
+    de: 'de-CH', en: 'en-US', it: 'it-CH', es: 'es-ES', fr: 'fr-CH',
   };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     };
-    return date.toLocaleDateString(lang === 'de' ? 'de-CH' : 'en-US', options);
+    return date.toLocaleDateString(localeMap[lang], options);
   };
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleTimeString(lang === 'de' ? 'de-CH' : 'en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return date.toLocaleTimeString(localeMap[lang], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -994,16 +1322,19 @@ export default function PatientPortal() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={toggleLanguage}
-              className="flex items-center gap-1.5 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
-              data-testid="button-toggle-language"
-            >
-              <Globe className="h-4 w-4" />
-              {lang === 'de' ? 'EN' : 'DE'}
-            </Button>
+            <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
+              <SelectTrigger className="w-auto gap-1.5 border-gray-200 dark:border-gray-700 dark:bg-gray-800 h-9 px-2.5 text-sm" data-testid="select-language">
+                <Globe className="h-4 w-4 shrink-0" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="de">DE Deutsch</SelectItem>
+                <SelectItem value="en">EN English</SelectItem>
+                <SelectItem value="it">IT Italiano</SelectItem>
+                <SelectItem value="es">ES Español</SelectItem>
+                <SelectItem value="fr">FR Français</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -1237,8 +1568,8 @@ export default function PatientPortal() {
                       </p>
                       {consentInfo.callbackAppointmentSlots.map((slot, idx) => {
                         const d = new Date(slot.date + 'T12:00:00');
-                        const dayName = d.toLocaleDateString(data.language === 'en' ? 'en-US' : 'de-CH', { weekday: 'long' });
-                        const dateStr = d.toLocaleDateString(data.language === 'en' ? 'en-US' : 'de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        const dayName = d.toLocaleDateString(localeMap[lang], { weekday: 'long' });
+                        const dateStr = d.toLocaleDateString(localeMap[lang], { day: '2-digit', month: '2-digit', year: 'numeric' });
                         return (
                           <div key={idx} className="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700" data-testid={`callback-slot-display-${idx}`}>
                             <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />

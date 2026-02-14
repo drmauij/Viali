@@ -101,7 +101,7 @@ const generateLinkSchema = z.object({
   patientId: z.string().min(1, "Patient ID is required"),
   surgeryId: z.string().optional().nullable(),
   expiresInDays: z.number().min(1).max(30).default(7),
-  language: z.enum(['en', 'de']).default('de'),
+  language: z.enum(['en', 'de', 'it', 'es', 'fr']).default('de'),
 });
 
 const saveProgressSchema = z.object({

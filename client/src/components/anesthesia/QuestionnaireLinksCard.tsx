@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n/config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
   Link as LinkIcon,
   ExternalLink
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -61,6 +63,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [emailAddress, setEmailAddress] = useState(patientEmail || "");
   const [expiryDays, setExpiryDays] = useState(7);
+  const [linkLanguage, setLinkLanguage] = useState<string>(i18n.language === 'en' ? 'en' : i18n.language === 'it' ? 'it' : i18n.language === 'es' ? 'es' : i18n.language === 'fr' ? 'fr' : 'de');
 
   const { data: links = [], isLoading } = useQuery<QuestionnaireLink[]>({
     queryKey: ['/api/questionnaire/patient', patientId, 'links'],
@@ -78,7 +81,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   });
 
   const generateLinkMutation = useMutation({
-    mutationFn: async (data: { patientId: string; expiresInDays: number }) => {
+    mutationFn: async (data: { patientId: string; expiresInDays: number; language: string }) => {
       const res = await fetch('/api/questionnaire/generate-link', {
         method: 'POST',
         headers: {
@@ -171,7 +174,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   });
 
   const handleGenerateLink = () => {
-    generateLinkMutation.mutate({ patientId, expiresInDays: expiryDays });
+    generateLinkMutation.mutate({ patientId, expiresInDays: expiryDays, language: linkLanguage });
   };
 
   const handleCopyLink = (token: string) => {
@@ -394,6 +397,21 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                 data-testid="input-expiry-days"
               />
               <p className="text-xs text-muted-foreground">{t('questionnaire.links.expiryDaysHint')}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('questionnaire.links.language', 'Language')}</Label>
+              <Select value={linkLanguage} onValueChange={setLinkLanguage}>
+                <SelectTrigger data-testid="select-link-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="de">Deutsch</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="it">Italiano</SelectItem>
+                  <SelectItem value="es">Español</SelectItem>
+                  <SelectItem value="fr">Français</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex justify-end gap-2">
