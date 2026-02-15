@@ -1838,7 +1838,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Conditionally show TOF (OR mode) or VAS/Scores (PACU mode)
     ...(isPacuMode ? [
       { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
-      { id: "scores", label: t("anesthesia.timeline.scores", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
+      { id: "scores", label: t("anesthesia.timeline.scoresLabel", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
     ] : [
       { id: "tof", label: "TOF", height: 38, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
     ]),

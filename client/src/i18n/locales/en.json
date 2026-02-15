@@ -3817,6 +3817,7 @@
       "pressToRecord": "Press & Hold to Record",
       "onDemandOnly": "On-Demand Only",
       "onDemandOnlyDescription": "Not shown by default, but can be added to individual records when needed",
+      "scoresLabel": "Scores",
       "scores": {
         "clickToAdd": "Click to add Aldrete/PARSAP score",
         "aldrete": "Aldrete",

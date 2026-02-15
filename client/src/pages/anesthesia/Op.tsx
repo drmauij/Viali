@@ -1601,9 +1601,9 @@ export default function Op() {
                   )}
                 </Button>
               )}
-              {!isSurgeryMode && (
-                <Button 
-                  variant="outline" 
+              {!isSurgeryMode && !isPacuMode && (
+                <Button
+                  variant="outline"
                   size="sm"
                   className="flex items-center gap-1 sm:gap-2 shrink-0"
                   data-testid="button-open-sets"

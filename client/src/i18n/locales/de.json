@@ -3898,6 +3898,7 @@
       "pressToRecord": "Gedrückt halten zum Aufnehmen",
       "onDemandOnly": "Nur auf Abruf",
       "onDemandOnlyDescription": "Wird nicht standardmäßig angezeigt, kann aber bei Bedarf zu einzelnen Protokollen hinzugefügt werden",
+      "scoresLabel": "Scores",
       "scores": {
         "clickToAdd": "Klicken um Aldrete/PARSAP-Score hinzuzufuegen",
         "aldrete": "Aldrete",
