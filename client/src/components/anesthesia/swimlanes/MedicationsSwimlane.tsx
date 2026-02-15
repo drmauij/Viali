@@ -504,6 +504,7 @@ export function MedicationsSwimlane({
 
   // Toast for notifications
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Mutation for creating medications
   const createMedicationMutation = useCreateMedication(anesthesiaRecordId);

@@ -20,7 +20,7 @@ export interface WHOChecklistCardProps {
   checklist: Record<string, boolean>;
   notes: string;
   signature: string;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   onChecklistChange: (checklist: Record<string, boolean>) => void;
   onNotesChange: (notes: string) => void;
   onSignatureChange: (signature: string) => void;

@@ -421,7 +421,7 @@ router.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireStric
       ...validated,
     };
 
-    const updatedRecord = await storage.updateAnesthesiaRecord(id, { postOpData: mergedPostOpData });
+    const updatedRecord = await storage.updateAnesthesiaRecord(id, { postOpData: mergedPostOpData } as any);
     
     res.json(updatedRecord);
   } catch (error) {
@@ -455,7 +455,7 @@ router.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requi
       ...validated,
     };
 
-    const updatedRecord = await storage.updateAnesthesiaRecord(id, { surgeryStaff: mergedSurgeryStaff });
+    const updatedRecord = await storage.updateAnesthesiaRecord(id, { surgeryStaff: mergedSurgeryStaff } as any);
     
     broadcastAnesthesiaUpdate({
       recordId: id,
@@ -518,7 +518,7 @@ router.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireStr
       signatures: { ...(existingData.signatures ?? {}), ...(validated.signatures ?? {}) },
     };
 
-    const updatedRecord = await storage.updateAnesthesiaRecord(id, { intraOpData: mergedIntraOpData });
+    const updatedRecord = await storage.updateAnesthesiaRecord(id, { intraOpData: mergedIntraOpData } as any);
     
     broadcastAnesthesiaUpdate({
       recordId: id,
@@ -567,7 +567,7 @@ router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requ
       signatures: { ...(existingData.signatures ?? {}), ...(validated.signatures ?? {}) },
     };
 
-    const updatedRecord = await storage.updateAnesthesiaRecord(id, { countsSterileData: mergedCountsSterileData });
+    const updatedRecord = await storage.updateAnesthesiaRecord(id, { countsSterileData: mergedCountsSterileData } as any);
     
     broadcastAnesthesiaUpdate({
       recordId: id,

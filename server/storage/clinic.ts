@@ -951,7 +951,7 @@ export async function getMultipleStaffAvailability(
   // 6 batch queries in parallel
   const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows, availabilityWindowRows] = await Promise.all([
     // 1. Which staff IDs are providers? (with availability mode)
-    db.select({ userId: userHospitalRoles.userId, availabilityMode: userHospitalRoles.availabilityMode })
+    db.select({ userId: userHospitalRoles.userId, availabilityMode: userHospitalRoles.availabilityMode, isBookable: userHospitalRoles.isBookable })
       .from(userHospitalRoles)
       .where(and(
         sql`${userHospitalRoles.userId} IN ${staffIds}`,
@@ -1033,11 +1033,22 @@ export async function getMultipleStaffAvailability(
   const availabilityModeMap = new Map(clinicProviderRows.map(r => [r.userId, r.availabilityMode]));
   const providersWithWindowsOnDate = new Set(availabilityWindowRows.map(r => r.providerId));
 
+  // A user is bookable if ANY of their roles has isBookable=true
+  const bookableUserIds = new Set(
+    clinicProviderRows.filter(r => r.isBookable).map(r => r.userId)
+  );
+
   const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }> = {};
 
   for (const staffId of staffIds) {
     // Non-providers: always available, no availability check needed
     if (!providerUserIds.has(staffId)) {
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+      continue;
+    }
+
+    // Non-bookable providers: always plannable, skip all availability checks
+    if (!bookableUserIds.has(staffId)) {
       result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
       continue;
     }
@@ -1205,7 +1216,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
   patientLastName: string;
   patientEmail: string | null;
   patientPhone: string | null;
-  patientBirthday: Date | null;
+  patientBirthday: string;
   plannedDate: Date;
   plannedSurgery: string;
   surgeryRoomId: string | null;
@@ -1240,7 +1251,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
       eq(surgeries.hospitalId, hospitalId),
       gte(surgeries.plannedDate, startOfDay),
       lte(surgeries.plannedDate, endOfDay),
-      inArray(surgeries.status, ['planned', 'scheduled', 'confirmed']),
+      inArray(surgeries.status, ['planned', 'scheduled', 'confirmed'] as (typeof surgeries.status._.data)[]),
       isNull(surgeries.archivedAt)
     ));
 
@@ -1252,7 +1263,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
     .from(patientQuestionnaireLinks)
     .where(and(
       or(
-        inArray(patientQuestionnaireLinks.surgeryId, surgeryIds),
+        inArray(patientQuestionnaireLinks.surgeryId, surgeryIds as any),
         inArray(patientQuestionnaireLinks.patientId, patientIds)
       ),
       or(
@@ -1260,25 +1271,25 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
         eq(patientQuestionnaireLinks.smsSent, true)
       )
     )) : [];
-  
+
   const completedLinks = patientIds.length > 0 ? await db
     .select({ patientId: patientQuestionnaireLinks.patientId })
     .from(patientQuestionnaireLinks)
     .where(and(
       eq(patientQuestionnaireLinks.hospitalId, hospitalId),
-      inArray(patientQuestionnaireLinks.status, ['submitted', 'reviewed']),
+      inArray(patientQuestionnaireLinks.status, ['submitted', 'reviewed'] as any),
       inArray(patientQuestionnaireLinks.patientId, patientIds)
     )) : [];
-  
+
   const sentSurgeryIds = new Set(sentLinks.filter(l => l.surgeryId).map(l => l.surgeryId));
   const sentPatientIds = new Set(sentLinks.filter(l => l.patientId).map(l => l.patientId));
   const completedPatientIds = new Set(completedLinks.map(l => l.patientId));
-  
+
   return surgeryResults.map(s => ({
     ...s,
     hasQuestionnaireSent: sentSurgeryIds.has(s.surgeryId) || sentPatientIds.has(s.patientId),
     hasExistingQuestionnaire: completedPatientIds.has(s.patientId),
-  }));
+  })) as any;
 }
 
 export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hoursAhead: number): Promise<Array<{
@@ -1550,7 +1561,7 @@ export async function getExternalSurgeryRequests(hospitalId: string, status?: st
       .from(externalSurgeryRequests)
       .where(and(
         eq(externalSurgeryRequests.hospitalId, hospitalId),
-        eq(externalSurgeryRequests.status, status)
+        eq(externalSurgeryRequests.status, status as typeof externalSurgeryRequests.status._.data)
       ))
       .orderBy(desc(externalSurgeryRequests.createdAt));
   }

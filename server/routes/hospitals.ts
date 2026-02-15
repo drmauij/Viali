@@ -131,7 +131,7 @@ router.post('/api/hospitals/:id/seed', isAuthenticated, requireStrictHospitalAcc
     res.json({
       message: "Hospital seeded successfully",
       result: {
-        locationsCreated: result.locationsCreated,
+        unitsCreated: result.unitsCreated,
         surgeryRoomsCreated: result.surgeryRoomsCreated,
         adminGroupsCreated: result.adminGroupsCreated,
         medicationsCreated: result.medicationsCreated,

@@ -58,7 +58,7 @@ router.post('/api/patients', isAuthenticated, requireStrictHospitalAccess, requi
 
     const validatedData = insertPatientSchema.parse(req.body);
 
-    let patientNumber = validatedData.patientNumber;
+    let patientNumber = (validatedData as any).patientNumber as string | undefined;
     if (!patientNumber) {
       patientNumber = await storage.generatePatientNumber(validatedData.hospitalId);
     }
@@ -424,7 +424,7 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
     const questionnaireDocuments: any[] = [];
 
     // Include both submitted and reviewed questionnaire links
-    const activeLinks = questionnaireLinks.filter(link => link.response && (link.status === 'submitted' || link.status === 'reviewed'));
+    const activeLinks = questionnaireLinks.filter(link => (link as any).response && (link.status === 'submitted' || link.status === 'reviewed'));
 
     // Build a set of questionnaire upload IDs that are already persisted as patientDocuments
     const importedUploadIds = new Set(
@@ -435,7 +435,7 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
 
     for (const link of activeLinks) {
       try {
-        const response = await storage.getQuestionnaireResponse(link.response!.id);
+        const response = await storage.getQuestionnaireResponse((link as any).response!.id);
         if (response) {
           const uploads = await storage.getQuestionnaireUploads(response.id);
           for (const upload of uploads) {
@@ -583,7 +583,7 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
     res.status(201).json(document);
   } catch (error: any) {
     logger.error("Error creating patient document:", error);
-    logger.error("Document data:", { category, fileName, fileUrl, mimeType, fileSize, description });
+    logger.error("Document data:", { category: req.body?.category, fileName: req.body?.fileName, fileUrl: req.body?.fileUrl, mimeType: req.body?.mimeType, fileSize: req.body?.fileSize, description: req.body?.description });
     res.status(500).json({ 
       message: "Failed to create patient document",
       error: error?.message || String(error)
@@ -868,8 +868,8 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
 
     if (upcomingSurgery && upcomingSurgery.surgeryRoomId) {
       const room = await storage.getSurgeryRoomById(upcomingSurgery.surgeryRoomId);
-      if (room && room.unitId) {
-        const unit = await storage.getUnit(room.unitId);
+      if (room && (room as any).unitId) {
+        const unit = await storage.getUnit((room as any).unitId);
         if (unit && unit.infoFlyerUrl) {
           flyers.push({
             unitName: unit.name,

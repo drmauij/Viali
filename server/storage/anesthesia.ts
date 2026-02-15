@@ -2534,7 +2534,7 @@ export async function getAnesthesiaTechniqueDetail(anesthesiaRecordId: string, t
     .where(
       and(
         eq(anesthesiaTechniqueDetails.anesthesiaRecordId, anesthesiaRecordId),
-        eq(anesthesiaTechniqueDetails.technique, technique)
+        eq(anesthesiaTechniqueDetails.technique, technique as any)
       )
     );
   return detail;
@@ -2813,7 +2813,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
   }
 
-  const itemIds = [...new Set(medications.map(m => m.itemId))];
+  const itemIds = Array.from(new Set(medications.map(m => m.itemId)));
   if (itemIds.length === 0) {
     const existingUsage = await db
       .select()
@@ -2859,7 +2859,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
 
   const usageMap = new Map<string, number>();
   
-  for (const [itemId, meds] of medsByItem.entries()) {
+  for (const [itemId, meds] of Array.from(medsByItem.entries())) {
     const item = itemsMap.get(itemId);
     if (!item) {
       continue;
@@ -2873,14 +2873,14 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     let totalQty = 0;
 
     if (isTci) {
-      const startMeds = meds.filter(m => m.type === 'infusion_start');
-      const stopMeds = meds.filter(m => m.type === 'infusion_stop');
+      const startMeds = meds.filter((m: any) => m.type === 'infusion_start');
+      const stopMeds = meds.filter((m: any) => m.type === 'infusion_stop');
       
       const usedStartIds = new Set<string>();
       let totalDose = 0;
       
       for (const stopMed of stopMeds) {
-        const matchingStart = startMeds.find(start => {
+        const matchingStart = startMeds.find((start: any) => {
           if (usedStartIds.has(start.id)) return false;
           
           if (stopMed.infusionSessionId && stopMed.infusionSessionId === start.id) {
@@ -2916,8 +2916,8 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
         totalAmpules: totalQty
       });
     } else if (isBolus) {
-      const bolusMeds = meds.filter(m => m.type === 'bolus');
-      const totalDose = bolusMeds.reduce((sum, med: any) => {
+      const bolusMeds = meds.filter((m: any) => m.type === 'bolus');
+      const totalDose = bolusMeds.reduce((sum: any, med: any) => {
         const doseValue = parseFloat(med.dose?.match(/[\d.]+/)?.[0] || '0');
         return sum + doseValue;
       }, 0);
@@ -2927,7 +2927,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
         totalQty = Math.ceil(totalDose / ampuleValue);
       }
     } else if (isFreeFlow) {
-      const startEvents = meds.filter(m => m.type === 'infusion_start');
+      const startEvents = meds.filter((m: any) => m.type === 'infusion_start');
       totalQty = startEvents.length;
     } else if (isRateControlled) {
       const sessionMap = new Map<string, Array<typeof meds[0]>>();
@@ -2952,20 +2952,20 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
       
       const sessions: InfusionSession[] = [];
       
-      for (const [sessionId, events] of sessionMap.entries()) {
-        const sortedEvents = events.sort((a, b) => 
+      for (const [sessionId, events] of Array.from(sessionMap.entries())) {
+        const sortedEvents = events.sort((a: any, b: any) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
-        
-        const startEvent = sortedEvents.find(e => e.type === 'infusion_start');
-        const stopEvent = sortedEvents.find(e => e.type === 'infusion_stop');
+
+        const startEvent = sortedEvents.find((e: any) => e.type === 'infusion_start');
+        const stopEvent = sortedEvents.find((e: any) => e.type === 'infusion_stop');
         
         const hasStopTime = stopEvent || (startEvent?.endTimestamp);
         
         if (startEvent && hasStopTime) {
           const rateChanges = sortedEvents
-            .filter(e => e.type === 'rate_change')
-            .map(e => ({ 
+            .filter((e: any) => e.type === 'rate_change')
+            .map((e: any) => ({
               timestamp: new Date(e.timestamp), 
               rate: e.rate || '0' 
             }));
@@ -3343,7 +3343,6 @@ export async function commitInventoryUsage(
       if (item.isControlled) {
         await db.insert(activities).values({
           itemId: item.itemId,
-          hospitalId: itemData.hospitalId,
           unitId: itemData.unitId,
           action: 'use',
           delta: -item.quantity,
@@ -3354,7 +3353,7 @@ export async function commitInventoryUsage(
           signatures: signature ? [signature] : [],
           patientId,
           metadata: { beforeQty: currentUnits, afterQty: newUnits },
-        });
+        } as any);
       }
     }
   }
@@ -3476,7 +3475,6 @@ export async function rollbackInventoryCommit(
       if (commitItem.isControlled) {
         await db.insert(activities).values({
           itemId: commitItem.itemId,
-          hospitalId: itemData.hospitalId,
           unitId: itemData.unitId,
           action: 'adjust',
           delta: commitItem.quantity,
@@ -3484,7 +3482,7 @@ export async function rollbackInventoryCommit(
           notes: `Rollback commit: ${reason}`,
           controlledVerified: true,
           metadata: { beforeQty: currentUnits, afterQty: newUnits },
-        });
+        } as any);
       }
     }
   }
@@ -3555,7 +3553,7 @@ export async function getSurgeonChecklistTemplate(id: string): Promise<(SurgeonC
 export async function createSurgeonChecklistTemplate(template: InsertSurgeonChecklistTemplate): Promise<SurgeonChecklistTemplate> {
   const [created] = await db
     .insert(surgeonChecklistTemplates)
-    .values(template)
+    .values(template as any)
     .returning();
   return created;
 }
@@ -3895,7 +3893,7 @@ export async function applyTemplateToFutureSurgeries(templateId: string, hospita
     .where(and(
       eq(surgeries.hospitalId, hospitalId),
       gte(surgeries.plannedDate, today),
-      isNull(surgeries.deletedAt)
+      isNull((surgeries as any).deletedAt)
     ));
 
   let appliedCount = 0;

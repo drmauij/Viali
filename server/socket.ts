@@ -31,7 +31,8 @@ export type AnesthesiaDataSection =
   | 'vas'
   | 'aldrete'
   | 'scores'
-  | 'timeMarkers';
+  | 'timeMarkers'
+  | 'recordMedications';
 
 export interface AnesthesiaUpdatePayload {
   recordId: string;

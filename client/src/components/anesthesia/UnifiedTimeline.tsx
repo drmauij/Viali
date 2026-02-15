@@ -81,7 +81,7 @@ import { useTranslation } from "react-i18next";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
-import { useMedicationState, type MedicationDosePoint } from "@/hooks/useMedicationState";
+import { useMedicationState, type MedicationDosePoint, type FreeFlowSession } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
@@ -292,11 +292,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         const item = anesthesiaItems.find(i => i.id === variables.itemId);
         if (item && item.administrationGroup) {
           const swimlaneId = `admingroup-${item.administrationGroup}-item-${item.id}`;
-          const newSession = {
+          const newSession: FreeFlowSession = {
             id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             swimlaneId,
             startTime: new Date(variables.timestamp).getTime(),
-            dose: variables.dose,
+            dose: variables.dose || '',
             label: item.name,
           };
           console.log('[MEDICATION] Adding free-flow session to local state:', newSession);
@@ -1285,14 +1285,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   } | null>(null);
   const [sheetDoseInput, setSheetDoseInput] = useState("");
   const [sheetTimeInput, setSheetTimeInput] = useState<number>(0);
-  
-  // Type definitions for infusion sessions (managed by useMedicationState hook)
-  type FreeFlowSession = {
-    swimlaneId: string;
-    startTime: number;
-    dose: string;
-    label: string;
-  };
   
   // State for free-flow dose entry dialog (first click, no default dose)
   const [showFreeFlowDoseDialog, setShowFreeFlowDoseDialog] = useState(false);
@@ -6891,7 +6883,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 // Show success message immediately
                 toast({
                   title: t("anesthesia.timeline.toasts.infusionStopped", "Infusion stopped"),
-                  description: t("anesthesia.timeline.toasts.infusionStoppedAt", "{{label}} stopped at {{time}}", { label: session.label, time: formatTime(clickTime) }),
+                  description: t("anesthesia.timeline.toasts.infusionStoppedAt", "{{label}} stopped at {{time}}", { label: session.label, time: formatTime(new Date(clickTime)) }),
                 });
                 
                 // Background: Persist to database
@@ -7679,7 +7671,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           itemId: editingTciAmount.itemId,
                           type: 'manual_total',
                           dose: newDose,
-                          timestamp: new Date().toISOString(),
+                          timestamp: new Date(),
                         }, {
                           onSuccess: () => {
                             toast({
@@ -7745,7 +7737,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         itemId: editingTciAmount.itemId,
                         type: 'manual_total',
                         dose: newDose,
-                        timestamp: new Date().toISOString(),
+                        timestamp: new Date(),
                       }, {
                         onSuccess: () => {
                           toast({
@@ -7777,7 +7769,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <OutputDialog
         open={showOutputDialog}
         onOpenChange={setShowOutputDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingOutputValue={pendingOutputValue}
         onOutputCreated={() => {
           setPendingOutputValue(null);
@@ -7789,7 +7781,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <VentilationDialog
         open={showVentilationDialog}
         onOpenChange={setShowVentilationDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingVentilationValue={pendingVentilationValue}
         onVentilationCreated={() => {
           setPendingVentilationValue(null);
@@ -8064,8 +8056,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   <div className="font-medium">{t(`anesthesia.timeline.timeMarkerLabels.${editingTimeMarker.marker.code}`, editingTimeMarker.marker.label)}</div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>
-                      {editingTimeMarker.marker.time 
-                        ? formatTime(editingTimeMarker.marker.time)
+                      {editingTimeMarker.marker.time
+                        ? formatTime(new Date(editingTimeMarker.marker.time))
                         : t('anesthesia.timeline.editTimeMarker.notSet')}
                     </span>
                     {editingTimeMarker.marker.time && (
@@ -8293,7 +8285,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <EventDialog
         open={showEventDialog}
         onOpenChange={setShowEventDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingEvent={editingEvent}
         pendingEvent={pendingEvent}
         onEventCreated={() => {
@@ -8328,7 +8320,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <VentilationEditDialog
         open={showVentilationEditDialog}
         onOpenChange={setShowVentilationEditDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingVentilationValue={editingVentilationValue}
         onVentilationUpdated={() => {
           setEditingVentilationValue(null);
@@ -8343,7 +8335,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <VentilationModeEditDialog
         open={showVentilationModeEditDialog}
         onOpenChange={setShowVentilationModeEditDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingVentilationMode={editingVentilationMode}
         onVentilationModeUpdated={() => {
           setEditingVentilationMode(null);
@@ -8358,7 +8350,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <VentilationModeAddDialog
         open={showVentilationModeAddDialog}
         onOpenChange={setShowVentilationModeAddDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingVentilationMode={pendingVentilationMode}
         ventilationModeData={ventilationModeData}
         onVentilationModeCreated={() => {
@@ -8371,7 +8363,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <HeartRhythmDialog
         open={showHeartRhythmDialog}
         onOpenChange={setShowHeartRhythmDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingHeartRhythm={editingHeartRhythm}
         pendingHeartRhythm={pendingHeartRhythm}
         onHeartRhythmCreated={() => {
@@ -8391,7 +8383,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <BISDialog
         open={showBISDialog}
         onOpenChange={setShowBISDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingBIS={editingBIS}
         pendingBIS={pendingBIS}
         onBISCreated={() => {
@@ -8411,7 +8403,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <TOFDialog
         open={showTOFDialog}
         onOpenChange={setShowTOFDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingTOF={editingTOF}
         pendingTOF={pendingTOF}
         onTOFCreated={() => {
@@ -8471,7 +8463,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <PositionDialog
         open={showPositionDialog}
         onOpenChange={setShowPositionDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingPosition={editingPosition}
         pendingPosition={pendingPosition}
         onPositionCreated={() => {
@@ -8497,7 +8489,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             setEditingVentilationEntryTimestamp(null);
           }
         }}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingVentilationBulk={pendingVentilationBulk}
         ventilationModeData={ventilationModeData}
         patientWeight={patientWeight}
@@ -8515,7 +8507,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <OutputBulkDialog
         open={showOutputBulkDialog}
         onOpenChange={setShowOutputBulkDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingOutputBulk={pendingOutputBulk}
         onOutputBulkCreated={() => {
           setPendingOutputBulk(null);
@@ -8527,7 +8519,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <OutputEditDialog
         open={showOutputEditDialog}
         onOpenChange={setShowOutputEditDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingOutputValue={editingOutputValue}
         onOutputUpdated={() => {
           setEditingOutputValue(null);
@@ -8542,7 +8534,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <BulkVitalsDialog
         open={showBulkVitalsDialog}
         onOpenChange={setShowBulkVitalsDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         initialTime={bulkVitalsTime}
         onVitalsCreated={() => {
           setShowBulkVitalsDialog(false);

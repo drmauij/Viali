@@ -266,7 +266,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
               const updatedPoints = [...points];
               // Only spread value and timestamp, not pointId
               const { pointId, ...updateFields } = updates;
-              updatedPoints[index] = {
+              (updatedPoints as any)[index] = {
                 ...updatedPoints[index],
                 ...updateFields,
               };

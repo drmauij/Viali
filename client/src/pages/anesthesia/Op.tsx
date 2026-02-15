@@ -590,7 +590,7 @@ export default function Op() {
         try {
           await saveEvent({
             anesthesiaRecordId: anesthesiaRecord.id,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(),
             eventType: 'team_timeout',
             description: 'Team Time Out',
           });
@@ -1062,9 +1062,9 @@ export default function Op() {
   const [intraOpData, setIntraOpData] = useState<{
     positioning?: { RL?: boolean; SL?: boolean; BL?: boolean; SSL?: boolean; EXT?: boolean };
     disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; octanisept?: boolean; betadine?: boolean; performedBy?: string };
-    equipment?: { 
-      monopolar?: boolean; 
-      bipolar?: boolean; 
+    equipment?: {
+      monopolar?: boolean;
+      bipolar?: boolean;
       neutralElectrodeLocation?: string;
       neutralElectrodeSide?: string;
       pathology?: { histology?: boolean; microbiology?: boolean };
@@ -1079,11 +1079,36 @@ export default function Op() {
       contrast?: string;
       ointments?: string;
     };
-    irrigation?: { nacl?: boolean; ringerSolution?: boolean; other?: string };
+    irrigation?: { nacl?: boolean; ringerSolution?: boolean; betadine?: boolean; hydrogenPeroxide?: boolean; other?: string };
     infiltration?: { tumorSolution?: boolean; other?: string };
     medications?: { medication?: string; other?: string };
-    dressing?: { type?: string; other?: string; redon?: boolean };
+    dressing?: {
+      elasticBandage?: boolean;
+      abdominalBelt?: boolean;
+      bra?: boolean;
+      faceLiftMask?: boolean;
+      steristrips?: boolean;
+      comfeel?: boolean;
+      opsite?: boolean;
+      compresses?: boolean;
+      mefix?: boolean;
+      other?: string;
+      type?: string;
+      redon?: boolean;
+    };
     drainage?: { type?: string; count?: number; redonCH?: string; redonCount?: number; other?: string; redon?: boolean };
+    co2Pressure?: {
+      pressure?: number;
+      notes?: string;
+    };
+    tourniquet?: {
+      position?: string;
+      side?: string;
+      pressure?: number;
+      duration?: number;
+      notes?: string;
+    };
+    intraoperativeNotes?: string;
     signatures?: { circulatingNurse?: string; instrumentNurse?: string };
   }>({});
 
@@ -3308,7 +3333,7 @@ export default function Op() {
                             id={`dressing-${item.id}`} 
                             data-testid={`checkbox-dressing-${item.id}`}
                             className="h-4 w-4"
-                            checked={intraOpData.dressing?.[item.key as keyof typeof intraOpData.dressing] ?? false}
+                            checked={!!(intraOpData.dressing?.[item.key as keyof typeof intraOpData.dressing])}
                             onCheckedChange={(checked) => {
                               const updated = {
                                 ...intraOpData,

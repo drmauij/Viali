@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
-import type { InsertClinicalSnapshot, InsertAnesthesiaMedication } from '@shared/schema';
+import type { InsertAnesthesiaMedication } from '@shared/schema';
 
 /**
  * Timeline Persistence Service
@@ -62,8 +62,10 @@ export async function saveVitals(payload: SaveVitalsPayload): Promise<any> {
     throw new Error('data object must contain at least one vital sign');
   }
 
-  // Build request payload matching schema
-  const requestPayload: InsertClinicalSnapshot = {
+  // Build request payload for the backend upsert endpoint.
+  // The backend uses timestamp + simple number values, which differs from
+  // InsertClinicalSnapshot's array-of-points structure.
+  const requestPayload: Record<string, unknown> = {
     anesthesiaRecordId: payload.anesthesiaRecordId,
     timestamp: payload.timestamp,
     data: payload.data,

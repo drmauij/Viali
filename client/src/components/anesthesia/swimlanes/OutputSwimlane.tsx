@@ -166,7 +166,7 @@ export function OutputSwimlane({
             {t('anesthesia.timeline.output.clickForBulkEntry', 'Click for bulk entry')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(outputBulkHoverInfo.time)}
+            {formatTime(new Date(outputBulkHoverInfo.time))}
           </div>
         </div>
       )}
@@ -294,7 +294,7 @@ export function OutputSwimlane({
               {outputHoverInfo.label}
             </div>
             <div className="text-xs text-muted-foreground">
-              {formatTime(outputHoverInfo.time)}
+              {formatTime(new Date(outputHoverInfo.time))}
             </div>
           </div>
         );
@@ -311,7 +311,7 @@ export function OutputSwimlane({
           return [];
         }
 
-        return dataPoints.map((point, index) => {
+        return dataPoints.map((point: any, index: number) => {
           const { id, timestamp, value } = point;
           const xFraction = (timestamp - visibleStart) / visibleRange;
 

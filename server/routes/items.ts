@@ -758,13 +758,13 @@ router.get('/api/items/export-csv', isAuthenticated, async (req: any, res) => {
       
       return [
         item.name || '',
-        item.barcode || '',
+        (item.barcodes || []).join(', '),
         item.description || '',
         item.unit || 'Pack',
-        item.minUnits || 0,
-        item.maxUnits || 0,
+        item.minThreshold || 0,
+        item.maxThreshold || 0,
         item.currentUnits || 0,
-        item.reorderPoint || 0,
+        item.defaultOrderQty || 0,
         item.trackExactQuantity ? 'true' : 'false',
         item.controlled ? 'true' : 'false',
         folderName,

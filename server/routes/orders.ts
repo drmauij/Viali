@@ -152,6 +152,9 @@ router.post('/api/orders', isAuthenticated, requireWriteAccess, async (req: any,
       status: 'draft',
       createdBy: userId,
       totalAmount: '0',
+      notes: null,
+      highPriority: false,
+      sentAt: null,
     });
 
     if (lines && Array.isArray(lines)) {
@@ -178,11 +181,11 @@ router.post('/api/orders/:hospitalId/merge', isAuthenticated, requireStrictHospi
     }
     
     const activeUnitId = getActiveUnitIdFromRequest(req);
-    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId ?? undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
-    
+
     const ordersToMerge = await Promise.all(
       orderIds.map(async (id: string) => {
         const [order] = await db.select().from(orders).where(eq(orders.id, id));
@@ -262,7 +265,7 @@ router.post('/api/orders/:orderId/split', isAuthenticated, requireWriteAccess, a
     }
     
     const activeUnitId = getActiveUnitIdFromRequest(req);
-    const unitId = await getUserUnitForHospital(userId, sourceOrder.hospitalId, activeUnitId);
+    const unitId = await getUserUnitForHospital(userId, sourceOrder.hospitalId, activeUnitId ?? undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -291,6 +294,10 @@ router.post('/api/orders/:orderId/split', isAuthenticated, requireWriteAccess, a
       vendorId: sourceOrder.vendorId,
       status: 'draft',
       createdBy: userId,
+      totalAmount: null,
+      notes: null,
+      highPriority: false,
+      sentAt: null,
     });
     
     await db.update(orderLines)

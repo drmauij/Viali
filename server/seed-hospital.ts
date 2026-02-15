@@ -160,6 +160,12 @@ export async function seedHospitalData(
         isBusinessModule: unitData.type === "business",
         isClinicModule: unitData.type === "clinic",
         isLogisticModule: unitData.type === "logistic",
+        showInventory: true,
+        showAppointments: true,
+        showControlledMedications: false,
+        questionnairePhone: null,
+        infoFlyerUrl: null,
+        hasOwnCalendar: false,
       });
       result.unitsCreated++;
 
@@ -187,6 +193,11 @@ export async function seedHospitalData(
       hospitalId,
       unitId: anesthesiaUnit.id,
       role: "admin",
+      isBookable: false,
+      isDefaultLogin: false,
+      availabilityMode: "always_available",
+      calcomUserId: null,
+      calcomEventTypeId: null,
     });
   }
 

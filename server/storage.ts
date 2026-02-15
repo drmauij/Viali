@@ -446,7 +446,8 @@ export interface IStorage {
     surgeryId: string;
     patientId: string;
     patientName: string;
-    patientNumber: string;
+    dateOfBirth: string | null;
+    sex: string | null;
     age: number;
     procedure: string;
     anesthesiaPresenceEndTime: number;
@@ -614,7 +615,7 @@ export interface IStorage {
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
   calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
-  updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage>;
+  updateInventoryUsage(id: string, overrideQty: number, overrideReason: string, overriddenBy: string): Promise<InventoryUsage>;
   
   // Inventory Commit operations
   commitInventoryUsage(anesthesiaRecordId: string, userId: string, signature: string | null, patientName: string | null, patientId: string | null, unitId?: string | null): Promise<any>;
@@ -855,10 +856,11 @@ export interface IStorage {
     patientLastName: string;
     patientEmail: string | null;
     patientPhone: string | null;
-    patientBirthday: Date | null;
+    patientBirthday: string;
     plannedDate: Date;
     plannedSurgery: string;
     surgeryRoomId: string | null;
+    noPreOpRequired: boolean;
     hasQuestionnaireSent: boolean;
     hasExistingQuestionnaire: boolean;
   }>>;

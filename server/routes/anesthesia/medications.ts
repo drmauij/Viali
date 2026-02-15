@@ -251,7 +251,7 @@ router.patch('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAcc
 
     logger.info('[MEDICATION-UPDATE] Updating medication:', { id, updates });
 
-    const updatedMedication = await storage.updateAnesthesiaMedication(id, updates, userId);
+    const updatedMedication = await storage.updateAnesthesiaMedication(id, updates);
     
     logger.info('[MEDICATION-UPDATE] Updated result:', updatedMedication);
     

@@ -111,7 +111,7 @@ export async function getQuestionnaireResponseByLinkId(linkId: string): Promise<
 export async function updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse> {
   const [updated] = await db
     .update(patientQuestionnaireResponses)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...updates, lastSavedAt: new Date() })
     .where(eq(patientQuestionnaireResponses.id, id))
     .returning();
   return updated;
@@ -120,7 +120,7 @@ export async function updateQuestionnaireResponse(id: string, updates: Partial<P
 export async function submitQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse> {
   const [submitted] = await db
     .update(patientQuestionnaireResponses)
-    .set({ status: 'submitted', submittedAt: new Date(), updatedAt: new Date() })
+    .set({ submittedAt: new Date() })
     .where(eq(patientQuestionnaireResponses.id, id))
     .returning();
   
@@ -138,7 +138,7 @@ export async function submitQuestionnaireResponse(id: string): Promise<PatientQu
 export async function getQuestionnaireResponsesForHospital(hospitalId: string, status?: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]> {
   const conditions = [eq(patientQuestionnaireLinks.hospitalId, hospitalId)];
   if (status) {
-    conditions.push(eq(patientQuestionnaireLinks.status, status));
+    conditions.push(eq(patientQuestionnaireLinks.status, status as typeof patientQuestionnaireLinks.status._.data));
   }
   
   const results = await db
@@ -229,11 +229,6 @@ export async function createQuestionnaireReview(review: InsertPatientQuestionnai
     .insert(patientQuestionnaireReviews)
     .values(review)
     .returning();
-  
-  await db
-    .update(patientQuestionnaireResponses)
-    .set({ status: 'reviewed', updatedAt: new Date() })
-    .where(eq(patientQuestionnaireResponses.id, review.responseId));
   
   const response = await getQuestionnaireResponse(review.responseId);
   if (response) {

@@ -4180,7 +4180,7 @@ export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema
 export const scheduledJobs = pgTable("scheduled_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobType: varchar("job_type", { 
-    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing"] 
+    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing", "sync_calcom", "pre_surgery_reminder"]
   }).notNull(),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   
@@ -4784,10 +4784,9 @@ export const anesthesiaSetItems = pgTable("anesthesia_set_items", {
     location?: string;
     gauge?: string;
     lumens?: number;
-    technique?: string;
     bladderType?: string;
     bladderSize?: string;
-    
+
     // For airway
     airwayDevice?: string;
     size?: string;
@@ -4795,9 +4794,9 @@ export const anesthesiaSetItems = pgTable("anesthesia_set_items", {
     cuffPressure?: number;
     laryngoscopeType?: string;
     laryngoscopeBlade?: string;
-    
-    // For technique
-    technique?: "general" | "sedation" | "regional_spinal" | "regional_epidural" | "regional_peripheral";
+
+    // For installations (technique field) and technique item type
+    technique?: string;
     approach?: "tiva" | "balanced";
     spinalLocation?: string;
     epiduralLocation?: string;

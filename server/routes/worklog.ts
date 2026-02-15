@@ -291,7 +291,7 @@ router.get('/api/hospitals/:hospitalId/worklog/pending', isAuthenticated, async 
     const { hospitalId } = req.params;
     const unitId = getActiveUnitIdFromRequest(req);
     
-    const entries = await storage.getPendingWorklogEntries(hospitalId, unitId);
+    const entries = await storage.getPendingWorklogEntries(hospitalId, unitId ?? undefined);
     res.json(entries);
   } catch (error) {
     logger.error("Error fetching pending worklogs:", error);

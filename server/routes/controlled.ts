@@ -420,11 +420,10 @@ router.delete('/api/controlled/checks/:checkId', isAuthenticated, requireWriteAc
     await storage.createAuditLog({
       recordType: 'controlled_check',
       recordId: checkId,
-      hospitalId: check.hospitalId,
       userId,
       action: 'delete',
-      oldData: check,
-      newData: null,
+      oldValue: check,
+      newValue: null,
       reason: reason || 'Routine verification check deleted',
     });
     

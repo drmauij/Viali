@@ -401,7 +401,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, requireStrictHosp
   }
 });
 
-router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia-sets', [isAuthenticated, requireAdminRole, requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const userId = req.user.id;
     const { hospitalId, name, description, items, medications, inventoryItems } = req.body;
@@ -920,7 +920,7 @@ router.get('/api/inventory-sets/set/:setId', isAuthenticated, requireStrictHospi
   }
 });
 
-router.post('/api/inventory-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.post('/api/inventory-sets', [isAuthenticated, requireAdminRole, requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const userId = req.user.id;
     const { hospitalId, unitId, name, description, items } = req.body;
@@ -1115,7 +1115,7 @@ router.get('/api/surgery-sets/set/:setId', isAuthenticated, requireStrictHospita
   }
 });
 
-router.post('/api/surgery-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.post('/api/surgery-sets', [isAuthenticated, requireAdminRole, requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { hospitalId, name, description, intraOpData, inventoryItems } = req.body;
     const userId = req.user.id;
@@ -1150,7 +1150,7 @@ router.post('/api/surgery-sets', isAuthenticated, requireAdminRole, requireWrite
   }
 });
 
-router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/surgery-sets/:setId', [isAuthenticated, requireAdminRole, requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { setId } = req.params;
     const { name, description, intraOpData, inventoryItems } = req.body;
@@ -1185,7 +1185,7 @@ router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requ
   }
 });
 
-router.delete('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/surgery-sets/:setId', [isAuthenticated, requireAdminRole, requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { setId } = req.params;
 

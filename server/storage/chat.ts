@@ -449,7 +449,7 @@ export async function getUserNotificationsForConversation(userId: string, conver
     eq(chatNotifications.conversationId, conversationId)
   ];
   if (notificationType) {
-    conditions.push(eq(chatNotifications.notificationType, notificationType));
+    conditions.push(eq(chatNotifications.notificationType, notificationType as typeof chatNotifications.notificationType._.data));
   }
   return await db
     .select()

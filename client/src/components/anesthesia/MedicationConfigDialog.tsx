@@ -160,12 +160,13 @@ export function MedicationConfigDialog({
   // Mutation to create a new item
   const createItemMutation = useMutation({
     mutationFn: async (newItem: { name: string }) => {
-      return apiRequest('POST', `/api/items`, { 
-        ...newItem, 
+      const res = await apiRequest('POST', `/api/items`, {
+        ...newItem,
         hospitalId: activeHospitalId,
         unitId: anesthesiaUnitId, // Always create in anesthesia unit
         unit: "Pack" // Default to Pack type for quick-add items
-      }) as Promise<Item>;
+      });
+      return await res.json() as Item;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?module=anesthesia`] });

@@ -3008,7 +3008,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         <div className="border rounded-lg p-3 space-y-1">
           <SectionHeader title={t("questionnaire.summary.personalInfo")} stepIndex={0} />
           <p className="text-sm">{formData.patientFirstName} {formData.patientLastName}</p>
-          {formData.dateOfBirth && <p className="text-sm text-gray-500">{formData.dateOfBirth}</p>}
+          {formData.patientBirthday && <p className="text-sm text-gray-500">{formData.patientBirthday}</p>}
           {formData.patientPhone && <p className="text-sm text-gray-500">{formData.patientPhone}</p>}
         </div>
 

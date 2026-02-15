@@ -215,7 +215,7 @@ export default function EditableValuesDemo() {
                   className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
                 >
                   <span className="text-sm text-muted-foreground w-32">
-                    {formatTime(vital.time)}
+                    {formatTime(new Date(vital.time))}
                   </span>
                   <EditableValue
                     type="vital-point"

@@ -60,7 +60,7 @@ export function useTimelineData({
       };
     }
 
-    const vitals: TimelineVitals = {
+    const vitals: Required<TimelineVitals> = {
       sysBP: [],
       diaBP: [],
       hr: [],
@@ -72,23 +72,23 @@ export function useTimelineData({
       const data = snapshot.data || {};
 
       if (data.sysBP !== undefined) {
-        vitals.sysBP.push({ time: timestamp, value: data.sysBP });
+        vitals.sysBP.push([timestamp, data.sysBP]);
       }
       if (data.diaBP !== undefined) {
-        vitals.diaBP.push({ time: timestamp, value: data.diaBP });
+        vitals.diaBP.push([timestamp, data.diaBP]);
       }
       if (data.hr !== undefined) {
-        vitals.hr.push({ time: timestamp, value: data.hr });
+        vitals.hr.push([timestamp, data.hr]);
       }
       if (data.spo2 !== undefined) {
-        vitals.spo2.push({ time: timestamp, value: data.spo2 });
+        vitals.spo2.push([timestamp, data.spo2]);
       }
     });
 
     const events: TimelineEvent[] = (eventsData || []).map((event: any) => ({
       time: new Date(event.timestamp).getTime(),
-      type: event.eventType || 'event',
-      description: event.description || '',
+      swimlane: event.eventType || 'event',
+      label: event.description || '',
     }));
 
     // Collect timestamps from vitals

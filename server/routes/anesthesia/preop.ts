@@ -85,17 +85,17 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
       return res.status(404).json({ message: "Surgery not found" });
     }
 
-    if (validatedData.allergies !== undefined || validatedData.allergiesOther !== undefined) {
+    if (req.body.allergies !== undefined || req.body.allergiesOther !== undefined) {
       const patientUpdates: any = {};
-      
-      if (validatedData.allergies !== undefined) {
-        patientUpdates.allergies = validatedData.allergies;
+
+      if (req.body.allergies !== undefined) {
+        patientUpdates.allergies = req.body.allergies;
       }
-      
-      if (validatedData.allergiesOther !== undefined) {
-        patientUpdates.otherAllergies = validatedData.allergiesOther;
+
+      if (req.body.allergiesOther !== undefined) {
+        patientUpdates.otherAllergies = req.body.allergiesOther;
       }
-      
+
       await storage.updatePatient(surgery.patientId, patientUpdates);
     }
 
@@ -1450,13 +1450,13 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
     renderIllnessSection(`${t.kidney}:`, assessment.kidneyIllnesses as Record<string, boolean> | null, null);
     renderIllnessSection(`${t.metabolic}:`, assessment.metabolicIllnesses as Record<string, boolean> | null, assessment.giKidneyMetabolicNotes);
     renderIllnessSection(`${t.neuro}:`, assessment.neuroIllnesses as Record<string, boolean> | null, null);
-    renderIllnessSection(`${t.psych}:`, assessment.psychIllnesses as Record<string, boolean> | null, assessment.neuroPsychNotes);
-    renderIllnessSection(`${t.skeletal}:`, assessment.skeletalIllnesses as Record<string, boolean> | null, assessment.skeletalNotes);
+    renderIllnessSection(`${t.psych}:`, assessment.psychIllnesses as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.skeletal}:`, assessment.skeletalIllnesses as Record<string, boolean> | null, assessment.neuroPsychSkeletalNotes);
     renderIllnessSection(`${t.coagulation}:`, assessment.coagulationIllnesses as Record<string, boolean> | null, null);
     renderIllnessSection(`${t.infectious}:`, assessment.infectiousIllnesses as Record<string, boolean> | null, assessment.coagulationInfectiousNotes);
-    renderIllnessSection(`${t.women}:`, assessment.womenIllnesses as Record<string, boolean> | null, assessment.womenNotes);
-    renderIllnessSection(`${t.noxen}:`, assessment.noxenIllnesses as Record<string, boolean> | null, assessment.noxenNotes);
-    renderIllnessSection(`${t.pediatric}:`, assessment.pediatricIllnesses as Record<string, boolean> | null, assessment.pediatricNotes);
+    renderIllnessSection(`${t.women}:`, assessment.womanIssues as Record<string, boolean> | null, assessment.womanNotes);
+    renderIllnessSection(`${t.noxen}:`, assessment.noxen as Record<string, boolean> | null, assessment.noxenNotes);
+    renderIllnessSection(`${t.pediatric}:`, assessment.childrenIssues as Record<string, boolean> | null, assessment.childrenNotes);
 
     yPos += 3;
     checkNewPage(20);
@@ -1467,41 +1467,9 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
 
-    if (assessment.anesthesiaHistory && assessment.anesthesiaHistory.length > 0) {
-      const items = assessment.anesthesiaHistory.filter(h => h).join(', ');
-      if (items) {
-        const lines = doc.splitTextToSize(`${t.anesthesiaHistoryIssues}: ${items}${assessment.anesthesiaHistoryOther ? ', ' + assessment.anesthesiaHistoryOther : ''}`, 165);
-        lines.forEach((line: string) => {
-          checkNewPage();
-          doc.text(line, 20, yPos);
-          yPos += 5;
-        });
-      }
-    }
-
-    if (assessment.dentalIssues && assessment.dentalIssues.length > 0) {
-      const items = assessment.dentalIssues.filter(d => d).join(', ');
-      if (items) {
-        const lines = doc.splitTextToSize(`${t.dentalIssues}: ${items}${assessment.dentalIssuesOther ? ', ' + assessment.dentalIssuesOther : ''}`, 165);
-        lines.forEach((line: string) => {
-          checkNewPage();
-          doc.text(line, 20, yPos);
-          yPos += 5;
-        });
-      }
-    }
-
-    if (assessment.ponvTransfusion && assessment.ponvTransfusion.length > 0) {
-      const items = assessment.ponvTransfusion.filter(p => p).join(', ');
-      if (items) {
-        const lines = doc.splitTextToSize(`${t.ponvTransfusion}: ${items}${assessment.ponvTransfusionOther ? ', ' + assessment.ponvTransfusionOther : ''}`, 165);
-        lines.forEach((line: string) => {
-          checkNewPage();
-          doc.text(line, 20, yPos);
-          yPos += 5;
-        });
-      }
-    }
+    renderIllnessSection(`${t.anesthesiaHistoryIssues}:`, assessment.anesthesiaHistoryIssues as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.dentalIssues}:`, assessment.dentalIssues as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.ponvTransfusion}:`, assessment.ponvTransfusionIssues as Record<string, boolean> | null, null);
 
     if (assessment.previousSurgeries) {
       const lines = doc.splitTextToSize(`${t.previousSurgeries}: ${assessment.previousSurgeries}`, 165);
@@ -1542,37 +1510,40 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
       yPos += 5;
     }
 
-    if (assessment.generalOptions && assessment.generalOptions.length > 0) {
-      const opts = assessment.generalOptions.filter(o => o).join(', ');
-      if (opts) {
-        doc.text(`${t.generalOptions}: ${opts}`, 20, yPos);
-        yPos += 5;
+    if (assessment.anesthesiaTechniques) {
+      const techData = assessment.anesthesiaTechniques as { generalOptions?: Record<string, boolean>; epiduralOptions?: Record<string, boolean>; regionalOptions?: Record<string, boolean> };
+      if (techData.generalOptions) {
+        const options = Object.entries(techData.generalOptions).filter(([_, v]) => v).map(([k]) => k);
+        if (options.length > 0) {
+          doc.text(`${t.generalOptions}: ${options.join(', ')}`, 25, yPos);
+          yPos += 5;
+        }
+      }
+
+      if (techData.epiduralOptions) {
+        const options = Object.entries(techData.epiduralOptions).filter(([_, v]) => v).map(([k]) => k);
+        if (options.length > 0) {
+          doc.text(`${t.epiduralOptions}: ${options.join(', ')}`, 25, yPos);
+          yPos += 5;
+        }
+      }
+
+      if (techData.regionalOptions) {
+        const options = Object.entries(techData.regionalOptions).filter(([_, v]) => v).map(([k]) => k);
+        if (options.length > 0) {
+          doc.text(`${t.regionalOptions}: ${options.join(', ')}`, 25, yPos);
+          yPos += 5;
+        }
       }
     }
 
-    if (assessment.epiduralOptions && assessment.epiduralOptions.length > 0) {
-      const opts = assessment.epiduralOptions.filter(o => o).join(', ');
-      if (opts) {
-        doc.text(`${t.epiduralOptions}: ${opts}`, 20, yPos);
-        yPos += 5;
-      }
-    }
-
-    if (assessment.regionalOptions && assessment.regionalOptions.length > 0) {
-      const opts = assessment.regionalOptions.filter(o => o).join(', ');
-      if (opts) {
-        doc.text(`${t.regionalOptions}: ${opts}`, 20, yPos);
-        yPos += 5;
-      }
-    }
-
-    if (assessment.postOpIcu) {
+    if (assessment.postOpICU) {
       doc.text(`${t.postOpICU}: ${t.yes}`, 20, yPos);
       yPos += 5;
     }
 
-    if (assessment.otherAnesthesiaNotes) {
-      const lines = doc.splitTextToSize(`${t.otherAnesthesiaNotes}: ${assessment.otherAnesthesiaNotes}`, 165);
+    if (assessment.anesthesiaOther) {
+      const lines = doc.splitTextToSize(`${t.otherAnesthesiaNotes}: ${assessment.anesthesiaOther}`, 165);
       lines.forEach((line: string) => {
         checkNewPage();
         doc.text(line, 20, yPos);
@@ -1686,19 +1657,19 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
     doc.setFont('helvetica', 'normal');
 
     const consentItems: string[] = [];
-    if (assessment.consentGeneral) consentItems.push(t.generalConsentGiven);
+    if (assessment.consentGiven) consentItems.push(t.generalConsentGiven);
     if (assessment.consentAnalgosedation) consentItems.push(t.analgosedation);
     if (assessment.consentRegional) consentItems.push(t.regionalAnesthesia);
     if (assessment.consentInstallations) consentItems.push(t.installations);
-    if (assessment.consentIcu) consentItems.push(t.icuIntensiveCare);
+    if (assessment.consentICU) consentItems.push(t.icuIntensiveCare);
 
     if (consentItems.length > 0) {
       doc.text(`${t.consentFor}: ${consentItems.join(', ')}`, 20, yPos);
       yPos += 6;
     }
 
-    if (assessment.consentInfo) {
-      const consentLines = doc.splitTextToSize(`${t.consentInfo}: ${assessment.consentInfo}`, 165);
+    if (assessment.consentText) {
+      const consentLines = doc.splitTextToSize(`${t.consentInfo}: ${assessment.consentText}`, 165);
       consentLines.forEach((line: string) => {
         checkNewPage();
         doc.text(line, 20, yPos);
@@ -1706,8 +1677,8 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
       });
     }
 
-    if (assessment.additionalConsentNotes) {
-      const noteLines = doc.splitTextToSize(`${t.additionalConsentNotes}: ${assessment.additionalConsentNotes}`, 165);
+    if (assessment.consentNotes) {
+      const noteLines = doc.splitTextToSize(`${t.additionalConsentNotes}: ${assessment.consentNotes}`, 165);
       noteLines.forEach((line: string) => {
         checkNewPage();
         doc.text(line, 20, yPos);

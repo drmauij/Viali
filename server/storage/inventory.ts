@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, lte, gte, getTableColumns } from "drizzle-orm";
 import {
   folders,
   items,
@@ -101,7 +101,7 @@ export async function getItems(hospitalId: string, unitId: string, filters?: {
   
   const query = db
     .select({
-      ...items,
+      ...getTableColumns(items),
       stockLevel: stockLevels,
       soonestExpiry: sql<Date>`MIN(${lots.expiryDate})`.as('soonest_expiry'),
     })
@@ -112,7 +112,7 @@ export async function getItems(hospitalId: string, unitId: string, filters?: {
     .groupBy(items.id, stockLevels.id);
 
   const result = await query.orderBy(asc(items.sortOrder), asc(items.name));
-  return result as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[];
+  return result as unknown as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[];
 }
 
 export async function getItem(id: string): Promise<Item | undefined> {

@@ -298,7 +298,7 @@ export function EventsSwimlane({
                 {zeitenHoverInfo.existingMarker.code} - {t(`anesthesia.timeline.timeMarkerLabels.${zeitenHoverInfo.existingMarker.code}`, zeitenHoverInfo.existingMarker.label)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {formatTime(zeitenHoverInfo.existingMarker.time)}
+                {formatTime(new Date(zeitenHoverInfo.existingMarker.time))}
               </div>
               <div className="text-xs text-muted-foreground italic mt-1">
                 {t('anesthesia.timeline.zeitenTooltip.clickToEdit', 'Click to edit')}
@@ -310,7 +310,7 @@ export function EventsSwimlane({
                 {t('anesthesia.timeline.zeitenTooltip.place', 'Place')}: {t(`anesthesia.timeline.timeMarkerLabels.${zeitenHoverInfo.nextMarker}`, zeitenHoverInfo.nextMarker)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {formatTime(zeitenHoverInfo.time)}
+                {formatTime(new Date(zeitenHoverInfo.time))}
               </div>
             </>
           ) : (
@@ -369,7 +369,7 @@ export function EventsSwimlane({
             Click to add event
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(eventHoverInfo.time)}
+            {formatTime(new Date(eventHoverInfo.time))}
           </div>
         </div>
       )}
@@ -391,7 +391,7 @@ export function EventsSwimlane({
                 <HoverIconComponent className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-primary">Event Comment</span>
                 <span className="text-xs text-muted-foreground ml-auto">
-                  {formatTime(hoveredEvent.event.time)}
+                  {formatTime(new Date(hoveredEvent.event.time))}
                 </span>
               </div>
               <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">

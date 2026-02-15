@@ -90,12 +90,12 @@ export async function getActivities(filters: {
     conditions.push(eq(items.unitId, filters.unitId));
   }
 
-  let query = db
+  let query: any = db
     .select({
       ...activities,
       user: users,
       item: items,
-    })
+    } as any)
     .from(activities)
     .innerJoin(users, eq(activities.userId, users.id))
     .leftJoin(items, eq(activities.itemId, items.id));
@@ -110,26 +110,28 @@ export async function getActivities(filters: {
     query = query.limit(filters.limit);
   }
 
-  return await query;
+  return await query as any;
 }
 
 export async function getAlerts(hospitalId: string, unitId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]> {
-  let query = db
+  const baseConditions = [eq(alerts.hospitalId, hospitalId), eq(items.unitId, unitId)];
+  if (acknowledged !== undefined) {
+    baseConditions.push(eq(alerts.acknowledged, acknowledged));
+  }
+
+  const result = await db
     .select({
       ...alerts,
       item: items,
       lot: lots,
-    })
+    } as any)
     .from(alerts)
     .leftJoin(items, eq(alerts.itemId, items.id))
     .leftJoin(lots, eq(alerts.lotId, lots.id))
-    .where(and(eq(alerts.hospitalId, hospitalId), eq(items.unitId, unitId)));
+    .where(and(...baseConditions))
+    .orderBy(desc(alerts.createdAt));
 
-  if (acknowledged !== undefined) {
-    query = query.where(and(eq(alerts.hospitalId, hospitalId), eq(items.unitId, unitId), eq(alerts.acknowledged, acknowledged)));
-  }
-
-  return await query.orderBy(desc(alerts.createdAt));
+  return result as any;
 }
 
 export async function getAlertById(id: string): Promise<Alert | undefined> {
@@ -169,7 +171,7 @@ export async function getControlledChecks(hospitalId: string, unitId: string, li
     .select({
       ...controlledChecks,
       user: users,
-    })
+    } as any)
     .from(controlledChecks)
     .leftJoin(users, eq(controlledChecks.userId, users.id))
     .where(and(
@@ -179,7 +181,7 @@ export async function getControlledChecks(hospitalId: string, unitId: string, li
     .orderBy(desc(controlledChecks.timestamp))
     .limit(limit);
   
-  return checks as (ControlledCheck & { user: User })[];
+  return checks as unknown as (ControlledCheck & { user: User })[];
 }
 
 export async function getControlledCheck(id: string): Promise<ControlledCheck | undefined> {

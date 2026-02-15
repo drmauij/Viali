@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, asc, sql, inArray, or, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, or, isNull, getTableColumns } from "drizzle-orm";
 import logger from "../logger";
 import {
   users,
@@ -433,7 +433,7 @@ export async function getChecklistCompletions(hospitalId: string, unitId?: strin
 
   const completions = await db
     .select({
-      ...checklistCompletions,
+      ...getTableColumns(checklistCompletions),
       template: checklistTemplates,
       completedByUser: users,
     })
@@ -444,13 +444,13 @@ export async function getChecklistCompletions(hospitalId: string, unitId?: strin
     .orderBy(desc(checklistCompletions.completedAt))
     .limit(limit);
 
-  return completions as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[];
+  return completions as unknown as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[];
 }
 
 export async function getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined> {
   const [completion] = await db
     .select({
-      ...checklistCompletions,
+      ...getTableColumns(checklistCompletions),
       template: checklistTemplates,
       completedByUser: users,
     })
@@ -459,7 +459,7 @@ export async function getChecklistCompletion(id: string): Promise<(ChecklistComp
     .leftJoin(users, eq(checklistCompletions.completedBy, users.id))
     .where(eq(checklistCompletions.id, id));
 
-  return completion as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined;
+  return completion as unknown as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined;
 }
 
 export async function getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<{ total: number; overdue: number }> {

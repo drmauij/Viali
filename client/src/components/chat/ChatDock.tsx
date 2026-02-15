@@ -85,6 +85,7 @@ interface ChatDockProps {
   activeHospital?: {
     id: string;
     name: string;
+    role?: string;
     unitId: string;
     unitName: string;
     unitType?: string | null;
@@ -727,7 +728,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   }, [showSlashCommands, slashSearch]);
 
   const createConversationMutation = useMutation({
-    mutationFn: async (data: { scopeType: string; participantIds?: string[]; title?: string }) => {
+    mutationFn: async (data: { scopeType: string; participantIds?: string[]; title?: string; unitId?: string }) => {
       const response = await apiRequest("POST", `/api/chat/${activeHospital?.id}/conversations`, data);
       return response.json();
     },

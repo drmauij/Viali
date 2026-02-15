@@ -53,7 +53,7 @@ export type SwimlaneConfig = {
   administrationUnit?: string | null;
   ampuleTotalContent?: string | null;
   itemId?: string;
-  hierarchyLevel?: 'parent' | 'group' | 'item';
+  hierarchyLevel?: 'parent' | 'group' | 'item' | 'entry';
 };
 
 /**

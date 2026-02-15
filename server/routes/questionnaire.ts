@@ -579,7 +579,7 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
       await storage.createAuditLog({
         recordType: 'questionnaire_review',
         recordId: existingReview.id,
-        action: status === 'completed' ? 'complete' : 'update',
+        action: 'update',
         userId: req.user.id,
         oldValue: { 
           status: existingReview.status,
@@ -654,9 +654,9 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
     const hospital = await storage.getHospital(hospitalId);
     
     // Get unit info for the help line phone number
-    const unit = await storage.getUnit(unitId);
+    const unit = unitId ? await storage.getUnit(unitId) : null;
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
-    
+
     // Get patient info if linked
     let patientName = "Patient";
     if (link.patientId) {
@@ -774,7 +774,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
 
     // Get hospital and unit info for the message
     const hospital = await storage.getHospital(hospitalId);
-    const unit = await storage.getUnit(unitId);
+    const unit = unitId ? await storage.getUnit(unitId) : null;
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
     
     const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
@@ -1768,8 +1768,8 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
       const surgery = await storage.getSurgery(link.surgeryId);
       if (surgery && surgery.surgeryRoomId) {
         const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
-        if (room && room.unitId) {
-          const unit = await storage.getUnit(room.unitId);
+        if (room && (room as any).unitId) {
+          const unit = await storage.getUnit((room as any).unitId);
           if (unit && unit.infoFlyerUrl) {
             flyers.push({
               unitName: unit.name,
@@ -1844,7 +1844,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     }
     
     // Check if link status is invalidated (always block)
-    if (link.status === 'invalidated') {
+    if ((link.status as string) === 'invalidated') {
       const debugInfo = { reason: "invalidated", status: link.status, expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, surgeryId: link.surgeryId, patientId: link.patientId };
       logger.info(`Patient portal: token ${token.substring(0, 10)}... rejected - invalidated`, debugInfo);
       return res.status(410).json({ message: "Link has expired", debug: debugInfo });
@@ -1978,8 +1978,9 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
         // Having an anesthesia record alone doesn't mean surgery is done (records are created early for pre-op)
         const completedStatuses = ['completed', 'discharged', 'finished'];
         const surgeryDatePassed = new Date(surgery.plannedDate) < new Date();
-        surgeryCompleted = completedStatuses.includes(surgery.status || '') || 
-          (surgeryDatePassed && surgery.status !== 'planned' && surgery.status !== 'scheduled' && surgery.status !== 'confirmed');
+        const surgeryStatus = surgery.status as string || '';
+        surgeryCompleted = completedStatuses.includes(surgeryStatus) ||
+          (surgeryDatePassed && surgeryStatus !== 'planned' && surgeryStatus !== 'scheduled' && surgeryStatus !== 'confirmed');
       }
     }
     

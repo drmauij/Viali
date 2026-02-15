@@ -180,7 +180,7 @@ export function VentilationSwimlane({
             {t('anesthesia.timeline.ventilation.clickToAddMode', 'Click to add mode')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(ventilationModeHoverInfo.time)}
+            {formatTime(new Date(ventilationModeHoverInfo.time))}
           </div>
         </div>
       )}
@@ -271,7 +271,7 @@ export function VentilationSwimlane({
             {ventilationHoverInfo.label}
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(ventilationHoverInfo.time)}
+            {formatTime(new Date(ventilationHoverInfo.time))}
           </div>
         </div>
       )}
@@ -306,7 +306,7 @@ export function VentilationSwimlane({
                 id,
               });
             }}
-            title={`${mode} at ${formatTime(timestamp)}`}
+            title={`${mode} at ${formatTime(new Date(timestamp))}`}
             data-testid={`vent-mode-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform">
@@ -383,7 +383,7 @@ export function VentilationSwimlane({
                   id: pointId,
                 });
               }}
-              title={`${labelMap[paramKey]}: ${value} at ${formatTime(timestamp)}`}
+              title={`${labelMap[paramKey]}: ${value} at ${formatTime(new Date(timestamp))}`}
               data-testid={`vent-value-${paramKey}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">

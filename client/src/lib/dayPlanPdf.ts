@@ -184,11 +184,11 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
           const cell = data.cell;
           const surgeonLineIndex = (cell as any).surgeonLineIndex;
           const surgeonLineText = (cell as any).surgeonLineText;
-          const textPos = cell.textPos;
+          const textPos = (cell as any).textPos;
           
           if (textPos && surgeonLineText) {
             // Calculate the Y position for the surgeon line
-            const lineHeight = cell.styles.fontSize * (cell.styles.lineWidth || 1.15);
+            const lineHeight = cell.styles.fontSize * ((cell.styles.lineWidth as number) || 1.15);
             const surgeonY = textPos.y + (surgeonLineIndex * lineHeight);
             
             // Draw a white rectangle to cover the normal text first

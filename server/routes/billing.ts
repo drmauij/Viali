@@ -1888,9 +1888,9 @@ router.post("/api/billing/webhook", async (req, res) => {
             .set({
               status: 'paid',
               paidAt: new Date(),
-              stripePaymentIntentId: typeof invoice.payment_intent === 'string' 
-                ? invoice.payment_intent 
-                : invoice.payment_intent?.id,
+              stripePaymentIntentId: typeof (invoice as any).payment_intent === 'string'
+                ? (invoice as any).payment_intent
+                : (invoice as any).payment_intent?.id,
             })
             .where(eq(billingInvoices.stripeInvoiceId, invoice.id));
         }

@@ -3,7 +3,7 @@ import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
 import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs, inventorySnapshots, stockLevels } from '@shared/schema';
-import { eq, and, isNull, isNotNull, sql, or, inArray, desc } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, sql, or, inArray, desc, gte, lt } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
@@ -41,8 +41,8 @@ async function getRelevantInfoFlyers(
   // Get surgery room's unit flyer
   if (surgeryRoomId) {
     const room = await storage.getSurgeryRoomById(surgeryRoomId);
-    if (room && room.unitId) {
-      const unit = await storage.getUnit(room.unitId);
+    if (room && (room as any).unitId) {
+      const unit = await storage.getUnit((room as any).unitId);
       if (unit && unit.infoFlyerUrl) {
         flyers.push({
           unitName: unit.name,
@@ -774,7 +774,7 @@ async function processNextPriceSyncJob() {
       try {
         // Find all supplier codes for this hospital's items
         const hospitalItemIds = allHospitalItems.map(i => i.itemId);
-        const uniqueItemIds = [...new Set(hospitalItemIds)];
+        const uniqueItemIds = Array.from(new Set(hospitalItemIds));
         
         if (uniqueItemIds.length > 0) {
           // Get all supplier codes for hospital items, grouped to find duplicates
@@ -2369,10 +2369,10 @@ async function processMonthlyBilling(job: any): Promise<void> {
       unit_amount: Math.round(basePrice * 100), // Stripe uses cents
       currency: 'chf',
       description: 'Anesthesia Records (Base)',
-    });
-    
+    } as any);
+
     // Note: questionnaire is now included in base fee, no separate line item
-    
+
     if (hospital.addonDispocura) {
       await stripe.invoiceItems.create({
         customer: hospital.stripeCustomerId,
@@ -2381,9 +2381,9 @@ async function processMonthlyBilling(job: any): Promise<void> {
         unit_amount: Math.round(dispocuraAddOn * 100),
         currency: 'chf',
         description: 'Dispocura Integration Add-on',
-      });
+      } as any);
     }
-    
+
     if (hospital.addonRetell) {
       await stripe.invoiceItems.create({
         customer: hospital.stripeCustomerId,
@@ -2392,9 +2392,9 @@ async function processMonthlyBilling(job: any): Promise<void> {
         unit_amount: Math.round(retellAddOn * 100),
         currency: 'chf',
         description: 'Retell.ai Phone Booking Add-on',
-      });
+      } as any);
     }
-    
+
     if (hospital.addonMonitor) {
       await stripe.invoiceItems.create({
         customer: hospital.stripeCustomerId,
@@ -2403,7 +2403,7 @@ async function processMonthlyBilling(job: any): Promise<void> {
         unit_amount: Math.round(monitorAddOn * 100),
         currency: 'chf',
         description: 'Monitor Camera Connection Add-on',
-      });
+      } as any);
     }
     
     // Finalize and pay invoice

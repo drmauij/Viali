@@ -293,8 +293,16 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       isAnesthesiaModule: true,
       isSurgeryModule: false,
       isBusinessModule: false,
+      isClinicModule: false,
+      isLogisticModule: false,
+      showInventory: true,
+      showAppointments: true,
+      showControlledMedications: false,
+      questionnairePhone: null,
+      infoFlyerUrl: null,
+      hasOwnCalendar: false,
     });
-    
+
     await storage.createUnit({
       hospitalId: hospital.id,
       name: "Operating Room (OR)",
@@ -303,8 +311,16 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       isAnesthesiaModule: false,
       isSurgeryModule: true,
       isBusinessModule: false,
+      isClinicModule: false,
+      isLogisticModule: false,
+      showInventory: true,
+      showAppointments: true,
+      showControlledMedications: false,
+      questionnairePhone: null,
+      infoFlyerUrl: null,
+      hasOwnCalendar: false,
     });
-    
+
     await storage.createUnit({
       hospitalId: hospital.id,
       name: "Emergency Room (ER)",
@@ -313,8 +329,16 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       isAnesthesiaModule: false,
       isSurgeryModule: false,
       isBusinessModule: false,
+      isClinicModule: false,
+      isLogisticModule: false,
+      showInventory: true,
+      showAppointments: true,
+      showControlledMedications: false,
+      questionnairePhone: null,
+      infoFlyerUrl: null,
+      hasOwnCalendar: false,
     });
-    
+
     await storage.createUnit({
       hospitalId: hospital.id,
       name: "Intensive Care Unit (ICU)",
@@ -323,6 +347,14 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       isAnesthesiaModule: false,
       isSurgeryModule: false,
       isBusinessModule: false,
+      isClinicModule: false,
+      isLogisticModule: false,
+      showInventory: true,
+      showAppointments: true,
+      showControlledMedications: false,
+      questionnairePhone: null,
+      infoFlyerUrl: null,
+      hasOwnCalendar: false,
     });
 
     await storage.createUserHospitalRole({
@@ -330,6 +362,11 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       hospitalId: hospital.id,
       unitId: anesthesiaUnit.id,
       role: "admin",
+      isBookable: false,
+      isDefaultLogin: false,
+      availabilityMode: "always_available",
+      calcomUserId: null,
+      calcomEventTypeId: null,
     });
 
     res.status(201).json({ 

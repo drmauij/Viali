@@ -105,7 +105,6 @@ export function StaffDialog({
       updateStaff.mutate(
         {
           id,
-          timestamp: new Date(staffEditTime),
           name,
         },
         {
@@ -122,8 +121,7 @@ export function StaffDialog({
       createStaff.mutate(
         {
           anesthesiaRecordId,
-          timestamp: new Date(time),
-          role,
+          role: role as any,
           name,
         },
         {
@@ -217,7 +215,6 @@ export function StaffDialog({
                         updateStaff.mutate(
                           {
                             id: editingStaff.id,
-                            timestamp: new Date(staffEditTime),
                             name: displayName,
                           },
                           {
@@ -231,8 +228,7 @@ export function StaffDialog({
                         createStaff.mutate(
                           {
                             anesthesiaRecordId,
-                            timestamp: new Date(pendingStaff.time),
-                            role: pendingStaff.role,
+                            role: pendingStaff.role as any,
                             name: displayName,
                           },
                           {

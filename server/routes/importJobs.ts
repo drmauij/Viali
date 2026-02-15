@@ -55,6 +55,8 @@ router.post('/api/import-jobs', isAuthenticated, requireStrictHospitalAccess, re
       status: 'queued',
       totalImages: base64Images.length,
       processedImages: 0,
+      currentImage: 0,
+      progressPercent: 0,
       extractedItems: 0,
       imagesData: base64Images,
       results: null,

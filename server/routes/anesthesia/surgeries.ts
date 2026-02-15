@@ -150,8 +150,7 @@ router.get('/api/anesthesia/surgeries/today/:hospitalId', isAuthenticated, requi
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-    const surgeries = await storage.getSurgeries({
-      hospitalId,
+    const surgeries = await storage.getSurgeries(hospitalId, {
       dateFrom: startOfDay,
       dateTo: endOfDay,
     });
