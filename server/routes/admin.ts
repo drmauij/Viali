@@ -976,7 +976,6 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
     }
 
     // Update the isBookable field in userHospitalRoles
-    // No need to sync clinicProviders anymore - appointments now read from userHospitalRoles
     await db.update(userHospitalRoles)
       .set({ isBookable })
       .where(eq(userHospitalRoles.id, roleId));

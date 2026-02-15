@@ -7,7 +7,6 @@ import {
   surgeries,
   patients,
   userHospitalRoles,
-  clinicProviders,
   providerAvailability,
   providerTimeOff,
   providerAbsences,
@@ -61,9 +60,10 @@ import {
   type InsertExternalSurgeryRequestDocument,
 } from "@shared/schema";
 
-function mapRoleToClinicProvider(role: UserHospitalRole): ClinicProvider {
+function roleToClinicProvider(role: UserHospitalRole): ClinicProvider {
   return {
     id: role.id,
+    hospitalId: role.hospitalId,
     unitId: role.unitId,
     userId: role.userId,
     isBookable: role.isBookable ?? false,
@@ -110,7 +110,7 @@ export async function getClinicProvidersByHospital(hospitalId: string): Promise<
     }
   }
   return Array.from(userMap.values()).map(v => ({ 
-    ...mapRoleToClinicProvider(v.role), 
+    ...roleToClinicProvider(v.role), 
     user: v.user 
   }));
 }
@@ -134,7 +134,7 @@ export async function getBookableProvidersByHospital(hospitalId: string): Promis
   for (const r of results) {
     if (!seen.has(r.role.userId)) {
       seen.add(r.role.userId);
-      unique.push({ ...mapRoleToClinicProvider(r.role), user: r.user });
+      unique.push({ ...roleToClinicProvider(r.role), user: r.user });
     }
   }
   return unique;
@@ -322,7 +322,7 @@ export async function updateProviderAvailabilityMode(hospitalId: string, userId:
     .from(userHospitalRoles)
     .where(eq(userHospitalRoles.id, existing[0].id));
   
-  return mapRoleToClinicProvider(updated);
+  return roleToClinicProvider(updated);
 }
 
 export async function getProviderAvailabilityWindows(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderAvailabilityWindow[]> {

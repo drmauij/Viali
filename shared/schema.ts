@@ -133,7 +133,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   role: varchar("role").notNull(), // doctor, nurse, admin
   isBookable: boolean("is_bookable").default(false), // Whether user can be booked for appointments in this unit
   isDefaultLogin: boolean("is_default_login").default(false), // Default unit/role to load on login
-  // Availability Mode (migrated from clinic_providers):
+  // Availability Mode:
   // - "always_available" (default): Provider is bookable 24/7 except when blocked
   // - "windows_required": Provider is ONLY bookable during defined availability windows
   availabilityMode: varchar("availability_mode", { 
@@ -3894,37 +3894,17 @@ export type InsertPersonalTodo = z.infer<typeof insertPersonalTodoSchema>;
 // CLINIC APPOINTMENT SCHEDULING
 // ============================================
 
-// Clinic Providers - Controls which users appear as bookable providers in the calendar
-// When unitId is NULL and hospitalId is set, this is a hospital-level provider (shared across all units without hasOwnCalendar)
-export const clinicProviders = pgTable("clinic_providers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }), // Hospital-level providers when unitId is null
-  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Unit-specific providers when set
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  isBookable: boolean("is_bookable").default(true).notNull(),
-  
-  // Availability Mode: 
-  // - "always_available" (default): Provider is bookable 24/7 except when blocked (surgeries, time-off, absences)
-  // - "windows_required": Provider is ONLY bookable during defined availability windows
-  availabilityMode: varchar("availability_mode", { 
-    enum: ["always_available", "windows_required"] 
-  }).default("always_available").notNull(),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_clinic_providers_hospital").on(table.hospitalId),
-  index("idx_clinic_providers_unit").on(table.unitId),
-  index("idx_clinic_providers_user").on(table.userId),
-]);
-
-export const insertClinicProviderSchema = createInsertSchema(clinicProviders).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertClinicProvider = z.infer<typeof insertClinicProviderSchema>;
-export type ClinicProvider = typeof clinicProviders.$inferSelect;
+// ClinicProvider shape — returned by clinic storage functions (mapped from userHospitalRoles)
+export interface ClinicProvider {
+  id: string;
+  hospitalId: string | null;
+  unitId: string | null;
+  userId: string;
+  isBookable: boolean;
+  availabilityMode: "always_available" | "windows_required";
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
 
 // Provider Availability - Weekly schedule patterns
 // When unitId is NULL and hospitalId is set, this is hospital-level availability
