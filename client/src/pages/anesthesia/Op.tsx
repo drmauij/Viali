@@ -1501,7 +1501,7 @@ export default function Op() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
-              <div className="flex-1 overflow-x-auto">
+              <div className="flex-1 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                 <TabsList className="inline-flex w-auto min-w-full">
                   {/* Surgery Module Specific Tabs - Staff first */}
                   {isSurgeryMode && (
@@ -1610,7 +1610,7 @@ export default function Op() {
                   onClick={() => setShowSetsDialog(true)}
                 >
                   <Layers className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t('anesthesia.sets.title', 'Sets')}</span>
+                  <span className="hidden sm:inline">{t('anesthesia.sets.buttonLabel', 'Sets')}</span>
                 </Button>
               )}
               {isSurgeryMode && (

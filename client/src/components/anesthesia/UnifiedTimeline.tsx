@@ -6568,13 +6568,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             style={{
               left: leftPos,
               top: '32px',
-              width: '14px',
+              width: '22px',
               height: `${backgroundsHeight - 32}px`,
               backgroundColor: isDark ? 'rgba(139, 92, 246, 0.18)' : 'rgba(139, 92, 246, 0.12)',
-              borderLeft: `2px solid ${isDark ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.35)'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
             data-testid="pacu-divider"
           >
@@ -6582,11 +6578,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               style={{
                 writingMode: 'vertical-rl',
                 textOrientation: 'mixed',
-                fontSize: '10px',
+                fontSize: '13px',
                 fontWeight: 700,
-                letterSpacing: '2px',
-                color: isDark ? 'rgba(167, 139, 250, 0.7)' : 'rgba(109, 40, 217, 0.45)',
+                letterSpacing: '3px',
+                color: isDark ? 'rgba(167, 139, 250, 0.75)' : 'rgba(109, 40, 217, 0.5)',
                 userSelect: 'none',
+                marginTop: '6px',
+                marginRight: '3px',
               }}
             >
               {t('anesthesia.timeline.pacuDividerLabel', 'PACU')}

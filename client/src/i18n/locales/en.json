@@ -3903,6 +3903,7 @@
     },
     "sets": {
       "title": "Anesthesia Sets",
+      "buttonLabel": "Sets",
       "description": "Pre-configured bundles of techniques, medications, and inventory items",
       "createSuccess": "Set created successfully",
       "createError": "Failed to create set",

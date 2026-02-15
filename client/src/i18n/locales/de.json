@@ -3984,6 +3984,7 @@
     },
     "sets": {
       "title": "Anästhesie-Sets",
+      "buttonLabel": "Sets",
       "description": "Vorkonfigurierte Pakete mit Techniken, Medikamenten und Inventarartikeln",
       "createSuccess": "Set erfolgreich erstellt",
       "createError": "Set konnte nicht erstellt werden",
