@@ -98,7 +98,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     return staffOptions.map(s => s.id).join(',');
   }, [staffOptions]);
 
-  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }>>({
+  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }>>({
     queryKey: ['/api/clinic/staff-availability', hospitalId, dateString, staffIdsForAvailability],
     queryFn: async () => {
       if (!staffIdsForAvailability) return {};
@@ -322,29 +322,32 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-purple-600 dark:text-purple-400';
                 const availability = staffAvailability[staff.id];
-                const isBusy = availability?.status === 'busy';
-                const isWarning = availability?.status === 'warning';
-                
+                const isAbsent = availability?.status === 'absent';
+                const isBusy = !isAbsent && availability?.status === 'busy';
+                const isWarning = !isAbsent && availability?.status === 'warning';
+
                 return (
                   <div
                     key={staff.id}
                     className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                      isAlreadyPlanned 
-                        ? 'bg-muted/50 opacity-60 cursor-not-allowed' 
-                        : isBusy
-                          ? 'bg-red-50 dark:bg-red-950/20 opacity-70 cursor-not-allowed'
-                          : isSelected 
-                            ? 'bg-primary/10 border border-primary' 
-                            : isWarning 
-                              ? 'bg-yellow-50 dark:bg-yellow-950/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
-                              : 'hover:bg-accent'
+                      isAlreadyPlanned
+                        ? 'bg-muted/50 opacity-60 cursor-not-allowed'
+                        : isAbsent
+                          ? 'bg-gray-100 dark:bg-gray-800/40 opacity-60 cursor-not-allowed'
+                          : isBusy
+                            ? 'bg-red-50 dark:bg-red-950/20 opacity-70 cursor-not-allowed'
+                            : isSelected
+                              ? 'bg-primary/10 border border-primary'
+                              : isWarning
+                                ? 'bg-yellow-50 dark:bg-yellow-950/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                                : 'hover:bg-accent'
                     }`}
-                    onClick={() => !isAlreadyPlanned && !isBusy && toggleSelection(staff.id)}
+                    onClick={() => !isAlreadyPlanned && !isAbsent && !isBusy && toggleSelection(staff.id)}
                     data-testid={`staff-option-${staff.id}`}
                   >
                     <Checkbox
                       checked={isSelected || isAlreadyPlanned}
-                      disabled={isAlreadyPlanned || isBusy}
+                      disabled={isAlreadyPlanned || isAbsent || isBusy}
                       className="pointer-events-none"
                     />
                     <Icon className={`h-4 w-4 flex-shrink-0 ${colorClass}`} />
@@ -354,6 +357,23 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                         <div className="text-xs text-muted-foreground truncate">{staff.email}</div>
                       )}
                     </div>
+                    {isAbsent && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 gap-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                              <XCircle className="h-3 w-3" />
+                              {t('staffPool.absent', 'Absent')}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              {t('staffPool.absentTooltip', 'Not available: {{reason}}', { reason: availability?.absenceType || t('staffPool.timeOff', 'Time off') })}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     {isBusy && (
                       <TooltipProvider>
                         <Tooltip>
@@ -371,7 +391,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                         </Tooltip>
                       </TooltipProvider>
                     )}
-                    {isWarning && !isBusy && (
+                    {isWarning && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -388,7 +408,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                         </Tooltip>
                       </TooltipProvider>
                     )}
-                    {isAlreadyPlanned && !isBusy && !isWarning && (
+                    {isAlreadyPlanned && !isAbsent && !isBusy && !isWarning && (
                       <Badge variant="secondary" className="text-[10px] px-1.5">
                         {t('staffPool.alreadyPlanned', 'Planned')}
                       </Badge>

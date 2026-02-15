@@ -932,77 +932,178 @@ export async function getStaffAvailabilityForDate(
   staffId: string,
   hospitalId: string,
   date: string
-): Promise<{ busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }> {
-  const WORKDAY_MINUTES = 480;
-
-  const appointments = await db
-    .select({
-      durationMinutes: clinicAppointments.durationMinutes,
-    })
-    .from(clinicAppointments)
-    .where(and(
-      eq(clinicAppointments.providerId, staffId),
-      eq(clinicAppointments.appointmentDate, date),
-      sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
-    ));
-
-  const busyMinutes = appointments.reduce((sum, apt) => sum + (apt.durationMinutes || 0), 0);
-  const busyPercentage = Math.min(100, Math.round((busyMinutes / WORKDAY_MINUTES) * 100));
-
-  let status: 'available' | 'warning' | 'busy' = 'available';
-  if (busyPercentage >= 100) {
-    status = 'busy';
-  } else if (busyPercentage >= 80) {
-    status = 'warning';
-  }
-
-  return { busyMinutes, busyPercentage, status };
+): Promise<{ busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }> {
+  const results = await getMultipleStaffAvailability([staffId], hospitalId, date);
+  return results[staffId] || { busyMinutes: 0, busyPercentage: 0, status: 'available' };
 }
 
 export async function getMultipleStaffAvailability(
   staffIds: string[],
   hospitalId: string,
   date: string
-): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }>> {
+): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }>> {
   if (staffIds.length === 0) {
     return {};
   }
 
   const WORKDAY_MINUTES = 480;
 
-  const appointments = await db
-    .select({
+  // 5 batch queries in parallel
+  const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows] = await Promise.all([
+    // 1. Which staff IDs are clinic providers?
+    db.select({ userId: clinicProviders.userId })
+      .from(clinicProviders)
+      .where(and(
+        sql`${clinicProviders.userId} IN ${staffIds}`,
+        eq(clinicProviders.hospitalId, hospitalId)
+      )),
+
+    // 2. Timebutler-synced absences covering the date
+    db.select({
+      providerId: providerAbsences.providerId,
+      absenceType: providerAbsences.absenceType,
+      startDate: providerAbsences.startDate,
+      endDate: providerAbsences.endDate,
+      isHalfDayStart: providerAbsences.isHalfDayStart,
+      isHalfDayEnd: providerAbsences.isHalfDayEnd,
+    })
+      .from(providerAbsences)
+      .where(and(
+        sql`${providerAbsences.providerId} IN ${staffIds}`,
+        eq(providerAbsences.hospitalId, hospitalId),
+        sql`${providerAbsences.startDate} <= ${date}`,
+        sql`${providerAbsences.endDate} >= ${date}`
+      )),
+
+    // 3. Manual time off covering the date
+    db.select({
+      providerId: providerTimeOff.providerId,
+      startDate: providerTimeOff.startDate,
+      endDate: providerTimeOff.endDate,
+      startTime: providerTimeOff.startTime,
+      endTime: providerTimeOff.endTime,
+      reason: providerTimeOff.reason,
+    })
+      .from(providerTimeOff)
+      .where(and(
+        sql`${providerTimeOff.providerId} IN ${staffIds}`,
+        sql`${providerTimeOff.startDate} <= ${date}`,
+        sql`${providerTimeOff.endDate} >= ${date}`
+      )),
+
+    // 4. Surgeries scheduled for this date (not cancelled, not suspended)
+    db.select({
+      surgeonId: surgeries.surgeonId,
+    })
+      .from(surgeries)
+      .where(and(
+        sql`${surgeries.surgeonId} IN ${staffIds}`,
+        sql`DATE(${surgeries.plannedDate}) = ${date}`,
+        sql`${surgeries.status} != 'cancelled'`,
+        eq(surgeries.isSuspended, false)
+      )),
+
+    // 5. Clinic appointments (existing query)
+    db.select({
       providerId: clinicAppointments.providerId,
       durationMinutes: clinicAppointments.durationMinutes,
     })
-    .from(clinicAppointments)
-    .where(and(
-      sql`${clinicAppointments.providerId} IN ${staffIds}`,
-      eq(clinicAppointments.appointmentDate, date),
-      sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
-    ));
+      .from(clinicAppointments)
+      .where(and(
+        sql`${clinicAppointments.providerId} IN ${staffIds}`,
+        eq(clinicAppointments.appointmentDate, date),
+        sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
+      )),
+  ]);
 
-  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }> = {};
+  // Build set of provider user IDs
+  const providerUserIds = new Set(clinicProviderRows.map(r => r.userId));
+
+  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }> = {};
 
   for (const staffId of staffIds) {
-    result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
-  }
-
-  for (const apt of appointments) {
-    if (apt.providerId && result[apt.providerId]) {
-      result[apt.providerId].busyMinutes += apt.durationMinutes || 0;
+    // Non-providers: always available, no availability check needed
+    if (!providerUserIds.has(staffId)) {
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+      continue;
     }
-  }
 
-  for (const staffId of staffIds) {
-    const busyMinutes = result[staffId].busyMinutes;
+    let busyMinutes = 0;
+    let isAbsent = false;
+    let absenceType: string | undefined;
+
+    // Check Timebutler absences
+    for (const absence of absenceRows) {
+      if (absence.providerId !== staffId) continue;
+
+      const isStartDate = absence.startDate === date;
+      const isEndDate = absence.endDate === date;
+      const isMiddleDate = !isStartDate && !isEndDate;
+
+      if (isMiddleDate) {
+        // Between start and end (exclusive) → full-day absent
+        isAbsent = true;
+        absenceType = absence.absenceType;
+      } else if (isStartDate && absence.isHalfDayStart) {
+        // Half-day start → 240min busy
+        busyMinutes += 240;
+      } else if (isEndDate && absence.isHalfDayEnd) {
+        // Half-day end → 240min busy
+        busyMinutes += 240;
+      } else {
+        // Full-day absent
+        isAbsent = true;
+        absenceType = absence.absenceType;
+      }
+    }
+
+    // Check manual time off (only if not already fully absent)
+    if (!isAbsent) {
+      for (const timeOff of timeOffRows) {
+        if (timeOff.providerId !== staffId) continue;
+
+        if (!timeOff.startTime || !timeOff.endTime) {
+          // Full-day time off (no start/end time)
+          isAbsent = true;
+          absenceType = timeOff.reason || 'timeOff';
+        } else {
+          // Partial time off — calculate minutes
+          const [startH, startM] = timeOff.startTime.split(':').map(Number);
+          const [endH, endM] = timeOff.endTime.split(':').map(Number);
+          const minutes = (endH * 60 + endM) - (startH * 60 + startM);
+          if (minutes > 0) busyMinutes += minutes;
+        }
+      }
+    }
+
+    if (isAbsent) {
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType };
+      continue;
+    }
+
+    // Add surgery minutes (120min per surgery)
+    for (const surgery of surgeryRows) {
+      if (surgery.surgeonId === staffId) {
+        busyMinutes += 120;
+      }
+    }
+
+    // Add appointment minutes
+    for (const apt of appointmentRows) {
+      if (apt.providerId === staffId) {
+        busyMinutes += apt.durationMinutes || 0;
+      }
+    }
+
+    // Calculate percentage and status
     const busyPercentage = Math.min(100, Math.round((busyMinutes / WORKDAY_MINUTES) * 100));
-    let status: 'available' | 'warning' | 'busy' = 'available';
+    let status: 'available' | 'warning' | 'busy' | 'absent' = 'available';
     if (busyPercentage >= 100) {
       status = 'busy';
     } else if (busyPercentage >= 80) {
       status = 'warning';
     }
+
     result[staffId] = { busyMinutes, busyPercentage, status };
   }
 
