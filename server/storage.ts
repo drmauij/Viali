@@ -835,7 +835,7 @@ export interface IStorage {
   deleteClinicAppointment(id: string): Promise<void>;
   
   // Available Slots Calculator
-  getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number): Promise<{ startTime: string; endTime: string }[]>;
+  getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string): Promise<{ startTime: string; endTime: string }[]>;
   
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;

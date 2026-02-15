@@ -561,29 +561,36 @@ export default function ClinicCalendar({
       });
       if (!inWindow) return true;
     } else {
-      // Check weekly schedule for always_available providers
-      // Now supports multiple time slots per day
+      // always_available: bookable if within weekly schedule OR availability window
       const schedule = providerSchedules[providerId];
-      if (schedule) {
-        const dayOfWeek = date.getDay();
-        const dayScheduleSlots = schedule[dayOfWeek];
-        if (!dayScheduleSlots || dayScheduleSlots.length === 0) return true; // Day not in schedule = unavailable
-        
-        // Check if the slot falls within ANY of the available time windows
-        const isWithinAnyWindow = dayScheduleSlots.some(slot => {
-          const [schedStartH, schedStartM] = slot.start.split(':').map(Number);
-          const [schedEndH, schedEndM] = slot.end.split(':').map(Number);
-          const schedStart = new Date(date);
-          schedStart.setHours(schedStartH, schedStartM, 0, 0);
-          const schedEnd = new Date(date);
-          schedEnd.setHours(schedEndH, schedEndM, 0, 0);
-          
-          return slotStart >= schedStart.getTime() && slotEnd <= schedEnd.getTime();
+      const dayOfWeek = date.getDay();
+      const dayScheduleSlots = schedule ? schedule[dayOfWeek] : undefined;
+
+      const isWithinWeeklySchedule = dayScheduleSlots && dayScheduleSlots.length > 0 && dayScheduleSlots.some(slot => {
+        const [schedStartH, schedStartM] = slot.start.split(':').map(Number);
+        const [schedEndH, schedEndM] = slot.end.split(':').map(Number);
+        const schedStart = new Date(date);
+        schedStart.setHours(schedStartH, schedStartM, 0, 0);
+        const schedEnd = new Date(date);
+        schedEnd.setHours(schedEndH, schedEndM, 0, 0);
+        return slotStart >= schedStart.getTime() && slotEnd <= schedEnd.getTime();
+      });
+
+      if (!isWithinWeeklySchedule) {
+        // Check availability windows as fallback
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const inWindow = availabilityWindows.some(window => {
+          if (window.providerId !== providerId) return false;
+          if (window.date !== dateStr) return false;
+          const [winStartH, winStartM] = window.startTime.split(':').map(Number);
+          const [winEndH, winEndM] = window.endTime.split(':').map(Number);
+          const winStart = new Date(date);
+          winStart.setHours(winStartH, winStartM, 0, 0);
+          const winEnd = new Date(date);
+          winEnd.setHours(winEndH, winEndM, 0, 0);
+          return slotStart >= winStart.getTime() && slotEnd <= winEnd.getTime();
         });
-        
-        if (!isWithinAnyWindow) {
-          return true; // Slot is outside all available windows
-        }
+        if (!inWindow) return true; // Not in schedule AND not in window = blocked
       }
     }
 
@@ -1074,10 +1081,11 @@ export default function ClinicCalendar({
           borderColor: '#16a34a',
           color: '#ffffff',
           borderRadius: '4px',
-          opacity: 0.6,
-          border: '2px dashed',
+          opacity: 0.15,
+          border: '2px dashed #22c55e',
           display: 'block',
           cursor: 'default',
+          pointerEvents: 'none' as const,
         },
       };
     }

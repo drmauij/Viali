@@ -1407,7 +1407,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       // - Time off / absences (Timebutler)
       // - Existing surgeries and appointments
       // - Availability windows for windows_required mode
-      const availableSlots = await storage.getAvailableSlots(providerId, unitId, appointmentDate, durationMinutes);
+      const availableSlots = await storage.getAvailableSlots(providerId, unitId, appointmentDate, durationMinutes, hospitalId);
       
       // Check if the requested time slot is available
       const requestedStartTime = startTime;
@@ -1596,16 +1596,16 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
 // Get available slots for a provider on a specific date
 router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/available-slots', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const { date, duration } = req.query;
-    
+
     if (!date) {
       return res.status(400).json({ message: "Date is required" });
     }
-    
+
     const durationMinutes = parseInt(duration as string) || 30;
-    
-    const slots = await storage.getAvailableSlots(providerId, unitId, date as string, durationMinutes);
+
+    const slots = await storage.getAvailableSlots(providerId, unitId, date as string, durationMinutes, hospitalId);
     
     res.json(slots);
   } catch (error) {

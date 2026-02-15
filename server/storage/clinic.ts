@@ -760,10 +760,27 @@ export async function deleteClinicAppointment(id: string): Promise<void> {
     .where(eq(clinicAppointments.id, id));
 }
 
-export async function getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number): Promise<{ startTime: string; endTime: string }[]> {
+export async function getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string): Promise<{ startTime: string; endTime: string }[]> {
   const dateObj = new Date(date);
   const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
-  
+
+  // Look up provider's availability mode
+  let availabilityMode = 'always_available';
+  if (hospitalId) {
+    const roleResult = await db
+      .select({ availabilityMode: userHospitalRoles.availabilityMode })
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.userId, providerId),
+        eq(userHospitalRoles.hospitalId, hospitalId)
+      ))
+      .limit(1);
+    if (roleResult.length > 0 && roleResult[0].availabilityMode) {
+      availabilityMode = roleResult[0].availabilityMode;
+    }
+  }
+
+  // Query weekly schedule
   const availabilityList = await db
     .select()
     .from(providerAvailability)
@@ -774,11 +791,42 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       eq(providerAvailability.isActive, true)
     ))
     .orderBy(providerAvailability.startTime);
-  
-  if (availabilityList.length === 0) {
+
+  // Query availability windows for this specific date
+  const windowConditions = [
+    eq(providerAvailabilityWindows.providerId, providerId),
+    eq(providerAvailabilityWindows.date, date),
+  ];
+  // Match unit-level OR hospital-level windows
+  if (hospitalId) {
+    windowConditions.push(
+      or(
+        eq(providerAvailabilityWindows.unitId, unitId),
+        and(
+          eq(providerAvailabilityWindows.hospitalId, hospitalId),
+          isNull(providerAvailabilityWindows.unitId)
+        )!
+      )!
+    );
+  } else {
+    windowConditions.push(eq(providerAvailabilityWindows.unitId, unitId));
+  }
+  const windowList = await db
+    .select()
+    .from(providerAvailabilityWindows)
+    .where(and(...windowConditions))
+    .orderBy(providerAvailabilityWindows.startTime);
+
+  // For windows_required mode, only use windows (ignore weekly schedule)
+  // For always_available mode, use weekly schedule + windows
+  const useWeeklySchedule = availabilityMode === 'always_available';
+  const hasScheduleSources = (useWeeklySchedule && availabilityList.length > 0) || windowList.length > 0;
+
+  if (!hasScheduleSources) {
     return [];
   }
-  
+
+  // Fetch blocking data
   const timeOffList = await db
     .select()
     .from(providerTimeOff)
@@ -788,7 +836,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       lte(providerTimeOff.startDate, date),
       gte(providerTimeOff.endDate, date)
     ));
-  
+
   const absenceList = await db
     .select()
     .from(providerAbsences)
@@ -797,7 +845,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       lte(providerAbsences.startDate, date),
       gte(providerAbsences.endDate, date)
     ));
-  
+
   const surgeryList = await db
     .select()
     .from(surgeries)
@@ -805,7 +853,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       eq(surgeries.surgeonId, providerId),
       sql`DATE(${surgeries.plannedDate}) = ${date}`
     ));
-  
+
   const existingAppointments = await db
     .select()
     .from(clinicAppointments)
@@ -814,52 +862,69 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       eq(clinicAppointments.appointmentDate, date),
       sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
     ));
-  
+
   const hasFullDayOff = timeOffList.some(t => !t.startTime && !t.endTime);
   const hasAbsence = absenceList.length > 0;
-  
+
   if (hasFullDayOff || hasAbsence) {
     return [];
   }
-  
-  const slots: { startTime: string; endTime: string }[] = [];
-  
-  for (const availability of availabilityList) {
-    const startMinutes = timeToMinutes(availability.startTime);
-    const endMinutes = timeToMinutes(availability.endTime);
-    const slotDuration = availability.slotDurationMinutes || 30;
-    
+
+  // Helper to generate slots from a time range, checking conflicts
+  function generateSlots(rangeStart: string, rangeEnd: string, slotDuration: number): { startTime: string; endTime: string }[] {
+    const result: { startTime: string; endTime: string }[] = [];
+    const startMinutes = timeToMinutes(rangeStart);
+    const endMinutes = timeToMinutes(rangeEnd);
+
     for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += slotDuration) {
       const slotStart = minutesToTime(mins);
       const slotEnd = minutesToTime(mins + durationMinutes);
-      
+
       const conflictsWithTimeOff = timeOffList.some(t => {
         if (!t.startTime || !t.endTime) return false;
         const offStart = timeToMinutes(t.startTime);
         const offEnd = timeToMinutes(t.endTime);
         return mins < offEnd && mins + durationMinutes > offStart;
       });
-      
+
       const conflictsWithAppointment = existingAppointments.some(a => {
         const apptStart = timeToMinutes(a.startTime);
         const apptEnd = timeToMinutes(a.endTime);
         return mins < apptEnd && mins + durationMinutes > apptStart;
       });
-      
+
       const conflictsWithSurgery = surgeryList.length > 0;
-      
+
       if (!conflictsWithTimeOff && !conflictsWithAppointment && !conflictsWithSurgery) {
-        slots.push({ startTime: slotStart, endTime: slotEnd });
+        result.push({ startTime: slotStart, endTime: slotEnd });
       }
     }
+    return result;
   }
-  
+
+  const slots: { startTime: string; endTime: string }[] = [];
+
+  // Generate slots from weekly schedule (always_available mode only)
+  if (useWeeklySchedule) {
+    for (const availability of availabilityList) {
+      const slotDuration = availability.slotDurationMinutes || 30;
+      slots.push(...generateSlots(availability.startTime, availability.endTime, slotDuration));
+    }
+  }
+
+  // Generate slots from availability windows (both modes)
+  for (const window of windowList) {
+    const slotDuration = window.slotDurationMinutes || 30;
+    slots.push(...generateSlots(window.startTime, window.endTime, slotDuration));
+  }
+
+  // Deduplicate and sort
   const uniqueSlots = slots
     .sort((a, b) => a.startTime.localeCompare(b.startTime))
-    .filter((slot, index, arr) => 
+    .filter((slot, index, arr) =>
       index === 0 || slot.startTime !== arr[index - 1].startTime
     );
-  
+
   return uniqueSlots;
 }
 
