@@ -187,12 +187,15 @@ export async function setProviderAvailability(providerId: string, unitId: string
   
   const inserted = await db
     .insert(providerAvailability)
-    .values(availability.map(a => ({ 
-      ...a, 
-      providerId, 
-      unitId: unitId ?? undefined,
-      hospitalId: unitId === null ? hospitalId : undefined
-    })))
+    .values(availability.map(a => {
+      const { id: _id, ...rest } = a as any;
+      return {
+        ...rest,
+        providerId,
+        unitId: unitId ?? undefined,
+        hospitalId: unitId === null ? hospitalId : undefined
+      };
+    }))
     .returning();
   
   return inserted;
