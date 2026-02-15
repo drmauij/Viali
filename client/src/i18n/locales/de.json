@@ -2931,6 +2931,7 @@
       "urinaryCatheter": "Blasenkatheter",
       "nasogastricTube": "Nasogastralsonde",
       "peripheralIv": "Peripherer IV-Zugang",
+      "peripheralIV": "Peripherer IV-Zugang",
       "otherInstallations": "Weitere Installationen",
       "otherInstallationsPlaceholder": "Zusätzliche Installationen eingeben...",
       "assessmentCompletion": "Assessment-Abschluss",
@@ -3552,6 +3553,7 @@
       "times": "Zeiten",
       "events": "Ereignisse",
       "heartRhythm": {
+        "label": "Herzrhythmus",
         "clickToAdd": "Klicken um Rhythmus hinzuzufuegen"
       },
       "heartRhythmDialog": {
@@ -3640,10 +3642,12 @@
       },
       "medications": "Medikamente",
       "position": {
+        "label": "Lagerung",
         "clickToAdd": "Klicken um Lagerung hinzuzufuegen"
       },
       "staff": "Personal",
       "ventilation": {
+        "label": "Beatmung",
         "clickToAddMode": "Klicken um Modus hinzuzufuegen",
         "clickToAddValue": "Klicken um Wert hinzuzufuegen"
       },
@@ -3665,6 +3669,7 @@
       "addAll": "Alle hinzufügen",
       "save": "Speichern",
       "output": {
+        "label": "Ausscheidung",
         "clickForBulkEntry": "Klicken fuer Sammel-Eingabe",
         "clickToEdit": "Klicken um Wert zu bearbeiten",
         "clickToAdd": "Klicken um Wert hinzuzufuegen"

@@ -2850,6 +2850,7 @@
       "urinaryCatheter": "Urinary Catheter",
       "nasogastricTube": "Nasogastric Tube",
       "peripheralIv": "Peripheral IV",
+      "peripheralIV": "Peripheral IV",
       "otherInstallations": "Other Installations",
       "otherInstallationsPlaceholder": "Enter additional installations...",
       "assessmentCompletion": "Assessment Completion",
@@ -3471,6 +3472,7 @@
       "times": "Times",
       "events": "Events",
       "heartRhythm": {
+        "label": "Heart Rhythm",
         "clickToAdd": "Click to add rhythm"
       },
       "heartRhythmDialog": {
@@ -3559,10 +3561,12 @@
       },
       "medications": "Medications",
       "position": {
+        "label": "Position",
         "clickToAdd": "Click to add position"
       },
       "staff": "Staff",
       "ventilation": {
+        "label": "Ventilation",
         "clickToAddMode": "Click to add mode",
         "clickToAddValue": "Click to add value"
       },
@@ -3584,6 +3588,7 @@
       "addAll": "Add All",
       "save": "Save",
       "output": {
+        "label": "Output",
         "clickForBulkEntry": "Click for bulk entry",
         "clickToEdit": "Click to edit value",
         "clickToAdd": "Click to add value"
