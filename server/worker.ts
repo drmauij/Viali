@@ -1915,15 +1915,30 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       let portalUrl = '';
       if (surgery.patientId) {
         const links = await storage.getQuestionnaireLinksForPatient(surgery.patientId);
-        const activeLink = links.find(l =>
+        let activeLink = links.find(l =>
           l.hospitalId === hospitalId &&
           l.status !== 'expired' &&
           l.expiresAt && new Date(l.expiresAt) > new Date()
         );
-        if (activeLink) {
-          const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
-          portalUrl = `${baseUrl}/patient/${activeLink.token}`;
+
+        // Auto-create link if none exists (e.g. surgery scheduled <14 days ahead)
+        if (!activeLink) {
+          const linkToken = randomUUID();
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 14);
+          activeLink = await storage.createQuestionnaireLink({
+            hospitalId,
+            patientId: surgery.patientId,
+            surgeryId: surgery.surgeryId,
+            token: linkToken,
+            expiresAt,
+            status: 'pending',
+            language: 'de',
+          });
         }
+
+        const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
+        portalUrl = `${baseUrl}/patient/${activeLink.token}`;
       }
       
       const isLASurgery = surgery.noPreOpRequired;
