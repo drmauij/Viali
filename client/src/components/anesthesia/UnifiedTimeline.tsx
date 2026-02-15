@@ -6568,7 +6568,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             style={{
               left: leftPos,
               top: '32px',
-              width: '28px',
+              width: '36px',
               height: `${backgroundsHeight - 32}px`,
               backgroundColor: isDark ? 'rgba(139, 92, 246, 0.18)' : 'rgba(139, 92, 246, 0.12)',
             }}
@@ -6578,13 +6578,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               style={{
                 writingMode: 'vertical-rl',
                 textOrientation: 'mixed',
-                fontSize: '13px',
+                fontSize: '16px',
                 fontWeight: 700,
-                letterSpacing: '3px',
+                letterSpacing: '4px',
                 color: isDark ? 'rgba(167, 139, 250, 0.75)' : 'rgba(109, 40, 217, 0.5)',
                 userSelect: 'none',
-                marginTop: '14px',
-                marginRight: '5px',
+                marginTop: '24px',
+                marginRight: '7px',
               }}
             >
               {t('anesthesia.timeline.pacuDividerLabel', 'PACU')}
