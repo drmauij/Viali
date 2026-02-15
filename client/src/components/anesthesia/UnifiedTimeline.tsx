@@ -642,6 +642,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     anesthesiaRecord,
     rateInfusionSessions,
     freeFlowSessions,
+    isPacuMode,
   });
 
   // State for interactive vital entry
@@ -6549,6 +6550,50 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           })}
         </div>
       )}
+
+      {/* PACU divider — marks the transition from surgery to PACU at the A2 time point */}
+      {(() => {
+        const a2Marker = timeMarkers.find(m => m.code === 'A2' && m.time !== null);
+        if (!a2Marker?.time) return null;
+        const visStart = currentZoomStart ?? data.startTime;
+        const visEnd = currentZoomEnd ?? data.endTime;
+        const visRange = visEnd - visStart;
+        if (visRange <= 0) return null;
+        const xFrac = (a2Marker.time - visStart) / visRange;
+        if (xFrac < -0.05 || xFrac > 1.05) return null;
+        const leftPos = `calc(200px + ${xFrac} * (100% - 210px))`;
+        return (
+          <div
+            className="absolute z-30 pointer-events-none"
+            style={{
+              left: leftPos,
+              top: '32px',
+              width: '14px',
+              height: `${backgroundsHeight - 32}px`,
+              backgroundColor: isDark ? 'rgba(139, 92, 246, 0.18)' : 'rgba(139, 92, 246, 0.12)',
+              borderLeft: `2px solid ${isDark ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.35)'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            data-testid="pacu-divider"
+          >
+            <span
+              style={{
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '2px',
+                color: isDark ? 'rgba(167, 139, 250, 0.7)' : 'rgba(109, 40, 217, 0.45)',
+                userSelect: 'none',
+              }}
+            >
+              PACU
+            </span>
+          </div>
+        );
+      })()}
 
       {/* NOW line - Current time indicator (hidden for historical records) */}
       {!isHistoricalRecord && (

@@ -25,6 +25,7 @@ interface UseViewportControllerParams {
   anesthesiaRecord?: any;
   rateInfusionSessions: RateInfusionSessions;
   freeFlowSessions: FreeFlowSessions;
+  isPacuMode?: boolean;
 }
 
 export interface ViewportControllerReturn {
@@ -74,6 +75,7 @@ export function useViewportController({
   anesthesiaRecord,
   rateInfusionSessions,
   freeFlowSessions,
+  isPacuMode = false,
 }: UseViewportControllerParams): ViewportControllerReturn {
 
   const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
@@ -112,15 +114,18 @@ export function useViewportController({
     if (data.isHistoricalData) return true;
     if (anesthesiaRecord?.caseStatus === 'closed' || anesthesiaRecord?.caseStatus === 'amended') return true;
     if (anesthesiaRecord?.isLocked) return true;
-    const timeMarkersArray = anesthesiaRecord?.timeMarkers;
-    if (Array.isArray(timeMarkersArray)) {
-      const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
-      if (a2Marker?.time && isFinite(a2Marker.time)) return true;
+    // In PACU mode, A2 being set doesn't mean the record is historical — PACU is still active
+    if (!isPacuMode) {
+      const timeMarkersArray = anesthesiaRecord?.timeMarkers;
+      if (Array.isArray(timeMarkersArray)) {
+        const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
+        if (a2Marker?.time && isFinite(a2Marker.time)) return true;
+      }
     }
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     if (isFinite(data.endTime) && data.endTime < oneHourAgo) return true;
     return false;
-  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData]);
+  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData, isPacuMode]);
 
   const shouldAutoRecenterView = useMemo(() => {
     if (!anesthesiaRecord?.isLocked) return false;
