@@ -144,7 +144,7 @@ export function PatientCommunicationContent({
     queryFn: async () => {
       const res = await fetch(`/api/questionnaire/patient/${patientId}/links`, {
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
       });
@@ -159,7 +159,7 @@ export function PatientCommunicationContent({
     queryFn: async () => {
       const res = await fetch(`/api/patients/${patientId}/messages`, {
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
       });
@@ -224,7 +224,7 @@ export function PatientCommunicationContent({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify({ patientId, expiresInDays: 7 }),
@@ -251,7 +251,7 @@ export function PatientCommunicationContent({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify({ 
@@ -292,7 +292,7 @@ export function PatientCommunicationContent({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify({ 
