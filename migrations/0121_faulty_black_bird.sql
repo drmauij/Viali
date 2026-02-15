@@ -1,1 +1,1 @@
-DROP TABLE "clinic_providers" CASCADE;
+DROP TABLE IF EXISTS "clinic_providers" CASCADE;
