@@ -6589,7 +6589,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 userSelect: 'none',
               }}
             >
-              PACU
+              {t('anesthesia.timeline.pacuDividerLabel', 'PACU')}
             </span>
           </div>
         );

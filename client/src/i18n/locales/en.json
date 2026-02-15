@@ -3818,6 +3818,7 @@
       "onDemandOnly": "On-Demand Only",
       "onDemandOnlyDescription": "Not shown by default, but can be added to individual records when needed",
       "scoresLabel": "Scores",
+      "pacuDividerLabel": "PACU",
       "scores": {
         "clickToAdd": "Click to add Aldrete/PARSAP score",
         "aldrete": "Aldrete",
