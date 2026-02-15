@@ -368,7 +368,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="text-xs">
-                              {t('staffPool.absentTooltip', 'Not available: {{reason}}', { reason: availability?.absenceType || t('staffPool.timeOff', 'Time off') })}
+                              {t('staffPool.absentTooltip', 'Not available: {{reason}}', { reason: availability?.absenceType ? (t(`staffPool.${availability.absenceType}`, '') || availability.absenceType) : t('staffPool.timeOff', 'Time off') })}
                             </p>
                           </TooltipContent>
                         </Tooltip>

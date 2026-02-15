@@ -5825,6 +5825,7 @@
     "warningTooltip": "Has {{hours}}h of clinic appointments ({{percent}}% of day)",
     "absent": "Absent",
     "absentTooltip": "Not available: {{reason}}",
+    "noAvailability": "No availability",
     "timeOff": "Time off",
     "removedFromPool": "Staff removed from pool",
     "removeError": "Failed to remove staff from pool",

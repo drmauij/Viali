@@ -5926,6 +5926,7 @@
     "warningTooltip": "Hat {{hours}}h Praxistermine ({{percent}}% des Tages)",
     "absent": "Abwesend",
     "absentTooltip": "Nicht verfügbar: {{reason}}",
+    "noAvailability": "Keine Verfügbarkeit",
     "timeOff": "Frei",
     "removedFromPool": "Personal aus Pool entfernt",
     "removeError": "Personal konnte nicht aus dem Pool entfernt werden",

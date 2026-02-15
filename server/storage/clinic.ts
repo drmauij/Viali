@@ -948,10 +948,10 @@ export async function getMultipleStaffAvailability(
 
   const WORKDAY_MINUTES = 480;
 
-  // 5 batch queries in parallel
-  const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows] = await Promise.all([
-    // 1. Which staff IDs are clinic providers?
-    db.select({ userId: clinicProviders.userId })
+  // 6 batch queries in parallel
+  const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows, availabilityWindowRows] = await Promise.all([
+    // 1. Which staff IDs are clinic providers? (include availability mode)
+    db.select({ userId: clinicProviders.userId, availabilityMode: clinicProviders.availabilityMode })
       .from(clinicProviders)
       .where(and(
         sql`${clinicProviders.userId} IN ${staffIds}`,
@@ -1014,10 +1014,24 @@ export async function getMultipleStaffAvailability(
         eq(clinicAppointments.appointmentDate, date),
         sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
       )),
+
+    // 6. Provider availability windows for this date
+    db.select({ providerId: providerAvailabilityWindows.providerId })
+      .from(providerAvailabilityWindows)
+      .where(and(
+        sql`${providerAvailabilityWindows.providerId} IN ${staffIds}`,
+        eq(providerAvailabilityWindows.date, date),
+        or(
+          eq(providerAvailabilityWindows.hospitalId, hospitalId),
+          sql`${providerAvailabilityWindows.unitId} IS NOT NULL`
+        )
+      )),
   ]);
 
-  // Build set of provider user IDs
+  // Build set of provider user IDs and availability mode map
   const providerUserIds = new Set(clinicProviderRows.map(r => r.userId));
+  const availabilityModeMap = new Map(clinicProviderRows.map(r => [r.userId, r.availabilityMode]));
+  const providersWithWindowsOnDate = new Set(availabilityWindowRows.map(r => r.providerId));
 
   const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }> = {};
 
@@ -1025,6 +1039,12 @@ export async function getMultipleStaffAvailability(
     // Non-providers: always available, no availability check needed
     if (!providerUserIds.has(staffId)) {
       result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+      continue;
+    }
+
+    // Check windows_required: if provider requires availability windows but has none for this date → absent
+    if (availabilityModeMap.get(staffId) === 'windows_required' && !providersWithWindowsOnDate.has(staffId)) {
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability' };
       continue;
     }
 
