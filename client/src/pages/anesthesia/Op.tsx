@@ -1591,7 +1591,7 @@ export default function Op() {
                   {isPacuMode ? (
                     <>
                       <ToggleRight className="h-4 w-4" />
-                      <span className="hidden sm:inline">{pacuBedName || 'PACU'}</span>
+                      <span className="hidden sm:inline">{pacuBedName || t('anesthesia.timeline.pacuDividerLabel', 'PACU')}</span>
                     </>
                   ) : (
                     <>
