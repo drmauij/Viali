@@ -947,9 +947,10 @@ export async function getMultipleStaffAvailability(
   }
 
   const WORKDAY_MINUTES = 480;
+  const dayOfWeek = new Date(date + 'T00:00:00').getDay(); // 0=Sun, 6=Sat
 
-  // 6 batch queries in parallel
-  const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows, availabilityWindowRows] = await Promise.all([
+  // 7 batch queries in parallel
+  const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows, availabilityWindowRows, weeklyAvailRows] = await Promise.all([
     // 1. Which staff IDs are providers? (with availability mode)
     db.select({ userId: userHospitalRoles.userId, availabilityMode: userHospitalRoles.availabilityMode, isBookable: userHospitalRoles.isBookable })
       .from(userHospitalRoles)
@@ -1026,12 +1027,26 @@ export async function getMultipleStaffAvailability(
           sql`${providerAvailabilityWindows.unitId} IS NOT NULL`
         )
       )),
+
+    // 7. Weekly recurring availability for this day of week
+    db.select({ providerId: providerAvailability.providerId })
+      .from(providerAvailability)
+      .where(and(
+        sql`${providerAvailability.providerId} IN ${staffIds}`,
+        eq(providerAvailability.dayOfWeek, dayOfWeek),
+        eq(providerAvailability.isActive, true),
+        or(
+          eq(providerAvailability.hospitalId, hospitalId),
+          sql`${providerAvailability.unitId} IS NOT NULL`
+        )
+      )),
   ]);
 
   // Build set of provider user IDs and availability mode map
   const providerUserIds = new Set(clinicProviderRows.map(r => r.userId));
   const availabilityModeMap = new Map(clinicProviderRows.map(r => [r.userId, r.availabilityMode]));
   const providersWithWindowsOnDate = new Set(availabilityWindowRows.map(r => r.providerId));
+  const providersWithWeeklyAvailability = new Set(weeklyAvailRows.map(r => r.providerId));
 
   // A user is bookable if ANY of their roles has isBookable=true
   const bookableUserIds = new Set(
@@ -1053,8 +1068,8 @@ export async function getMultipleStaffAvailability(
       continue;
     }
 
-    // Check windows_required: if provider requires availability windows but has none for this date → absent
-    if (availabilityModeMap.get(staffId) === 'windows_required' && !providersWithWindowsOnDate.has(staffId)) {
+    // Check windows_required: if provider requires availability windows but has neither date-specific windows nor weekly schedule → absent
+    if (availabilityModeMap.get(staffId) === 'windows_required' && !providersWithWindowsOnDate.has(staffId) && !providersWithWeeklyAvailability.has(staffId)) {
       result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability' };
       continue;
     }

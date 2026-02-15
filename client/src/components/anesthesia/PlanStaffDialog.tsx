@@ -302,8 +302,8 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
           />
         </div>
         
-        <ScrollArea className="flex-1 min-h-[150px] max-h-[50vh] border rounded-md overflow-y-auto">
-          <div className="p-2 space-y-1">
+        <ScrollArea className="flex-1 min-h-[150px] max-h-[50vh] min-w-0 border rounded-md overflow-y-auto overflow-x-hidden">
+          <div className="p-2 space-y-1 overflow-hidden">
             {loadingOptions ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -329,7 +329,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                 return (
                   <div
                     key={staff.id}
-                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors overflow-hidden ${
                       isAlreadyPlanned
                         ? 'bg-muted/50 opacity-60 cursor-not-allowed'
                         : isAbsent
@@ -353,10 +353,11 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                     <Icon className={`h-4 w-4 flex-shrink-0 ${colorClass}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{staff.name}</div>
-                      {staff.email && (
+                      {staff.email && !staff.email.endsWith('@staff.local') && !staff.email.endsWith('@internal.local') && (
                         <div className="text-xs text-muted-foreground truncate">{staff.email}</div>
                       )}
                     </div>
+                    <div className="flex-shrink-0">
                     {isAbsent && (
                       <TooltipProvider>
                         <Tooltip>
@@ -413,6 +414,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                         {t('staffPool.alreadyPlanned', 'Planned')}
                       </Badge>
                     )}
+                    </div>
                   </div>
                 );
               })
