@@ -950,12 +950,12 @@ export async function getMultipleStaffAvailability(
 
   // 6 batch queries in parallel
   const [clinicProviderRows, absenceRows, timeOffRows, surgeryRows, appointmentRows, availabilityWindowRows] = await Promise.all([
-    // 1. Which staff IDs are clinic providers? (include availability mode)
-    db.select({ userId: clinicProviders.userId, availabilityMode: clinicProviders.availabilityMode })
-      .from(clinicProviders)
+    // 1. Which staff IDs are providers? (with availability mode)
+    db.select({ userId: userHospitalRoles.userId, availabilityMode: userHospitalRoles.availabilityMode })
+      .from(userHospitalRoles)
       .where(and(
-        sql`${clinicProviders.userId} IN ${staffIds}`,
-        eq(clinicProviders.hospitalId, hospitalId)
+        sql`${userHospitalRoles.userId} IN ${staffIds}`,
+        eq(userHospitalRoles.hospitalId, hospitalId)
       )),
 
     // 2. Timebutler-synced absences covering the date
