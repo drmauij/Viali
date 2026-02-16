@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -96,6 +96,7 @@ const translations = {
     companionText: "Nach der Operation dürfen Sie nicht selbst fahren. Bitte organisieren Sie eine Begleitperson, die Sie nach Hause bringt.",
     infoDocuments: "Informationsunterlagen",
     infoDocumentsDesc: "Bitte lesen Sie die folgenden Dokumente vor Ihrem Termin",
+    infoDocumentsDone: "Alle Dokumente gelesen",
     downloadFlyer: "Herunterladen",
     step3Title: "Operation",
     step3Pending: "Geplant",
@@ -201,6 +202,7 @@ const translations = {
     companionText: "You will not be allowed to drive after surgery. Please arrange for someone to take you home.",
     infoDocuments: "Information Documents",
     infoDocumentsDesc: "Please review the following documents before your appointment",
+    infoDocumentsDone: "All documents reviewed",
     downloadFlyer: "Download",
     step3Title: "Surgery",
     step3Pending: "Scheduled",
@@ -306,6 +308,7 @@ const translations = {
     companionText: "Dopo l'intervento non potrà guidare. Si prega di organizzare un accompagnatore che La riporti a casa.",
     infoDocuments: "Documenti informativi",
     infoDocumentsDesc: "Si prega di leggere i seguenti documenti prima dell'appuntamento",
+    infoDocumentsDone: "Tutti i documenti letti",
     downloadFlyer: "Scaricare",
     step3Title: "Intervento",
     step3Pending: "Programmato",
@@ -411,6 +414,7 @@ const translations = {
     companionText: "Después de la operación no podrá conducir. Por favor organice un acompañante que le lleve a casa.",
     infoDocuments: "Documentos informativos",
     infoDocumentsDesc: "Por favor lea los siguientes documentos antes de su cita",
+    infoDocumentsDone: "Todos los documentos leídos",
     downloadFlyer: "Descargar",
     step3Title: "Operación",
     step3Pending: "Programada",
@@ -516,6 +520,7 @@ const translations = {
     companionText: "Après l'opération, vous ne pourrez pas conduire. Veuillez organiser un accompagnant pour vous ramener chez vous.",
     infoDocuments: "Documents d'information",
     infoDocumentsDesc: "Veuillez lire les documents suivants avant votre rendez-vous",
+    infoDocumentsDone: "Tous les documents consultés",
     downloadFlyer: "Télécharger",
     step3Title: "Opération",
     step3Pending: "Programmée",
@@ -602,6 +607,7 @@ type Lang = 'de' | 'en' | 'it' | 'es' | 'fr';
 export default function PatientPortal() {
   const { token } = useParams<{ token: string }>();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const [lang, setLangState] = useState<Lang>(() => {
     const saved = localStorage.getItem('patient-portal-language');
     const supported: Lang[] = ['de', 'en', 'it', 'es', 'fr'];
@@ -634,6 +640,12 @@ export default function PatientPortal() {
   const [isSubmittingConsent, setIsSubmittingConsent] = useState(false);
   const [consentSubmitted, setConsentSubmitted] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
+  const [downloadedFlyers, setDownloadedFlyers] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem(`flyers-downloaded-${token}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const fileInputFrontRef = useRef<HTMLInputElement>(null);
   const fileInputBackRef = useRef<HTMLInputElement>(null);
 
@@ -821,11 +833,21 @@ export default function PatientPortal() {
         throw new Error(err.message || 'Failed to submit consent');
       }
       setConsentSubmitted(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/patient-portal', token, 'consent'] });
     } catch (err: any) {
       setConsentError(err.message || t.error);
     } finally {
       setIsSubmittingConsent(false);
     }
+  };
+
+  const handleFlyerClick = (index: number) => {
+    setDownloadedFlyers(prev => {
+      const next = new Set(prev);
+      next.add(index);
+      localStorage.setItem(`flyers-downloaded-${token}`, JSON.stringify([...next]));
+      return next;
+    });
   };
 
   if (isLoading) {
@@ -886,13 +908,14 @@ export default function PatientPortal() {
   const step1InProgress = data.questionnaireStatus === 'in_progress';
   const step3Complete = data.surgeryCompleted;
   const hasFlyers = data.flyers.length > 0;
+  const allFlyersDownloaded = hasFlyers && data.flyers.length > 0 && downloadedFlyers.size >= data.flyers.length;
 
   // For LA surgeries, questionnaire and preparation cards are hidden
   const questionnaireVisible = !isLocalAnesthesia;
   const preparationVisible = !isLocalAnesthesia;
 
   const consentStepVisible = !!(consentInfo?.needsSignature || consentInfo?.consentRemoteSignedAt);
-  const consentAlreadySigned = !!consentInfo?.consentRemoteSignedAt;
+  const consentAlreadySigned = !!consentInfo?.consentRemoteSignedAt || consentSubmitted;
   const callbackStepVisible = !!(consentInfo?.needsCallbackAppointment && consentInfo?.callbackAppointmentSlots && consentInfo.callbackAppointmentSlots.length > 0);
 
   // Dynamic step numbering: count visible steps
@@ -1422,15 +1445,27 @@ export default function PatientPortal() {
         {/* Info Documents card (visible for all surgeries when flyers exist) */}
         {hasFlyers && (
           <Card
-            className="shadow-md bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800"
+            className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
+              allFlyersDownloaded
+                ? 'border-green-300 dark:border-green-700'
+                : 'border-blue-200 dark:border-blue-800'
+            }`}
             data-testid="card-step-info-documents"
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
                 {/* Step Indicator */}
                 <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">{flyersStepNum}</span>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    allFlyersDownloaded
+                      ? 'bg-green-100 dark:bg-green-900/50'
+                      : 'bg-blue-100 dark:bg-blue-900/50'
+                  }`}>
+                    {allFlyersDownloaded ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <span className="text-blue-600 dark:text-blue-400 font-bold">{flyersStepNum}</span>
+                    )}
                   </div>
                   {/* Connector Line */}
                   <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
@@ -1440,10 +1475,10 @@ export default function PatientPortal() {
                 <div className="flex-1 pb-2">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.infoDocuments}</h3>
-                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <FileText className={`h-5 w-5 ${allFlyersDownloaded ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`} />
                   </div>
                   <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
-                    {t.infoDocumentsDesc}
+                    {allFlyersDownloaded ? t.infoDocumentsDone : t.infoDocumentsDesc}
                   </p>
                   <div className="space-y-2">
                     {data.flyers.map((flyer, index) => (
@@ -1452,14 +1487,23 @@ export default function PatientPortal() {
                         href={flyer.downloadUrl || flyer.flyerUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2.5 rounded-lg border transition-colors border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-700/50 cursor-pointer"
+                        className={`flex items-center justify-between p-2.5 rounded-lg border transition-colors cursor-pointer ${
+                          downloadedFlyers.has(index)
+                            ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20 hover:bg-green-50 dark:hover:bg-green-900/30'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-700/50'
+                        }`}
                         data-testid={`link-flyer-${index}`}
+                        onClick={() => handleFlyerClick(index)}
                       >
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                          <FileText className={`h-4 w-4 ${downloadedFlyers.has(index) ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground dark:text-gray-400'}`} />
                           <span className="text-gray-900 dark:text-gray-100">{flyer.unitName}</span>
                         </div>
-                        <Download className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                        {downloadedFlyers.has(index) ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        ) : (
+                          <Download className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                        )}
                       </a>
                     ))}
                   </div>
