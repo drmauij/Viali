@@ -2207,7 +2207,7 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
     const needsCallbackAppointment = assessment.standBy === true && assessment.standByReason === 'consent_required';
 
     const surgery = await storage.getSurgery(surgeryId);
-    const patient = surgery ? await storage.getPatient(surgery.patientId) : null;
+    const patient = surgery?.patientId ? await storage.getPatient(surgery.patientId) : null;
     const hospital = link.hospitalId ? await storage.getHospital(link.hospitalId) : null;
 
     res.json({

@@ -88,7 +88,7 @@ export function PacuBedSelector({
       // Only consider beds occupied by non-cancelled surgeries
       // Beds are freed when pacuBedId is cleared (set to null) during discharge
       if (surgery.pacuBedId && surgery.id !== surgeryId && surgery.status !== 'cancelled') {
-        occupied.set(surgery.pacuBedId, surgery.patientId);
+        occupied.set(surgery.pacuBedId, surgery.patientId || surgery.id);
       }
     });
     return occupied;

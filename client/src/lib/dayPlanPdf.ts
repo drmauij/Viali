@@ -243,8 +243,8 @@ export const defaultColumns = {
     header: 'Patient',
     width: 32,
     getValue: (surgery, helpers) => {
-      const patient = helpers.patientMap.get(surgery.patientId);
-      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
+      const patient = surgery.patientId ? helpers.patientMap.get(surgery.patientId) : null;
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : (surgery.patientId ? '-' : 'SLOT RESERVED');
       const patientBirthday = patient?.birthday 
         ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
         : '';

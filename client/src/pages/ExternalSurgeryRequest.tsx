@@ -31,7 +31,8 @@ import {
   ChevronRight,
   Building2,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  CalendarClock
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +58,7 @@ interface FormData {
   patientBirthday: string;
   patientEmail: string;
   patientPhone: string;
+  isReservationOnly: boolean;
 }
 
 interface UploadedFile {
@@ -68,7 +70,7 @@ interface UploadedFile {
   isUploading?: boolean;
 }
 
-const STEPS = [
+const ALL_STEPS = [
   { id: 'surgeon', title: 'Surgeon Information', titleDe: 'Chirurg Informationen' },
   { id: 'surgery', title: 'Surgery Details', titleDe: 'OP Details' },
   { id: 'patient', title: 'Patient Information', titleDe: 'Patienten Informationen' },
@@ -83,6 +85,21 @@ export default function ExternalSurgeryRequest() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isReservationOnly, setIsReservationOnly] = useState(false);
+
+  const handleReservationToggle = (checked: boolean) => {
+    setIsReservationOnly(checked);
+    // Reset to surgeon step when toggling to avoid invalid step index
+    if (currentStep > 0) {
+      setCurrentStep(0);
+    }
+  };
+
+  // When reservation-only, skip patient step (step index 2)
+  const STEPS = isReservationOnly
+    ? ALL_STEPS.filter(s => s.id !== 'patient')
+    : ALL_STEPS;
+
   const [chopSearchTerm, setChopSearchTerm] = useState("");
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
   
@@ -107,6 +124,7 @@ export default function ExternalSurgeryRequest() {
     patientBirthday: '',
     patientEmail: '',
     patientPhone: '',
+    isReservationOnly: false,
   });
 
   const { data: hospitalData, isLoading, error } = useQuery({
@@ -154,8 +172,8 @@ export default function ExternalSurgeryRequest() {
     },
     onSuccess: (data) => {
       setRequestId(data.requestId);
-      // Always proceed to documents step to allow file uploads
-      setCurrentStep(3);
+      // Always proceed to documents step (last step)
+      setCurrentStep(STEPS.length - 1);
     },
     onError: (error: any) => {
       toast({
@@ -240,17 +258,23 @@ export default function ExternalSurgeryRequest() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const currentStepId = STEPS[currentStep]?.id;
+
   const canProceed = () => {
-    switch (currentStep) {
-      case 0:
-        return formData.surgeonFirstName && formData.surgeonLastName && 
+    switch (currentStepId) {
+      case 'surgeon':
+        return formData.surgeonFirstName && formData.surgeonLastName &&
                formData.surgeonEmail && formData.surgeonPhone;
-      case 1:
+      case 'surgery':
+        // In reservation mode, surgery name is optional
+        if (isReservationOnly) {
+          return formData.surgeryDurationMinutes > 0 && formData.wishedDate;
+        }
         return formData.surgeryName && formData.surgeryDurationMinutes > 0 && formData.wishedDate;
-      case 2:
-        return formData.patientFirstName && formData.patientLastName && 
+      case 'patient':
+        return formData.patientFirstName && formData.patientLastName &&
                formData.patientBirthday && formData.patientPhone;
-      case 3:
+      case 'documents':
         return true;
       default:
         return false;
@@ -259,8 +283,11 @@ export default function ExternalSurgeryRequest() {
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
-      if (currentStep === 2 && !requestId) {
-        submitMutation.mutate(formData);
+      // Submit the form on the step right before documents
+      const nextStepId = STEPS[currentStep + 1]?.id;
+      if (nextStepId === 'documents' && !requestId) {
+        // Sync reservation flag before submitting
+        submitMutation.mutate({ ...formData, isReservationOnly });
       } else {
         setCurrentStep(prev => prev + 1);
       }
@@ -383,7 +410,7 @@ export default function ExternalSurgeryRequest() {
 
         <Card>
           <CardContent className="pt-6">
-            {currentStep === 0 && (
+            {currentStepId === 'surgeon' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <User className="h-5 w-5 text-primary" />
@@ -443,10 +470,31 @@ export default function ExternalSurgeryRequest() {
                     data-testid="input-surgeon-phone"
                   />
                 </div>
+
+                {/* Reservation-only toggle */}
+                <div className="flex items-center justify-between p-3 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <CalendarClock className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                    <div>
+                    <Label htmlFor="reservationOnly" className="cursor-pointer font-medium text-violet-700 dark:text-violet-300">
+                      {t('externalSurgery.reservationOnly', 'Reserve time slot only')}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t('externalSurgery.reservationOnlyDesc', 'Patient details can be provided later')}
+                    </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="reservationOnly"
+                    checked={isReservationOnly}
+                    onCheckedChange={handleReservationToggle}
+                    data-testid="switch-reservation-only"
+                  />
+                </div>
               </div>
             )}
 
-            {currentStep === 1 && (
+            {currentStepId === 'surgery' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Stethoscope className="h-5 w-5 text-primary" />
@@ -457,7 +505,7 @@ export default function ExternalSurgeryRequest() {
                 
                 <div className="space-y-2">
                   <Label>
-                    {t('surgery.externalRequest.surgeryName')} *
+                    {t('surgery.externalRequest.surgeryName')} {!isReservationOnly && '*'}
                   </Label>
                   <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
                     <PopoverTrigger asChild>
@@ -751,7 +799,7 @@ export default function ExternalSurgeryRequest() {
               </div>
             )}
 
-            {currentStep === 2 && (
+            {currentStepId === 'patient' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <User className="h-5 w-5 text-primary" />
@@ -825,7 +873,7 @@ export default function ExternalSurgeryRequest() {
               </div>
             )}
 
-            {currentStep === 3 && (
+            {currentStepId === 'documents' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -917,9 +965,9 @@ export default function ExternalSurgeryRequest() {
               >
                 {submitMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : currentStep === STEPS.length - 1 ? (
+                ) : currentStepId === 'documents' ? (
                   t('surgery.externalRequest.finish')
-                ) : currentStep === 2 ? (
+                ) : STEPS[currentStep + 1]?.id === 'documents' ? (
                   <>
                     {t('surgery.externalRequest.continueAndSubmit')}
                     <ChevronRight className="h-4 w-4 ml-1" />

@@ -834,7 +834,7 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         dateOfBirth: row.patient.birthday || null,
         sex: row.patient.sex || null,
         age,
-        procedure: row.surgery.plannedSurgery,
+        procedure: row.surgery.plannedSurgery || '',
         anesthesiaPresenceEndTime: a2Time || x2Time || statusTimestamp,
         postOpDestination: postOpData?.postOpDestination || null,
         status,

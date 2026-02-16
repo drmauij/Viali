@@ -182,7 +182,8 @@ export default function TimelineWeekView({
   };
 
   // Get patient name
-  const getPatientName = (patientId: string) => {
+  const getPatientName = (patientId: string | null) => {
+    if (!patientId) return t('opCalendar.slotReserved', 'SLOT RESERVED');
     const patient = patients.find((p: any) => p.id === patientId);
     return patient ? `${patient.surname}, ${patient.firstName}` : t('opCalendar.weekView.unknownPatient');
   };

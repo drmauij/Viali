@@ -255,7 +255,7 @@ export async function syncSurgeriesToCalcom(hospitalId: string, surgeonId?: stri
 
     try {
       const startDateTime = surgery.plannedDate?.toISOString() || new Date().toISOString();
-      const patientName = [surgery.patientFirstName, surgery.patientSurname].filter(Boolean).join(' ') || 'Patient';
+      const patientName = [surgery.patientFirstName, surgery.patientSurname].filter(Boolean).join(' ') || (surgery.patientId ? 'Patient' : 'Slot Reserved');
       const title = `Surgery: ${surgery.plannedSurgery || 'Procedure'} - ${patientName}`;
 
       const syncResult = await client.syncBusyBlock(

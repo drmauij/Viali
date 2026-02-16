@@ -117,7 +117,7 @@ export default function OpList() {
     }
   }, []);
 
-  const handleEventClick = (surgeryId: string, patientId: string) => {
+  const handleEventClick = (surgeryId: string, patientId: string | null) => {
     setSelectedSurgeryId(surgeryId);
     setSelectedPatientId(patientId);
     setSummaryOpen(true);

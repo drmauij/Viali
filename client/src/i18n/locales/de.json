@@ -4175,7 +4175,11 @@
       "admissionTime": "Aufnahmezeit",
       "optional": "opt.",
       "implantDetails": "Implantat-Details",
-      "implantDetailsPlaceholder": "z.B. Hüftprothese Modell XYZ, Serien-Nr. 12345"
+      "implantDetailsPlaceholder": "z.B. Hüftprothese Modell XYZ, Serien-Nr. 12345",
+      "slotReservation": "Slot-Reservierung (ohne Patient)",
+      "slotReservationDesc": "Zeitfenster reservieren, ohne einen Patienten zuzuweisen",
+      "reserveSlot": "Slot reservieren",
+      "missingRoomForReservation": "Bitte wählen Sie einen OP-Saal aus."
     },
     "excelImport": {
       "title": "Aus Excel importieren",
@@ -5882,6 +5886,7 @@
     "removalFailedDesc": "Personal konnte nicht aus dem Saal entfernt werden.",
     "noSurgeries": "Keine OPs",
     "noSurgeriesDesc": "Für diesen Tag sind keine OPs geplant.",
+    "slotReserved": "SLOT RESERVIERT",
     "localAnesthesia": "LA",
     "localAnesthesiaTooltip": "Lokalanästhesie – kein Anästhesie-Team",
     "weekView": {
@@ -6567,5 +6572,12 @@
       "standBy": "Stand-by"
     }
   },
-  "POST": "/api/admin/import-chop"
+  "POST": "/api/admin/import-chop",
+  "externalSurgery": {
+    "reservationOnly": "Nur Zeitfenster reservieren",
+    "reservationOnlyDesc": "Patientendaten können später ergänzt werden"
+  },
+  "editSurgery": {
+    "slotReservationBanner": "Noch kein Patient zugewiesen. Bearbeiten Sie diese OP, um Patientendaten hinzuzufügen."
+  }
 }

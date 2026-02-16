@@ -21,8 +21,9 @@ export {
   WRITE_ROLES,
   READ_ONLY_ROLES
 } from "./accessControl";
-export { 
-  getLicenseLimit, 
-  getBulkImportImageLimit, 
-  checkLicenseLimit 
+export {
+  getLicenseLimit,
+  getBulkImportImageLimit,
+  checkLicenseLimit
 } from "./licensing";
+export { anonymize, logAiOutbound } from "./anonymize";

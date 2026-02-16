@@ -1274,7 +1274,7 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
     ));
 
   const surgeryIds = surgeryResults.map(s => s.surgeryId);
-  const patientIds = surgeryResults.map(s => s.patientId);
+  const patientIds = surgeryResults.map(s => s.patientId).filter((id): id is string => id !== null);
 
   const sentLinks = surgeryIds.length > 0 ? await db
     .select({ surgeryId: patientQuestionnaireLinks.surgeryId, patientId: patientQuestionnaireLinks.patientId })
@@ -1360,6 +1360,7 @@ export async function getSurgeriesForPreSurgeryReminder(hospitalId: string, hour
 
   return results.map(r => ({
     ...r,
+    patientId: r.patientId!, // innerJoin guarantees non-null
     reminderSent: r.reminderSent ?? false,
   }));
 }

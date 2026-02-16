@@ -127,7 +127,14 @@ export function PatientCommunicationContent({
           'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
-        body: JSON.stringify({ text: customMessage, targetLanguage: targetLang }),
+        body: JSON.stringify({
+          text: customMessage,
+          targetLanguage: targetLang,
+          knownValues: {
+            patientName,
+            clinicName: activeHospital?.name || '',
+          },
+        }),
       });
       if (!res.ok) throw new Error('Translation failed');
       const data = await res.json();

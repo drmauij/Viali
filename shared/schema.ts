@@ -847,13 +847,13 @@ export const surgeries = pgTable("surgeries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id").references(() => cases.id), // Optional: links to case if using episode of care
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  patientId: varchar("patient_id").notNull(), // External reference
+  patientId: varchar("patient_id"), // Nullable for slot reservations (no patient assigned yet)
   surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id),
   pacuBedId: varchar("pacu_bed_id").references(() => surgeryRooms.id), // PACU bed/room assignment for post-op
   
   // Planning
   plannedDate: timestamp("planned_date").notNull(),
-  plannedSurgery: varchar("planned_surgery").notNull(),
+  plannedSurgery: varchar("planned_surgery"), // Nullable for slot reservations
   chopCode: varchar("chop_code"), // Optional CHOP procedure code for structured surgery naming
   surgerySide: varchar("surgery_side", { enum: ["left", "right", "both"] }), // Surgery laterality
   antibioseProphylaxe: boolean("antibiose_prophylaxe").default(false), // Antibiotic prophylaxis required
@@ -4642,7 +4642,7 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   surgeonPhone: varchar("surgeon_phone").notNull(),
   
   // Surgery details
-  surgeryName: varchar("surgery_name").notNull(),
+  surgeryName: varchar("surgery_name"), // Nullable for reservation-only requests
   surgeryDurationMinutes: integer("surgery_duration_minutes").notNull(),
   withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
   surgeryNotes: text("surgery_notes"),
@@ -4656,12 +4656,15 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   leftArmPosition: varchar("left_arm_position", { enum: ["ausgelagert", "angelagert"] }),
   rightArmPosition: varchar("right_arm_position", { enum: ["ausgelagert", "angelagert"] }),
   
-  // Patient info
-  patientFirstName: varchar("patient_first_name").notNull(),
-  patientLastName: varchar("patient_last_name").notNull(),
-  patientBirthday: date("patient_birthday").notNull(),
+  // Reservation mode
+  isReservationOnly: boolean("is_reservation_only").default(false).notNull(),
+
+  // Patient info (nullable for reservation-only requests)
+  patientFirstName: varchar("patient_first_name"),
+  patientLastName: varchar("patient_last_name"),
+  patientBirthday: date("patient_birthday"),
   patientEmail: varchar("patient_email"),
-  patientPhone: varchar("patient_phone").notNull(),
+  patientPhone: varchar("patient_phone"),
   
   // Status and linking
   status: varchar("status", { enum: ["pending", "scheduled", "declined"] }).default("pending").notNull(),

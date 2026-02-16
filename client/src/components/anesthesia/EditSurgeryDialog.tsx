@@ -580,8 +580,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     )}
                   </div>
                 )}
-                {/* Patient Information (Read-only) */}
-                {patient && (
+                {/* Patient Information (Read-only) or Slot Reserved banner */}
+                {!surgery?.patientId ? (
+                  <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                        {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t('editSurgery.slotReservationBanner', 'No patient assigned yet. Edit this surgery to add patient details.')}
+                    </p>
+                  </div>
+                ) : patient ? (
                 <div className="space-y-2">
                   <Label>{t('anesthesia.editSurgery.patient')}</Label>
                   <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm">
@@ -590,16 +601,16 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     </div>
                     {patient.birthday && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        {t('anesthesia.editSurgery.born')}: {new Date(patient.birthday).toLocaleDateString('de-DE', { 
-                          day: '2-digit', 
-                          month: '2-digit', 
-                          year: 'numeric' 
+                        {t('anesthesia.editSurgery.born')}: {new Date(patient.birthday).toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
                         })}
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Section Divider: Scheduling */}
               <div className="flex items-center gap-2 pt-2">
@@ -1153,8 +1164,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       plannedDate: surgery.plannedDate,
                       plannedSurgery: surgery.plannedSurgery,
                       surgeonName: surgery.surgeon || surgeons.find((s: any) => s.id === surgery.surgeonId)?.name,
-                      patientName: patient ? `${patient.firstName} ${patient.surname}` : undefined,
-                      patientDob: patient?.birthday,
+                      patientName: patient ? `${patient.firstName} ${patient.surname}` : (surgery.patientId ? undefined : t('opCalendar.slotReserved', 'SLOT RESERVED')),
+                      patientDob: patient?.birthday ?? undefined,
                       surgeryRoom: surgeryRooms.find((r: any) => r.id === surgery.surgeryRoomId)?.name,
                       notes: surgery.notes,
                       implantDetails: surgery.implantDetails,
@@ -1233,7 +1244,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => createTodo(note.content, patient?.id, patient ? `${patient.surname}, ${patient.firstName}` : undefined)}
+                                onClick={() => createTodo(note.content, patient?.id ?? undefined, patient ? `${patient.surname}, ${patient.firstName}` : undefined)}
                                 disabled={isTodoPending}
                                 title={t('anesthesia.caseNotes.addToTodo', 'Add to To-Do')}
                                 data-testid={`button-note-to-todo-${note.id}`}

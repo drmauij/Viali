@@ -1327,8 +1327,8 @@ export function SurgeryPlanningTable({
       let bVal: any;
       
       if (sortState.field === "patientName") {
-        const patientA = patientMap.get(a.patientId);
-        const patientB = patientMap.get(b.patientId);
+        const patientA = a.patientId ? patientMap.get(a.patientId) : undefined;
+        const patientB = b.patientId ? patientMap.get(b.patientId) : undefined;
         aVal = patientA ? `${patientA.surname}, ${patientA.firstName}` : "";
         bVal = patientB ? `${patientB.surname}, ${patientB.firstName}` : "";
       } else {
@@ -1594,7 +1594,7 @@ export function SurgeryPlanningTable({
               </TableRow>
               {/* Surgeries for this day */}
               {daySurgeries.map((surgery) => {
-                const patient = patientMap.get(surgery.patientId);
+                const patient = surgery.patientId ? patientMap.get(surgery.patientId) : undefined;
                 const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "-";
                 const roomName = surgery.surgeryRoomId ? roomMap.get(surgery.surgeryRoomId) ?? "-" : "-";
                 const isExpanded = expandedRows.has(surgery.id);
@@ -1632,11 +1632,19 @@ export function SurgeryPlanningTable({
                   {showClinical && (
                     <>
                       <TableCell className="lg:sticky lg:left-10 lg:z-10 bg-background min-w-[140px]">
-                        <div className="font-medium">{patientName}</div>
-                        {patient?.birthday && (
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(patient.birthday)}
-                          </div>
+                        {!surgery.patientId ? (
+                          <span className="inline-block text-[10px] font-bold bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-1.5 py-0.5 rounded" data-testid={`badge-slot-reserved-${surgery.id}`}>
+                            {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+                          </span>
+                        ) : (
+                          <>
+                            <div className="font-medium">{patientName}</div>
+                            {patient?.birthday && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(patient.birthday)}
+                              </div>
+                            )}
+                          </>
                         )}
                         {surgery.isSuspended && (
                           <span className="inline-block mt-0.5 text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded" data-testid={`badge-suspended-table-${surgery.id}`}>
@@ -1644,7 +1652,7 @@ export function SurgeryPlanningTable({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={surgery.plannedSurgery}>
+                      <TableCell className="max-w-[200px] truncate" title={surgery.plannedSurgery ?? undefined}>
                         {surgery.plannedSurgery}
                       </TableCell>
                       <TableCell>{surgery.surgeon ?? "-"}</TableCell>

@@ -4094,7 +4094,11 @@
       "admissionTime": "Admission",
       "optional": "opt.",
       "implantDetails": "Implant Details",
-      "implantDetailsPlaceholder": "e.g., Hip prosthesis model XYZ, Serial #12345"
+      "implantDetailsPlaceholder": "e.g., Hip prosthesis model XYZ, Serial #12345",
+      "slotReservation": "Slot Reservation (no patient)",
+      "slotReservationDesc": "Reserve a time slot without assigning a patient yet",
+      "reserveSlot": "Reserve Slot",
+      "missingRoomForReservation": "Please select a surgery room."
     },
     "excelImport": {
       "title": "Import from Excel",
@@ -5781,6 +5785,7 @@
     "removalFailedDesc": "Failed to remove staff from room.",
     "noSurgeries": "No surgeries",
     "noSurgeriesDesc": "There are no surgeries planned for this day.",
+    "slotReserved": "SLOT RESERVED",
     "localAnesthesia": "LA",
     "localAnesthesiaTooltip": "Local anesthesia – no anesthesia team",
     "weekView": {
@@ -6547,5 +6552,12 @@
       "standBy": "Stand-by"
     }
   },
-  "POST": "/api/admin/import-chop"
+  "POST": "/api/admin/import-chop",
+  "externalSurgery": {
+    "reservationOnly": "Reserve time slot only",
+    "reservationOnlyDesc": "Patient details can be provided later"
+  },
+  "editSurgery": {
+    "slotReservationBanner": "No patient assigned yet. Edit this surgery to add patient details."
+  }
 }

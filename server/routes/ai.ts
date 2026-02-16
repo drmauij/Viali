@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess } from "../utils";
+import { requireWriteAccess, anonymize, logAiOutbound } from "../utils";
 import {
   analyzeMonitorImage,
   transcribeVoice,
@@ -170,6 +170,7 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
     const schema = z.object({
       text: z.string().min(1, "Text is required"),
       targetLanguage: z.enum(['de', 'en', 'it', 'es', 'fr']),
+      knownValues: z.record(z.string()).optional(),
     });
     let parsed;
     try {
@@ -180,7 +181,7 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
       }
       throw err;
     }
-    const { text, targetLanguage } = parsed;
+    const { text, targetLanguage, knownValues } = parsed;
 
     const langNames: Record<string, string> = {
       de: 'German',
@@ -189,6 +190,17 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
       es: 'Spanish',
       fr: 'French',
     };
+
+    // Anonymize PII before sending to external AI
+    const { text: safeText, restore, summary } = anonymize(text, { knownValues });
+
+    logAiOutbound({
+      anonymizedText: safeText,
+      summary,
+      userId: req.user?.id || "unknown",
+      purpose: "translation",
+      service: "openai",
+    });
 
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -202,19 +214,19 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
           content: `You are a professional translator for a medical clinic. Translate the following message to ${langNames[targetLanguage]}.
             - Preserve the original formatting, line breaks, and any URLs exactly as they are
             - Keep the tone professional but friendly, suitable for patient communication
-            - Do NOT translate URLs or links — keep them unchanged
+            - Do NOT translate or modify any text inside square brackets like [NAME_1], [DATE_1], [LINK_1] — keep them exactly as they are
             - Return ONLY the translated text, no explanations`
         },
         {
           role: "user",
-          content: text
+          content: safeText
         }
       ],
       temperature: 0.3,
     });
 
     const translatedText = response.choices[0]?.message?.content || '';
-    res.json({ translatedText });
+    res.json({ translatedText: restore(translatedText) });
   } catch (error: any) {
     logger.error("Error translating message:", error);
     res.status(500).json({ message: error.message || "Failed to translate message" });

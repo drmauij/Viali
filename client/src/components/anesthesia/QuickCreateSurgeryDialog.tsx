@@ -6,13 +6,14 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown, UserPlus, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
@@ -39,6 +40,7 @@ export default function QuickCreateSurgeryDialog({
 }: QuickCreateSurgeryDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [isSlotReservation, setIsSlotReservation] = useState(false);
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
@@ -356,6 +358,7 @@ export default function QuickCreateSurgeryDialog({
   });
 
   const resetForm = () => {
+    setIsSlotReservation(false);
     setSelectedPatientId("");
     setSurgeryRoomId(initialRoomId || "");
     setSurgeryDate(formatDateOnly(initialDate));
@@ -425,10 +428,19 @@ export default function QuickCreateSurgeryDialog({
   };
 
   const handleCreateSurgery = () => {
-    if (!selectedPatientId || !surgeryRoomId || !plannedSurgery.trim()) {
+    if (!isSlotReservation && (!selectedPatientId || !surgeryRoomId || !plannedSurgery.trim())) {
       toast({
         title: t('anesthesia.quickSchedule.missingInformation'),
         description: t('anesthesia.quickSchedule.missingFields'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isSlotReservation && !surgeryRoomId) {
+      toast({
+        title: t('anesthesia.quickSchedule.missingInformation'),
+        description: t('anesthesia.quickSchedule.missingRoomForReservation', 'Please select a surgery room.'),
         variant: "destructive",
       });
       return;
@@ -465,11 +477,11 @@ export default function QuickCreateSurgeryDialog({
 
     createSurgeryMutation.mutate({
       hospitalId,
-      patientId: selectedPatientId,
+      patientId: isSlotReservation ? null : selectedPatientId,
       surgeryRoomId,
       plannedDate: startDate.toISOString(),
       actualEndTime: endDate.toISOString(),
-      plannedSurgery: plannedSurgery.trim(),
+      plannedSurgery: plannedSurgery.trim() || (isSlotReservation ? null : undefined),
       chopCode: selectedChopCode || undefined,
       surgeon: matchedSurgeon?.name || undefined,
       surgeonId: surgeonId || undefined,
@@ -496,7 +508,30 @@ export default function QuickCreateSurgeryDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 min-h-0">
-          {/* Patient Selection */}
+          {/* Slot Reservation Toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <Label htmlFor="slot-reservation-toggle" className="font-medium cursor-pointer text-sm">
+                {t('anesthesia.quickSchedule.slotReservation', 'Slot Reservation (no patient)')}
+              </Label>
+            </div>
+            <Switch
+              id="slot-reservation-toggle"
+              checked={isSlotReservation}
+              onCheckedChange={(checked) => {
+                setIsSlotReservation(checked);
+                if (checked) {
+                  setSelectedPatientId("");
+                  setShowNewPatientForm(false);
+                }
+              }}
+              data-testid="switch-slot-reservation"
+            />
+          </div>
+
+          {/* Patient Selection - hidden in slot reservation mode */}
+          {!isSlotReservation && (
           <div className="space-y-2">
             <Label>{t('anesthesia.quickSchedule.patient')} *</Label>
             {!showNewPatientForm ? (
@@ -641,6 +676,8 @@ export default function QuickCreateSurgeryDialog({
             )}
           </div>
 
+          )}
+
           {/* Section Divider: Scheduling */}
           <div className="flex items-center gap-2 pt-2">
             <div className="h-px bg-border flex-1" />
@@ -736,7 +773,7 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Planned Surgery - CHOP Procedure Selector */}
           <div className="space-y-2">
-            <Label>{t('anesthesia.quickSchedule.plannedSurgery')} *</Label>
+            <Label>{t('anesthesia.quickSchedule.plannedSurgery')} {!isSlotReservation && '*'}</Label>
             <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -1159,11 +1196,13 @@ export default function QuickCreateSurgeryDialog({
           </Button>
           <Button
             onClick={handleCreateSurgery}
-            disabled={createSurgeryMutation.isPending || !selectedPatientId || !surgeryRoomId || !plannedSurgery.trim()}
+            disabled={createSurgeryMutation.isPending || !surgeryRoomId || (!isSlotReservation && (!selectedPatientId || !plannedSurgery.trim()))}
             data-testid="button-schedule-surgery"
           >
             {createSurgeryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('anesthesia.quickSchedule.scheduleSurgery')}
+            {isSlotReservation
+              ? t('anesthesia.quickSchedule.reserveSlot', 'Reserve Slot')
+              : t('anesthesia.quickSchedule.scheduleSurgery')}
           </Button>
         </div>
       </DialogContent>

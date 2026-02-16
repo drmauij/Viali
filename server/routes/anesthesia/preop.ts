@@ -96,7 +96,9 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
         patientUpdates.otherAllergies = req.body.allergiesOther;
       }
 
-      await storage.updatePatient(surgery.patientId, patientUpdates);
+      if (surgery.patientId) {
+        await storage.updatePatient(surgery.patientId, patientUpdates);
+      }
     }
 
     const newAssessment = await storage.createPreOpAssessment(validatedData);
@@ -138,7 +140,9 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospital
         patientUpdates.otherAllergies = req.body.allergiesOther;
       }
       
-      await storage.updatePatient(surgery.patientId, patientUpdates);
+      if (surgery.patientId) {
+        await storage.updatePatient(surgery.patientId, patientUpdates);
+      }
     }
 
     // Protect remotely-signed consent from stale auto-save overwrites
@@ -402,6 +406,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (!surgery) continue;
 
       if (!hospitalIds.includes(surgery.hospitalId)) continue;
+      if (!surgery.patientId) continue;
 
       const patient = await storage.getPatient(surgery.patientId);
       const hospital = await storage.getHospital(surgery.hospitalId);
@@ -1011,6 +1016,10 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
       return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    if (!surgery.patientId) {
+      return res.status(400).json({ message: "Surgery has no patient assigned" });
     }
 
     const patient = await storage.getPatient(surgery.patientId);
@@ -1803,11 +1812,16 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     }
     
     const language = (assessment.emailLanguage as 'en' | 'de') || 'de';
+
+    if (!surgery.patientId) {
+      return res.status(400).json({ message: "Surgery has no patient assigned" });
+    }
+
     const patient = await storage.getPatient(surgery.patientId);
     const hospital = await storage.getHospital(surgery.hospitalId);
-    
+
     const { jsPDF } = await import('jspdf');
-    
+
     const translations: Record<string, Record<string, string>> = {
       en: {
         title: 'Pre-Operative Assessment',
@@ -2148,6 +2162,10 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
       return res.status(403).json({ message: "Access denied" });
     }
 
+    if (!surgery.patientId) {
+      return res.status(400).json({ message: "Surgery has no patient assigned" });
+    }
+
     const patient = await storage.getPatient(surgery.patientId);
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
@@ -2308,6 +2326,10 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
 
     if (surgery.hospitalId !== hospitalId) {
       return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (!surgery.patientId) {
+      return res.status(400).json({ message: "Surgery has no patient assigned" });
     }
 
     const patient = await storage.getPatient(surgery.patientId);

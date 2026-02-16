@@ -91,19 +91,28 @@ const externalSurgeryRequestSchema = z.object({
   surgeonLastName: z.string().min(1, "Surgeon last name is required"),
   surgeonEmail: z.string().email("Valid email is required"),
   surgeonPhone: z.string().min(5, "Surgeon phone is required"),
-  surgeryName: z.string().min(1, "Surgery name is required"),
+  surgeryName: z.string().optional().nullable(),
   surgeryDurationMinutes: z.number().min(15).max(720),
   withAnesthesia: z.boolean(),
   surgeryNotes: z.string().optional(),
   wishedDate: z.string().min(1, "Wished date is required"),
-  patientFirstName: z.string().min(1, "Patient first name is required"),
-  patientLastName: z.string().min(1, "Patient last name is required"),
-  patientBirthday: z.string().min(1, "Patient birthday is required"),
+  isReservationOnly: z.boolean().optional().default(false),
+  patientFirstName: z.string().optional().nullable(),
+  patientLastName: z.string().optional().nullable(),
+  patientBirthday: z.string().optional().nullable(),
   patientEmail: z.string().optional().nullable(),
-  patientPhone: z.string().min(5, "Patient phone is required"),
+  patientPhone: z.string().optional().nullable(),
   patientPosition: z.enum(["supine", "trendelenburg", "reverse_trendelenburg", "lithotomy", "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"]).optional().nullable().or(z.literal("").transform(() => null)),
   leftArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
   rightArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
+}).refine((data) => {
+  // If not reservation-only, patient fields are required
+  if (!data.isReservationOnly) {
+    return !!(data.patientFirstName && data.patientLastName && data.patientBirthday && data.patientPhone && data.surgeryName);
+  }
+  return true;
+}, {
+  message: "Patient details and surgery name are required for non-reservation requests",
 });
 
 router.get('/public/external-surgery/:token', fetchLimiter, async (req: Request, res: Response) => {
@@ -179,7 +188,9 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
 
         const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
         const deepLinkUrl = `${baseUrl}/anesthesia/op?openRequests=true`;
-        const patientName = `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
+        const patientName = parsed.data.isReservationOnly
+          ? 'Slot Reservation (no patient)'
+          : `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
         const surgeonName = `Dr. ${parsed.data.surgeonLastName}, ${parsed.data.surgeonFirstName}`;
         const wishedDate = parsed.data.wishedDate || '';
 
@@ -191,7 +202,7 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             userName,
             result.hospital.name,
             patientName,
-            parsed.data.surgeryName,
+            parsed.data.surgeryName || 'Slot Reservation',
             surgeonName,
             wishedDate,
             deepLinkUrl,
@@ -424,9 +435,9 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       return res.status(400).json({ message: "Request already scheduled" });
     }
     
-    // Create or find patient
+    // Create or find patient (skip for reservation-only requests)
     let patientId = request.patientId;
-    if (!patientId) {
+    if (!patientId && !request.isReservationOnly && request.patientFirstName && request.patientLastName && request.patientBirthday) {
       const patientNumber = await storage.generatePatientNumber(request.hospitalId);
       const patient = await storage.createPatient({
         hospitalId: request.hospitalId,
@@ -436,7 +447,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         patientNumber,
         sex: 'O',
         email: request.patientEmail || undefined,
-        phone: request.patientPhone,
+        phone: request.patientPhone || undefined,
       });
       patientId = patient.id;
     }
@@ -506,10 +517,10 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     
     const surgery = await storage.createSurgery({
       hospitalId: request.hospitalId,
-      patientId,
+      patientId: patientId || null,
       surgeryRoomId: surgeryRoomId || null,
       plannedDate: new Date(plannedDate),
-      plannedSurgery: request.surgeryName,
+      plannedSurgery: request.surgeryName || null,
       surgeon: surgeonFullName,
       surgeonId: surgeonUserId,
       notes: request.surgeryNotes || '',
@@ -527,20 +538,22 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       scheduledBy: userId,
     });
     
-    // Transfer documents from external request to patient record
-    const documents = await storage.getExternalSurgeryRequestDocuments(id);
-    for (const doc of documents) {
-      await storage.createPatientDocument({
-        hospitalId: request.hospitalId,
-        patientId,
-        category: 'other',
-        fileName: doc.fileName,
-        fileUrl: doc.fileUrl,
-        mimeType: doc.mimeType || undefined,
-        fileSize: doc.fileSize || undefined,
-        description: `From external surgery request: ${request.surgeryName}`,
-        uploadedBy: userId,
-      });
+    // Transfer documents from external request to patient record (only if patient exists)
+    if (patientId) {
+      const documents = await storage.getExternalSurgeryRequestDocuments(id);
+      for (const doc of documents) {
+        await storage.createPatientDocument({
+          hospitalId: request.hospitalId,
+          patientId,
+          category: 'other',
+          fileName: doc.fileName,
+          fileUrl: doc.fileUrl,
+          mimeType: doc.mimeType || undefined,
+          fileSize: doc.fileSize || undefined,
+          description: `From external surgery request: ${request.surgeryName || 'Slot Reservation'}`,
+          uploadedBy: userId,
+        });
+      }
     }
     
     if (sendConfirmation) {
@@ -561,15 +574,17 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
             await resend.emails.send({
               from: 'noreply@viali.ch',
               to: request.surgeonEmail,
-              subject: `Surgery Confirmed - ${request.patientLastName}, ${request.patientFirstName}`,
+              subject: request.isReservationOnly
+                ? `Slot Reservation Confirmed - ${formattedDate}`
+                : `Surgery Confirmed - ${request.patientLastName}, ${request.patientFirstName}`,
               html: `
-                <h2>Surgery Reservation Confirmed</h2>
+                <h2>${request.isReservationOnly ? 'Slot Reservation Confirmed' : 'Surgery Reservation Confirmed'}</h2>
                 <p>Dear Dr. ${request.surgeonLastName},</p>
-                <p>Your surgery reservation request has been confirmed at ${hospitalName}.</p>
+                <p>Your ${request.isReservationOnly ? 'slot reservation' : 'surgery reservation'} request has been confirmed at ${hospitalName}.</p>
                 <h3>Details:</h3>
                 <ul>
-                  <li><strong>Patient:</strong> ${request.patientLastName}, ${request.patientFirstName}</li>
-                  <li><strong>Surgery:</strong> ${request.surgeryName}</li>
+                  ${!request.isReservationOnly ? `<li><strong>Patient:</strong> ${request.patientLastName}, ${request.patientFirstName}</li>` : ''}
+                  <li><strong>Surgery:</strong> ${request.surgeryName || 'Slot Reservation'}</li>
                   <li><strong>Date:</strong> ${formattedDate}</li>
                   <li><strong>Duration:</strong> ${request.surgeryDurationMinutes} minutes</li>
                   <li><strong>Anesthesia:</strong> ${request.withAnesthesia ? 'Yes' : 'No'}</li>
@@ -590,9 +605,12 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       
       if (request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
         try {
+          const smsText = request.isReservationOnly
+            ? `Slot reservation confirmed at ${hospitalName} on ${formattedDate}. - ${hospitalName}`
+            : `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`;
           await sendSms(
             request.surgeonPhone,
-            `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`,
+            smsText,
             request.hospitalId
           );
           

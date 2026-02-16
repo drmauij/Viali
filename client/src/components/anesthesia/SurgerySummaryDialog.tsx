@@ -202,7 +202,7 @@ export default function SurgerySummaryDialog({
     preOpAssessment.informedConsentSignature != null
   );
 
-  if (!surgery || !patient) {
+  if (!surgery) {
     return null;
   }
 
@@ -221,8 +221,8 @@ export default function SurgerySummaryDialog({
     return `${hours}:${minutes}`;
   };
 
-  const patientName = `${patient.surname}, ${patient.firstName}`;
-  const patientBirthday = formatDate(patient.birthday);
+  const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '';
+  const patientBirthday = patient?.birthday ? formatDate(patient.birthday) : '';
   const surgeryDate = formatDate(surgery.plannedDate);
   const surgeryTime = formatTime(surgery.plannedDate);
   
@@ -286,119 +286,132 @@ export default function SurgerySummaryDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Patient Info with Allergies */}
-          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="grid grid-cols-2 gap-3 flex-1">
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
-                  <div className="font-medium">{patientName}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
-                  <div className="font-medium">{patientBirthday}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.phone', 'Phone')}</div>
-                  {patient.phone ? (
-                    <div className="font-medium flex items-center gap-1">
-                      <span data-testid="text-patient-phone">
-                        {isPhoneRevealed ? patient.phone : obfuscatePhone(patient.phone)}
-                      </span>
-                      <button
-                        onClick={handleRevealPhone}
-                        className="p-0.5 hover:bg-muted rounded"
-                        data-testid="button-reveal-phone"
-                        title={isPhoneRevealed ? t('anesthesia.surgerySummary.hidePhone', 'Hide phone') : t('anesthesia.surgerySummary.showPhone', 'Show phone')}
-                      >
-                        {isPhoneRevealed ? (
-                          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="font-medium text-muted-foreground" data-testid="text-patient-phone-unavailable">
-                      {t('anesthesia.surgerySummary.notAvailable', 'Not available')}
+          {/* Patient Info with Allergies / Slot Reservation */}
+          {!surgery?.patientId ? (
+            <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-4 text-center">
+              <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+              </span>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('editSurgery.slotReservationBanner', 'No patient assigned yet. Edit this surgery to add patient details.')}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
+                    <div className="font-medium">{patientName}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
+                    <div className="font-medium">{patientBirthday}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.phone', 'Phone')}</div>
+                    {patient?.phone ? (
+                      <div className="font-medium flex items-center gap-1">
+                        <span data-testid="text-patient-phone">
+                          {isPhoneRevealed ? patient.phone : obfuscatePhone(patient.phone)}
+                        </span>
+                        <button
+                          onClick={handleRevealPhone}
+                          className="p-0.5 hover:bg-muted rounded"
+                          data-testid="button-reveal-phone"
+                          title={isPhoneRevealed ? t('anesthesia.surgerySummary.hidePhone', 'Hide phone') : t('anesthesia.surgerySummary.showPhone', 'Show phone')}
+                        >
+                          {isPhoneRevealed ? (
+                            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="font-medium text-muted-foreground" data-testid="text-patient-phone-unavailable">
+                        {t('anesthesia.surgerySummary.notAvailable', 'Not available')}
+                      </div>
+                    )}
+                  </div>
+                  {patient?.sex && (
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
+                      <div className="font-medium">{patient.sex}</div>
                     </div>
                   )}
                 </div>
-                {patient.sex && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
-                    <div className="font-medium">{patient.sex}</div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Action buttons - vertically stacked on the right */}
-              <div className="flex flex-col gap-2 shrink-0">
-                {/* View Patient Detail Link */}
-                <Link 
-                  href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    data-testid="button-view-patient-detail"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    {t('anesthesia.surgerySummary.viewPatientDetail')}
-                  </Button>
-                </Link>
-                {/* Send Questionnaire Button */}
-                {addons.questionnaire && patient && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSendDialogOpen(true)}
-                    data-testid="button-send-questionnaire"
-                  >
-                    <Send className="h-4 w-4 mr-1 text-primary" />
-                    {t('common.patientCommunication', 'Patient Communication')}
-                  </Button>
-                )}
-              </div>
-            </div>
-            
-            {/* Patient Allergies from Patient Record */}
-            {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
-              <div className="pt-2 border-t border-border/50">
-                <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {patient.allergies?.map((allergyId: string) => {
-                    const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
-                    const displayLabel = allergyItem?.label || allergyId;
-                    return (
-                      <span 
-                        key={allergyId}
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        data-testid={`badge-summary-allergy-${allergyId}`}
+
+                {/* Action buttons - vertically stacked on the right */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  {/* View Patient Detail Link */}
+                  {patient && (
+                    <Link
+                      href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
+                      onClick={() => onOpenChange(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        data-testid="button-view-patient-detail"
                       >
-                        {displayLabel}
-                      </span>
-                    );
-                  })}
-                  {patient.otherAllergies && patient.otherAllergies.split(',').map((allergy: string, index: number) => {
-                    const trimmed = allergy.trim();
-                    if (!trimmed) return null;
-                    return (
-                      <span 
-                        key={`other-${index}`}
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        data-testid={`badge-summary-other-allergy-${index}`}
-                      >
-                        {trimmed}
-                      </span>
-                    );
-                  })}
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        {t('anesthesia.surgerySummary.viewPatientDetail')}
+                      </Button>
+                    </Link>
+                  )}
+                  {/* Send Questionnaire Button */}
+                  {addons.questionnaire && patient && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSendDialogOpen(true)}
+                      data-testid="button-send-questionnaire"
+                    >
+                      <Send className="h-4 w-4 mr-1 text-primary" />
+                      {t('common.patientCommunication', 'Patient Communication')}
+                    </Button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Patient Allergies from Patient Record */}
+              {patient && ((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
+                <div className="pt-2 border-t border-border/50">
+                  <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {patient.allergies?.map((allergyId: string) => {
+                      const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
+                      const displayLabel = allergyItem?.label || allergyId;
+                      return (
+                        <span
+                          key={allergyId}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          data-testid={`badge-summary-allergy-${allergyId}`}
+                        >
+                          {displayLabel}
+                        </span>
+                      );
+                    })}
+                    {patient.otherAllergies && patient.otherAllergies.split(',').map((allergy: string, index: number) => {
+                      const trimmed = allergy.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <span
+                          key={`other-${index}`}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          data-testid={`badge-summary-other-allergy-${index}`}
+                        >
+                          {trimmed}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Collapsible Case Notes Section */}
           <div data-testid="section-case-notes">
@@ -548,8 +561,8 @@ export default function SurgerySummaryDialog({
               </CardContent>
             </Card>
 
-            {/* Pre-OP Assessment - Only shown in anesthesia module */}
-            {activeModule !== 'surgery' && (
+            {/* Pre-OP Assessment - Only shown in anesthesia module, requires patient */}
+            {activeModule !== 'surgery' && surgery?.patientId && (
               <Card 
                 className={!surgery?.noPreOpRequired ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
                 onClick={!surgery?.noPreOpRequired ? onOpenPreOp : undefined}
@@ -676,8 +689,8 @@ export default function SurgerySummaryDialog({
               </Card>
             )}
 
-            {/* Anesthesia Record - Only shown in anesthesia module */}
-            {activeModule !== 'surgery' && (
+            {/* Anesthesia Record - Only shown in anesthesia module, requires patient */}
+            {activeModule !== 'surgery' && surgery?.patientId && (
               <Card 
                 className={!surgery?.noPreOpRequired ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
                 onClick={!surgery?.noPreOpRequired ? onOpenAnesthesia : undefined}
@@ -726,8 +739,8 @@ export default function SurgerySummaryDialog({
               </div>
             )}
 
-            {/* Surgery Pre-Op Assessment - Only shown in surgery module */}
-            {activeModule === 'surgery' && onOpenSurgeryPreOp && (
+            {/* Surgery Pre-Op Assessment - Only shown in surgery module, requires patient */}
+            {activeModule === 'surgery' && onOpenSurgeryPreOp && surgery?.patientId && (
               <Card 
                 className="cursor-pointer hover:bg-accent transition-colors"
                 onClick={onOpenSurgeryPreOp}
@@ -818,32 +831,36 @@ export default function SurgerySummaryDialog({
         {/* Footer with Buttons */}
         <div className="shrink-0 bg-background border-t px-6 py-4 flex flex-wrap gap-2 justify-between">
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownloadPDF}
-              disabled={isDownloadingPdf}
-              data-testid="button-download-pdf-summary"
-            >
-              {isDownloadingPdf ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t('anesthesia.op.generatingPdf')}
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  {t('anesthesia.op.downloadPdf')}
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setSendSummaryDialogOpen(true)}
-              data-testid="button-send-surgeon-summary"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              {t('anesthesia.surgerySummary.sendSummary', 'Send Summary')}
-            </Button>
+            {surgery?.patientId && patient && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadPDF}
+                  disabled={isDownloadingPdf}
+                  data-testid="button-download-pdf-summary"
+                >
+                  {isDownloadingPdf ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('anesthesia.op.generatingPdf')}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      {t('anesthesia.op.downloadPdf')}
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSendSummaryDialogOpen(true)}
+                  data-testid="button-send-surgeon-summary"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  {t('anesthesia.surgerySummary.sendSummary', 'Send Summary')}
+                </Button>
+              </>
+            )}
           </div>
           <Button
             variant="outline"

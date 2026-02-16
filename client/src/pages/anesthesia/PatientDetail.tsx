@@ -139,7 +139,7 @@ export default function PatientDetail() {
     queryKey: [`/api/anesthesia/surgeries/${preOpRouteParams?.surgeryId}`],
     enabled: !!isPreOpRoute && !!preOpRouteParams?.surgeryId,
   });
-  const derivedPatientId = params?.id || preOpSurgery?.patientId;
+  const derivedPatientId = params?.id || preOpSurgery?.patientId || undefined;
 
   // --- Extracted queries hook ---
   const {

@@ -41,10 +41,11 @@ interface CalendarEvent {
   end: Date;
   resource?: string;
   surgeryId: string;
-  patientId: string;
+  patientId: string | null;
   plannedSurgery: string;
   patientName: string;
   patientBirthday: string;
+  surgeonName?: string | null;
   isCancelled: boolean;
   isSuspended: boolean;
   suspendedReason?: string | null;
@@ -92,7 +93,7 @@ const formats = {
 type ViewType = "day" | "week" | "month";
 
 interface OPCalendarProps {
-  onEventClick?: (surgeryId: string, patientId: string) => void;
+  onEventClick?: (surgeryId: string, patientId: string | null) => void;
 }
 
 interface RoomStaffAssignment {
@@ -360,8 +361,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   });
 
   // Fetch patients for surgeries
-  const patientIds = useMemo(() => 
-    Array.from(new Set(surgeries.map((s: any) => s.patientId))),
+  const patientIds = useMemo(() =>
+    Array.from(new Set(surgeries.map((s: any) => s.patientId).filter(Boolean))),
     [surgeries]
   );
 
@@ -429,9 +430,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Uses actual O1 (Surgical Incision) time as start and O2-O1 for duration when available
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return surgeries.map((surgery: any) => {
-      const patient = allPatients.find((p: any) => p.id === surgery.patientId);
-      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
-      const patientBirthday = patient?.birthday 
+      const isSlotReservation = !surgery.patientId;
+      const patient = surgery.patientId ? allPatients.find((p: any) => p.id === surgery.patientId) : null;
+      const patientName = isSlotReservation
+        ? t('opCalendar.slotReserved', 'SLOT RESERVED')
+        : patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
+      const patientBirthday = patient?.birthday
         ? new Date(patient.birthday).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
         : "";
       
@@ -483,10 +487,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       
       const isCancelled = surgery.status === "cancelled";
       const isSuspended = surgery.isSuspended === true;
-      const title = `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
-      
+      const title = isSlotReservation
+        ? `${t('opCalendar.slotReserved', 'SLOT RESERVED')}${surgery.plannedSurgery ? ` - ${surgery.plannedSurgery}` : ''}`
+        : `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
+
       const pacuBedRoom = surgery.pacuBedId ? allSurgeryRooms.find((r: any) => r.id === surgery.pacuBedId) : null;
-      
+
       return {
         id: surgery.id,
         title,
@@ -495,9 +501,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
         surgeryId: surgery.id,
         patientId: surgery.patientId,
-        plannedSurgery: surgery.plannedSurgery || 'No surgery specified',
+        plannedSurgery: surgery.plannedSurgery || (isSlotReservation ? t('opCalendar.slotReserved', 'SLOT RESERVED') : 'No surgery specified'),
         patientName,
         patientBirthday,
+        surgeonName: surgery.surgeon || null,
         isCancelled,
         isSuspended,
         suspendedReason: surgery.suspendedReason || null,
@@ -863,8 +870,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
     let backgroundColor = '#3b82f6'; // Default blue
     let borderColor = '#2563eb';
-    
-    if (event.isSuspended) {
+    let isSlotReservationEvent = !event.patientId;
+
+    if (isSlotReservationEvent && !event.isCancelled && !event.isSuspended) {
+      backgroundColor = '#8b5cf6'; // violet-500
+      borderColor = '#7c3aed'; // violet-600
+    } else if (event.isSuspended) {
       backgroundColor = '#f59e0b';
       borderColor = '#d97706';
     } else if (event.isCancelled) {
@@ -898,7 +909,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       color: '#ffffff',
       borderRadius: '4px',
       opacity: (event.isCancelled || event.isSuspended) ? 0.7 : 1,
-      border: event.isSuspended ? '2px dashed' : '1px solid',
+      border: (event.isSuspended || isSlotReservationEvent) ? '2px dashed' : '1px solid',
       display: 'block',
       textDecoration: event.isCancelled ? 'line-through' : 'none',
     };
@@ -938,26 +949,47 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     const preOpStatus = getPreOpStatus(event.surgeryId);
     const StatusIcon = preOpStatus.icon;
+    const isSlotReservationEvt = !event.patientId;
     return (
       <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
-        <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
-          {event.plannedSurgery}
-        </div>
-        <div className={`text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
-          {event.patientName}
-          {event.patientBirthday && ` ${event.patientBirthday}`}
-        </div>
-        {!event.isCancelled && !event.isSuspended && (
-          event.noPreOpRequired ? (
-            <div className="flex items-center gap-0.5 leading-tight mt-0.5" data-testid={`badge-la-${event.surgeryId}`} title={t('opCalendar.localAnesthesiaTooltip')}>
-              <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
+        {isSlotReservationEvt ? (
+          <>
+            <div className="font-bold text-[10px] sm:text-xs leading-tight truncate">
+              {t('opCalendar.slotReserved', 'SLOT RESERVED')}
             </div>
-          ) : (
-            <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
-              <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
-              <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
+            {event.surgeonName && (
+              <div className="text-[10px] sm:text-xs leading-tight truncate opacity-90">
+                {event.surgeonName}
+              </div>
+            )}
+            {event.plannedSurgery && event.plannedSurgery !== t('opCalendar.slotReserved', 'SLOT RESERVED') && (
+              <div className="text-[10px] sm:text-xs leading-tight truncate opacity-80">
+                {event.plannedSurgery}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
+              {event.plannedSurgery}
             </div>
-          )
+            <div className={`text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
+              {event.patientName}
+              {event.patientBirthday && ` ${event.patientBirthday}`}
+            </div>
+            {!event.isCancelled && !event.isSuspended && (
+              event.noPreOpRequired ? (
+                <div className="flex items-center gap-0.5 leading-tight mt-0.5" data-testid={`badge-la-${event.surgeryId}`} title={t('opCalendar.localAnesthesiaTooltip')}>
+                  <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
+                </div>
+              ) : (
+                <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
+                  <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
+                  <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
+                </div>
+              )
+            )}
+          </>
         )}
         {event.isSuspended && (
           <div className="text-[10px] sm:text-xs font-bold mt-0.5 truncate" data-testid={`badge-suspended-${event.surgeryId}`} title={event.suspendedReason || ''}>
