@@ -194,7 +194,7 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
     // Anonymize PII before sending to external AI
     const { text: safeText, restore, summary } = anonymize(text, { knownValues });
 
-    logAiOutbound({
+    await logAiOutbound({
       anonymizedText: safeText,
       summary,
       userId: req.user?.id || "unknown",
