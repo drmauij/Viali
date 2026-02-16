@@ -398,9 +398,7 @@ export function UnifiedAnesthesiaSetsDialog({
   };
 
   const handleStartEdit = async (set: AnesthesiaSet) => {
-    const response = await fetch(`/api/anesthesia-sets/set/${set.id}`, {
-      credentials: 'include'
-    });
+    const response = await apiRequest('GET', `/api/anesthesia-sets/set/${set.id}`);
     if (response.ok) {
       const setWithDetails: AnesthesiaSetWithDetails = await response.json();
       setEditingSet(setWithDetails);
