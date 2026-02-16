@@ -761,6 +761,8 @@ export default function QuickCreateSurgeryDialog({
             </div>
           </div>
 
+          {!isSlotReservation && (
+          <>
           {/* Section Divider: Procedure */}
           <div className="flex items-center gap-2 pt-2">
             <div className="h-px bg-border flex-1" />
@@ -1009,6 +1011,8 @@ export default function QuickCreateSurgeryDialog({
               {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
             </Label>
           </div>
+          </>
+          )}
 
           {/* Section Divider: Team & Notes */}
           <div className="flex items-center gap-2 pt-2">
@@ -1166,7 +1170,8 @@ export default function QuickCreateSurgeryDialog({
             />
           </div>
 
-          {/* Implant Details */}
+          {/* Implant Details - hidden in slot reservation mode */}
+          {!isSlotReservation && (
           <div className="space-y-2">
             <Label htmlFor="implant-details">{t('anesthesia.quickSchedule.implantDetails', 'Implant Details')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
             <Textarea
@@ -1178,6 +1183,7 @@ export default function QuickCreateSurgeryDialog({
               rows={3}
             />
           </div>
+          )}
         </div>
 
         <div className="shrink-0 bg-background border-t px-4 sm:px-6 py-4 flex justify-end gap-2">
