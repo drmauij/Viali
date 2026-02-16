@@ -31,8 +31,7 @@ import {
   ChevronRight,
   Building2,
   Check,
-  ChevronsUpDown,
-  CalendarClock
+  ChevronsUpDown
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
@@ -472,18 +471,10 @@ export default function ExternalSurgeryRequest() {
                 </div>
 
                 {/* Reservation-only toggle */}
-                <div className="flex items-center justify-between p-3 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <CalendarClock className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
-                    <div>
-                    <Label htmlFor="reservationOnly" className="cursor-pointer font-medium text-violet-700 dark:text-violet-300">
-                      {t('externalSurgery.reservationOnly', 'Reserve time slot only')}
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {t('externalSurgery.reservationOnlyDesc', 'Patient details can be provided later')}
-                    </p>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between pt-2">
+                  <Label htmlFor="reservationOnly" className="cursor-pointer text-sm text-muted-foreground">
+                    {t('externalSurgery.reservationOnly', 'Reserve time slot only')}
+                  </Label>
                   <Switch
                     id="reservationOnly"
                     checked={isReservationOnly}
@@ -503,9 +494,11 @@ export default function ExternalSurgeryRequest() {
                   </h3>
                 </div>
                 
+                {!isReservationOnly && (
+                <>
                 <div className="space-y-2">
                   <Label>
-                    {t('surgery.externalRequest.surgeryName')} {!isReservationOnly && '*'}
+                    {t('surgery.externalRequest.surgeryName')} *
                   </Label>
                   <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
                     <PopoverTrigger asChild>
@@ -711,6 +704,8 @@ export default function ExternalSurgeryRequest() {
                   onRightArmPositionChange={(v) => updateField('rightArmPosition', v)}
                   testIdPrefix="external-"
                 />
+                </>
+                )}
 
                 {/* Section Divider: Scheduling */}
                 <div className="flex items-center gap-2 pt-2">
@@ -750,6 +745,8 @@ export default function ExternalSurgeryRequest() {
                   </div>
                 </div>
 
+                {!isReservationOnly && (
+                <>
                 {/* Section Divider: Requirements */}
                 <div className="flex items-center gap-2 pt-2">
                   <div className="h-px bg-border flex-1" />
@@ -781,7 +778,9 @@ export default function ExternalSurgeryRequest() {
                     data-testid="switch-anesthesia"
                   />
                 </div>
-                
+                </>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="surgeryNotes">
                     <FileText className="h-4 w-4 inline mr-1" />

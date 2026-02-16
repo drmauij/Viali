@@ -508,28 +508,6 @@ export default function QuickCreateSurgeryDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 min-h-0">
-          {/* Slot Reservation Toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              <Label htmlFor="slot-reservation-toggle" className="font-medium cursor-pointer text-sm">
-                {t('anesthesia.quickSchedule.slotReservation', 'Slot Reservation (no patient)')}
-              </Label>
-            </div>
-            <Switch
-              id="slot-reservation-toggle"
-              checked={isSlotReservation}
-              onCheckedChange={(checked) => {
-                setIsSlotReservation(checked);
-                if (checked) {
-                  setSelectedPatientId("");
-                  setShowNewPatientForm(false);
-                }
-              }}
-              data-testid="switch-slot-reservation"
-            />
-          </div>
-
           {/* Patient Selection - hidden in slot reservation mode */}
           {!isSlotReservation && (
           <div className="space-y-2">
@@ -677,6 +655,25 @@ export default function QuickCreateSurgeryDialog({
           </div>
 
           )}
+
+          {/* Slot Reservation Toggle - subtle, rarely used */}
+          <div className="flex items-center justify-between py-1">
+            <Label htmlFor="slot-reservation-toggle" className="cursor-pointer text-sm text-muted-foreground">
+              {t('anesthesia.quickSchedule.slotReservation', 'Slot Reservation (no patient)')}
+            </Label>
+            <Switch
+              id="slot-reservation-toggle"
+              checked={isSlotReservation}
+              onCheckedChange={(checked) => {
+                setIsSlotReservation(checked);
+                if (checked) {
+                  setSelectedPatientId("");
+                  setShowNewPatientForm(false);
+                }
+              }}
+              data-testid="switch-slot-reservation"
+            />
+          </div>
 
           {/* Section Divider: Scheduling */}
           <div className="flex items-center gap-2 pt-2">
