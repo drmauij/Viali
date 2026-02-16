@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare, Trash2, Archive, UserPlus } from "lucide-react";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -56,6 +57,7 @@ export default function SurgerySummaryDialog({
   const [isPhoneRevealed, setIsPhoneRevealed] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   // Reset phone reveal state when dialog opens
   useEffect(() => {
@@ -63,6 +65,7 @@ export default function SurgerySummaryDialog({
       setIsPhoneRevealed(false);
       setNotesExpanded(false);
       setNewNoteContent("");
+      setShowArchiveConfirm(false);
     }
   }, [open]);
 
@@ -148,6 +151,35 @@ export default function SurgerySummaryDialog({
     },
     onError: () => {
       toast({ title: t('common.error'), description: t('anesthesia.caseNotes.errorCreating'), variant: "destructive" });
+    },
+  });
+
+  // Archive mutation
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
+        }
+      });
+      toast({
+        title: !surgery?.patientId
+          ? t('anesthesia.surgerySummary.reservationDeleted', 'Reservation deleted')
+          : t('anesthesia.editSurgery.surgeryArchived', 'Surgery archived'),
+      });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: t('anesthesia.editSurgery.archiveFailed', 'Archive Failed'),
+        description: t('anesthesia.editSurgery.archiveFailedDescription', 'Failed to archive surgery. Please try again.'),
+        variant: "destructive",
+      });
     },
   });
 
@@ -295,6 +327,15 @@ export default function SurgerySummaryDialog({
               <p className="text-xs text-muted-foreground mt-1">
                 {t('editSurgery.slotReservationBanner', 'No patient assigned yet. Edit this surgery to add patient details.')}
               </p>
+              <Button
+                size="sm"
+                className="mt-3 bg-violet-600 hover:bg-violet-700 text-white"
+                onClick={onEditSurgery}
+                data-testid="button-assign-patient"
+              >
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                {t('anesthesia.surgerySummary.assignPatient', 'Assign Patient')}
+              </Button>
             </div>
           ) : (
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
@@ -413,8 +454,8 @@ export default function SurgerySummaryDialog({
             </div>
           )}
 
-          {/* Collapsible Case Notes Section */}
-          <div data-testid="section-case-notes">
+          {/* Collapsible Case Notes Section - hidden for slot reservations */}
+          {surgery?.patientId && <div data-testid="section-case-notes">
             <button
               onClick={() => setNotesExpanded(!notesExpanded)}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
@@ -495,7 +536,7 @@ export default function SurgerySummaryDialog({
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Action Cards */}
           <div className="space-y-3">
@@ -718,8 +759,8 @@ export default function SurgerySummaryDialog({
               </Card>
             )}
 
-            {/* PACU Bed Assignment - Only shown in anesthesia module */}
-            {(!activeModule || activeModule === 'anesthesia') && (
+            {/* PACU Bed Assignment - Only shown in anesthesia module, hidden for slot reservations */}
+            {(!activeModule || activeModule === 'anesthesia') && surgery?.patientId && (
               <div className="flex items-center justify-between px-4 py-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900" data-testid="section-pacu-bed-assignment">
                 <div className="flex items-center gap-2">
                   <Bed className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -862,13 +903,33 @@ export default function SurgerySummaryDialog({
               </>
             )}
           </div>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            data-testid="button-close-summary"
-          >
-            {t('common.close')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setShowArchiveConfirm(true)}
+              disabled={archiveMutation.isPending}
+              data-testid="button-delete-archive-summary"
+            >
+              {archiveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : !surgery?.patientId ? (
+                <Trash2 className="h-4 w-4 mr-2" />
+              ) : (
+                <Archive className="h-4 w-4 mr-2" />
+              )}
+              {!surgery?.patientId
+                ? t('common.delete', 'Delete')
+                : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-close-summary"
+            >
+              {t('common.close')}
+            </Button>
+          </div>
         </div>
       </DialogContent>
       
@@ -893,6 +954,35 @@ export default function SurgerySummaryDialog({
           patient={patient}
         />
       )}
+      {/* Archive/Delete Confirmation Dialog */}
+      <AlertDialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {!surgery?.patientId
+                ? t('anesthesia.surgerySummary.deleteReservationTitle', 'Delete this reservation?')
+                : t('anesthesia.editSurgery.confirmArchive', 'Archive Surgery?')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {!surgery?.patientId
+                ? t('anesthesia.surgerySummary.deleteReservationMessage', 'This slot reservation will be permanently removed from the calendar.')
+                : t('anesthesia.editSurgery.confirmArchiveMessage', 'This surgery will be moved to the archive. All associated records will be preserved.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-archive-summary">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => archiveMutation.mutate()}
+              className={!surgery?.patientId ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : ""}
+              data-testid="button-confirm-archive-summary"
+            >
+              {!surgery?.patientId
+                ? t('common.delete', 'Delete')
+                : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

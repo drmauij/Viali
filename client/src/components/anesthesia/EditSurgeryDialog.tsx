@@ -66,6 +66,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [chopSearchTerm, setChopSearchTerm] = useState("");
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
 
+  // Patient assignment state (for slot reservations)
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+
   // New surgeon form state
   const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
@@ -95,6 +99,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     queryKey: [`/api/patients/${surgery?.patientId}`],
     enabled: !!surgery?.patientId,
   });
+
+  // Fetch patients list (for assigning patient to slot reservations)
+  const { data: patients = [] } = useQuery<any[]>({
+    queryKey: [`/api/patients?hospitalId=${surgery?.hospitalId}`],
+    enabled: !!surgery?.hospitalId && !surgery?.patientId,
+  });
+
+  const selectedPatient = patients.find((p: any) => p.id === selectedPatientId);
 
   // Fetch surgeons
   const { data: surgeons = [] } = useQuery<any[]>({
@@ -310,6 +322,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setPatientPosition(surgery.patientPosition || "");
       setLeftArmPosition(surgery.leftArmPosition || "");
       setRightArmPosition(surgery.rightArmPosition || "");
+      setSelectedPatientId(surgery.patientId || "");
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -357,6 +370,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         noPreOpRequired,
         surgerySide: surgerySide || null,
         antibioseProphylaxe,
+        patientId: selectedPatientId || null,
         patientPosition: patientPosition || null,
         leftArmPosition: leftArmPosition || null,
         rightArmPosition: rightArmPosition || null,
@@ -473,7 +487,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   });
 
   const handleUpdate = () => {
-    if (!surgeryDate || !startTime || !plannedSurgery || !surgeryRoomId) {
+    const isSlotReservation = !surgery?.patientId && !selectedPatientId;
+    if (!surgeryDate || !startTime || !surgeryRoomId || (!isSlotReservation && !plannedSurgery)) {
       toast({
         title: t('common.missingInformation'),
         description: t('common.pleaseFillRequiredFields'),
@@ -582,15 +597,64 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 )}
                 {/* Patient Information (Read-only) or Slot Reserved banner */}
                 {!surgery?.patientId ? (
-                  <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 p-3">
+                      <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
                         {t('opCalendar.slotReserved', 'SLOT RESERVED')}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('editSurgery.slotReservationBanner', 'No patient assigned yet. Edit this surgery to add patient details.')}
-                    </p>
+                    {canWrite && (
+                      <div>
+                        <Label>{t('anesthesia.surgerySummary.assignPatient', 'Assign Patient')}</Label>
+                        <div className="flex gap-2 mt-1">
+                          <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={patientSearchOpen}
+                                className="flex-1 justify-between"
+                                data-testid="button-select-patient-edit"
+                              >
+                                {selectedPatient
+                                  ? `${selectedPatient.surname}, ${selectedPatient.firstName}`
+                                  : t('anesthesia.quickSchedule.selectPatient', 'Select patient...')}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[400px] p-0">
+                              <Command>
+                                <CommandInput placeholder={t('anesthesia.quickSchedule.searchPatients', 'Search patients...')} />
+                                <CommandList>
+                                  <CommandEmpty>{t('anesthesia.quickSchedule.noPatientsFound', 'No patients found')}</CommandEmpty>
+                                  <CommandGroup>
+                                    {patients.map((p: any) => (
+                                      <CommandItem
+                                        key={p.id}
+                                        value={`${p.surname} ${p.firstName} ${p.birthday || ''}`}
+                                        onSelect={() => {
+                                          setSelectedPatientId(p.id);
+                                          setPatientSearchOpen(false);
+                                        }}
+                                        data-testid={`patient-option-${p.id}`}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedPatientId === p.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {p.surname}, {p.firstName} ({p.birthday ? new Date(p.birthday).toLocaleDateString() : 'N/A'})
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : patient ? (
                 <div className="space-y-2">
