@@ -43,7 +43,7 @@ app.use(helmet({
       connectSrc: ["'self'", "wss:", "https:"],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
-      frameAncestors: ["'none'"],
+      frameAncestors: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,

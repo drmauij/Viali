@@ -371,6 +371,12 @@ export class GalexisClient {
       </product>
     </productAvailabilityLine>`;
       } else if (p.gtin) {
+        // Galexis schema limits EAN to max 14 digits - skip invalid codes
+        const digits = p.gtin.replace(/\D/g, '');
+        if (digits.length > 14) {
+          logger.warn(`[Galexis] Skipping invalid GTIN with ${digits.length} digits: ${p.gtin}`);
+          return '';
+        }
         return `    <productAvailabilityLine quantity="1">
       <product>
         <EAN id="${p.gtin}" />
