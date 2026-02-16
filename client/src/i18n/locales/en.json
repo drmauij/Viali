@@ -4615,6 +4615,7 @@
       "invalidLinkDesc": "This link is invalid or has expired.",
       "requestSubmitted": "Request Submitted!",
       "requestSubmittedDesc": "Your surgery reservation request has been successfully submitted. You will receive a confirmation once the appointment has been scheduled.",
+      "reservationNote": "When you have patient details ready, use the same link to submit a new request with the full information.",
       "surgeryReservation": "Surgery Reservation Request",
       "steps": {
         "surgeon": "Surgeon Information",
@@ -6555,7 +6556,7 @@
   "POST": "/api/admin/import-chop",
   "externalSurgery": {
     "reservationOnly": "Reserve time slot only",
-    "reservationOnlyDesc": "Patient details can be provided later"
+    "reservationOnlyDesc": "Book OR time without patient details — submit a separate request later with patient info"
   },
   "editSurgery": {
     "slotReservationBanner": "No patient assigned yet. Edit this surgery to add patient details."

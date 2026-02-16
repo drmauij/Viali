@@ -4696,6 +4696,7 @@
       "invalidLinkDesc": "Dieser Link ist ungültig oder abgelaufen.",
       "requestSubmitted": "Anfrage gesendet!",
       "requestSubmittedDesc": "Ihre OP-Reservierungsanfrage wurde erfolgreich eingereicht. Sie erhalten eine Bestätigung, sobald der Termin geplant wurde.",
+      "reservationNote": "Sobald Sie die Patientendaten haben, können Sie über denselben Link eine neue Anfrage mit den vollständigen Informationen einreichen.",
       "surgeryReservation": "OP-Terminreservierung",
       "steps": {
         "surgeon": "Chirurg Informationen",
@@ -6575,7 +6576,7 @@
   "POST": "/api/admin/import-chop",
   "externalSurgery": {
     "reservationOnly": "Nur Zeitfenster reservieren",
-    "reservationOnlyDesc": "Patientendaten können später ergänzt werden"
+    "reservationOnlyDesc": "OP-Zeit ohne Patientendaten reservieren — Patienteninfos separat einreichen"
   },
   "editSurgery": {
     "slotReservationBanner": "Noch kein Patient zugewiesen. Bearbeiten Sie diese OP, um Patientendaten hinzuzufügen."

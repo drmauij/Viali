@@ -347,6 +347,13 @@ export default function ExternalSurgeryRequest() {
               <p className="text-sm text-muted-foreground">
                 {hospitalData.hospitalName}
               </p>
+              {isReservationOnly && (
+                <div className="mt-6 p-4 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-left">
+                  <p className="text-sm text-violet-700 dark:text-violet-300">
+                    {t('surgery.externalRequest.reservationNote', 'When you have patient details ready, use the same link to submit a new request with the full information.')}
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -470,17 +477,37 @@ export default function ExternalSurgeryRequest() {
                   />
                 </div>
 
-                {/* Reservation-only toggle */}
-                <div className="flex items-center justify-between pt-2">
-                  <Label htmlFor="reservationOnly" className="cursor-pointer text-sm text-muted-foreground">
-                    {t('externalSurgery.reservationOnly', 'Reserve time slot only')}
-                  </Label>
-                  <Switch
-                    id="reservationOnly"
-                    checked={isReservationOnly}
-                    onCheckedChange={handleReservationToggle}
-                    data-testid="switch-reservation-only"
-                  />
+                {/* Reservation-only toggle - prominent card */}
+                <div
+                  className={cn(
+                    "rounded-lg border-2 p-4 cursor-pointer transition-all mt-2",
+                    isReservationOnly
+                      ? "border-violet-400 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-600"
+                      : "border-dashed border-muted-foreground/30 hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
+                  )}
+                  onClick={() => handleReservationToggle(!isReservationOnly)}
+                  data-testid="card-reservation-only"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Calendar className={cn("h-5 w-5", isReservationOnly ? "text-violet-600 dark:text-violet-400" : "text-muted-foreground")} />
+                      <div>
+                        <p className={cn("font-medium text-sm", isReservationOnly ? "text-violet-700 dark:text-violet-300" : "")}>
+                          {t('externalSurgery.reservationOnly', 'Reserve time slot only')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {t('externalSurgery.reservationOnlyDesc', 'Book OR time without patient details — submit a separate request later with patient info')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="reservationOnly"
+                      checked={isReservationOnly}
+                      onCheckedChange={handleReservationToggle}
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid="switch-reservation-only"
+                    />
+                  </div>
                 </div>
               </div>
             )}
