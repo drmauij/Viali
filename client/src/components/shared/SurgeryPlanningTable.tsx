@@ -2000,6 +2000,34 @@ export function SurgeryPlanningTable({
                             {surgery.actualEndTime && (
                               <p><span className="text-muted-foreground">{t("surgeryPlanning.actualEnd")}:</span> {formatDateTime(surgery.actualEndTime)}</p>
                             )}
+                            {(() => {
+                              const markers = (surgery as any).timeMarkers;
+                              if (!Array.isArray(markers)) return null;
+
+                              const o1 = markers.find((m: any) => m.code === 'O1')?.time;
+                              const o2 = markers.find((m: any) => m.code === 'O2')?.time;
+                              const x1 = markers.find((m: any) => m.code === 'X1')?.time;
+                              const a2 = markers.find((m: any) => m.code === 'A2')?.time;
+
+                              const formatDuration = (start: number, end: number) => {
+                                const ms = end - start;
+                                if (ms < 0) return "-";
+                                const hours = Math.floor(ms / (1000 * 60 * 60));
+                                const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+                                return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                              };
+
+                              return (
+                                <>
+                                  {o1 && o2 && (
+                                    <p><Clock className="h-3.5 w-3.5 inline mr-1" /><span className="text-muted-foreground">{t("surgeryPlanning.totalSurgeryTime")}:</span> {formatDuration(o1, o2)}</p>
+                                  )}
+                                  {x1 && a2 && (
+                                    <p><Clock className="h-3.5 w-3.5 inline mr-1" /><span className="text-muted-foreground">{t("surgeryPlanning.totalAnesthesiaTime")}:</span> {formatDuration(x1, a2)}</p>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                         

@@ -5591,6 +5591,8 @@
     "notes": "Notizen",
     "actualStart": "Tatsächlicher Start",
     "actualEnd": "Tatsächliches Ende",
+    "totalSurgeryTime": "OP-Zeit (O1–O2)",
+    "totalAnesthesiaTime": "Anästhesiezeit (X1–A2)",
     "paymentInfo": "Zahlungsinformationen",
     "paymentMethod": "Zahlungsmethode",
     "paymentNotes": "Zahlungsnotizen",

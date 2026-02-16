@@ -5487,6 +5487,8 @@
     "notes": "Notes",
     "actualStart": "Actual Start",
     "actualEnd": "Actual End",
+    "totalSurgeryTime": "Surgery Time (O1–O2)",
+    "totalAnesthesiaTime": "Anesthesia Time (X1–A2)",
     "paymentInfo": "Payment Information",
     "paymentMethod": "Payment Method",
     "paymentNotes": "Payment Notes",
