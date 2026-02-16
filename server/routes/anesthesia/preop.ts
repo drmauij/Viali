@@ -141,6 +141,27 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospital
       await storage.updatePatient(surgery.patientId, patientUpdates);
     }
 
+    // Protect remotely-signed consent from stale auto-save overwrites
+    if (assessment.consentRemoteSignedAt) {
+      if (!req.body.surgicalApproval || req.body.surgicalApproval === "") {
+        delete req.body.surgicalApproval;
+      }
+      if (req.body.standBy === true) {
+        delete req.body.standBy;
+        delete req.body.standByReason;
+        delete req.body.standByReasonNote;
+      }
+      // Never allow clearing remote signing data via staff save
+      delete req.body.consentRemoteSignedAt;
+      if (!req.body.patientSignature && assessment.patientSignature) {
+        delete req.body.patientSignature;
+      }
+      // Protect status from being reset to draft
+      if (req.body.status === "draft" && assessment.status === "completed") {
+        delete req.body.status;
+      }
+    }
+
     const updatedAssessment = await storage.updatePreOpAssessment(id, req.body);
     
     res.json(updatedAssessment);

@@ -2305,7 +2305,8 @@ router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async
       standBy: false,
       standByReason: null,
       standByReasonNote: null,
-      surgicalApprovalStatus: "approved",
+      surgicalApproval: "approved",
+      status: "completed",
     };
 
     if (signedByProxy) {
