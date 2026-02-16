@@ -99,27 +99,38 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          {/* Patient Info */}
-          <div className="bg-muted p-3 rounded-lg space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              {t('surgery.externalRequests.patient')}
-            </p>
-            <p className="font-medium">
-              {request.patientLastName}, {request.patientFirstName}
-            </p>
-            {request.patientPhone && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {request.patientPhone}
+          {/* Patient Info or Slot Reservation banner */}
+          {request.isReservationOnly ? (
+            <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 p-3 rounded-lg space-y-1">
+              <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                {t('opCalendar.slotReserved', 'SLOT RESERVED')}
               </p>
-            )}
-          </div>
+              <p className="text-xs text-muted-foreground">
+                {t('surgery.externalRequests.noPatientAssigned', 'No patient details — slot reservation only')}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-muted p-3 rounded-lg space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                {t('surgery.externalRequests.patient')}
+              </p>
+              <p className="font-medium">
+                {request.patientLastName}, {request.patientFirstName}
+              </p>
+              {request.patientPhone && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {request.patientPhone}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Surgery Info */}
           <div className="bg-muted p-3 rounded-lg space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase">
               {t('surgery.externalRequests.surgery')}
             </p>
-            <p className="font-medium">{request.surgeryName}</p>
+            <p className="font-medium">{request.surgeryName || t('surgery.externalRequests.notSpecified', 'Not specified')}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" /> {request.surgeryDurationMinutes} min
             </p>
@@ -328,18 +339,40 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
                   <CardContent className="pt-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-semibold text-lg">
-                          {request.patientLastName}, {request.patientFirstName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {request.surgeryName}
-                        </p>
+                        {request.isReservationOnly ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-lg text-violet-700 dark:text-violet-300">
+                                {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+                              </p>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Dr. {request.surgeonLastName}, {request.surgeonFirstName}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-lg">
+                              {request.patientLastName}, {request.patientFirstName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {request.surgeryName}
+                            </p>
+                          </>
+                        )}
                       </div>
-                      <Badge variant={request.withAnesthesia ? "default" : "secondary"}>
-                        {request.withAnesthesia
-                          ? t('surgery.externalRequests.withAnesthesia')
-                          : t('surgery.externalRequests.noAnesthesia')}
-                      </Badge>
+                      {request.isReservationOnly ? (
+                        <Badge variant="outline" className="border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {request.surgeryDurationMinutes} min
+                        </Badge>
+                      ) : (
+                        <Badge variant={request.withAnesthesia ? "default" : "secondary"}>
+                          {request.withAnesthesia
+                            ? t('surgery.externalRequests.withAnesthesia')
+                            : t('surgery.externalRequests.noAnesthesia')}
+                        </Badge>
+                      )}
                     </div>
 
                     <Separator />
