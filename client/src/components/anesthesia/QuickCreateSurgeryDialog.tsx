@@ -1,11 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -13,11 +11,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Check, ChevronsUpDown, UserPlus, CalendarClock } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
-import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
+import { SurgeryFormFields } from "./SurgeryFormFields";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -43,17 +40,8 @@ export default function QuickCreateSurgeryDialog({
   const [isSlotReservation, setIsSlotReservation] = useState(false);
   const [isRoomBlock, setIsRoomBlock] = useState(false);
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
-  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
-  const [chopSearchOpen, setChopSearchOpen] = useState(false);
-  const [chopSearchTerm, setChopSearchTerm] = useState("");
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
-  const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
-  
-  // New surgeon form state
-  const [newSurgeonFirstName, setNewSurgeonFirstName] = useState("");
-  const [newSurgeonLastName, setNewSurgeonLastName] = useState("");
-  const [newSurgeonPhone, setNewSurgeonPhone] = useState("");
-  
+
   // Helper to format date for date input (preserves local timezone)
   const formatDateOnly = (date: Date): string => {
     const year = date.getFullYear();
@@ -73,9 +61,9 @@ export default function QuickCreateSurgeryDialog({
   const getDefaultDuration = () => {
     if (initialEndDate) {
       const diffMs = initialEndDate.getTime() - initialDate.getTime();
-      return Math.round(diffMs / (1000 * 60)); // Convert ms to minutes
+      return Math.round(diffMs / (1000 * 60));
     }
-    return 180; // Default 3 hours
+    return 180;
   };
 
   // Form state
@@ -96,7 +84,7 @@ export default function QuickCreateSurgeryDialog({
   const [patientPosition, setPatientPosition] = useState<"" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies">("");
   const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
-  
+
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
   const [newPatientSurname, setNewPatientSurname] = useState("");
@@ -115,77 +103,62 @@ export default function QuickCreateSurgeryDialog({
   };
 
   // Parse birthday from various formats to ISO format (yyyy-mm-dd)
-  // Supported formats:
-  // - dd.mm.yy or dd.mm.yyyy (with dots)
-  // - ddmmyyyy (8 digits without dots)
-  // - ddmmyy (6 digits without dots)
-  // - dmyy (4 digits: single-digit day and month, 2-digit year)
   const parseBirthday = (input: string): string | null => {
     const trimmed = input.trim();
-    
+
     let day: string, month: string, year: string;
-    
-    // Try format with dots first: dd.mm.yy or dd.mm.yyyy
+
     const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
     if (dotMatch) {
       [, day, month, year] = dotMatch;
     } else if (/^\d{8}$/.test(trimmed)) {
-      // 8 digits: ddmmyyyy (e.g., 03041977)
       day = trimmed.substring(0, 2);
       month = trimmed.substring(2, 4);
       year = trimmed.substring(4, 8);
     } else if (/^\d{6}$/.test(trimmed)) {
-      // 6 digits: ddmmyy (e.g., 030477)
       day = trimmed.substring(0, 2);
       month = trimmed.substring(2, 4);
       year = trimmed.substring(4, 6);
     } else if (/^\d{4}$/.test(trimmed)) {
-      // 4 digits: dmyy (e.g., 3477 = 3rd April 1977)
       day = trimmed.substring(0, 1);
       month = trimmed.substring(1, 2);
       year = trimmed.substring(2, 4);
     } else {
       return null;
     }
-    
-    // Convert 2-digit year to 4-digit (yy -> 19yy or 20yy)
+
     if (year.length === 2) {
       const twoDigitYear = parseInt(year);
-      // If year is > 30, assume 19xx, otherwise 20xx
       year = twoDigitYear > 30 ? `19${year}` : `20${year}`;
     }
-    
+
     const dayNum = parseInt(day);
     const monthNum = parseInt(month);
     const yearNum = parseInt(year);
-    
-    // Basic range validation
+
     if (dayNum < 1 || dayNum > 31) return null;
     if (monthNum < 1 || monthNum > 12) return null;
     if (yearNum < 1900 || yearNum > 2100) return null;
-    
-    // Validate that the date actually exists (e.g., reject 31.02.1995, 29.02.2001)
+
     const testDate = new Date(yearNum, monthNum - 1, dayNum);
     if (
       testDate.getFullYear() !== yearNum ||
       testDate.getMonth() !== monthNum - 1 ||
       testDate.getDate() !== dayNum
     ) {
-      return null; // Invalid date (e.g., Feb 31, non-leap-year Feb 29)
+      return null;
     }
-    
-    // Pad day and month with leading zeros for ISO format
+
     day = day.padStart(2, '0');
     month = month.padStart(2, '0');
-    
-    // Return ISO format yyyy-mm-dd
+
     return `${year}-${month}-${day}`;
   };
 
   const handleBirthdayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     setBirthdayInput(input);
-    
+
     const parsed = parseBirthday(input);
     if (parsed) {
       setNewPatientDOB(parsed);
@@ -211,97 +184,9 @@ export default function QuickCreateSurgeryDialog({
   });
 
   // Fetch surgeons for the hospital
-  const {
-    data: surgeons = [],
-    isLoading: isLoadingSurgeons
-  } = useQuery<Array<{id: string; name: string; email: string | null}>>({
+  const { data: surgeons = [] } = useQuery<Array<{id: string; name: string; email: string | null}>>({
     queryKey: [`/api/surgeons?hospitalId=${hospitalId}`],
     enabled: !!hospitalId && open,
-  });
-
-  // Debounced CHOP search - only search when user has typed 2+ characters
-  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
-    id: string;
-    code: string;
-    descriptionDe: string;
-    chapter: string | null;
-    indentLevel: number | null;
-    laterality: string | null;
-  }>>({
-    queryKey: ['/api/chop-procedures', chopSearchTerm],
-    queryFn: async () => {
-      if (chopSearchTerm.length < 2) return [];
-      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
-      if (!response.ok) throw new Error('Failed to search procedures');
-      return response.json();
-    },
-    enabled: chopSearchTerm.length >= 2,
-    staleTime: 60000,
-  });
-
-  // Sort surgeons alphabetically by surname (extract surname from "FirstName LastName" format)
-  const sortedSurgeons = useMemo(() => {
-    return [...surgeons].sort((a, b) => {
-      const getSurname = (name: string) => {
-        const parts = name.trim().split(/\s+/);
-        return parts.length > 1 ? parts[parts.length - 1] : parts[0];
-      };
-      return getSurname(a.name).localeCompare(getSurname(b.name));
-    });
-  }, [surgeons]);
-
-  const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
-
-  // Fetch units to find the surgery unit for creating new surgeons
-  const { data: units = [] } = useQuery<Array<{id: string; name: string; type: string | null}>>({
-    queryKey: [`/api/admin/${hospitalId}/units`],
-    enabled: !!hospitalId && open && showNewSurgeonForm,
-  });
-
-  const surgeryUnit = units.find(u => u.type === 'or');
-
-  // Create surgeon mutation (creates as staff member with doctor role in surgery unit)
-  const createSurgeonMutation = useMutation({
-    mutationFn: async (data: { firstName: string; lastName: string; phone?: string }) => {
-      if (!surgeryUnit) {
-        throw new Error("No surgery unit found");
-      }
-      const dummyEmail = `surgeon_${crypto.randomUUID()}@internal.local`;
-      const dummyPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      const response = await apiRequest("POST", `/api/admin/${hospitalId}/users/create`, {
-        email: dummyEmail,
-        password: dummyPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone || undefined,
-        unitId: surgeryUnit.id,
-        role: "doctor",
-        canLogin: false,
-      });
-      return response.json();
-    },
-    onSuccess: (newSurgeon) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/surgeons?hospitalId=${hospitalId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/surgeons`, hospitalId] });
-      setSurgeonId(newSurgeon.id);
-      setShowNewSurgeonForm(false);
-      setNewSurgeonFirstName("");
-      setNewSurgeonLastName("");
-      setNewSurgeonPhone("");
-      toast({
-        title: t('anesthesia.quickSchedule.surgeonCreated', 'Surgeon created'),
-        description: t('anesthesia.quickSchedule.surgeonCreatedDescription', 'New surgeon has been added'),
-      });
-    },
-    onError: () => {
-      toast({
-        title: t('anesthesia.quickSchedule.creationFailed'),
-        description: t('anesthesia.quickSchedule.surgeonCreationFailedDescription', 'Failed to create surgeon'),
-        variant: "destructive",
-      });
-    },
   });
 
   // Create patient mutation
@@ -336,7 +221,7 @@ export default function QuickCreateSurgeryDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${hospitalId}`);
@@ -369,7 +254,6 @@ export default function QuickCreateSurgeryDialog({
     setAdmissionTime("");
     setPlannedSurgery("");
     setSelectedChopCode("");
-    setChopSearchTerm("");
     setSurgeonId("");
     setNotes("");
     setImplantDetails("");
@@ -386,27 +270,6 @@ export default function QuickCreateSurgeryDialog({
     setNewPatientGender("m");
     setNewPatientPhone("");
     setBirthdayInput("");
-    setShowNewSurgeonForm(false);
-    setNewSurgeonFirstName("");
-    setNewSurgeonLastName("");
-    setNewSurgeonPhone("");
-  };
-
-  const handleCreateSurgeon = () => {
-    if (!newSurgeonFirstName.trim() || !newSurgeonLastName.trim()) {
-      toast({
-        title: t('anesthesia.quickSchedule.missingInformation'),
-        description: t('anesthesia.quickSchedule.missingSurgeonFields', 'First name and last name are required'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createSurgeonMutation.mutate({
-      firstName: newSurgeonFirstName.trim(),
-      lastName: newSurgeonLastName.trim(),
-      phone: newSurgeonPhone.trim() || undefined,
-    });
   };
 
   const handleCreatePatient = () => {
@@ -448,7 +311,6 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
-    // Validate duration
     if (!duration || duration <= 0) {
       toast({
         title: t('anesthesia.quickSchedule.invalidDuration'),
@@ -458,18 +320,15 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
-    // Calculate end time from start time + duration
-    // Parse date and time separately
     const [year, month, day] = surgeryDate.split('-').map(Number);
     const [hour, minute] = startTime.split(':').map(Number);
-    
-    // Create Date in local timezone
+
     const startDate = new Date(year, month - 1, day, hour, minute);
     const endDate = new Date(startDate);
     endDate.setMinutes(endDate.getMinutes() + duration);
 
     const matchedSurgeon = surgeons.find(s => s.id === surgeonId);
-    
+
     let admissionTimeISO = undefined;
     if (admissionTime) {
       const [admHour, admMinute] = admissionTime.split(':').map(Number);
@@ -698,7 +557,6 @@ export default function QuickCreateSurgeryDialog({
                   setSelectedPatientId("");
                   setShowNewPatientForm(false);
                   setSurgeonId("");
-                  setShowNewSurgeonForm(false);
                 }
               }}
               className={cn(
@@ -720,519 +578,46 @@ export default function QuickCreateSurgeryDialog({
             </div>
           </div>
 
-          {/* Section Divider: Scheduling */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.scheduling', 'Scheduling')}</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-
-          {/* Room & Date */}
-          <div className="grid grid-cols-[1fr_2fr] gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="surgery-room">{t('anesthesia.quickSchedule.surgeryRoom')} *</Label>
-              <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
-                <SelectTrigger id="surgery-room" data-testid="select-surgery-room">
-                  <SelectValue placeholder={t('anesthesia.quickSchedule.selectRoom')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {surgeryRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
-                      {room.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="surgery-date">{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
-              <Input
-                id="surgery-date"
-                type="text"
-                placeholder="dd.MM.yyyy"
-                value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const parsed = parseFlexibleDate(value);
-                  if (parsed) {
-                    setSurgeryDate(parsed.isoDate);
-                  } else {
-                    setSurgeryDate(value);
-                  }
-                }}
-                onBlur={(e) => {
-                  const parsed = parseFlexibleDate(e.target.value);
-                  if (parsed) {
-                    setSurgeryDate(parsed.isoDate);
-                  }
-                }}
-                data-testid="input-surgery-date"
-              />
-            </div>
-          </div>
-
-          {/* Start Time, Duration & Admission */}
-          <div className={cn("grid gap-3", isSlotReservation ? "grid-cols-2" : "grid-cols-3")}>
-            <div className="space-y-1">
-              <Label htmlFor="start-time">{t('anesthesia.quickSchedule.startTime')} *</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                data-testid="input-start-time"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="duration">{t('anesthesia.quickSchedule.durationMin', 'Min.')} *</Label>
-              <Input
-                id="duration"
-                type="number"
-                min="1"
-                value={duration.toString()}
-                onChange={(e) => setDuration(Number(e.target.value) || 0)}
-                data-testid="input-duration"
-              />
-            </div>
-            {!isSlotReservation && (
-            <div className="space-y-1">
-              <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-              <Input
-                id="admission-time"
-                type="time"
-                value={admissionTime}
-                onChange={(e) => setAdmissionTime(e.target.value)}
-                data-testid="input-admission-time"
-              />
-            </div>
-            )}
-          </div>
-
-          {!isSlotReservation && (
-          <>
-          {/* Section Divider: Procedure */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.procedure', 'Procedure')}</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-
-          {/* Planned Surgery - CHOP Procedure Selector */}
-          <div className="space-y-2">
-            <Label>{t('anesthesia.quickSchedule.plannedSurgery')} {!isSlotReservation && '*'}</Label>
-            <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={chopSearchOpen}
-                  className="w-full justify-between h-auto min-h-10 text-left font-normal"
-                  data-testid="select-chop-procedure"
-                >
-                  {plannedSurgery ? (
-                    <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-                      <span className="text-sm whitespace-normal text-left">{plannedSurgery}</span>
-                      {selectedChopCode && (
-                        <span className="text-xs text-muted-foreground">CHOP: {selectedChopCode}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">{t('anesthesia.quickSchedule.plannedSurgeryPlaceholder', 'Search or enter procedure...')}</span>
-                  )}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[450px] p-0" align="start">
-                <Command shouldFilter={false}>
-                  <CommandInput 
-                    placeholder={t('anesthesia.quickSchedule.searchChopProcedure', 'Search CHOP procedures...')}
-                    value={chopSearchTerm}
-                    onValueChange={(value) => {
-                      setChopSearchTerm(value);
-                    }}
-                    data-testid="input-chop-search"
-                  />
-                  <CommandList className="max-h-[300px] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {chopSearchTerm.length < 2 ? (
-                      <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
-                        {t('anesthesia.quickSchedule.chopSearchHint', 'Type at least 2 characters to search CHOP procedures')}
-                      </CommandEmpty>
-                    ) : isLoadingChop ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    ) : chopProcedures.length === 0 ? (
-                      <CommandEmpty>
-                        <div className="py-2 px-2 space-y-2">
-                          <p className="text-sm">{t('anesthesia.quickSchedule.noChopResults', 'No CHOP procedures found')}</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              setPlannedSurgery(chopSearchTerm);
-                              setSelectedChopCode("");
-                              setChopSearchOpen(false);
-                            }}
-                            data-testid="button-use-custom-surgery"
-                          >
-                            {t('anesthesia.quickSchedule.useCustomName', 'Use custom name: "{name}"').replace('{name}', chopSearchTerm)}
-                          </Button>
-                        </div>
-                      </CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {chopProcedures.map((proc) => (
-                          <CommandItem
-                            key={proc.id}
-                            value={proc.code}
-                            onSelect={() => {
-                              setPlannedSurgery(proc.descriptionDe);
-                              setSelectedChopCode(proc.code);
-                              setChopSearchOpen(false);
-                            }}
-                            className="flex flex-col items-start gap-0.5 cursor-pointer"
-                            data-testid={`chop-option-${proc.code}`}
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <Check
-                                className={cn(
-                                  "h-4 w-4 shrink-0",
-                                  selectedChopCode === proc.code ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{proc.code}</span>
-                                  {proc.laterality && (
-                                    <span className="text-xs text-muted-foreground">({proc.laterality})</span>
-                                  )}
-                                </div>
-                                <p className="text-sm whitespace-normal break-words">{proc.descriptionDe}</p>
-                              </div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </CommandList>
-                  {chopSearchTerm.length >= 2 && chopProcedures.length > 0 && (
-                    <div className="sticky bottom-0 border-t bg-popover p-1">
-                      <CommandItem
-                        value="__custom__"
-                        onSelect={() => {
-                          setPlannedSurgery(chopSearchTerm);
-                          setSelectedChopCode("");
-                          setChopSearchOpen(false);
-                        }}
-                        className="cursor-pointer"
-                        data-testid="chop-option-custom"
-                      >
-                        <Check className="h-4 w-4 shrink-0 opacity-0" />
-                        <span className="text-sm text-muted-foreground">
-                          {t('anesthesia.quickSchedule.useAsCustom', 'Use as custom entry: "{name}"').replace('{name}', chopSearchTerm)}
-                        </span>
-                      </CommandItem>
-                    </div>
-                  )}
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Surgery Side */}
-          <div className="space-y-2">
-            <Label>{t('anesthesia.surgerySide.label', 'Surgery Side')}</Label>
-            <div className="flex gap-2 flex-wrap">
-              <label 
-                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                  surgerySide === "left" 
-                    ? "border-primary bg-primary/10 text-primary" 
-                    : "border-input bg-background hover:bg-accent"
-                }`}
-                data-testid="radio-surgery-side-left"
-              >
-                <input
-                  type="radio"
-                  name="surgerySide"
-                  value="left"
-                  checked={surgerySide === "left"}
-                  onChange={() => setSurgerySide("left")}
-                  className="sr-only"
-                />
-                <span className="text-sm font-medium">{t('anesthesia.surgerySide.left', 'Left')}</span>
-              </label>
-              <label 
-                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                  surgerySide === "right" 
-                    ? "border-primary bg-primary/10 text-primary" 
-                    : "border-input bg-background hover:bg-accent"
-                }`}
-                data-testid="radio-surgery-side-right"
-              >
-                <input
-                  type="radio"
-                  name="surgerySide"
-                  value="right"
-                  checked={surgerySide === "right"}
-                  onChange={() => setSurgerySide("right")}
-                  className="sr-only"
-                />
-                <span className="text-sm font-medium">{t('anesthesia.surgerySide.right', 'Right')}</span>
-              </label>
-              <label 
-                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                  surgerySide === "both" 
-                    ? "border-primary bg-primary/10 text-primary" 
-                    : "border-input bg-background hover:bg-accent"
-                }`}
-                data-testid="radio-surgery-side-both"
-              >
-                <input
-                  type="radio"
-                  name="surgerySide"
-                  value="both"
-                  checked={surgerySide === "both"}
-                  onChange={() => setSurgerySide("both")}
-                  className="sr-only"
-                />
-                <span className="text-sm font-medium">{t('anesthesia.surgerySide.both', 'Both')}</span>
-              </label>
-              {surgerySide && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSurgerySide("")}
-                  className="text-xs min-h-[44px] px-3"
-                >
-                  {t('common.clear', 'Clear')}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Patient Positioning */}
-          <PatientPositionFields
+          {/* Shared Surgery Form Fields */}
+          <SurgeryFormFields
+            surgeryRoomId={surgeryRoomId}
+            surgeryDate={surgeryDate}
+            startTime={startTime}
+            duration={duration}
+            admissionTime={admissionTime}
+            plannedSurgery={plannedSurgery}
+            selectedChopCode={selectedChopCode}
+            surgeonId={surgeonId}
+            notes={notes}
+            implantDetails={implantDetails}
+            surgerySide={surgerySide}
+            noPreOpRequired={noPreOpRequired}
+            antibioseProphylaxe={antibioseProphylaxe}
             patientPosition={patientPosition}
             leftArmPosition={leftArmPosition}
             rightArmPosition={rightArmPosition}
-            onPatientPositionChange={setPatientPosition}
-            onLeftArmPositionChange={setLeftArmPosition}
-            onRightArmPositionChange={setRightArmPosition}
-            testIdPrefix="quick-"
+            onSurgeryRoomIdChange={setSurgeryRoomId}
+            onSurgeryDateChange={setSurgeryDate}
+            onStartTimeChange={setStartTime}
+            onDurationChange={setDuration}
+            onAdmissionTimeChange={setAdmissionTime}
+            onPlannedSurgeryChange={setPlannedSurgery}
+            onSelectedChopCodeChange={setSelectedChopCode}
+            onSurgeonIdChange={setSurgeonId}
+            onNotesChange={setNotes}
+            onImplantDetailsChange={setImplantDetails}
+            onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
+            onNoPreOpRequiredChange={setNoPreOpRequired}
+            onAntibioseProphylaxeChange={setAntibioseProphylaxe}
+            onPatientPositionChange={(v) => setPatientPosition(v as typeof patientPosition)}
+            onLeftArmPositionChange={(v) => setLeftArmPosition(v as typeof leftArmPosition)}
+            onRightArmPositionChange={(v) => setRightArmPosition(v as typeof rightArmPosition)}
+            surgeryRooms={surgeryRooms}
+            surgeons={surgeons}
+            hospitalId={hospitalId}
+            isSlotReservation={isSlotReservation}
+            isRoomBlock={isRoomBlock}
           />
-
-          {/* Section Divider: Requirements */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.requirements', 'Requirements')}</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-
-          {/* Antibiose Prophylaxe */}
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="antibiose-prophylaxe"
-              checked={antibioseProphylaxe}
-              onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
-              data-testid="checkbox-antibiose-prophylaxe"
-            />
-            <Label htmlFor="antibiose-prophylaxe" className="font-normal cursor-pointer">
-              {t('anesthesia.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')}
-            </Label>
-          </div>
-
-          {/* No Anesthesia Pre-Op Required */}
-          <div className="flex items-center space-x-2 pt-2">
-            <Checkbox
-              id="no-preop-required"
-              checked={noPreOpRequired}
-              onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
-              data-testid="checkbox-no-preop-required"
-            />
-            <Label 
-              htmlFor="no-preop-required" 
-              className="text-sm font-normal cursor-pointer"
-            >
-              {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-            </Label>
-          </div>
-          </>
-          )}
-
-          {/* Section Divider: Team & Notes */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isRoomBlock ? t('anesthesia.sections.notes', 'Notes') : t('anesthesia.sections.teamNotes', 'Team & Notes')}</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
-
-          {/* Surgeon - hidden in room block mode */}
-          {!isRoomBlock && (
-          <div className="space-y-2">
-            <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
-            {!showNewSurgeonForm ? (
-              <div className="flex gap-2">
-                <Popover open={surgeonSearchOpen} onOpenChange={setSurgeonSearchOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={surgeonSearchOpen}
-                      className="flex-1 justify-between"
-                      disabled={isLoadingSurgeons}
-                      data-testid="select-surgeon"
-                    >
-                      {isLoadingSurgeons 
-                        ? t('anesthesia.quickSchedule.loadingSurgeons')
-                        : selectedSurgeon
-                          ? selectedSurgeon.name
-                          : t('anesthesia.quickSchedule.noSurgeonSelected')}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder={t('anesthesia.quickSchedule.searchSurgeons', 'Search surgeons...')} />
-                      <CommandList>
-                        <CommandEmpty>{t('anesthesia.quickSchedule.noSurgeonsAvailable')}</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="none"
-                            onSelect={() => {
-                              setSurgeonId("");
-                              setSurgeonSearchOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                !surgeonId ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <span className="text-muted-foreground italic">{t('anesthesia.quickSchedule.noSurgeonSelected')}</span>
-                          </CommandItem>
-                          {sortedSurgeons.map((s) => (
-                            <CommandItem
-                              key={s.id}
-                              value={`${s.name}__${s.id}`}
-                              onSelect={() => {
-                                setSurgeonId(s.id);
-                                setSurgeonSearchOpen(false);
-                              }}
-                              data-testid={`surgeon-option-${s.id}`}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  surgeonId === s.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {s.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowNewSurgeonForm(true)}
-                  data-testid="button-show-new-surgeon"
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="border rounded-md p-4 space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">{t('anesthesia.quickSchedule.newSurgeon', 'New Surgeon')}</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNewSurgeonForm(false)}
-                    data-testid="button-cancel-new-surgeon"
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="new-surgeon-firstname">{t('anesthesia.quickSchedule.firstName')} *</Label>
-                    <Input
-                      id="new-surgeon-firstname"
-                      value={newSurgeonFirstName}
-                      onChange={(e) => setNewSurgeonFirstName(e.target.value)}
-                      data-testid="input-new-surgeon-firstname"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="new-surgeon-lastname">{t('anesthesia.quickSchedule.surname')} *</Label>
-                    <Input
-                      id="new-surgeon-lastname"
-                      value={newSurgeonLastName}
-                      onChange={(e) => setNewSurgeonLastName(e.target.value)}
-                      data-testid="input-new-surgeon-lastname"
-                    />
-                  </div>
-                  <div className="space-y-1 col-span-2">
-                    <Label htmlFor="new-surgeon-phone">{t('anesthesia.quickSchedule.phone')}</Label>
-                    <PhoneInputWithCountry
-                      id="new-surgeon-phone"
-                      placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
-                      value={newSurgeonPhone}
-                      onChange={(value) => setNewSurgeonPhone(value)}
-                      data-testid="input-new-surgeon-phone"
-                    />
-                  </div>
-                </div>
-                <Button
-                  onClick={handleCreateSurgeon}
-                  disabled={createSurgeonMutation.isPending || !surgeryUnit}
-                  className="w-full"
-                  data-testid="button-create-surgeon"
-                >
-                  {createSurgeonMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t('anesthesia.quickSchedule.createSurgeon', 'Create Surgeon')}
-                </Button>
-                {!surgeryUnit && units.length > 0 && (
-                  <p className="text-xs text-destructive">{t('anesthesia.quickSchedule.noSurgeryUnit', 'No surgery unit found. Please configure a surgery module first.')}</p>
-                )}
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">{t('anesthesia.quickSchedule.notes')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.notesOptional')})</span></Label>
-            <Textarea
-              id="notes"
-              placeholder={t('anesthesia.quickSchedule.notesPlaceholder')}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              data-testid="textarea-notes"
-              rows={3}
-            />
-          </div>
-
-          {/* Implant Details - hidden in slot reservation mode */}
-          {!isSlotReservation && (
-          <div className="space-y-2">
-            <Label htmlFor="implant-details">{t('anesthesia.quickSchedule.implantDetails', 'Implant Details')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-            <Textarea
-              id="implant-details"
-              placeholder={t('anesthesia.quickSchedule.implantDetailsPlaceholder', 'e.g., Hip prosthesis model XYZ, Serial #12345')}
-              value={implantDetails}
-              onChange={(e) => setImplantDetails(e.target.value)}
-              data-testid="textarea-implant-details"
-              rows={3}
-            />
-          </div>
-          )}
         </div>
 
         <div className="shrink-0 bg-background border-t px-4 sm:px-6 py-4 flex justify-end gap-2">

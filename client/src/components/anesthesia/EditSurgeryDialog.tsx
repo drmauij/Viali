@@ -1,11 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -13,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus, Check, ChevronsUpDown, Ban, RotateCcw } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, Check, ChevronsUpDown, Ban, RotateCcw } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -23,8 +19,7 @@ import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
-import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
-import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
+import { SurgeryFormFields } from "./SurgeryFormFields";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -60,22 +55,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [patientPosition, setPatientPosition] = useState<"" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies">("");
   const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
-  
-  // CHOP procedure selector state
   const [selectedChopCode, setSelectedChopCode] = useState("");
-  const [chopSearchTerm, setChopSearchTerm] = useState("");
-  const [chopSearchOpen, setChopSearchOpen] = useState(false);
 
   // Patient assignment state (for slot reservations)
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
-
-  // New surgeon form state
-  const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
-  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
-  const [newSurgeonFirstName, setNewSurgeonFirstName] = useState("");
-  const [newSurgeonLastName, setNewSurgeonLastName] = useState("");
-  const [newSurgeonPhone, setNewSurgeonPhone] = useState("");
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -88,12 +72,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     queryKey: [`/api/surgery-rooms/${surgery?.hospitalId}`],
     enabled: !!surgery?.hospitalId,
   });
-  
+
   // Filter to only show OP rooms for surgery assignment (PACU rooms are for post-op tracking)
   const surgeryRooms = useMemo(() => {
     return allSurgeryRooms.filter((room: any) => !room.type || room.type === 'OP');
   }, [allSurgeryRooms]);
-  
+
   // Fetch patient details
   const { data: patient } = useQuery<any>({
     queryKey: [`/api/patients/${surgery?.patientId}`],
@@ -119,107 +103,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     enabled: !!surgery?.hospitalId,
   });
-
-  // Sort surgeons alphabetically by surname
-  const sortedSurgeons = useMemo(() => {
-    return [...surgeons].sort((a, b) => {
-      const getSurname = (name: string) => {
-        const parts = (name || '').trim().split(/\s+/);
-        return parts.length > 1 ? parts[parts.length - 1] : parts[0] || '';
-      };
-      return getSurname(a.name).localeCompare(getSurname(b.name));
-    });
-  }, [surgeons]);
-
-  const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
-
-  // Debounced CHOP search - only search when user has typed 2+ characters
-  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
-    id: string;
-    code: string;
-    descriptionDe: string;
-    chapter: string | null;
-    indentLevel: number | null;
-    laterality: string | null;
-  }>>({
-    queryKey: ['/api/chop-procedures', chopSearchTerm],
-    queryFn: async () => {
-      if (chopSearchTerm.length < 2) return [];
-      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
-      if (!response.ok) throw new Error('Failed to search procedures');
-      return response.json();
-    },
-    enabled: chopSearchTerm.length >= 2,
-    staleTime: 60000,
-  });
-
-  // Fetch units to find the surgery unit for creating new surgeons
-  const { data: units = [] } = useQuery<Array<{id: string; name: string; type: string | null}>>({
-    queryKey: [`/api/admin/${surgery?.hospitalId}/units`],
-    enabled: !!surgery?.hospitalId && showNewSurgeonForm,
-  });
-
-  const surgeryUnit = units.find(u => u.type === 'or');
-
-  // Create surgeon mutation (creates as staff member with doctor role in surgery unit)
-  const createSurgeonMutation = useMutation({
-    mutationFn: async (data: { firstName: string; lastName: string; phone?: string }) => {
-      if (!surgeryUnit || !surgery?.hospitalId) {
-        throw new Error("No surgery unit found");
-      }
-      const dummyEmail = `surgeon_${crypto.randomUUID()}@internal.local`;
-      const dummyPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      const response = await apiRequest("POST", `/api/admin/${surgery.hospitalId}/users/create`, {
-        email: dummyEmail,
-        password: dummyPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone || undefined,
-        unitId: surgeryUnit.id,
-        role: "doctor",
-        canLogin: false,
-      });
-      return response.json();
-    },
-    onSuccess: (newSurgeon) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/surgeons`, surgery?.hospitalId] });
-      setSurgeonId(newSurgeon.id);
-      setShowNewSurgeonForm(false);
-      setNewSurgeonFirstName("");
-      setNewSurgeonLastName("");
-      setNewSurgeonPhone("");
-      toast({
-        title: t('anesthesia.quickSchedule.surgeonCreated', 'Surgeon created'),
-        description: t('anesthesia.quickSchedule.surgeonCreatedDescription', 'New surgeon has been added'),
-      });
-    },
-    onError: () => {
-      toast({
-        title: t('anesthesia.quickSchedule.creationFailed', 'Creation failed'),
-        description: t('anesthesia.quickSchedule.surgeonCreationFailedDescription', 'Failed to create surgeon'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleCreateSurgeon = () => {
-    if (!newSurgeonFirstName.trim() || !newSurgeonLastName.trim()) {
-      toast({
-        title: t('anesthesia.quickSchedule.missingInformation', 'Missing information'),
-        description: t('anesthesia.quickSchedule.missingSurgeonFields', 'First name and last name are required'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createSurgeonMutation.mutate({
-      firstName: newSurgeonFirstName.trim(),
-      lastName: newSurgeonLastName.trim(),
-      phone: newSurgeonPhone.trim() || undefined,
-    });
-  };
 
   // Fetch case notes
   const { data: caseNotes = [], isLoading: isNotesLoading } = useQuery<any[]>({
@@ -293,7 +176,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   useEffect(() => {
     if (surgery) {
       const plannedDateObj = new Date(surgery.plannedDate);
-      // Use local timezone methods for display
       const year = plannedDateObj.getFullYear();
       const month = String(plannedDateObj.getMonth() + 1).padStart(2, '0');
       const day = String(plannedDateObj.getDate()).padStart(2, '0');
@@ -310,7 +192,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
       setPlannedSurgery(surgery.plannedSurgery || "");
       setSelectedChopCode(surgery.chopCode || "");
-      setChopSearchTerm("");
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
@@ -323,7 +204,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setLeftArmPosition(surgery.leftArmPosition || "");
       setRightArmPosition(surgery.rightArmPosition || "");
       setSelectedPatientId(surgery.patientId || "");
-      
+
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
         const aHours = String(admissionDateObj.getHours()).padStart(2, '0');
@@ -338,7 +219,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // Parse date and time separately
       const [year, month, day] = surgeryDate.split('-').map(Number);
       const [hour, minute] = startTime.split(':').map(Number);
       const startDate = new Date(year, month - 1, day, hour, minute);
@@ -347,7 +227,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       endDate.setMinutes(endDate.getMinutes() + duration);
 
       const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
-      
+
       let admissionTimeISO = null;
       if (admissionTime) {
         const [admHour, admMinute] = admissionTime.split(':').map(Number);
@@ -378,15 +258,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate all surgery queries (including patient-specific ones)
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
         }
       });
       if (surgery?.hospitalId) {
-        queryClient.invalidateQueries({ 
+        queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey[0];
             return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`);
@@ -415,15 +294,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate all surgery queries (including patient-specific ones)
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
         }
       });
       if (surgery?.hospitalId) {
-        queryClient.invalidateQueries({ 
+        queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey[0];
             return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`);
@@ -451,14 +329,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
         }
       });
       if (surgery?.hospitalId) {
-        queryClient.invalidateQueries({ 
+        queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey[0];
             return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`);
@@ -509,6 +387,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
   if (!surgeryId) return null;
 
+  const isSlotReservation = !surgery?.patientId && !selectedPatientId;
+  const isRoomBlock = surgery?.plannedSurgery === '__ROOM_BLOCK__';
+
   return (
     <>
       <Dialog open={!!surgeryId} onOpenChange={() => onClose()}>
@@ -527,24 +408,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
               <div className="px-6 border-b shrink-0">
                 <TabsList className="w-full justify-start h-auto p-0 bg-transparent">
-                  <TabsTrigger 
-                    value="details" 
+                  <TabsTrigger
+                    value="details"
                     className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
                     data-testid="tab-details"
                   >
                     <FileEdit className="h-4 w-4" />
                     {t('anesthesia.editSurgery.details', 'Details')}
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="checklist" 
+                  <TabsTrigger
+                    value="checklist"
                     className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
                     data-testid="tab-checklist"
                   >
                     <ClipboardList className="h-4 w-4" />
                     {t('anesthesia.editSurgery.checklist', 'Checklist')}
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="casenotes" 
+                  <TabsTrigger
+                    value="casenotes"
                     className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
                     data-testid="tab-casenotes"
                   >
@@ -676,544 +557,48 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               ) : null}
 
-              {/* Section Divider: Scheduling */}
-              <div className="flex items-center gap-2 pt-2">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.scheduling', 'Scheduling')}</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-
-              {/* Surgery Room */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-surgery-room">{t('anesthesia.editSurgery.surgeryRoom')} *</Label>
-                <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId} disabled={!canWrite}>
-                  <SelectTrigger id="edit-surgery-room" data-testid="select-edit-surgery-room">
-                    <SelectValue placeholder="Select room..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {surgeryRooms.map((room: any) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Surgery Date */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-surgery-date">{t('anesthesia.editSurgery.date', 'Date')} *</Label>
-                <Input
-                  id="edit-surgery-date"
-                  type="text"
-                  placeholder="dd.MM.yyyy"
-                  value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const parsed = parseFlexibleDate(value);
-                    if (parsed) {
-                      setSurgeryDate(parsed.isoDate);
-                    } else {
-                      setSurgeryDate(value);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const parsed = parseFlexibleDate(e.target.value);
-                    if (parsed) {
-                      setSurgeryDate(parsed.isoDate);
-                    }
-                  }}
-                  disabled={!canWrite}
-                  data-testid="input-edit-surgery-date"
-                />
-              </div>
-
-              {/* Start Time, Admission Time & Duration */}
-              <div className="flex gap-3 min-w-0">
-                <div className="space-y-2 flex-1 min-w-0">
-                  <Label htmlFor="edit-start-time">{t('anesthesia.editSurgery.startTime')} *</Label>
-                  <Input
-                    id="edit-start-time"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    disabled={!canWrite}
-                    data-testid="input-edit-start-time"
-                  />
-                </div>
-                <div className="space-y-2 flex-1 min-w-0">
-                  <Label htmlFor="edit-admission-time">{t('anesthesia.editSurgery.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'opt.')})</span></Label>
-                  <Input
-                    id="edit-admission-time"
-                    type="time"
-                    value={admissionTime}
-                    onChange={(e) => setAdmissionTime(e.target.value)}
-                    disabled={!canWrite}
-                    data-testid="input-edit-admission-time"
-                  />
-                </div>
-                <div className="space-y-2 w-20 shrink-0">
-                  <Label htmlFor="edit-duration">{t('anesthesia.editSurgery.duration')} *</Label>
-                  <Input
-                    id="edit-duration"
-                    type="number"
-                    min="1"
-                    value={duration.toString()}
-                    onChange={(e) => setDuration(Number(e.target.value) || 0)}
-                    disabled={!canWrite}
-                    data-testid="input-edit-duration"
-                  />
-                </div>
-              </div>
-
-              {/* Section Divider: Procedure */}
-              <div className="flex items-center gap-2 pt-2">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.procedure', 'Procedure')}</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-
-              {/* Planned Surgery - CHOP Procedure Selector */}
-              <div className="space-y-2">
-                <Label>{t('anesthesia.editSurgery.plannedSurgery')} *</Label>
-                <Popover open={chopSearchOpen} onOpenChange={(open) => canWrite && setChopSearchOpen(open)}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={chopSearchOpen}
-                      className="w-full justify-between h-auto min-h-10 text-left font-normal"
-                      disabled={!canWrite}
-                      data-testid="select-edit-chop-procedure"
-                    >
-                      {plannedSurgery ? (
-                        <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-                          <span className="text-sm whitespace-normal text-left">{plannedSurgery}</span>
-                          {selectedChopCode && (
-                            <span className="text-xs text-muted-foreground">CHOP: {selectedChopCode}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">{t('anesthesia.quickSchedule.plannedSurgeryPlaceholder', 'Search or enter procedure...')}</span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[450px] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder={t('anesthesia.quickSchedule.searchChopProcedure', 'Search CHOP procedures...')}
-                        value={chopSearchTerm}
-                        onValueChange={(value) => {
-                          setChopSearchTerm(value);
-                        }}
-                        data-testid="input-edit-chop-search"
-                      />
-                      <CommandList className="max-h-[300px] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        {chopSearchTerm.length < 2 ? (
-                          <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
-                            {t('anesthesia.quickSchedule.chopSearchHint', 'Type at least 2 characters to search CHOP procedures')}
-                          </CommandEmpty>
-                        ) : isLoadingChop ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        ) : chopProcedures.length === 0 ? (
-                          <CommandEmpty>
-                            <div className="py-2 px-2 space-y-2">
-                              <p className="text-sm">{t('anesthesia.quickSchedule.noChopResults', 'No CHOP procedures found')}</p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                                onClick={() => {
-                                  setPlannedSurgery(chopSearchTerm);
-                                  setSelectedChopCode("");
-                                  setChopSearchOpen(false);
-                                }}
-                                data-testid="button-edit-use-custom-surgery"
-                              >
-                                {t('anesthesia.quickSchedule.useCustomName', 'Use custom name: "{name}"').replace('{name}', chopSearchTerm)}
-                              </Button>
-                            </div>
-                          </CommandEmpty>
-                        ) : (
-                          <CommandGroup>
-                            {chopProcedures.map((proc) => (
-                              <CommandItem
-                                key={proc.id}
-                                value={proc.code}
-                                onSelect={() => {
-                                  setPlannedSurgery(proc.descriptionDe);
-                                  setSelectedChopCode(proc.code);
-                                  setChopSearchOpen(false);
-                                }}
-                                className="flex flex-col items-start gap-0.5 cursor-pointer"
-                                data-testid={`edit-chop-option-${proc.code}`}
-                              >
-                                <div className="flex items-center gap-2 w-full">
-                                  <Check
-                                    className={cn(
-                                      "h-4 w-4 shrink-0",
-                                      selectedChopCode === proc.code ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{proc.code}</span>
-                                      {proc.laterality && (
-                                        <span className="text-xs text-muted-foreground">({proc.laterality})</span>
-                                      )}
-                                    </div>
-                                    <p className="text-sm whitespace-normal break-words">{proc.descriptionDe}</p>
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        )}
-                      </CommandList>
-                      {chopSearchTerm.length >= 2 && chopProcedures.length > 0 && (
-                        <div className="sticky bottom-0 border-t bg-popover p-1">
-                          <CommandItem
-                            value="__custom__"
-                            onSelect={() => {
-                              setPlannedSurgery(chopSearchTerm);
-                              setSelectedChopCode("");
-                              setChopSearchOpen(false);
-                            }}
-                            className="cursor-pointer"
-                            data-testid="edit-chop-option-custom"
-                          >
-                            <Check className="h-4 w-4 shrink-0 opacity-0" />
-                            <span className="text-sm text-muted-foreground">
-                              {t('anesthesia.quickSchedule.useAsCustom', 'Use as custom entry: "{name}"').replace('{name}', chopSearchTerm)}
-                            </span>
-                          </CommandItem>
-                        </div>
-                      )}
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Surgery Side */}
-              <div className="space-y-2">
-                <Label>{t('anesthesia.surgerySide.label', 'Surgery Side')}</Label>
-                <div className="flex gap-2 flex-wrap">
-                  <label 
-                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                      surgerySide === "left" 
-                        ? "border-primary bg-primary/10 text-primary" 
-                        : "border-input bg-background hover:bg-accent"
-                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
-                    data-testid="radio-edit-surgery-side-left"
-                  >
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="left"
-                      checked={surgerySide === "left"}
-                      onChange={() => setSurgerySide("left")}
-                      disabled={!canWrite}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.left', 'Left')}</span>
-                  </label>
-                  <label 
-                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                      surgerySide === "right" 
-                        ? "border-primary bg-primary/10 text-primary" 
-                        : "border-input bg-background hover:bg-accent"
-                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
-                    data-testid="radio-edit-surgery-side-right"
-                  >
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="right"
-                      checked={surgerySide === "right"}
-                      onChange={() => setSurgerySide("right")}
-                      disabled={!canWrite}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.right', 'Right')}</span>
-                  </label>
-                  <label 
-                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
-                      surgerySide === "both" 
-                        ? "border-primary bg-primary/10 text-primary" 
-                        : "border-input bg-background hover:bg-accent"
-                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
-                    data-testid="radio-edit-surgery-side-both"
-                  >
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="both"
-                      checked={surgerySide === "both"}
-                      onChange={() => setSurgerySide("both")}
-                      disabled={!canWrite}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.both', 'Both')}</span>
-                  </label>
-                  {surgerySide && canWrite && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSurgerySide("")}
-                      className="text-xs min-h-[44px] px-3"
-                    >
-                      {t('common.clear', 'Clear')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Patient Positioning */}
-              <PatientPositionFields
+              {/* Shared Surgery Form Fields */}
+              <SurgeryFormFields
+                surgeryRoomId={surgeryRoomId}
+                surgeryDate={surgeryDate}
+                startTime={startTime}
+                duration={duration}
+                admissionTime={admissionTime}
+                plannedSurgery={plannedSurgery}
+                selectedChopCode={selectedChopCode}
+                surgeonId={surgeonId}
+                notes={notes}
+                implantDetails={implantDetails}
+                surgerySide={surgerySide}
+                noPreOpRequired={noPreOpRequired}
+                antibioseProphylaxe={antibioseProphylaxe}
                 patientPosition={patientPosition}
                 leftArmPosition={leftArmPosition}
                 rightArmPosition={rightArmPosition}
-                onPatientPositionChange={setPatientPosition}
-                onLeftArmPositionChange={setLeftArmPosition}
-                onRightArmPositionChange={setRightArmPosition}
+                onSurgeryRoomIdChange={setSurgeryRoomId}
+                onSurgeryDateChange={setSurgeryDate}
+                onStartTimeChange={setStartTime}
+                onDurationChange={setDuration}
+                onAdmissionTimeChange={setAdmissionTime}
+                onPlannedSurgeryChange={setPlannedSurgery}
+                onSelectedChopCodeChange={setSelectedChopCode}
+                onSurgeonIdChange={setSurgeonId}
+                onNotesChange={setNotes}
+                onImplantDetailsChange={setImplantDetails}
+                onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
+                onNoPreOpRequiredChange={setNoPreOpRequired}
+                onAntibioseProphylaxeChange={setAntibioseProphylaxe}
+                onPatientPositionChange={(v) => setPatientPosition(v as typeof patientPosition)}
+                onLeftArmPositionChange={(v) => setLeftArmPosition(v as typeof leftArmPosition)}
+                onRightArmPositionChange={(v) => setRightArmPosition(v as typeof rightArmPosition)}
+                surgeryRooms={surgeryRooms}
+                surgeons={surgeons}
+                hospitalId={surgery?.hospitalId || ""}
+                isSlotReservation={isSlotReservation}
+                isRoomBlock={isRoomBlock}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
               />
-
-              {/* Section Divider: Requirements */}
-              <div className="flex items-center gap-2 pt-2">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.requirements', 'Requirements')}</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-
-              {/* Antibiose Prophylaxe */}
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="edit-antibiose-prophylaxe"
-                  checked={antibioseProphylaxe}
-                  onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-antibiose-prophylaxe"
-                />
-                <Label 
-                  htmlFor="edit-antibiose-prophylaxe" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {t('anesthesia.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')}
-                </Label>
-              </div>
-
-              {/* No Anesthesia Pre-Op Required */}
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="edit-no-preop-required"
-                  checked={noPreOpRequired}
-                  onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-no-preop-required"
-                />
-                <Label 
-                  htmlFor="edit-no-preop-required" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-                </Label>
-              </div>
-
-              {/* Section Divider: Team & Notes */}
-              <div className="flex items-center gap-2 pt-2">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.teamNotes', 'Team & Notes')}</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-
-              {/* Surgeon */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
-                {!showNewSurgeonForm ? (
-                  <div className="flex gap-2">
-                    <Popover open={surgeonSearchOpen} onOpenChange={setSurgeonSearchOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={surgeonSearchOpen}
-                          className="flex-1 justify-between"
-                          disabled={!canWrite}
-                          data-testid="select-edit-surgeon"
-                        >
-                          {selectedSurgeon
-                            ? selectedSurgeon.name
-                            : t('anesthesia.editSurgery.noSurgeonSelected')}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder={t('anesthesia.quickSchedule.searchSurgeons', 'Search surgeons...')} />
-                          <CommandList>
-                            <CommandEmpty>{t('anesthesia.quickSchedule.noSurgeonsAvailable')}</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                value="none"
-                                onSelect={() => {
-                                  setSurgeonId("");
-                                  setSurgeonSearchOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    !surgeonId ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <span className="text-muted-foreground italic">{t('anesthesia.editSurgery.noSurgeonSelected')}</span>
-                              </CommandItem>
-                              {sortedSurgeons.map((s: any) => (
-                                <CommandItem
-                                  key={s.id}
-                                  value={`${s.name}__${s.id}`}
-                                  onSelect={() => {
-                                    setSurgeonId(s.id);
-                                    setSurgeonSearchOpen(false);
-                                  }}
-                                  data-testid={`surgeon-option-${s.id}`}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      surgeonId === s.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {s.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    {canWrite && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setShowNewSurgeonForm(true)}
-                        data-testid="button-show-new-surgeon-edit"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="border rounded-md p-4 space-y-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium">{t('anesthesia.quickSchedule.newSurgeon', 'New Surgeon')}</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowNewSurgeonForm(false)}
-                        data-testid="button-cancel-new-surgeon-edit"
-                      >
-                        {t('common.cancel')}
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="new-surgeon-firstname-edit">{t('anesthesia.quickSchedule.firstName')} *</Label>
-                        <Input
-                          id="new-surgeon-firstname-edit"
-                          value={newSurgeonFirstName}
-                          onChange={(e) => setNewSurgeonFirstName(e.target.value)}
-                          data-testid="input-new-surgeon-firstname-edit"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="new-surgeon-lastname-edit">{t('anesthesia.quickSchedule.surname')} *</Label>
-                        <Input
-                          id="new-surgeon-lastname-edit"
-                          value={newSurgeonLastName}
-                          onChange={(e) => setNewSurgeonLastName(e.target.value)}
-                          data-testid="input-new-surgeon-lastname-edit"
-                        />
-                      </div>
-                      <div className="space-y-1 col-span-2">
-                        <Label htmlFor="new-surgeon-phone-edit">{t('anesthesia.quickSchedule.phone')}</Label>
-                        <PhoneInputWithCountry
-                          id="new-surgeon-phone-edit"
-                          placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
-                          value={newSurgeonPhone}
-                          onChange={(value) => setNewSurgeonPhone(value)}
-                          data-testid="input-new-surgeon-phone-edit"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleCreateSurgeon}
-                      disabled={createSurgeonMutation.isPending || !surgeryUnit}
-                      className="w-full"
-                      data-testid="button-create-surgeon-edit"
-                    >
-                      {createSurgeonMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {t('anesthesia.quickSchedule.createSurgeon', 'Create Surgeon')}
-                    </Button>
-                    {!surgeryUnit && units.length > 0 && (
-                      <p className="text-xs text-destructive">{t('anesthesia.quickSchedule.noSurgeryUnit', 'No surgery unit found. Please configure a surgery module first.')}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Planning Status - Hidden for now
-              <div className="space-y-2">
-                <Label htmlFor="edit-planning-status">{t('anesthesia.editSurgery.planningStatus', 'Planning Status')}</Label>
-                <Select 
-                  value={planningStatus} 
-                  onValueChange={(value) => setPlanningStatus(value as "pre-registered" | "confirmed")}
-                  disabled={!canWrite}
-                >
-                  <SelectTrigger id="edit-planning-status" data-testid="select-edit-planning-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pre-registered">{t('surgeryPlanning.planningStatus.pre-registered', 'Pre-Registered')}</SelectItem>
-                    <SelectItem value="confirmed">{t('surgeryPlanning.planningStatus.confirmed', 'Confirmed')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              */}
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-notes">{t('anesthesia.editSurgery.notes')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.notesOptional')})</span></Label>
-                <Textarea
-                  id="edit-notes"
-                  placeholder={t('anesthesia.editSurgery.notesPlaceholder')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!canWrite}
-                  data-testid="textarea-edit-notes"
-                  rows={3}
-                />
-              </div>
-
-              {/* Implant Details */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-implant-details">{t('anesthesia.editSurgery.implantDetails', 'Implant Details')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'opt.')})</span></Label>
-                <Textarea
-                  id="edit-implant-details"
-                  placeholder={t('anesthesia.editSurgery.implantDetailsPlaceholder', 'e.g., Hip prosthesis model XYZ, Serial #12345')}
-                  value={implantDetails}
-                  onChange={(e) => setImplantDetails(e.target.value)}
-                  disabled={!canWrite}
-                  data-testid="textarea-edit-implant-details"
-                  rows={3}
-                />
-              </div>
 
               </TabsContent>
 
@@ -1296,7 +681,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                                 <span className="font-medium text-foreground">
                                   {note.author?.firstName} {note.author?.lastName}
                                 </span>
-                                <span className="mx-1">•</span>
+                                <span className="mx-1">&bull;</span>
                                 {note.createdAt && format(new Date(note.createdAt), 'dd.MM.yyyy HH:mm')}
                                 {note.updatedAt && note.updatedAt !== note.createdAt && (
                                   <span className="ml-1 italic">({t('common.edited', 'edited')})</span>
