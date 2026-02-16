@@ -4176,7 +4176,7 @@
       "optional": "opt.",
       "implantDetails": "Implantat-Details",
       "implantDetailsPlaceholder": "z.B. Hüftprothese Modell XYZ, Serien-Nr. 12345",
-      "slotReservation": "Slot-Reservierung (ohne Patient)",
+      "slotReservation": "Slot-Reservierung",
       "slotReservationDesc": "Zeitfenster reservieren, ohne einen Patienten zuzuweisen",
       "reserveSlot": "Slot reservieren",
       "missingRoomForReservation": "Bitte wählen Sie einen OP-Saal aus."

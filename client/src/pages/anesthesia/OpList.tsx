@@ -340,7 +340,13 @@ export default function OpList() {
       {/* Calendar or Table View */}
       <div>
         {viewMode === "calendar" ? (
-          <OPCalendar onEventClick={handleEventClick} />
+          <OPCalendar
+            onEventClick={handleEventClick}
+            onEditSurgery={(surgeryId) => {
+              setSelectedSurgeryId(surgeryId);
+              setEditSurgeryOpen(true);
+            }}
+          />
         ) : (
           <div className="px-4">
             <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)}>

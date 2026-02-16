@@ -4095,7 +4095,7 @@
       "optional": "opt.",
       "implantDetails": "Implant Details",
       "implantDetailsPlaceholder": "e.g., Hip prosthesis model XYZ, Serial #12345",
-      "slotReservation": "Slot Reservation (no patient)",
+      "slotReservation": "Slot Reservation",
       "slotReservationDesc": "Reserve a time slot without assigning a patient yet",
       "reserveSlot": "Reserve Slot",
       "missingRoomForReservation": "Please select a surgery room."

@@ -50,6 +50,8 @@ interface CalendarEvent {
   isSuspended: boolean;
   suspendedReason?: string | null;
   noPreOpRequired?: boolean;
+  notes?: string | null;
+  isRoomBlock?: boolean;
   pacuBedName?: string | null;
   timeMarkers?: Array<{
     id: string;
@@ -94,6 +96,7 @@ type ViewType = "day" | "week" | "month";
 
 interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string | null) => void;
+  onEditSurgery?: (surgeryId: string) => void;
 }
 
 interface RoomStaffAssignment {
@@ -227,7 +230,7 @@ function DroppableRoomHeader({
   );
 }
 
-export default function OPCalendar({ onEventClick }: OPCalendarProps) {
+export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
   // Set moment locale based on i18n language and create localizer
@@ -277,6 +280,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const [checklistSignature, setChecklistSignature] = useState("");
   const [checklistComment, setChecklistComment] = useState("");
   const [showChecklistSignaturePad, setShowChecklistSignaturePad] = useState(false);
+
+  // Room block delete dialog state
+  const [roomBlockEvent, setRoomBlockEvent] = useState<CalendarEvent | null>(null);
 
   // Quick create dialog state
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
@@ -509,6 +515,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         isSuspended,
         suspendedReason: surgery.suspendedReason || null,
         noPreOpRequired: surgery.noPreOpRequired === true,
+        notes: surgery.notes || null,
+        isRoomBlock: surgery.plannedSurgery === '__ROOM_BLOCK__',
         pacuBedName: pacuBedRoom?.name || null,
         timeMarkers: surgery.timeMarkers || null,
       };
@@ -674,6 +682,28 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const handleRemoveRoomStaff = useCallback((assignmentId: string) => {
     removeRoomStaffMutation.mutate(assignmentId);
   }, [removeRoomStaffMutation]);
+
+  // Delete (archive) room block mutation
+  const deleteRoomBlockMutation = useMutation({
+    mutationFn: async (surgeryId: string) => {
+      await apiRequest('POST', `/api/anesthesia/surgeries/${surgeryId}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      setRoomBlockEvent(null);
+      toast({
+        title: t('opCalendar.roomBlockDeleted', 'Room block removed'),
+        description: t('opCalendar.roomBlockDeletedDesc', 'The room block has been removed.'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('opCalendar.roomBlockDeleteFailed', 'Failed to remove room block.'),
+        variant: "destructive",
+      });
+    },
+  });
 
   // Checklist completion mutation
   const completeChecklistMutation = useMutation({
@@ -861,6 +891,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
+    // Room block or slot reservation: show simple dialog
+    if (!event.patientId) {
+      setRoomBlockEvent(event);
+      return;
+    }
     if (onEventClick) {
       onEventClick(event.surgeryId, event.patientId);
     }
@@ -868,41 +903,43 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   // Custom event style getter
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
-    let backgroundColor = '#3b82f6'; // Default blue
-    let borderColor = '#2563eb';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    let backgroundColor = isDark ? '#1d4ed8' : '#3b82f6'; // blue-700 / blue-500
+    let borderColor = isDark ? '#1e3a8a' : '#2563eb';
     let isSlotReservationEvent = !event.patientId;
 
-    if (isSlotReservationEvent && !event.isCancelled && !event.isSuspended) {
-      backgroundColor = '#8b5cf6'; // violet-500
-      borderColor = '#7c3aed'; // violet-600
+    const isRoomBlockEvent = !!event.isRoomBlock;
+
+    if (isRoomBlockEvent && !event.isCancelled && !event.isSuspended) {
+      backgroundColor = isDark ? '#991b1b' : '#b91c1c';
+      borderColor = isDark ? '#7f1d1d' : '#991b1b';
+    } else if (isSlotReservationEvent && !event.isCancelled && !event.isSuspended) {
+      backgroundColor = isDark ? '#6d28d9' : '#8b5cf6'; // violet-700 / violet-500
+      borderColor = isDark ? '#5b21b6' : '#7c3aed';
     } else if (event.isSuspended) {
-      backgroundColor = '#f59e0b';
-      borderColor = '#d97706';
+      backgroundColor = isDark ? '#b45309' : '#f59e0b'; // amber-700 / amber-500
+      borderColor = isDark ? '#92400e' : '#d97706';
     } else if (event.isCancelled) {
-      backgroundColor = '#9ca3af';
-      borderColor = '#6b7280';
+      backgroundColor = isDark ? '#6b7280' : '#9ca3af'; // gray-500 / gray-400
+      borderColor = isDark ? '#4b5563' : '#6b7280';
     } else if (event.timeMarkers) {
-      // Check time markers for surgery status
       const hasA2 = event.timeMarkers.find(m => m.code === 'A2' && m.time !== null);
       const hasX2 = event.timeMarkers.find(m => m.code === 'X2' && m.time !== null);
       const hasO2 = event.timeMarkers.find(m => m.code === 'O2' && m.time !== null);
       const hasO1 = event.timeMarkers.find(m => m.code === 'O1' && m.time !== null);
-      
+
       if (hasA2 || hasX2) {
-        // Completed - green
-        backgroundColor = '#10b981'; // emerald-500
-        borderColor = '#059669'; // emerald-600
+        backgroundColor = isDark ? '#047857' : '#10b981'; // emerald-700 / emerald-500
+        borderColor = isDark ? '#065f46' : '#059669';
       } else if (hasO2) {
-        // Suture phase - yellow/amber
-        backgroundColor = '#f59e0b'; // amber-500
-        borderColor = '#d97706'; // amber-600
+        backgroundColor = isDark ? '#b45309' : '#f59e0b'; // amber-700 / amber-500
+        borderColor = isDark ? '#92400e' : '#d97706';
       } else if (hasO1) {
-        // Surgery running - red
-        backgroundColor = '#ef4444'; // red-500
-        borderColor = '#dc2626'; // red-600
+        backgroundColor = isDark ? '#b91c1c' : '#ef4444'; // red-700 / red-500
+        borderColor = isDark ? '#991b1b' : '#dc2626';
       }
     }
-    
+
     const style: any = {
       backgroundColor,
       borderColor,
@@ -912,8 +949,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       border: (event.isSuspended || isSlotReservationEvent) ? '2px dashed' : '1px solid',
       display: 'block',
       textDecoration: event.isCancelled ? 'line-through' : 'none',
+      ...(isRoomBlockEvent && !event.isCancelled && !event.isSuspended && {
+        backgroundImage: isDark
+          ? 'repeating-linear-gradient(135deg, #991b1b, #991b1b 6px, #7f1d1d 6px, #7f1d1d 12px)'
+          : 'repeating-linear-gradient(135deg, #b91c1c, #b91c1c 6px, #7f1d1d 6px, #7f1d1d 12px)',
+        border: `3px solid ${isDark ? '#7f1d1d' : '#991b1b'}`,
+      }),
     };
-    
+
     return { style };
   }, []);
 
@@ -950,9 +993,21 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const preOpStatus = getPreOpStatus(event.surgeryId);
     const StatusIcon = preOpStatus.icon;
     const isSlotReservationEvt = !event.patientId;
+    const isRoomBlockEvt = !!event.isRoomBlock;
     return (
       <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
-        {isSlotReservationEvt ? (
+        {isRoomBlockEvt ? (
+          <>
+            <div className="font-bold text-[10px] sm:text-xs leading-tight truncate uppercase">
+              {t('opCalendar.roomBlocked', 'BLOCKED')}
+            </div>
+            {event.notes && (
+              <div className="text-[10px] sm:text-xs leading-tight truncate opacity-90">
+                {event.notes}
+              </div>
+            )}
+          </>
+        ) : isSlotReservationEvt ? (
           <>
             <div className="font-bold text-[10px] sm:text-xs leading-tight truncate">
               {t('opCalendar.slotReserved', 'SLOT RESERVED')}
@@ -965,6 +1020,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             {event.plannedSurgery && event.plannedSurgery !== t('opCalendar.slotReserved', 'SLOT RESERVED') && (
               <div className="text-[10px] sm:text-xs leading-tight truncate opacity-80">
                 {event.plannedSurgery}
+              </div>
+            )}
+            {event.notes && (
+              <div className="text-[10px] sm:text-xs leading-tight truncate opacity-80 italic">
+                {event.notes}
               </div>
             )}
           </>
@@ -983,9 +1043,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                   <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
                 </div>
               ) : (
-                <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
-                  <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
-                  <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
+                <div className="flex items-center gap-0.5 leading-tight mt-0.5 bg-black/30 text-white px-1 py-0.5 rounded w-fit max-w-full" data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
+                  <StatusIcon className="w-3 h-3 shrink-0" />
+                  <span className="hidden sm:inline text-[10px] font-medium truncate">{preOpStatus.label}</span>
                 </div>
               )
             )}
@@ -1709,6 +1769,72 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         onSave={(sig) => setChecklistSignature(sig)}
         title={t("checklists.yourSignature", "Your Signature")}
       />
+
+      {/* Slot Reservation / Room Block Dialog */}
+      <Dialog open={!!roomBlockEvent} onOpenChange={(open) => { if (!open) setRoomBlockEvent(null); }}>
+        <DialogContent className="max-w-sm" data-testid="dialog-room-block">
+          <DialogHeader>
+            <DialogTitle>
+              {roomBlockEvent?.isRoomBlock
+                ? t('opCalendar.roomBlocked', 'BLOCKED')
+                : t('opCalendar.slotReserved', 'SLOT RESERVED')}
+            </DialogTitle>
+            <DialogDescription>
+              {roomBlockEvent && (() => {
+                const room = surgeryRooms.find((r: any) => r.id === roomBlockEvent.resource);
+                const start = moment(roomBlockEvent.start).format('HH:mm');
+                const end = moment(roomBlockEvent.end).format('HH:mm');
+                return `${room?.name || ''} · ${start} – ${end}`;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          {roomBlockEvent?.surgeonName && (
+            <div className="text-sm text-muted-foreground">
+              {roomBlockEvent.surgeonName}
+            </div>
+          )}
+          {roomBlockEvent?.notes && (
+            <div className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              {roomBlockEvent.notes}
+            </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            {!roomBlockEvent?.isRoomBlock && onEditSurgery && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  if (roomBlockEvent) {
+                    onEditSurgery(roomBlockEvent.surgeryId);
+                    setRoomBlockEvent(null);
+                  }
+                }}
+                data-testid="button-edit-slot-reservation"
+              >
+                {t('common.edit', 'Edit')}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className={roomBlockEvent?.isRoomBlock ? "flex-1" : ""}
+              onClick={() => setRoomBlockEvent(null)}
+            >
+              {t('common.close', 'Close')}
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => roomBlockEvent && deleteRoomBlockMutation.mutate(roomBlockEvent.surgeryId)}
+              disabled={deleteRoomBlockMutation.isPending}
+              data-testid="button-delete-room-block"
+            >
+              {deleteRoomBlockMutation.isPending
+                ? t('common.deleting', 'Deleting...')
+                : t('common.delete', 'Delete')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Drag Overlay - shows visual feedback during drag */}
       <DragOverlay>

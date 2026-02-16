@@ -318,7 +318,7 @@ export async function getSurgeries(hospitalId: string, filters?: {
 }): Promise<Surgery[]> {
   const conditions = [
     eq(surgeries.hospitalId, hospitalId),
-    isNull(patients.deletedAt)
+    or(isNull(surgeries.patientId), isNull(patients.deletedAt))
   ];
   
   if (!filters?.includeArchived) {
@@ -335,7 +335,7 @@ export async function getSurgeries(hospitalId: string, filters?: {
   const result = await db
     .select({ surgery: surgeries })
     .from(surgeries)
-    .innerJoin(patients, eq(surgeries.patientId, patients.id))
+    .leftJoin(patients, eq(surgeries.patientId, patients.id))
     .where(and(...conditions))
     .orderBy(desc(surgeries.plannedDate));
   

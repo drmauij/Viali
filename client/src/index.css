@@ -1272,7 +1272,7 @@
 }
 
 [data-theme="dark"] .rbc-addons-dnd-resizable {
-  background-color: hsl(215, 25%, 16%) !important;
+  background-color: transparent !important;
 }
 
 [data-theme="dark"] .rbc-time-header,
@@ -1294,7 +1294,6 @@
 }
 
 [data-theme="dark"] .rbc-event {
-  border: none !important;
 }
 
 [data-theme="dark"] .rbc-event-label {

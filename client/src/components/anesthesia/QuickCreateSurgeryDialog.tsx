@@ -41,6 +41,7 @@ export default function QuickCreateSurgeryDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [isSlotReservation, setIsSlotReservation] = useState(false);
+  const [isRoomBlock, setIsRoomBlock] = useState(false);
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
@@ -359,6 +360,7 @@ export default function QuickCreateSurgeryDialog({
 
   const resetForm = () => {
     setIsSlotReservation(false);
+    setIsRoomBlock(false);
     setSelectedPatientId("");
     setSurgeryRoomId(initialRoomId || "");
     setSurgeryDate(formatDateOnly(initialDate));
@@ -481,7 +483,7 @@ export default function QuickCreateSurgeryDialog({
       surgeryRoomId,
       plannedDate: startDate.toISOString(),
       actualEndTime: endDate.toISOString(),
-      plannedSurgery: plannedSurgery.trim() || (isSlotReservation ? null : undefined),
+      plannedSurgery: isRoomBlock ? '__ROOM_BLOCK__' : (plannedSurgery.trim() || (isSlotReservation ? null : undefined)),
       chopCode: selectedChopCode || undefined,
       surgeon: matchedSurgeon?.name || undefined,
       surgeonId: surgeonId || undefined,
@@ -656,23 +658,66 @@ export default function QuickCreateSurgeryDialog({
 
           )}
 
-          {/* Slot Reservation Toggle - subtle, rarely used */}
-          <div className="flex items-center justify-between py-1">
-            <Label htmlFor="slot-reservation-toggle" className="cursor-pointer text-sm text-muted-foreground">
-              {t('anesthesia.quickSchedule.slotReservation', 'Slot Reservation (no patient)')}
-            </Label>
-            <Switch
-              id="slot-reservation-toggle"
-              checked={isSlotReservation}
-              onCheckedChange={(checked) => {
-                setIsSlotReservation(checked);
-                if (checked) {
+          {/* Slot Reservation & Room Block Toggles */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <div
+              onClick={() => {
+                const next = !isSlotReservation;
+                setIsSlotReservation(next);
+                if (next) {
                   setSelectedPatientId("");
                   setShowNewPatientForm(false);
+                } else {
+                  setIsRoomBlock(false);
                 }
               }}
-              data-testid="switch-slot-reservation"
-            />
+              className={cn(
+                "flex items-center gap-2 py-1.5 px-2.5 rounded-md border cursor-pointer transition-colors",
+                isSlotReservation
+                  ? "bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800"
+                  : "border-border/40 hover:bg-muted/50"
+              )}
+            >
+              <Switch
+                checked={isSlotReservation}
+                onCheckedChange={() => {}}
+                className="scale-75 pointer-events-none shrink-0"
+                data-testid="switch-slot-reservation"
+              />
+              <span className="text-xs text-muted-foreground select-none leading-tight">
+                {t('anesthesia.quickSchedule.slotReservation', 'Slot Reservation')}
+              </span>
+            </div>
+
+            <div
+              onClick={() => {
+                const next = !isRoomBlock;
+                setIsRoomBlock(next);
+                if (next) {
+                  setIsSlotReservation(true);
+                  setSelectedPatientId("");
+                  setShowNewPatientForm(false);
+                  setSurgeonId("");
+                  setShowNewSurgeonForm(false);
+                }
+              }}
+              className={cn(
+                "flex items-center gap-2 py-1.5 px-2.5 rounded-md border cursor-pointer transition-colors",
+                isRoomBlock
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
+                  : "border-border/40 hover:bg-muted/50"
+              )}
+            >
+              <Switch
+                checked={isRoomBlock}
+                onCheckedChange={() => {}}
+                className="scale-75 pointer-events-none shrink-0"
+                data-testid="switch-room-block"
+              />
+              <span className="text-xs text-muted-foreground select-none leading-tight">
+                {t('anesthesia.quickSchedule.roomBlock', 'Block Room')}
+              </span>
+            </div>
           </div>
 
           {/* Section Divider: Scheduling */}
@@ -682,53 +727,53 @@ export default function QuickCreateSurgeryDialog({
             <div className="h-px bg-border flex-1" />
           </div>
 
-          {/* Surgery Room */}
-          <div className="space-y-2">
-            <Label htmlFor="surgery-room">{t('anesthesia.quickSchedule.surgeryRoom')} *</Label>
-            <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
-              <SelectTrigger id="surgery-room" data-testid="select-surgery-room">
-                <SelectValue placeholder={t('anesthesia.quickSchedule.selectRoom')} />
-              </SelectTrigger>
-              <SelectContent>
-                {surgeryRooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Room & Date */}
+          <div className="grid grid-cols-[1fr_2fr] gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="surgery-room">{t('anesthesia.quickSchedule.surgeryRoom')} *</Label>
+              <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
+                <SelectTrigger id="surgery-room" data-testid="select-surgery-room">
+                  <SelectValue placeholder={t('anesthesia.quickSchedule.selectRoom')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {surgeryRooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="surgery-date">{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
+              <Input
+                id="surgery-date"
+                type="text"
+                placeholder="dd.MM.yyyy"
+                value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const parsed = parseFlexibleDate(value);
+                  if (parsed) {
+                    setSurgeryDate(parsed.isoDate);
+                  } else {
+                    setSurgeryDate(value);
+                  }
+                }}
+                onBlur={(e) => {
+                  const parsed = parseFlexibleDate(e.target.value);
+                  if (parsed) {
+                    setSurgeryDate(parsed.isoDate);
+                  }
+                }}
+                data-testid="input-surgery-date"
+              />
+            </div>
           </div>
 
-          {/* Surgery Date */}
-          <div className="space-y-2">
-            <Label htmlFor="surgery-date">{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
-            <Input
-              id="surgery-date"
-              type="text"
-              placeholder="dd.MM.yyyy"
-              value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                const parsed = parseFlexibleDate(value);
-                if (parsed) {
-                  setSurgeryDate(parsed.isoDate);
-                } else {
-                  setSurgeryDate(value);
-                }
-              }}
-              onBlur={(e) => {
-                const parsed = parseFlexibleDate(e.target.value);
-                if (parsed) {
-                  setSurgeryDate(parsed.isoDate);
-                }
-              }}
-              data-testid="input-surgery-date"
-            />
-          </div>
-
-          {/* Start Time, Admission Time & Duration */}
-          <div className="flex gap-3 min-w-0">
-            <div className="space-y-2 flex-1 min-w-0">
+          {/* Start Time, Duration & Admission */}
+          <div className={cn("grid gap-3", isSlotReservation ? "grid-cols-2" : "grid-cols-3")}>
+            <div className="space-y-1">
               <Label htmlFor="start-time">{t('anesthesia.quickSchedule.startTime')} *</Label>
               <Input
                 id="start-time"
@@ -738,18 +783,8 @@ export default function QuickCreateSurgeryDialog({
                 data-testid="input-start-time"
               />
             </div>
-            <div className="space-y-2 flex-1 min-w-0">
-              <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-              <Input
-                id="admission-time"
-                type="time"
-                value={admissionTime}
-                onChange={(e) => setAdmissionTime(e.target.value)}
-                data-testid="input-admission-time"
-              />
-            </div>
-            <div className="space-y-2 w-20 shrink-0">
-              <Label htmlFor="duration">{t('anesthesia.quickSchedule.duration')} *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="duration">{t('anesthesia.quickSchedule.durationMin', 'Min.')} *</Label>
               <Input
                 id="duration"
                 type="number"
@@ -759,6 +794,18 @@ export default function QuickCreateSurgeryDialog({
                 data-testid="input-duration"
               />
             </div>
+            {!isSlotReservation && (
+            <div className="space-y-1">
+              <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+              <Input
+                id="admission-time"
+                type="time"
+                value={admissionTime}
+                onChange={(e) => setAdmissionTime(e.target.value)}
+                data-testid="input-admission-time"
+              />
+            </div>
+            )}
           </div>
 
           {!isSlotReservation && (
@@ -1017,11 +1064,12 @@ export default function QuickCreateSurgeryDialog({
           {/* Section Divider: Team & Notes */}
           <div className="flex items-center gap-2 pt-2">
             <div className="h-px bg-border flex-1" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.teamNotes', 'Team & Notes')}</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isRoomBlock ? t('anesthesia.sections.notes', 'Notes') : t('anesthesia.sections.teamNotes', 'Team & Notes')}</span>
             <div className="h-px bg-border flex-1" />
           </div>
 
-          {/* Surgeon */}
+          {/* Surgeon - hidden in room block mode */}
+          {!isRoomBlock && (
           <div className="space-y-2">
             <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
             {!showNewSurgeonForm ? (
@@ -1156,6 +1204,7 @@ export default function QuickCreateSurgeryDialog({
               </div>
             )}
           </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-2">
@@ -1203,9 +1252,11 @@ export default function QuickCreateSurgeryDialog({
             data-testid="button-schedule-surgery"
           >
             {createSurgeryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSlotReservation
-              ? t('anesthesia.quickSchedule.reserveSlot', 'Reserve Slot')
-              : t('anesthesia.quickSchedule.scheduleSurgery')}
+            {isRoomBlock
+              ? t('anesthesia.quickSchedule.blockRoom', 'Block Room')
+              : isSlotReservation
+                ? t('anesthesia.quickSchedule.reserveSlot', 'Reserve Slot')
+                : t('anesthesia.quickSchedule.scheduleSurgery')}
           </Button>
         </div>
       </DialogContent>
