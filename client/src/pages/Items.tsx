@@ -863,6 +863,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
 
     updateItemMutation.mutate({
+      selectedItem,
       itemData,
       actualStock: editFormData.actualStock,
     });
@@ -4514,6 +4515,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
                       setEditFormData(prev => ({ ...prev, status: newStatus }));
                       updateItemMutation.mutate({
+                        selectedItem,
                         itemData: { status: newStatus },
                       }, {
                         onSuccess: () => {
