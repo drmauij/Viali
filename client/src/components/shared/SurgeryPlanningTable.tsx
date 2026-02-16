@@ -1090,136 +1090,31 @@ export function SurgeryPlanningTable({
     enabled: !!activeHospital?.id && uniqueDates.length > 0,
   });
   
-  // Fetch pre-op assessments for surgeries (only for anesthesia/surgery modules)
-  const surgeryIds = useMemo(() => surgeries.map((s) => s.id), [surgeries]);
+  // Build pre-op status map directly from enriched surgery data (status included in /api/anesthesia/surgeries response)
   const showPreOpColumn = moduleContext === "anesthesia" || moduleContext === "surgery";
-  
-  const { data: preOpAssessments = [] } = useQuery<any[]>({
-    queryKey: ["/api/anesthesia/preop-assessments/bulk", surgeryIds],
-    queryFn: async () => {
-      if (surgeryIds.length === 0) return [];
-      const response = await fetch(`/api/anesthesia/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: surgeryIds.length > 0 && showPreOpColumn,
-  });
-  
-  // Map pre-op assessments by surgery ID
+
   const preOpMap = useMemo(() => {
     const map = new Map<string, any>();
-    preOpAssessments.forEach((item) => {
-      // The API returns assessment records directly with surgeryId field
-      if (item.surgeryId) {
-        map.set(item.surgeryId, { assessment: item, status: item.status });
+    surgeries.forEach((surgery) => {
+      if ((surgery as any).preOpAssessmentStatus) {
+        map.set(surgery.id, {
+          status: (surgery as any).preOpAssessmentStatus,
+          standBy: (surgery as any).preOpAssessmentStandBy,
+          standByReason: (surgery as any).preOpAssessmentStandByReason,
+          standByReasonNote: (surgery as any).preOpAssessmentStandByReasonNote,
+          surgicalApproval: (surgery as any).preOpAssessmentSurgicalApproval,
+        });
       }
     });
     return map;
-  }, [preOpAssessments]);
-  
-  // Helper function to get pre-op summary for expanded row
-  const getPreOpSummary = (assessment: any, surgery: any): string | null => {
-    if (!assessment) return null;
-    
-    const parts: string[] = [];
-    
-    if (assessment.asa != null && assessment.asa !== '') {
-      parts.push(`ASA ${assessment.asa}`);
-    }
-    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
-      parts.push(`${assessment.weight}kg`);
-    }
-    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
-      parts.push(`${assessment.height}cm`);
-    }
-    if (assessment.heartRate != null && assessment.heartRate !== '' && assessment.heartRate !== 0) {
-      parts.push(`HR ${assessment.heartRate}`);
-    }
-    if (assessment.bloodPressureSystolic != null && assessment.bloodPressureDiastolic != null && 
-        assessment.bloodPressureSystolic !== 0 && assessment.bloodPressureDiastolic !== 0) {
-      parts.push(`BP ${assessment.bloodPressureSystolic}/${assessment.bloodPressureDiastolic}`);
-    }
-    if (assessment.cave != null && assessment.cave !== '') {
-      parts.push(`CAVE: ${assessment.cave}`);
-    }
-    
-    if (assessment.anesthesiaTechniques) {
-      const techniques: string[] = [];
-      const at = assessment.anesthesiaTechniques;
-      
-      if (at.general) {
-        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.toUpperCase())
-          : [];
-        techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
-      }
-      if (at.spinal) techniques.push('Spinal');
-      if (at.epidural) {
-        const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-          : [];
-        techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
-      }
-      if (at.regional) {
-        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-          : [];
-        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
-      }
-      if (at.sedation) techniques.push('Sedation');
-      if (at.combined) techniques.push('Combined');
-      
-      if (techniques.length > 0) {
-        parts.push(techniques.join(', '));
-      }
-    }
-    
-    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
-      const installations = Object.entries(assessment.installations)
-        .filter(([_, value]) => value)
-        .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-        .join(', ');
-      if (installations) {
-        parts.push(installations);
-      }
-    }
-    
-    if (assessment.postOpICU) {
-      parts.push(t('anesthesia.preop.postOpICUPlanned'));
-    }
-    
-    if (assessment.specialNotes != null && assessment.specialNotes !== '') {
-      parts.push(assessment.specialNotes);
-    }
-    
-    if (assessment.anesthesiaOther != null && assessment.anesthesiaOther !== '') {
-      parts.push(assessment.anesthesiaOther);
-    }
-    
-    // Add patient allergies from surgery data
-    const allergies: string[] = [];
-    if (surgery?.patientAllergies && Array.isArray(surgery.patientAllergies) && surgery.patientAllergies.length > 0) {
-      allergies.push(...surgery.patientAllergies);
-    }
-    if (surgery?.patientOtherAllergies) {
-      allergies.push(surgery.patientOtherAllergies);
-    }
-    if (allergies.length > 0) {
-      parts.push(`${t('anesthesia.preop.allergies')}: ${allergies.join(', ')}`);
-    }
-    
-    return parts.length > 0 ? parts.join(' • ') : null;
-  };
+  }, [surgeries]);
   
   // Helper function to render pre-op status icon with tooltip
   const renderPreOpStatusIcon = (surgeryId: string) => {
     const preOpData = preOpMap.get(surgeryId);
     
     // No assessment exists - planned (grey)
-    if (!preOpData || !preOpData.assessment) {
+    if (!preOpData) {
       return (
         <TooltipProvider>
           <Tooltip>
@@ -1233,12 +1128,9 @@ export function SurgeryPlanningTable({
         </TooltipProvider>
       );
     }
-    
-    const assessment = preOpData.assessment;
-    const status = preOpData.status;
-    
+
     // Stand-by (orange pause)
-    if (assessment.standBy) {
+    if (preOpData.standBy) {
       return (
         <TooltipProvider>
           <Tooltip>
@@ -1254,8 +1146,8 @@ export function SurgeryPlanningTable({
     }
     
     // Completed - check approval status
-    if (status === 'completed') {
-      const isApproved = assessment.surgicalApproval === 'approved';
+    if (preOpData.status === 'completed') {
+      const isApproved = preOpData.surgicalApproval === 'approved';
       return (
         <TooltipProvider>
           <Tooltip>
@@ -1316,84 +1208,18 @@ export function SurgeryPlanningTable({
     );
   };
   
-  // Helper function to format pre-op summary for PDF
+  // Helper function to format pre-op summary for PDF (uses inline status from surgery data)
   const formatPreOpSummaryForPdf = (surgeryId: string): string => {
     const preOpData = preOpMap.get(surgeryId);
-    if (!preOpData || !preOpData.assessment) return '-';
-    
-    const assessment = preOpData.assessment;
-    const parts: string[] = [];
-    
-    // ASA classification
-    if (assessment.asa != null && assessment.asa !== '') {
-      parts.push(`ASA ${assessment.asa}`);
+    if (!preOpData) return '-';
+
+    if (preOpData.standBy) return 'Stand-by';
+    if (preOpData.status === 'completed') {
+      if (preOpData.surgicalApproval === 'approved') return 'Approved';
+      if (preOpData.surgicalApproval === 'not-approved') return 'Not approved';
+      return 'Completed';
     }
-    
-    // Weight and height
-    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
-      parts.push(`${assessment.weight}kg`);
-    }
-    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
-      parts.push(`${assessment.height}cm`);
-    }
-    
-    // Anesthesia techniques
-    if (assessment.anesthesiaTechniques) {
-      const techniques: string[] = [];
-      const at = assessment.anesthesiaTechniques;
-      
-      if (at.general) {
-        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.toUpperCase())
-          : [];
-        techniques.push(generalSubs.length > 0 ? `ITN (${generalSubs.join(', ')})` : 'ITN');
-      }
-      if (at.spinal) techniques.push('SPA');
-      if (at.epidural) techniques.push('PDA');
-      if (at.regional) {
-        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-          : [];
-        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
-      }
-      if (at.sedation) techniques.push('Sedierung');
-      if (at.combined) techniques.push('Kombiniert');
-      
-      if (techniques.length > 0) {
-        parts.push(techniques.join(', '));
-      }
-    }
-    
-    // Installations (airway management)
-    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
-      const installations = Object.entries(assessment.installations)
-        .filter(([_, value]) => value)
-        .map(([key]) => {
-          if (key === 'ett') return 'ETT';
-          if (key === 'lma') return 'LMA';
-          if (key === 'mask') return 'Maske';
-          return key.replace(/([A-Z])/g, ' $1').trim();
-        })
-        .join(', ');
-      if (installations) {
-        parts.push(installations);
-      }
-    }
-    
-    // Post-op ICU
-    if (assessment.postOpICU) {
-      parts.push('IMC geplant');
-    }
-    
-    // CAVE (important warnings)
-    if (assessment.cave != null && assessment.cave !== '') {
-      parts.push(`CAVE: ${assessment.cave}`);
-    }
-    
-    // Use newlines for PDF to avoid messy wrapping with bullet separators
-    return parts.length > 0 ? parts.join('\n') : '-';
+    return 'Started';
   };
   
   // Generate PDF for a day's surgeries using shared utility
@@ -2058,17 +1884,17 @@ export function SurgeryPlanningTable({
                         
                         {showPreOpColumn && (() => {
                           const preOpData = preOpMap.get(surgery.id);
-                          const assessment = preOpData?.assessment;
-                          if (!assessment) return null;
-                          const summary = getPreOpSummary(assessment, preOpData?.surgery);
-                          if (!summary) return null;
+                          if (!preOpData) return null;
+                          const statusLabel = preOpData.standBy ? 'Stand-by' :
+                            preOpData.status === 'completed' ? (preOpData.surgicalApproval === 'approved' ? 'Approved' : preOpData.surgicalApproval === 'not-approved' ? 'Not approved' : 'Completed') :
+                            'Started';
                           return (
                             <div className="lg:col-span-3" data-testid={`preop-details-${surgery.id}`}>
                               <h4 className="font-semibold mb-2 flex items-center gap-2">
                                 <Stethoscope className="h-4 w-4" />
                                 {t("surgeryPlanning.preOpInfo")}
                               </h4>
-                              <p className="text-sm text-muted-foreground">{summary}</p>
+                              <p className="text-sm text-muted-foreground">{statusLabel}</p>
                             </div>
                           );
                         })()}

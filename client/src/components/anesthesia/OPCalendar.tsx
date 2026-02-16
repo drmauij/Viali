@@ -408,47 +408,22 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return map;
   }, [roomPendingChecklists]);
 
-  // Get surgery IDs for pre-op assessment fetch
-  const surgeryIds = useMemo(() => surgeries.map((s: any) => s.id), [surgeries]);
-
-  const isSurgeryModule = activeHospital?.unitType === 'or';
-
-  // Fetch anesthesia pre-op assessments for surgeries
-  const { data: anesthesiaPreOpAssessments = [] } = useQuery<any[]>({
-    queryKey: ["/api/anesthesia/preop-assessments/bulk", surgeryIds],
-    queryFn: async () => {
-      if (surgeryIds.length === 0) return [];
-      const response = await fetch(`/api/anesthesia/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: surgeryIds.length > 0 && !isSurgeryModule,
-  });
-
-  // Fetch surgery pre-op assessments (for surgery module units)
-  const { data: surgeryPreOpAssessments = [] } = useQuery<any[]>({
-    queryKey: ["/api/surgery/preop-assessments/bulk", surgeryIds],
-    queryFn: async () => {
-      if (surgeryIds.length === 0) return [];
-      const response = await fetch(`/api/surgery/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: surgeryIds.length > 0 && isSurgeryModule === true,
-  });
-
-  const preOpAssessments = isSurgeryModule ? surgeryPreOpAssessments : anesthesiaPreOpAssessments;
-
-  // Map pre-op assessments by surgery ID
+  // Build pre-op status map directly from enriched surgery data (status included in /api/anesthesia/surgeries response)
   const preOpMap = useMemo(() => {
     const map = new Map<string, any>();
-    preOpAssessments.forEach((item) => {
-      if (item.surgeryId) {
-        map.set(item.surgeryId, { assessment: item, status: item.status });
+    surgeries.forEach((surgery: any) => {
+      if (surgery.preOpAssessmentStatus) {
+        map.set(surgery.id, {
+          status: surgery.preOpAssessmentStatus,
+          standBy: surgery.preOpAssessmentStandBy,
+          standByReason: surgery.preOpAssessmentStandByReason,
+          standByReasonNote: surgery.preOpAssessmentStandByReasonNote,
+          surgicalApproval: surgery.preOpAssessmentSurgicalApproval,
+        });
       }
     });
     return map;
-  }, [preOpAssessments]);
+  }, [surgeries]);
 
   // Transform surgeries into calendar events
   // Uses actual O1 (Surgical Incision) time as start and O2-O1 for duration when available
@@ -559,83 +534,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return map;
   }, [allPatients]);
 
-  // Helper function to format pre-op summary for PDF
+  // Helper function to format pre-op summary for PDF (uses inline status from surgery data)
   const formatPreOpSummaryForPdf = useCallback((surgeryId: string): string => {
     const preOpData = preOpMap.get(surgeryId);
-    if (!preOpData || !preOpData.assessment) return '-';
-    
-    const assessment = preOpData.assessment;
-    const parts: string[] = [];
-    
-    // ASA classification
-    if (assessment.asa != null && assessment.asa !== '') {
-      parts.push(`ASA ${assessment.asa}`);
+    if (!preOpData) return '-';
+
+    if (preOpData.standBy) return 'Stand-by';
+    if (preOpData.status === 'completed') {
+      if (preOpData.surgicalApproval === 'approved') return 'Approved';
+      if (preOpData.surgicalApproval === 'not-approved') return 'Not approved';
+      return 'Completed';
     }
-    
-    // Weight and height
-    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
-      parts.push(`${assessment.weight}kg`);
-    }
-    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
-      parts.push(`${assessment.height}cm`);
-    }
-    
-    // Anesthesia techniques
-    if (assessment.anesthesiaTechniques) {
-      const techniques: string[] = [];
-      const at = assessment.anesthesiaTechniques;
-      
-      if (at.general) {
-        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.toUpperCase())
-          : [];
-        techniques.push(generalSubs.length > 0 ? `ITN (${generalSubs.join(', ')})` : 'ITN');
-      }
-      if (at.spinal) techniques.push('SPA');
-      if (at.epidural) techniques.push('PDA');
-      if (at.regional) {
-        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
-          .filter(([_, value]) => value)
-          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-          : [];
-        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
-      }
-      if (at.sedation) techniques.push('Sedierung');
-      if (at.combined) techniques.push('Kombiniert');
-      
-      if (techniques.length > 0) {
-        parts.push(techniques.join(', '));
-      }
-    }
-    
-    // Installations (airway management)
-    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
-      const installations = Object.entries(assessment.installations)
-        .filter(([_, value]) => value)
-        .map(([key]) => {
-          if (key === 'ett') return 'ETT';
-          if (key === 'lma') return 'LMA';
-          if (key === 'mask') return 'Maske';
-          return key.replace(/([A-Z])/g, ' $1').trim();
-        })
-        .join(', ');
-      if (installations) {
-        parts.push(installations);
-      }
-    }
-    
-    // Post-op ICU
-    if (assessment.postOpICU) {
-      parts.push('IMC geplant');
-    }
-    
-    // CAVE (important warnings)
-    if (assessment.cave != null && assessment.cave !== '') {
-      parts.push(`CAVE: ${assessment.cave}`);
-    }
-    
-    return parts.length > 0 ? parts.join('\n') : '-';
+    return 'Started';
   }, [preOpMap]);
 
   // Generate PDF for the current day's surgeries
@@ -999,32 +909,30 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Derive pre-op assessment status for a surgery
   const getPreOpStatus = useCallback((surgeryId: string) => {
     const data = preOpMap.get(surgeryId);
-    if (!data || !data.assessment) {
+    if (!data) {
       return { key: 'planned', icon: Circle, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.planned', 'Planned') };
     }
-    const a = data.assessment;
-    if (a.standBy) {
-      const reasonKey = a.standByReason || '';
+    if (data.standBy) {
+      const reasonKey = data.standByReason || '';
       let reasonLabel = '';
       if (reasonKey === 'signature_missing') reasonLabel = t('opCalendar.preOpStatus.standByReasons.signatureMissing', 'Signature missing');
       else if (reasonKey === 'consent_required') reasonLabel = t('opCalendar.preOpStatus.standByReasons.consentRequired', 'Consent required');
       else if (reasonKey === 'waiting_exams') reasonLabel = t('opCalendar.preOpStatus.standByReasons.waitingExams', 'Waiting exams');
-      else if (reasonKey === 'other') reasonLabel = a.standByReasonNote || t('opCalendar.preOpStatus.standByReasons.other', 'Other');
-      else if (a.standByReasonNote) reasonLabel = a.standByReasonNote;
+      else if (reasonKey === 'other') reasonLabel = data.standByReasonNote || t('opCalendar.preOpStatus.standByReasons.other', 'Other');
+      else if (data.standByReasonNote) reasonLabel = data.standByReasonNote;
       return { key: 'standby', icon: PauseCircle, color: 'text-amber-500', label: `${t('opCalendar.preOpStatus.standBy', 'Stand-by')}${reasonLabel ? ` (${reasonLabel})` : ''}` };
     }
-    const approval = isSurgeryModule ? a.surgicalApprovalStatus : a.surgicalApproval;
-    if (data.status === 'completed' || a.status === 'completed') {
-      if (approval === 'approved') {
+    if (data.status === 'completed') {
+      if (data.surgicalApproval === 'approved') {
         return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.approved', 'Approved') };
       }
-      if (approval === 'not-approved') {
+      if (data.surgicalApproval === 'not-approved') {
         return { key: 'not-approved', icon: XCircle, color: 'text-red-500', label: t('opCalendar.preOpStatus.notApproved', 'Not approved') };
       }
       return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.completed', 'Completed') };
     }
     return { key: 'started', icon: Pencil, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.started', 'Started') };
-  }, [preOpMap, isSurgeryModule, t]);
+  }, [preOpMap, t]);
 
   // Simplified event component for calendar display
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {

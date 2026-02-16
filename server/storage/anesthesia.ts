@@ -955,6 +955,42 @@ export async function getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], auth
   return results.map(r => r.assessment);
 }
 
+export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>> {
+  if (surgeryIds.length === 0) return new Map();
+
+  // Query both pre-op tables (anesthesia and surgery module) since a surgery will only exist in one
+  const [anesthesiaResults, surgeryResults] = await Promise.all([
+    db
+      .select({
+        surgeryId: preOpAssessments.surgeryId,
+        status: preOpAssessments.status,
+        standBy: preOpAssessments.standBy,
+        standByReason: preOpAssessments.standByReason,
+        standByReasonNote: preOpAssessments.standByReasonNote,
+        surgicalApproval: preOpAssessments.surgicalApproval,
+      })
+      .from(preOpAssessments)
+      .where(inArray(preOpAssessments.surgeryId, surgeryIds)),
+    db
+      .select({
+        surgeryId: surgeryPreOpAssessments.surgeryId,
+        status: surgeryPreOpAssessments.status,
+        standBy: surgeryPreOpAssessments.standBy,
+        standByReason: surgeryPreOpAssessments.standByReason,
+        standByReasonNote: surgeryPreOpAssessments.standByReasonNote,
+        surgicalApproval: surgeryPreOpAssessments.surgicalApprovalStatus,
+      })
+      .from(surgeryPreOpAssessments)
+      .where(inArray(surgeryPreOpAssessments.surgeryId, surgeryIds)),
+  ]);
+
+  const map = new Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>();
+  for (const r of [...anesthesiaResults, ...surgeryResults]) {
+    map.set(r.surgeryId, { status: r.status, standBy: r.standBy, standByReason: r.standByReason, standByReasonNote: r.standByReasonNote, surgicalApproval: r.surgicalApproval });
+  }
+  return map;
+}
+
 export async function createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment> {
   const [created] = await db.insert(preOpAssessments).values(assessment).returning();
   return created;

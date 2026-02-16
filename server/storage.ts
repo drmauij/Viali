@@ -463,6 +463,7 @@ export interface IStorage {
   getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
   getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined>;
   getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<PreOpAssessment[]>;
+  getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
   
@@ -1135,6 +1136,7 @@ export class DatabaseStorage implements IStorage {
   getPreOpAssessment = anesthesiaStorage.getPreOpAssessment;
   getPreOpAssessmentById = anesthesiaStorage.getPreOpAssessmentById;
   getPreOpAssessmentsBySurgeryIds = anesthesiaStorage.getPreOpAssessmentsBySurgeryIds;
+  getPreOpAssessmentStatusBySurgeryIds = anesthesiaStorage.getPreOpAssessmentStatusBySurgeryIds;
   createPreOpAssessment = anesthesiaStorage.createPreOpAssessment;
   updatePreOpAssessment = anesthesiaStorage.updatePreOpAssessment;
   getSurgeryPreOpAssessments = anesthesiaStorage.getSurgeryPreOpAssessments;

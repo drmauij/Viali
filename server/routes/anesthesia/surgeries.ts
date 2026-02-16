@@ -122,15 +122,24 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
 
     const surgeries = await storage.getSurgeries(hospitalId as string, filters);
     
-    // Batch-fetch all anesthesia records for these surgeries
+    // Batch-fetch all anesthesia records and pre-op statuses for these surgeries
     const surgeryIds = surgeries.map(s => s.id);
-    const recordsMap = await storage.getAnesthesiaRecordsBySurgeryIds(surgeryIds);
+    const [recordsMap, preOpStatusMap] = await Promise.all([
+      storage.getAnesthesiaRecordsBySurgeryIds(surgeryIds),
+      storage.getPreOpAssessmentStatusBySurgeryIds(surgeryIds),
+    ]);
 
     const enrichedSurgeries = surgeries.map(surgery => {
       const anesthesiaRecord = recordsMap.get(surgery.id);
+      const preOpStatus = preOpStatusMap.get(surgery.id);
       return {
         ...surgery,
         timeMarkers: anesthesiaRecord?.timeMarkers || null,
+        preOpAssessmentStatus: preOpStatus?.status || null,
+        preOpAssessmentStandBy: preOpStatus?.standBy || null,
+        preOpAssessmentStandByReason: preOpStatus?.standByReason || null,
+        preOpAssessmentStandByReasonNote: preOpStatus?.standByReasonNote || null,
+        preOpAssessmentSurgicalApproval: preOpStatus?.surgicalApproval || null,
       };
     });
 
