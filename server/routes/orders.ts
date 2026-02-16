@@ -113,7 +113,7 @@ router.get('/api/orders/open-items/:hospitalId', isAuthenticated, requireStrictH
       .where(
         and(
           eq(orders.hospitalId, hospitalId),
-          inArray(orders.status, ['draft', 'sent'])
+          inArray(orders.status, ['draft', 'ready_to_send', 'sent'])
         )
       )
       .groupBy(orderLines.itemId);
@@ -579,8 +579,8 @@ router.patch('/api/order-lines/:lineId/offline-worked', isAuthenticated, require
       return res.status(404).json({ message: "Order not found" });
     }
     
-    if (order.status !== 'draft' && order.status !== 'sent') {
-      return res.status(400).json({ message: "Can only toggle offline worked for draft or sent orders" });
+    if (order.status !== 'ready_to_send') {
+      return res.status(400).json({ message: "Can only toggle offline worked for ready to send orders" });
     }
     
     const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);

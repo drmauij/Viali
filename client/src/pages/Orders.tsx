@@ -2020,7 +2020,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     const displayQty = line.qty;
                     const displayUnit = line.item.unit;
                     
-                    const canToggleOffline = canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
+                    const canToggleOffline = canWrite && selectedOrder.status === 'ready_to_send' && canEditOrder(selectedOrder) && !line.received;
                     
                     const canSplit = canWrite && canEditOrder(selectedOrder) && selectedOrder.status !== 'received' && selectedOrder.orderLines.length > 1;
                     
@@ -2181,7 +2181,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                                 </Button>
                               </>
                             )}
-                            {canWrite && selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
+                            {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send') && canEditOrder(selectedOrder) && (
                               <>
                                 <Button
                                   size="sm"
