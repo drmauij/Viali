@@ -2176,6 +2176,10 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
         status: 'pending',
         language: 'de',
       });
+    } else if (activeLink.surgeryId !== surgery.id) {
+      activeLink = await storage.updateQuestionnaireLink(activeLink.id, {
+        surgeryId: surgery.id,
+      });
     }
 
     const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';

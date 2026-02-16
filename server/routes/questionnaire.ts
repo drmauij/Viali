@@ -16,6 +16,12 @@ import logger from "../logger";
 
 const router = Router();
 
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 // ========== RATE LIMITING ==========
 // Simple in-memory rate limiter for public endpoints
 interface RateLimitEntry {
@@ -1860,7 +1866,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       
       if (link.surgeryId) {
         const surgery = await storage.getSurgery(link.surgeryId);
-        if (surgery?.plannedDate && new Date(surgery.plannedDate) > new Date()) {
+        if (surgery?.plannedDate && new Date(surgery.plannedDate) >= startOfToday()) {
           upcomingSurgeryDate = new Date(surgery.plannedDate);
         }
       }
@@ -1868,7 +1874,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       if (!upcomingSurgeryDate && link.patientId) {
         const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
           patientId: link.patientId,
-          dateFrom: new Date(),
+          dateFrom: startOfToday(),
         });
         if (patientSurgeries.length > 0) {
           const sorted = patientSurgeries.sort((a, b) =>
@@ -1925,11 +1931,11 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     if (!resolvedSurgeryId && link.patientId) {
       const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
         patientId: link.patientId,
-        dateFrom: new Date(),
+        dateFrom: startOfToday(),
       });
       if (patientSurgeries.length > 0) {
         // Sort by planned date ascending to get the next upcoming one
-        const sorted = patientSurgeries.sort((a, b) => 
+        const sorted = patientSurgeries.sort((a, b) =>
           new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
         );
         resolvedSurgeryId = sorted[0].id;
@@ -1977,7 +1983,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
         // A surgery is completed only if its status indicates completion AND the date has passed
         // Having an anesthesia record alone doesn't mean surgery is done (records are created early for pre-op)
         const completedStatuses = ['completed', 'discharged', 'finished'];
-        const surgeryDatePassed = new Date(surgery.plannedDate) < new Date();
+        const surgeryDatePassed = new Date(surgery.plannedDate) < startOfToday();
         const surgeryStatus = surgery.status as string || '';
         surgeryCompleted = completedStatuses.includes(surgeryStatus) ||
           (surgeryDatePassed && surgeryStatus !== 'planned' && surgeryStatus !== 'scheduled' && surgeryStatus !== 'confirmed');
@@ -2179,7 +2185,7 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
     if (!surgeryId && link.patientId) {
       const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
         patientId: link.patientId,
-        dateFrom: new Date(),
+        dateFrom: startOfToday(),
       });
       if (patientSurgeries.length > 0) {
         const sorted = patientSurgeries.sort((a, b) =>
@@ -2263,7 +2269,7 @@ router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async
     if (!surgeryId && link.patientId) {
       const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
         patientId: link.patientId,
-        dateFrom: new Date(),
+        dateFrom: startOfToday(),
       });
       if (patientSurgeries.length > 0) {
         const sorted = patientSurgeries.sort((a, b) =>
