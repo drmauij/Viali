@@ -40,6 +40,15 @@ interface PatientCommunicationContentProps {
 }
 
 type SendMedium = "email" | "sms";
+type MessageLanguage = 'de' | 'en' | 'it' | 'es' | 'fr';
+
+const LANGUAGE_OPTIONS: { value: MessageLanguage; label: string; flag: string }[] = [
+  { value: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { value: 'en', label: 'English', flag: '🇬🇧' },
+  { value: 'it', label: 'Italiano', flag: '🇮🇹' },
+  { value: 'es', label: 'Español', flag: '🇪🇸' },
+  { value: 'fr', label: 'Français', flag: '🇫🇷' },
+];
 
 export function PatientCommunicationContent({
   patientId,
@@ -63,7 +72,8 @@ export function PatientCommunicationContent({
   const [phoneNumber, setPhoneNumber] = useState(patientPhone || "");
   const [customMessage, setCustomMessage] = useState("");
   const [sendSuccess, setSendSuccess] = useState(false);
-  const [messageLang, setMessageLang] = useState<'de' | 'en'>(i18n.language?.startsWith('de') ? 'de' : 'en');
+  const [messageLang, setMessageLang] = useState<MessageLanguage>(i18n.language?.startsWith('de') ? 'de' : 'en');
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const [copiedLinks, setCopiedLinks] = useState<Record<string, boolean>>({});
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);
@@ -71,13 +81,16 @@ export function PatientCommunicationContent({
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateBody, setTemplateBody] = useState("");
 
-  const getQuestionnaireMessageTemplate = (lang: 'de' | 'en', url: string) => {
+  const getQuestionnaireMessageTemplate = (lang: MessageLanguage, url: string) => {
     const clinicName = activeHospital?.name || 'Klinik';
-    if (lang === 'de') {
-      return `${clinicName}: Bitte füllen Sie Ihren präoperativen Fragebogen aus:\n${url}`;
-    } else {
-      return `${clinicName}: Please complete your pre-operative questionnaire:\n${url}`;
-    }
+    const templates: Record<MessageLanguage, string> = {
+      de: `${clinicName}: Bitte füllen Sie Ihren präoperativen Fragebogen aus:\n${url}`,
+      en: `${clinicName}: Please complete your pre-operative questionnaire:\n${url}`,
+      it: `${clinicName}: La preghiamo di compilare il questionario preoperatorio:\n${url}`,
+      es: `${clinicName}: Por favor complete su cuestionario preoperatorio:\n${url}`,
+      fr: `${clinicName}: Veuillez remplir votre questionnaire préopératoire :\n${url}`,
+    };
+    return templates[lang];
   };
 
   const handleCopyIndividualLink = async (linkId: string, url: string) => {
@@ -100,23 +113,35 @@ export function PatientCommunicationContent({
     }
   };
 
-  const translateMessage = (msg: string, fromLang: 'de' | 'en', toLang: 'de' | 'en'): string => {
-    if (!msg.trim()) return msg;
-    
-    if (fromLang === 'de' && toLang === 'en') {
-      return msg
-        .replace(/Bitte füllen Sie Ihren präoperativen Fragebogen aus:/g, 'Please complete your pre-operative questionnaire:')
-        .replace(/Bitte beachten Sie die folgenden Informationen:/g, 'Please review the following information:')
-        .replace(/Liebe(r)? Patient(in)?/g, 'Dear Patient')
-        .replace(/Mit freundlichen Grüßen/g, 'Kind regards');
-    } else if (fromLang === 'en' && toLang === 'de') {
-      return msg
-        .replace(/Please complete your pre-operative questionnaire:/g, 'Bitte füllen Sie Ihren präoperativen Fragebogen aus:')
-        .replace(/Please review the following information:/g, 'Bitte beachten Sie die folgenden Informationen:')
-        .replace(/Dear Patient/g, 'Liebe(r) Patient(in)')
-        .replace(/Kind regards/g, 'Mit freundlichen Grüßen');
+  const handleTranslateMessage = async (targetLang: MessageLanguage) => {
+    if (!customMessage.trim() || targetLang === messageLang) {
+      setMessageLang(targetLang);
+      return;
     }
-    return msg;
+    setIsTranslating(true);
+    try {
+      const res = await fetch('/api/translate-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Active-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ text: customMessage, targetLanguage: targetLang }),
+      });
+      if (!res.ok) throw new Error('Translation failed');
+      const data = await res.json();
+      setCustomMessage(data.translatedText);
+      setMessageLang(targetLang);
+    } catch {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('messages.translationFailed', 'Failed to translate message'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   useEffect(() => {
@@ -838,22 +863,43 @@ export function PatientCommunicationContent({
                 </DropdownMenuContent>
               </DropdownMenu>
               
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs ml-auto"
-                onClick={() => {
-                  const newLang = messageLang === 'de' ? 'en' : 'de';
-                  const translated = translateMessage(customMessage, messageLang, newLang);
-                  setCustomMessage(translated);
-                  setMessageLang(newLang);
-                }}
-                data-testid="button-translate-message"
-                title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
-              >
-                <Languages className="h-3 w-3 mr-1" />
-                {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs ml-auto"
+                    disabled={isTranslating}
+                    data-testid="button-translate-message"
+                  >
+                    {isTranslating ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Languages className="h-3 w-3 mr-1" />
+                    )}
+                    {LANGUAGE_OPTIONS.find(l => l.value === messageLang)?.flag}{' '}
+                    {messageLang.toUpperCase()}
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <DropdownMenuItem
+                      key={lang.value}
+                      onClick={() => handleTranslateMessage(lang.value)}
+                      disabled={isTranslating}
+                      className={messageLang === lang.value ? 'bg-accent' : ''}
+                      data-testid={`translate-lang-${lang.value}`}
+                    >
+                      <span className="mr-2">{lang.flag}</span>
+                      {lang.label}
+                      {messageLang === lang.value && (
+                        <CheckCircle className="h-3 w-3 ml-auto text-primary" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <Textarea

@@ -165,4 +165,60 @@ router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: a
   }
 });
 
+router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const schema = z.object({
+      text: z.string().min(1, "Text is required"),
+      targetLanguage: z.enum(['de', 'en', 'it', 'es', 'fr']),
+    });
+    let parsed;
+    try {
+      parsed = schema.parse(req.body);
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return res.status(400).json({ message: "Invalid request body", details: err.errors });
+      }
+      throw err;
+    }
+    const { text, targetLanguage } = parsed;
+
+    const langNames: Record<string, string> = {
+      de: 'German',
+      en: 'English',
+      it: 'Italian',
+      es: 'Spanish',
+      fr: 'French',
+    };
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional translator for a medical clinic. Translate the following message to ${langNames[targetLanguage]}.
+            - Preserve the original formatting, line breaks, and any URLs exactly as they are
+            - Keep the tone professional but friendly, suitable for patient communication
+            - Do NOT translate URLs or links — keep them unchanged
+            - Return ONLY the translated text, no explanations`
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ],
+      temperature: 0.3,
+    });
+
+    const translatedText = response.choices[0]?.message?.content || '';
+    res.json({ translatedText });
+  } catch (error: any) {
+    logger.error("Error translating message:", error);
+    res.status(500).json({ message: error.message || "Failed to translate message" });
+  }
+});
+
 export default router;
