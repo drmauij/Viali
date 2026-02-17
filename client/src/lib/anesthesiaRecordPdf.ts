@@ -2777,12 +2777,18 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         if (pos.SSL) positions.push(i18next.t("anesthesia.pdf.nurseDoc.lithotomy", "Lithotomy (SSL)"));
         if (pos.EXT) positions.push(i18next.t("anesthesia.pdf.nurseDoc.extension", "Extension"));
 
-        if (positions.length > 0) {
+        if (positions.length > 0 || pos.notes) {
           doc.setFont("helvetica", "bold");
           doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.positioning", "Patient Positioning")}: `, 25, yPos);
           doc.setFont("helvetica", "normal");
-          doc.text(positions.join(", "), 75, yPos);
+          if (positions.length > 0) {
+            doc.text(positions.join(", "), 75, yPos);
+          }
           yPos += 6;
+          if (pos.notes) {
+            doc.text(`  ${i18next.t("anesthesia.pdf.nurseDoc.notes", "Notes")}: ${pos.notes}`, 30, yPos);
+            yPos += 5;
+          }
         }
       }
 
@@ -2793,8 +2799,9 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         if (disinfect.kodanColored) products.push("Kodan (colored)");
         if (disinfect.kodanColorless) products.push("Kodan (colorless)");
         if (disinfect.octanisept) products.push("Octenisept");
+        if (disinfect.betadine) products.push("Betadine");
 
-        if (products.length > 0 || disinfect.performedBy) {
+        if (products.length > 0 || disinfect.performedBy || disinfect.notes) {
           doc.setFont("helvetica", "bold");
           doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.disinfection", "Disinfection")}: `, 25, yPos);
           doc.setFont("helvetica", "normal");
@@ -2802,8 +2809,14 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
           if (disinfect.performedBy) {
             disinfectText += disinfectText ? ` (${i18next.t("anesthesia.pdf.nurseDoc.performedBy", "by")}: ${disinfect.performedBy})` : disinfect.performedBy;
           }
-          doc.text(disinfectText, 65, yPos);
+          if (disinfectText) {
+            doc.text(disinfectText, 65, yPos);
+          }
           yPos += 6;
+          if (disinfect.notes) {
+            doc.text(`  ${i18next.t("anesthesia.pdf.nurseDoc.notes", "Notes")}: ${disinfect.notes}`, 30, yPos);
+            yPos += 5;
+          }
         }
       }
 

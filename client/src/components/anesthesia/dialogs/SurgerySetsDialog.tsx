@@ -297,12 +297,23 @@ export function SurgerySetsDialog({
           <div className="px-2">
             {renderSectionHeader("positioning", t('surgery.intraop.positioning'))}
             {expandedSections.positioning && (
-              <div className="pb-3 pl-2 grid grid-cols-2 gap-2">
-                {renderIntraOpCheckbox("positioning", "RL", t('surgery.intraop.positions.supine'))}
-                {renderIntraOpCheckbox("positioning", "SL", t('surgery.intraop.positions.lateral'))}
-                {renderIntraOpCheckbox("positioning", "BL", t('surgery.intraop.positions.prone'))}
-                {renderIntraOpCheckbox("positioning", "SSL", t('surgery.intraop.positions.lithotomy'))}
-                {renderIntraOpCheckbox("positioning", "EXT", t('surgery.intraop.positions.extension'))}
+              <div className="pb-3 pl-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {renderIntraOpCheckbox("positioning", "RL", t('surgery.intraop.positions.supine'))}
+                  {renderIntraOpCheckbox("positioning", "SL", t('surgery.intraop.positions.lateral'))}
+                  {renderIntraOpCheckbox("positioning", "BL", t('surgery.intraop.positions.prone'))}
+                  {renderIntraOpCheckbox("positioning", "SSL", t('surgery.intraop.positions.lithotomy'))}
+                  {renderIntraOpCheckbox("positioning", "EXT", t('surgery.intraop.positions.extension'))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Notizen</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    value={formIntraOpData.positioning?.notes ?? ""}
+                    onChange={e => toggleIntraOpField("positioning", "notes", e.target.value)}
+                    data-testid="input-set-positioning-notes"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -310,11 +321,32 @@ export function SurgerySetsDialog({
           <div className="px-2">
             {renderSectionHeader("disinfection", t('surgery.intraop.disinfection'))}
             {expandedSections.disinfection && (
-              <div className="pb-3 pl-2 grid grid-cols-2 gap-2">
-                {renderIntraOpCheckbox("disinfection", "kodanColored", t('surgery.intraop.kodanColored'))}
-                {renderIntraOpCheckbox("disinfection", "kodanColorless", t('surgery.intraop.kodanColorless'))}
-                {renderIntraOpCheckbox("disinfection", "octanisept", t('surgery.intraop.octanisept'))}
-                {renderIntraOpCheckbox("disinfection", "betadine", t('surgery.intraop.betadine'))}
+              <div className="pb-3 pl-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {renderIntraOpCheckbox("disinfection", "kodanColored", t('surgery.intraop.kodanColored'))}
+                  {renderIntraOpCheckbox("disinfection", "kodanColorless", t('surgery.intraop.kodanColorless'))}
+                  {renderIntraOpCheckbox("disinfection", "octanisept", t('surgery.intraop.octanisept'))}
+                  {renderIntraOpCheckbox("disinfection", "betadine", t('surgery.intraop.betadine'))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.performedBy')}</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    placeholder={t('surgery.intraop.performedBy')}
+                    value={formIntraOpData.disinfection?.performedBy ?? ""}
+                    onChange={e => toggleIntraOpField("disinfection", "performedBy", e.target.value)}
+                    data-testid="input-set-disinfection-performedBy"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Notizen</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    value={formIntraOpData.disinfection?.notes ?? ""}
+                    onChange={e => toggleIntraOpField("disinfection", "notes", e.target.value)}
+                    data-testid="input-set-disinfection-notes"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -383,6 +415,25 @@ export function SurgerySetsDialog({
                       {t('surgery.intraop.mikrobio')}
                     </Label>
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.devices')}</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    placeholder={t('surgery.intraop.devicesPlaceholder')}
+                    value={formIntraOpData.equipment?.devices ?? ""}
+                    onChange={e => toggleIntraOpField("equipment", "devices", e.target.value)}
+                    data-testid="input-set-equipment-devices"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Notizen</Label>
+                  <Input
+                    className="h-7 text-xs"
+                    value={formIntraOpData.equipment?.notes ?? ""}
+                    onChange={e => toggleIntraOpField("equipment", "notes", e.target.value)}
+                    data-testid="input-set-equipment-notes"
+                  />
                 </div>
               </div>
             )}
@@ -826,11 +877,35 @@ export function SurgerySetsDialog({
 
     if (intraOp.positioning) {
       const node = renderBooleanSection("positioning", intraOp.positioning, positioningLabels);
-      if (node) sections.push(<div key="positioning">{node}</div>);
+      const hasNotes = !!intraOp.positioning.notes;
+      if (node || hasNotes) {
+        sections.push(
+          <div key="positioning" className="space-y-1">
+            {node || <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{positioningLabels._title}</h5>}
+            {hasNotes && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.notes')}:</span> {intraOp.positioning.notes}</div>
+            )}
+          </div>
+        );
+      }
     }
     if (intraOp.disinfection) {
       const node = renderBooleanSection("disinfection", intraOp.disinfection, disinfectionLabels);
-      if (node) sections.push(<div key="disinfection">{node}</div>);
+      const hasPerformedBy = !!intraOp.disinfection.performedBy;
+      const hasNotes = !!intraOp.disinfection.notes;
+      if (node || hasPerformedBy || hasNotes) {
+        sections.push(
+          <div key="disinfection" className="space-y-1">
+            {node || <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{disinfectionLabels._title}</h5>}
+            {hasPerformedBy && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.intraop.performedBy')}:</span> {intraOp.disinfection.performedBy}</div>
+            )}
+            {hasNotes && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.notes')}:</span> {intraOp.disinfection.notes}</div>
+            )}
+          </div>
+        );
+      }
     }
     if (intraOp.equipment) {
       const eq = intraOp.equipment;
@@ -880,12 +955,18 @@ export function SurgerySetsDialog({
           </div>
         );
       }
-      if (boolItems.length > 0 || dropdownItems.length > 0) {
+      if (boolItems.length > 0 || dropdownItems.length > 0 || eq.devices || eq.notes) {
         sections.push(
           <div key="equipment" className="space-y-1">
             <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('surgery.intraop.equipment')}</h5>
             {boolItems.length > 0 && <div className="grid grid-cols-2 gap-1">{boolItems}</div>}
             {dropdownItems.length > 0 && <div className="space-y-0.5">{dropdownItems}</div>}
+            {eq.devices && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.intraop.devices')}:</span> {eq.devices}</div>
+            )}
+            {eq.notes && (
+              <div className="text-sm"><span className="text-muted-foreground">{t('surgery.sets.detail.notes')}:</span> {eq.notes}</div>
+            )}
           </div>
         );
       }

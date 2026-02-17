@@ -1060,8 +1060,8 @@ export default function Op() {
 
   // Intraoperative Data state (Surgery module)
   const [intraOpData, setIntraOpData] = useState<{
-    positioning?: { RL?: boolean; SL?: boolean; BL?: boolean; SSL?: boolean; EXT?: boolean };
-    disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; octanisept?: boolean; betadine?: boolean; performedBy?: string };
+    positioning?: { RL?: boolean; SL?: boolean; BL?: boolean; SSL?: boolean; EXT?: boolean; notes?: string };
+    disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; octanisept?: boolean; betadine?: boolean; performedBy?: string; notes?: string };
     equipment?: {
       monopolar?: boolean;
       bipolar?: boolean;
@@ -2421,7 +2421,7 @@ export default function Op() {
                             id={`pos-${pos.id}`}
                             data-testid={`checkbox-position-${pos.id}`}
                             className="h-4 w-4"
-                            checked={intraOpData.positioning?.[pos.id as keyof typeof intraOpData.positioning] ?? false}
+                            checked={!!(intraOpData.positioning?.[pos.id as keyof typeof intraOpData.positioning])}
                             onCheckedChange={(checked) => {
                               const updated = {
                                 ...intraOpData,
@@ -2437,6 +2437,36 @@ export default function Op() {
                           <Label htmlFor={`pos-${pos.id}`} className="text-sm">{pos.label}</Label>
                         </div>
                       ))}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Notizen</Label>
+                      <Input
+                        id="positioning-notes"
+                        data-testid="input-positioning-notes"
+                        className="h-9 text-sm"
+                        placeholder="Notizen..."
+                        value={intraOpData.positioning?.notes ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            positioning: {
+                              ...intraOpData.positioning,
+                              notes: e.target.value
+                            }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            positioning: {
+                              ...intraOpData.positioning,
+                              notes: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -2681,6 +2711,36 @@ export default function Op() {
                         </PopoverContent>
                       </Popover>
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Notizen</Label>
+                      <Input
+                        id="disinfection-notes"
+                        data-testid="input-disinfection-notes"
+                        className="h-9 text-sm"
+                        placeholder="Notizen..."
+                        value={intraOpData.disinfection?.notes ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            disinfection: {
+                              ...intraOpData.disinfection,
+                              notes: e.target.value
+                            }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            disinfection: {
+                              ...intraOpData.disinfection,
+                              notes: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -2870,6 +2930,38 @@ export default function Op() {
                             equipment: {
                               ...intraOpData.equipment,
                               devices: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
+                      />
+                    </div>
+
+                    {/* Notes Subsection */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Notizen</Label>
+                      <Input
+                        id="equipment-notes"
+                        data-testid="input-equipment-notes"
+                        className="h-9 text-sm"
+                        placeholder="Notizen..."
+                        value={intraOpData.equipment?.notes ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            equipment: {
+                              ...intraOpData.equipment,
+                              notes: e.target.value
+                            }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            equipment: {
+                              ...intraOpData.equipment,
+                              notes: e.target.value
                             }
                           };
                           intraOpAutoSave.mutate(updated);

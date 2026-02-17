@@ -1113,6 +1113,7 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       BL?: boolean;   // Bauchlage (Prone)
       SSL?: boolean;  // Steinschnittlage (Lithotomy)
       EXT?: boolean;  // Extension
+      notes?: string;
     };
     disinfection?: {
       kodanColored?: boolean;
@@ -1120,6 +1121,7 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       octanisept?: boolean;       // New: Octanisept option
       betadine?: boolean;         // Betadine disinfectant
       performedBy?: string;
+      notes?: string;
     };
     equipment?: {
       monopolar?: boolean;
@@ -2655,6 +2657,7 @@ export const updateIntraOpDataSchema = z.object({
     BL: z.boolean().optional(),
     SSL: z.boolean().optional(),
     EXT: z.boolean().optional(),
+    notes: z.string().optional().nullable(),
   }).optional(),
   disinfection: z.object({
     kodanColored: z.boolean().optional(),
@@ -2662,6 +2665,7 @@ export const updateIntraOpDataSchema = z.object({
     octanisept: z.boolean().optional(),
     betadine: z.boolean().optional(),
     performedBy: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
   }).optional(),
   equipment: z.object({
     monopolar: z.boolean().optional(),
