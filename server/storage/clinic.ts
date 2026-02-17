@@ -953,7 +953,7 @@ export async function getMultipleStaffAvailability(
   staffIds: string[],
   hospitalId: string,
   date: string
-): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }>> {
+): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }>> {
   if (staffIds.length === 0) {
     return {};
   }
@@ -1020,6 +1020,9 @@ export async function getMultipleStaffAvailability(
     db.select({
       providerId: clinicAppointments.providerId,
       durationMinutes: clinicAppointments.durationMinutes,
+      startTime: clinicAppointments.startTime,
+      endTime: clinicAppointments.endTime,
+      appointmentStatus: clinicAppointments.status,
     })
       .from(clinicAppointments)
       .where(and(
@@ -1065,7 +1068,7 @@ export async function getMultipleStaffAvailability(
     clinicProviderRows.filter(r => r.isBookable).map(r => r.userId)
   );
 
-  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }> = {};
+  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }> = {};
 
   for (const staffId of staffIds) {
     // Non-providers: always available, no availability check needed
@@ -1162,7 +1165,12 @@ export async function getMultipleStaffAvailability(
       status = 'warning';
     }
 
-    result[staffId] = { busyMinutes, busyPercentage, status };
+    // Collect appointment details for this staff
+    const staffAppointments = appointmentRows
+      .filter(apt => apt.providerId === staffId)
+      .map(apt => ({ startTime: apt.startTime || '', endTime: apt.endTime || '', status: apt.appointmentStatus || '' }));
+
+    result[staffId] = { busyMinutes, busyPercentage, status, ...(staffAppointments.length > 0 ? { appointments: staffAppointments } : {}) };
   }
 
   return result;

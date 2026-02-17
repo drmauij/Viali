@@ -7,20 +7,22 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  X, 
-  User, 
-  UserCog, 
-  Stethoscope, 
-  Syringe, 
-  HeartPulse, 
-  Users, 
+import {
+  ChevronDown,
+  ChevronUp,
+  X,
+  User,
+  UserCog,
+  Stethoscope,
+  Syringe,
+  HeartPulse,
+  Users,
   BedDouble,
   GripVertical,
-  Filter
+  Filter,
+  AlertTriangle
 } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -60,12 +62,22 @@ export const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: strin
   pacuNurse: { icon: BedDouble, labelKey: 'surgery.staff.pacuNurse', colorClass: 'text-orange-700 dark:text-orange-300', bgClass: 'bg-orange-100 dark:bg-orange-900' },
 };
 
-function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemove: (id: string) => void }) {
+interface StaffAvailability {
+  busyMinutes: number;
+  busyPercentage: number;
+  status: 'available' | 'warning' | 'busy' | 'absent';
+  absenceType?: string;
+  appointments?: Array<{ startTime: string; endTime: string; status: string }>;
+}
+
+function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability }) {
+  const { t } = useTranslation();
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
   const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
   const hasSurgeryAssignments = staff.assignedSurgeryIds && staff.assignedSurgeryIds.length > 0;
-  
+  const hasClinicAppointments = availability?.appointments && availability.appointments.length > 0;
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
     data: {
@@ -96,6 +108,30 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
       <span className="font-medium">
         {staff.name}
       </span>
+      {hasClinicAppointments && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="p-0.5 text-yellow-500 hover:text-yellow-600"
+              title={t('staffPool.hasClinicAppointments')}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" side="bottom">
+            <div className="text-xs font-medium mb-1">{t('staffPool.clinicAppointments')}</div>
+            <div className="space-y-0.5">
+              {availability!.appointments!.map((apt, i) => (
+                <div key={i} className="text-xs text-muted-foreground">
+                  {apt.startTime}–{apt.endTime}
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
       {hasRoomAssignments && (
         <div className="flex gap-0.5">
           {staff.assignedRooms.map((room) => (
@@ -161,7 +197,26 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     },
     enabled: !!hospitalId,
   });
-  
+
+  // Fetch clinic appointment availability for staff with userIds
+  const staffUserIds = useMemo(() => {
+    return staffPool.filter(s => s.userId).map(s => s.userId!).join(',');
+  }, [staffPool]);
+
+  const { data: staffAvailability = {} } = useQuery<Record<string, StaffAvailability>>({
+    queryKey: ['/api/clinic/staff-availability', hospitalId, dateString, staffUserIds],
+    queryFn: async () => {
+      if (!staffUserIds) return {};
+      const res = await fetch(`/api/clinic/${hospitalId}/staff-availability?date=${dateString}&staffIds=${staffUserIds}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: !!hospitalId && staffPool.length > 0 && !!staffUserIds,
+    staleTime: 30000,
+  });
+
   const removeFromPoolMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest('DELETE', `/api/staff-pool/${id}`);
@@ -265,10 +320,11 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
           ) : (
             <div className="flex flex-wrap gap-2">
               {filteredStaffPool.map((staff) => (
-                <DraggableStaffChip 
-                  key={staff.id} 
-                  staff={staff} 
+                <DraggableStaffChip
+                  key={staff.id}
+                  staff={staff}
                   onRemove={handleRemoveStaff}
+                  availability={staffAvailability[staff.userId || '']}
                 />
               ))}
             </div>

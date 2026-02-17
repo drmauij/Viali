@@ -98,7 +98,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     return staffOptions.map(s => s.id).join(',');
   }, [staffOptions]);
 
-  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string }>>({
+  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }>>({
     queryKey: ['/api/clinic/staff-availability', hospitalId, dateString, staffIdsForAvailability],
     queryFn: async () => {
       if (!staffIdsForAvailability) return {};
@@ -355,6 +355,15 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                       <div className="text-sm font-medium truncate">{staff.name}</div>
                       {staff.email && !staff.email.endsWith('@staff.local') && !staff.email.endsWith('@internal.local') && (
                         <div className="text-xs text-muted-foreground truncate">{staff.email}</div>
+                      )}
+                      {availability?.appointments && availability.appointments.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {availability.appointments.map((apt, i) => (
+                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                              {apt.startTime}–{apt.endTime}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                     <div className="flex-shrink-0">

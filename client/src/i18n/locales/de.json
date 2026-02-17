@@ -5960,7 +5960,9 @@
     "emptyHint": "Fügen Sie oben Personal hinzu, um mit der Planung zu beginnen",
     "copiedToRecord": "Geplantes Personal ins Protokoll kopiert",
     "copyError": "Geplantes Personal konnte nicht kopiert werden – möglicherweise bereits im Protokoll vorhanden",
-    "copyToActual": "Ins Protokoll kopieren"
+    "copyToActual": "Ins Protokoll kopieren",
+    "clinicAppointments": "Klinik-Termine",
+    "hasClinicAppointments": "Hat Klinik-Termine"
   },
   "todoList": {
     "title": "To-Do",

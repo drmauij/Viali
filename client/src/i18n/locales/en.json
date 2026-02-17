@@ -5859,7 +5859,9 @@
     "emptyHint": "Add staff above to start planning",
     "copiedToRecord": "Planned staff copied to record",
     "copyError": "Failed to copy planned staff - they may already exist in the record",
-    "copyToActual": "Copy to Record"
+    "copyToActual": "Copy to Record",
+    "clinicAppointments": "Clinic Appointments",
+    "hasClinicAppointments": "Has clinic appointments"
   },
   "todoList": {
     "title": "To-Do",
