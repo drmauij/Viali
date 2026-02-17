@@ -13,7 +13,7 @@ import {
   surgeryRooms,
 } from "@shared/schema";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
 import { broadcastAnesthesiaUpdate } from "../../socket";
@@ -164,7 +164,7 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, req
 router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name, staffRole } = req.body;
+    const { name, staffRole, unitId: explicitUnitId } = req.body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
@@ -204,9 +204,15 @@ router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireWr
     }
 
     const allUnits = await storage.getUnits(hospitalId);
-    const targetUnit = allUnits.find(u => 
-      roleConfig.unitType === 'surgery' ? u.type === 'or' : u.type === 'anesthesia'
-    );
+    let targetUnit;
+    if (explicitUnitId) {
+      targetUnit = allUnits.find(u => u.id === explicitUnitId);
+    }
+    if (!targetUnit) {
+      targetUnit = allUnits.find(u =>
+        roleConfig.unitType === 'surgery' ? u.type === 'or' : u.type === 'anesthesia'
+      );
+    }
 
     if (!targetUnit) {
       return res.status(400).json({ message: `No ${roleConfig.unitType} unit found for this hospital` });
@@ -404,6 +410,39 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
 // =====================================
 // Staff Pool Endpoints (Daily Staff Pool)
 // =====================================
+
+router.get('/api/staff-pool/:hospitalId/range', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "startDate and endDate query params are required" });
+    }
+
+    const staffPool = await db
+      .select({
+        id: dailyStaffPool.id,
+        date: dailyStaffPool.date,
+        userId: dailyStaffPool.userId,
+        name: dailyStaffPool.name,
+        role: dailyStaffPool.role,
+      })
+      .from(dailyStaffPool)
+      .where(
+        and(
+          eq(dailyStaffPool.hospitalId, hospitalId),
+          gte(dailyStaffPool.date, startDate as string),
+          lte(dailyStaffPool.date, endDate as string)
+        )
+      );
+
+    res.json(staffPool);
+  } catch (error) {
+    logger.error("Error fetching staff pool range:", error);
+    res.status(500).json({ message: "Failed to fetch staff pool range" });
+  }
+});
 
 router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {

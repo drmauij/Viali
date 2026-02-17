@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { ToggleRight } from "lucide-react";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -45,6 +46,12 @@ interface AppointmentsWeekViewProps {
   onCanvasClick?: (providerId: string, time: Date) => void;
   onDayClick?: (date: Date) => void;
   onProviderClick?: (providerId: string) => void;
+  staffPoolByDateUser?: Map<string, Map<string, { id: string; role: string }>>;
+  hospitalId?: string;
+  onRemoveFromSaal?: (poolEntryId: string) => void;
+  onSaalPopoverChange?: (state: { providerId: string; providerName: string; dateStr: string } | null) => void;
+  saalPopoverState?: { providerId: string; providerName: string; dateStr: string } | null;
+  onSaalAdded?: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -96,6 +103,12 @@ export default function AppointmentsWeekView({
   onCanvasClick,
   onDayClick,
   onProviderClick,
+  staffPoolByDateUser,
+  hospitalId,
+  onRemoveFromSaal,
+  onSaalPopoverChange,
+  saalPopoverState,
+  onSaalAdded,
 }: AppointmentsWeekViewProps) {
   const { t, i18n } = useTranslation();
   
@@ -234,19 +247,37 @@ export default function AppointmentsWeekView({
               {weekDays.map((day, dayIdx) => {
                 const dayAppointments = getAppointmentsForProviderDay(provider.id, day);
                 const absence = getAbsenceForProviderDay(provider.id, day);
-                
+                const dayStr = day.format('YYYY-MM-DD');
+                const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
+                const isSaalPlanned = !!poolEntry;
+
                 return (
                   <div
                     key={dayIdx}
                     className={cn(
-                      "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors",
+                      "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors relative",
                       isToday(day) && "bg-primary/5",
                       absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default)
                     )}
                     style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
                     onClick={() => (!absence || absence.isPartial) && handleCanvasClick(provider.id, day)}
-                    data-testid={`day-cell-${provider.id}-${day.format('YYYY-MM-DD')}`}
+                    data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
+                    {/* Saal badge in top-right corner */}
+                    {isSaalPlanned && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(t('appointments.saalRemoveConfirm'))) {
+                            onRemoveFromSaal?.(poolEntry.id);
+                          }
+                        }}
+                        className="absolute top-0.5 right-0.5 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors z-10"
+                        title={t('appointments.saalPlanned')}
+                      >
+                        <ToggleRight className="h-4 w-4" />
+                      </button>
+                    )}
                     {absence && !absence.isPartial ? (
                       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>

@@ -6308,7 +6308,19 @@
     "bookMeeting": "Meeting buchen",
     "patient": "Patient",
     "timeOff": "Abwesenheit",
-    "available": "Verfuegbar"
+    "available": "Verfuegbar",
+    "saalPlanned": "Für Saal geplant — klicken zum Entfernen",
+    "saalNotPlanned": "Klicken zum Saal-Plan hinzufügen",
+    "saalAdded": "Zum Saal-Personal hinzugefügt",
+    "saalRemoved": "Aus Saal-Personal entfernt",
+    "saalAddTitle": "Zum Saal-Plan hinzufügen",
+    "selectRole": "Rolle auswählen",
+    "selectUnit": "Abteilung auswählen",
+    "createNewStaff": "Neues Personalmitglied erstellen",
+    "addToSaal": "Zum Saal hinzufügen",
+    "staffName": "Name",
+    "staffNamePlaceholder": "Name eingeben...",
+    "saalRemoveConfirm": "Aus Saal-Plan entfernen?"
   },
   "dischargeMedications": {
     "addNew": "Entlassungsmedikation hinzufügen",

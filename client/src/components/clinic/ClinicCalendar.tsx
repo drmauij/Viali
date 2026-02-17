@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -21,6 +21,7 @@ import type { ClinicAppointment, Patient, User as UserType, ClinicService, Clini
 import AppointmentsWeekView from "./AppointmentsWeekView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
+import SaalStaffPopover from "./SaalStaffPopover";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -370,6 +371,60 @@ export default function ClinicCalendar({
     enabled: !!hospitalId && !!unitId,
     refetchInterval: 60000,
   });
+
+  // Fetch staff pool for the visible date range (Saal indicator)
+  interface StaffPoolRangeEntry {
+    id: string;
+    date: string;
+    userId: string | null;
+    name: string;
+    role: string;
+  }
+
+  const { data: staffPoolRange = [] } = useQuery<StaffPoolRangeEntry[]>({
+    queryKey: [`/api/staff-pool/${hospitalId}/range`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/staff-pool/${hospitalId}/range?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId,
+    refetchInterval: 30000,
+  });
+
+  // Build lookup: dateStr -> userId -> { id, role }
+  const staffPoolByDateUser = useMemo(() => {
+    const map = new Map<string, Map<string, { id: string; role: string }>>();
+    staffPoolRange.forEach(entry => {
+      if (!entry.userId) return;
+      if (!map.has(entry.date)) map.set(entry.date, new Map());
+      map.get(entry.date)!.set(entry.userId, { id: entry.id, role: entry.role });
+    });
+    return map;
+  }, [staffPoolRange]);
+
+  // Mutation: remove from staff pool
+  const removeFromStaffPoolMutation = useMutation({
+    mutationFn: async (poolEntryId: string) => {
+      await apiRequest('DELETE', `/api/staff-pool/${poolEntryId}`);
+    },
+    onSuccess: () => {
+      toast({ title: t('appointments.saalRemoved') });
+      queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}/range`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}`] });
+    },
+  });
+
+  // State for the SaalStaffPopover
+  const [saalPopoverState, setSaalPopoverState] = useState<{ providerId: string; providerName: string; dateStr: string } | null>(null);
+
+  const invalidateStaffPool = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}/range`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}`] });
+  }, [hospitalId]);
 
   // Get provider availability modes to determine which providers need windows displayed
   const providerModes = useMemo(() => {
@@ -1323,6 +1378,12 @@ export default function ClinicCalendar({
               setCurrentView("day");
             }}
             onProviderClick={onProviderClick}
+            staffPoolByDateUser={staffPoolByDateUser}
+            hospitalId={hospitalId}
+            onRemoveFromSaal={(poolEntryId) => removeFromStaffPoolMutation.mutate(poolEntryId)}
+            onSaalPopoverChange={setSaalPopoverState}
+            saalPopoverState={saalPopoverState}
+            onSaalAdded={invalidateStaffPool}
           />
         ) : (
           <DragAndDropCalendar
@@ -1361,19 +1422,60 @@ export default function ClinicCalendar({
                 dateHeader: MonthDateHeader,
               },
               dateCellWrapper: DateCellWrapper,
-              resourceHeader: ({ resource }: { resource: CalendarResource }) => (
-                <button
-                  onClick={() => onProviderClick?.(resource.id)}
-                  className="w-full text-center py-2 px-1 hover:bg-muted/50 transition-colors cursor-pointer font-medium text-sm"
-                  title={t('appointments.clickToManageAvailability', 'Click to manage availability')}
-                  data-testid={`provider-header-${resource.id}`}
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <Settings className="h-3 w-3 opacity-50" />
-                    {resource.title}
-                  </span>
-                </button>
-              ),
+              resourceHeader: ({ resource }: { resource: CalendarResource }) => {
+                const dayStr = format(selectedDate, 'yyyy-MM-dd');
+                const poolEntry = staffPoolByDateUser.get(dayStr)?.get(resource.id);
+                const isPlanned = !!poolEntry;
+                return (
+                  <div className="w-full flex items-center justify-center gap-1.5 py-2 px-1" data-testid={`provider-header-${resource.id}`}>
+                    <button
+                      onClick={() => onProviderClick?.(resource.id)}
+                      className="flex items-center gap-1 hover:bg-muted/50 rounded transition-colors cursor-pointer font-medium text-sm px-1"
+                      title={t('appointments.clickToManageAvailability', 'Click to manage availability')}
+                    >
+                      <Settings className="h-3 w-3 opacity-50 flex-shrink-0" />
+                      <span className="truncate">{resource.title}</span>
+                    </button>
+                    {isPlanned ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(t('appointments.saalRemoveConfirm'))) {
+                            removeFromStaffPoolMutation.mutate(poolEntry.id);
+                          }
+                        }}
+                        className="flex-shrink-0 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                        title={t('appointments.saalPlanned')}
+                      >
+                        <ToggleRight className="h-5 w-5" />
+                      </button>
+                    ) : (
+                      <SaalStaffPopover
+                        providerId={resource.id}
+                        providerName={resource.title}
+                        dateStr={dayStr}
+                        hospitalId={hospitalId}
+                        open={saalPopoverState?.providerId === resource.id && saalPopoverState?.dateStr === dayStr}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            setSaalPopoverState({ providerId: resource.id, providerName: resource.title, dateStr: dayStr });
+                          } else {
+                            setSaalPopoverState(null);
+                          }
+                        }}
+                        onAdded={invalidateStaffPool}
+                      >
+                        <button
+                          className="flex-shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                          title={t('appointments.saalNotPlanned')}
+                        >
+                          <ToggleLeft className="h-5 w-5" />
+                        </button>
+                      </SaalStaffPopover>
+                    )}
+                  </div>
+                );
+              },
             }}
             messages={{
               today: t('opCalendar.today', 'Today'),

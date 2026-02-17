@@ -6207,7 +6207,19 @@
     "bookMeeting": "Book Meeting",
     "patient": "Patient",
     "timeOff": "Time Off",
-    "available": "Available"
+    "available": "Available",
+    "saalPlanned": "Planned for Saal — click to remove",
+    "saalNotPlanned": "Click to add to Saal plan",
+    "saalAdded": "Added to Saal staff pool",
+    "saalRemoved": "Removed from Saal staff pool",
+    "saalAddTitle": "Add to Saal Plan",
+    "selectRole": "Select role",
+    "selectUnit": "Select unit",
+    "createNewStaff": "Create new staff member",
+    "addToSaal": "Add to Saal",
+    "staffName": "Name",
+    "staffNamePlaceholder": "Enter name...",
+    "saalRemoveConfirm": "Remove from Saal plan?"
   },
   "dischargeMedications": {
     "addNew": "Add Discharge Medications",
