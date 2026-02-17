@@ -1372,6 +1372,11 @@ router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, requir
     }
     
     const availability = await storage.getMultipleStaffAvailability(staffIdList, hospitalId, date as string);
+    // Debug: log any staff with appointments
+    const withApts = Object.entries(availability).filter(([, v]) => v.appointments && v.appointments.length > 0);
+    if (withApts.length > 0) {
+      logger.info(`Staff availability: ${withApts.length} staff with appointments on ${date}`, withApts.map(([id, v]) => ({ id, appointments: v.appointments })));
+    }
     res.json(availability);
   } catch (error) {
     logger.error("Error fetching staff availability:", error);

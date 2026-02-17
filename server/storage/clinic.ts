@@ -1070,25 +1070,30 @@ export async function getMultipleStaffAvailability(
 
   const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }> = {};
 
+  // Helper: collect appointment details for a staff member (used across all code paths)
+  function getStaffAppointmentDetails(staffId: string) {
+    const apts = appointmentRows
+      .filter(apt => apt.providerId === staffId)
+      .map(apt => ({ startTime: apt.startTime || '', endTime: apt.endTime || '', status: apt.appointmentStatus || '' }));
+    return apts.length > 0 ? apts : undefined;
+  }
+
   for (const staffId of staffIds) {
     // Non-providers: always available, no availability check needed
     if (!providerUserIds.has(staffId)) {
-      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId) };
       continue;
     }
 
     // Non-bookable providers: always plannable, skip availability checks but still include appointment details for collision warnings
     if (!bookableUserIds.has(staffId)) {
-      const staffAppointments = appointmentRows
-        .filter(apt => apt.providerId === staffId)
-        .map(apt => ({ startTime: apt.startTime || '', endTime: apt.endTime || '', status: apt.appointmentStatus || '' }));
-      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', ...(staffAppointments.length > 0 ? { appointments: staffAppointments } : {}) };
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId) };
       continue;
     }
 
     // Check windows_required: if provider requires availability windows but has neither date-specific windows nor weekly schedule → absent
     if (availabilityModeMap.get(staffId) === 'windows_required' && !providersWithWindowsOnDate.has(staffId) && !providersWithWeeklyAvailability.has(staffId)) {
-      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability' };
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability', appointments: getStaffAppointmentDetails(staffId) };
       continue;
     }
 
@@ -1141,7 +1146,7 @@ export async function getMultipleStaffAvailability(
     }
 
     if (isAbsent) {
-      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType };
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType, appointments: getStaffAppointmentDetails(staffId) };
       continue;
     }
 
@@ -1168,12 +1173,7 @@ export async function getMultipleStaffAvailability(
       status = 'warning';
     }
 
-    // Collect appointment details for this staff
-    const staffAppointments = appointmentRows
-      .filter(apt => apt.providerId === staffId)
-      .map(apt => ({ startTime: apt.startTime || '', endTime: apt.endTime || '', status: apt.appointmentStatus || '' }));
-
-    result[staffId] = { busyMinutes, busyPercentage, status, ...(staffAppointments.length > 0 ? { appointments: staffAppointments } : {}) };
+    result[staffId] = { busyMinutes, busyPercentage, status, appointments: getStaffAppointmentDetails(staffId) };
   }
 
   return result;
