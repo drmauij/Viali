@@ -249,40 +249,51 @@ export default function AppointmentsWeekView({
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
                         <span>{getAbsenceLabel(absence.type)}</span>
                       </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {absence?.isPartial && (
-                          <div className="border-l-4 border-orange-500 bg-orange-500/10 px-1.5 py-1 rounded text-xs text-muted-foreground">
-                            <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
-                            {absence.startTime}–{absence.endTime} {getAbsenceLabel(absence.type)}
-                          </div>
-                        )}
-                        {dayAppointments.map((appt) => (
-                          <div
-                            key={appt.id}
-                            className={cn(
-                              "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md",
-                              getStatusClass(appt.status)
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEventClick?.(appt);
-                            }}
-                            title={`${appt.startTime} - ${appt.endTime}\n${getPatientName(appt)}\n${appt.service?.name || ''}`}
-                            data-testid={`appointment-event-${appt.id}`}
-                          >
-                            <div className="font-semibold truncate">
-                              {appt.startTime} {getPatientName(appt)}
+                    ) : (() => {
+                      // Build a merged list of appointments and partial time-off, sorted by start time
+                      const items: { key: string; startTime: string; type: 'appointment' | 'timeoff'; appt?: typeof dayAppointments[0]; absence?: typeof absence }[] = [];
+                      dayAppointments.forEach(appt => {
+                        items.push({ key: appt.id, startTime: appt.startTime || '00:00', type: 'appointment', appt });
+                      });
+                      if (absence?.isPartial && absence.startTime) {
+                        items.push({ key: 'timeoff', startTime: absence.startTime, type: 'timeoff', absence });
+                      }
+                      items.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+                      return (
+                        <div className="space-y-1">
+                          {items.map(item => item.type === 'timeoff' ? (
+                            <div key={item.key} className="border-l-4 border-orange-500 bg-orange-500/10 px-1.5 py-1 rounded text-xs text-muted-foreground">
+                              <span className="mr-1">{ABSENCE_ICONS[item.absence!.type] || ABSENCE_ICONS.default}</span>
+                              {item.absence!.startTime}–{item.absence!.endTime} {getAbsenceLabel(item.absence!.type)}
                             </div>
-                            {appt.service?.name && (
-                              <div className="truncate opacity-80">
-                                {appt.service.name}
+                          ) : (
+                            <div
+                              key={item.key}
+                              className={cn(
+                                "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md",
+                                getStatusClass(item.appt!.status)
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEventClick?.(item.appt!);
+                              }}
+                              title={`${item.appt!.startTime} - ${item.appt!.endTime}\n${getPatientName(item.appt!)}\n${item.appt!.service?.name || ''}`}
+                              data-testid={`appointment-event-${item.appt!.id}`}
+                            >
+                              <div className="font-semibold truncate">
+                                {item.appt!.startTime} {getPatientName(item.appt!)}
                               </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              {item.appt!.service?.name && (
+                                <div className="truncate opacity-80">
+                                  {item.appt!.service.name}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
