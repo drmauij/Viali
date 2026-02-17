@@ -1057,7 +1057,7 @@ export default function Hospital() {
 
       {/* Menu Tab Navigation */}
       <div className="border-b border-border">
-        <nav className="flex gap-0 overflow-x-auto" aria-label="Tabs">
+        <nav className="flex gap-0 overflow-x-auto scrollbar-hide" aria-label="Tabs">
           <button
             className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               activeTab === "settings"
