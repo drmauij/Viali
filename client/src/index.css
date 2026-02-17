@@ -1298,6 +1298,19 @@
   color: hsl(215, 15%, 65%) !important;
 }
 
+/* Minimum column width for resource columns in day view + horizontal scroll */
+.rbc-time-view {
+  overflow-x: auto !important;
+}
+
+.rbc-day-slot.rbc-time-column {
+  min-width: 160px;
+}
+
+.rbc-time-header-content .rbc-row-resource .rbc-header {
+  min-width: 160px;
+}
+
 /* Add visible separator between resource columns in day view */
 .rbc-time-content > .rbc-day-slot + .rbc-day-slot {
   border-left: 6px solid var(--background) !important;
