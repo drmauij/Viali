@@ -682,8 +682,8 @@ function BookingDialog({
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
-      toast({ title: t('appointments.createError', 'Failed to create appointment'), variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: t('appointments.createError', 'Failed to create appointment'), description: error?.message || undefined, variant: "destructive" });
     },
   });
 
@@ -936,8 +936,8 @@ function InternalBookingDialog({
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
-      toast({ title: t('appointments.createError', 'Failed to create appointment'), variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: t('appointments.createError', 'Failed to create appointment'), description: error?.message || undefined, variant: "destructive" });
     },
   });
 
