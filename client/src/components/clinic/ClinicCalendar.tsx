@@ -1326,6 +1326,19 @@ export default function ClinicCalendar({
             onEventClick={(appt) => onEventClick?.(appt)}
             onCanvasClick={(providerId, time) => {
               const endTime = new Date(time.getTime() + 30 * 60 * 1000);
+              const startMs = time.getTime();
+              const endMs = endTime.getTime();
+              const slotDuration = 15 * 60 * 1000;
+              for (let ms = startMs; ms < endMs; ms += slotDuration) {
+                if (isSlotBlocked(new Date(ms), providerId)) {
+                  toast({
+                    title: t('appointments.slotUnavailable', 'Time slot unavailable'),
+                    description: t('appointments.slotUnavailableDesc', 'This time slot is not available for booking. Please select a different time.'),
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+              }
               onBookAppointment?.({ providerId, date: time, endDate: endTime });
             }}
             onDayClick={(date) => {
