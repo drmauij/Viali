@@ -1372,11 +1372,6 @@ router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, requir
     }
     
     const availability = await storage.getMultipleStaffAvailability(staffIdList, hospitalId, date as string);
-    // Debug: log any staff with appointments
-    const withApts = Object.entries(availability).filter(([, v]) => v.appointments && v.appointments.length > 0);
-    if (withApts.length > 0) {
-      logger.info(`Staff availability: ${withApts.length} staff with appointments on ${date}`, withApts.map(([id, v]) => ({ id, appointments: v.appointments })));
-    }
     res.json(availability);
   } catch (error) {
     logger.error("Error fetching staff availability:", error);
@@ -1413,7 +1408,6 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       // - Existing surgeries and appointments
       // - Availability windows for windows_required mode
       const availableSlots = await storage.getAvailableSlots(providerId, unitId, appointmentDate, durationMinutes, hospitalId);
-      logger.info(`[CreateAppointment] Provider ${providerId}, unit ${unitId}, date ${appointmentDate}, time ${startTime}-${endTime}, duration ${durationMinutes}min → ${availableSlots.length} available slots`, availableSlots.slice(0, 5));
 
       // Check if the requested time slot is available
       const requestedStartTime = startTime;

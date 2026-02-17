@@ -852,7 +852,6 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const hasScheduleSources = (useWeeklySchedule && availabilityList.length > 0) || windowList.length > 0;
 
   if (!hasScheduleSources) {
-    console.log(`[getAvailableSlots] NO SCHEDULE: provider=${providerId}, unit=${unitId}, effectiveUnit=${effectiveUnitId}, date=${date}, dayOfWeek=${dayOfWeek}, mode=${availabilityMode}, weeklyEntries=${availabilityList.length}, windows=${windowList.length}`);
     return [];
   }
 
@@ -902,10 +901,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const hasFullDayOff = timeOffList.some(t => !t.startTime && !t.endTime);
   const hasAbsence = absenceList.length > 0;
 
-  console.log(`[getAvailableSlots] provider=${providerId}, date=${date}, mode=${availabilityMode}, weeklySchedule=${availabilityList.length}, windows=${windowList.length}, timeOff=${timeOffList.length}, absences=${absenceList.length}, surgeries=${surgeryList.length}, appointments=${existingAppointments.length}, hasFullDayOff=${hasFullDayOff}, hasAbsence=${hasAbsence}`);
-
   if (hasFullDayOff || hasAbsence) {
-    console.log(`[getAvailableSlots] BLOCKED: hasFullDayOff=${hasFullDayOff}, hasAbsence=${hasAbsence}`, absenceList.map(a => ({ type: a.absenceType, start: a.startDate, end: a.endDate, halfStart: a.isHalfDayStart, halfEnd: a.isHalfDayEnd })));
     return [];
   }
 
