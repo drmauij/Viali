@@ -1178,9 +1178,9 @@
   background-color: hsl(215, 25%, 96%) !important;
 }
 
-/* Scrolling for react-big-calendar time content (vertical + horizontal for resources) */
+/* Restore scrolling for react-big-calendar day/week time content */
 .rbc-time-content {
-  overflow: auto !important;
+  overflow-y: auto !important;
 }
 
 [data-theme="dark"] .rbc-off-range-bg {
@@ -1298,30 +1298,25 @@
   color: hsl(215, 15%, 65%) !important;
 }
 
-/* Resource columns in day view — min-width + scroll sync fix.
-   The library syncs header.scrollLeft = content.scrollLeft via JS,
-   but only if the header content is wider than its container.
-   flex-shrink:0 prevents header cells from compressing so the
-   sync actually has content to scroll. Horizontal scrolling is
-   handled by .rbc-time-content (overflow:auto above), NOT by
-   .rbc-time-view, so the library's scroll handler stays in charge. */
-.rbc-time-view-resources .rbc-day-slot {
-  min-width: 160px;
-  flex-shrink: 0;
+/* Minimum column width for resource columns in day view + horizontal scroll */
+.rbc-time-view {
+  overflow-x: auto !important;
 }
 
-.rbc-time-view-resources .rbc-header,
-.rbc-time-view-resources .rbc-day-bg {
+.rbc-day-slot.rbc-time-column {
   min-width: 160px;
-  flex-shrink: 0;
+}
+
+.rbc-time-header-content .rbc-row-resource .rbc-header {
+  min-width: 160px;
 }
 
 /* Add visible separator between resource columns in day view */
-.rbc-time-view-resources .rbc-time-content > .rbc-day-slot + .rbc-day-slot {
+.rbc-time-content > .rbc-day-slot + .rbc-day-slot {
   border-left: 6px solid var(--background) !important;
 }
 
-.rbc-time-view-resources .rbc-time-header-content > .rbc-row.rbc-row-resource .rbc-header + .rbc-header {
+.rbc-time-header-content > .rbc-row.rbc-row-resource .rbc-header + .rbc-header {
   border-left: 6px solid var(--background) !important;
 }
 
