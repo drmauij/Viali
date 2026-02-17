@@ -1300,15 +1300,8 @@
 
 /* Minimum column width for resource columns in day view + horizontal scroll */
 .rbc-time-view {
-  overflow-x: auto !important;
-}
-
-.rbc-time-content {
-  min-width: max-content;
-}
-
-.rbc-time-header-content {
-  min-width: max-content;
+  width: max-content;
+  min-width: 100%;
 }
 
 .rbc-day-slot.rbc-time-column {
