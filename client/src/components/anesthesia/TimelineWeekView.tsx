@@ -10,6 +10,7 @@ export interface PreOpStatusInfo {
   key: string;
   icon: LucideIcon;
   color: string;
+  badgeClass: string;
   label: string;
 }
 
@@ -493,9 +494,9 @@ export default function TimelineWeekView({
                         const status = getPreOpStatus(surgery.id);
                         const StatusIcon = status.icon;
                         return (
-                          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${status.color}`} data-testid={`preop-status-week-${surgery.id}`} title={status.label}>
-                            <StatusIcon className="w-3 h-3 sm:w-2.5 sm:h-2.5 shrink-0" />
-                            <span className="hidden sm:inline text-[9px] truncate">{status.label}</span>
+                          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${status.badgeClass} px-1 py-0.5 rounded w-fit max-w-full`} data-testid={`preop-status-week-${surgery.id}`} title={status.label}>
+                            <StatusIcon className="w-2.5 h-2.5 shrink-0" />
+                            <span className="hidden sm:inline text-[9px] font-medium truncate">{status.label}</span>
                           </div>
                         );
                       })()}

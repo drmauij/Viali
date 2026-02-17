@@ -964,7 +964,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
   const getPreOpStatus = useCallback((surgeryId: string) => {
     const data = preOpMap.get(surgeryId);
     if (!data) {
-      return { key: 'planned', icon: Circle, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.planned', 'Planned') };
+      return { key: 'planned', icon: Circle, color: 'text-muted-foreground', badgeClass: 'bg-black/30 text-white', label: t('opCalendar.preOpStatus.planned', 'Planned') };
     }
     if (data.standBy) {
       const reasonKey = data.standByReason || '';
@@ -974,18 +974,18 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       else if (reasonKey === 'waiting_exams') reasonLabel = t('opCalendar.preOpStatus.standByReasons.waitingExams', 'Waiting exams');
       else if (reasonKey === 'other') reasonLabel = data.standByReasonNote || t('opCalendar.preOpStatus.standByReasons.other', 'Other');
       else if (data.standByReasonNote) reasonLabel = data.standByReasonNote;
-      return { key: 'standby', icon: PauseCircle, color: 'text-amber-500', label: `${t('opCalendar.preOpStatus.standBy', 'Stand-by')}${reasonLabel ? ` (${reasonLabel})` : ''}` };
+      return { key: 'standby', icon: PauseCircle, color: 'text-amber-500', badgeClass: 'bg-amber-500/80 text-white', label: `${t('opCalendar.preOpStatus.standBy', 'Stand-by')}${reasonLabel ? ` (${reasonLabel})` : ''}` };
     }
     if (data.status === 'completed') {
       if (data.surgicalApproval === 'approved') {
-        return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.approved', 'Approved') };
+        return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', badgeClass: 'bg-green-600/80 text-white', label: t('opCalendar.preOpStatus.approved', 'Approved') };
       }
       if (data.surgicalApproval === 'not-approved') {
-        return { key: 'not-approved', icon: XCircle, color: 'text-red-500', label: t('opCalendar.preOpStatus.notApproved', 'Not approved') };
+        return { key: 'not-approved', icon: XCircle, color: 'text-red-500', badgeClass: 'bg-red-600/80 text-white', label: t('opCalendar.preOpStatus.notApproved', 'Not approved') };
       }
-      return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.completed', 'Completed') };
+      return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', badgeClass: 'bg-green-600/80 text-white', label: t('opCalendar.preOpStatus.completed', 'Completed') };
     }
-    return { key: 'started', icon: Pencil, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.started', 'Started') };
+    return { key: 'started', icon: Pencil, color: 'text-muted-foreground', badgeClass: 'bg-black/30 text-white', label: t('opCalendar.preOpStatus.started', 'Started') };
   }, [preOpMap, t]);
 
   // Simplified event component for calendar display
@@ -1043,7 +1043,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   <span className="text-[10px] sm:text-[11px] font-semibold bg-white/25 px-1 rounded">{t('opCalendar.localAnesthesia')}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-0.5 leading-tight mt-0.5 bg-black/30 text-white px-1 py-0.5 rounded w-fit max-w-full" data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
+                <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.badgeClass} px-1 py-0.5 rounded w-fit max-w-full`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
                   <StatusIcon className="w-3 h-3 shrink-0" />
                   <span className="hidden sm:inline text-[10px] font-medium truncate">{preOpStatus.label}</span>
                 </div>
