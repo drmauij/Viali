@@ -29,6 +29,7 @@ import {
   Clock,
   Plus,
   User,
+  Users,
   Phone,
   Mail,
   X,
@@ -52,6 +53,7 @@ type AppointmentWithDetails = ClinicAppointment & {
   patient?: Patient;
   provider?: UserType;
   service?: ClinicService;
+  colleague?: UserType;
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -385,25 +387,44 @@ export default function ClinicAppointments() {
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
+                  {selectedAppointment.appointmentType === 'internal'
+                    ? <Users className="h-5 w-5 text-primary" />
+                    : <User className="h-5 w-5 text-primary" />}
                 </div>
                 <div>
-                  <h4 className="font-medium" data-testid="text-patient-name">
-                    {selectedAppointment.patient 
-                      ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.surname}`
-                      : t('appointments.unknownPatient', 'Unknown Patient')}
-                  </h4>
-                  {selectedAppointment.patient?.phone && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {selectedAppointment.patient.phone}
-                    </p>
-                  )}
-                  {selectedAppointment.patient?.email && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {selectedAppointment.patient.email}
-                    </p>
+                  {selectedAppointment.appointmentType === 'internal' ? (
+                    <>
+                      <h4 className="font-medium" data-testid="text-patient-name">
+                        {selectedAppointment.colleague
+                          ? `${selectedAppointment.colleague.firstName} ${selectedAppointment.colleague.lastName}`
+                          : t('appointments.internalMeeting', 'Internal Meeting')}
+                      </h4>
+                      {selectedAppointment.internalSubject && (
+                        <p className="text-sm text-muted-foreground">
+                          {selectedAppointment.internalSubject}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <h4 className="font-medium" data-testid="text-patient-name">
+                        {selectedAppointment.patient
+                          ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.surname}`
+                          : t('appointments.unknownPatient', 'Unknown Patient')}
+                      </h4>
+                      {selectedAppointment.patient?.phone && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {selectedAppointment.patient.phone}
+                        </p>
+                      )}
+                      {selectedAppointment.patient?.email && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {selectedAppointment.patient.email}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -430,15 +451,21 @@ export default function ClinicAppointments() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">{t('appointments.service', 'Service')}</p>
+                  <p className="text-muted-foreground">
+                    {selectedAppointment.appointmentType === 'internal'
+                      ? t('appointments.subject', 'Subject')
+                      : t('appointments.service', 'Service')}
+                  </p>
                   <p className="font-medium">
-                    {selectedAppointment.service?.name || '-'}
+                    {selectedAppointment.appointmentType === 'internal'
+                      ? (selectedAppointment.internalSubject || '-')
+                      : (selectedAppointment.service?.name || '-')}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-muted-foreground text-sm mb-1">{t('appointments.status', 'Status')}</p>
+                <p className="text-muted-foreground text-sm mb-1">{t('appointments.statusLabel', 'Status')}</p>
                 <Badge className={`${STATUS_COLORS[selectedAppointment.status]?.bg} ${STATUS_COLORS[selectedAppointment.status]?.text}`}>
                   {getStatusLabel(selectedAppointment.status)}
                 </Badge>
@@ -455,6 +482,7 @@ export default function ClinicAppointments() {
                 {selectedAppointment.status === 'scheduled' && (
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'confirmed' })}
                     disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                     data-testid="button-confirm-appointment"
@@ -467,6 +495,7 @@ export default function ClinicAppointments() {
                   <>
                     <Button
                       variant="default"
+                      size="sm"
                       onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'in_progress' })}
                       disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                       data-testid="button-start-appointment"
@@ -475,6 +504,7 @@ export default function ClinicAppointments() {
                     </Button>
                     <Button
                       variant="destructive"
+                      size="sm"
                       onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'cancelled' })}
                       disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                       data-testid="button-cancel-appointment"
@@ -486,6 +516,7 @@ export default function ClinicAppointments() {
                 )}
                 {selectedAppointment.status === 'in_progress' && (
                   <Button
+                    size="sm"
                     onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'completed' })}
                     disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                     data-testid="button-complete-appointment"

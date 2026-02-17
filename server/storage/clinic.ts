@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   users,
   hospitals,
@@ -633,13 +634,15 @@ export async function updateHospitalVonageTestStatus(hospitalId: string, status:
     .where(eq(hospitalVonageConfigs.hospitalId, hospitalId));
 }
 
+const colleagueUser = alias(users, 'colleague_user');
+
 export async function getClinicAppointments(unitId: string, filters?: {
   providerId?: string;
   patientId?: string;
   startDate?: string;
   endDate?: string;
   status?: string;
-}): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]> {
+}): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService; colleague?: User })[]> {
   let conditions = [eq(clinicAppointments.unitId, unitId)];
   
   if (filters?.providerId) {
@@ -664,14 +667,16 @@ export async function getClinicAppointments(unitId: string, filters?: {
     .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
     .leftJoin(users, eq(clinicAppointments.providerId, users.id))
     .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+    .leftJoin(colleagueUser, eq(clinicAppointments.internalColleagueId, colleagueUser.id))
     .where(and(...conditions))
     .orderBy(asc(clinicAppointments.appointmentDate), asc(clinicAppointments.startTime));
-  
+
   return results.map(row => ({
     ...row.clinic_appointments,
     patient: row.patients || undefined,
     provider: row.users || undefined,
     service: row.clinic_services || undefined,
+    colleague: row.colleague_user || undefined,
   }));
 }
 
@@ -682,7 +687,7 @@ export async function getClinicAppointmentsByHospital(hospitalId: string, filter
   endDate?: string;
   status?: string;
   unitId?: string;
-}): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]> {
+}): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService; colleague?: User })[]> {
   let conditions = [eq(clinicAppointments.hospitalId, hospitalId)];
   
   if (filters?.unitId) {
@@ -710,33 +715,37 @@ export async function getClinicAppointmentsByHospital(hospitalId: string, filter
     .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
     .leftJoin(users, eq(clinicAppointments.providerId, users.id))
     .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+    .leftJoin(colleagueUser, eq(clinicAppointments.internalColleagueId, colleagueUser.id))
     .where(and(...conditions))
     .orderBy(asc(clinicAppointments.appointmentDate), asc(clinicAppointments.startTime));
-  
+
   return results.map(row => ({
     ...row.clinic_appointments,
     patient: row.patients || undefined,
     provider: row.users || undefined,
     service: row.clinic_services || undefined,
+    colleague: row.colleague_user || undefined,
   }));
 }
 
-export async function getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService }) | undefined> {
+export async function getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService; colleague?: User }) | undefined> {
   const [result] = await db
     .select()
     .from(clinicAppointments)
     .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
     .leftJoin(users, eq(clinicAppointments.providerId, users.id))
     .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+    .leftJoin(colleagueUser, eq(clinicAppointments.internalColleagueId, colleagueUser.id))
     .where(eq(clinicAppointments.id, id));
-  
+
   if (!result) return undefined;
-  
+
   return {
     ...result.clinic_appointments,
     patient: result.patients || undefined,
     provider: result.users || undefined,
     service: result.clinic_services || undefined,
+    colleague: result.colleague_user || undefined,
   };
 }
 

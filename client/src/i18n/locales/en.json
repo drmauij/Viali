@@ -6165,6 +6165,8 @@
       "cancelled": "Cancelled",
       "noShow": "No Show"
     },
+    "statusLabel": "Status",
+    "internalMeeting": "Internal Meeting",
     "noHospital": "Please select a hospital to view appointments",
     "title": "Appointments",
     "syncCalendars": "Sync Calendars",

@@ -6266,6 +6266,8 @@
       "cancelled": "Abgesagt",
       "noShow": "Nicht erschienen"
     },
+    "statusLabel": "Status",
+    "internalMeeting": "Internes Meeting",
     "noHospital": "Bitte wählen Sie ein Krankenhaus, um Termine anzuzeigen",
     "title": "Termine",
     "syncCalendars": "Kalender synchronisieren",

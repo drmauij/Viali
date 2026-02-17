@@ -29,6 +29,7 @@ type AppointmentWithDetails = ClinicAppointment & {
   patient?: Patient;
   provider?: UserType;
   service?: ClinicService;
+  colleague?: UserType;
 };
 
 interface CalendarEvent {
@@ -578,10 +579,17 @@ export default function ClinicCalendar({
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
-      const patientName = appt.patient
-        ? `${appt.patient.surname}, ${appt.patient.firstName}`
-        : t('appointments.unknownPatient', 'Unknown Patient');
-      const serviceName = appt.service?.name || "";
+      const isInternal = appt.appointmentType === 'internal';
+      const patientName = isInternal
+        ? (appt.colleague
+          ? `${appt.colleague.lastName}, ${appt.colleague.firstName}`
+          : (appt.internalSubject || t('appointments.internalMeeting', 'Internal Meeting')))
+        : (appt.patient
+          ? `${appt.patient.surname}, ${appt.patient.firstName}`
+          : t('appointments.unknownPatient', 'Unknown Patient'));
+      const serviceName = isInternal
+        ? (appt.internalSubject || t('appointments.internalMeeting', 'Internal Meeting'))
+        : (appt.service?.name || "");
       
       const appointmentDate = new Date(appt.appointmentDate);
       
