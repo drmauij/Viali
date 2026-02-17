@@ -1298,10 +1298,13 @@
   color: hsl(215, 15%, 65%) !important;
 }
 
-/* Add horizontal padding between resource columns in day view */
-.rbc-day-slot {
-  padding-left: 4px;
-  padding-right: 4px;
+/* Add visible separator between resource columns in day view */
+.rbc-time-content > .rbc-day-slot + .rbc-day-slot {
+  border-left: 6px solid var(--background) !important;
+}
+
+.rbc-time-header-content > .rbc-row.rbc-row-resource .rbc-header + .rbc-header {
+  border-left: 6px solid var(--background) !important;
 }
 
 /* Fix event icon clipping and ensure colors remain visible */
