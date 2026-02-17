@@ -98,7 +98,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     return staffOptions.map(s => s.id).join(',');
   }, [staffOptions]);
 
-  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }>>({
+  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }>; timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }> }>>({
     queryKey: ['/api/clinic/staff-availability', hospitalId, dateString, staffIdsForAvailability],
     queryFn: async () => {
       if (!staffIdsForAvailability) return {};
@@ -356,15 +356,20 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                       {staff.email && !staff.email.endsWith('@staff.local') && !staff.email.endsWith('@internal.local') && (
                         <div className="text-xs text-muted-foreground truncate">{staff.email}</div>
                       )}
-                      {availability?.appointments && availability.appointments.length > 0 && (
+                      {(availability?.appointments?.length || availability?.timeOffBlocks?.length) ? (
                         <div className="flex flex-wrap gap-1 mt-0.5">
-                          {availability.appointments.map((apt, i) => (
-                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                          {availability.appointments?.map((apt, i) => (
+                            <span key={`apt-${i}`} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
                               {apt.startTime}–{apt.endTime}
                             </span>
                           ))}
+                          {availability.timeOffBlocks?.map((block, i) => (
+                            <span key={`off-${i}`} className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300">
+                              {block.startTime}–{block.endTime}
+                            </span>
+                          ))}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex-shrink-0">
                     {isAbsent && (

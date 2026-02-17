@@ -976,7 +976,7 @@ export async function getMultipleStaffAvailability(
   staffIds: string[],
   hospitalId: string,
   date: string
-): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }>> {
+): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }>; timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }> }>> {
   if (staffIds.length === 0) {
     return {};
   }
@@ -1091,7 +1091,7 @@ export async function getMultipleStaffAvailability(
     clinicProviderRows.filter(r => r.isBookable).map(r => r.userId)
   );
 
-  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }> }> = {};
+  const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' | 'absent'; absenceType?: string; appointments?: Array<{ startTime: string; endTime: string; status: string }>; timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }> }> = {};
 
   // Helper: collect appointment details for a staff member (used across all code paths)
   function getStaffAppointmentDetails(staffId: string) {
@@ -1101,22 +1101,30 @@ export async function getMultipleStaffAvailability(
     return apts.length > 0 ? apts : undefined;
   }
 
+  // Helper: collect time-off blocks (partial, with start/end times) for a staff member
+  function getStaffTimeOffBlocks(staffId: string) {
+    const blocks = timeOffRows
+      .filter(t => t.providerId === staffId && t.startTime && t.endTime)
+      .map(t => ({ startTime: t.startTime!, endTime: t.endTime!, reason: t.reason || 'Time off' }));
+    return blocks.length > 0 ? blocks : undefined;
+  }
+
   for (const staffId of staffIds) {
     // Non-providers: always available, no availability check needed
     if (!providerUserIds.has(staffId)) {
-      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId) };
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId), timeOffBlocks: getStaffTimeOffBlocks(staffId) };
       continue;
     }
 
     // Non-bookable providers: always plannable, skip availability checks but still include appointment details for collision warnings
     if (!bookableUserIds.has(staffId)) {
-      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId) };
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', appointments: getStaffAppointmentDetails(staffId), timeOffBlocks: getStaffTimeOffBlocks(staffId) };
       continue;
     }
 
     // Check windows_required: if provider requires availability windows but has neither date-specific windows nor weekly schedule → absent
     if (availabilityModeMap.get(staffId) === 'windows_required' && !providersWithWindowsOnDate.has(staffId) && !providersWithWeeklyAvailability.has(staffId)) {
-      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability', appointments: getStaffAppointmentDetails(staffId) };
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType: 'noAvailability', appointments: getStaffAppointmentDetails(staffId), timeOffBlocks: getStaffTimeOffBlocks(staffId) };
       continue;
     }
 
@@ -1169,7 +1177,7 @@ export async function getMultipleStaffAvailability(
     }
 
     if (isAbsent) {
-      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType, appointments: getStaffAppointmentDetails(staffId) };
+      result[staffId] = { busyMinutes: WORKDAY_MINUTES, busyPercentage: 100, status: 'absent', absenceType, appointments: getStaffAppointmentDetails(staffId), timeOffBlocks: getStaffTimeOffBlocks(staffId) };
       continue;
     }
 
@@ -1196,7 +1204,7 @@ export async function getMultipleStaffAvailability(
       status = 'warning';
     }
 
-    result[staffId] = { busyMinutes, busyPercentage, status, appointments: getStaffAppointmentDetails(staffId) };
+    result[staffId] = { busyMinutes, busyPercentage, status, appointments: getStaffAppointmentDetails(staffId), timeOffBlocks: getStaffTimeOffBlocks(staffId) };
   }
 
   return result;

@@ -68,6 +68,7 @@ interface StaffAvailability {
   status: 'available' | 'warning' | 'busy' | 'absent';
   absenceType?: string;
   appointments?: Array<{ startTime: string; endTime: string; status: string }>;
+  timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }>;
 }
 
 function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability }) {
@@ -76,7 +77,7 @@ function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoo
   const Icon = config?.icon || User;
   const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
   const hasSurgeryAssignments = staff.assignedSurgeryIds && staff.assignedSurgeryIds.length > 0;
-  const hasClinicAppointments = availability?.appointments && availability.appointments.length > 0;
+  const hasClinicAppointments = (availability?.appointments && availability.appointments.length > 0) || (availability?.timeOffBlocks && availability.timeOffBlocks.length > 0);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -121,14 +122,30 @@ function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoo
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" side="bottom">
-            <div className="text-xs font-medium mb-1">{t('staffPool.clinicAppointments')}</div>
-            <div className="space-y-0.5">
-              {availability!.appointments!.map((apt, i) => (
-                <div key={i} className="text-xs text-muted-foreground">
-                  {apt.startTime}–{apt.endTime}
+            {availability?.appointments && availability.appointments.length > 0 && (
+              <>
+                <div className="text-xs font-medium mb-1">{t('staffPool.clinicAppointments')}</div>
+                <div className="space-y-0.5 mb-1.5">
+                  {availability.appointments.map((apt, i) => (
+                    <div key={i} className="text-xs text-blue-600 dark:text-blue-400">
+                      {apt.startTime}–{apt.endTime}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
+            {availability?.timeOffBlocks && availability.timeOffBlocks.length > 0 && (
+              <>
+                <div className="text-xs font-medium mb-1">{t('staffPool.timeOff')}</div>
+                <div className="space-y-0.5">
+                  {availability.timeOffBlocks.map((block, i) => (
+                    <div key={i} className="text-xs text-orange-600 dark:text-orange-400">
+                      {block.startTime}–{block.endTime}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </PopoverContent>
         </Popover>
       )}
