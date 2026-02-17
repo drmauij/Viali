@@ -1077,9 +1077,12 @@ export async function getMultipleStaffAvailability(
       continue;
     }
 
-    // Non-bookable providers: always plannable, skip all availability checks
+    // Non-bookable providers: always plannable, skip availability checks but still include appointment details for collision warnings
     if (!bookableUserIds.has(staffId)) {
-      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+      const staffAppointments = appointmentRows
+        .filter(apt => apt.providerId === staffId)
+        .map(apt => ({ startTime: apt.startTime || '', endTime: apt.endTime || '', status: apt.appointmentStatus || '' }));
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available', ...(staffAppointments.length > 0 ? { appointments: staffAppointments } : {}) };
       continue;
     }
 
