@@ -349,13 +349,15 @@ export default function TimelineWeekView({
     };
   }, [handleMouseUp]);
 
+  const MIN_COL_WIDTH = 140;
+
   return (
-    <div className="vertical-week-view h-full flex flex-col" data-testid="timeline-week-view">
+    <div className="vertical-week-view h-full flex flex-col overflow-x-auto" data-testid="timeline-week-view">
       {/* Day headers */}
-      <div className="flex border-b bg-muted/30">
+      <div className="flex border-b bg-muted/30" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         {/* Time gutter header */}
         <div className="w-16 flex-shrink-0 p-2 border-r text-xs text-muted-foreground font-medium">
-          
+
         </div>
         {/* Day columns headers */}
         {weekDays.map((day, idx) => (
@@ -365,6 +367,7 @@ export default function TimelineWeekView({
               "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
               isToday(day) && "bg-primary/10 text-primary"
             )}
+            style={{ minWidth: MIN_COL_WIDTH }}
             onClick={() => onDayClick?.(day.toDate())}
             data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
           >
@@ -374,7 +377,7 @@ export default function TimelineWeekView({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         <div className="flex">
           {/* Time gutter */}
           <div className="w-16 flex-shrink-0 border-r bg-muted/20">
@@ -400,6 +403,7 @@ export default function TimelineWeekView({
                   "flex-1 border-r relative",
                   isToday(day) && "bg-primary/5"
                 )}
+                style={{ minWidth: MIN_COL_WIDTH }}
                 data-testid={`day-column-${day.format('YYYY-MM-DD')}`}
               >
                 {/* 15-minute slot grid */}
