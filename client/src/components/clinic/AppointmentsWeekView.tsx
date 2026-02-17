@@ -137,27 +137,28 @@ export default function AppointmentsWeekView({
     });
   };
 
-  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null } | null => {
+  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null } | null => {
     const dayDate = day.format('YYYY-MM-DD');
-    
+
     const absence = providerAbsences.find(a => {
       if (a.providerId !== providerId) return false;
       return dayDate >= a.startDate && dayDate <= a.endDate;
     });
-    
+
     if (absence) {
       return { type: absence.absenceType, notes: absence.notes };
     }
-    
+
     const timeOff = providerTimeOffs.find(t => {
       if (t.providerId !== providerId) return false;
       return dayDate >= t.startDate && dayDate <= t.endDate;
     });
-    
+
     if (timeOff) {
-      return { type: timeOff.reason || 'default', notes: timeOff.notes };
+      const isPartial = !!(timeOff.startTime && timeOff.endTime);
+      return { type: timeOff.reason || 'default', notes: timeOff.notes, isPartial, startTime: timeOff.startTime, endTime: timeOff.endTime };
     }
-    
+
     return null;
   };
 
@@ -237,19 +238,25 @@ export default function AppointmentsWeekView({
                     className={cn(
                       "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors",
                       isToday(day) && "bg-primary/5",
-                      absence && ABSENCE_COLORS[absence.type] || (absence && ABSENCE_COLORS.default)
+                      absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default)
                     )}
                     style={{ minHeight: MIN_ROW_HEIGHT }}
-                    onClick={() => !absence && handleCanvasClick(provider.id, day)}
+                    onClick={() => (!absence || absence.isPartial) && handleCanvasClick(provider.id, day)}
                     data-testid={`day-cell-${provider.id}-${day.format('YYYY-MM-DD')}`}
                   >
-                    {absence ? (
+                    {absence && !absence.isPartial ? (
                       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
                         <span>{getAbsenceLabel(absence.type)}</span>
                       </div>
                     ) : (
                       <div className="space-y-1">
+                        {absence?.isPartial && (
+                          <div className="border-l-4 border-orange-500 bg-orange-500/10 px-1.5 py-1 rounded text-xs text-muted-foreground">
+                            <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
+                            {absence.startTime}–{absence.endTime} {getAbsenceLabel(absence.type)}
+                          </div>
+                        )}
                         {dayAppointments.map((appt) => (
                           <div
                             key={appt.id}
