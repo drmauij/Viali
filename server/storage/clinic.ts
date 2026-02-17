@@ -776,6 +776,15 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const dateObj = new Date(date);
   const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
 
+  // Resolve calendar scope: if unit doesn't have its own calendar, use hospital-level (shared) data
+  let effectiveUnitId: string | null = unitId;
+  if (hospitalId) {
+    const [unit] = await db.select({ hasOwnCalendar: units.hasOwnCalendar }).from(units).where(eq(units.id, unitId)).limit(1);
+    if (unit && !unit.hasOwnCalendar) {
+      effectiveUnitId = null;
+    }
+  }
+
   // Look up provider's availability mode
   let availabilityMode = 'always_available';
   if (hospitalId) {
@@ -792,16 +801,22 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     }
   }
 
-  // Query weekly schedule
+  // Query weekly schedule — use effectiveUnitId (null = shared hospital calendar)
+  const weeklyConditions = [
+    eq(providerAvailability.providerId, providerId),
+    eq(providerAvailability.dayOfWeek, dayOfWeek),
+    eq(providerAvailability.isActive, true),
+  ];
+  if (effectiveUnitId === null && hospitalId) {
+    weeklyConditions.push(eq(providerAvailability.hospitalId, hospitalId));
+    weeklyConditions.push(isNull(providerAvailability.unitId));
+  } else {
+    weeklyConditions.push(eq(providerAvailability.unitId, effectiveUnitId!));
+  }
   const availabilityList = await db
     .select()
     .from(providerAvailability)
-    .where(and(
-      eq(providerAvailability.providerId, providerId),
-      eq(providerAvailability.unitId, unitId),
-      eq(providerAvailability.dayOfWeek, dayOfWeek),
-      eq(providerAvailability.isActive, true)
-    ))
+    .where(and(...weeklyConditions))
     .orderBy(providerAvailability.startTime);
 
   // Query availability windows for this specific date
@@ -809,11 +824,13 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     eq(providerAvailabilityWindows.providerId, providerId),
     eq(providerAvailabilityWindows.date, date),
   ];
-  // Match unit-level OR hospital-level windows
-  if (hospitalId) {
+  if (effectiveUnitId === null && hospitalId) {
+    windowConditions.push(eq(providerAvailabilityWindows.hospitalId, hospitalId));
+    windowConditions.push(isNull(providerAvailabilityWindows.unitId));
+  } else if (hospitalId) {
     windowConditions.push(
       or(
-        eq(providerAvailabilityWindows.unitId, unitId),
+        eq(providerAvailabilityWindows.unitId, effectiveUnitId!),
         and(
           eq(providerAvailabilityWindows.hospitalId, hospitalId),
           isNull(providerAvailabilityWindows.unitId)
@@ -821,7 +838,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       )!
     );
   } else {
-    windowConditions.push(eq(providerAvailabilityWindows.unitId, unitId));
+    windowConditions.push(eq(providerAvailabilityWindows.unitId, effectiveUnitId!));
   }
   const windowList = await db
     .select()
@@ -835,19 +852,26 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const hasScheduleSources = (useWeeklySchedule && availabilityList.length > 0) || windowList.length > 0;
 
   if (!hasScheduleSources) {
+    console.log(`[getAvailableSlots] NO SCHEDULE: provider=${providerId}, unit=${unitId}, effectiveUnit=${effectiveUnitId}, date=${date}, dayOfWeek=${dayOfWeek}, mode=${availabilityMode}, weeklyEntries=${availabilityList.length}, windows=${windowList.length}`);
     return [];
   }
 
-  // Fetch blocking data
+  // Fetch blocking data — time off uses effectiveUnitId too
+  const timeOffConditions = [
+    eq(providerTimeOff.providerId, providerId),
+    lte(providerTimeOff.startDate, date),
+    gte(providerTimeOff.endDate, date),
+  ];
+  if (effectiveUnitId === null && hospitalId) {
+    timeOffConditions.push(eq(providerTimeOff.hospitalId, hospitalId));
+    timeOffConditions.push(isNull(providerTimeOff.unitId));
+  } else {
+    timeOffConditions.push(eq(providerTimeOff.unitId, effectiveUnitId!));
+  }
   const timeOffList = await db
     .select()
     .from(providerTimeOff)
-    .where(and(
-      eq(providerTimeOff.providerId, providerId),
-      eq(providerTimeOff.unitId, unitId),
-      lte(providerTimeOff.startDate, date),
-      gte(providerTimeOff.endDate, date)
-    ));
+    .where(and(...timeOffConditions));
 
   const absenceList = await db
     .select()
@@ -878,7 +902,10 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const hasFullDayOff = timeOffList.some(t => !t.startTime && !t.endTime);
   const hasAbsence = absenceList.length > 0;
 
+  console.log(`[getAvailableSlots] provider=${providerId}, date=${date}, mode=${availabilityMode}, weeklySchedule=${availabilityList.length}, windows=${windowList.length}, timeOff=${timeOffList.length}, absences=${absenceList.length}, surgeries=${surgeryList.length}, appointments=${existingAppointments.length}, hasFullDayOff=${hasFullDayOff}, hasAbsence=${hasAbsence}`);
+
   if (hasFullDayOff || hasAbsence) {
+    console.log(`[getAvailableSlots] BLOCKED: hasFullDayOff=${hasFullDayOff}, hasAbsence=${hasAbsence}`, absenceList.map(a => ({ type: a.absenceType, start: a.startDate, end: a.endDate, halfStart: a.isHalfDayStart, halfEnd: a.isHalfDayEnd })));
     return [];
   }
 

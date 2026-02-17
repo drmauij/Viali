@@ -1413,7 +1413,8 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       // - Existing surgeries and appointments
       // - Availability windows for windows_required mode
       const availableSlots = await storage.getAvailableSlots(providerId, unitId, appointmentDate, durationMinutes, hospitalId);
-      
+      logger.info(`[CreateAppointment] Provider ${providerId}, unit ${unitId}, date ${appointmentDate}, time ${startTime}-${endTime}, duration ${durationMinutes}min → ${availableSlots.length} available slots`, availableSlots.slice(0, 5));
+
       // Check if the requested time slot is available
       const requestedStartTime = startTime;
       const requestedEndTime = endTime || (() => {
