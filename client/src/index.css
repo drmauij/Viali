@@ -1303,12 +1303,22 @@
   overflow-x: auto !important;
 }
 
+.rbc-time-content {
+  min-width: max-content;
+}
+
+.rbc-time-header-content {
+  min-width: max-content;
+}
+
 .rbc-day-slot.rbc-time-column {
   min-width: 160px;
+  flex-shrink: 0;
 }
 
 .rbc-time-header-content .rbc-row-resource .rbc-header {
   min-width: 160px;
+  flex-shrink: 0;
 }
 
 /* Add visible separator between resource columns in day view */
