@@ -11,9 +11,11 @@ import {
   plannedSurgeryStaff,
   dailyRoomStaff,
   surgeryRooms,
+  staffPoolRules,
+  type StaffPoolRule,
 } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, or, isNull } from "drizzle-orm";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
 import { broadcastAnesthesiaUpdate } from "../../socket";
@@ -411,6 +413,47 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
 // Staff Pool Endpoints (Daily Staff Pool)
 // =====================================
 
+function dateMatchesRule(dateStr: string, rule: StaffPoolRule): boolean {
+  const date = new Date(dateStr + 'T12:00:00');
+  const start = new Date(rule.startDate + 'T00:00:00');
+  if (date < start) return false;
+  if (rule.endDate) {
+    const end = new Date(rule.endDate + 'T23:59:59');
+    if (date > end) return false;
+  }
+  const dayOfWeek = date.getDay();
+  const dayOfMonth = date.getDate();
+  switch (rule.recurrencePattern) {
+    case 'daily': return true;
+    case 'weekly': return (rule.recurrenceDaysOfWeek || []).includes(dayOfWeek);
+    case 'monthly': return (rule.recurrenceDaysOfMonth || []).includes(dayOfMonth);
+    default: return false;
+  }
+}
+
+async function materializeRulesForDate(hospitalId: string, date: string) {
+  const activeRules = await db.select().from(staffPoolRules).where(and(
+    eq(staffPoolRules.hospitalId, hospitalId),
+    eq(staffPoolRules.isActive, true),
+    lte(staffPoolRules.startDate, date),
+    or(isNull(staffPoolRules.endDate), gte(staffPoolRules.endDate, date))
+  ));
+
+  for (const rule of activeRules) {
+    if (dateMatchesRule(date, rule)) {
+      await db.insert(dailyStaffPool).values({
+        hospitalId,
+        date,
+        userId: rule.userId,
+        name: rule.name,
+        role: rule.role,
+        ruleId: rule.id,
+        createdBy: rule.createdBy,
+      }).onConflictDoNothing();
+    }
+  }
+}
+
 router.get('/api/staff-pool/:hospitalId/range', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
@@ -418,6 +461,14 @@ router.get('/api/staff-pool/:hospitalId/range', isAuthenticated, requireStrictHo
 
     if (!startDate || !endDate) {
       return res.status(400).json({ message: "startDate and endDate query params are required" });
+    }
+
+    // Materialize rules for all dates in range
+    const start = new Date(startDate as string);
+    const end = new Date(endDate as string);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      await materializeRulesForDate(hospitalId, dateStr);
     }
 
     const staffPool = await db
@@ -449,6 +500,9 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, requireStrictHo
     const { hospitalId, date } = req.params;
     const userId = req.user.id;
 
+    // Materialize recurring rules for this date
+    await materializeRulesForDate(hospitalId, date);
+
     const staffPool = await db
       .select({
         id: dailyStaffPool.id,
@@ -457,6 +511,7 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, requireStrictHo
         userId: dailyStaffPool.userId,
         name: dailyStaffPool.name,
         role: dailyStaffPool.role,
+        ruleId: dailyStaffPool.ruleId,
         createdBy: dailyStaffPool.createdBy,
         createdAt: dailyStaffPool.createdAt,
         staffType: users.staffType,
@@ -566,6 +621,119 @@ router.delete('/api/staff-pool/:id', isAuthenticated, requireWriteAccess, async 
   } catch (error) {
     logger.error("Error removing staff from pool:", error);
     res.status(500).json({ message: "Failed to remove staff from pool" });
+  }
+});
+
+// =====================================
+// Staff Pool Rules Endpoints (Recurring Rules)
+// =====================================
+
+router.get('/api/staff-pool-rules/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { userId: filterUserId } = req.query;
+
+    const conditions = [
+      eq(staffPoolRules.hospitalId, hospitalId),
+      eq(staffPoolRules.isActive, true),
+    ];
+
+    if (filterUserId) {
+      conditions.push(eq(staffPoolRules.userId, filterUserId as string));
+    }
+
+    const rules = await db.select().from(staffPoolRules).where(and(...conditions));
+    res.json(rules);
+  } catch (error) {
+    logger.error("Error fetching staff pool rules:", error);
+    res.status(500).json({ message: "Failed to fetch staff pool rules" });
+  }
+});
+
+router.post('/api/staff-pool-rules', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId, userId: staffUserId, name, role, recurrencePattern, recurrenceDaysOfWeek, recurrenceDaysOfMonth, startDate, endDate } = req.body;
+
+    if (!hospitalId || !name || !role || !recurrencePattern || !startDate) {
+      return res.status(400).json({ message: "hospitalId, name, role, recurrencePattern, and startDate are required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some((h: any) => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const [newRule] = await db.insert(staffPoolRules).values({
+      hospitalId,
+      userId: staffUserId || null,
+      name,
+      role,
+      recurrencePattern,
+      recurrenceDaysOfWeek: recurrenceDaysOfWeek || null,
+      recurrenceDaysOfMonth: recurrenceDaysOfMonth || null,
+      startDate,
+      endDate: endDate || null,
+      createdBy: userId,
+    }).returning();
+
+    res.status(201).json(newRule);
+  } catch (error) {
+    logger.error("Error creating staff pool rule:", error);
+    res.status(500).json({ message: "Failed to create staff pool rule" });
+  }
+});
+
+router.delete('/api/staff-pool-rules/:ruleId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { ruleId } = req.params;
+    const userId = req.user.id;
+
+    const [rule] = await db.select().from(staffPoolRules).where(eq(staffPoolRules.id, ruleId));
+    if (!rule) {
+      return res.status(404).json({ message: "Rule not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some((h: any) => h.id === rule.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // Delete future materialized entries that aren't assigned to rooms or surgeries
+    const futureEntries = await db.select({ id: dailyStaffPool.id })
+      .from(dailyStaffPool)
+      .where(and(
+        eq(dailyStaffPool.ruleId, ruleId),
+        gte(dailyStaffPool.date, todayStr)
+      ));
+
+    for (const entry of futureEntries) {
+      const [roomAssignment] = await db.select({ id: dailyRoomStaff.id })
+        .from(dailyRoomStaff)
+        .where(eq(dailyRoomStaff.dailyStaffPoolId, entry.id))
+        .limit(1);
+      const [surgeryAssignment] = await db.select({ id: plannedSurgeryStaff.id })
+        .from(plannedSurgeryStaff)
+        .where(eq(plannedSurgeryStaff.dailyStaffPoolId, entry.id))
+        .limit(1);
+
+      if (!roomAssignment && !surgeryAssignment) {
+        await db.delete(dailyStaffPool).where(eq(dailyStaffPool.id, entry.id));
+      }
+    }
+
+    // Delete the rule (remaining entries get rule_id = NULL via cascade)
+    await db.delete(staffPoolRules).where(eq(staffPoolRules.id, ruleId));
+
+    res.status(204).send();
+  } catch (error) {
+    logger.error("Error deleting staff pool rule:", error);
+    res.status(500).json({ message: "Failed to delete staff pool rule" });
   }
 });
 

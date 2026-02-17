@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
@@ -20,11 +20,13 @@ import {
   BedDouble,
   GripVertical,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  Repeat
 } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import StaffRecurrenceDialog from './StaffRecurrenceDialog';
 
 type StaffRole = 
   | "surgeon"
@@ -47,6 +49,7 @@ export interface StaffPoolEntry {
   name: string;
   role: StaffRole;
   userId?: string | null;
+  ruleId?: string | null;
   assignedSurgeryIds: string[];
   assignedRooms: Array<{ roomId: string; roomName: string }>;
   isBooked: boolean;
@@ -71,13 +74,15 @@ interface StaffAvailability {
   timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }>;
 }
 
-function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability }) {
+function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability; onClick?: (staff: StaffPoolEntry) => void }) {
   const { t } = useTranslation();
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
   const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
   const hasSurgeryAssignments = staff.assignedSurgeryIds && staff.assignedSurgeryIds.length > 0;
   const hasClinicAppointments = (availability?.appointments && availability.appointments.length > 0) || (availability?.timeOffBlocks && availability.timeOffBlocks.length > 0);
+
+  const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -86,13 +91,31 @@ function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoo
       staff,
     },
   });
-  
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    listeners?.onPointerDown?.(e as any);
+  }, [listeners]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (pointerStartRef.current) {
+      const dx = e.clientX - pointerStartRef.current.x;
+      const dy = e.clientY - pointerStartRef.current.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const duration = Date.now() - pointerStartRef.current.time;
+      if (dist < 5 && duration < 300 && onClick) {
+        onClick(staff);
+      }
+      pointerStartRef.current = null;
+    }
+  }, [onClick, staff]);
+
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
     cursor: 'grab',
   };
-  
+
   return (
     <div
       ref={setNodeRef}
@@ -103,8 +126,11 @@ function DraggableStaffChip({ staff, onRemove, availability }: { staff: StaffPoo
       data-testid={`planned-staff-chip-${staff.id}`}
       {...attributes}
       {...listeners}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
     >
       <GripVertical className="h-3 w-3 text-muted-foreground" />
+      {staff.ruleId && <Repeat className="h-3 w-3 text-muted-foreground" />}
       <Icon className={`h-3 w-3 ${config?.colorClass}`} />
       <span className="font-medium">
         {staff.name}
@@ -189,6 +215,8 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  const [recurrenceDialogStaff, setRecurrenceDialogStaff] = useState<StaffPoolEntry | null>(null);
+
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(() => {
     const saved = sessionStorage.getItem(STAFF_FILTER_KEY);
     return saved === 'true';
@@ -271,6 +299,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     : staffPool;
   
   return (
+    <>
     <Collapsible open={isOpen} onOpenChange={onToggle} className="mx-4 mt-2">
       <CollapsibleTrigger asChild>
         <div 
@@ -342,6 +371,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
                   staff={staff}
                   onRemove={handleRemoveStaff}
                   availability={staffAvailability[staff.userId || '']}
+                  onClick={setRecurrenceDialogStaff}
                 />
               ))}
             </div>
@@ -354,5 +384,15 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
         </div>
       </CollapsibleContent>
     </Collapsible>
+    {recurrenceDialogStaff && (
+      <StaffRecurrenceDialog
+        open={!!recurrenceDialogStaff}
+        onOpenChange={(open) => { if (!open) setRecurrenceDialogStaff(null); }}
+        staff={recurrenceDialogStaff}
+        hospitalId={hospitalId}
+        selectedDate={selectedDate}
+      />
+    )}
+    </>
   );
 }

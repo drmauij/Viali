@@ -1948,6 +1948,31 @@ export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
   index("idx_surgery_staff_entries_user").on(table.userId),
 ]);
 
+// Staff Pool Rules (Recurring planning rules for automatic staff pool population)
+export const staffPoolRules = pgTable("staff_pool_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id),
+  name: varchar("name").notNull(),
+  role: varchar("role", { enum: [
+    "surgeon", "surgicalAssistant", "instrumentNurse",
+    "circulatingNurse", "anesthesiologist", "anesthesiaNurse", "pacuNurse",
+  ] }).notNull(),
+  recurrencePattern: varchar("recurrence_pattern", {
+    enum: ["daily", "weekly", "monthly"]
+  }).notNull(),
+  recurrenceDaysOfWeek: integer("recurrence_days_of_week").array(),
+  recurrenceDaysOfMonth: integer("recurrence_days_of_month").array(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_staff_pool_rules_hospital").on(table.hospitalId),
+  index("idx_staff_pool_rules_user").on(table.userId),
+]);
+
 // Daily Staff Pool (Staff available for scheduling on a specific day)
 export const dailyStaffPool = pgTable("daily_staff_pool", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1966,6 +1991,7 @@ export const dailyStaffPool = pgTable("daily_staff_pool", {
     "pacuNurse",
   ] }).notNull(),
   
+  ruleId: varchar("rule_id").references(() => staffPoolRules.id, { onDelete: 'set null' }),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
@@ -3270,6 +3296,11 @@ export const insertChatNotificationSchema = createInsertSchema(chatNotifications
   createdAt: true,
 });
 
+export const insertStaffPoolRuleSchema = createInsertSchema(staffPoolRules).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertDailyStaffPoolSchema = createInsertSchema(dailyStaffPool).omit({
   id: true,
   createdAt: true,
@@ -3390,6 +3421,8 @@ export type AnesthesiaNeuraxialBlock = typeof anesthesiaNeuraxialBlocks.$inferSe
 export type InsertAnesthesiaNeuraxialBlock = z.infer<typeof insertAnesthesiaNeuraxialBlockSchema>;
 export type AnesthesiaPeripheralBlock = typeof anesthesiaPeripheralBlocks.$inferSelect;
 export type InsertAnesthesiaPeripheralBlock = z.infer<typeof insertAnesthesiaPeripheralBlockSchema>;
+export type StaffPoolRule = typeof staffPoolRules.$inferSelect;
+export type InsertStaffPoolRule = z.infer<typeof insertStaffPoolRuleSchema>;
 export type DailyStaffPool = typeof dailyStaffPool.$inferSelect;
 export type InsertDailyStaffPool = z.infer<typeof insertDailyStaffPoolSchema>;
 export type PlannedSurgeryStaff = typeof plannedSurgeryStaff.$inferSelect;
