@@ -4,7 +4,7 @@ import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/en-gb";
 import "moment/locale/de";
-import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, useDroppable } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -256,6 +256,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     })
   );

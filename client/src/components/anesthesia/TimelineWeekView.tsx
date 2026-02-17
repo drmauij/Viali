@@ -335,17 +335,54 @@ export default function TimelineWeekView({
     setDragState(null);
   }, [weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
 
-  // Global mouseup listener for drag selection
+  // Touch event handlers for drag selection on touch devices
+  const getSlotFromTouch = useCallback((touch: React.Touch | Touch) => {
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return null;
+    const testId = element.getAttribute('data-testid');
+    if (!testId || !testId.startsWith('time-slot-')) return null;
+    const parts = testId.split('-');
+    // data-testid="time-slot-YYYY-MM-DD-slotIdx"
+    const slotIdx = parseInt(parts[parts.length - 1], 10);
+    const dateStr = parts.slice(2, 5).join('-');
+    const dayIdx = weekDays.findIndex(d => d.format('YYYY-MM-DD') === dateStr);
+    if (dayIdx < 0 || isNaN(slotIdx)) return null;
+    return { dayIdx, slotIdx };
+  }, [weekDays]);
+
+  const handleTouchStart = useCallback((dayIdx: number, slotIdx: number, e: React.TouchEvent) => {
+    e.preventDefault();
+    handleMouseDown(dayIdx, slotIdx);
+  }, [handleMouseDown]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const slot = getSlotFromTouch(touch);
+    if (slot) {
+      handleMouseEnter(slot.dayIdx, slot.slotIdx);
+    }
+  }, [getSlotFromTouch, handleMouseEnter]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleMouseUp();
+  }, [handleMouseUp]);
+
+  // Global mouseup/touchend listener for drag selection
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (isDraggingRef.current) {
         handleMouseUp();
       }
     };
-    
+
     document.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('touchend', handleGlobalMouseUp);
     return () => {
       document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('touchend', handleGlobalMouseUp);
     };
   }, [handleMouseUp]);
 
@@ -423,6 +460,9 @@ export default function TimelineWeekView({
                       }}
                       onMouseEnter={() => handleMouseEnter(dayIdx, slotIdx)}
                       onMouseUp={handleMouseUp}
+                      onTouchStart={(e) => handleTouchStart(dayIdx, slotIdx, e)}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
                       data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${slotIdx}`}
                     />
                   );
