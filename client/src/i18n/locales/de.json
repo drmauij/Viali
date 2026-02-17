@@ -6320,7 +6320,10 @@
     "addToSaal": "Zum Saal hinzufügen",
     "staffName": "Name",
     "staffNamePlaceholder": "Name eingeben...",
-    "saalRemoveConfirm": "Aus Saal-Plan entfernen?"
+    "saalRemoveConfirm": "Aus Saal-Plan entfernen?",
+    "calendarWeek": "KW",
+    "legendSaalPlanned": "Saal geplant",
+    "legendSaalAdd": "Klicken um zum Saal hinzuzufügen"
   },
   "dischargeMedications": {
     "addNew": "Entlassungsmedikation hinzufügen",

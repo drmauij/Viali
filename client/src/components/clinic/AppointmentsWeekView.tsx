@@ -4,7 +4,8 @@ import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { ToggleRight } from "lucide-react";
+import { ToggleRight, ToggleLeft } from "lucide-react";
+import SaalStaffPopover from "./SaalStaffPopover";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -227,7 +228,7 @@ export default function AppointmentsWeekView({
         ))}
       </div>
 
-      <div className="flex-1 overflow-auto" style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
+      <div className="flex-1 overflow-auto pb-6" style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         {providers.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">
             {t('clinic.appointments.noProviders')}
@@ -263,21 +264,54 @@ export default function AppointmentsWeekView({
                     onClick={() => (!absence || absence.isPartial) && handleCanvasClick(provider.id, day)}
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
-                    {/* Saal badge in top-right corner */}
-                    {isSaalPlanned && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm(t('appointments.saalRemoveConfirm'))) {
-                            onRemoveFromSaal?.(poolEntry.id);
-                          }
-                        }}
-                        className="absolute top-0.5 right-0.5 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors z-10"
-                        title={t('appointments.saalPlanned')}
-                      >
-                        <ToggleRight className="h-4 w-4" />
-                      </button>
-                    )}
+                    {/* Saal toggle in top-right corner — always visible */}
+                    <div className="absolute top-0.5 right-0.5 z-10">
+                      {isSaalPlanned ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(t('appointments.saalRemoveConfirm'))) {
+                              onRemoveFromSaal?.(poolEntry.id);
+                            }
+                          }}
+                          className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                          title={t('appointments.saalPlanned')}
+                        >
+                          <ToggleRight className="h-5 w-5" />
+                        </button>
+                      ) : hospitalId ? (
+                        <SaalStaffPopover
+                          providerId={provider.id}
+                          providerName={getProviderName(provider)}
+                          dateStr={dayStr}
+                          hospitalId={hospitalId}
+                          open={saalPopoverState?.providerId === provider.id && saalPopoverState?.dateStr === dayStr}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              onSaalPopoverChange?.({ providerId: provider.id, providerName: getProviderName(provider), dateStr: dayStr });
+                            } else {
+                              onSaalPopoverChange?.(null);
+                            }
+                          }}
+                          onAdded={() => {
+                            onSaalPopoverChange?.(null);
+                            onSaalAdded?.();
+                          }}
+                        >
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+                            title={t('appointments.saalNotPlanned')}
+                          >
+                            <ToggleLeft className="h-5 w-5" />
+                          </button>
+                        </SaalStaffPopover>
+                      ) : (
+                        <span className="p-1 text-muted-foreground/20">
+                          <ToggleLeft className="h-5 w-5" />
+                        </span>
+                      )}
+                    </div>
                     {absence && !absence.isPartial ? (
                       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>

@@ -6219,7 +6219,10 @@
     "addToSaal": "Add to Saal",
     "staffName": "Name",
     "staffNamePlaceholder": "Enter name...",
-    "saalRemoveConfirm": "Remove from Saal plan?"
+    "saalRemoveConfirm": "Remove from Saal plan?",
+    "calendarWeek": "CW",
+    "legendSaalPlanned": "Saal planned",
+    "legendSaalAdd": "Click to add to Saal"
   },
   "dischargeMedications": {
     "addNew": "Add Discharge Medications",

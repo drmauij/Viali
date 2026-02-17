@@ -19,6 +19,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService, ClinicProvider } from "@shared/schema";
 import AppointmentsWeekView from "./AppointmentsWeekView";
+import AppointmentsMonthView from "./AppointmentsMonthView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
 import SaalStaffPopover from "./SaalStaffPopover";
@@ -1168,52 +1169,6 @@ export default function ClinicCalendar({
     );
   }, [t]);
 
-  const MonthDateHeader = useCallback(({ date }: { date: Date }) => {
-    const dayEvents = calendarEvents.filter(event => {
-      const eventDate = new Date(event.start);
-      return eventDate.toDateString() === date.toDateString();
-    });
-
-    const hasEvents = dayEvents.length > 0;
-
-    return (
-      <div className="rbc-date-cell">
-        <button
-          type="button"
-          className="rbc-button-link"
-          onClick={() => {
-            setSelectedDate(date);
-            setCurrentView("day");
-          }}
-        >
-          {date.getDate()}
-        </button>
-        {hasEvents && (
-          <div className="flex justify-center mt-1">
-            <div className="w-2 h-2 rounded-full bg-primary" data-testid={`indicator-${date.toISOString()}`}></div>
-          </div>
-        )}
-      </div>
-    );
-  }, [calendarEvents]);
-
-  const DateCellWrapper = useCallback(({ value, children }: { value: Date; children: React.ReactNode }) => {
-    return (
-      <div 
-        className="rbc-day-bg cursor-pointer hover:bg-accent/50 transition-colors"
-        onClick={() => {
-          if (currentView === "month") {
-            setSelectedDate(value);
-            setCurrentView("day");
-          }
-        }}
-        data-testid={`day-cell-${value.toISOString()}`}
-      >
-        {children}
-      </div>
-    );
-  }, [currentView]);
-
   const goToToday = () => setSelectedDate(new Date());
 
   const navigatePrevious = () => {
@@ -1385,12 +1340,29 @@ export default function ClinicCalendar({
             saalPopoverState={saalPopoverState}
             onSaalAdded={invalidateStaffPool}
           />
+        ) : currentView === "month" ? (
+          <AppointmentsMonthView
+            providers={filteredProviders}
+            appointments={appointments}
+            providerAbsences={providerAbsences}
+            providerTimeOffs={providerTimeOffs}
+            selectedDate={selectedDate}
+            onDayClick={(date) => {
+              setSelectedDate(date);
+              setCurrentView("day");
+            }}
+            onProviderClick={onProviderClick}
+            staffPoolByDateUser={staffPoolByDateUser}
+            hospitalId={hospitalId}
+            onRemoveFromSaal={(poolEntryId) => removeFromStaffPoolMutation.mutate(poolEntryId)}
+            onSaalAdded={invalidateStaffPool}
+          />
         ) : (
           <DragAndDropCalendar
             localizer={localizer}
-            events={currentView === "month" ? [] : calendarEvents}
-            backgroundEvents={currentView === "month" ? [] : backgroundCalendarEvents}
-            resources={currentView === "day" ? resources : undefined}
+            events={calendarEvents}
+            backgroundEvents={backgroundCalendarEvents}
+            resources={resources}
             resourceIdAccessor="id"
             resourceTitleAccessor="title"
             resourceAccessor="resource"
@@ -1418,10 +1390,6 @@ export default function ClinicCalendar({
             slotPropGetter={slotPropGetter}
             components={{
               event: EventComponent,
-              month: {
-                dateHeader: MonthDateHeader,
-              },
-              dateCellWrapper: DateCellWrapper,
               resourceHeader: ({ resource }: { resource: CalendarResource }) => {
                 const dayStr = format(selectedDate, 'yyyy-MM-dd');
                 const poolEntry = staffPoolByDateUser.get(dayStr)?.get(resource.id);

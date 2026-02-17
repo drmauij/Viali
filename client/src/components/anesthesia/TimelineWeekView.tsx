@@ -377,7 +377,7 @@ export default function TimelineWeekView({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
+      <div className="flex-1 overflow-auto pb-6" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         <div className="flex">
           {/* Time gutter */}
           <div className="w-16 flex-shrink-0 border-r bg-muted/20">
