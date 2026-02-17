@@ -3476,12 +3476,17 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, requireStric
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
     
-    // First test API key validity by getting the authenticated user
+    // Test API key validity by getting the authenticated user
     const me = await calcom.getMe();
-    
-    // Then try to get event types for this user
-    const eventTypes = await calcom.getEventTypes(me.username);
-    
+
+    // Try to get event types, but don't fail the test if this endpoint isn't available
+    let eventTypes: any[] = [];
+    try {
+      eventTypes = await calcom.getEventTypes(me.username);
+    } catch (e) {
+      logger.warn("Could not fetch Cal.com event types (non-critical):", (e as Error).message);
+    }
+
     res.json({
       success: true,
       message: "Cal.com API connection successful",
