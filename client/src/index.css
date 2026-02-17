@@ -1298,29 +1298,25 @@
   color: hsl(215, 15%, 65%) !important;
 }
 
-/* Provider columns in appointments day view — prevent header/body width mismatch */
-/* The library's default header cells use flex:1 1 0 (shrinkable), while body
-   columns use min-width (non-shrinkable). With many providers the header
-   compresses while the body extends, breaking alignment. Fix: make both
-   non-shrinkable. The library's built-in scroll sync (handleScroll sets
-   header.scrollLeft = content.scrollLeft) keeps them aligned. */
-.rbc-time-view-resources .rbc-day-slot {
-  min-width: 160px;
-  flex-shrink: 0;
+/* Minimum column width for resource columns in day view + horizontal scroll */
+.rbc-time-view {
+  overflow-x: auto !important;
 }
 
-.rbc-time-view-resources .rbc-header,
-.rbc-time-view-resources .rbc-day-bg {
+.rbc-day-slot.rbc-time-column {
   min-width: 160px;
-  flex-shrink: 0;
+}
+
+.rbc-time-header-content .rbc-row-resource .rbc-header {
+  min-width: 160px;
 }
 
 /* Add visible separator between resource columns in day view */
-.rbc-time-view-resources .rbc-time-content > .rbc-day-slot + .rbc-day-slot {
+.rbc-time-content > .rbc-day-slot + .rbc-day-slot {
   border-left: 6px solid var(--background) !important;
 }
 
-.rbc-time-view-resources .rbc-time-header-content > .rbc-row.rbc-row-resource .rbc-header + .rbc-header {
+.rbc-time-header-content > .rbc-row.rbc-row-resource .rbc-header + .rbc-header {
   border-left: 6px solid var(--background) !important;
 }
 
