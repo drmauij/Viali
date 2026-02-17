@@ -190,9 +190,11 @@ export default function AppointmentsWeekView({
     onCanvasClick(providerId, clickTime);
   };
 
+  const MIN_COL_WIDTH = 140;
+
   return (
-    <div className="appointments-week-view h-full flex flex-col" data-testid="appointments-week-view">
-      <div className="flex border-b bg-muted/30">
+    <div className="appointments-week-view h-full flex flex-col overflow-x-auto" data-testid="appointments-week-view">
+      <div className="flex border-b bg-muted/30" style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         <div className="w-40 flex-shrink-0 p-2 border-r text-xs text-muted-foreground font-medium">
           {t('clinic.appointments.provider')}
         </div>
@@ -203,6 +205,7 @@ export default function AppointmentsWeekView({
               "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
               isToday(day) && "bg-primary/10 text-primary"
             )}
+            style={{ minWidth: MIN_COL_WIDTH }}
             onClick={() => onDayClick?.(day.toDate())}
             data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
           >
@@ -211,7 +214,7 @@ export default function AppointmentsWeekView({
         ))}
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         {providers.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">
             {t('clinic.appointments.noProviders')}
@@ -240,7 +243,7 @@ export default function AppointmentsWeekView({
                       isToday(day) && "bg-primary/5",
                       absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default)
                     )}
-                    style={{ minHeight: MIN_ROW_HEIGHT }}
+                    style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
                     onClick={() => (!absence || absence.isPartial) && handleCanvasClick(provider.id, day)}
                     data-testid={`day-cell-${provider.id}-${day.format('YYYY-MM-DD')}`}
                   >
