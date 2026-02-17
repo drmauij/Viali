@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
@@ -1055,98 +1056,40 @@ export default function Hospital() {
         <h1 className="text-2xl font-bold text-foreground">{t("admin.hospital")}</h1>
       </div>
 
-      {/* Menu Tab Navigation */}
-      <div className="border-b border-border">
-        <nav className="flex gap-0 overflow-x-auto scrollbar-hide" aria-label="Tabs">
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "settings"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("settings")}
-            data-testid="tab-settings"
-          >
-            <Settings className="h-4 w-4 mr-2 inline" />
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="settings" data-testid="tab-settings">
+            <Settings className="h-4 w-4 mr-2" />
             {t("admin.generalSettings", "General Settings")}
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "data"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("data")}
-            data-testid="tab-data"
-          >
+          </TabsTrigger>
+          <TabsTrigger value="data" data-testid="tab-data">
             <i className="fas fa-database mr-2"></i>
             {t("admin.dataAndLinks", "Data & Links")}
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "units"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("units")}
-            data-testid="tab-units"
-          >
+          </TabsTrigger>
+          <TabsTrigger value="units" data-testid="tab-units">
             <i className="fas fa-location-dot mr-2"></i>
             {t("admin.units")}
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "rooms"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("rooms")}
-            data-testid="tab-rooms"
-          >
+          </TabsTrigger>
+          <TabsTrigger value="rooms" data-testid="tab-rooms">
             <i className="fas fa-door-open mr-2"></i>
             {t("admin.rooms", "Rooms")}
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "checklists"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("checklists")}
-            data-testid="tab-checklists"
-          >
+          </TabsTrigger>
+          <TabsTrigger value="checklists" data-testid="tab-checklists">
             <i className="fas fa-clipboard-check mr-2"></i>
             {t("admin.checklists")}
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "suppliers"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("suppliers")}
-            data-testid="tab-suppliers"
-          >
+          </TabsTrigger>
+          <TabsTrigger value="suppliers" data-testid="tab-suppliers">
             <i className="fas fa-truck mr-2"></i>
             Suppliers
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === "integrations"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-            onClick={() => setActiveTab("integrations")}
-            data-testid="tab-integrations"
-          >
-            <Settings className="h-4 w-4 mr-2 inline" />
+          </TabsTrigger>
+          <TabsTrigger value="integrations" data-testid="tab-integrations">
+            <Settings className="h-4 w-4 mr-2" />
             {t("admin.integrations", "Integrations")}
-          </button>
-        </nav>
-      </div>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* General Settings Tab Content */}
-      {activeTab === "settings" && (
+        {/* General Settings Tab Content */}
+        <TabsContent value="settings">
         <div className="space-y-6">
           {/* Company Settings Section */}
           <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
@@ -1350,10 +1293,10 @@ export default function Hospital() {
           </div>
 
         </div>
-      )}
+        </TabsContent>
 
-      {/* Data & Links Tab Content */}
-      {activeTab === "data" && (
+        {/* Data & Links Tab Content */}
+        <TabsContent value="data">
         <div className="space-y-4">
           {/* Open Questionnaire Link Section */}
           <div className="bg-card border border-border rounded-lg p-6">
@@ -1680,10 +1623,10 @@ export default function Hospital() {
           </div>
 
         </div>
-      )}
+        </TabsContent>
 
-      {/* Units Tab Content */}
-      {activeTab === "units" && (
+        {/* Units Tab Content */}
+        <TabsContent value="units">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">{t("admin.units")}</h2>
@@ -1746,10 +1689,10 @@ export default function Hospital() {
             </div>
           )}
         </div>
-      )}
+        </TabsContent>
 
-      {/* Rooms Tab Content */}
-      {activeTab === "rooms" && (
+        {/* Rooms Tab Content */}
+        <TabsContent value="rooms">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">{t("admin.rooms", "Rooms")}</h2>
@@ -1849,10 +1792,10 @@ export default function Hospital() {
             </div>
           )}
         </div>
-      )}
+        </TabsContent>
 
-      {/* Checklists Tab Content */}
-      {activeTab === "checklists" && (
+        {/* Checklists Tab Content */}
+        <TabsContent value="checklists">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">{t("admin.checklists")}</h2>
@@ -1950,10 +1893,10 @@ export default function Hospital() {
             </div>
           )}
         </div>
-      )}
+        </TabsContent>
 
-      {/* Suppliers Tab Content */}
-      {activeTab === "suppliers" && (
+        {/* Suppliers Tab Content */}
+        <TabsContent value="suppliers">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">Supplier Price Sync</h2>
@@ -2383,10 +2326,10 @@ export default function Hospital() {
           )}
 
         </div>
-      )}
+        </TabsContent>
 
-      {/* Integrations Tab Content */}
-      {activeTab === "integrations" && (
+        {/* Integrations Tab Content */}
+        <TabsContent value="integrations">
         <div className="space-y-6">
           <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
           
@@ -2402,7 +2345,8 @@ export default function Hospital() {
           {/* CHOP Procedures Import */}
           <ChopIntegrationCard />
         </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       {/* Supplier Dialog */}
       <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
