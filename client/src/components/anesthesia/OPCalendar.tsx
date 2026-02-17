@@ -537,6 +537,14 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     }));
   }, [surgeryRooms]);
 
+  // Force calendar container width in day view so header and body columns align
+  const calendarMinWidth = useMemo(() => {
+    if (currentView === 'day' && resources.length > 3) {
+      return resources.length * 166 + 100;
+    }
+    return undefined;
+  }, [currentView, resources.length]);
+
   // Build roomMap for PDF generation
   const roomMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1321,8 +1329,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
       {/* Calendar */}
       {surgeryRooms.length > 0 && (
-        <div className="flex-1 min-h-0 px-4 pb-4">
-          <div className="h-full calendar-container">
+        <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
+          <div className="h-full calendar-container" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined}>
           {currentView === "week" ? (
             <TimelineWeekView
               surgeryRooms={surgeryRooms}

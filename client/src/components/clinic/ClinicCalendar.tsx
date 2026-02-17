@@ -890,6 +890,14 @@ export default function ClinicCalendar({
     }));
   }, [filteredProviders]);
 
+  // Force calendar container width in day view so header and body columns align
+  const calendarMinWidth = useMemo(() => {
+    if (currentView === 'day' && resources.length > 3) {
+      return resources.length * 166 + 100;
+    }
+    return undefined;
+  }, [currentView, resources.length]);
+
   const rescheduleAppointmentMutation = useMutation({
     mutationFn: async ({ appointmentId, appointmentDate, startTime, endTime, providerId }: {
       appointmentId: string;
@@ -1303,7 +1311,7 @@ export default function ClinicCalendar({
 
       {/* Calendar */}
       <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
-        <div className="h-full calendar-container">
+        <div className="h-full calendar-container" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined}>
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
