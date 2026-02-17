@@ -3954,7 +3954,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 data-testid="input-mapping-event-type"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Find this in your Cal.com event type URL: cal.com/username/event-type/<strong>123456</strong>
+                Find this in your Cal.com event type URL: cal.eu/username/event-type/<strong>123456</strong>
               </p>
             </div>
             <div className="flex justify-end gap-2">

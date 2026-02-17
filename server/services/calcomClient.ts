@@ -1,5 +1,5 @@
 import logger from "../logger";
-const CALCOM_API_BASE = 'https://api.cal.com/v2';
+const CALCOM_API_BASE = 'https://api.cal.eu/v2';
 
 export interface CalcomSlot {
   time: string;
