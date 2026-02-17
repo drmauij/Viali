@@ -294,74 +294,36 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
-  // Helper to derive consistent resource ID for a surgeon
-  const getSurgeonResourceId = (surgery: AllSurgery): string | null => {
-    if (surgery.surgeonId) return surgery.surgeonId;
-    if (surgery.surgeon) {
-      // Slugify the surgeon name to create a consistent ID
-      return `surgeon-${surgery.surgeon.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
-    }
-    return null;
-  };
-
-  // Extract surgeons from surgeries and merge them into the resources list
-  const surgeonsFromSurgeries = useMemo(() => {
-    const providerIdSet = new Set(providers.map(p => p.id));
-    const surgeonMap = new Map<string, { id: string; firstName: string; lastName: string }>();
-    
-    allSurgeries.forEach(surgery => {
-      const resourceId = getSurgeonResourceId(surgery);
-      if (resourceId && !providerIdSet.has(resourceId) && !surgeonMap.has(resourceId)) {
-        surgeonMap.set(resourceId, {
-          id: resourceId,
-          firstName: surgery.surgeonFirstName || surgery.surgeon?.split(' ')[0] || '',
-          lastName: surgery.surgeonLastName || surgery.surgeon?.split(' ').slice(1).join(' ') || '',
-        });
-      }
-    });
-    
-    return Array.from(surgeonMap.values());
-  }, [allSurgeries, providers]);
-
-  // Merge base providers with surgeons from surgeries
-  const allProviders = useMemo(() => {
-    return [...providers, ...surgeonsFromSurgeries];
-  }, [providers, surgeonsFromSurgeries]);
-
   useEffect(() => {
-    if (allProviders.length > 0 && !hasLoadedPreferences) {
+    if (providers.length > 0 && !hasLoadedPreferences) {
       const savedFilter = userPreferences?.clinicProviderFilter?.[hospitalId];
       if (savedFilter && savedFilter.length > 0) {
-        const validIds = new Set(allProviders.map(p => p.id));
+        const validIds = new Set(providers.map(p => p.id));
         const filteredIds = savedFilter.filter(id => validIds.has(id));
-        // Include all providers by default (including surgeons from surgeries)
-        const allIds = new Set(allProviders.map(p => p.id));
-        // Merge saved filter with any new surgeons
+        const allIds = new Set(providers.map(p => p.id));
         filteredIds.forEach(id => allIds.has(id));
         setSelectedProviderIds(allIds);
       } else {
-        // Select all providers including surgeons from surgeries
-        setSelectedProviderIds(new Set(allProviders.map(p => p.id)));
+        setSelectedProviderIds(new Set(providers.map(p => p.id)));
       }
       setHasLoadedPreferences(true);
     }
-  }, [allProviders, userPreferences, hospitalId, hasLoadedPreferences]);
+  }, [providers, userPreferences, hospitalId, hasLoadedPreferences]);
 
   const filteredProviders = useMemo(() => {
-    if (selectedProviderIds.size === 0) return allProviders;
-    return allProviders.filter(p => selectedProviderIds.has(p.id));
-  }, [allProviders, selectedProviderIds]);
+    if (selectedProviderIds.size === 0) return providers;
+    return providers.filter(p => selectedProviderIds.has(p.id));
+  }, [providers, selectedProviderIds]);
 
-  const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < allProviders.length;
+  const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < providers.length;
 
-  // Filter surgeries based on selected providers
+  // Filter surgeries based on selected providers (only bookable providers)
   const providerSurgeries = useMemo(() => {
-    const selectedIds = selectedProviderIds.size > 0 ? selectedProviderIds : new Set(allProviders.map(p => p.id));
+    const selectedIds = selectedProviderIds.size > 0 ? selectedProviderIds : new Set(providers.map(p => p.id));
     return allSurgeries.filter(surgery => {
-      const resourceId = getSurgeonResourceId(surgery);
-      return resourceId && selectedIds.has(resourceId);
+      return surgery.surgeonId && selectedIds.has(surgery.surgeonId);
     });
-  }, [allSurgeries, selectedProviderIds, allProviders]);
+  }, [allSurgeries, selectedProviderIds, providers]);
 
   // Fetch provider absences (Timebutler sync)
   const { data: providerAbsences = [] } = useQuery<ProviderAbsence[]>({
@@ -468,8 +430,7 @@ export default function ClinicCalendar({
 
     // Check surgeries
     const hasSurgery = providerSurgeries.some(surgery => {
-      const resourceId = getSurgeonResourceId(surgery);
-      if (resourceId !== providerId) return false;
+      if (surgery.surgeonId !== providerId) return false;
       const surgeryStart = new Date(surgery.plannedDate).getTime();
       const surgeryEnd = surgery.actualEndTime 
         ? new Date(surgery.actualEndTime).getTime()
@@ -668,20 +629,17 @@ export default function ClinicCalendar({
     });
 
     // Surgery block events (gray, non-editable)
-    // Only include surgeries where resourceId is in the filtered providers list
+    // Only include surgeries where surgeonId is a bookable provider
     const providerIdSet = new Set(filteredProviders.map(p => p.id));
     const surgeryBlockEvents = providerSurgeries
-      .filter((surgery) => {
-        const resourceId = getSurgeonResourceId(surgery);
-        return resourceId && providerIdSet.has(resourceId);
-      })
+      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
       .map((surgery) => {
         const patientName = surgery.patientSurname && surgery.patientFirstName
           ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
           : t('appointments.patient', 'Patient');
-        
+
         const start = new Date(surgery.plannedDate);
-        
+
         // Calculate end time: use actualEndTime if available, otherwise default to 2 hours
         let end: Date;
         if (surgery.actualEndTime) {
@@ -689,15 +647,13 @@ export default function ClinicCalendar({
         } else {
           end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
         }
-        
-        const resourceId = getSurgeonResourceId(surgery);
-        
+
         return {
           id: `surgery-${surgery.id}`,
           title: surgery.plannedSurgery || t('appointments.surgery', 'Surgery'),
           start,
           end,
-          resource: resourceId!,
+          resource: surgery.surgeonId!,
           appointmentId: surgery.id,
           patientId: surgery.patientId,
           patientName,
@@ -815,25 +771,29 @@ export default function ClinicCalendar({
         }
       });
 
-    // Availability window events (green, shows when provider IS available)
-    // Only display windows for providers with "windows_required" mode
-    const availabilityWindowEvents: CalendarEvent[] = [];
+    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents];
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, filteredProviders, dateRange, t]);
+
+  // Availability window events as background events (not factored into overlap layout)
+  const backgroundCalendarEvents: CalendarEvent[] = useMemo(() => {
+    const providerIdSet = new Set(filteredProviders.map(p => p.id));
+    const events: CalendarEvent[] = [];
     availabilityWindows
       .filter((window) => providerIdSet.has(window.providerId))
       .forEach((window) => {
         const windowDate = new Date(window.date);
         const [startH, startM] = window.startTime.split(':').map(Number);
         const [endH, endM] = window.endTime.split(':').map(Number);
-        
+
         const dayStart = new Date(windowDate);
         dayStart.setHours(startH, startM, 0, 0);
-        
+
         const dayEnd = new Date(windowDate);
         dayEnd.setHours(endH, endM, 0, 0);
-        
+
         const notes = window.notes || t('appointments.available', 'Available');
-        
-        availabilityWindowEvents.push({
+
+        events.push({
           id: `window-${window.id}`,
           title: `✓ ${notes}`,
           start: dayStart,
@@ -852,9 +812,8 @@ export default function ClinicCalendar({
           windowId: window.id,
         });
       });
-
-    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents, ...availabilityWindowEvents];
-  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, availabilityWindows, filteredProviders, dateRange, t]);
+    return events;
+  }, [availabilityWindows, filteredProviders, t]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({
@@ -1069,23 +1028,6 @@ export default function ClinicCalendar({
           border: '1px solid',
           display: 'block',
           cursor: 'pointer',
-        },
-      };
-    }
-    
-    // Availability windows: green, shows when provider IS available
-    if (event.isAvailabilityWindow) {
-      return {
-        style: {
-          backgroundColor: '#22c55e',
-          borderColor: '#16a34a',
-          color: '#ffffff',
-          borderRadius: '4px',
-          opacity: 0.15,
-          border: '2px dashed #22c55e',
-          display: 'block',
-          cursor: 'default',
-          pointerEvents: 'none' as const,
         },
       };
     }
@@ -1374,6 +1316,7 @@ export default function ClinicCalendar({
           <DragAndDropCalendar
             localizer={localizer}
             events={currentView === "month" ? [] : calendarEvents}
+            backgroundEvents={currentView === "month" ? [] : backgroundCalendarEvents}
             resources={currentView === "day" ? resources : undefined}
             resourceIdAccessor="id"
             resourceTitleAccessor="title"
