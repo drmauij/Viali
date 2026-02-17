@@ -1298,6 +1298,12 @@
   color: hsl(215, 15%, 65%) !important;
 }
 
+/* Add horizontal padding between resource columns in day view */
+.rbc-day-slot {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
 /* Fix event icon clipping and ensure colors remain visible */
 .rbc-event {
   overflow: visible !important;
