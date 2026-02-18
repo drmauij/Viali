@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,38 +57,6 @@ interface DischargeBriefEditorProps {
   isAdmin?: boolean;
 }
 
-type MobileTab = "edit" | "preview";
-
-/**
- * Insert markdown syntax at the current cursor position in a textarea.
- * Returns the new content string and the cursor position to set after insertion.
- */
-function insertMarkdownSyntax(
-  textarea: HTMLTextAreaElement,
-  content: string,
-  syntax: string,
-  wrap: boolean,
-): { newContent: string; cursorPos: number } {
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const selectedText = content.slice(start, end);
-
-  if (wrap) {
-    // Wrap selected text (e.g., **selected**)
-    const wrapped = `${syntax}${selectedText || "text"}${syntax}`;
-    const newContent = content.slice(0, start) + wrapped + content.slice(end);
-    const cursorPos = start + syntax.length + (selectedText ? selectedText.length : 4);
-    return { newContent, cursorPos };
-  } else {
-    // Line prefix (e.g., ## , - , 1. )
-    // Find the start of the current line
-    const lineStart = content.lastIndexOf("\n", start - 1) + 1;
-    const newContent = content.slice(0, lineStart) + syntax + content.slice(lineStart);
-    const cursorPos = start + syntax.length;
-    return { newContent, cursorPos };
-  }
-}
-
 export function DischargeBriefEditor({
   briefId,
   onClose,
@@ -95,10 +64,7 @@ export function DischargeBriefEditor({
 }: DischargeBriefEditorProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [content, setContent] = useState("");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("edit");
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlockReason, setUnlockReason] = useState("");
@@ -111,6 +77,19 @@ export function DischargeBriefEditor({
     onOpenChange: (open: boolean) => void;
   }> | null>(null);
 
+  // Tiptap editor
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: "",
+    editable: false,
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm max-w-none dark:prose-invert focus:outline-none min-h-[300px] px-4 py-3",
+      },
+    },
+  });
+
   // Fetch brief data
   const {
     data: brief,
@@ -121,12 +100,19 @@ export function DischargeBriefEditor({
     enabled: !!briefId,
   });
 
-  // Sync fetched content into local state
+  // Sync content when brief loads
   useEffect(() => {
-    if (brief) {
-      setContent(brief.content);
+    if (brief && editor) {
+      editor.commands.setContent(brief.content || "");
     }
-  }, [brief]);
+  }, [brief, editor]);
+
+  // Sync editable state
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!brief?.isLocked);
+    }
+  }, [brief?.isLocked, editor]);
 
   // Load audit dialog component on demand
   useEffect(() => {
@@ -140,7 +126,10 @@ export function DischargeBriefEditor({
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("PATCH", `/api/discharge-briefs/${briefId}`, { content });
+      const html = editor?.getHTML() || "";
+      await apiRequest("PATCH", `/api/discharge-briefs/${briefId}`, {
+        content: html,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -225,29 +214,6 @@ export function DischargeBriefEditor({
     },
   });
 
-  // Toolbar action handler
-  const handleToolbar = useCallback(
-    (syntax: string, wrap: boolean) => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-
-      const { newContent, cursorPos } = insertMarkdownSyntax(
-        textarea,
-        content,
-        syntax,
-        wrap,
-      );
-      setContent(newContent);
-
-      // Restore focus and cursor position after React re-renders
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(cursorPos, cursorPos);
-      });
-    },
-    [content],
-  );
-
   // Handle signature from the SignaturePad
   const handleSignature = useCallback(
     (base64: string) => {
@@ -315,14 +281,14 @@ export function DischargeBriefEditor({
         </Button>
       </div>
 
-      {/* Markdown toolbar - hidden when locked */}
-      {!isLocked && (
+      {/* Tiptap toolbar - hidden when locked */}
+      {!brief?.isLocked && editor && (
         <div className="flex items-center gap-1 px-4 py-2 border-b">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("**", true)}
+            className={cn("h-8 w-8", editor.isActive("bold") && "bg-accent")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
             title={t("dischargeBrief.bold", "Bold")}
           >
             <Bold className="h-4 w-4" />
@@ -330,8 +296,11 @@ export function DischargeBriefEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("*", true)}
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("italic") && "bg-accent",
+            )}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
             title={t("dischargeBrief.italic", "Italic")}
           >
             <Italic className="h-4 w-4" />
@@ -340,8 +309,13 @@ export function DischargeBriefEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("## ", false)}
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("heading", { level: 2 }) && "bg-accent",
+            )}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 2 }).run()
+            }
             title={t("dischargeBrief.heading2", "Heading 2")}
           >
             <Heading2 className="h-4 w-4" />
@@ -349,8 +323,13 @@ export function DischargeBriefEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("### ", false)}
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("heading", { level: 3 }) && "bg-accent",
+            )}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 3 }).run()
+            }
             title={t("dischargeBrief.heading3", "Heading 3")}
           >
             <Heading3 className="h-4 w-4" />
@@ -359,8 +338,11 @@ export function DischargeBriefEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("- ", false)}
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("bulletList") && "bg-accent",
+            )}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
             title={t("dischargeBrief.bulletList", "Bullet list")}
           >
             <List className="h-4 w-4" />
@@ -368,8 +350,11 @@ export function DischargeBriefEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleToolbar("1. ", false)}
+            className={cn(
+              "h-8 w-8",
+              editor.isActive("orderedList") && "bg-accent",
+            )}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
             title={t("dischargeBrief.numberedList", "Numbered list")}
           >
             <ListOrdered className="h-4 w-4" />
@@ -377,66 +362,9 @@ export function DischargeBriefEditor({
         </div>
       )}
 
-      {/* Mobile tab toggle (visible below md breakpoint) */}
-      <div className="flex md:hidden border-b">
-        <button
-          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-            mobileTab === "edit"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setMobileTab("edit")}
-        >
-          {t("dischargeBrief.edit", "Edit")}
-        </button>
-        <button
-          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-            mobileTab === "preview"
-              ? "border-b-2 border-primary text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setMobileTab("preview")}
-        >
-          {t("dischargeBrief.preview", "Preview")}
-        </button>
-      </div>
-
-      {/* Editor + Preview area */}
-      <div className="flex-1 min-h-0 flex">
-        {/* Desktop: split view */}
-        {/* Mobile: show based on active tab */}
-
-        {/* Editor pane */}
-        <div
-          className={`flex-1 min-h-0 ${
-            mobileTab === "preview" ? "hidden md:flex" : "flex"
-          } flex-col`}
-        >
-          <Textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            readOnly={isLocked}
-            className="flex-1 resize-none rounded-none border-0 border-r font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-            placeholder={t(
-              "dischargeBrief.editorPlaceholder",
-              "Write your discharge brief in Markdown...",
-            )}
-          />
-        </div>
-
-        {/* Preview pane */}
-        <div
-          className={`flex-1 min-h-0 overflow-auto ${
-            mobileTab === "edit" ? "hidden md:block" : "block"
-          } p-4`}
-        >
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
-          </div>
-        </div>
+      {/* Editor area */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <EditorContent editor={editor} />
       </div>
 
       {/* Actions bar */}
