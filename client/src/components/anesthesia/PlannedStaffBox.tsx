@@ -198,6 +198,8 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
             e.stopPropagation();
             onRemove(staff.id);
           }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
           className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
           data-testid={`button-remove-planned-staff-${staff.id}`}
         >
