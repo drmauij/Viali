@@ -10,6 +10,20 @@ import { z, ZodError } from "zod";
 import OpenAI from "openai";
 import logger from "../logger";
 
+const MISTRAL_TEXT_BASE_URL = "https://api.mistral.ai/v1";
+
+function getMistralTextClient(): OpenAI {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) {
+    throw new Error("MISTRAL_API_KEY is not configured");
+  }
+  return new OpenAI({ apiKey, baseURL: MISTRAL_TEXT_BASE_URL });
+}
+
+function getMistralTextModel(): string {
+  return process.env.MISTRAL_TEXT_MODEL || "mistral-small-latest";
+}
+
 const router = Router();
 
 router.post('/api/proxy-vitabyte', async (req: Request, res: Response) => {
@@ -128,13 +142,11 @@ router.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: a
     }
     const { items } = parsedTranslate;
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const mistral = getMistralTextClient();
 
     const itemsList = items.join('\n');
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const response = await mistral.chat.completions.create({
+      model: getMistralTextModel(),
       messages: [
         {
           role: "system",
@@ -199,15 +211,13 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
       summary,
       userId: req.user?.id || "unknown",
       purpose: "translation",
-      service: "openai",
+      service: "mistral",
     });
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const mistral = getMistralTextClient();
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const response = await mistral.chat.completions.create({
+      model: getMistralTextModel(),
       messages: [
         {
           role: "system",
