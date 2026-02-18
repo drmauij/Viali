@@ -26,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
+import { PREOP_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -4224,49 +4225,16 @@ export default function PatientDetail() {
                                   </div>
                                   {assessmentData.anesthesiaTechniques.regional && (
                                     <div className="ml-6 p-2 bg-muted/30 rounded space-y-3">
-                                      {[
-                                        {
-                                          group: t('anesthesia.patientDetail.regionUpperExtremity', 'Upper Extremity'),
-                                          blocks: [
-                                            { id: 'interscalene-block', label: t('anesthesia.patientDetail.interscaleneBlock', 'Interscalene Block') },
-                                            { id: 'supraclavicular-block', label: t('anesthesia.patientDetail.supraclavicularBlock', 'Supraclavicular Block') },
-                                            { id: 'infraclavicular-block', label: t('anesthesia.patientDetail.infraclavicularBlock', 'Infraclavicular Block') },
-                                            { id: 'axillary-block', label: t('anesthesia.patientDetail.axillaryBlock', 'Axillary Block') },
-                                          ],
-                                        },
-                                        {
-                                          group: t('anesthesia.patientDetail.regionLowerExtremity', 'Lower Extremity'),
-                                          blocks: [
-                                            { id: 'femoral-block', label: t('anesthesia.patientDetail.femoralBlock', 'Femoral Block') },
-                                            { id: 'sciatic-proximal-block', label: t('anesthesia.patientDetail.sciaticProximalBlock', 'Sciatic Block (Proximal)') },
-                                            { id: 'sciatic-distal-block', label: t('anesthesia.patientDetail.sciaticDistalBlock', 'Sciatic Block (Distal / Popliteal)') },
-                                            { id: 'obturator-block', label: t('anesthesia.patientDetail.obturatorBlock', 'Nervus Obturatorius Block') },
-                                            { id: 'saphenous-block', label: t('anesthesia.patientDetail.saphenousBlock', 'Nervus Saphenus Block') },
-                                            { id: 'adductor-canal-block', label: t('anesthesia.patientDetail.adductorCanalBlock', 'Adductor Canal Block') },
-                                            { id: 'fascia-iliaca-block', label: t('anesthesia.patientDetail.fasciaIliacaBlock', 'Fascia Iliaca Block') },
-                                            { id: 'popliteal-block', label: t('anesthesia.patientDetail.poplitealBlock', 'Popliteal Block') },
-                                            { id: 'ankle-block', label: t('anesthesia.patientDetail.ankleBlock', 'Ankle Block') },
-                                          ],
-                                        },
-                                        {
-                                          group: t('anesthesia.patientDetail.regionTrunk', 'Trunk'),
-                                          blocks: [
-                                            { id: 'tap-block', label: t('anesthesia.patientDetail.tapBlock', 'Transversus Abdominis Plane Block') },
-                                            { id: 'quadratus-lumborum-block', label: t('anesthesia.patientDetail.quadratusLumborumBlock', 'Quadratus Lumborum Block') },
-                                            { id: 'erector-spinae-block', label: t('anesthesia.patientDetail.erectorSpinaeBlock', 'Erector Spinae Plane Block') },
-                                            { id: 'rectus-sheath-block', label: t('anesthesia.patientDetail.rectusSheath', 'Rectus Sheath Block') },
-                                            { id: 'pecs-block', label: t('anesthesia.patientDetail.pecsBlock', 'Pectoral Nerve Block') },
-                                            { id: 'serratus-block', label: t('anesthesia.patientDetail.serratusBlock', 'Serratus Plane Block') },
-                                          ],
-                                        },
-                                        {
-                                          group: t('anesthesia.patientDetail.regionOther', 'Other'),
-                                          blocks: [
-                                            { id: 'penile-block', label: t('anesthesia.patientDetail.penileBlock', 'Penile Block') },
-                                            { id: 'with-catheter', label: t('anesthesia.patientDetail.withCatheter', 'with Catheter') },
-                                          ],
-                                        },
-                                      ].map(({ group, blocks }) => (
+                                      {PREOP_BLOCK_GROUPS.map((g) => ({
+                                        group: t(`anesthesia.patientDetail.region_${g.id}`, g.fallbackLabel),
+                                        blocks: g.blocks.map((b) => ({
+                                          id: `${b.id}-block`,
+                                          label: t(`anesthesia.patientDetail.block_${b.i18nKey}`, b.fallbackLabel),
+                                        })),
+                                      })).concat([{
+                                        group: t('anesthesia.patientDetail.regionOptions', 'Options'),
+                                        blocks: [{ id: 'with-catheter', label: t('anesthesia.patientDetail.withCatheter', 'with Catheter') }],
+                                      }]).map(({ group, blocks }) => (
                                         <div key={group}>
                                           <p className="text-xs font-semibold text-muted-foreground mb-1">{group}</p>
                                           <div className="space-y-1.5 ml-1">

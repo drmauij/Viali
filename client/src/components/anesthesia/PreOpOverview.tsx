@@ -10,6 +10,7 @@ import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSec
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
+import { ALL_REGIONAL_BLOCKS } from "@/lib/anesthesiaBlocks";
 
 type PreOpAssessmentData = {
   // General Data
@@ -337,30 +338,16 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     const subOptions = Object.entries(techniques.regionalOptions || {})
       .filter(([_, value]) => value)
       .map(([key]) => {
-        const labels: Record<string, string> = {
-          'interscalene-block': t('anesthesia.preop.blocks.interscalene', 'Interscalene Block'),
-          'supraclavicular-block': t('anesthesia.preop.blocks.supraclavicular', 'Supraclavicular Block'),
-          'infraclavicular-block': t('anesthesia.preop.blocks.infraclavicular', 'Infraclavicular Block'),
-          'axillary-block': t('anesthesia.preop.blocks.axillary', 'Axillary Block'),
-          'femoral-block': t('anesthesia.preop.blocks.femoral', 'Femoral Block'),
-          'sciatic-block': t('anesthesia.preop.blocks.sciatic', 'Sciatic Block'),
-          'sciatic-proximal-block': t('anesthesia.preop.blocks.sciaticProximal', 'Sciatic Block (Proximal)'),
-          'sciatic-distal-block': t('anesthesia.preop.blocks.sciaticDistal', 'Sciatic Block (Distal / Popliteal)'),
-          'obturator-block': t('anesthesia.preop.blocks.obturator', 'Nervus Obturatorius Block'),
-          'saphenous-block': t('anesthesia.preop.blocks.saphenous', 'Nervus Saphenus Block'),
-          'adductor-canal-block': t('anesthesia.preop.blocks.adductorCanal', 'Adductor Canal Block'),
-          'fascia-iliaca-block': t('anesthesia.preop.blocks.fasciaIliaca', 'Fascia Iliaca Block'),
-          'popliteal-block': t('anesthesia.preop.blocks.popliteal', 'Popliteal Block'),
-          'ankle-block': t('anesthesia.preop.blocks.ankle', 'Ankle Block'),
-          'tap-block': t('anesthesia.preop.blocks.tap', 'Transversus Abdominis Plane Block'),
-          'quadratus-lumborum-block': t('anesthesia.preop.blocks.quadratusLumborum', 'Quadratus Lumborum Block'),
-          'erector-spinae-block': t('anesthesia.preop.blocks.erectorSpinae', 'Erector Spinae Plane Block'),
-          'rectus-sheath-block': t('anesthesia.preop.blocks.rectusSheath', 'Rectus Sheath Block'),
-          'pecs-block': t('anesthesia.preop.blocks.pecs', 'Pectoral Nerve Block'),
-          'serratus-block': t('anesthesia.preop.blocks.serratus', 'Serratus Plane Block'),
-          'penile-block': t('anesthesia.preop.blocks.penile', 'Penile Block'),
-          'with-catheter': t('anesthesia.preop.blocks.withCatheter', 'with Catheter'),
-        };
+        // Build label map from shared block definitions
+        const labels: Record<string, string> = Object.fromEntries(
+          ALL_REGIONAL_BLOCKS.map((b) => [
+            `${b.id}-block`,
+            t(`anesthesia.preop.blocks.${b.i18nKey}`, b.fallbackLabel),
+          ]),
+        );
+        // Legacy ID kept for existing data + catheter option
+        labels['sciatic-block'] = t('anesthesia.preop.blocks.sciatic', 'Sciatic Block');
+        labels['with-catheter'] = t('anesthesia.preop.blocks.withCatheter', 'with Catheter');
         return labels[key] || key;
       });
     const regionalLabel = t('anesthesia.preop.techniques.regional', 'Regional Anesthesia');

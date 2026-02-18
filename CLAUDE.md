@@ -28,3 +28,13 @@ Deployed on Exoscale VPS (Ubuntu), not Replit. Use standard environment variable
 ## Communication
 
 Use simple, everyday language.
+
+## Code Review Reference (2026-02-18)
+
+Review of discharge medications + regional blocks changes. Action items:
+
+| # | Section | Issue | Decision |
+|---|---------|-------|----------|
+| 2 | Code Quality | Block definitions (IDs + labels) repeated across PatientDetail, PreOpOverview, AnesthesiaDocumentation | Extract shared constant |
+| 3 | Tests | No tests for medication template CRUD routes/storage | Add integration tests |
+| 4 | Performance | N+1 query in `getDischargeMedicationTemplates` (1 query per template for items) | Batch with single query |

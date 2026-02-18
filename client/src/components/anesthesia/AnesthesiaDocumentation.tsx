@@ -13,6 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { REGIONAL_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1651,43 +1652,15 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-block-type-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectBlockType')}</option>
-                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.upperExtremity')}>
-                    <option value="interscalene">{t('anesthesia.documentation.blockTypes.interscalene')}</option>
-                    <option value="supraclavicular">{t('anesthesia.documentation.blockTypes.supraclavicular')}</option>
-                    <option value="infraclavicular">{t('anesthesia.documentation.blockTypes.infraclavicular')}</option>
-                    <option value="axillary">{t('anesthesia.documentation.blockTypes.axillary')}</option>
-                    <option value="radial">{t('anesthesia.documentation.blockTypes.radial')}</option>
-                    <option value="median">{t('anesthesia.documentation.blockTypes.median')}</option>
-                    <option value="ulnar">{t('anesthesia.documentation.blockTypes.ulnar')}</option>
-                  </optgroup>
-                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.lowerExtremity')}>
-                    <option value="femoral">{t('anesthesia.documentation.blockTypes.femoral')}</option>
-                    <option value="sciatic-proximal">{t('anesthesia.documentation.blockTypes.sciaticProximal', 'Sciatic Block (Proximal)')}</option>
-                    <option value="sciatic">{t('anesthesia.documentation.blockTypes.sciatic')}</option>
-                    <option value="obturator">{t('anesthesia.documentation.blockTypes.obturator', 'Nervus Obturatorius Block')}</option>
-                    <option value="popliteal">{t('anesthesia.documentation.blockTypes.popliteal')}</option>
-                    <option value="adductor-canal">{t('anesthesia.documentation.blockTypes.adductorCanal')}</option>
-                    <option value="saphenous">{t('anesthesia.documentation.blockTypes.saphenous')}</option>
-                    <option value="fascia-iliaca">{t('anesthesia.documentation.blockTypes.fasciaIliaca', 'Fascia Iliaca Block')}</option>
-                    <option value="ankle-block">{t('anesthesia.documentation.blockTypes.ankleBlock')}</option>
-                  </optgroup>
-                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.truncal')}>
-                    <option value="tap">{t('anesthesia.documentation.blockTypes.tap')}</option>
-                    <option value="ql">{t('anesthesia.documentation.blockTypes.ql')}</option>
-                    <option value="rectus-sheath">{t('anesthesia.documentation.blockTypes.rectusSheath', 'Rectus Sheath Block')}</option>
-                    <option value="pecs">{t('anesthesia.documentation.blockTypes.pecs')}</option>
-                    <option value="serratus">{t('anesthesia.documentation.blockTypes.serratus')}</option>
-                    <option value="erector-spinae">{t('anesthesia.documentation.blockTypes.erectorSpinae')}</option>
-                    <option value="intercostal">{t('anesthesia.documentation.blockTypes.intercostal')}</option>
-                    <option value="paravertebral">{t('anesthesia.documentation.blockTypes.paravertebral')}</option>
-                  </optgroup>
-                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.other')}>
-                    <option value="penile">{t('anesthesia.documentation.blockTypes.penile', 'Penile Block')}</option>
-                    <option value="superficial-cervical">{t('anesthesia.documentation.blockTypes.superficialCervical')}</option>
-                    <option value="deep-cervical">{t('anesthesia.documentation.blockTypes.deepCervical')}</option>
-                    <option value="stellate-ganglion">{t('anesthesia.documentation.blockTypes.stellateGanglion')}</option>
-                    <option value="other">{t('anesthesia.documentation.blockTypes.other')}</option>
-                  </optgroup>
+                  {REGIONAL_BLOCK_GROUPS.map((g) => (
+                    <optgroup key={g.id} label={t(`anesthesia.documentation.blockTypeGroups.${g.id}`, g.fallbackLabel)}>
+                      {g.blocks.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {t(`anesthesia.documentation.blockTypes.${b.i18nKey}`, b.fallbackLabel)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">

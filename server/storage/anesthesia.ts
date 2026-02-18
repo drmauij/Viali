@@ -4433,20 +4433,27 @@ export async function getDischargeMedicationTemplates(hospitalId: string): Promi
     .where(eq(dischargeMedicationTemplates.hospitalId, hospitalId))
     .orderBy(asc(dischargeMedicationTemplates.name));
 
-  const results = [];
-  for (const tmpl of templates) {
-    const tmplItems = await db
-      .select()
-      .from(dischargeMedicationTemplateItems)
-      .innerJoin(items, eq(dischargeMedicationTemplateItems.itemId, items.id))
-      .where(eq(dischargeMedicationTemplateItems.templateId, tmpl.id));
+  if (templates.length === 0) return [];
 
-    results.push({
-      ...tmpl,
-      items: tmplItems.map(ti => ({ ...ti.discharge_medication_template_items, item: ti.items })),
-    });
+  const templateIds = templates.map((t) => t.id);
+  const allItems = await db
+    .select()
+    .from(dischargeMedicationTemplateItems)
+    .innerJoin(items, eq(dischargeMedicationTemplateItems.itemId, items.id))
+    .where(inArray(dischargeMedicationTemplateItems.templateId, templateIds));
+
+  const itemsByTemplate = new Map<string, (DischargeMedicationTemplateItem & { item: Item })[]>();
+  for (const row of allItems) {
+    const entry = { ...row.discharge_medication_template_items, item: row.items };
+    const existing = itemsByTemplate.get(row.discharge_medication_template_items.templateId) ?? [];
+    existing.push(entry);
+    itemsByTemplate.set(row.discharge_medication_template_items.templateId, existing);
   }
-  return results;
+
+  return templates.map((tmpl) => ({
+    ...tmpl,
+    items: itemsByTemplate.get(tmpl.id) ?? [],
+  }));
 }
 
 export async function createDischargeMedicationTemplate(
