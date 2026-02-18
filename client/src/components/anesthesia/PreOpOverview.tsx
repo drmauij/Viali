@@ -214,6 +214,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             patientName={patientName}
             patientEmail={patientEmail}
             patientPhone={patientPhone}
+            surgeryId={surgeryId}
           />
         )}
       </div>
@@ -633,6 +634,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           patientName={patientName}
           patientEmail={patientEmail}
           patientPhone={patientPhone}
+          surgeryId={surgeryId}
         />
       )}
     </div>

@@ -942,6 +942,7 @@ export default function SurgerySummaryDialog({
           patientName={`${patient.firstName} ${patient.surname}`}
           patientEmail={patient.email}
           patientPhone={patient.phone}
+          surgeryId={surgeryId}
         />
       )}
 

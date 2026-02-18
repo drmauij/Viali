@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, asc, isNull, inArray } from "drizzle-orm";
+import { eq, and, ne, desc, asc, isNull, inArray } from "drizzle-orm";
 import {
   patientQuestionnaireLinks,
   patientQuestionnaireResponses,
@@ -82,9 +82,41 @@ export async function invalidateQuestionnaireLink(id: string): Promise<void> {
     .where(eq(patientQuestionnaireLinks.id, id));
 }
 
-export async function getQuestionnaireStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, string>> {
+// Status priority used to pick the "most advanced" status when multiple links exist
+const STATUS_PRIORITY: Record<string, number> = {
+  expired: 0,
+  pending: 1,
+  started: 2,
+  submitted: 3,
+  reviewed: 4,
+};
+
+function pickHigherStatus(result: Map<string, string>, key: string, status: string | null) {
+  const s = status ?? 'pending';
+  const existing = result.get(key);
+  const existingPriority = existing ? (STATUS_PRIORITY[existing] ?? 0) : -1;
+  const newPriority = STATUS_PRIORITY[s] ?? 0;
+  if (newPriority > existingPriority) {
+    result.set(key, s);
+  }
+}
+
+/**
+ * Get questionnaire status for a batch of surgery IDs.
+ *
+ * @param surgeryIds  – surgery IDs to look up
+ * @param surgeryPatientMap – optional map of surgeryId→patientId.
+ *   When provided, links with NULL surgeryId are matched to a surgery via
+ *   patientId, but **only** when that patient has exactly one surgery in the
+ *   batch (avoids misassignment for patients with multiple upcoming surgeries).
+ */
+export async function getQuestionnaireStatusBySurgeryIds(
+  surgeryIds: string[],
+  surgeryPatientMap?: Map<string, string>,
+): Promise<Map<string, string>> {
   if (surgeryIds.length === 0) return new Map();
 
+  // 1. Direct match by surgery_id (highest confidence)
   const links = await db
     .select({
       surgeryId: patientQuestionnaireLinks.surgeryId,
@@ -93,23 +125,61 @@ export async function getQuestionnaireStatusBySurgeryIds(surgeryIds: string[]): 
     .from(patientQuestionnaireLinks)
     .where(inArray(patientQuestionnaireLinks.surgeryId, surgeryIds));
 
-  // For each surgery, pick the "most advanced" status if multiple links exist
-  const statusPriority: Record<string, number> = {
-    expired: 0,
-    pending: 1,
-    started: 2,
-    submitted: 3,
-    reviewed: 4,
-  };
-
   const result = new Map<string, string>();
   for (const link of links) {
     if (!link.surgeryId) continue;
-    const existing = result.get(link.surgeryId);
-    const existingPriority = existing ? (statusPriority[existing] ?? 0) : -1;
-    const newPriority = statusPriority[link.status ?? ''] ?? 0;
-    if (newPriority > existingPriority) {
-      result.set(link.surgeryId, link.status ?? 'pending');
+    pickHigherStatus(result, link.surgeryId, link.status);
+  }
+
+  // 2. Fallback: for surgeries with no direct match, try patientId lookup
+  if (surgeryPatientMap && surgeryPatientMap.size > 0) {
+    const unmatchedSurgeryIds = surgeryIds.filter(id => !result.has(id));
+    if (unmatchedSurgeryIds.length > 0) {
+      // Build patientId→surgeryId[], but only use patients with exactly 1 surgery
+      const patientToSurgeries = new Map<string, string[]>();
+      for (const sid of unmatchedSurgeryIds) {
+        const pid = surgeryPatientMap.get(sid);
+        if (!pid) continue;
+        const arr = patientToSurgeries.get(pid) || [];
+        arr.push(sid);
+        patientToSurgeries.set(pid, arr);
+      }
+
+      // Only keep patients that map to exactly one unmatched surgery
+      const uniquePatientIds: string[] = [];
+      const patientToSurgery = new Map<string, string>();
+      for (const [pid, sids] of patientToSurgeries) {
+        if (sids.length === 1) {
+          uniquePatientIds.push(pid);
+          patientToSurgery.set(pid, sids[0]);
+        }
+      }
+
+      if (uniquePatientIds.length > 0) {
+        const fallbackLinks = await db
+          .select({
+            patientId: patientQuestionnaireLinks.patientId,
+            status: patientQuestionnaireLinks.status,
+          })
+          .from(patientQuestionnaireLinks)
+          .where(
+            and(
+              inArray(patientQuestionnaireLinks.patientId, uniquePatientIds),
+              isNull(patientQuestionnaireLinks.surgeryId),
+              ne(patientQuestionnaireLinks.status, 'expired'),
+            ),
+          );
+
+        for (const link of fallbackLinks) {
+          if (!link.patientId) continue;
+          const surgeryId = patientToSurgery.get(link.patientId);
+          if (!surgeryId) continue;
+          // Only set if no direct match already exists (shouldn't, but be safe)
+          if (!result.has(surgeryId)) {
+            pickHigherStatus(result, surgeryId, link.status);
+          }
+        }
+      }
     }
   }
 

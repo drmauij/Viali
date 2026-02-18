@@ -10,6 +10,7 @@ interface SendQuestionnaireDialogProps {
   patientName: string;
   patientEmail?: string | null;
   patientPhone?: string | null;
+  surgeryId?: string;
 }
 
 export function SendQuestionnaireDialog({
@@ -19,6 +20,7 @@ export function SendQuestionnaireDialog({
   patientName,
   patientEmail,
   patientPhone,
+  surgeryId,
 }: SendQuestionnaireDialogProps) {
   const { t } = useTranslation();
 
@@ -40,6 +42,7 @@ export function SendQuestionnaireDialog({
           patientName={patientName}
           patientEmail={patientEmail}
           patientPhone={patientPhone}
+          surgeryId={surgeryId}
           isEnabled={open}
         />
       </DialogContent>

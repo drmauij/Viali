@@ -36,6 +36,7 @@ interface PatientCommunicationContentProps {
   patientName: string;
   patientEmail?: string | null;
   patientPhone?: string | null;
+  surgeryId?: string;
   isEnabled?: boolean;
 }
 
@@ -55,6 +56,7 @@ export function PatientCommunicationContent({
   patientName,
   patientEmail,
   patientPhone,
+  surgeryId,
   isEnabled = true,
 }: PatientCommunicationContentProps) {
   const { t } = useTranslation();
@@ -259,7 +261,7 @@ export function PatientCommunicationContent({
           'X-Active-Hospital-Id': activeHospital?.id || '',
         },
         credentials: 'include',
-        body: JSON.stringify({ patientId, expiresInDays: 7 }),
+        body: JSON.stringify({ patientId, surgeryId: surgeryId || undefined, expiresInDays: 7 }),
       });
       if (!res.ok) throw new Error('Failed to generate link');
       return res.json();

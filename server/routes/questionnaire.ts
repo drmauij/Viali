@@ -222,11 +222,17 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireStrictHo
     );
 
     if (activeLink) {
+      // Backfill surgeryId if the reused link lacks one and the request provides one
+      if (surgeryId && !activeLink.surgeryId) {
+        await storage.updateQuestionnaireLink(activeLink.id, { surgeryId });
+        activeLink.surgeryId = surgeryId;
+      }
+
       // Return existing active link instead of creating new one
       const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
       const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
-      return res.json({ 
-        link: activeLink, 
+      return res.json({
+        link: activeLink,
         url: portalUrl,
         expiresAt: activeLink.expiresAt,
         reused: true,

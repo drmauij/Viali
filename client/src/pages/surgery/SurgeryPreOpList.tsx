@@ -395,6 +395,7 @@ export default function SurgeryPreOpList() {
           patientName={selectedSurgeryForSend.patientName || ''}
           patientEmail={selectedSurgeryForSend.patientEmail}
           patientPhone={selectedSurgeryForSend.patientPhone}
+          surgeryId={selectedSurgeryForSend.id}
         />
       )}
     </div>

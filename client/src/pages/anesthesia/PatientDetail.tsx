@@ -5817,6 +5817,7 @@ export default function PatientDetail() {
           patientName={`${patient.firstName} ${patient.surname}`}
           patientEmail={patient.email}
           patientPhone={patient.phone}
+          surgeryId={selectedCaseId || undefined}
         />
       )}
 
