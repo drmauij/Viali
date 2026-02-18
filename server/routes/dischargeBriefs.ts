@@ -131,6 +131,7 @@ const generateSchema = z.object({
   surgeryId: z.string().nullable().optional(),
   annotations: z.string().nullable().optional(),
   selectedNoteIds: z.array(z.string()).nullable().optional(),
+  selectedMedicationSlotIds: z.array(z.string()).nullable().optional(),
 });
 
 router.post(
@@ -140,7 +141,7 @@ router.post(
   async (req: any, res: Response) => {
     try {
       const parsed = generateSchema.parse(req.body);
-      const { blocks, briefType, language, templateId, surgeryId, annotations, selectedNoteIds } = parsed;
+      const { blocks, briefType, language, templateId, surgeryId, annotations, selectedNoteIds, selectedMedicationSlotIds } = parsed;
       const patientId = req.params.patientId;
       const hospitalId = req.headers["x-active-hospital-id"] as string;
       const userId = req.user?.id;
@@ -176,7 +177,7 @@ router.post(
             break;
           case "discharge_medications":
             dataBlocks.push(
-              await collectDischargeMedicationsData(patientId, hospitalId),
+              await collectDischargeMedicationsData(patientId, hospitalId, selectedMedicationSlotIds ?? undefined),
             );
             break;
         }

@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil } from "lucide-react";
+import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil, Save, Download, Stethoscope } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { formatDate } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
@@ -30,6 +30,13 @@ interface DischargeMedicationsTabProps {
   patientName?: string;
   patientBirthday?: string;
   canWrite?: boolean;
+  surgeries?: Array<{
+    id: string;
+    plannedSurgery: string | null;
+    plannedDate: Date | string;
+    status: string;
+    surgeonId?: string | null;
+  }>;
 }
 
 interface MedicationItemEntry {
@@ -75,6 +82,7 @@ export function DischargeMedicationsTab({
   patientName,
   patientBirthday,
   canWrite = true,
+  surgeries = [],
 }: DischargeMedicationsTabProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -83,9 +91,12 @@ export function DischargeMedicationsTab({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [deleteSlotId, setDeleteSlotId] = useState<string | null>(null);
+  const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [slotNotes, setSlotNotes] = useState("");
   const [medicationItems, setMedicationItems] = useState<MedicationItemEntry[]>([]);
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [itemSearchOpen, setItemSearchOpen] = useState(false);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [doctorSearchOpen, setDoctorSearchOpen] = useState(false);
@@ -122,6 +133,16 @@ export function DischargeMedicationsTab({
     enabled: !!hospitalId,
   });
 
+  const { data: medicationTemplates = [] } = useQuery<any[]>({
+    queryKey: ['/api/hospitals', hospitalId, 'discharge-medication-templates'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hospitals/${hospitalId}/discharge-medication-templates`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch templates");
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
   const filteredItems = useMemo(() => {
     if (!itemSearchQuery.trim()) return inventoryItems.slice(0, 50);
     const query = itemSearchQuery.toLowerCase();
@@ -139,6 +160,7 @@ export function DischargeMedicationsTab({
     mutationFn: async (data: { signature: string | null }) => {
       return apiRequest("POST", `/api/patients/${patientId}/discharge-medications`, {
         hospitalId,
+        surgeryId: selectedSurgeryId || null,
         doctorId: selectedDoctorId || null,
         notes: slotNotes || null,
         signature: data.signature,
@@ -185,6 +207,7 @@ export function DischargeMedicationsTab({
     mutationFn: async (data: { signature: string | null }) => {
       return apiRequest("PUT", `/api/discharge-medications/${editingSlotId}`, {
         doctorId: selectedDoctorId || null,
+        surgeryId: selectedSurgeryId || null,
         notes: slotNotes || null,
         signature: data.signature,
         items: medicationItems.map(item => ({
@@ -211,6 +234,7 @@ export function DischargeMedicationsTab({
   });
 
   const resetForm = () => {
+    setSelectedSurgeryId(null);
     setSelectedDoctorId("");
     setSlotNotes("");
     setMedicationItems([]);
@@ -219,10 +243,13 @@ export function DischargeMedicationsTab({
     setEditingSlotId(null);
     setRouteCustomInput({});
     setFrequencyCustomInput({});
+    setTemplateNameInput("");
+    setShowSaveTemplateDialog(false);
   };
 
   const startEditing = (slot: any) => {
     setEditingSlotId(slot.id);
+    setSelectedSurgeryId(slot.surgeryId || null);
     setSelectedDoctorId(slot.doctorId || "");
     setSlotNotes(slot.notes || "");
     setSignature(slot.signature || null);
@@ -328,6 +355,77 @@ export function DischargeMedicationsTab({
       toast({ title: t('common.error', 'Error'), description: msg, variant: "destructive" });
     },
   });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("POST", `/api/hospitals/${hospitalId}/discharge-medication-templates`, {
+        name,
+        createdBy: (user as any)?.id || null,
+        items: medicationItems.map(item => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          unitType: item.unitType,
+          administrationRoute: item.administrationRoute || null,
+          frequency: item.frequency || null,
+          notes: item.notes || null,
+        })),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'discharge-medication-templates'] });
+      toast({ title: t('dischargeMedications.templateSaved', 'Template saved') });
+      setShowSaveTemplateDialog(false);
+      setTemplateNameInput("");
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error', 'Error'), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/discharge-medication-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'discharge-medication-templates'] });
+      toast({ title: t('dischargeMedications.templateDeleted', 'Template deleted') });
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error', 'Error'), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const loadTemplate = (template: any) => {
+    const newItems: MedicationItemEntry[] = (template.items || []).map((ti: any) => ({
+      itemId: ti.itemId,
+      itemName: ti.item?.name || ti.itemId,
+      quantity: ti.quantity || 1,
+      unitType: ti.unitType || "packs",
+      administrationRoute: ti.administrationRoute || "p.o.",
+      frequency: ti.frequency || "1-0-1-0",
+      notes: ti.notes || "",
+      endPrice: ti.item?.patientPrice || "",
+      isControlled: ti.item?.controlled || false,
+    }));
+    setMedicationItems(newItems);
+    toast({ title: t('dischargeMedications.templateLoaded', 'Template loaded — you can edit items before saving') });
+  };
+
+  const handleSurgeryChange = (val: string) => {
+    const surgId = val === "__none__" ? null : val;
+    setSelectedSurgeryId(surgId);
+    // Prefill doctor from surgery's surgeon if doctor is not yet set
+    if (surgId && !selectedDoctorId) {
+      const surgery = surgeries.find(s => s.id === surgId);
+      if (surgery?.surgeonId) {
+        setSelectedDoctorId(surgery.surgeonId);
+      }
+    }
+  };
+
+  const sortedSurgeries = useMemo(() => {
+    return [...surgeries].sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime());
+  }, [surgeries]);
 
   const printLabels = (slot: any, columns: number) => {
     const items = slot.items || [];
@@ -657,6 +755,38 @@ export function DischargeMedicationsTab({
 
           <div className="flex-1 overflow-y-auto pr-2 min-h-0">
             <div className="space-y-6">
+              {/* Surgery link */}
+              {surgeries.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Stethoscope className="h-4 w-4" />
+                    {t('dischargeMedications.linkedSurgery', 'Linked Surgery')}
+                  </Label>
+                  <Select
+                    value={selectedSurgeryId ?? "__none__"}
+                    onValueChange={handleSurgeryChange}
+                  >
+                    <SelectTrigger data-testid="select-surgery">
+                      <SelectValue placeholder={t('dischargeMedications.selectSurgery', 'Select surgery...')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        {t('dischargeMedications.noLinkedSurgery', 'No linked surgery')}
+                      </SelectItem>
+                      {sortedSurgeries.map((s) => {
+                        const date = new Date(s.plannedDate);
+                        const formatted = `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+                        return (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.plannedSurgery || t('common.untitled', 'Untitled')} - {formatted} [{s.status}]
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t('dischargeMedications.responsibleDoctor', 'Responsible Doctor')}</Label>
@@ -723,6 +853,50 @@ export function DischargeMedicationsTab({
                       <Badge variant="secondary" className="ml-2">{medicationItems.length}</Badge>
                     )}
                   </Label>
+                  <div className="flex items-center gap-2">
+                    {/* Load from template */}
+                    {medicationTemplates.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Download className="h-4 w-4 mr-1" />
+                            {t('dischargeMedications.loadTemplate', 'Template')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-2" align="end">
+                          <div className="flex flex-col gap-1">
+                            {medicationTemplates.map((tmpl: any) => (
+                              <div key={tmpl.id} className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="flex-1 justify-start text-left"
+                                  onClick={() => loadTemplate(tmpl)}
+                                >
+                                  {tmpl.name}
+                                  <Badge variant="secondary" className="ml-auto">{tmpl.items?.length || 0}</Badge>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0 text-destructive"
+                                  onClick={() => deleteTemplateMutation.mutate(tmpl.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                    {/* Save as template */}
+                    {medicationItems.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => setShowSaveTemplateDialog(true)}>
+                        <Save className="h-4 w-4 mr-1" />
+                        {t('dischargeMedications.saveAsTemplate', 'Save Template')}
+                      </Button>
+                    )}
                   <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" data-testid="button-add-medication-item">
@@ -770,6 +944,7 @@ export function DischargeMedicationsTab({
                       </Command>
                     </PopoverContent>
                   </Popover>
+                  </div>
                 </div>
 
                 {medicationItems.length === 0 ? (
@@ -1055,6 +1230,42 @@ export function DischargeMedicationsTab({
         onSave={handleSignatureSave}
         title={t('dischargeMedications.signatureRequired', 'Signature required for controlled items')}
       />
+
+      {/* Save as template dialog */}
+      <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('dischargeMedications.saveAsTemplateTitle', 'Save as Template')}</DialogTitle>
+            <DialogDescription>
+              {t('dischargeMedications.saveAsTemplateDesc', 'Save the current medications as a reusable template.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label>{t('dischargeMedications.templateName', 'Template Name')}</Label>
+            <Input
+              value={templateNameInput}
+              onChange={(e) => setTemplateNameInput(e.target.value)}
+              placeholder={t('dischargeMedications.templateNamePlaceholder', 'e.g. Standard Post-OP')}
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowSaveTemplateDialog(false)}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              onClick={() => saveTemplateMutation.mutate(templateNameInput.trim())}
+              disabled={!templateNameInput.trim() || saveTemplateMutation.isPending}
+            >
+              {saveTemplateMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving', 'Saving...')}</>
+              ) : (
+                <><Save className="h-4 w-4 mr-2" />{t('common.save', 'Save')}</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

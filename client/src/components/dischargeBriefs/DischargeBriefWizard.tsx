@@ -74,7 +74,7 @@ interface BlockInfo {
   key: BlockKey;
   available: boolean;
   count?: number;
-  notes?: Array<{ id: string; title: string; createdAt: string }>;
+  notes?: Array<{ id: string; title: string; createdAt: string; surgeryId?: string | null }>;
 }
 
 interface TemplateInfo {
@@ -113,6 +113,7 @@ export function DischargeBriefWizard({
   const [step, setStep] = useState(1);
   const [selectedBlocks, setSelectedBlocks] = useState<BlockKey[]>([]);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [selectedMedicationSlotIds, setSelectedMedicationSlotIds] = useState<string[]>([]);
   const [surgeryId, setSurgeryId] = useState<string | null>(null);
   const [briefType, setBriefType] = useState<BriefType | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -127,6 +128,7 @@ export function DischargeBriefWizard({
       setStep(1);
       setSelectedBlocks([]);
       setSelectedNoteIds([]);
+      setSelectedMedicationSlotIds([]);
       setSurgeryId(null);
       setBriefType(null);
       setTemplateId(null);
@@ -177,13 +179,38 @@ export function DischargeBriefWizard({
     );
   }, []);
 
+  const toggleMedicationSlotId = useCallback((slotId: string) => {
+    setSelectedMedicationSlotIds((prev) =>
+      prev.includes(slotId)
+        ? prev.filter((id) => id !== slotId)
+        : [...prev, slotId],
+    );
+  }, []);
+
+  // Auto-select medication slots linked to selected surgery
+  useEffect(() => {
+    if (!surgeryId || !blocksData) return;
+    const medBlock = blocksData.find((b) => b.key === "discharge_medications");
+    if (!medBlock?.notes) return;
+    const matchingIds = medBlock.notes
+      .filter((n) => n.surgeryId === surgeryId)
+      .map((n) => n.id);
+    if (matchingIds.length > 0) {
+      setSelectedMedicationSlotIds(matchingIds);
+      setSelectedBlocks((prev) =>
+        prev.includes("discharge_medications") ? prev : [...prev, "discharge_medications"],
+      );
+    }
+  }, [surgeryId, blocksData]);
+
   // ---- step validation ----
   const canProceed = useMemo(() => {
     switch (step) {
       case 1:
-        return selectedBlocks.length > 0;
-      case 2:
         return true; // surgery is optional (standalone)
+      case 2:
+        // If surgery is selected, auto blocks cover it; otherwise need at least 1 selected
+        return surgeryId ? true : selectedBlocks.length > 0;
       case 3:
         return !!briefType;
       case 4:
@@ -195,7 +222,7 @@ export function DischargeBriefWizard({
       default:
         return false;
     }
-  }, [step, selectedBlocks, briefType, language, isGenerating]);
+  }, [step, selectedBlocks, surgeryId, briefType, language, isGenerating]);
 
   // ---- navigation ----
   const goNext = useCallback(() => {
@@ -210,11 +237,15 @@ export function DischargeBriefWizard({
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     try {
+      const finalBlocks = surgeryId
+        ? [...AUTO_BLOCKS, ...selectedBlocks]
+        : selectedBlocks;
+
       const res = await apiRequest(
         "POST",
         `/api/patients/${patientId}/discharge-briefs/generate`,
         {
-          blocks: selectedBlocks,
+          blocks: finalBlocks,
           briefType,
           language,
           templateId: templateId ?? null,
@@ -223,6 +254,10 @@ export function DischargeBriefWizard({
           selectedNoteIds:
             selectedBlocks.includes("patient_notes") && selectedNoteIds.length > 0
               ? selectedNoteIds
+              : null,
+          selectedMedicationSlotIds:
+            selectedBlocks.includes("discharge_medications") && selectedMedicationSlotIds.length > 0
+              ? selectedMedicationSlotIds
               : null,
         },
       );
@@ -261,6 +296,7 @@ export function DischargeBriefWizard({
     surgeryId,
     annotations,
     selectedNoteIds,
+    selectedMedicationSlotIds,
     queryClient,
     toast,
     t,
@@ -269,12 +305,12 @@ export function DischargeBriefWizard({
   // ---- step metadata ----
   const stepMeta: { label: string; icon: React.ElementType }[] = [
     {
-      label: t("dischargeBriefs.wizard.stepBlocks", "Info Blocks"),
-      icon: LayoutList,
-    },
-    {
       label: t("dischargeBriefs.wizard.stepSurgery", "Surgery"),
       icon: Link2,
+    },
+    {
+      label: t("dischargeBriefs.wizard.stepBlocks", "Info Blocks"),
+      icon: LayoutList,
     },
     {
       label: t("dischargeBriefs.wizard.stepBriefType", "Brief Type"),
@@ -360,39 +396,39 @@ export function DischargeBriefWizard({
   // Step renderers
   // =========================================================================
 
-  const renderStepBlocks = () => (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {t(
-          "dischargeBriefs.wizard.selectBlocksDescription",
-          "Select the data blocks to include in the discharge brief.",
-        )}
-      </p>
+  const AUTO_BLOCKS: BlockKey[] = ["anesthesia_record", "surgery_details"];
+  const OPTIONAL_BLOCKS: BlockKey[] = ["surgery_notes", "patient_notes", "discharge_medications"];
 
-      {blocksLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <ScrollArea className="max-h-[340px]">
-          <div className="space-y-2">
-            {blocks.map((block) => {
-              const Icon = BLOCK_ICONS[block.key] ?? FileText;
-              const isSelected = selectedBlocks.includes(block.key);
+  const renderStepBlocks = () => {
+    const autoBlocks = surgeryId
+      ? blocks.filter((b) => AUTO_BLOCKS.includes(b.key))
+      : [];
+    const optionalBlocks = blocks.filter((b) => OPTIONAL_BLOCKS.includes(b.key));
 
-              return (
-                <div key={block.key}>
-                  <label
-                    className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    }`}
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "dischargeBriefs.wizard.selectBlocksDescription",
+            "Select the data blocks to include in the discharge brief.",
+          )}
+        </p>
+
+        {blocksLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ScrollArea className="max-h-[340px]">
+            <div className="space-y-2">
+              {/* Auto-included blocks (when surgery is selected) */}
+              {autoBlocks.map((block) => {
+                const Icon = BLOCK_ICONS[block.key] ?? FileText;
+                return (
+                  <div
+                    key={block.key}
+                    className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 p-3"
                   >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleBlock(block.key)}
-                    />
                     <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="flex-1 text-sm font-medium">
                       {blockLabel(block.key)}
@@ -402,58 +438,132 @@ export function DischargeBriefWizard({
                         </span>
                       )}
                     </span>
-                    {block.available ? (
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0"
-                      >
-                        <Check className="h-3 w-3 mr-1" />
-                        {t("common.available", "Available")}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        {t("common.unavailable", "Unavailable")}
-                      </Badge>
-                    )}
-                  </label>
+                    <Badge
+                      variant="secondary"
+                      className="bg-primary/10 text-primary border-0"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      {t("dischargeBriefs.wizard.autoIncluded", "Auto-included")}
+                    </Badge>
+                  </div>
+                );
+              })}
 
-                  {/* Sub-list for patient_notes */}
-                  {block.key === "patient_notes" &&
-                    isSelected &&
-                    block.notes &&
-                    block.notes.length > 0 && (
-                      <div className="ml-10 mt-1 space-y-1">
-                        {block.notes.map((note) => (
-                          <label
-                            key={note.id}
-                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50"
-                          >
-                            <Checkbox
-                              checked={selectedNoteIds.includes(note.id)}
-                              onCheckedChange={() => toggleNoteId(note.id)}
-                            />
-                            <span className="flex-1 truncate">
-                              {note.title}
-                            </span>
-                            <span className="text-xs text-muted-foreground shrink-0">
-                              {new Date(note.createdAt).toLocaleDateString()}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
-  );
+              {/* Optional / selectable blocks */}
+              {optionalBlocks.map((block) => {
+                const Icon = BLOCK_ICONS[block.key] ?? FileText;
+                const isSelected = selectedBlocks.includes(block.key);
+
+                return (
+                  <div key={block.key}>
+                    <label
+                      className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleBlock(block.key)}
+                      />
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 text-sm font-medium">
+                        {blockLabel(block.key)}
+                        {block.count != null && (
+                          <span className="ml-1 text-muted-foreground font-normal">
+                            ({block.count})
+                          </span>
+                        )}
+                      </span>
+                      {block.available ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          {t("common.available", "Available")}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          {t("common.unavailable", "Unavailable")}
+                        </Badge>
+                      )}
+                    </label>
+
+                    {/* Sub-list for patient_notes */}
+                    {block.key === "patient_notes" &&
+                      isSelected &&
+                      block.notes &&
+                      block.notes.length > 0 && (
+                        <div className="ml-10 mt-1 space-y-1">
+                          {block.notes.map((note) => (
+                            <label
+                              key={note.id}
+                              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={selectedNoteIds.includes(note.id)}
+                                onCheckedChange={() => toggleNoteId(note.id)}
+                              />
+                              <span className="flex-1 truncate">
+                                {note.title}
+                              </span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {new Date(note.createdAt).toLocaleDateString()}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+
+                    {/* Sub-list for discharge_medications */}
+                    {block.key === "discharge_medications" &&
+                      isSelected &&
+                      block.notes &&
+                      block.notes.length > 0 && (
+                        <div className="ml-10 mt-1 space-y-1">
+                          {block.notes.map((slot) => (
+                            <label
+                              key={slot.id}
+                              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={selectedMedicationSlotIds.includes(slot.id)}
+                                onCheckedChange={() => toggleMedicationSlotId(slot.id)}
+                              />
+                              <span className="flex-1 truncate">
+                                {slot.title}
+                              </span>
+                              {slot.surgeryId === surgeryId && surgeryId && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-primary/10 text-primary border-0 text-xs shrink-0"
+                                >
+                                  <Link2 className="h-3 w-3 mr-0.5" />
+                                  {t("dischargeBriefs.wizard.linked", "Linked")}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {new Date(slot.createdAt).toLocaleDateString()}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+    );
+  };
 
   const renderStepSurgery = () => (
     <div className="space-y-3">
@@ -694,7 +804,9 @@ export function DischargeBriefWizard({
               {t("dischargeBriefs.wizard.selectedBlocks", "Data Blocks")}
             </span>
             <span className="font-medium">
-              {selectedBlocks.map((b) => blockLabel(b)).join(", ")}
+              {(surgeryId ? [...AUTO_BLOCKS, ...selectedBlocks] : selectedBlocks)
+                .map((b) => blockLabel(b))
+                .join(", ")}
             </span>
           </div>
           <div className="flex justify-between">
@@ -760,6 +872,21 @@ export function DischargeBriefWizard({
                 </p>
               </div>
             )}
+          {selectedBlocks.includes("discharge_medications") &&
+            selectedMedicationSlotIds.length > 0 && (
+              <div className="pt-1 border-t">
+                <span className="text-muted-foreground">
+                  {t(
+                    "dischargeBriefs.wizard.selectedMedSlots",
+                    "Selected Medication Slots",
+                  )}
+                </span>
+                <p className="mt-0.5 font-medium">
+                  {selectedMedicationSlotIds.length}{" "}
+                  {t("dischargeBriefs.wizard.slotsSelected", "slot(s) selected")}
+                </p>
+              </div>
+            )}
         </div>
       </div>
     );
@@ -769,9 +896,9 @@ export function DischargeBriefWizard({
   const renderStep = () => {
     switch (step) {
       case 1:
-        return renderStepBlocks();
-      case 2:
         return renderStepSurgery();
+      case 2:
+        return renderStepBlocks();
       case 3:
         return renderStepBriefType();
       case 4:

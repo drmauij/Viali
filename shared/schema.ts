@@ -5182,6 +5182,7 @@ export const patientDischargeMedications = pgTable("patient_discharge_medication
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  surgeryId: varchar("surgery_id").references(() => surgeries.id),
   doctorId: varchar("doctor_id").references(() => users.id),
   notes: text("notes"),
   signature: text("signature"),
@@ -5225,6 +5226,35 @@ export type PatientDischargeMedication = typeof patientDischargeMedications.$inf
 export type InsertPatientDischargeMedication = z.infer<typeof insertPatientDischargeMedicationSchema>;
 export type PatientDischargeMedicationItem = typeof patientDischargeMedicationItems.$inferSelect;
 export type InsertPatientDischargeMedicationItem = z.infer<typeof insertPatientDischargeMedicationItemSchema>;
+
+// ========== DISCHARGE MEDICATION TEMPLATES ==========
+
+export const dischargeMedicationTemplates = pgTable("discharge_medication_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_discharge_med_templates_hospital").on(table.hospitalId),
+]);
+
+export const dischargeMedicationTemplateItems = pgTable("discharge_medication_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => dischargeMedicationTemplates.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  quantity: integer("quantity").notNull().default(1),
+  unitType: varchar("unit_type").notNull().default("packs"),
+  administrationRoute: varchar("administration_route"),
+  frequency: varchar("frequency"),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_discharge_med_tmpl_items_template").on(table.templateId),
+]);
+
+export type DischargeMedicationTemplate = typeof dischargeMedicationTemplates.$inferSelect;
+export type DischargeMedicationTemplateItem = typeof dischargeMedicationTemplateItems.$inferSelect;
 
 // ========== DISCHARGE BRIEFS ==========
 

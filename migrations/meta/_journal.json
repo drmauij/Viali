@@ -876,6 +876,13 @@
       "when": 1771409333961,
       "tag": "0124_talented_omega_red",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1771418388545,
+      "tag": "0125_bright_randall_flagg",
+      "breakpoints": true
     }
   ]
 }

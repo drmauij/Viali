@@ -2780,6 +2780,7 @@ export default function PatientDetail() {
             patientName={patient ? `${patient.surname} ${patient.firstName}` : undefined}
             patientBirthday={patient?.birthday}
             canWrite={canWrite}
+            surgeries={surgeries}
           />
         </TabsContent>
       </Tabs>

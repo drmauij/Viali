@@ -57,6 +57,8 @@ import {
   surgerySetInventory,
   patientDischargeMedications,
   patientDischargeMedicationItems,
+  dischargeMedicationTemplates,
+  dischargeMedicationTemplateItems,
   type User,
   type Hospital,
   type Item,
@@ -137,6 +139,8 @@ import {
   type InsertPatientDischargeMedication,
   type PatientDischargeMedicationItem,
   type InsertPatientDischargeMedicationItem,
+  type DischargeMedicationTemplate,
+  type DischargeMedicationTemplateItem,
 } from "@shared/schema";
 import logger from "../logger";
 
@@ -4340,6 +4344,7 @@ export async function updatePatientDischargeMedication(id: string, data: Partial
 
   const updateData: Record<string, any> = {};
   if (data.doctorId !== undefined) updateData.doctorId = data.doctorId;
+  if (data.surgeryId !== undefined) updateData.surgeryId = data.surgeryId;
   if (data.notes !== undefined) updateData.notes = data.notes;
   if (data.signature !== undefined) updateData.signature = data.signature;
 
@@ -4417,4 +4422,57 @@ export async function getAnesthesiaRecordsBySurgeryIds(surgeryIds: string[]): Pr
     if (r.surgeryId) map.set(r.surgeryId, r);
   }
   return map;
+}
+
+// ========== DISCHARGE MEDICATION TEMPLATES ==========
+
+export async function getDischargeMedicationTemplates(hospitalId: string): Promise<(DischargeMedicationTemplate & { items: (DischargeMedicationTemplateItem & { item: Item })[] })[]> {
+  const templates = await db
+    .select()
+    .from(dischargeMedicationTemplates)
+    .where(eq(dischargeMedicationTemplates.hospitalId, hospitalId))
+    .orderBy(asc(dischargeMedicationTemplates.name));
+
+  const results = [];
+  for (const tmpl of templates) {
+    const tmplItems = await db
+      .select()
+      .from(dischargeMedicationTemplateItems)
+      .innerJoin(items, eq(dischargeMedicationTemplateItems.itemId, items.id))
+      .where(eq(dischargeMedicationTemplateItems.templateId, tmpl.id));
+
+    results.push({
+      ...tmpl,
+      items: tmplItems.map(ti => ({ ...ti.discharge_medication_template_items, item: ti.items })),
+    });
+  }
+  return results;
+}
+
+export async function createDischargeMedicationTemplate(
+  data: { hospitalId: string; name: string; createdBy?: string | null },
+  templateItems: Array<{ itemId: string; quantity: number; unitType: string; administrationRoute?: string | null; frequency?: string | null; notes?: string | null }>,
+): Promise<DischargeMedicationTemplate> {
+  const [tmpl] = await db
+    .insert(dischargeMedicationTemplates)
+    .values({ hospitalId: data.hospitalId, name: data.name, createdBy: data.createdBy || null })
+    .returning();
+
+  for (const item of templateItems) {
+    await db.insert(dischargeMedicationTemplateItems).values({
+      templateId: tmpl.id,
+      itemId: item.itemId,
+      quantity: item.quantity,
+      unitType: item.unitType,
+      administrationRoute: item.administrationRoute || null,
+      frequency: item.frequency || null,
+      notes: item.notes || null,
+    });
+  }
+
+  return tmpl;
+}
+
+export async function deleteDischargeMedicationTemplate(id: string): Promise<void> {
+  await db.delete(dischargeMedicationTemplates).where(eq(dischargeMedicationTemplates.id, id));
 }

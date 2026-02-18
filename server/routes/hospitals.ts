@@ -1,5 +1,10 @@
 import { Router } from "express";
 import { storage, db } from "../storage";
+import {
+  getDischargeMedicationTemplates,
+  createDischargeMedicationTemplate,
+  deleteDischargeMedicationTemplate,
+} from "../storage/anesthesia";
 import { isAuthenticated } from "../auth/google";
 import {
   patients,
@@ -307,7 +312,7 @@ router.get("/api/discharge-medications/:id", isAuthenticated, async (req: any, r
 router.post("/api/patients/:patientId/discharge-medications", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { patientId } = req.params;
-    const { hospitalId, doctorId, notes, signature, createdBy, items: medItems } = req.body;
+    const { hospitalId, doctorId, surgeryId, notes, signature, createdBy, items: medItems } = req.body;
     if (!hospitalId) return res.status(400).json({ error: "hospitalId required" });
 
     if (medItems && medItems.length > 0) {
@@ -326,7 +331,7 @@ router.post("/api/patients/:patientId/discharge-medications", isAuthenticated, r
     }
 
     const slot = await storage.createPatientDischargeMedication(
-      { patientId, hospitalId, doctorId, notes, signature, createdBy },
+      { patientId, hospitalId, surgeryId: surgeryId || null, doctorId, notes, signature, createdBy },
       medItems || []
     );
     const fullSlot = await storage.getPatientDischargeMedication(slot.id);
@@ -339,7 +344,7 @@ router.post("/api/patients/:patientId/discharge-medications", isAuthenticated, r
 router.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const { doctorId, notes, signature, items: medItems } = req.body;
+    const { doctorId, surgeryId, notes, signature, items: medItems } = req.body;
     if (!medItems || !Array.isArray(medItems) || medItems.length === 0) {
       return res.status(400).json({ error: "At least one medication item is required" });
     }
@@ -363,7 +368,7 @@ router.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess
 
     await storage.updatePatientDischargeMedication(
       id,
-      { doctorId, notes, signature },
+      { doctorId, surgeryId: surgeryId !== undefined ? (surgeryId || null) : undefined, notes, signature },
       medItems || []
     );
     const fullSlot = await storage.getPatientDischargeMedication(id);
@@ -376,6 +381,42 @@ router.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess
 router.delete("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     await storage.deletePatientDischargeMedication(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== DISCHARGE MEDICATION TEMPLATES ==========
+
+router.get("/api/hospitals/:hospitalId/discharge-medication-templates", isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const templates = await getDischargeMedicationTemplates(req.params.hospitalId);
+    res.json(templates);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/api/hospitals/:hospitalId/discharge-medication-templates", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { name, items: templateItems, createdBy } = req.body;
+    if (!name || !templateItems || templateItems.length === 0) {
+      return res.status(400).json({ error: "Name and at least one item required" });
+    }
+    const tmpl = await createDischargeMedicationTemplate(
+      { hospitalId: req.params.hospitalId, name, createdBy: createdBy || null },
+      templateItems,
+    );
+    res.json(tmpl);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/api/discharge-medication-templates/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    await deleteDischargeMedicationTemplate(req.params.id);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

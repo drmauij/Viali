@@ -174,9 +174,16 @@ export async function collectAnesthesiaRecordData(
 export async function collectDischargeMedicationsData(
   patientId: string,
   hospitalId: string,
+  selectedMedicationSlotIds?: string[],
 ): Promise<string | null> {
-  const meds = await getPatientDischargeMedications(patientId, hospitalId);
-  if (!meds || meds.length === 0) return null;
+  const allMeds = await getPatientDischargeMedications(patientId, hospitalId);
+  if (!allMeds || allMeds.length === 0) return null;
+
+  const meds = selectedMedicationSlotIds
+    ? allMeds.filter((m) => selectedMedicationSlotIds.includes(m.id))
+    : allMeds;
+
+  if (meds.length === 0) return null;
 
   const lines: string[] = ["## Discharge Medications"];
 
@@ -310,7 +317,7 @@ export interface DataBlockPreview {
   key: string;
   available: boolean;
   count?: number;
-  notes?: Array<{ id: string; title: string; createdAt: string }>;
+  notes?: Array<{ id: string; title: string; createdAt: string; surgeryId?: string | null }>;
 }
 
 export async function getAvailableDataBlocks(
@@ -349,9 +356,21 @@ export async function getAvailableDataBlocks(
     })),
   });
 
-  // Discharge Medications
+  // Discharge Medications — expose slot sub-items (with surgeryId for wizard auto-select)
   const meds = await getPatientDischargeMedications(patientId, hospitalId);
-  blocks.push({ key: "discharge_medications", available: meds.length > 0, count: meds.length });
+  blocks.push({
+    key: "discharge_medications",
+    available: meds.length > 0,
+    count: meds.length,
+    notes: meds.map((m) => ({
+      id: m.id,
+      title: m.doctor
+        ? `Dr. ${m.doctor.firstName || ""} ${m.doctor.lastName || ""}`.trim()
+        : "Prescription",
+      createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+      surgeryId: m.surgeryId ?? null,
+    })),
+  });
 
   // Surgery Details — always shown, available only with surgery
   if (surgeryId) {
