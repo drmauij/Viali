@@ -1005,8 +1005,16 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
   }, [preOpMap, t]);
 
   // Questionnaire status dot config
-  const getQuestionnaireDot = useCallback((status: string | null | undefined) => {
-    if (!status) return null;
+  // Returns dot config based on questionnaire status and pre-op assessment state.
+  // Dot is hidden when pre-op assessment is already stand-by/approved/not-approved/completed.
+  // Shows empty outline dot when no questionnaire link was sent, colored dot for actual statuses.
+  const getQuestionnaireDot = useCallback((status: string | null | undefined, preOpKey: string) => {
+    // Hide dot when pre-op assessment is far enough along
+    if (preOpKey === 'standby' || preOpKey === 'approved' || preOpKey === 'not-approved') return null;
+
+    if (!status) {
+      return { color: 'bg-transparent border border-gray-400', label: t('opCalendar.questionnaire.notSent', 'Questionnaire not sent') };
+    }
     const config: Record<string, { color: string; label: string }> = {
       pending: { color: 'bg-gray-400', label: t('opCalendar.questionnaire.sent', 'Questionnaire sent') },
       started: { color: 'bg-amber-400', label: t('opCalendar.questionnaire.started', 'Questionnaire started') },
@@ -1022,12 +1030,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     const StatusIcon = preOpStatus.icon;
     const isSlotReservationEvt = !event.patientId;
     const isRoomBlockEvt = !!event.isRoomBlock;
-    const qDot = getQuestionnaireDot(event.questionnaireStatus);
+    const qDot = getQuestionnaireDot(event.questionnaireStatus, preOpStatus.key);
     return (
       <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
         {qDot && !isRoomBlockEvt && !isSlotReservationEvt && (
           <div
-            className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
+            className={`absolute top-1 right-0.5 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
             title={qDot.label}
             data-testid={`questionnaire-dot-${event.surgeryId}`}
           />
@@ -1066,7 +1074,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
           </>
         ) : (
           <>
-            <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
+            <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''} ${qDot ? 'pr-4' : ''}`}>
               {event.plannedSurgery}
             </div>
             <div className={`text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>

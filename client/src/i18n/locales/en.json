@@ -5819,6 +5819,7 @@
       "started": "Started"
     },
     "questionnaire": {
+      "notSent": "Questionnaire not sent",
       "sent": "Questionnaire sent",
       "started": "Questionnaire started",
       "submitted": "Questionnaire submitted",

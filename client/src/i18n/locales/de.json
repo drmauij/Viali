@@ -5920,6 +5920,7 @@
       "started": "Gestartet"
     },
     "questionnaire": {
+      "notSent": "Fragebogen nicht gesendet",
       "sent": "Fragebogen gesendet",
       "started": "Fragebogen gestartet",
       "submitted": "Fragebogen ausgefüllt",

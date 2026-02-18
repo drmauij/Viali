@@ -78,8 +78,14 @@ export default function TimelineWeekView({
   moment.locale(momentLocale);
   
   // Questionnaire status dot config
-  const getQuestionnaireDot = useCallback((status: string | null | undefined) => {
-    if (!status) return null;
+  // Hidden when pre-op assessment is stand-by/approved/not-approved/completed.
+  // Shows empty outline dot when no questionnaire link sent, colored dot for actual statuses.
+  const getQuestionnaireDot = useCallback((status: string | null | undefined, preOpKey: string) => {
+    if (preOpKey === 'standby' || preOpKey === 'approved' || preOpKey === 'not-approved') return null;
+
+    if (!status) {
+      return { color: 'bg-transparent border border-gray-400', label: t('opCalendar.questionnaire.notSent', 'Questionnaire not sent') };
+    }
     const config: Record<string, { color: string; label: string }> = {
       pending: { color: 'bg-gray-400', label: t('opCalendar.questionnaire.sent', 'Questionnaire sent') },
       started: { color: 'bg-amber-400', label: t('opCalendar.questionnaire.started', 'Questionnaire started') },
@@ -614,7 +620,9 @@ export default function TimelineWeekView({
                   const procedureName = surgery.plannedSurgery || 'Surgery';
                   const startTime = moment(displayStart).format('HH:mm');
                   const pacuBedName = getPacuBedName(surgery.pacuBedId);
-                  
+                  const preOpKey = getPreOpStatus ? getPreOpStatus(surgery.id).key : 'planned';
+                  const qDot = getQuestionnaireDot(surgery.questionnaireStatus, preOpKey);
+
                   return (
                     <div
                       key={surgery.id}
@@ -623,23 +631,21 @@ export default function TimelineWeekView({
                         getStatusClass(surgery),
                         isTruncatedStart ? "rounded-b" : "rounded-t",
                         isTruncatedEnd ? "rounded-t" : "rounded-b",
-                        !isTruncatedStart && !isTruncatedEnd && "rounded"
+                        !isTruncatedStart && !isTruncatedEnd && "rounded",
+                        qDot && "pr-3"
                       )}
                       style={{ top, height: Math.max(height - 2, 28), left, right, width }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
                       title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
-                      {(() => {
-                        const qDot = getQuestionnaireDot(surgery.questionnaireStatus);
-                        return qDot ? (
-                          <div
-                            className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
-                            title={qDot.label}
-                            data-testid={`questionnaire-dot-week-${surgery.id}`}
-                          />
-                        ) : null;
-                      })()}
+                      {qDot && (
+                        <div
+                          className={`absolute top-1 right-1 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
+                          title={qDot.label}
+                          data-testid={`questionnaire-dot-week-${surgery.id}`}
+                        />
+                      )}
                       {isTruncatedStart && (
                         <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
                       )}
