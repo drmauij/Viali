@@ -1,0 +1,809 @@
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  FileText,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Upload,
+  FolderUp,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+
+interface DischargeBriefTemplate {
+  id: string;
+  hospitalId: string;
+  briefType: string;
+  name: string;
+  description: string | null;
+  templateContent: string;
+  procedureType: string | null;
+  assignedUserId: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface DischargeBriefTemplateManagerProps {
+  hospitalId: string;
+}
+
+const BRIEF_TYPES = [
+  { value: "surgery_discharge", label: "Surgery Discharge" },
+  { value: "anesthesia_discharge", label: "Anesthesia Discharge" },
+  { value: "anesthesia_overnight_discharge", label: "Anesthesia + Overnight" },
+];
+
+const BRIEF_TYPE_LABELS: Record<string, string> = {
+  surgery_discharge: "Surgery",
+  anesthesia_discharge: "Anesthesia",
+  anesthesia_overnight_discharge: "Anesthesia + Overnight",
+};
+
+export function DischargeBriefTemplateManager({
+  hospitalId,
+}: DischargeBriefTemplateManagerProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const bulkInputRef = useRef<HTMLInputElement>(null);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] =
+    useState<DischargeBriefTemplate | null>(null);
+  const [deleteTemplate, setDeleteTemplate] =
+    useState<DischargeBriefTemplate | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  // Bulk import state
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<
+    Array<{
+      name: string;
+      status: "pending" | "processing" | "done" | "error";
+      error?: string;
+      templateName?: string;
+    }>
+  >([]);
+  const [bulkImporting, setBulkImporting] = useState(false);
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    briefType: "surgery_discharge",
+    procedureType: "",
+    templateContent: "",
+  });
+
+  const { data: templates = [], isLoading } = useQuery<
+    DischargeBriefTemplate[]
+  >({
+    queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+    enabled: !!hospitalId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof form) => {
+      await apiRequest("POST", "/api/discharge-brief-templates", {
+        ...data,
+        hospitalId,
+        description: data.description || null,
+        procedureType: data.procedureType || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+      });
+      setDialogOpen(false);
+      resetForm();
+      toast({
+        description: t(
+          "dischargeBriefs.templates.created",
+          "Template created",
+        ),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        description: error.message,
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: typeof form;
+    }) => {
+      await apiRequest("PATCH", `/api/discharge-brief-templates/${id}`, {
+        ...data,
+        description: data.description || null,
+        procedureType: data.procedureType || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+      });
+      setDialogOpen(false);
+      setEditingTemplate(null);
+      resetForm();
+      toast({
+        description: t(
+          "dischargeBriefs.templates.updated",
+          "Template updated",
+        ),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        description: error.message,
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/discharge-brief-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+      });
+      setDeleteTemplate(null);
+      toast({
+        description: t(
+          "dischargeBriefs.templates.deleted",
+          "Template deleted",
+        ),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        description: error.message,
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      description: "",
+      briefType: "surgery_discharge",
+      procedureType: "",
+      templateContent: "",
+    });
+  };
+
+  const handleAdd = () => {
+    setEditingTemplate(null);
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (template: DischargeBriefTemplate) => {
+    setEditingTemplate(template);
+    setForm({
+      name: template.name,
+      description: template.description || "",
+      briefType: template.briefType,
+      procedureType: template.procedureType || "",
+      templateContent: template.templateContent,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim() || !form.templateContent.trim()) return;
+    if (editingTemplate) {
+      updateMutation.mutate({ id: editingTemplate.id, data: form });
+    } else {
+      createMutation.mutate(form);
+    }
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setIsExtracting(true);
+    try {
+      // Convert file to base64
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(buffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          "",
+        ),
+      );
+
+      const res = await apiRequest(
+        "POST",
+        "/api/discharge-brief-templates/extract-text",
+        {
+          fileData: base64,
+          fileName: file.name,
+          mimeType: file.type,
+        },
+      );
+      const data = await res.json();
+
+      if (data.text) {
+        setForm((f) => ({ ...f, templateContent: data.text }));
+        toast({
+          description: t(
+            "dischargeBriefs.templates.importSuccess",
+            "Document content extracted successfully",
+          ),
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        description:
+          error.message ||
+          t(
+            "dischargeBriefs.templates.importError",
+            "Failed to extract text from document",
+          ),
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleBulkFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    if (bulkInputRef.current) bulkInputRef.current.value = "";
+    setBulkFiles(
+      fileList.map((f) => ({ name: f.name, status: "pending" as const })),
+    );
+    setBulkImportOpen(true);
+
+    // Start processing
+    processBulkImport(fileList);
+  };
+
+  const processBulkImport = async (files: File[]) => {
+    setBulkImporting(true);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Mark current as processing
+      setBulkFiles((prev) =>
+        prev.map((f, idx) =>
+          idx === i ? { ...f, status: "processing" } : f,
+        ),
+      );
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            "",
+          ),
+        );
+
+        const res = await apiRequest(
+          "POST",
+          "/api/discharge-brief-templates/import-file",
+          {
+            fileData: base64,
+            fileName: file.name,
+            mimeType: file.type,
+            hospitalId,
+          },
+        );
+        const template = await res.json();
+
+        setBulkFiles((prev) =>
+          prev.map((f, idx) =>
+            idx === i
+              ? { ...f, status: "done", templateName: template.name }
+              : f,
+          ),
+        );
+      } catch (error: any) {
+        setBulkFiles((prev) =>
+          prev.map((f, idx) =>
+            idx === i
+              ? {
+                  ...f,
+                  status: "error",
+                  error: error.message || "Import failed",
+                }
+              : f,
+          ),
+        );
+      }
+    }
+
+    setBulkImporting(false);
+    queryClient.invalidateQueries({
+      queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+    });
+  };
+
+  const bulkDoneCount = bulkFiles.filter(
+    (f) => f.status === "done" || f.status === "error",
+  ).length;
+  const bulkProgress =
+    bulkFiles.length > 0 ? (bulkDoneCount / bulkFiles.length) * 100 : 0;
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {t(
+                "dischargeBriefs.templates.title",
+                "Discharge Brief Templates",
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <input
+                ref={bulkInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                multiple
+                className="hidden"
+                onChange={handleBulkFileSelect}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulkInputRef.current?.click()}
+              >
+                <FolderUp className="h-4 w-4 mr-1" />
+                {t("dischargeBriefs.templates.bulkImport", "Bulk Import")}
+              </Button>
+              <Button size="sm" onClick={handleAdd}>
+                <Plus className="h-4 w-4 mr-1" />
+                {t("dischargeBriefs.templates.add", "Add Template")}
+              </Button>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "dischargeBriefs.templates.description",
+              "Reference templates used to guide AI-generated discharge briefs.",
+            )}
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {t(
+                "dischargeBriefs.templates.noTemplates",
+                "No templates yet. Create one to guide AI generation.",
+              )}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{tpl.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
+                      </Badge>
+                      {tpl.procedureType && (
+                        <Badge variant="secondary" className="text-xs">
+                          {tpl.procedureType}
+                        </Badge>
+                      )}
+                    </div>
+                    {tpl.description && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {tpl.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(tpl)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTemplate(tpl)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Dialog — sticky header + footer */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDialogOpen(false);
+            setEditingTemplate(null);
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] !p-0 flex flex-col overflow-hidden">
+          {/* Fixed header */}
+          <div className="shrink-0 border-b bg-background px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle>
+                {editingTemplate
+                  ? t(
+                      "dischargeBriefs.templates.editTemplate",
+                      "Edit Template",
+                    )
+                  : t(
+                      "dischargeBriefs.templates.addTemplate",
+                      "Add Template",
+                    )}
+              </DialogTitle>
+              <DialogDescription>
+                {t(
+                  "dischargeBriefs.templates.dialogDescription",
+                  "Define a reference template that the AI will use as a guide for structure and tone.",
+                )}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("dischargeBriefs.templates.name", "Name")} *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                  placeholder={t(
+                    "dischargeBriefs.templates.namePlaceholder",
+                    "e.g. Standard Rhinoplasty Brief",
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  {t("dischargeBriefs.templates.briefType", "Brief Type")} *
+                </Label>
+                <Select
+                  value={form.briefType}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, briefType: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRIEF_TYPES.map((bt) => (
+                      <SelectItem key={bt.value} value={bt.value}>
+                        {bt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  {t(
+                    "dischargeBriefs.templates.procedureType",
+                    "Procedure Type",
+                  )}{" "}
+                  ({t("common.optional", "optional")})
+                </Label>
+                <Input
+                  value={form.procedureType}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, procedureType: e.target.value }))
+                  }
+                  placeholder={t(
+                    "dischargeBriefs.templates.procedureTypePlaceholder",
+                    "e.g. Rhinoplasty, Abdominoplasty",
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  {t("dischargeBriefs.templates.descriptionField", "Description")}{" "}
+                  ({t("common.optional", "optional")})
+                </Label>
+                <Input
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                  }
+                  placeholder={t(
+                    "dischargeBriefs.templates.descriptionPlaceholder",
+                    "Short description of when to use this template",
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>
+                    {t(
+                      "dischargeBriefs.templates.templateContent",
+                      "Template Content",
+                    )}{" "}
+                    *
+                  </Label>
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      className="hidden"
+                      onChange={handleFileImport}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isExtracting}
+                    >
+                      {isExtracting ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-1" />
+                      )}
+                      {isExtracting
+                        ? t("dischargeBriefs.templates.extracting", "Extracting...")
+                        : t("dischargeBriefs.templates.importFile", "Import from file")}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "dischargeBriefs.templates.templateContentHelp",
+                    "Paste or write a reference discharge brief. The AI will adapt the clinical data to match this format, structure, and tone.",
+                  )}
+                </p>
+                <Textarea
+                  value={form.templateContent}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      templateContent: e.target.value,
+                    }))
+                  }
+                  rows={12}
+                  className="font-mono text-sm"
+                  placeholder={t(
+                    "dischargeBriefs.templates.templateContentPlaceholder",
+                    "Sehr geehrte Kolleginnen und Kollegen,\n\nwir berichten über...",
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fixed footer */}
+          <div className="shrink-0 border-t bg-background px-6 py-4">
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditingTemplate(null);
+                  resetForm();
+                }}
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={
+                  isSaving ||
+                  !form.name.trim() ||
+                  !form.templateContent.trim()
+                }
+              >
+                {isSaving && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                {editingTemplate
+                  ? t("common.save", "Save")
+                  : t("common.create", "Create")}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Import Progress Dialog */}
+      <Dialog
+        open={bulkImportOpen}
+        onOpenChange={(open) => {
+          if (!open && !bulkImporting) {
+            setBulkImportOpen(false);
+            setBulkFiles([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderUp className="h-5 w-5" />
+              {t("dischargeBriefs.templates.bulkImportTitle", "Importing Templates")}
+            </DialogTitle>
+            <DialogDescription>
+              {bulkImporting
+                ? t(
+                    "dischargeBriefs.templates.bulkImportProcessing",
+                    "Extracting text and generating metadata with AI...",
+                  )
+                : t(
+                    "dischargeBriefs.templates.bulkImportDone",
+                    "Import complete.",
+                  )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Progress value={bulkProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-right">
+              {bulkDoneCount} / {bulkFiles.length}
+            </p>
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {bulkFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2 p-2 rounded border text-sm"
+                >
+                  {file.status === "pending" && (
+                    <div className="h-4 w-4 mt-0.5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                  )}
+                  {file.status === "processing" && (
+                    <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-blue-500 shrink-0" />
+                  )}
+                  {file.status === "done" && (
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />
+                  )}
+                  {file.status === "error" && (
+                    <XCircle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{file.name}</p>
+                    {file.status === "done" && file.templateName && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        → {file.templateName}
+                      </p>
+                    )}
+                    {file.status === "error" && file.error && (
+                      <p className="text-xs text-destructive">{file.error}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {!bulkImporting && (
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  setBulkImportOpen(false);
+                  setBulkFiles([]);
+                }}
+              >
+                {t("common.close", "Close")}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deleteTemplate}
+        onOpenChange={() => setDeleteTemplate(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("common.confirmDelete", "Confirm Delete")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "dischargeBriefs.templates.deleteConfirm",
+                "Are you sure you want to delete this template? This action cannot be undone.",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("common.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deleteTemplate && deleteMutation.mutate(deleteTemplate.id)
+              }
+              className="bg-destructive text-destructive-foreground"
+            >
+              {t("common.delete", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

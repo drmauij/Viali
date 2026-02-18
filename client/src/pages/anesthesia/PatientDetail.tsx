@@ -41,6 +41,7 @@ import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnai
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
+import { DischargeBriefsSection } from "@/components/dischargeBriefs/DischargeBriefsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
@@ -2586,22 +2587,31 @@ export default function PatientDetail() {
 
         <TabsContent value="documents" className="mt-0">
           <div className="space-y-6">
-            {/* Staff Documents Section - Using PatientDocumentsSection component with list/grid toggle */}
+            {/* Documents + Discharge Briefs — side by side on large screens */}
             {patient && activeHospital && (
-              <PatientDocumentsSection
-                patientId={patient.id}
-                hospitalId={activeHospital.id}
-                canWrite={canWrite}
-                variant="card"
-                onPreview={(url, fileName, mimeType) => {
-                  setPreviewDocument({
-                    id: 'preview',
-                    fileName,
-                    mimeType: mimeType || 'application/octet-stream',
-                    url,
-                  });
-                }}
-              />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PatientDocumentsSection
+                  patientId={patient.id}
+                  hospitalId={activeHospital.id}
+                  canWrite={canWrite}
+                  variant="card"
+                  onPreview={(url, fileName, mimeType) => {
+                    setPreviewDocument({
+                      id: 'preview',
+                      fileName,
+                      mimeType: mimeType || 'application/octet-stream',
+                      url,
+                    });
+                  }}
+                />
+                <DischargeBriefsSection
+                  patientId={patient.id}
+                  hospitalId={activeHospital.id}
+                  canWrite={canWrite}
+                  isAdmin={activeHospital?.role === "admin"}
+                  surgeries={surgeries}
+                />
+              </div>
             )}
 
             {/* Note Attachments Section */}

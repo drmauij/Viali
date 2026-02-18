@@ -5225,3 +5225,105 @@ export type PatientDischargeMedication = typeof patientDischargeMedications.$inf
 export type InsertPatientDischargeMedication = z.infer<typeof insertPatientDischargeMedicationSchema>;
 export type PatientDischargeMedicationItem = typeof patientDischargeMedicationItems.$inferSelect;
 export type InsertPatientDischargeMedicationItem = z.infer<typeof insertPatientDischargeMedicationItemSchema>;
+
+// ========== DISCHARGE BRIEFS ==========
+
+export const dischargeBriefTypeEnum = pgEnum("discharge_brief_type", [
+  "surgery_discharge",
+  "anesthesia_discharge",
+  "anesthesia_overnight_discharge",
+]);
+
+export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  briefType: dischargeBriefTypeEnum("brief_type").notNull(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  templateContent: text("template_content"), // Reference document for AI
+  assignedUserId: varchar("assigned_user_id").references(() => users.id), // Null = shared with all; set = personal
+  procedureType: varchar("procedure_type"), // Free-text tag e.g. "Rhinoplasty"
+  isActive: boolean("is_active").default(true).notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_discharge_brief_templates_hospital").on(table.hospitalId),
+  index("idx_discharge_brief_templates_type").on(table.briefType),
+  index("idx_discharge_brief_templates_active").on(table.isActive),
+  index("idx_discharge_brief_templates_assigned").on(table.assignedUserId),
+]);
+
+export const dischargeBriefs = pgTable("discharge_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id),
+  surgeryId: varchar("surgery_id").references(() => surgeries.id), // Nullable for standalone briefs
+  briefType: dischargeBriefTypeEnum("brief_type").notNull(),
+  language: varchar("language", { length: 5 }).notNull().default("de"),
+  templateId: varchar("template_id").references(() => dischargeBriefTemplates.id), // Null = generic
+  content: text("content"), // Markdown content
+  sourceDataSnapshot: jsonb("source_data_snapshot").$type<{
+    selectedBlocks: string[];
+    anonymizedText?: string;
+    annotations?: string;
+  }>(),
+  // Signature
+  signature: text("signature"), // Base64 PNG
+  signedBy: varchar("signed_by").references(() => users.id),
+  signedAt: timestamp("signed_at"),
+  // PDF export
+  pdfUrl: varchar("pdf_url"), // S3 key
+  // Record locking (same pattern as anesthesia records)
+  isLocked: boolean("is_locked").default(false).notNull(),
+  lockedAt: timestamp("locked_at"),
+  lockedBy: varchar("locked_by").references(() => users.id),
+  unlockedAt: timestamp("unlocked_at"),
+  unlockedBy: varchar("unlocked_by").references(() => users.id),
+  unlockReason: text("unlock_reason"),
+  // Metadata
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_discharge_briefs_hospital").on(table.hospitalId),
+  index("idx_discharge_briefs_patient").on(table.patientId),
+  index("idx_discharge_briefs_surgery").on(table.surgeryId),
+  index("idx_discharge_briefs_type").on(table.briefType),
+  index("idx_discharge_briefs_locked").on(table.isLocked),
+]);
+
+// Relations
+export const dischargeBriefTemplatesRelations = relations(dischargeBriefTemplates, ({ one }) => ({
+  hospital: one(hospitals, { fields: [dischargeBriefTemplates.hospitalId], references: [hospitals.id] }),
+  assignedUser: one(users, { fields: [dischargeBriefTemplates.assignedUserId], references: [users.id] }),
+  creator: one(users, { fields: [dischargeBriefTemplates.createdBy], references: [users.id] }),
+}));
+
+export const dischargeBriefsRelations = relations(dischargeBriefs, ({ one }) => ({
+  hospital: one(hospitals, { fields: [dischargeBriefs.hospitalId], references: [hospitals.id] }),
+  patient: one(patients, { fields: [dischargeBriefs.patientId], references: [patients.id] }),
+  surgery: one(surgeries, { fields: [dischargeBriefs.surgeryId], references: [surgeries.id] }),
+  template: one(dischargeBriefTemplates, { fields: [dischargeBriefs.templateId], references: [dischargeBriefTemplates.id] }),
+  signer: one(users, { fields: [dischargeBriefs.signedBy], references: [users.id] }),
+  creator: one(users, { fields: [dischargeBriefs.createdBy], references: [users.id] }),
+}));
+
+// Zod schemas
+export const insertDischargeBriefTemplateSchema = createInsertSchema(dischargeBriefTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDischargeBriefSchema = createInsertSchema(dischargeBriefs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types
+export type DischargeBriefTemplate = typeof dischargeBriefTemplates.$inferSelect;
+export type InsertDischargeBriefTemplate = z.infer<typeof insertDischargeBriefTemplateSchema>;
+export type DischargeBrief = typeof dischargeBriefs.$inferSelect;
+export type InsertDischargeBrief = z.infer<typeof insertDischargeBriefSchema>;

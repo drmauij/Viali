@@ -1,10 +1,19 @@
 import { Router } from "express";
 import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
-import { insertPatientSchema } from "@shared/schema";
+import { insertPatientSchema, surgeries } from "@shared/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
+import {
+  getPatientNotes,
+  createPatientNote,
+  deletePatientNote,
+  getSurgeryNotes,
+  getNoteAttachments,
+} from "../../storage/anesthesia";
+import { db } from "../../db";
 import logger from "../../logger";
 
 const router = Router();
@@ -1029,6 +1038,125 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
   } catch (error) {
     logger.error("Error sending patient message:", error);
     res.status(500).json({ message: "Failed to send message" });
+  }
+});
+
+// ========== PATIENT NOTES ROUTES ==========
+
+// Create patient note
+router.post('/api/patients/:patientId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: "Content is required" });
+    }
+
+    const note = await createPatientNote({
+      patientId,
+      authorId: userId,
+      content: content.trim(),
+    });
+
+    res.status(201).json(note);
+  } catch (error) {
+    logger.error("Error creating patient note:", error);
+    res.status(500).json({ message: "Failed to create note" });
+  }
+});
+
+// Get patient notes timeline (patient notes + surgery notes combined)
+router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+
+    // Get patient notes with author info
+    const pNotes = await getPatientNotes(patientId);
+
+    // Get surgeries for this patient to fetch surgery notes
+    const patientSurgeries = await db
+      .select()
+      .from(surgeries)
+      .where(eq(surgeries.patientId, patientId));
+
+    // Get surgery notes for all surgeries
+    const sNotePromises = patientSurgeries.map((s) => getSurgeryNotes(s.id));
+    const sNotesArrays = await Promise.all(sNotePromises);
+
+    // Build surgery lookup
+    const surgeryMap = new Map(patientSurgeries.map((s) => [s.id, s]));
+
+    // Build combined timeline
+    const timeline: any[] = [];
+
+    for (const note of pNotes) {
+      const attachments = await getNoteAttachments('patient', note.id);
+      timeline.push({
+        id: note.id,
+        type: "patient" as const,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        author: {
+          id: note.author.id,
+          firstName: note.author.firstName,
+          lastName: note.author.lastName,
+          email: note.author.email,
+        },
+        surgery: null,
+        attachmentCount: attachments.length,
+      });
+    }
+
+    for (const sNotes of sNotesArrays) {
+      for (const note of sNotes) {
+        const surgery = surgeryMap.get(note.surgeryId);
+        const attachments = await getNoteAttachments('surgery', note.id);
+        timeline.push({
+          id: note.id,
+          type: "surgery" as const,
+          content: note.content,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+          author: {
+            id: note.author.id,
+            firstName: note.author.firstName,
+            lastName: note.author.lastName,
+            email: note.author.email,
+          },
+          surgery: surgery
+            ? {
+                id: surgery.id,
+                plannedSurgery: surgery.plannedSurgery ?? "",
+                plannedDate: surgery.plannedDate,
+              }
+            : null,
+          attachmentCount: attachments.length,
+        });
+      }
+    }
+
+    // Sort by createdAt descending
+    timeline.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json(timeline);
+  } catch (error) {
+    logger.error("Error fetching patient notes timeline:", error);
+    res.status(500).json({ message: "Failed to fetch notes timeline" });
+  }
+});
+
+// Delete patient note
+router.delete('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    await deletePatientNote(noteId);
+    res.json({ message: "Note deleted" });
+  } catch (error) {
+    logger.error("Error deleting patient note:", error);
+    res.status(500).json({ message: "Failed to delete note" });
   }
 });
 

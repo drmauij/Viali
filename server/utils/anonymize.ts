@@ -121,10 +121,13 @@ export async function logAiOutbound(opts: {
   userId: string;
   purpose: string;
   service: string;
-}): Promise<void> {
+  linkedRecordId?: string;
+  linkedRecordType?: string;
+}): Promise<string> {
+  const auditId = randomUUID();
   await createAuditLog({
-    recordType: "ai_outbound",
-    recordId: randomUUID(),
+    recordType: opts.linkedRecordType || "ai_outbound",
+    recordId: opts.linkedRecordId || auditId,
     action: "create",
     userId: opts.userId,
     oldValue: null,
@@ -135,4 +138,5 @@ export async function logAiOutbound(opts: {
       replacements: opts.summary,
     },
   });
+  return auditId;
 }

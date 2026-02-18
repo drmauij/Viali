@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
+import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 
 // Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
@@ -1057,36 +1058,41 @@ export default function Hospital() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="settings" data-testid="tab-settings">
-            <Settings className="h-4 w-4 mr-2" />
-            {t("admin.generalSettings", "General Settings")}
-          </TabsTrigger>
-          <TabsTrigger value="data" data-testid="tab-data">
-            <i className="fas fa-database mr-2"></i>
-            {t("admin.dataAndLinks", "Data & Links")}
-          </TabsTrigger>
-          <TabsTrigger value="units" data-testid="tab-units">
-            <i className="fas fa-location-dot mr-2"></i>
-            {t("admin.units")}
-          </TabsTrigger>
-          <TabsTrigger value="rooms" data-testid="tab-rooms">
-            <i className="fas fa-door-open mr-2"></i>
-            {t("admin.rooms", "Rooms")}
-          </TabsTrigger>
-          <TabsTrigger value="checklists" data-testid="tab-checklists">
-            <i className="fas fa-clipboard-check mr-2"></i>
-            {t("admin.checklists")}
-          </TabsTrigger>
-          <TabsTrigger value="suppliers" data-testid="tab-suppliers">
-            <i className="fas fa-truck mr-2"></i>
-            Suppliers
-          </TabsTrigger>
-          <TabsTrigger value="integrations" data-testid="tab-integrations">
-            <Settings className="h-4 w-4 mr-2" />
-            {t("admin.integrations", "Integrations")}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Vertical sidebar nav */}
+          <TabsList className="flex flex-row md:flex-col h-auto w-full md:w-52 shrink-0 justify-start overflow-x-auto md:overflow-x-visible scrollbar-hide bg-muted/50 md:bg-transparent p-1 md:p-0 md:gap-1">
+            <TabsTrigger value="settings" data-testid="tab-settings" className="justify-start md:w-full">
+              <Settings className="h-4 w-4 mr-2 shrink-0" />
+              <span className="truncate">{t("admin.generalSettings", "General Settings")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="data" data-testid="tab-data" className="justify-start md:w-full">
+              <i className="fas fa-database mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.dataAndLinks", "Data & Links")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="units" data-testid="tab-units" className="justify-start md:w-full">
+              <i className="fas fa-location-dot mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.units")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="rooms" data-testid="tab-rooms" className="justify-start md:w-full">
+              <i className="fas fa-door-open mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.rooms", "Rooms")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="checklists" data-testid="tab-checklists" className="justify-start md:w-full">
+              <i className="fas fa-clipboard-check mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.checklistsAndTemplates", "Checklists & Templates")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" data-testid="tab-suppliers" className="justify-start md:w-full">
+              <i className="fas fa-truck mr-2 shrink-0"></i>
+              <span className="truncate">Suppliers</span>
+            </TabsTrigger>
+            <TabsTrigger value="integrations" data-testid="tab-integrations" className="justify-start md:w-full">
+              <Settings className="h-4 w-4 mr-2 shrink-0" />
+              <span className="truncate">{t("admin.integrations", "Integrations")}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab content area */}
+          <div className="flex-1 min-w-0">
 
         {/* General Settings Tab Content */}
         <TabsContent value="settings">
@@ -1892,6 +1898,11 @@ export default function Hospital() {
               ))}
             </div>
           )}
+
+          {/* Discharge Brief Templates */}
+          {activeHospital && (
+            <DischargeBriefTemplateManager hospitalId={activeHospital.id} />
+          )}
         </div>
         </TabsContent>
 
@@ -2346,6 +2357,8 @@ export default function Hospital() {
           <ChopIntegrationCard />
         </div>
         </TabsContent>
+          </div>{/* end tab content area */}
+        </div>{/* end flex container */}
       </Tabs>
 
       {/* Supplier Dialog */}
