@@ -5818,6 +5818,12 @@
       "completed": "Completed",
       "started": "Started"
     },
+    "questionnaire": {
+      "sent": "Questionnaire sent",
+      "started": "Questionnaire started",
+      "submitted": "Questionnaire submitted",
+      "reviewed": "Questionnaire reviewed"
+    },
     "previous": "Back",
     "next": "Next",
     "agenda": "Agenda"

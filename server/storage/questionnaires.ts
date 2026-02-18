@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, desc, asc, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, inArray } from "drizzle-orm";
 import {
   patientQuestionnaireLinks,
   patientQuestionnaireResponses,
@@ -80,6 +80,40 @@ export async function invalidateQuestionnaireLink(id: string): Promise<void> {
     .update(patientQuestionnaireLinks)
     .set({ status: 'expired' })
     .where(eq(patientQuestionnaireLinks.id, id));
+}
+
+export async function getQuestionnaireStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, string>> {
+  if (surgeryIds.length === 0) return new Map();
+
+  const links = await db
+    .select({
+      surgeryId: patientQuestionnaireLinks.surgeryId,
+      status: patientQuestionnaireLinks.status,
+    })
+    .from(patientQuestionnaireLinks)
+    .where(inArray(patientQuestionnaireLinks.surgeryId, surgeryIds));
+
+  // For each surgery, pick the "most advanced" status if multiple links exist
+  const statusPriority: Record<string, number> = {
+    expired: 0,
+    pending: 1,
+    started: 2,
+    submitted: 3,
+    reviewed: 4,
+  };
+
+  const result = new Map<string, string>();
+  for (const link of links) {
+    if (!link.surgeryId) continue;
+    const existing = result.get(link.surgeryId);
+    const existingPriority = existing ? (statusPriority[existing] ?? 0) : -1;
+    const newPriority = statusPriority[link.status ?? ''] ?? 0;
+    if (newPriority > existingPriority) {
+      result.set(link.surgeryId, link.status ?? 'pending');
+    }
+  }
+
+  return result;
 }
 
 // ========== QUESTIONNAIRE RESPONSE OPERATIONS ==========

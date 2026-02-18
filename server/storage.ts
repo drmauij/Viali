@@ -710,7 +710,8 @@ export interface IStorage {
   getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]>;
   updateQuestionnaireLink(id: string, updates: Partial<PatientQuestionnaireLink>): Promise<PatientQuestionnaireLink>;
   invalidateQuestionnaireLink(id: string): Promise<void>;
-  
+  getQuestionnaireStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, string>>;
+
   // Questionnaire Response operations
   createQuestionnaireResponse(response: InsertPatientQuestionnaireResponse): Promise<PatientQuestionnaireResponse>;
   getQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse | undefined>;
@@ -1327,6 +1328,7 @@ export class DatabaseStorage implements IStorage {
   getQuestionnaireLinksForHospital = questionnaireStorage.getQuestionnaireLinksForHospital;
   updateQuestionnaireLink = questionnaireStorage.updateQuestionnaireLink;
   invalidateQuestionnaireLink = questionnaireStorage.invalidateQuestionnaireLink;
+  getQuestionnaireStatusBySurgeryIds = questionnaireStorage.getQuestionnaireStatusBySurgeryIds;
   createQuestionnaireResponse = questionnaireStorage.createQuestionnaireResponse;
   getQuestionnaireResponse = questionnaireStorage.getQuestionnaireResponse;
   getQuestionnaireResponseByLinkId = questionnaireStorage.getQuestionnaireResponseByLinkId;

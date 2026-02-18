@@ -122,16 +122,18 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
 
     const surgeries = await storage.getSurgeries(hospitalId as string, filters);
     
-    // Batch-fetch all anesthesia records and pre-op statuses for these surgeries
+    // Batch-fetch all anesthesia records, pre-op statuses, and questionnaire statuses for these surgeries
     const surgeryIds = surgeries.map(s => s.id);
-    const [recordsMap, preOpStatusMap] = await Promise.all([
+    const [recordsMap, preOpStatusMap, questionnaireStatusMap] = await Promise.all([
       storage.getAnesthesiaRecordsBySurgeryIds(surgeryIds),
       storage.getPreOpAssessmentStatusBySurgeryIds(surgeryIds),
+      storage.getQuestionnaireStatusBySurgeryIds(surgeryIds),
     ]);
 
     const enrichedSurgeries = surgeries.map(surgery => {
       const anesthesiaRecord = recordsMap.get(surgery.id);
       const preOpStatus = preOpStatusMap.get(surgery.id);
+      const questionnaireStatus = questionnaireStatusMap.get(surgery.id) || null;
       return {
         ...surgery,
         timeMarkers: anesthesiaRecord?.timeMarkers || null,
@@ -140,6 +142,7 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
         preOpAssessmentStandByReason: preOpStatus?.standByReason || null,
         preOpAssessmentStandByReasonNote: preOpStatus?.standByReasonNote || null,
         preOpAssessmentSurgicalApproval: preOpStatus?.surgicalApproval || null,
+        questionnaireStatus,
       };
     });
 

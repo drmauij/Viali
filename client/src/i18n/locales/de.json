@@ -5919,6 +5919,12 @@
       "completed": "Abgeschlossen",
       "started": "Gestartet"
     },
+    "questionnaire": {
+      "sent": "Fragebogen gesendet",
+      "started": "Fragebogen gestartet",
+      "submitted": "Fragebogen ausgefüllt",
+      "reviewed": "Fragebogen überprüft"
+    },
     "previous": "Zurück",
     "next": "Weiter",
     "agenda": "Agenda"

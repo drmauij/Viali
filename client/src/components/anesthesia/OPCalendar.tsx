@@ -53,6 +53,7 @@ interface CalendarEvent {
   notes?: string | null;
   isRoomBlock?: boolean;
   pacuBedName?: string | null;
+  questionnaireStatus?: string | null;
   timeMarkers?: Array<{
     id: string;
     code: string;
@@ -524,6 +525,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         notes: surgery.notes || null,
         isRoomBlock: surgery.plannedSurgery === '__ROOM_BLOCK__',
         pacuBedName: pacuBedRoom?.name || null,
+        questionnaireStatus: surgery.questionnaireStatus || null,
         timeMarkers: surgery.timeMarkers || null,
       };
     });
@@ -1002,14 +1004,34 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     return { key: 'started', icon: Pencil, color: 'text-muted-foreground', badgeClass: 'bg-black/30 text-white', label: t('opCalendar.preOpStatus.started', 'Started') };
   }, [preOpMap, t]);
 
+  // Questionnaire status dot config
+  const getQuestionnaireDot = useCallback((status: string | null | undefined) => {
+    if (!status) return null;
+    const config: Record<string, { color: string; label: string }> = {
+      pending: { color: 'bg-gray-400', label: t('opCalendar.questionnaire.sent', 'Questionnaire sent') },
+      started: { color: 'bg-amber-400', label: t('opCalendar.questionnaire.started', 'Questionnaire started') },
+      submitted: { color: 'bg-green-500', label: t('opCalendar.questionnaire.submitted', 'Questionnaire submitted') },
+      reviewed: { color: 'bg-green-500', label: t('opCalendar.questionnaire.reviewed', 'Questionnaire reviewed') },
+    };
+    return config[status] || null;
+  }, [t]);
+
   // Simplified event component for calendar display
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     const preOpStatus = getPreOpStatus(event.surgeryId);
     const StatusIcon = preOpStatus.icon;
     const isSlotReservationEvt = !event.patientId;
     const isRoomBlockEvt = !!event.isRoomBlock;
+    const qDot = getQuestionnaireDot(event.questionnaireStatus);
     return (
       <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
+        {qDot && !isRoomBlockEvt && !isSlotReservationEvt && (
+          <div
+            className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}
+            title={qDot.label}
+            data-testid={`questionnaire-dot-${event.surgeryId}`}
+          />
+        )}
         {isRoomBlockEvt ? (
           <>
             <div className="font-bold text-[10px] sm:text-xs leading-tight truncate uppercase">
@@ -1081,7 +1103,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         )}
       </div>
     );
-  }, [getPreOpStatus, t]);
+  }, [getPreOpStatus, getQuestionnaireDot, t]);
 
   // Custom month date cell component - show indicator dots instead of event details
   const MonthDateHeader = useCallback(({ date, drilldownView }: { date: Date; drilldownView?: string }) => {

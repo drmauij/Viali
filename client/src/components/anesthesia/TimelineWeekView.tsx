@@ -77,6 +77,18 @@ export default function TimelineWeekView({
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
   moment.locale(momentLocale);
   
+  // Questionnaire status dot config
+  const getQuestionnaireDot = useCallback((status: string | null | undefined) => {
+    if (!status) return null;
+    const config: Record<string, { color: string; label: string }> = {
+      pending: { color: 'bg-gray-400', label: t('opCalendar.questionnaire.sent', 'Questionnaire sent') },
+      started: { color: 'bg-amber-400', label: t('opCalendar.questionnaire.started', 'Questionnaire started') },
+      submitted: { color: 'bg-green-500', label: t('opCalendar.questionnaire.submitted', 'Questionnaire submitted') },
+      reviewed: { color: 'bg-green-500', label: t('opCalendar.questionnaire.reviewed', 'Questionnaire reviewed') },
+    };
+    return config[status] || null;
+  }, [t]);
+
   // Calculate week days (Monday to Friday - excluding weekends)
   const weekDays = useMemo(() => {
     const weekStart = moment(selectedDate).startOf('isoWeek');
@@ -618,6 +630,16 @@ export default function TimelineWeekView({
                       title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
+                      {(() => {
+                        const qDot = getQuestionnaireDot(surgery.questionnaireStatus);
+                        return qDot ? (
+                          <div
+                            className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
+                            title={qDot.label}
+                            data-testid={`questionnaire-dot-week-${surgery.id}`}
+                          />
+                        ) : null;
+                      })()}
                       {isTruncatedStart && (
                         <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
                       )}
