@@ -1604,10 +1604,9 @@ export function SurgeryPlanningTable({
                 <TableRow
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
-                    onSurgeryClick && "hover:bg-accent",
                     surgery.isSuspended && "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400"
                   )}
-                  onClick={() => onSurgeryClick?.(surgery)}
+                  onClick={() => toggleRowExpand(surgery.id)}
                   data-testid={`row-surgery-${surgery.id}`}
                 >
                   <TableCell className="p-1 lg:sticky lg:left-0 lg:z-10 bg-background">
@@ -1628,10 +1627,13 @@ export function SurgeryPlanningTable({
                       )}
                     </Button>
                   </TableCell>
-                  
+
                   {showClinical && (
                     <>
-                      <TableCell className="lg:sticky lg:left-10 lg:z-10 bg-background min-w-[140px]">
+                      <TableCell
+                        className={cn("lg:sticky lg:left-10 lg:z-10 bg-background min-w-[140px]", onSurgeryClick && "hover:bg-accent cursor-pointer")}
+                        onClick={(e) => { if (onSurgeryClick) { e.stopPropagation(); onSurgeryClick(surgery); } }}
+                      >
                         {!surgery.patientId ? (
                           <span className="inline-block text-[10px] font-bold bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-1.5 py-0.5 rounded" data-testid={`badge-slot-reserved-${surgery.id}`}>
                             {t('opCalendar.slotReserved', 'SLOT RESERVED')}
@@ -1652,7 +1654,11 @@ export function SurgeryPlanningTable({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={surgery.plannedSurgery ?? undefined}>
+                      <TableCell
+                        className={cn("max-w-[200px] truncate", onSurgeryClick && "hover:bg-accent cursor-pointer")}
+                        title={surgery.plannedSurgery ?? undefined}
+                        onClick={(e) => { if (onSurgeryClick) { e.stopPropagation(); onSurgeryClick(surgery); } }}
+                      >
                         {surgery.plannedSurgery}
                       </TableCell>
                       <TableCell>{surgery.surgeon ?? "-"}</TableCell>
