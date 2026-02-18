@@ -3302,11 +3302,78 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + 6);
     
-    const { clinicAppointments, surgeries, users } = await import("@shared/schema");
+    const { clinicAppointments, surgeries, users, providerAbsences, providerTimeOff } = await import("@shared/schema");
     
     // Get provider info
     const [provider] = await db.select().from(users).where(eq(users.id, providerId));
     const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || provider.email : 'Provider';
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
+    // Sync Timebutler ICS absences for this provider before generating feed
+    if (provider?.timebutlerIcsUrl) {
+      try {
+        const ical = await import('node-ical');
+        const events = await ical.async.fromURL(provider.timebutlerIcsUrl);
+
+        const absences: any[] = [];
+        const now = new Date();
+        const oneYearAgo = new Date(now.getFullYear() - 1, 0, 1);
+        const oneYearAhead = new Date(now.getFullYear() + 1, 11, 31);
+
+        for (const [key, event] of Object.entries(events)) {
+          if ((event as any).type !== 'VEVENT') continue;
+
+          const vevent = event as any;
+          const evtStart = vevent.start;
+          const evtEnd = vevent.end;
+          const summary = vevent.summary || 'Absence';
+
+          if (!evtStart || evtStart < oneYearAgo || evtStart > oneYearAhead) continue;
+
+          let absenceType = 'other';
+          const lowerSummary = summary.toLowerCase();
+          if (lowerSummary.includes('urlaub') || lowerSummary.includes('vacation') || lowerSummary.includes('holiday')) {
+            absenceType = 'vacation';
+          } else if (lowerSummary.includes('krank') || lowerSummary.includes('sick')) {
+            absenceType = 'sick';
+          } else if (lowerSummary.includes('fortbildung') || lowerSummary.includes('training')) {
+            absenceType = 'training';
+          }
+
+          // ICS all-day events: DTEND is EXCLUSIVE (the day after the last day)
+          const isAllDayEvent = vevent.datetype === 'date' ||
+            (evtStart instanceof Date && evtStart.getHours() === 0 && evtStart.getMinutes() === 0);
+
+          let adjustedEndDate = evtEnd;
+          if (isAllDayEvent && evtEnd instanceof Date) {
+            adjustedEndDate = new Date(evtEnd);
+            adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+          }
+
+          absences.push({
+            providerId,
+            hospitalId,
+            absenceType,
+            startDate: evtStart instanceof Date ? evtStart.toISOString().split('T')[0] : evtStart,
+            endDate: adjustedEndDate instanceof Date ? adjustedEndDate.toISOString().split('T')[0] : adjustedEndDate,
+            externalId: `ics-${providerId}-${key}`,
+            notes: summary,
+          });
+        }
+
+        if (absences.length > 0) {
+          await storage.syncProviderAbsencesForUser(hospitalId, providerId, absences);
+        } else {
+          await storage.clearProviderAbsencesForUser(hospitalId, providerId);
+        }
+        logger.info(`ICS feed: synced ${absences.length} Timebutler absences for provider ${providerId}`);
+      } catch (syncError: any) {
+        logger.warn(`ICS feed: failed to sync Timebutler for provider ${providerId}: ${syncError.message}`);
+        // Continue with existing DB data even if sync fails
+      }
+    }
     
     // Get appointments for this provider
     const appointments = await db
@@ -3315,8 +3382,8 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
       .where(
         and(
           eq(clinicAppointments.providerId, providerId),
-          gte(clinicAppointments.appointmentDate, startDate.toISOString().split('T')[0]),
-          lte(clinicAppointments.appointmentDate, endDate.toISOString().split('T')[0]),
+          gte(clinicAppointments.appointmentDate, startDateStr),
+          lte(clinicAppointments.appointmentDate, endDateStr),
           sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
         )
       );
@@ -3335,7 +3402,34 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
           eq(surgeries.isArchived, false)
         )
       );
-    
+
+    // Get absences (Timebutler synced) for this provider
+    const absenceList = await db
+      .select()
+      .from(providerAbsences)
+      .where(
+        and(
+          eq(providerAbsences.providerId, providerId),
+          gte(providerAbsences.endDate, startDateStr),
+          lte(providerAbsences.startDate, endDateStr)
+        )
+      );
+
+    // Get time-offs (manually blocked slots) for this provider
+    const timeOffList = await db
+      .select()
+      .from(providerTimeOff)
+      .where(
+        and(
+          eq(providerTimeOff.providerId, providerId),
+          gte(providerTimeOff.endDate, startDateStr),
+          lte(providerTimeOff.startDate, endDateStr)
+        )
+      );
+
+    // Expand recurring time-offs into individual occurrences
+    const expandedTimeOffs = expandRecurringTimeOff(timeOffList, startDateStr, endDateStr);
+
     // Generate ICS content
     const events: string[] = [];
     
@@ -3375,7 +3469,71 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
         description: surgery.notes || '',
       }));
     }
-    
+
+    // Add absences (Timebutler: vacation, sick, etc.)
+    for (const absence of absenceList) {
+      const absStart = new Date(absence.startDate + 'T00:00:00');
+      const absEnd = new Date(absence.endDate + 'T00:00:00');
+
+      for (let d = new Date(absStart); d <= absEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const isFirstDay = dateStr === absence.startDate;
+        const isLastDay = dateStr === absence.endDate;
+
+        // Half-day logic
+        let dayStart = '07:00';
+        let dayEnd = '20:00';
+        if (isFirstDay && absence.isHalfDayStart) dayStart = '13:00';
+        if (isLastDay && absence.isHalfDayEnd) dayEnd = '13:00';
+
+        const startDt = new Date(`${dateStr}T${dayStart}:00+01:00`);
+        const endDt = new Date(`${dateStr}T${dayEnd}:00+01:00`);
+
+        events.push(generateIcsEvent({
+          uid: `absence-${absence.id}-${dateStr}@viali.app`,
+          summary: `Absent: ${absence.absenceType}`,
+          start: startDt,
+          end: endDt,
+          description: absence.notes || '',
+        }));
+      }
+    }
+
+    // Add time-offs (manually blocked slots)
+    for (const timeOff of expandedTimeOffs) {
+      if (timeOff.startTime && timeOff.endTime) {
+        // Partial day block
+        const startDt = new Date(`${timeOff.startDate}T${timeOff.startTime}:00+01:00`);
+        const endDt = new Date(`${timeOff.startDate}T${timeOff.endTime}:00+01:00`);
+
+        events.push(generateIcsEvent({
+          uid: `timeoff-${timeOff.id}-${timeOff.startDate}@viali.app`,
+          summary: `Blocked: ${timeOff.reason || 'Time off'}`,
+          start: startDt,
+          end: endDt,
+          description: timeOff.notes || '',
+        }));
+      } else {
+        // Full day block — iterate each day in range
+        const toStart = new Date(timeOff.startDate + 'T00:00:00');
+        const toEnd = new Date(timeOff.endDate + 'T00:00:00');
+
+        for (let d = new Date(toStart); d <= toEnd; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          const startDt = new Date(`${dateStr}T07:00:00+01:00`);
+          const endDt = new Date(`${dateStr}T20:00:00+01:00`);
+
+          events.push(generateIcsEvent({
+            uid: `timeoff-${timeOff.id}-${dateStr}@viali.app`,
+            summary: `Blocked: ${timeOff.reason || 'Time off'}`,
+            start: startDt,
+            end: endDt,
+            description: timeOff.notes || '',
+          }));
+        }
+      }
+    }
+
     // VTIMEZONE component for Europe/Zurich (required for proper timezone handling)
     const vtimezone = [
       'BEGIN:VTIMEZONE',
