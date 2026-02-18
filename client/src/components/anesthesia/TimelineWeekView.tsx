@@ -335,54 +335,155 @@ export default function TimelineWeekView({
     setDragState(null);
   }, [weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
 
-  // Touch event handlers for drag selection on touch devices
-  const getSlotFromTouch = useCallback((touch: React.Touch | Touch) => {
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (!element) return null;
-    const testId = element.getAttribute('data-testid');
-    if (!testId || !testId.startsWith('time-slot-')) return null;
-    const parts = testId.split('-');
-    // data-testid="time-slot-YYYY-MM-DD-slotIdx"
-    const slotIdx = parseInt(parts[parts.length - 1], 10);
-    const dateStr = parts.slice(2, 5).join('-');
-    const dayIdx = weekDays.findIndex(d => d.format('YYYY-MM-DD') === dateStr);
-    if (dayIdx < 0 || isNaN(slotIdx)) return null;
-    return { dayIdx, slotIdx };
-  }, [weekDays]);
+  // Touch handling via native event listeners (NOT React synthetic events).
+  // React registers touch events as passive, so preventDefault() is silently ignored.
+  // Native listeners with { passive: false } give us actual control over scrolling.
+  const isTouchDeviceRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const handleTouchStart = useCallback((dayIdx: number, slotIdx: number, e: React.TouchEvent) => {
-    e.preventDefault();
-    handleMouseDown(dayIdx, slotIdx);
-  }, [handleMouseDown]);
+  // Store callbacks in refs so the native listener always sees the latest version
+  const handleMouseDownRef = useRef(handleMouseDown);
+  const handleMouseEnterRef = useRef(handleMouseEnter);
+  const handleMouseUpRef = useRef(handleMouseUp);
+  const onCanvasClickRef = useRef(onCanvasClick);
+  const weekDaysRef = useRef(weekDays);
+  const surgeryRoomsRef = useRef(surgeryRooms);
+  handleMouseDownRef.current = handleMouseDown;
+  handleMouseEnterRef.current = handleMouseEnter;
+  handleMouseUpRef.current = handleMouseUp;
+  onCanvasClickRef.current = onCanvasClick;
+  weekDaysRef.current = weekDays;
+  surgeryRoomsRef.current = surgeryRooms;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDraggingRef.current) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    const slot = getSlotFromTouch(touch);
-    if (slot) {
-      handleMouseEnter(slot.dayIdx, slot.slotIdx);
-    }
-  }, [getSlotFromTouch, handleMouseEnter]);
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleMouseUp();
-  }, [handleMouseUp]);
+    const LONG_PRESS_MS = 200;
+    const MOVE_CANCEL_PX = 10;
+    const AUTO_SCROLL_EDGE = 50;
+    const AUTO_SCROLL_SPEED = 6;
 
-  // Global mouseup/touchend listener for drag selection
+    let touchStart: { x: number; y: number; dayIdx: number; slotIdx: number } | null = null;
+    let dragActive = false;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resolveSlot = (x: number, y: number) => {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const testId = el.getAttribute('data-testid');
+      if (!testId || !testId.startsWith('time-slot-')) return null;
+      const parts = testId.split('-');
+      const slotIdx = parseInt(parts[parts.length - 1], 10);
+      const dateStr = parts.slice(2, 5).join('-');
+      const dayIdx = weekDaysRef.current.findIndex(d => d.format('YYYY-MM-DD') === dateStr);
+      if (dayIdx < 0 || isNaN(slotIdx)) return null;
+      return { dayIdx, slotIdx };
+    };
+
+    const clearTimer = () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      isTouchDeviceRef.current = true;
+      const touch = e.touches[0];
+      const slot = resolveSlot(touch.clientX, touch.clientY);
+      if (!slot) return; // touch on non-slot area — let browser handle normally
+
+      touchStart = { x: touch.clientX, y: touch.clientY, ...slot };
+      dragActive = false;
+
+      clearTimer();
+      longPressTimer = setTimeout(() => {
+        if (!touchStart) return;
+        dragActive = true;
+        try { navigator.vibrate?.(30); } catch (_) {}
+        handleMouseDownRef.current(touchStart.dayIdx, touchStart.slotIdx);
+      }, LONG_PRESS_MS);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchStart) return;
+      const touch = e.touches[0];
+
+      // Before drag: check if finger moved (= scroll intent)
+      if (!dragActive) {
+        const dx = Math.abs(touch.clientX - touchStart.x);
+        const dy = Math.abs(touch.clientY - touchStart.y);
+        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+          clearTimer();
+          touchStart = null;
+          // Don't preventDefault — let browser scroll naturally
+        }
+        return;
+      }
+
+      // Drag is active — PREVENT SCROLL (this works because { passive: false })
+      e.preventDefault();
+
+      // Auto-scroll near edges
+      const rect = container.getBoundingClientRect();
+      if (touch.clientY > rect.bottom - AUTO_SCROLL_EDGE) {
+        container.scrollTop += AUTO_SCROLL_SPEED;
+      } else if (touch.clientY < rect.top + AUTO_SCROLL_EDGE) {
+        container.scrollTop -= AUTO_SCROLL_SPEED;
+      }
+
+      // Update slot selection
+      const slot = resolveSlot(touch.clientX, touch.clientY);
+      if (slot) {
+        handleMouseEnterRef.current(slot.dayIdx, slot.slotIdx);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      clearTimer();
+
+      if (dragActive && isDraggingRef.current) {
+        e.preventDefault();
+        handleMouseUpRef.current();
+      } else if (touchStart) {
+        // Short tap — quick create
+        e.preventDefault();
+        const { dayIdx, slotIdx } = touchStart;
+        if (onCanvasClickRef.current) {
+          const day = weekDaysRef.current[dayIdx];
+          const startMinutes = slotIdx * SLOT_MINUTES;
+          const clickTime = day.clone()
+            .hour(BUSINESS_HOUR_START).minute(0).second(0)
+            .add(startMinutes, 'minutes').toDate();
+          onCanvasClickRef.current(surgeryRoomsRef.current[0]?.id || '', clickTime);
+        }
+      }
+      touchStart = null;
+      dragActive = false;
+    };
+
+    // passive: true for touchstart (we don't need to prevent it — scroll should work)
+    // passive: false for touchmove/touchend (we NEED preventDefault to stop scroll during drag)
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      clearTimer();
+    };
+  }, []); // stable — uses refs for all changing values
+
+  // Global mouseup listener for desktop drag selection
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (isDraggingRef.current) {
         handleMouseUp();
       }
     };
-
     document.addEventListener('mouseup', handleGlobalMouseUp);
-    document.addEventListener('touchend', handleGlobalMouseUp);
     return () => {
       document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('touchend', handleGlobalMouseUp);
     };
   }, [handleMouseUp]);
 
@@ -414,7 +515,7 @@ export default function TimelineWeekView({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto pb-6" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto pb-6" style={{ minWidth: `calc(4rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
         <div className="flex">
           {/* Time gutter */}
           <div className="w-16 flex-shrink-0 border-r bg-muted/20">
@@ -455,14 +556,18 @@ export default function TimelineWeekView({
                       )}
                       style={{ height: SLOT_HEIGHT }}
                       onMouseDown={(e) => {
+                        if (isTouchDeviceRef.current) return;
                         e.preventDefault();
                         handleMouseDown(dayIdx, slotIdx);
                       }}
-                      onMouseEnter={() => handleMouseEnter(dayIdx, slotIdx)}
-                      onMouseUp={handleMouseUp}
-                      onTouchStart={(e) => handleTouchStart(dayIdx, slotIdx, e)}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleTouchEnd}
+                      onMouseEnter={() => {
+                        if (isTouchDeviceRef.current) return;
+                        handleMouseEnter(dayIdx, slotIdx);
+                      }}
+                      onMouseUp={() => {
+                        if (isTouchDeviceRef.current) return;
+                        handleMouseUp();
+                      }}
                       data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${slotIdx}`}
                     />
                   );
