@@ -423,6 +423,7 @@ ${templateContent}
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
 - Follow the template structure above — do NOT add extra sections or change the order
 - If a template section has no matching clinical data, keep the section heading but note that no data was available
+- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
 - Be concise but thorough`;
   }
 
@@ -480,6 +481,6 @@ Structure the brief with the following sections:
 - Use professional medical language appropriate for clinical documentation
 - Base the content ONLY on the provided clinical data — do not invent information
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
-- Use markdown formatting (headings, bold, bullet points)
+- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
 - Be concise but thorough`;
 }
