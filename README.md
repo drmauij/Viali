@@ -15,7 +15,7 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **Expiry Tracking**: Minimize waste from expired items
 - **Controlled Substances**: Full compliance tracking and electronic signatures
 - **Barcode Scanning**: Quick item identification and tracking
-- **AI-Powered Import**: Bulk photo import with automated item extraction using OpenAI Vision
+- **AI-Powered Import**: Bulk photo import with automated item extraction (OpenAI or Mistral Vision, configurable per hospital)
 
 ### 💉 Anesthesia Records
 - **Pre-OP Assessment**: Comprehensive pre-operative patient evaluation
@@ -42,6 +42,69 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **Electronic Signatures**: Print-ready signature capture for controlled substances
 - **PDF Export**: Generate professional reports and order forms
 
+## 🤖 AI Services
+
+Viali uses external AI services for specific features. This section documents exactly what is used, where, and how data is handled.
+
+### Providers
+
+| Provider | What for | Model | Configurable via |
+|----------|----------|-------|------------------|
+| **Mistral** (EU) | Medical translation, patient communication translation | `mistral-small-latest` | `MISTRAL_TEXT_MODEL` env var |
+| **OpenAI** or **Mistral** | Vision/OCR — item recognition, monitor vitals extraction | `gpt-4o-mini` / `pixtral-large-latest` | Per-hospital setting in Admin panel |
+| **OpenAI** | Voice transcription (German drug commands) | `whisper-1` | — |
+| **OpenAI** | Drug command parsing (from transcribed text) | `gpt-4o-mini` | — |
+| **OpenAI** | Supplier product matching (batch jobs) | `gpt-4o-mini` | — |
+
+### Where in the code
+
+| Feature | File(s) | Endpoint(s) |
+|---------|---------|-------------|
+| Patient communication translation | `server/routes/ai.ts` | `POST /api/translate-message` |
+| Medical term translation (EN↔DE) | `server/routes/ai.ts` | `POST /api/translate` |
+| Vision/OCR — item images | `server/openai.ts` | `POST /api/items/analyze-image`, `POST /api/items/analyze-codes` |
+| Vision/OCR — bulk import | `server/openai.ts` | `POST /api/import-jobs` (background worker) |
+| Vision/OCR — monitor vitals | `server/services/aiMonitorAnalysis.ts` | `POST /api/analyze-monitor` |
+| Voice transcription | `server/services/aiMonitorAnalysis.ts` | `POST /api/transcribe-voice` |
+| Drug command parsing | `server/services/aiMonitorAnalysis.ts` | `POST /api/parse-drug-command` |
+| Supplier product matching | `server/services/polymedMatching.ts` | Internal (batch processing) |
+| Vision provider selection | `server/services/visionAiFactory.ts` | `PATCH /api/hospitals/:id` |
+
+### Data privacy and anonymization
+
+**Translation services (Mistral):** All text sent to Mistral for translation is **anonymized and sanitized** before leaving the server. The `anonymize()` function (in `server/utils/anonymize.ts`) replaces personally identifiable information with numbered placeholders:
+
+- Patient and doctor names → `[NAME_1]`, `[NAME_2]`, ...
+- Email addresses → `[EMAIL_1]`, ...
+- Dates → `[DATE_1]`, `[DATETIME_1]`, ...
+- Phone numbers → `[PHONE_1]`, ...
+- URLs → `[LINK_1]`, ...
+- Swiss AHV social security numbers → `[AHV_1]`, ...
+
+After the translated response comes back, the original values are restored via a `restore()` function. Every outbound call is audit-logged with a summary of what was anonymized.
+
+**Translation was moved from OpenAI to Mistral** specifically for EU data residency — Mistral is a French company and all data stays within the EU.
+
+**Vision/OCR services (OpenAI or Mistral):** Image analysis processes pharmaceutical product images (labels, barcodes) and medical monitor screenshots. These images contain product metadata and vital signs but are not passed through the PII anonymization pipeline — they don't typically contain patient-identifying information.
+
+**Voice transcription (OpenAI Whisper):** Processes short German-language voice commands for drug administration. Audio contains drug names and dosages, not patient identifiers.
+
+**Patient ID extraction:** Uses **Tesseract.js locally** — no external API call. OCR runs entirely on the server.
+
+### Vision AI provider selection
+
+Hospital administrators can choose between OpenAI and Mistral (Pixtral) for all vision/OCR features on a per-hospital basis via the Admin panel (Camera & Devices section). This setting affects item image analysis, bulk import, and monitor OCR for that hospital.
+
+### Required environment variables
+
+| Variable | Required | Default |
+|----------|----------|---------|
+| `MISTRAL_API_KEY` | Yes (for translations) | — |
+| `OPENAI_API_KEY` | Yes (for vision, transcription, matching) | — |
+| `MISTRAL_TEXT_MODEL` | No | `mistral-small-latest` |
+| `MISTRAL_VISION_MODEL` | No | `pixtral-large-latest` |
+| `OPENAI_VISION_MODEL` | No | `gpt-4o-mini` |
+
 ## 🛠️ Technology Stack
 
 ### Frontend
@@ -58,7 +121,8 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **PostgreSQL** (Neon serverless)
 - **Drizzle ORM** for type-safe database queries
 - **Passport.js** for authentication
-- **OpenAI** for AI-powered features
+- **Mistral AI** for translations (EU data residency)
+- **OpenAI** for vision, transcription, and matching
 - **Resend** for email notifications
 
 ### Infrastructure
@@ -83,7 +147,8 @@ Viali runs **two processes** managed by PM2:
 - **SSH access** to your server
 - **PM2** process manager
 - **Nginx** web server (recommended)
-- **OpenAI API key** (required for AI features)
+- **Mistral API key** (required for translations)
+- **OpenAI API key** (required for vision, transcription, matching)
 
 ---
 
@@ -133,6 +198,7 @@ module.exports = {
         SESSION_SECRET: 'your-random-secret-minimum-32-characters',
         ENCRYPTION_SECRET: 'another-random-secret-minimum-32-characters',
         OPENAI_API_KEY: 'sk-proj-xxxxxxxxxxxxx',
+        MISTRAL_API_KEY: 'your-mistral-api-key',
         GOOGLE_CLIENT_ID: 'your-client-id.apps.googleusercontent.com',
         GOOGLE_CLIENT_SECRET: 'your-client-secret',
         RESEND_API_KEY: 're_xxxxxxxxxxxxx',
@@ -149,6 +215,7 @@ module.exports = {
         NODE_ENV: 'production',
         DATABASE_URL: 'postgresql://user:password@host:port/database?sslmode=require',
         OPENAI_API_KEY: 'sk-proj-xxxxxxxxxxxxx',
+        MISTRAL_API_KEY: 'your-mistral-api-key',
         DB_SSL_REJECT_UNAUTHORIZED: 'false',
       },
     },
@@ -356,6 +423,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/viali
 SESSION_SECRET=your-dev-secret
 ENCRYPTION_SECRET=your-dev-secret
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
+MISTRAL_API_KEY=your-mistral-api-key
 ```
 
 **Start development server:**
