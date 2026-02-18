@@ -316,7 +316,7 @@ router.post("/api/patients/:patientId/discharge-medications", isAuthenticated, r
     if (!hospitalId) return res.status(400).json({ error: "hospitalId required" });
 
     if (medItems && medItems.length > 0) {
-      const itemIds = medItems.map((m: any) => m.itemId);
+      const itemIds = medItems.filter((m: any) => m.itemId).map((m: any) => m.itemId);
       let hasControlled = false;
       for (const itemId of itemIds) {
         const item = await storage.getItem(itemId);
@@ -352,7 +352,7 @@ router.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess
     if (!existing) return res.status(404).json({ error: "Not found" });
 
     if (medItems && medItems.length > 0) {
-      const itemIds = medItems.map((m: any) => m.itemId);
+      const itemIds = medItems.filter((m: any) => m.itemId).map((m: any) => m.itemId);
       let hasControlled = false;
       for (const itemId of itemIds) {
         const item = await storage.getItem(itemId);

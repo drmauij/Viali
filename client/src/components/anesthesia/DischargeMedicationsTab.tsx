@@ -40,7 +40,8 @@ interface DischargeMedicationsTabProps {
 }
 
 interface MedicationItemEntry {
-  itemId: string;
+  itemId: string | null;
+  customName?: string;
   itemName: string;
   quantity: number;
   unitType: "pills" | "packs";
@@ -166,7 +167,8 @@ export function DischargeMedicationsTab({
         signature: data.signature,
         createdBy: (user as any)?.id || null,
         items: medicationItems.map(item => ({
-          itemId: item.itemId,
+          itemId: item.itemId || null,
+          customName: item.customName || null,
           quantity: item.quantity,
           unitType: item.unitType,
           administrationRoute: item.administrationRoute || null,
@@ -211,7 +213,8 @@ export function DischargeMedicationsTab({
         notes: slotNotes || null,
         signature: data.signature,
         items: medicationItems.map(item => ({
-          itemId: item.itemId,
+          itemId: item.itemId || null,
+          customName: item.customName || null,
           quantity: item.quantity,
           unitType: item.unitType,
           administrationRoute: item.administrationRoute || null,
@@ -255,8 +258,9 @@ export function DischargeMedicationsTab({
     setSignature(slot.signature || null);
     setMedicationItems(
       (slot.items || []).map((medItem: any) => ({
-        itemId: medItem.itemId,
-        itemName: medItem.item?.name || medItem.itemId,
+        itemId: medItem.itemId || null,
+        customName: medItem.customName || undefined,
+        itemName: medItem.item?.name || medItem.customName || medItem.itemId || '',
         quantity: medItem.quantity || 1,
         unitType: medItem.unitType || "packs",
         administrationRoute: medItem.administrationRoute || "p.o.",
@@ -301,6 +305,29 @@ export function DischargeMedicationsTab({
     setItemSearchQuery("");
   };
 
+  const addCustomMedicationItem = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (medicationItems.some(m => !m.itemId && m.customName === trimmed)) {
+      toast({ title: t('dischargeMedications.alreadyAdded', 'This item is already added'), variant: "destructive" });
+      return;
+    }
+    setMedicationItems(prev => [...prev, {
+      itemId: null,
+      customName: trimmed,
+      itemName: trimmed,
+      quantity: 1,
+      unitType: "packs",
+      administrationRoute: "p.o.",
+      frequency: "1-0-1-0",
+      notes: "",
+      endPrice: "",
+      isControlled: false,
+    }]);
+    setItemSearchOpen(false);
+    setItemSearchQuery("");
+  };
+
   const updateMedicationItem = (index: number, updates: Partial<MedicationItemEntry>) => {
     setMedicationItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
   };
@@ -324,7 +351,7 @@ export function DischargeMedicationsTab({
       const invoiceItems = (slot.items || []).map((medItem: any) => ({
         lineType: "item" as const,
         itemId: medItem.itemId,
-        description: medItem.item?.name || medItem.itemId,
+        description: medItem.item?.name || medItem.customName || medItem.itemId,
         quantity: medItem.quantity || 1,
         unitPrice: medItem.endPrice ? parseFloat(medItem.endPrice) : 0,
         taxRate: 2.6,
@@ -362,7 +389,8 @@ export function DischargeMedicationsTab({
         name,
         createdBy: (user as any)?.id || null,
         items: medicationItems.map(item => ({
-          itemId: item.itemId,
+          itemId: item.itemId || null,
+          customName: item.customName || null,
           quantity: item.quantity,
           unitType: item.unitType,
           administrationRoute: item.administrationRoute || null,
@@ -397,8 +425,9 @@ export function DischargeMedicationsTab({
 
   const loadTemplate = (template: any) => {
     const newItems: MedicationItemEntry[] = (template.items || []).map((ti: any) => ({
-      itemId: ti.itemId,
-      itemName: ti.item?.name || ti.itemId,
+      itemId: ti.itemId || null,
+      customName: ti.customName || undefined,
+      itemName: ti.item?.name || ti.customName || ti.itemId || '',
       quantity: ti.quantity || 1,
       unitType: ti.unitType || "packs",
       administrationRoute: ti.administrationRoute || "p.o.",
@@ -485,7 +514,7 @@ export function DischargeMedicationsTab({
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      const medName = medItem.item?.name || medItem.itemId || '';
+      const medName = medItem.item?.name || medItem.customName || medItem.itemId || '';
       const nameLines = doc.splitTextToSize(medName, maxTextW);
       doc.text(nameLines.slice(0, 2), px, py);
       py += nameLines.slice(0, 2).length * 4;
@@ -638,7 +667,7 @@ export function DischargeMedicationsTab({
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{medItem.item?.name || medItem.itemId}</span>
+                          <span className="font-medium truncate">{medItem.item?.name || medItem.customName || medItem.itemId}</span>
                           {medItem.item?.controlled && (
                             <Badge variant="destructive" className="text-xs shrink-0">
                               {t('dischargeMedications.controlled', 'Controlled')}
@@ -912,7 +941,19 @@ export function DischargeMedicationsTab({
                           onValueChange={setItemSearchQuery}
                         />
                         <CommandList>
-                          <CommandEmpty>{t('dischargeMedications.noMedicationFound', 'No medication found')}</CommandEmpty>
+                          <CommandEmpty>
+                            {itemSearchQuery.trim() ? (
+                              <button
+                                className="w-full px-2 py-3 text-sm text-left hover:bg-accent cursor-pointer"
+                                onClick={() => addCustomMedicationItem(itemSearchQuery)}
+                              >
+                                <Plus className="h-4 w-4 mr-1 inline" />
+                                {t('dischargeMedications.addFreeText', 'Add "{{name}}" as free text', { name: itemSearchQuery.trim() })}
+                              </button>
+                            ) : (
+                              t('dischargeMedications.noMedicationFound', 'No medication found')
+                            )}
+                          </CommandEmpty>
                           <CommandGroup>
                             {filteredItems.map((item: any) => (
                               <CommandItem
@@ -940,6 +981,18 @@ export function DischargeMedicationsTab({
                               </CommandItem>
                             ))}
                           </CommandGroup>
+                          {itemSearchQuery.trim() && filteredItems.length > 0 && (
+                            <CommandGroup>
+                              <CommandItem
+                                value={`__custom__${itemSearchQuery}`}
+                                onSelect={() => addCustomMedicationItem(itemSearchQuery)}
+                                data-testid="medication-option-custom"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                {t('dischargeMedications.addFreeText', 'Add "{{name}}" as free text', { name: itemSearchQuery.trim() })}
+                              </CommandItem>
+                            </CommandGroup>
+                          )}
                         </CommandList>
                       </Command>
                     </PopoverContent>
@@ -955,15 +1008,29 @@ export function DischargeMedicationsTab({
                 ) : (
                   <div className="space-y-4">
                     {medicationItems.map((medItem, index) => (
-                      <Card key={medItem.itemId} className={cn("relative", medItem.isControlled && "border-amber-300 dark:border-amber-700")} data-testid={`medication-entry-${index}`}>
+                      <Card key={medItem.itemId || `custom-${index}`} className={cn("relative", medItem.isControlled && "border-amber-300 dark:border-amber-700")} data-testid={`medication-entry-${index}`}>
                         <CardContent className="pt-4 pb-3 px-4">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{medItem.itemName}</span>
+                              {!medItem.itemId ? (
+                                <Input
+                                  value={medItem.customName || medItem.itemName}
+                                  onChange={(e) => updateMedicationItem(index, { customName: e.target.value, itemName: e.target.value })}
+                                  className="h-7 font-medium text-sm w-48"
+                                  placeholder={t('dischargeMedications.medicationName', 'Medication name')}
+                                />
+                              ) : (
+                                <span className="font-medium">{medItem.itemName}</span>
+                              )}
                               {medItem.isControlled && (
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
                                   {t('dischargeMedications.controlled', 'Controlled')}
+                                </Badge>
+                              )}
+                              {!medItem.itemId && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {t('dischargeMedications.freeText', 'Free text')}
                                 </Badge>
                               )}
                             </div>

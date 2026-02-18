@@ -5198,7 +5198,8 @@ export const patientDischargeMedications = pgTable("patient_discharge_medication
 export const patientDischargeMedicationItems = pgTable("patient_discharge_medication_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dischargeMedicationId: varchar("discharge_medication_id").notNull().references(() => patientDischargeMedications.id, { onDelete: 'cascade' }),
-  itemId: varchar("item_id").notNull().references(() => items.id),
+  itemId: varchar("item_id").references(() => items.id),
+  customName: varchar("custom_name"),
   quantity: integer("quantity").notNull().default(1),
   unitType: varchar("unit_type").notNull().default("packs"),
   administrationRoute: varchar("administration_route"),
@@ -5243,7 +5244,8 @@ export const dischargeMedicationTemplates = pgTable("discharge_medication_templa
 export const dischargeMedicationTemplateItems = pgTable("discharge_medication_template_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   templateId: varchar("template_id").notNull().references(() => dischargeMedicationTemplates.id, { onDelete: 'cascade' }),
-  itemId: varchar("item_id").notNull().references(() => items.id),
+  itemId: varchar("item_id").references(() => items.id),
+  customName: varchar("custom_name"),
   quantity: integer("quantity").notNull().default(1),
   unitType: varchar("unit_type").notNull().default("packs"),
   administrationRoute: varchar("administration_route"),

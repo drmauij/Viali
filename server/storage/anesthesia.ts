@@ -4223,7 +4223,7 @@ export async function deleteSurgerySetInventory(setId: string): Promise<void> {
 
 // ========== PATIENT DISCHARGE MEDICATIONS ==========
 
-export async function getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null })[]> {
+export async function getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item | null })[], doctor: User | null })[]> {
   const slots = await db
     .select()
     .from(patientDischargeMedications)
@@ -4238,7 +4238,7 @@ export async function getPatientDischargeMedications(patientId: string, hospital
     const slotItems = await db
       .select()
       .from(patientDischargeMedicationItems)
-      .innerJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
+      .leftJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
       .where(eq(patientDischargeMedicationItems.dischargeMedicationId, slot.id));
 
     let doctor: User | null = null;
@@ -4256,7 +4256,7 @@ export async function getPatientDischargeMedications(patientId: string, hospital
   return results;
 }
 
-export async function getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null }) | undefined> {
+export async function getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item | null })[], doctor: User | null }) | undefined> {
   const [slot] = await db
     .select()
     .from(patientDischargeMedications)
@@ -4266,7 +4266,7 @@ export async function getPatientDischargeMedication(id: string): Promise<(Patien
   const slotItems = await db
     .select()
     .from(patientDischargeMedicationItems)
-    .innerJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
+    .leftJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
     .where(eq(patientDischargeMedicationItems.dischargeMedicationId, slot.id));
 
   let doctor: User | null = null;
@@ -4294,19 +4294,21 @@ export async function createPatientDischargeMedication(data: InsertPatientDischa
       dischargeMedicationId: slot.id,
     });
 
-    const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
-    if (item) {
-      if (item.trackExactQuantity) {
-        const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
-        await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
-      } else {
-        const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
-        if (stockLevel) {
-          const deductQty = medItem.unitType === 'pills'
-            ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
-            : (medItem.quantity || 1);
-          const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
-          await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+    if (medItem.itemId) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const deductQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
         }
       }
     }
@@ -4322,19 +4324,21 @@ export async function updatePatientDischargeMedication(id: string, data: Partial
     .where(eq(patientDischargeMedicationItems.dischargeMedicationId, id));
 
   for (const medItem of oldItems) {
-    const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
-    if (item) {
-      if (item.trackExactQuantity) {
-        const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
-        await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
-      } else {
-        const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
-        if (stockLevel) {
-          const restoreQty = medItem.unitType === 'pills'
-            ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
-            : (medItem.quantity || 1);
-          const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
-          await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+    if (medItem.itemId) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const restoreQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
         }
       }
     }
@@ -4358,19 +4362,21 @@ export async function updatePatientDischargeMedication(id: string, data: Partial
       dischargeMedicationId: id,
     });
 
-    const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
-    if (item) {
-      if (item.trackExactQuantity) {
-        const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
-        await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
-      } else {
-        const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
-        if (stockLevel) {
-          const deductQty = medItem.unitType === 'pills'
-            ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
-            : (medItem.quantity || 1);
-          const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
-          await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+    if (medItem.itemId) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const deductQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
         }
       }
     }
@@ -4387,19 +4393,21 @@ export async function deletePatientDischargeMedication(id: string): Promise<Pati
     .where(eq(patientDischargeMedicationItems.dischargeMedicationId, id));
 
   for (const medItem of deletedItems) {
-    const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
-    if (item) {
-      if (item.trackExactQuantity) {
-        const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
-        await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
-      } else {
-        const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
-        if (stockLevel) {
-          const restoreQty = medItem.unitType === 'pills'
-            ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
-            : (medItem.quantity || 1);
-          const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
-          await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+    if (medItem.itemId) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const restoreQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
         }
       }
     }
@@ -4426,7 +4434,7 @@ export async function getAnesthesiaRecordsBySurgeryIds(surgeryIds: string[]): Pr
 
 // ========== DISCHARGE MEDICATION TEMPLATES ==========
 
-export async function getDischargeMedicationTemplates(hospitalId: string): Promise<(DischargeMedicationTemplate & { items: (DischargeMedicationTemplateItem & { item: Item })[] })[]> {
+export async function getDischargeMedicationTemplates(hospitalId: string): Promise<(DischargeMedicationTemplate & { items: (DischargeMedicationTemplateItem & { item: Item | null })[] })[]> {
   const templates = await db
     .select()
     .from(dischargeMedicationTemplates)
@@ -4439,10 +4447,10 @@ export async function getDischargeMedicationTemplates(hospitalId: string): Promi
   const allItems = await db
     .select()
     .from(dischargeMedicationTemplateItems)
-    .innerJoin(items, eq(dischargeMedicationTemplateItems.itemId, items.id))
+    .leftJoin(items, eq(dischargeMedicationTemplateItems.itemId, items.id))
     .where(inArray(dischargeMedicationTemplateItems.templateId, templateIds));
 
-  const itemsByTemplate = new Map<string, (DischargeMedicationTemplateItem & { item: Item })[]>();
+  const itemsByTemplate = new Map<string, (DischargeMedicationTemplateItem & { item: Item | null })[]>();
   for (const row of allItems) {
     const entry = { ...row.discharge_medication_template_items, item: row.items };
     const existing = itemsByTemplate.get(row.discharge_medication_template_items.templateId) ?? [];
@@ -4458,7 +4466,7 @@ export async function getDischargeMedicationTemplates(hospitalId: string): Promi
 
 export async function createDischargeMedicationTemplate(
   data: { hospitalId: string; name: string; createdBy?: string | null },
-  templateItems: Array<{ itemId: string; quantity: number; unitType: string; administrationRoute?: string | null; frequency?: string | null; notes?: string | null }>,
+  templateItems: Array<{ itemId?: string | null; customName?: string | null; quantity: number; unitType: string; administrationRoute?: string | null; frequency?: string | null; notes?: string | null }>,
 ): Promise<DischargeMedicationTemplate> {
   const [tmpl] = await db
     .insert(dischargeMedicationTemplates)
@@ -4468,7 +4476,8 @@ export async function createDischargeMedicationTemplate(
   for (const item of templateItems) {
     await db.insert(dischargeMedicationTemplateItems).values({
       templateId: tmpl.id,
-      itemId: item.itemId,
+      itemId: item.itemId || null,
+      customName: item.customName || null,
       quantity: item.quantity,
       unitType: item.unitType,
       administrationRoute: item.administrationRoute || null,

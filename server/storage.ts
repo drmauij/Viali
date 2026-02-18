@@ -710,7 +710,7 @@ export interface IStorage {
   getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]>;
   updateQuestionnaireLink(id: string, updates: Partial<PatientQuestionnaireLink>): Promise<PatientQuestionnaireLink>;
   invalidateQuestionnaireLink(id: string): Promise<void>;
-  getQuestionnaireStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, string>>;
+  getQuestionnaireStatusBySurgeryIds(surgeryIds: string[], surgeryPatientMap?: Map<string, string>): Promise<Map<string, string>>;
 
   // Questionnaire Response operations
   createQuestionnaireResponse(response: InsertPatientQuestionnaireResponse): Promise<PatientQuestionnaireResponse>;
@@ -927,8 +927,8 @@ export interface IStorage {
   deleteSurgerySetInventory(setId: string): Promise<void>;
 
   // Patient Discharge Medications
-  getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null })[]>;
-  getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null }) | undefined>;
+  getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item | null })[], doctor: User | null })[]>;
+  getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item | null })[], doctor: User | null }) | undefined>;
   createPatientDischargeMedication(data: InsertPatientDischargeMedication, items: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
