@@ -3330,7 +3330,9 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
           eq(surgeries.surgeonId, providerId),
           gte(surgeries.plannedDate, startDate),
           lte(surgeries.plannedDate, endDate),
-          sql`${surgeries.status} != 'cancelled'`
+          sql`${surgeries.status} != 'cancelled'`,
+          eq(surgeries.isSuspended, false),
+          eq(surgeries.isArchived, false)
         )
       );
     
@@ -3356,14 +3358,20 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     // Add surgeries - plannedDate is a timestamp that includes both date and time
     for (const surgery of surgeryList) {
       const startDt = surgery.plannedDate;
-      // Default surgery duration is 2 hours if no end time info available
-      const endDt = new Date(startDt.getTime() + 120 * 60000);
-      
+      // Use actual planned end time, fallback to 3h default
+      const endDt = surgery.actualEndTime
+        ? new Date(surgery.actualEndTime)
+        : new Date(startDt.getTime() + 180 * 60000);
+
+      // Add 30min buffer before and after
+      const bufferedStart = new Date(startDt.getTime() - 30 * 60000);
+      const bufferedEnd = new Date(endDt.getTime() + 30 * 60000);
+
       events.push(generateIcsEvent({
         uid: `surgery-${surgery.id}@viali.app`,
         summary: `Surgery: ${surgery.plannedSurgery}`,
-        start: startDt,
-        end: endDt,
+        start: bufferedStart,
+        end: bufferedEnd,
         description: surgery.notes || '',
       }));
     }
