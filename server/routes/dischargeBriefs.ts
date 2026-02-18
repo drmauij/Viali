@@ -439,7 +439,7 @@ router.post(
       const hospital = await storage.getHospital(brief.hospitalId);
 
       // Dynamic import to avoid loading jsPDF at module level
-      const { renderDischargeBriefPdf } = await import("../utils/markdownToPdf");
+      const { renderDischargeBriefPdf } = await import("../utils/htmlToPdf");
       const pdfBuffer = await renderDischargeBriefPdf({
         content: brief.content || "",
         briefType: brief.briefType,
