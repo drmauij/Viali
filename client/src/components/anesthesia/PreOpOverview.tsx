@@ -143,11 +143,15 @@ function useInstallationLabels() {
   const { t } = useTranslation();
   return {
     arterialLine: t('anesthesia.preop.installation.arterialLine', 'Arterial Line'),
+    centralLine: t('anesthesia.preop.installation.centralLine', 'Central Line'),
     cvc: t('anesthesia.preop.installation.cvc', 'Central Venous Catheter'),
     picLine: t('anesthesia.preop.installation.picLine', 'Peripherally Inserted Central Catheter'),
+    epiduralCatheter: t('anesthesia.preop.installation.epiduralCatheter', 'Epidural Catheter'),
     urinaryCatheter: t('anesthesia.preop.installation.urinaryCatheter', 'Urinary Catheter'),
     nasogastricTube: t('anesthesia.preop.installation.nasogastricTube', 'Nasogastric Tube'),
     drainageTube: t('anesthesia.preop.installation.drainageTube', 'Drainage Tube'),
+    ivExtensionLine: t('anesthesia.preop.installation.ivExtensionLine', 'Peripheral IV with Extension Line'),
+    bilateralIV: t('anesthesia.preop.installation.bilateralIV', 'Bilateral Peripheral IV Access'),
   } as Record<string, string>;
 }
 
@@ -313,6 +317,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           'doppellumentubus': t('anesthesia.preop.techniques.doubleLumen', 'Double Lumen Tube'),
           'nasal-intubation': t('anesthesia.preop.techniques.nasalIntubation', 'Nasal Intubation'),
           'awake-intubation': t('anesthesia.preop.techniques.awakeIntubation', 'Awake Intubation'),
+          'videolaryngoscope': t('anesthesia.preop.techniques.videolaryngoscope', 'Videolaryngoscope'),
           'ponv-prophylaxis': t('anesthesia.preop.techniques.ponvProphylaxis', 'PONV Prophylaxis'),
         };
         return labels[key] || key;
@@ -339,10 +344,21 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
           'axillary-block': t('anesthesia.preop.blocks.axillary', 'Axillary Block'),
           'femoral-block': t('anesthesia.preop.blocks.femoral', 'Femoral Block'),
           'sciatic-block': t('anesthesia.preop.blocks.sciatic', 'Sciatic Block'),
+          'sciatic-proximal-block': t('anesthesia.preop.blocks.sciaticProximal', 'Sciatic Block (Proximal)'),
+          'sciatic-distal-block': t('anesthesia.preop.blocks.sciaticDistal', 'Sciatic Block (Distal / Popliteal)'),
+          'obturator-block': t('anesthesia.preop.blocks.obturator', 'Nervus Obturatorius Block'),
+          'saphenous-block': t('anesthesia.preop.blocks.saphenous', 'Nervus Saphenus Block'),
+          'adductor-canal-block': t('anesthesia.preop.blocks.adductorCanal', 'Adductor Canal Block'),
+          'fascia-iliaca-block': t('anesthesia.preop.blocks.fasciaIliaca', 'Fascia Iliaca Block'),
           'popliteal-block': t('anesthesia.preop.blocks.popliteal', 'Popliteal Block'),
+          'ankle-block': t('anesthesia.preop.blocks.ankle', 'Ankle Block'),
           'tap-block': t('anesthesia.preop.blocks.tap', 'Transversus Abdominis Plane Block'),
+          'quadratus-lumborum-block': t('anesthesia.preop.blocks.quadratusLumborum', 'Quadratus Lumborum Block'),
+          'erector-spinae-block': t('anesthesia.preop.blocks.erectorSpinae', 'Erector Spinae Plane Block'),
+          'rectus-sheath-block': t('anesthesia.preop.blocks.rectusSheath', 'Rectus Sheath Block'),
           'pecs-block': t('anesthesia.preop.blocks.pecs', 'Pectoral Nerve Block'),
           'serratus-block': t('anesthesia.preop.blocks.serratus', 'Serratus Plane Block'),
+          'penile-block': t('anesthesia.preop.blocks.penile', 'Penile Block'),
           'with-catheter': t('anesthesia.preop.blocks.withCatheter', 'with Catheter'),
         };
         return labels[key] || key;

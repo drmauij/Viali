@@ -600,7 +600,7 @@ export default function PatientDetail() {
         postOpICU: existingAssessment.postOpICU || false,
         anesthesiaOther: existingAssessment.anesthesiaOther || "",
         installations: existingAssessment.installations || {
-          arterialLine: false, centralLine: false, epiduralCatheter: false, urinaryCatheter: false, nasogastricTube: false, peripheralIV: false,
+          arterialLine: false, centralLine: false, epiduralCatheter: false, urinaryCatheter: false, nasogastricTube: false, ivExtensionLine: false, bilateralIV: false,
         },
         installationsOther: existingAssessment.installationsOther || "",
         surgicalApprovalStatus: existingAssessment.surgicalApproval || "",
@@ -4120,6 +4120,7 @@ export default function PatientDetail() {
                                         { id: 'doppellumentubus', label: t('anesthesia.patientDetail.doppellumentubus') },
                                         { id: 'nasal-intubation', label: t('anesthesia.patientDetail.nasalIntubation') },
                                         { id: 'awake-intubation', label: t('anesthesia.patientDetail.awakeIntubation') },
+                                        { id: 'videolaryngoscope', label: t('anesthesia.patientDetail.videolaryngoscope', 'Videolaryngoscope') },
                                         { id: 'ponv-prophylaxis', label: t('anesthesia.patientDetail.ponvProphylaxis') },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
@@ -4222,38 +4223,75 @@ export default function PatientDetail() {
                                     <Label htmlFor="regional" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.regionalAnesthesia')}</Label>
                                   </div>
                                   {assessmentData.anesthesiaTechniques.regional && (
-                                    <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
+                                    <div className="ml-6 p-2 bg-muted/30 rounded space-y-3">
                                       {[
-                                        { id: 'interscalene-block', label: t('anesthesia.patientDetail.interscaleneBlock') },
-                                        { id: 'supraclavicular-block', label: t('anesthesia.patientDetail.supraclavicularBlock') },
-                                        { id: 'infraclavicular-block', label: t('anesthesia.patientDetail.infraclavicularBlock') },
-                                        { id: 'axillary-block', label: t('anesthesia.patientDetail.axillaryBlock') },
-                                        { id: 'femoral-block', label: t('anesthesia.patientDetail.femoralBlock') },
-                                        { id: 'sciatic-block', label: t('anesthesia.patientDetail.sciaticBlock') },
-                                        { id: 'popliteal-block', label: t('anesthesia.patientDetail.poplitealBlock') },
-                                        { id: 'tap-block', label: t('anesthesia.patientDetail.tapBlock') },
-                                        { id: 'pecs-block', label: t('anesthesia.patientDetail.pecsBlock') },
-                                        { id: 'serratus-block', label: t('anesthesia.patientDetail.serratusBlock') },
-                                        { id: 'with-catheter', label: t('anesthesia.patientDetail.withCatheter') },
-                                      ].map(({ id, label }) => (
-                                        <div key={id} className="flex items-center space-x-2">
-                                          <Checkbox
-                                            id={`regional-${id}`}
-                                            checked={assessmentData.anesthesiaTechniques.regionalOptions?.[id] || false}
-                                            onCheckedChange={(checked) => setAssessmentData({
-                                              ...assessmentData,
-                                              anesthesiaTechniques: {
-                                                ...assessmentData.anesthesiaTechniques,
-                                                regionalOptions: {
-                                                  ...assessmentData.anesthesiaTechniques.regionalOptions,
-                                                  [id]: checked as boolean
-                                                }
-                                              }
-                                            })}
-                                            disabled={isPreOpReadOnly}
-                                            data-testid={`checkbox-regional-${id}`}
-                                          />
-                                          <Label htmlFor={`regional-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
+                                        {
+                                          group: t('anesthesia.patientDetail.regionUpperExtremity', 'Upper Extremity'),
+                                          blocks: [
+                                            { id: 'interscalene-block', label: t('anesthesia.patientDetail.interscaleneBlock', 'Interscalene Block') },
+                                            { id: 'supraclavicular-block', label: t('anesthesia.patientDetail.supraclavicularBlock', 'Supraclavicular Block') },
+                                            { id: 'infraclavicular-block', label: t('anesthesia.patientDetail.infraclavicularBlock', 'Infraclavicular Block') },
+                                            { id: 'axillary-block', label: t('anesthesia.patientDetail.axillaryBlock', 'Axillary Block') },
+                                          ],
+                                        },
+                                        {
+                                          group: t('anesthesia.patientDetail.regionLowerExtremity', 'Lower Extremity'),
+                                          blocks: [
+                                            { id: 'femoral-block', label: t('anesthesia.patientDetail.femoralBlock', 'Femoral Block') },
+                                            { id: 'sciatic-proximal-block', label: t('anesthesia.patientDetail.sciaticProximalBlock', 'Sciatic Block (Proximal)') },
+                                            { id: 'sciatic-distal-block', label: t('anesthesia.patientDetail.sciaticDistalBlock', 'Sciatic Block (Distal / Popliteal)') },
+                                            { id: 'obturator-block', label: t('anesthesia.patientDetail.obturatorBlock', 'Nervus Obturatorius Block') },
+                                            { id: 'saphenous-block', label: t('anesthesia.patientDetail.saphenousBlock', 'Nervus Saphenus Block') },
+                                            { id: 'adductor-canal-block', label: t('anesthesia.patientDetail.adductorCanalBlock', 'Adductor Canal Block') },
+                                            { id: 'fascia-iliaca-block', label: t('anesthesia.patientDetail.fasciaIliacaBlock', 'Fascia Iliaca Block') },
+                                            { id: 'popliteal-block', label: t('anesthesia.patientDetail.poplitealBlock', 'Popliteal Block') },
+                                            { id: 'ankle-block', label: t('anesthesia.patientDetail.ankleBlock', 'Ankle Block') },
+                                          ],
+                                        },
+                                        {
+                                          group: t('anesthesia.patientDetail.regionTrunk', 'Trunk'),
+                                          blocks: [
+                                            { id: 'tap-block', label: t('anesthesia.patientDetail.tapBlock', 'Transversus Abdominis Plane Block') },
+                                            { id: 'quadratus-lumborum-block', label: t('anesthesia.patientDetail.quadratusLumborumBlock', 'Quadratus Lumborum Block') },
+                                            { id: 'erector-spinae-block', label: t('anesthesia.patientDetail.erectorSpinaeBlock', 'Erector Spinae Plane Block') },
+                                            { id: 'rectus-sheath-block', label: t('anesthesia.patientDetail.rectusSheath', 'Rectus Sheath Block') },
+                                            { id: 'pecs-block', label: t('anesthesia.patientDetail.pecsBlock', 'Pectoral Nerve Block') },
+                                            { id: 'serratus-block', label: t('anesthesia.patientDetail.serratusBlock', 'Serratus Plane Block') },
+                                          ],
+                                        },
+                                        {
+                                          group: t('anesthesia.patientDetail.regionOther', 'Other'),
+                                          blocks: [
+                                            { id: 'penile-block', label: t('anesthesia.patientDetail.penileBlock', 'Penile Block') },
+                                            { id: 'with-catheter', label: t('anesthesia.patientDetail.withCatheter', 'with Catheter') },
+                                          ],
+                                        },
+                                      ].map(({ group, blocks }) => (
+                                        <div key={group}>
+                                          <p className="text-xs font-semibold text-muted-foreground mb-1">{group}</p>
+                                          <div className="space-y-1.5 ml-1">
+                                            {blocks.map(({ id, label }) => (
+                                              <div key={id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                  id={`regional-${id}`}
+                                                  checked={assessmentData.anesthesiaTechniques.regionalOptions?.[id] || false}
+                                                  onCheckedChange={(checked) => setAssessmentData({
+                                                    ...assessmentData,
+                                                    anesthesiaTechniques: {
+                                                      ...assessmentData.anesthesiaTechniques,
+                                                      regionalOptions: {
+                                                        ...assessmentData.anesthesiaTechniques.regionalOptions,
+                                                        [id]: checked as boolean
+                                                      }
+                                                    }
+                                                  })}
+                                                  disabled={isPreOpReadOnly}
+                                                  data-testid={`checkbox-regional-${id}`}
+                                                />
+                                                <Label htmlFor={`regional-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
@@ -4395,16 +4433,29 @@ export default function PatientDetail() {
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
-                                    id="peripheralIV"
-                                    checked={assessmentData.installations.peripheralIV}
+                                    id="ivExtensionLine"
+                                    checked={assessmentData.installations.ivExtensionLine}
                                     onCheckedChange={(checked) => setAssessmentData({
                                       ...assessmentData,
-                                      installations: {...assessmentData.installations, peripheralIV: checked as boolean}
+                                      installations: {...assessmentData.installations, ivExtensionLine: checked as boolean}
                                     })}
                                     disabled={isPreOpReadOnly}
-                                    data-testid="checkbox-peripheral-iv"
+                                    data-testid="checkbox-iv-extension-line"
                                   />
-                                  <Label htmlFor="peripheralIV" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.peripheralIV')}</Label>
+                                  <Label htmlFor="ivExtensionLine" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.ivExtensionLine', 'Peripheral IV with Extension Line')}</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="bilateralIV"
+                                    checked={assessmentData.installations.bilateralIV}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, bilateralIV: checked as boolean}
+                                    })}
+                                    disabled={isPreOpReadOnly}
+                                    data-testid="checkbox-bilateral-iv"
+                                  />
+                                  <Label htmlFor="bilateralIV" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.bilateralIV', 'Bilateral Peripheral IV Access')}</Label>
                                 </div>
                               </div>
                             </div>

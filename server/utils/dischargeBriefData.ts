@@ -398,6 +398,35 @@ export function getSystemPrompt(
   };
   const langName = langNames[language] || "German";
 
+  const briefTypeLabels: Record<string, string> = {
+    surgery_discharge: "Surgery Discharge Brief",
+    anesthesia_discharge: "Anesthesia Discharge Brief",
+    anesthesia_overnight_discharge: "Anesthesia Overnight Stay Discharge Brief",
+  };
+  const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";
+
+  // When a template is provided, it defines the structure — skip default sections
+  if (templateContent?.trim()) {
+    return `You are a medical documentation assistant generating a ${briefLabel}.
+
+## Template
+Use the following template as the PRIMARY structure and format for the brief. Fill in / adapt each section using the provided clinical data. Keep the same headings, order, and tone as the template. Replace placeholder values (like specific implant names, diagnoses, dates) with the actual patient data.
+
+---
+${templateContent}
+---
+
+## Rules
+- Write the brief in ${langName}
+- Use professional medical language appropriate for clinical documentation
+- Base the content ONLY on the provided clinical data — do not invent information
+- Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
+- Follow the template structure above — do NOT add extra sections or change the order
+- If a template section has no matching clinical data, keep the section heading but note that no data was available
+- Be concise but thorough`;
+  }
+
+  // No template — use default section structure
   let typePrompt = "";
 
   switch (briefType) {
@@ -444,7 +473,7 @@ Structure the brief with the following sections:
       typePrompt = "You are a medical documentation assistant generating a discharge brief.";
   }
 
-  let prompt = `${typePrompt}
+  return `${typePrompt}
 
 ## Rules
 - Write the brief in ${langName}
@@ -453,16 +482,4 @@ Structure the brief with the following sections:
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
 - Use markdown formatting (headings, bold, bullet points)
 - Be concise but thorough`;
-
-  if (templateContent) {
-    prompt += `
-
-## Reference Template
-Adapt the clinical data to match this format, structure, and tone:
----
-${templateContent}
----`;
-  }
-
-  return prompt;
 }

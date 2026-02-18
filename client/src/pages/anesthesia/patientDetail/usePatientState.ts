@@ -197,7 +197,8 @@ export type AssessmentData = {
     epiduralCatheter: boolean;
     urinaryCatheter: boolean;
     nasogastricTube: boolean;
-    peripheralIV: boolean;
+    ivExtensionLine: boolean;
+    bilateralIV: boolean;
   };
   installationsOther: string;
 
@@ -463,7 +464,8 @@ export function usePatientState() {
       epiduralCatheter: false,
       urinaryCatheter: false,
       nasogastricTube: false,
-      peripheralIV: false,
+      ivExtensionLine: false,
+      bilateralIV: false,
     },
     installationsOther: "",
 
