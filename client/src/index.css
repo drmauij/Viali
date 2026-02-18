@@ -1362,6 +1362,18 @@
   --box-shadow: none;
 }
 
+/* Tiptap WYSIWYG Editor */
+.ProseMirror:focus {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
 /* Dark theme for Mapbox search box */
 [data-theme="dark"] .mapbox-search-container mapbox-search-box {
   --color-background: hsl(215, 25%, 16%);
