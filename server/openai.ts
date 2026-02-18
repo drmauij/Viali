@@ -26,6 +26,7 @@ interface ExtractedItemData {
 }
 
 export async function analyzeItemImage(base64Image: string, hospitalId?: string): Promise<ExtractedItemData> {
+  let provider: VisionAiProvider = "openai";
   try {
     // First, try to decode any barcodes in the image using ZXing
     let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
@@ -44,9 +45,10 @@ export async function analyzeItemImage(base64Image: string, hospitalId?: string)
     }
 
     // Get the appropriate AI client based on hospital settings
-    const { client: openai, provider } = hospitalId 
+    const { client: openai, provider: resolvedProvider } = hospitalId
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    provider = resolvedProvider;
     const model = getVisionModel(provider);
     logger.info(`[VisionAI] Using ${provider} (${model}) for item analysis`);
 
@@ -212,7 +214,7 @@ Important:
       gs1DataMatrix: gs1DataMatrixContent,
     };
   } catch (error: any) {
-    logger.error("Error analyzing image with OpenAI:", error);
+    logger.error(`[VisionAI] Error analyzing image with ${provider}:`, error);
     throw new Error("Failed to analyze image: " + error.message);
   }
 }
@@ -228,6 +230,7 @@ interface ExtractedCodesData {
 }
 
 export async function analyzeCodesImage(base64Image: string, hospitalId?: string): Promise<ExtractedCodesData> {
+  let provider: VisionAiProvider = "openai";
   try {
     // First, try to decode any barcodes in the image using ZXing
     let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
@@ -246,9 +249,10 @@ export async function analyzeCodesImage(base64Image: string, hospitalId?: string
     }
 
     // Get the appropriate AI client based on hospital settings
-    const { client: openai, provider } = hospitalId 
+    const { client: openai, provider: resolvedProvider } = hospitalId
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    provider = resolvedProvider;
     const model = getVisionModel(provider);
     logger.info(`[VisionAI] Using ${provider} (${model}) for codes extraction`);
 
@@ -324,7 +328,7 @@ Return ONLY valid JSON.`
       confidence: Math.max(0, Math.min(1, result.confidence || 0)),
     };
   } catch (error: any) {
-    logger.error("Error analyzing codes image with OpenAI:", error);
+    logger.error(`[VisionAI] Error analyzing codes image with ${provider}:`, error);
     throw new Error("Failed to analyze codes image: " + error.message);
   }
 }
@@ -346,11 +350,13 @@ export async function analyzeBulkItemImages(
   onProgress?: (current: number, total: number, percent: number) => void | Promise<void>,
   hospitalId?: string
 ): Promise<BulkItemExtraction[]> {
+  let provider: VisionAiProvider = "openai";
   try {
     // Get the appropriate AI client based on hospital settings
-    const { client: openai, provider } = hospitalId 
+    const { client: openai, provider: resolvedProvider } = hospitalId
       ? await getVisionAiClient(hospitalId)
       : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    provider = resolvedProvider;
     const model = getVisionModel(provider);
     logger.info(`[VisionAI] Using ${provider} (${model}) for bulk item analysis`);
 
@@ -454,7 +460,7 @@ Important instructions:
     logger.info(`[Bulk Import] Total extracted items: ${allItems.length}`);
     return allItems;
   } catch (error: any) {
-    logger.error("Error analyzing bulk images with OpenAI:", error);
+    logger.error(`[VisionAI] Error analyzing bulk images with ${provider}:`, error);
     throw new Error("Failed to analyze images: " + error.message);
   }
 }

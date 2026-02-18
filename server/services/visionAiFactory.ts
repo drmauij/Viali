@@ -48,9 +48,9 @@ export async function getVisionAiClient(hospitalId: string): Promise<VisionAiCli
 export function getVisionModel(provider: VisionAiProvider): string {
   switch (provider) {
     case "pixtral":
-      return "pixtral-large-latest";
+      return process.env.MISTRAL_VISION_MODEL || "pixtral-large-latest";
     case "openai":
     default:
-      return "gpt-4o-mini";
+      return process.env.OPENAI_VISION_MODEL || "gpt-4o-mini";
   }
 }
