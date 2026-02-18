@@ -1,14 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
@@ -45,7 +46,14 @@ import {
   FolderUp,
   CheckCircle2,
   XCircle,
+  Bold,
+  Italic,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DischargeBriefTemplate {
   id: string;
@@ -110,6 +118,37 @@ export function DischargeBriefTemplateManager({
     procedureType: "",
     templateContent: "",
   });
+
+  // Tiptap editor for template content
+  const lastExternalContent = useRef("");
+  const templateEditor = useEditor({
+    extensions: [StarterKit],
+    content: "",
+    editable: true,
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm max-w-none dark:prose-invert focus:outline-none min-h-[200px] px-3 py-2",
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      lastExternalContent.current = html;
+      setForm((f) => ({ ...f, templateContent: html }));
+    },
+  });
+
+  // Sync editor content when form.templateContent changes externally
+  // (editing existing template, file import, or dialog reset)
+  useEffect(() => {
+    if (templateEditor && form.templateContent !== lastExternalContent.current) {
+      const currentHtml = templateEditor.getHTML();
+      if (currentHtml !== form.templateContent) {
+        templateEditor.commands.setContent(form.templateContent || "");
+      }
+      lastExternalContent.current = form.templateContent;
+    }
+  }, [form.templateContent, templateEditor]);
 
   const { data: templates = [], isLoading } = useQuery<
     DischargeBriefTemplate[]
@@ -237,7 +276,9 @@ export function DischargeBriefTemplateManager({
   };
 
   const handleSave = () => {
-    if (!form.name.trim() || !form.templateContent.trim()) return;
+    // Strip HTML tags to check if there's actual text content
+    const textContent = form.templateContent.replace(/<[^>]*>/g, "").trim();
+    if (!form.name.trim() || !textContent) return;
     if (editingTemplate) {
       updateMutation.mutate({ id: editingTemplate.id, data: form });
     } else {
@@ -275,7 +316,12 @@ export function DischargeBriefTemplateManager({
       const data = await res.json();
 
       if (data.text) {
-        setForm((f) => ({ ...f, templateContent: data.text }));
+        // Convert plain text to simple HTML paragraphs for the WYSIWYG editor
+        const html = data.text
+          .split(/\n\n+/)
+          .map((p: string) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+          .join("");
+        setForm((f) => ({ ...f, templateContent: html }));
         toast({
           description: t(
             "dischargeBriefs.templates.importSuccess",
@@ -639,21 +685,69 @@ export function DischargeBriefTemplateManager({
                     "Paste or write a reference discharge brief. The AI will adapt the clinical data to match this format, structure, and tone.",
                   )}
                 </p>
-                <Textarea
-                  value={form.templateContent}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      templateContent: e.target.value,
-                    }))
-                  }
-                  rows={12}
-                  className="font-mono text-sm"
-                  placeholder={t(
-                    "dischargeBriefs.templates.templateContentPlaceholder",
-                    "Sehr geehrte Kolleginnen und Kollegen,\n\nwir berichten über...",
-                  )}
-                />
+                {templateEditor && (
+                  <div className="rounded-md border">
+                    <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/30">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("bold") && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleBold().run()}
+                      >
+                        <Bold className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("italic") && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleItalic().run()}
+                      >
+                        <Italic className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="w-px h-4 bg-border mx-0.5" />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("heading", { level: 2 }) && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleHeading({ level: 2 }).run()}
+                      >
+                        <Heading2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("heading", { level: 3 }) && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleHeading({ level: 3 }).run()}
+                      >
+                        <Heading3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="w-px h-4 bg-border mx-0.5" />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("bulletList") && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleBulletList().run()}
+                      >
+                        <List className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-7 w-7", templateEditor.isActive("orderedList") && "bg-accent")}
+                        onClick={() => templateEditor.chain().focus().toggleOrderedList().run()}
+                      >
+                        <ListOrdered className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <EditorContent editor={templateEditor} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -676,7 +770,7 @@ export function DischargeBriefTemplateManager({
                 disabled={
                   isSaving ||
                   !form.name.trim() ||
-                  !form.templateContent.trim()
+                  !form.templateContent.replace(/<[^>]*>/g, "").trim()
                 }
               >
                 {isSaving && (
