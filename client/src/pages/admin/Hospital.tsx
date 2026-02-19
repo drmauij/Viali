@@ -45,7 +45,7 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"settings" | "data" | "units" | "rooms" | "checklists" | "suppliers" | "integrations">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations">("settings");
   
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
@@ -1067,7 +1067,11 @@ export default function Hospital() {
             </TabsTrigger>
             <TabsTrigger value="data" data-testid="tab-data" className="justify-start md:w-full">
               <i className="fas fa-database mr-2 shrink-0"></i>
-              <span className="truncate">{t("admin.dataAndLinks", "Data & Links")}</span>
+              <span className="truncate">{t("admin.data", "Data")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="links" data-testid="tab-links" className="justify-start md:w-full">
+              <i className="fas fa-link mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.links", "Links")}</span>
             </TabsTrigger>
             <TabsTrigger value="units" data-testid="tab-units" className="justify-start md:w-full">
               <i className="fas fa-location-dot mr-2 shrink-0"></i>
@@ -1079,7 +1083,11 @@ export default function Hospital() {
             </TabsTrigger>
             <TabsTrigger value="checklists" data-testid="tab-checklists" className="justify-start md:w-full">
               <i className="fas fa-clipboard-check mr-2 shrink-0"></i>
-              <span className="truncate">{t("admin.checklistsAndTemplates", "Checklists & Templates")}</span>
+              <span className="truncate">{t("admin.checklists")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="templates" data-testid="tab-templates" className="justify-start md:w-full">
+              <i className="fas fa-file-lines mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.templates", "Templates")}</span>
             </TabsTrigger>
             <TabsTrigger value="suppliers" data-testid="tab-suppliers" className="justify-start md:w-full">
               <i className="fas fa-truck mr-2 shrink-0"></i>
@@ -1301,8 +1309,8 @@ export default function Hospital() {
         </div>
         </TabsContent>
 
-        {/* Data & Links Tab Content */}
-        <TabsContent value="data">
+        {/* Links Tab Content */}
+        <TabsContent value="links">
         <div className="space-y-4">
           {/* Open Questionnaire Link Section */}
           <div className="bg-card border border-border rounded-lg p-6">
@@ -1318,7 +1326,7 @@ export default function Hospital() {
                   </p>
                 </div>
               </div>
-              
+
               {/* Questionnaire Enable/Disable Toggle */}
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
                 <div className="flex-1">
@@ -1339,7 +1347,7 @@ export default function Hospital() {
                   data-testid="switch-questionnaire-enabled"
                 />
               </div>
-              
+
               {!hospitalForm.questionnaireDisabled && (
                 <>
                   {questionnaireTokenData?.questionnaireToken ? (
@@ -1550,7 +1558,12 @@ export default function Hospital() {
               )}
             </div>
           </div>
+        </div>
+        </TabsContent>
 
+        {/* Data Tab Content */}
+        <TabsContent value="data">
+        <div className="space-y-4">
           {/* Seed Default Data Card */}
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -1899,7 +1912,12 @@ export default function Hospital() {
             </div>
           )}
 
-          {/* Discharge Brief Templates */}
+        </div>
+        </TabsContent>
+
+        {/* Templates Tab Content */}
+        <TabsContent value="templates">
+        <div className="space-y-4">
           {activeHospital && (
             <DischargeBriefTemplateManager hospitalId={activeHospital.id} />
           )}
