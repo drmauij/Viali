@@ -172,11 +172,16 @@ export async function getDischargeBriefTemplates(
 export async function getAllDischargeBriefTemplates(
   hospitalId: string,
 ): Promise<DischargeBriefTemplate[]> {
-  // Admin view — shows all templates including inactive
+  // Admin view — shows all templates (shared + personal) but excludes soft-deleted
   return db
     .select()
     .from(dischargeBriefTemplates)
-    .where(eq(dischargeBriefTemplates.hospitalId, hospitalId))
+    .where(
+      and(
+        eq(dischargeBriefTemplates.hospitalId, hospitalId),
+        eq(dischargeBriefTemplates.isActive, true),
+      ),
+    )
     .orderBy(desc(dischargeBriefTemplates.createdAt));
 }
 
