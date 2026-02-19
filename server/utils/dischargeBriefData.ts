@@ -468,6 +468,7 @@ export function getSystemPrompt(
   briefType: string,
   language: string,
   templateContent?: string | null,
+  selectedBlocks?: string[],
 ): string {
   const langNames: Record<string, string> = {
     de: "German",
@@ -484,12 +485,46 @@ export function getSystemPrompt(
   };
   const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";
 
-  // When a template is provided, it defines the structure — skip default sections
+  // Build mandatory clinical summary instructions based on selected data blocks
+  let mandatorySummaries = "";
+  if (selectedBlocks?.length) {
+    const blocks = new Set(selectedBlocks);
+
+    if (blocks.has("anesthesia_record")) {
+      mandatorySummaries += `
+
+## Mandatory: Anesthesia Summary
+You MUST include a concise anesthesia summary with these details (extract from the Anesthesia Record data):
+- Type of anesthesia (e.g., general anesthesia, regional, sedation)
+- Particular installations/techniques (e.g., intubation, arterial line, central venous catheter, regional blocks)
+- Lead anesthesiologist name
+- Anesthesia start/end time and total duration (calculate from time markers)
+- Notable events or complications during anesthesia, if any`;
+    }
+
+    if (blocks.has("surgery_details") || blocks.has("surgery_notes")) {
+      mandatorySummaries += `
+
+## Mandatory: Surgery Summary
+You MUST include a concise surgery summary with these details (extract from Surgery Details / Surgery Notes data):
+- Procedure performed (with side if applicable)
+- Lead surgeon name
+- Surgery duration (calculate from time markers if available)
+- A very brief description of the operative course based on documented surgery notes`;
+    }
+  }
+
+  // When a template is provided, it defines the structure — but mandatory clinical sections take priority
   if (templateContent?.trim()) {
     return `You are a medical documentation assistant generating a ${briefLabel}.
+${mandatorySummaries}
 
 ## Template
-Use the following template as the PRIMARY structure and format for the brief. Fill in / adapt each section using the provided clinical data. Keep the same headings, order, and tone as the template. Replace placeholder values (like specific implant names, diagnoses, dates) with the actual patient data.
+Use the following template as the PREFERRED structure and tone for the brief.
+Fill in each section with the provided clinical data.
+Keep headings, order, and tone as close to the template as possible.
+
+If the template does not include a section for the mandatory clinical data above, ADD those sections in a logical position (typically before follow-up / discharge instructions).
 
 ---
 ${templateContent}
@@ -497,12 +532,10 @@ ${templateContent}
 
 ## Rules
 - Write the brief in ${langName}
-- Use professional medical language appropriate for clinical documentation
 - Base the content ONLY on the provided clinical data — do not invent information
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
-- Follow the template structure above — do NOT add extra sections or change the order
 - If follow-up appointment data is provided, use the exact dates and times from the data — do not invent appointment dates
-- If a template section has no matching clinical data, keep the section heading but note that no data was available
+- If a template section has no matching clinical data, keep the section heading but note that no data was available ("keine Daten vorhanden")
 - Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
 - Be concise but thorough`;
   }
@@ -555,6 +588,7 @@ Structure the brief with the following sections:
   }
 
   return `${typePrompt}
+${mandatorySummaries}
 
 ## Rules
 - Write the brief in ${langName}
