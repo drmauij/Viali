@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
   Loader2,
@@ -453,7 +452,6 @@ export function DischargeBriefWizard({
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <ScrollArea className="max-h-[340px]">
             <div className="space-y-2">
               {/* Auto-included blocks (when surgery is selected) */}
               {autoBlocks.map((block) => {
@@ -713,7 +711,6 @@ export function DischargeBriefWizard({
                 );
               })}
             </div>
-          </ScrollArea>
         )}
       </div>
     );
@@ -1087,7 +1084,7 @@ export function DischargeBriefWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header with step indicators */}
         <div className="border-b px-6 pt-5 pb-4">
           <DialogHeader className="mb-3">
@@ -1137,7 +1134,7 @@ export function DischargeBriefWizard({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 min-h-[260px]">{renderStep()}</div>
+        <div className="px-6 py-4 min-h-[260px] flex-1 overflow-y-auto">{renderStep()}</div>
 
         {/* Footer navigation */}
         {!generatedBriefId && (
