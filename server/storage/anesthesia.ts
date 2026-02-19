@@ -959,7 +959,22 @@ export async function getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], auth
   return results.map(r => r.assessment);
 }
 
-export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>> {
+export interface PreOpStatusWithSummary {
+  status: string | null;
+  standBy: boolean | null;
+  standByReason: string | null;
+  standByReasonNote: string | null;
+  surgicalApproval: string | null;
+  asa: string | null;
+  weight: string | null;
+  height: string | null;
+  anesthesiaTechniques: any;
+  installations: any;
+  postOpICU: boolean | null;
+  cave: string | null;
+}
+
+export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, PreOpStatusWithSummary>> {
   if (surgeryIds.length === 0) return new Map();
 
   // Query both pre-op tables (anesthesia and surgery module) since a surgery will only exist in one
@@ -972,6 +987,13 @@ export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[])
         standByReason: preOpAssessments.standByReason,
         standByReasonNote: preOpAssessments.standByReasonNote,
         surgicalApproval: preOpAssessments.surgicalApproval,
+        asa: preOpAssessments.asa,
+        weight: preOpAssessments.weight,
+        height: preOpAssessments.height,
+        anesthesiaTechniques: preOpAssessments.anesthesiaTechniques,
+        installations: preOpAssessments.installations,
+        postOpICU: preOpAssessments.postOpICU,
+        cave: preOpAssessments.cave,
       })
       .from(preOpAssessments)
       .where(inArray(preOpAssessments.surgeryId, surgeryIds)),
@@ -988,9 +1010,40 @@ export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[])
       .where(inArray(surgeryPreOpAssessments.surgeryId, surgeryIds)),
   ]);
 
-  const map = new Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>();
-  for (const r of [...anesthesiaResults, ...surgeryResults]) {
-    map.set(r.surgeryId, { status: r.status, standBy: r.standBy, standByReason: r.standByReason, standByReasonNote: r.standByReasonNote, surgicalApproval: r.surgicalApproval });
+  const map = new Map<string, PreOpStatusWithSummary>();
+  // Anesthesia pre-ops have all summary fields
+  for (const r of anesthesiaResults) {
+    map.set(r.surgeryId, {
+      status: r.status,
+      standBy: r.standBy,
+      standByReason: r.standByReason,
+      standByReasonNote: r.standByReasonNote,
+      surgicalApproval: r.surgicalApproval,
+      asa: r.asa,
+      weight: r.weight,
+      height: r.height,
+      anesthesiaTechniques: r.anesthesiaTechniques,
+      installations: r.installations,
+      postOpICU: r.postOpICU,
+      cave: r.cave,
+    });
+  }
+  // Surgery pre-ops don't have anesthesia summary fields
+  for (const r of surgeryResults) {
+    map.set(r.surgeryId, {
+      status: r.status,
+      standBy: r.standBy,
+      standByReason: r.standByReason,
+      standByReasonNote: r.standByReasonNote,
+      surgicalApproval: r.surgicalApproval,
+      asa: null,
+      weight: null,
+      height: null,
+      anesthesiaTechniques: null,
+      installations: null,
+      postOpICU: null,
+      cave: null,
+    });
   }
   return map;
 }

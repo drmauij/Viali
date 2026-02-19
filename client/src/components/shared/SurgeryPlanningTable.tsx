@@ -1103,6 +1103,13 @@ export function SurgeryPlanningTable({
           standByReason: (surgery as any).preOpAssessmentStandByReason,
           standByReasonNote: (surgery as any).preOpAssessmentStandByReasonNote,
           surgicalApproval: (surgery as any).preOpAssessmentSurgicalApproval,
+          asa: (surgery as any).preOpAssessmentAsa,
+          weight: (surgery as any).preOpAssessmentWeight,
+          height: (surgery as any).preOpAssessmentHeight,
+          anesthesiaTechniques: (surgery as any).preOpAssessmentAnesthesiaTechniques,
+          installations: (surgery as any).preOpAssessmentInstallations,
+          postOpICU: (surgery as any).preOpAssessmentPostOpICU,
+          cave: (surgery as any).preOpAssessmentCave,
         });
       }
     });
@@ -1208,18 +1215,75 @@ export function SurgeryPlanningTable({
     );
   };
   
-  // Helper function to format pre-op summary for PDF (uses inline status from surgery data)
+  // Helper function to format pre-op summary for PDF (uses inline data from surgery API)
   const formatPreOpSummaryForPdf = (surgeryId: string): string => {
     const preOpData = preOpMap.get(surgeryId);
     if (!preOpData) return '-';
 
     if (preOpData.standBy) return 'Stand-by';
+
+    const parts: string[] = [];
+
+    // Status label
     if (preOpData.status === 'completed') {
-      if (preOpData.surgicalApproval === 'approved') return 'Approved';
-      if (preOpData.surgicalApproval === 'not-approved') return 'Not approved';
-      return 'Completed';
+      if (preOpData.surgicalApproval === 'approved') parts.push('Approved');
+      else if (preOpData.surgicalApproval === 'not-approved') parts.push('Not approved');
+      else parts.push('Completed');
+    } else {
+      parts.push('Started');
     }
-    return 'Started';
+
+    // ASA classification
+    if (preOpData.asa) {
+      parts.push(`ASA ${preOpData.asa}`);
+    }
+
+    // Weight and height
+    if (preOpData.weight) parts.push(`${preOpData.weight}kg`);
+    if (preOpData.height) parts.push(`${preOpData.height}cm`);
+
+    // Anesthesia techniques
+    if (preOpData.anesthesiaTechniques) {
+      const at = preOpData.anesthesiaTechniques;
+      const techniques: string[] = [];
+      if (at.general) {
+        const subs = at.generalOptions ? Object.entries(at.generalOptions)
+          .filter(([_, v]) => v).map(([k]) => k.toUpperCase()) : [];
+        techniques.push(subs.length > 0 ? `ITN (${subs.join(', ')})` : 'ITN');
+      }
+      if (at.spinal) techniques.push('SPA');
+      if (at.epidural) techniques.push('PDA');
+      if (at.regional) {
+        const subs = at.regionalOptions ? Object.entries(at.regionalOptions)
+          .filter(([_, v]) => v).map(([k]) => k.replace(/([A-Z])/g, ' $1').trim()) : [];
+        techniques.push(subs.length > 0 ? `Regional (${subs.join(', ')})` : 'Regional');
+      }
+      if (at.sedation) techniques.push('Sedierung');
+      if (at.combined) techniques.push('Kombiniert');
+      if (techniques.length > 0) parts.push(techniques.join(', '));
+    }
+
+    // Installations
+    if (preOpData.installations && Object.keys(preOpData.installations).length > 0) {
+      const inst = Object.entries(preOpData.installations)
+        .filter(([_, v]) => v)
+        .map(([k]) => {
+          if (k === 'ett') return 'ETT';
+          if (k === 'lma') return 'LMA';
+          if (k === 'mask') return 'Maske';
+          return k.replace(/([A-Z])/g, ' $1').trim();
+        })
+        .join(', ');
+      if (inst) parts.push(inst);
+    }
+
+    // Post-op ICU
+    if (preOpData.postOpICU) parts.push('IMC geplant');
+
+    // CAVE
+    if (preOpData.cave) parts.push(`CAVE: ${preOpData.cave}`);
+
+    return parts.join('\n');
   };
   
   // Generate PDF for a day's surgeries using shared utility

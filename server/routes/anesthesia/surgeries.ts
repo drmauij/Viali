@@ -148,6 +148,13 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAc
         preOpAssessmentStandByReason: preOpStatus?.standByReason || null,
         preOpAssessmentStandByReasonNote: preOpStatus?.standByReasonNote || null,
         preOpAssessmentSurgicalApproval: preOpStatus?.surgicalApproval || null,
+        preOpAssessmentAsa: preOpStatus?.asa || null,
+        preOpAssessmentWeight: preOpStatus?.weight || null,
+        preOpAssessmentHeight: preOpStatus?.height || null,
+        preOpAssessmentAnesthesiaTechniques: preOpStatus?.anesthesiaTechniques || null,
+        preOpAssessmentInstallations: preOpStatus?.installations || null,
+        preOpAssessmentPostOpICU: preOpStatus?.postOpICU || null,
+        preOpAssessmentCave: preOpStatus?.cave || null,
         questionnaireStatus,
       };
     });
