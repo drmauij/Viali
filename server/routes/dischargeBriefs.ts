@@ -41,6 +41,7 @@ import {
   buildKnownValues,
   getAvailableDataBlocks,
   getSystemPrompt,
+  buildUserMessageSuffix,
 } from "../utils/dischargeBriefData";
 
 const MISTRAL_TEXT_BASE_URL = "https://api.mistral.ai/v1";
@@ -126,6 +127,7 @@ const generateSchema = z.object({
     "surgery_discharge",
     "anesthesia_discharge",
     "anesthesia_overnight_discharge",
+    "prescription",
   ]),
   language: z.enum(["de", "en", "fr", "it"]).default("de"),
   templateId: z.string().nullable().optional(),
@@ -225,6 +227,10 @@ router.post(
         const { text: safeAnnotations } = anonymize(annotations, { knownValues });
         userMessage += `\n\n## Additional Notes from Doctor\n${safeAnnotations}`;
       }
+
+      // Reinforce mandatory clinical sections at the end of user message (recency bias)
+      const suffix = buildUserMessageSuffix(blocks);
+      if (suffix) userMessage += suffix;
 
       // 7. Create the brief record first (to get ID for audit linking)
       const brief = await createDischargeBrief({
@@ -661,6 +667,7 @@ router.post(
           "surgery_discharge",
           "anesthesia_discharge",
           "anesthesia_overnight_discharge",
+          "prescription",
         ]),
         name: z.string().min(1),
         description: z.string().optional(),
@@ -706,6 +713,7 @@ router.patch(
             "surgery_discharge",
             "anesthesia_discharge",
             "anesthesia_overnight_discharge",
+            "prescription",
           ])
           .optional(),
         assignedUserId: z.string().nullable().optional(),

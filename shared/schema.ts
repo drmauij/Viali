@@ -5265,6 +5265,7 @@ export const dischargeBriefTypeEnum = pgEnum("discharge_brief_type", [
   "surgery_discharge",
   "anesthesia_discharge",
   "anesthesia_overnight_discharge",
+  "prescription",
 ]);
 
 export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {

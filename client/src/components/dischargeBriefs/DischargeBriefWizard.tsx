@@ -71,7 +71,8 @@ type BlockKey =
 type BriefType =
   | "surgery_discharge"
   | "anesthesia_discharge"
-  | "anesthesia_overnight_discharge";
+  | "anesthesia_overnight_discharge"
+  | "prescription";
 
 interface BlockInfo {
   key: BlockKey;
@@ -182,10 +183,12 @@ export function DischargeBriefWizard({
 
   // ---- block toggle helpers ----
   const toggleBlock = useCallback((key: BlockKey) => {
+    // Prevent deselecting required blocks
+    if (briefType === "prescription" && key === "discharge_medications") return;
     setSelectedBlocks((prev) =>
       prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key],
     );
-  }, []);
+  }, [briefType]);
 
   const toggleNoteId = useCallback((noteId: string) => {
     setSelectedNoteIds((prev) =>
@@ -409,6 +412,10 @@ export function DischargeBriefWizard({
           "dischargeBriefs.types.anesthesiaOvernightDischarge",
           "Anesthesia + Overnight",
         ),
+        prescription: t(
+          "dischargeBriefs.types.prescription",
+          "Prescription",
+        ),
       };
       return labels[bt];
     },
@@ -485,9 +492,30 @@ export function DischargeBriefWizard({
               {optionalBlocks.map((block) => {
                 const Icon = BLOCK_ICONS[block.key] ?? FileText;
                 const isSelected = selectedBlocks.includes(block.key);
+                const isRequired = briefType === "prescription" && block.key === "discharge_medications";
 
                 return (
                   <div key={block.key}>
+                    {isRequired ? (
+                      <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="flex-1 text-sm font-medium">
+                          {blockLabel(block.key)}
+                          {block.count != null && (
+                            <span className="ml-1 text-muted-foreground font-normal">
+                              ({block.count})
+                            </span>
+                          )}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="bg-primary/10 text-primary border-0"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          {t("dischargeBriefs.wizard.required", "Required")}
+                        </Badge>
+                      </div>
+                    ) : (
                     <label
                       className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
                         isSelected
@@ -526,6 +554,7 @@ export function DischargeBriefWizard({
                         </Badge>
                       )}
                     </label>
+                    )}
 
                     {/* Sub-list for patient_notes */}
                     {block.key === "patient_notes" &&
@@ -776,9 +805,16 @@ export function DischargeBriefWizard({
       <RadioGroup
         value={briefType ?? ""}
         onValueChange={(val) => {
-          setBriefType(val as BriefType);
+          const bt = val as BriefType;
+          setBriefType(bt);
           // Reset template when type changes
           setTemplateId(null);
+          // Auto-select discharge_medications for prescriptions
+          if (bt === "prescription") {
+            setSelectedBlocks((prev) =>
+              prev.includes("discharge_medications") ? prev : [...prev, "discharge_medications"],
+            );
+          }
         }}
         className="space-y-2"
       >
@@ -787,6 +823,7 @@ export function DischargeBriefWizard({
             "surgery_discharge",
             "anesthesia_discharge",
             "anesthesia_overnight_discharge",
+            "prescription",
           ] as BriefType[]
         ).map((bt) => (
           <label

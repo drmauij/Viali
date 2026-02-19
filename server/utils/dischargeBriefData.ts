@@ -462,6 +462,29 @@ export async function getAvailableDataBlocks(
   return blocks;
 }
 
+// ========== USER MESSAGE SUFFIX (reinforces mandatory sections via recency bias) ==========
+
+export function buildUserMessageSuffix(selectedBlocks: string[]): string {
+  const blocks = new Set(selectedBlocks);
+  const sections: string[] = [];
+
+  if (blocks.has("anesthesia_record")) {
+    sections.push(
+      `- Write a section titled "Anästhesie" that summarizes: anesthesia type, techniques/installations (intubation, arterial line, regional blocks etc.), lead anesthesiologist, start/end time with total duration, and any complications. Use the "Anesthesia Record" data above.`,
+    );
+  }
+
+  if (blocks.has("surgery_details") || blocks.has("surgery_notes")) {
+    sections.push(
+      `- Write a section titled "Operationsbericht" that summarizes: procedure performed (with side), lead surgeon, surgery duration, and a brief operative course description. Use the "Surgery Details" and/or "Surgery Notes" data above.`,
+    );
+  }
+
+  if (sections.length === 0) return "";
+
+  return `\n\n## REQUIRED OUTPUT SECTIONS\nYou MUST include the following sections in your output. These are mandatory even if the template does not have matching headings:\n${sections.join("\n")}`;
+}
+
 // ========== SYSTEM PROMPTS PER BRIEF TYPE ==========
 
 export function getSystemPrompt(
@@ -482,6 +505,7 @@ export function getSystemPrompt(
     surgery_discharge: "Surgery Discharge Brief",
     anesthesia_discharge: "Anesthesia Discharge Brief",
     anesthesia_overnight_discharge: "Anesthesia Overnight Stay Discharge Brief",
+    prescription: "Prescription",
   };
   const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";
 
@@ -525,6 +549,7 @@ Fill in each section with the provided clinical data.
 Keep headings, order, and tone as close to the template as possible.
 
 If the template does not include a section for the mandatory clinical data above, ADD those sections in a logical position (typically before follow-up / discharge instructions).
+The clinical data ends with REQUIRED OUTPUT SECTIONS — you MUST include those sections in your response, even if they don't match a template heading.
 
 ---
 ${templateContent}
@@ -581,6 +606,17 @@ Structure the brief with the following sections:
 6. **Post-Anesthesia Instructions** — Diet, driving, physical activity restrictions
 7. **Warning Signs** — Symptoms requiring immediate medical attention
 8. **Follow-Up** — When and who to contact for follow-up (use exact dates from data if available)`;
+      break;
+
+    case "prescription":
+      typePrompt = `You are a medical documentation assistant generating a Prescription document for a patient to take to a pharmacy.
+
+Structure the prescription with the following sections:
+1. **Patient Information** — Patient name, date of birth, date of prescription
+2. **Medications** — For each medication: name, dosage/strength, quantity to dispense, frequency, route of administration, duration of treatment, and any special instructions
+3. **Prescribing Doctor** — Doctor name and signature placeholder
+
+Keep it clean and pharmacy-ready. Do not include narrative text — use a structured list format for medications.`;
       break;
 
     default:
