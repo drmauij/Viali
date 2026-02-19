@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
-import TimebutlerUrlDialog from "./TimebutlerUrlDialog";
+import PersonalSettingsDialog from "./PersonalSettingsDialog";
 import { useModule } from "@/contexts/ModuleContext";
 import { MessageCircle } from "lucide-react";
 import ChatDock from "./chat/ChatDock";
@@ -36,7 +36,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showTimebutlerUrl, setShowTimebutlerUrl] = useState(false);
+  const [showPersonalSettings, setShowPersonalSettings] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [initialConversationId, setInitialConversationId] = useState<string | null>(null);
 
@@ -323,17 +323,17 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 </button>
               )}
               
-              {/* Timebutler Sync URL */}
+              {/* Personal Settings */}
               <button
                 className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
                 onClick={() => {
-                  setShowTimebutlerUrl(true);
+                  setShowPersonalSettings(true);
                   setShowUserMenu(false);
                 }}
-                data-testid="button-timebutler-sync"
+                data-testid="button-personal-settings"
               >
-                <i className="fas fa-calendar-alt w-4"></i>
-                <span>{t('settings.timebutlerSync', 'Timebutler Sync')}</span>
+                <i className="fas fa-user-cog w-4"></i>
+                <span>{t('settings.personalSettings', 'Personal Settings')}</span>
               </button>
               
               {/* Logout */}
@@ -356,10 +356,12 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         onOpenChange={setShowChangePassword}
       />
 
-      <TimebutlerUrlDialog
-        open={showTimebutlerUrl}
-        onOpenChange={setShowTimebutlerUrl}
-        currentUrl={(user as any)?.timebutlerIcsUrl}
+      <PersonalSettingsDialog
+        open={showPersonalSettings}
+        onOpenChange={setShowPersonalSettings}
+        currentPhone={(user as any)?.phone}
+        currentBriefSignature={(user as any)?.briefSignature}
+        currentTimebutlerUrl={(user as any)?.timebutlerIcsUrl}
       />
 
       <ChatDock 
