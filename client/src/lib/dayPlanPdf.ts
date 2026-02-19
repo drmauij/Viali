@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
+import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
 export interface DayPlanPdfColumn {
   header: string;
@@ -268,7 +269,23 @@ export const defaultColumns = {
     getValue: (surgery) => {
       const surgeryText = surgery.plannedSurgery || '-';
       const surgeonText = surgery.surgeon ? `\nChirurg: ${surgery.surgeon}` : '';
-      return surgeryText + surgeonText;
+
+      let positionText = '';
+      if (surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) {
+        const parts: string[] = [];
+        if (surgery.patientPosition) {
+          parts.push(getPositionDisplayLabel(surgery.patientPosition, true));
+        }
+        if (surgery.leftArmPosition) {
+          parts.push(`L: ${getArmDisplayLabel(surgery.leftArmPosition, true)}`);
+        }
+        if (surgery.rightArmPosition) {
+          parts.push(`R: ${getArmDisplayLabel(surgery.rightArmPosition, true)}`);
+        }
+        positionText = '\n' + parts.join(' | ');
+      }
+
+      return surgeryText + surgeonText + positionText;
     },
   }),
   
