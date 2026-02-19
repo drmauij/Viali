@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -431,106 +430,103 @@ export function DischargeBriefTemplateManager({
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {t(
-                "dischargeBriefs.templates.title",
-                "Discharge Brief Templates",
-              )}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <input
-                ref={bulkInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                multiple
-                className="hidden"
-                onChange={handleBulkFileSelect}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => bulkInputRef.current?.click()}
-              >
-                <FolderUp className="h-4 w-4 mr-1" />
-                {t("dischargeBriefs.templates.bulkImport", "Bulk Import")}
-              </Button>
-              <Button size="sm" onClick={handleAdd}>
-                <Plus className="h-4 w-4 mr-1" />
-                {t("dischargeBriefs.templates.add", "Add Template")}
-              </Button>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t(
-              "dischargeBriefs.templates.description",
-              "Reference templates used to guide AI-generated discharge briefs.",
-            )}
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-foreground">
+          {t(
+            "dischargeBriefs.templates.title",
+            "Discharge Brief Templates",
+          )}
+        </h2>
+        <div className="flex items-center gap-2">
+          <input
+            ref={bulkInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt"
+            multiple
+            className="hidden"
+            onChange={handleBulkFileSelect}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => bulkInputRef.current?.click()}
+          >
+            <FolderUp className="h-4 w-4 mr-1" />
+            {t("dischargeBriefs.templates.bulkImport", "Bulk Import")}
+          </Button>
+          <Button size="sm" onClick={handleAdd}>
+            <Plus className="h-4 w-4 mr-1" />
+            {t("dischargeBriefs.templates.add", "Add Template")}
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : templates.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            {t("dischargeBriefs.templates.noTemplates", "No templates yet. Create one to guide AI generation.")}
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            {t("dischargeBriefs.templates.description", "Reference templates used to guide AI-generated discharge briefs.")}
           </p>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : templates.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              {t(
-                "dischargeBriefs.templates.noTemplates",
-                "No templates yet. Create one to guide AI generation.",
-              )}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {templates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{tpl.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
+          <Button size="sm" onClick={handleAdd}>
+            <Plus className="h-4 w-4 mr-1" />
+            {t("dischargeBriefs.templates.add", "Add Template")}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {templates.map((tpl) => (
+            <div
+              key={tpl.id}
+              className="bg-card border border-border rounded-lg p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-foreground">{tpl.name}</h3>
+                    <Badge variant="outline" className="text-xs">
+                      {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
+                    </Badge>
+                    {tpl.procedureType && (
+                      <Badge variant="secondary" className="text-xs">
+                        {tpl.procedureType}
                       </Badge>
-                      {tpl.procedureType && (
-                        <Badge variant="secondary" className="text-xs">
-                          {tpl.procedureType}
-                        </Badge>
-                      )}
-                    </div>
-                    {tpl.description && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {tpl.description}
-                      </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEdit(tpl)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTemplate(tpl)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {tpl.description && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      {tpl.description}
+                    </p>
+                  )}
                 </div>
-              ))}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(tpl)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTemplate(tpl)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit Dialog — sticky header + footer */}
       <Dialog

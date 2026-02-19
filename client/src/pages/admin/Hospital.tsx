@@ -1602,6 +1602,9 @@ export default function Hospital() {
             </div>
           </div>
 
+          {/* CHOP Procedures Import */}
+          <ChopIntegrationCard />
+
           {/* Reset Lists Card */}
           <div className="bg-card border border-destructive/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -2359,20 +2362,28 @@ export default function Hospital() {
 
         {/* Integrations Tab Content */}
         <TabsContent value="integrations">
-        <div className="space-y-6">
+        <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
-          
-          {/* Calendar Sync Integration Card (Timebutler/ICS) */}
-          <TimebutlerSyncCard hospitalId={activeHospital?.id} />
 
-          {/* Cal.com Integration Card (for RetellAI booking) */}
-          <CalcomIntegrationCard hospitalId={activeHospital?.id} />
+          <Tabs defaultValue="calcom">
+            <TabsList>
+              <TabsTrigger value="calcom">
+                <i className="fas fa-phone mr-2"></i>
+                Cal.com
+              </TabsTrigger>
+              <TabsTrigger value="vonage">
+                <i className="fas fa-comment-sms mr-2"></i>
+                Vonage SMS
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Vonage SMS Integration Card */}
-          <VonageIntegrationCard hospitalId={activeHospital?.id} />
-
-          {/* CHOP Procedures Import */}
-          <ChopIntegrationCard />
+            <TabsContent value="calcom" className="mt-4">
+              <CalcomIntegrationCard hospitalId={activeHospital?.id} />
+            </TabsContent>
+            <TabsContent value="vonage" className="mt-4">
+              <VonageIntegrationCard hospitalId={activeHospital?.id} />
+            </TabsContent>
+          </Tabs>
         </div>
         </TabsContent>
           </div>{/* end tab content area */}
@@ -3366,104 +3377,6 @@ export default function Hospital() {
 }
 
 // Timebutler Sync Card Component
-function TimebutlerSyncCard({ hospitalId }: { hospitalId?: string }) {
-  const { t } = useTranslation();
-  
-  // Sync status query
-  const { data: syncStatus } = useQuery<{
-    timebutler: {
-      lastSyncAt: string;
-      status: string;
-      error?: string | null;
-      successCount?: number;
-      failedCount?: number;
-    } | null;
-    calcom: {
-      lastSyncAt: string;
-      status: string;
-      error?: string | null;
-      successCount?: number;
-      failedCount?: number;
-    } | null;
-  }>({
-    queryKey: [`/api/clinic/${hospitalId}/sync-status`],
-    enabled: !!hospitalId,
-    refetchInterval: 60000, // Refresh every minute
-  });
-
-  const formatLastSync = (lastSyncAt?: string | null) => {
-    if (!lastSyncAt) return null;
-    const date = new Date(lastSyncAt);
-    return date.toLocaleString();
-  };
-
-  return (
-    <div className="bg-card border border-border rounded-lg p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-          <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-foreground">{t("admin.calendarSync", "Calendar Sync")}</h3>
-          <p className="text-sm text-muted-foreground">{t("admin.calendarSyncDesc", "Sync staff absences from personal calendar URLs (e.g., Timebutler)")}</p>
-        </div>
-        {/* Sync Status Badge */}
-        {syncStatus?.timebutler && (
-          <div className="text-right text-xs">
-            <div className="flex items-center gap-1 justify-end">
-              {syncStatus.timebutler.status === 'completed' ? (
-                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                  <Check className="h-3 w-3" />
-                  {t("admin.lastSync", "Last sync")}: {formatLastSync(syncStatus.timebutler.lastSyncAt)}
-                </span>
-              ) : syncStatus.timebutler.status === 'processing' ? (
-                <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {t("admin.syncing", "Syncing...")}
-                </span>
-              ) : syncStatus.timebutler.status === 'failed' ? (
-                <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <i className="fas fa-times-circle text-xs"></i>
-                  {t("admin.syncFailed", "Sync failed")}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">
-                  {t("admin.pending", "Pending")}
-                </span>
-              )}
-            </div>
-            {syncStatus.timebutler.error && (
-              <p className="text-red-500 text-xs mt-1">{syncStatus.timebutler.error}</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-3">
-          <p>{t("admin.calendarSyncInfo", "Each staff member can configure their own calendar sync URL in the user menu (top right corner). This approach is simpler and more secure than centralized API access.")}</p>
-          
-          <h4 className="font-medium">{t("admin.howToSetup", "How staff members set up their sync:")}</h4>
-          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-            <li>{t("admin.calendarStep1", "Click on their name in the top right corner")}</li>
-            <li>{t("admin.calendarStep2", "Select 'Timebutler Sync'")}</li>
-            <li>{t("admin.calendarStep3", "Paste their personal calendar URL from Timebutler")}</li>
-            <li>{t("admin.calendarStep4", "Save")}</li>
-          </ol>
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
-          <div className="flex items-center gap-1">
-            <i className="fas fa-info-circle"></i>
-            <span>{t("admin.calendarSyncNote", "Synced absences appear in the clinic calendar. Manual syncs can be triggered from Clinic → Availability.")}</span>
-          </div>
-          <span className="text-xs text-muted-foreground">{t("admin.autoSyncInterval", "Auto-sync: every hour")}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Cal.com Integration Card Component
 function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   const { t } = useTranslation();
@@ -3641,8 +3554,8 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               <ExternalLink className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Cal.com (RetellAI)</h3>
-              <p className="text-sm text-muted-foreground">Enable phone-based appointment booking via RetellAI voice agents</p>
+              <h3 className="font-semibold text-foreground">Cal.com</h3>
+              <p className="text-sm text-muted-foreground">Enable phone-based appointment booking via Cal.com</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -3873,22 +3786,34 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
 
             {/* Instructions */}
             <div className="bg-muted/50 rounded-lg p-4 text-sm">
-              <h4 className="font-medium mb-2">How to set up Cal.com + RetellAI booking</h4>
+              <h4 className="font-medium mb-2">How to set up Cal.com booking</h4>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                 <li>Create a Cal.com account and set up an event type (e.g., "Clinic Appointment")</li>
                 <li>Go to Settings → Developer → API Keys and generate a new API key</li>
                 <li>Paste the API key here and save</li>
                 <li>Add provider mappings to link each doctor to their Cal.com event type</li>
                 <li>Click "Subscribe to Cal.com" to sync your clinic calendar (blocks booked times)</li>
-                <li>Set up RetellAI with your Cal.com Event Type ID for booking</li>
+                <li>Use your Cal.com Event Type ID for booking integration</li>
                 <li>Configure a webhook in Cal.com pointing to your app's webhook URL</li>
               </ol>
-              <p className="mt-3 text-xs">
-                <strong>Webhook URL:</strong>{" "}
-                <code className="bg-background px-1 py-0.5 rounded">
+              <div className="mt-3 flex items-center gap-2 p-2 bg-background border border-border rounded-md">
+                <code className="text-sm font-mono flex-1 truncate">
                   {window.location.origin}/api/webhooks/calcom/{hospitalId}
                 </code>
-              </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/calcom/${hospitalId}`);
+                    toast({ description: t("common.copied", "Copied to clipboard") });
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Copy
+                </Button>
+              </div>
             </div>
           </div>
         )}
