@@ -6692,14 +6692,26 @@
       "selectedNotes": "Ausgewählte Notizen",
       "notesSelected": "Notiz(en) ausgewählt",
       "generating": "Wird generiert...",
-      "generate": "Generieren"
+      "generate": "Generieren",
+      "addAppointment": "Termin hinzufügen",
+      "appointmentDescription": "Beschreibung",
+      "appointmentDescPlaceholder": "z.B. Wundkontrolle, Fadenentfernung...",
+      "appointmentCreated": "Termin erstellt",
+      "noAppointments": "Keine zukünftigen Termine geplant",
+      "selectedAppointments": "Ausgewählte Termine",
+      "appointmentsSelected": "Termin(e) ausgewählt",
+      "selectedMedSlots": "Ausgewählte Medikationsslots",
+      "slotsSelected": "Slot(s) ausgewählt",
+      "autoIncluded": "Automatisch enthalten",
+      "linked": "Verknüpft"
     },
     "blocks": {
       "anesthesiaRecord": "Anästhesieprotokoll",
       "surgeryNotes": "OP-Notizen",
       "surgeryDetails": "OP-Details",
       "patientNotes": "Patientennotizen",
-      "dischargeMedications": "Austrittsmedikation"
+      "dischargeMedications": "Austrittsmedikation",
+      "followUpAppointments": "Kontrolltermine"
     },
     "types": {
       "surgeryDischarge": "Chirurgischer Austrittsbericht",

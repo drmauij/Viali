@@ -6,6 +6,7 @@ import {
   getPatientDischargeMedications,
   getAnesthesiaMedications,
 } from "../storage/anesthesia";
+import { getClinicAppointmentsByHospital } from "../storage/clinic";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import {
@@ -63,6 +64,18 @@ export async function collectStaffNames(
   for (const slot of meds) {
     if (slot.doctor) {
       addName(slot.doctor.firstName, slot.doctor.lastName);
+    }
+  }
+
+  // Clinic appointment provider names
+  const today = new Date().toISOString().split("T")[0];
+  const appointments = await getClinicAppointmentsByHospital(hospitalId, {
+    patientId,
+    startDate: today,
+  });
+  for (const appt of appointments) {
+    if (appt.provider) {
+      addName(appt.provider.firstName, appt.provider.lastName);
     }
   }
 
@@ -248,6 +261,43 @@ export async function collectSurgeryNotesData(
   return lines.join("\n");
 }
 
+export async function collectFollowUpAppointmentsData(
+  patientId: string,
+  hospitalId: string,
+  selectedAppointmentIds?: string[],
+): Promise<string | null> {
+  const today = new Date().toISOString().split("T")[0];
+  const allAppts = await getClinicAppointmentsByHospital(hospitalId, {
+    patientId,
+    startDate: today,
+  });
+
+  // Filter out cancelled / no_show
+  const activeAppts = allAppts.filter(
+    (a) => a.status !== "cancelled" && a.status !== "no_show",
+  );
+
+  const appts = selectedAppointmentIds
+    ? activeAppts.filter((a) => selectedAppointmentIds.includes(a.id))
+    : activeAppts;
+
+  if (appts.length === 0) return null;
+
+  const lines: string[] = ["## Follow-Up Appointments (Kontrolltermine)"];
+
+  for (const appt of appts) {
+    const providerName = appt.provider
+      ? `${appt.provider.firstName || ""} ${appt.provider.lastName || ""}`.trim()
+      : "Unknown";
+    const dateStr = new Date(appt.appointmentDate).toLocaleDateString("de-CH");
+    lines.push(`\n### ${dateStr} at ${appt.startTime} — ${providerName}`);
+    if (appt.notes) lines.push(`Notes: ${appt.notes}`);
+    lines.push(`Duration: ${appt.durationMinutes} minutes`);
+  }
+
+  return lines.join("\n");
+}
+
 export async function collectSurgeryData(
   surgeryId: string,
 ): Promise<string | null> {
@@ -380,6 +430,35 @@ export async function getAvailableDataBlocks(
     blocks.push({ key: "surgery_details", available: false });
   }
 
+  // Follow-Up Appointments — future clinic appointments for this patient
+  const today = new Date().toISOString().split("T")[0];
+  const appts = await getClinicAppointmentsByHospital(hospitalId, {
+    patientId,
+    startDate: today,
+  });
+  const activeAppts = appts.filter(
+    (a) => a.status !== "cancelled" && a.status !== "no_show",
+  );
+  blocks.push({
+    key: "follow_up_appointments",
+    available: activeAppts.length > 0,
+    count: activeAppts.length,
+    notes: activeAppts.map((a) => {
+      const providerName = a.provider
+        ? `${a.provider.firstName || ""} ${a.provider.lastName || ""}`.trim()
+        : "";
+      const dateStr = new Date(a.appointmentDate).toLocaleDateString("de-CH");
+      const title = [dateStr, a.startTime, providerName, a.notes]
+        .filter(Boolean)
+        .join(" — ");
+      return {
+        id: a.id,
+        title,
+        createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : String(a.createdAt),
+      };
+    }),
+  });
+
   return blocks;
 }
 
@@ -422,6 +501,7 @@ ${templateContent}
 - Base the content ONLY on the provided clinical data — do not invent information
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
 - Follow the template structure above — do NOT add extra sections or change the order
+- If follow-up appointment data is provided, use the exact dates and times from the data — do not invent appointment dates
 - If a template section has no matching clinical data, keep the section heading but note that no data was available
 - Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
 - Be concise but thorough`;
@@ -439,7 +519,7 @@ Structure the brief with the following sections:
 2. **Intraoperative Findings** — Key findings during surgery
 3. **Post-Operative Course** — Recovery summary and complications if any
 4. **Discharge Medications** — All medications prescribed at discharge with dosing
-5. **Follow-Up** — Follow-up appointments and instructions
+5. **Follow-Up** — Follow-up appointments and instructions (use exact dates from data if available)
 6. **Activity Restrictions** — Physical activity guidelines
 7. **Emergency Signs** — Warning signs requiring immediate medical attention`;
       break;
@@ -453,7 +533,7 @@ Structure the brief with the following sections:
 3. **Pain Management** — Current pain management plan
 4. **Post-Anesthesia Instructions** — Diet, driving, physical activity restrictions
 5. **Warning Signs** — Symptoms requiring immediate medical attention
-6. **Follow-Up** — When and who to contact for follow-up`;
+6. **Follow-Up** — When and who to contact for follow-up (use exact dates from data if available)`;
       break;
 
     case "anesthesia_overnight_discharge":
@@ -467,7 +547,7 @@ Structure the brief with the following sections:
 5. **Pain Management** — Current pain management plan
 6. **Post-Anesthesia Instructions** — Diet, driving, physical activity restrictions
 7. **Warning Signs** — Symptoms requiring immediate medical attention
-8. **Follow-Up** — When and who to contact for follow-up`;
+8. **Follow-Up** — When and who to contact for follow-up (use exact dates from data if available)`;
       break;
 
     default:

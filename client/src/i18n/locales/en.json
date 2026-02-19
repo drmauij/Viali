@@ -6672,14 +6672,26 @@
       "selectedNotes": "Selected Notes",
       "notesSelected": "note(s) selected",
       "generating": "Generating...",
-      "generate": "Generate"
+      "generate": "Generate",
+      "addAppointment": "Add Appointment",
+      "appointmentDescription": "Description",
+      "appointmentDescPlaceholder": "e.g. Wound check, suture removal...",
+      "appointmentCreated": "Appointment created",
+      "noAppointments": "No future appointments scheduled",
+      "selectedAppointments": "Selected Appointments",
+      "appointmentsSelected": "appointment(s) selected",
+      "selectedMedSlots": "Selected Medication Slots",
+      "slotsSelected": "slot(s) selected",
+      "autoIncluded": "Auto-included",
+      "linked": "Linked"
     },
     "blocks": {
       "anesthesiaRecord": "Anesthesia Record",
       "surgeryNotes": "Surgery Notes",
       "surgeryDetails": "Surgery Details",
       "patientNotes": "Patient Notes",
-      "dischargeMedications": "Discharge Medications"
+      "dischargeMedications": "Discharge Medications",
+      "followUpAppointments": "Follow-Up Appointments"
     },
     "types": {
       "surgeryDischarge": "Surgery Discharge",

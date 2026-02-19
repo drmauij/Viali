@@ -32,6 +32,7 @@ import { storage } from "../storage";
 import {
   collectAnesthesiaRecordData,
   collectDischargeMedicationsData,
+  collectFollowUpAppointmentsData,
   collectPatientNotesData,
   collectSurgeryNotesData,
   collectSurgeryData,
@@ -132,6 +133,7 @@ const generateSchema = z.object({
   annotations: z.string().nullable().optional(),
   selectedNoteIds: z.array(z.string()).nullable().optional(),
   selectedMedicationSlotIds: z.array(z.string()).nullable().optional(),
+  selectedAppointmentIds: z.array(z.string()).nullable().optional(),
 });
 
 router.post(
@@ -141,7 +143,7 @@ router.post(
   async (req: any, res: Response) => {
     try {
       const parsed = generateSchema.parse(req.body);
-      const { blocks, briefType, language, templateId, surgeryId, annotations, selectedNoteIds, selectedMedicationSlotIds } = parsed;
+      const { blocks, briefType, language, templateId, surgeryId, annotations, selectedNoteIds, selectedMedicationSlotIds, selectedAppointmentIds } = parsed;
       const patientId = req.params.patientId;
       const hospitalId = req.headers["x-active-hospital-id"] as string;
       const userId = req.user?.id;
@@ -178,6 +180,11 @@ router.post(
           case "discharge_medications":
             dataBlocks.push(
               await collectDischargeMedicationsData(patientId, hospitalId, selectedMedicationSlotIds ?? undefined),
+            );
+            break;
+          case "follow_up_appointments":
+            dataBlocks.push(
+              await collectFollowUpAppointmentsData(patientId, hospitalId, selectedAppointmentIds ?? undefined),
             );
             break;
         }
@@ -523,6 +530,83 @@ router.get(
     } catch (error: any) {
       logger.error("Error fetching audit trail:", error);
       res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// ========== FOLLOW-UP APPOINTMENT QUICK-ADD ==========
+
+const quickAddAppointmentSchema = z.object({
+  appointmentDate: z.string().min(1),
+  startTime: z.string().min(1),
+  notes: z.string().optional(),
+  surgeryId: z.string().nullable().optional(),
+});
+
+router.post(
+  "/api/patients/:patientId/follow-up-appointments",
+  isAuthenticated,
+  requireWriteAccess,
+  async (req: any, res: Response) => {
+    try {
+      const parsed = quickAddAppointmentSchema.parse(req.body);
+      const patientId = req.params.patientId;
+      const hospitalId = req.headers["x-active-hospital-id"] as string;
+      const userId = req.user?.id;
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID required" });
+      }
+
+      // Determine provider: surgeon from surgery if available, else current user
+      let providerId = userId;
+      if (parsed.surgeryId) {
+        const { getSurgery } = await import("../storage/anesthesia");
+        const surgery = await getSurgery(parsed.surgeryId);
+        if (surgery?.surgeonId) {
+          providerId = surgery.surgeonId;
+        }
+      }
+
+      // Find a clinic unit for this hospital
+      const { getUnits } = await import("../storage/hospitals");
+      const allUnits = await getUnits(hospitalId);
+      const clinicUnit = allUnits.find((u) => u.isClinicModule) ?? allUnits[0];
+      if (!clinicUnit) {
+        return res.status(400).json({ message: "No unit configured for this hospital" });
+      }
+
+      // Compute end time (startTime + 30min)
+      const [hours, minutes] = parsed.startTime.split(":").map(Number);
+      const endDate = new Date(2000, 0, 1, hours, minutes + 30);
+      const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+
+      const { createClinicAppointment } = await import("../storage/clinic");
+      const appointment = await createClinicAppointment({
+        hospitalId,
+        unitId: clinicUnit.id,
+        appointmentType: "external",
+        patientId,
+        providerId,
+        appointmentDate: parsed.appointmentDate,
+        startTime: parsed.startTime,
+        endTime,
+        durationMinutes: 30,
+        status: "scheduled",
+        notes: parsed.notes || null,
+        createdBy: userId,
+      });
+
+      // Return with provider info for the client
+      const { getClinicAppointment } = await import("../storage/clinic");
+      const full = await getClinicAppointment(appointment.id);
+      res.json(full ?? appointment);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ message: "Invalid request", details: error.errors });
+      }
+      logger.error("Error creating follow-up appointment:", error);
+      res.status(500).json({ message: error.message || "Failed to create appointment" });
     }
   },
 );
