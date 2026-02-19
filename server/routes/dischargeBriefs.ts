@@ -449,7 +449,7 @@ router.post(
         hospitalLogoUrl: hospital?.companyLogoUrl || undefined,
         signature: brief.signature || undefined,
         signedBy: brief.signer
-          ? `${brief.signer.firstName || ""} ${brief.signer.lastName || ""}`.trim()
+          ? (brief.signer.briefSignature || `${brief.signer.firstName || ""} ${brief.signer.lastName || ""}`.trim())
           : undefined,
         signedAt: brief.signedAt || undefined,
       });

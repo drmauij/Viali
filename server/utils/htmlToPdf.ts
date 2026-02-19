@@ -291,7 +291,7 @@ export async function renderDischargeBriefPdf(
   // Signature section
   if (opts.signature || opts.signedBy) {
     state.y += 10;
-    checkNewPage(pdf, 40, state);
+    checkNewPage(pdf, 60, state);
 
     pdf.setDrawColor(180, 180, 180);
     pdf.line(margin, state.y, pageWidth - margin, state.y);
@@ -313,8 +313,11 @@ export async function renderDischargeBriefPdf(
     if (opts.signedBy) {
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text(opts.signedBy, margin, state.y);
-      state.y += 5;
+      const lines = opts.signedBy.split("\n");
+      for (const line of lines) {
+        pdf.text(line, margin, state.y);
+        state.y += 5;
+      }
     }
 
     if (opts.signedAt) {
