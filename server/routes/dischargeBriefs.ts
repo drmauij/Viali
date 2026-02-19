@@ -218,7 +218,7 @@ router.post(
       }
 
       // 6. Build prompts
-      const systemPrompt = getSystemPrompt(briefType, language, templateContent);
+      const systemPrompt = getSystemPrompt(briefType, language, templateContent, blocks);
 
       let userMessage = safeText;
       if (annotations) {
@@ -453,6 +453,11 @@ router.post(
         patientBirthday: patient.birthday,
         hospitalName: hospital?.name || hospital?.companyName || "",
         hospitalLogoUrl: hospital?.companyLogoUrl || undefined,
+        hospitalStreet: hospital?.companyStreet || undefined,
+        hospitalPostalCode: hospital?.companyPostalCode || undefined,
+        hospitalCity: hospital?.companyCity || undefined,
+        hospitalPhone: hospital?.companyPhone || undefined,
+        hospitalEmail: hospital?.companyEmail || undefined,
         signature: brief.signature || undefined,
         signedBy: brief.signer
           ? (brief.signer.briefSignature || `${brief.signer.firstName || ""} ${brief.signer.lastName || ""}`.trim())

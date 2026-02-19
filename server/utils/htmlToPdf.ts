@@ -13,6 +13,11 @@ interface DischargeBriefPdfOptions {
   patientBirthday: string;
   hospitalName: string;
   hospitalLogoUrl?: string;
+  hospitalStreet?: string;
+  hospitalPostalCode?: string;
+  hospitalCity?: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
   signature?: string;
   signedBy?: string;
   signedAt?: Date | null;
@@ -24,14 +29,138 @@ const BRIEF_TYPE_LABELS: Record<string, string> = {
   anesthesia_overnight_discharge: "Austrittsbrief – Anästhesie (Übernachtung)",
 };
 
+// Layout constants (mm)
+const MARGIN = 15;
+const HEADER_HEIGHT = 32; // reserved space at top for header
+const FOOTER_HEIGHT = 18; // reserved space at bottom for footer
+
 /** Mutable state object passed by reference to all render helpers. */
 interface RenderState {
   y: number;
 }
 
+// ---------------------------------------------------------------------------
+// Logo fetching
+// ---------------------------------------------------------------------------
+
+/** Fetch an image URL and return as base64 data URL. Returns null on failure. */
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") || "image/png";
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Header / Footer rendering (stamped on every page after content is laid out)
+// ---------------------------------------------------------------------------
+
+function renderPageHeader(
+  pdf: jsPDF,
+  pageNum: number,
+  opts: DischargeBriefPdfOptions,
+  logoDataUrl: string | null,
+): void {
+  pdf.setPage(pageNum);
+  const pageWidth = pdf.internal.pageSize.getWidth();
+
+  // Logo (left side, top)
+  if (logoDataUrl) {
+    try {
+      const props = pdf.getImageProperties(logoDataUrl);
+      const maxW = 40, maxH = 18;
+      const ratio = Math.min(maxW / props.width, maxH / props.height);
+      const w = props.width * ratio;
+      const h = props.height * ratio;
+      pdf.addImage(logoDataUrl, MARGIN, 8, w, h);
+    } catch {
+      // Skip logo if it can't be embedded
+    }
+  }
+
+  // Clinic name + contact info (right-aligned)
+  const rightX = pageWidth - MARGIN;
+  let infoY = 12;
+
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(0, 0, 0);
+  if (opts.hospitalName) {
+    pdf.text(opts.hospitalName, rightX, infoY, { align: "right" });
+    infoY += 4.5;
+  }
+
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(100, 100, 100);
+
+  if (opts.hospitalStreet) {
+    pdf.text(opts.hospitalStreet, rightX, infoY, { align: "right" });
+    infoY += 3.5;
+  }
+  if (opts.hospitalPostalCode || opts.hospitalCity) {
+    const cityLine = [opts.hospitalPostalCode, opts.hospitalCity].filter(Boolean).join(" ");
+    pdf.text(cityLine, rightX, infoY, { align: "right" });
+    infoY += 3.5;
+  }
+  if (opts.hospitalPhone) {
+    pdf.text(`Tel: ${opts.hospitalPhone}`, rightX, infoY, { align: "right" });
+    infoY += 3.5;
+  }
+  if (opts.hospitalEmail) {
+    pdf.text(opts.hospitalEmail, rightX, infoY, { align: "right" });
+  }
+
+  // Reset text color
+  pdf.setTextColor(0, 0, 0);
+
+  // Header separator line
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(MARGIN, HEADER_HEIGHT - 2, pageWidth - MARGIN, HEADER_HEIGHT - 2);
+}
+
+function renderPageFooter(
+  pdf: jsPDF,
+  pageNum: number,
+  opts: DischargeBriefPdfOptions,
+): void {
+  pdf.setPage(pageNum);
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const footerY = pageHeight - 10;
+
+  // Footer separator line
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(MARGIN, footerY - 3, pageWidth - MARGIN, footerY - 3);
+
+  // Compact contact line
+  const parts: string[] = [];
+  if (opts.hospitalName) parts.push(opts.hospitalName);
+  if (opts.hospitalStreet) parts.push(opts.hospitalStreet);
+  const cityParts = [opts.hospitalPostalCode, opts.hospitalCity].filter(Boolean);
+  if (cityParts.length) parts.push(cityParts.join(" "));
+  if (opts.hospitalPhone) parts.push(`Tel: ${opts.hospitalPhone}`);
+  if (opts.hospitalEmail) parts.push(opts.hospitalEmail);
+
+  pdf.setFontSize(7);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(130, 130, 130);
+  const footerText = parts.join("  |  ");
+  pdf.text(footerText, pageWidth / 2, footerY, { align: "center" });
+  pdf.setTextColor(0, 0, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Content helpers
+// ---------------------------------------------------------------------------
+
 /**
  * Extract plain text from any node, recursively stripping HTML tags.
- * This mirrors the old `renderInlineFormatting` which stripped bold/italic markdown.
  */
 function getPlainText(node: Node): string {
   if (node.nodeType === NodeType.TEXT_NODE) {
@@ -43,16 +172,16 @@ function getPlainText(node: Node): string {
   return "";
 }
 
-/** Add a new page if the needed vertical space would overflow. */
+/** Add a new page if the needed vertical space would overflow the content zone. */
 function checkNewPage(
   pdf: jsPDF,
   neededSpace: number,
   state: RenderState,
 ): void {
   const pageHeight = pdf.internal.pageSize.getHeight();
-  if (state.y + neededSpace > pageHeight - 25) {
+  if (state.y + neededSpace > pageHeight - FOOTER_HEIGHT) {
     pdf.addPage();
-    state.y = 20;
+    state.y = HEADER_HEIGHT;
   }
 }
 
@@ -249,43 +378,42 @@ export async function renderDischargeBriefPdf(
 ): Promise<Buffer> {
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 15;
-  const maxTextWidth = pageWidth - margin * 2;
-  const state: RenderState = { y: 20 };
+  const maxTextWidth = pageWidth - MARGIN * 2;
+  const state: RenderState = { y: HEADER_HEIGHT };
 
-  // Header: Hospital name + brief type
-  pdf.setFontSize(14);
-  pdf.setFont("helvetica", "bold");
-  if (opts.hospitalName) {
-    pdf.text(opts.hospitalName, pageWidth / 2, state.y, { align: "center" });
-    state.y += 8;
+  // Pre-fetch logo as base64 data URL (used for header on every page)
+  let logoDataUrl: string | null = null;
+  if (opts.hospitalLogoUrl) {
+    logoDataUrl = await fetchImageAsDataUrl(opts.hospitalLogoUrl);
   }
 
+  // Brief type title
   pdf.setFontSize(12);
+  pdf.setFont("helvetica", "bold");
   pdf.text(
     BRIEF_TYPE_LABELS[opts.briefType] || "Austrittsbrief",
     pageWidth / 2,
     state.y,
     { align: "center" },
   );
-  state.y += 10;
+  state.y += 8;
 
   // Patient info line
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
   const patientLine = `Patient: ${opts.patientName}  |  Geb.: ${opts.patientBirthday}`;
-  pdf.text(patientLine, margin, state.y);
+  pdf.text(patientLine, MARGIN, state.y);
   state.y += 5;
 
   // Separator line
   pdf.setDrawColor(180, 180, 180);
-  pdf.line(margin, state.y, pageWidth - margin, state.y);
+  pdf.line(MARGIN, state.y, pageWidth - MARGIN, state.y);
   state.y += 8;
 
   // Parse HTML content and render
   const root = parseHtml(opts.content || "");
   for (const child of root.childNodes) {
-    renderNode(pdf, child, margin, maxTextWidth, state);
+    renderNode(pdf, child, MARGIN, maxTextWidth, state);
   }
 
   // Signature section
@@ -294,7 +422,7 @@ export async function renderDischargeBriefPdf(
     checkNewPage(pdf, 60, state);
 
     pdf.setDrawColor(180, 180, 180);
-    pdf.line(margin, state.y, pageWidth - margin, state.y);
+    pdf.line(MARGIN, state.y, pageWidth - MARGIN, state.y);
     state.y += 8;
 
     if (opts.signature) {
@@ -303,7 +431,7 @@ export async function renderDischargeBriefPdf(
         const sigData = opts.signature.startsWith("data:")
           ? opts.signature
           : `data:image/png;base64,${opts.signature}`;
-        pdf.addImage(sigData, "PNG", margin, state.y, 60, 20);
+        pdf.addImage(sigData, "PNG", MARGIN, state.y, 60, 20);
         state.y += 22;
       } catch {
         // Skip if signature can't be embedded
@@ -315,7 +443,7 @@ export async function renderDischargeBriefPdf(
       pdf.setFont("helvetica", "normal");
       const lines = opts.signedBy.split("\n");
       for (const line of lines) {
-        pdf.text(line, margin, state.y);
+        pdf.text(line, MARGIN, state.y);
         state.y += 5;
       }
     }
@@ -325,10 +453,17 @@ export async function renderDischargeBriefPdf(
       pdf.setFont("helvetica", "italic");
       pdf.text(
         `Unterschrieben am ${new Date(opts.signedAt).toLocaleDateString("de-CH")}`,
-        margin,
+        MARGIN,
         state.y,
       );
     }
+  }
+
+  // Stamp header + footer on every page
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    renderPageHeader(pdf, i, opts, logoDataUrl);
+    renderPageFooter(pdf, i, opts);
   }
 
   // Return as Buffer
