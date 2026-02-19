@@ -222,19 +222,28 @@ export default function TimelineWeekView({
 
   // Get status color for surgery - using theme-aware backgrounds
   const getStatusClass = (surgery: any) => {
+    const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
+    const isSlotReservation = !surgery.patientId && !isRoomBlock;
+
+    if (isRoomBlock && !surgery.isSuspended && surgery.status !== "cancelled") {
+      return "bg-red-800 dark:bg-red-900 border-red-900 dark:border-red-950 text-white border-[3px]";
+    }
+    if (isSlotReservation && !surgery.isSuspended && surgery.status !== "cancelled") {
+      return "bg-violet-500 dark:bg-violet-700 border-violet-700 dark:border-violet-800 text-white border-dashed border-2";
+    }
     if (surgery.isSuspended) {
       return "bg-amber-200 dark:bg-amber-900 border-amber-500 text-amber-900 dark:text-amber-100 border-dashed border-2";
     }
     if (surgery.status === "cancelled") {
       return "bg-gray-200 dark:bg-gray-700 border-gray-500 text-gray-700 dark:text-gray-300 line-through";
     }
-    
+
     if (surgery.timeMarkers) {
       const hasA2 = surgery.timeMarkers.find((m: any) => m.code === 'A2' && m.time !== null);
       const hasX2 = surgery.timeMarkers.find((m: any) => m.code === 'X2' && m.time !== null);
       const hasO2 = surgery.timeMarkers.find((m: any) => m.code === 'O2' && m.time !== null);
       const hasO1 = surgery.timeMarkers.find((m: any) => m.code === 'O1' && m.time !== null);
-      
+
       if (hasA2 || hasX2) {
         // Completed - green
         return "bg-green-200 dark:bg-green-900 border-green-600 text-green-900 dark:text-green-100";
@@ -246,9 +255,20 @@ export default function TimelineWeekView({
         return "bg-red-200 dark:bg-red-900 border-red-600 text-red-900 dark:text-red-100";
       }
     }
-    
+
     // Planned - blue/primary
     return "bg-blue-200 dark:bg-blue-900 border-blue-600 text-blue-900 dark:text-blue-100";
+  };
+
+  // Get inline style for room block diagonal stripes (can't do this with Tailwind alone)
+  const getRoomBlockStyle = (surgery: any): React.CSSProperties | undefined => {
+    if (surgery.plannedSurgery !== '__ROOM_BLOCK__' || surgery.isSuspended || surgery.status === "cancelled") return undefined;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+      backgroundImage: isDark
+        ? 'repeating-linear-gradient(135deg, #991b1b, #991b1b 6px, #7f1d1d 6px, #7f1d1d 12px)'
+        : 'repeating-linear-gradient(135deg, #b91c1c, #b91c1c 6px, #7f1d1d 6px, #7f1d1d 12px)',
+    };
   };
 
   // Calculate surgery position and height
@@ -622,68 +642,131 @@ export default function TimelineWeekView({
                   const pacuBedName = getPacuBedName(surgery.pacuBedId);
                   const preOpKey = getPreOpStatus ? getPreOpStatus(surgery.id).key : 'planned';
                   const qDot = getQuestionnaireDot(surgery.questionnaireStatus, preOpKey);
+                  const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
+                  const isSlotReservation = !surgery.patientId && !isRoomBlock;
 
                   return (
                     <div
                       key={surgery.id}
                       className={cn(
-                        "absolute border-l-4 px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
+                        "absolute px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
+                        // Room blocks and slot reservations: no left border accent (use full border from getStatusClass)
+                        !isRoomBlock && !isSlotReservation && "border-l-4",
                         getStatusClass(surgery),
                         isTruncatedStart ? "rounded-b" : "rounded-t",
                         isTruncatedEnd ? "rounded-t" : "rounded-b",
                         !isTruncatedStart && !isTruncatedEnd && "rounded",
-                        qDot && "pr-3"
+                        qDot && !isRoomBlock && !isSlotReservation && "pr-3"
                       )}
-                      style={{ top, height: Math.max(height - 2, 28), left, right, width }}
+                      style={{ top, height: Math.max(height - 2, 28), left, right, width, ...getRoomBlockStyle(surgery) }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
-                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
+                      title={
+                        isRoomBlock
+                          ? `${startTime} - ${t('opCalendar.roomBlocked', 'BLOCKED')}\n${roomName}${surgery.notes ? `\n${surgery.notes}` : ''}`
+                          : isSlotReservation
+                            ? `${startTime} - ${t('opCalendar.slotReserved', 'SLOT RESERVED')}\n${roomName}${surgery.surgeonName ? `\n${surgery.surgeonName}` : ''}`
+                            : `${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`
+                      }
                       data-testid={`surgery-event-${surgery.id}`}
                     >
-                      {qDot && (
-                        <div
-                          className={`absolute top-1 right-1 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
-                          title={qDot.label}
-                          data-testid={`questionnaire-dot-week-${surgery.id}`}
-                        />
+                      {isRoomBlock ? (
+                        <>
+                          {isTruncatedStart && (
+                            <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
+                          )}
+                          <div className="text-[10px] font-bold truncate uppercase">
+                            {t('opCalendar.roomBlocked', 'BLOCKED')}
+                          </div>
+                          {height > 40 && (
+                            <div className="text-[10px] truncate opacity-90">
+                              {startTime} {roomName}
+                            </div>
+                          )}
+                          {height > 55 && surgery.notes && (
+                            <div className="text-[10px] truncate opacity-80">
+                              {surgery.notes}
+                            </div>
+                          )}
+                        </>
+                      ) : isSlotReservation ? (
+                        <>
+                          {isTruncatedStart && (
+                            <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
+                          )}
+                          <div className="text-[10px] font-bold truncate">
+                            {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+                          </div>
+                          {height > 40 && (
+                            <div className="text-[10px] truncate opacity-90">
+                              {startTime} {roomName}
+                            </div>
+                          )}
+                          {height > 55 && surgery.surgeonName && (
+                            <div className="text-[10px] truncate opacity-80">
+                              {surgery.surgeonName}
+                            </div>
+                          )}
+                          {height > 70 && surgery.notes && (
+                            <div className="text-[10px] truncate opacity-80 italic">
+                              {surgery.notes}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {qDot && (
+                            <div
+                              className={`absolute top-1 right-1 w-2 h-2 rounded-full ${qDot.color} ring-1 ring-white/50`}
+                              title={qDot.label}
+                              data-testid={`questionnaire-dot-week-${surgery.id}`}
+                            />
+                          )}
+                          {isTruncatedStart && (
+                            <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
+                          )}
+                          <div className="text-[10px] font-semibold truncate">
+                            {startTime} {roomName}
+                          </div>
+                          {height > 40 && (
+                            <div className="text-[10px] truncate opacity-80">
+                              {procedureName}
+                            </div>
+                          )}
+                          {height > 55 && (
+                            <div className="text-[10px] truncate opacity-70">
+                              {patientName}
+                            </div>
+                          )}
+                          {surgery.isSuspended && height > 30 && (
+                            <div className="text-[9px] font-bold truncate text-amber-800 dark:text-amber-200" data-testid={`badge-suspended-week-${surgery.id}`}>
+                              {t('opCalendar.suspended', 'ABGESETZT')}
+                            </div>
+                          )}
+                          {getPreOpStatus && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (() => {
+                            const status = getPreOpStatus(surgery.id);
+                            const StatusIcon = status.icon;
+                            return (
+                              <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${status.badgeClass} px-1 py-0.5 rounded w-fit max-w-full`} data-testid={`preop-status-week-${surgery.id}`} title={status.label}>
+                                <StatusIcon className="w-2.5 h-2.5 shrink-0" />
+                                <span className="hidden sm:inline text-[9px] font-medium truncate">{status.label}</span>
+                              </div>
+                            );
+                          })()}
+                          {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
+                            <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
+                              {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {pacuBedName}
+                            </div>
+                          )}
+                          {isTruncatedEnd && height > 40 && (
+                            <div className="text-[8px] text-center opacity-60 absolute bottom-0 left-0 right-0">▼ {t('opCalendar.weekView.later')}</div>
+                          )}
+                        </>
                       )}
-                      {isTruncatedStart && (
-                        <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
-                      )}
-                      <div className="text-[10px] font-semibold truncate">
-                        {startTime} {roomName}
-                      </div>
-                      {height > 40 && (
-                        <div className="text-[10px] truncate opacity-80">
-                          {procedureName}
-                        </div>
-                      )}
-                      {height > 55 && (
-                        <div className="text-[10px] truncate opacity-70">
-                          {patientName}
-                        </div>
-                      )}
-                      {surgery.isSuspended && height > 30 && (
+                      {/* Suspended/cancelled badges for all types */}
+                      {(isRoomBlock || isSlotReservation) && surgery.isSuspended && height > 30 && (
                         <div className="text-[9px] font-bold truncate text-amber-800 dark:text-amber-200" data-testid={`badge-suspended-week-${surgery.id}`}>
                           {t('opCalendar.suspended', 'ABGESETZT')}
                         </div>
-                      )}
-                      {getPreOpStatus && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (() => {
-                        const status = getPreOpStatus(surgery.id);
-                        const StatusIcon = status.icon;
-                        return (
-                          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${status.badgeClass} px-1 py-0.5 rounded w-fit max-w-full`} data-testid={`preop-status-week-${surgery.id}`} title={status.label}>
-                            <StatusIcon className="w-2.5 h-2.5 shrink-0" />
-                            <span className="hidden sm:inline text-[9px] font-medium truncate">{status.label}</span>
-                          </div>
-                        );
-                      })()}
-                      {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
-                        <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
-                          {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {pacuBedName}
-                        </div>
-                      )}
-                      {isTruncatedEnd && height > 40 && (
-                        <div className="text-[8px] text-center opacity-60 absolute bottom-0 left-0 right-0">▼ {t('opCalendar.weekView.later')}</div>
                       )}
                     </div>
                   );
