@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as Sentry from "@sentry/react";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -109,6 +110,11 @@ export function useChecklistState({
         checklist,
         notes,
         signature: newSignature,
+      });
+    } else {
+      Sentry.captureMessage("handleSignatureChange called without anesthesiaRecordId — save skipped", {
+        level: "warning",
+        tags: { component: "useChecklistState" },
       });
     }
     // Call callback when signature is newly added (not cleared or updated)

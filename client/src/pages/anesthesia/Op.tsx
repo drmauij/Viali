@@ -515,12 +515,21 @@ export default function Op() {
         // If 404, create the record
         if (response.status === 404) {
           try {
-            await apiRequest("POST", "/api/anesthesia/records", {
+            const createRes = await apiRequest("POST", "/api/anesthesia/records", {
               surgeryId: surgeryId,
             });
-            
-            // Invalidate to refetch the newly created record
-            queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+            const newRecord = await createRes.json();
+
+            // Set the record ID so useOpData enables the record query
+            setSelectedRecordId(newRecord.id);
+
+            // Update URL for stable navigation (same pattern as duplicate check)
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('recordId', newRecord.id);
+            window.history.replaceState({}, '', currentUrl.toString());
+
+            // Seed the query cache to avoid an extra GET
+            queryClient.setQueryData([`/api/anesthesia/records/${newRecord.id}`], newRecord);
           } catch (createError: any) {
             // Check for billing required error (402)
             if (createError.message?.includes("Payment required") || createError.message?.includes("BILLING_REQUIRED")) {

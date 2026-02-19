@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback, forwardRef } from "react";
+import * as Sentry from "@sentry/react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen, Layers } from "lucide-react";
@@ -2556,6 +2557,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         anesthesiaRecordId,
         timeMarkers: updated,
       });
+    } else {
+      Sentry.captureMessage("Time marker save skipped — anesthesiaRecordId is undefined", {
+        level: "warning",
+        tags: { component: "UnifiedTimeline", action: "setNextTimeMarker" },
+      });
     }
   };
 
@@ -2626,6 +2632,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       saveTimeMarkersMutation.mutate({
         anesthesiaRecordId,
         timeMarkers: updated,
+      });
+    } else {
+      Sentry.captureMessage("Time marker save skipped — anesthesiaRecordId is undefined", {
+        level: "warning",
+        tags: { component: "UnifiedTimeline", action: "updateTimeMarker" },
       });
     }
   };
