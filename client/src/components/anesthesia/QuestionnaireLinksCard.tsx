@@ -70,7 +70,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
     queryFn: async () => {
       const res = await fetch(`/api/questionnaire/patient/${patientId}/links`, {
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
       });
@@ -86,7 +86,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify(data),
@@ -117,7 +117,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify({ email: data.email }),
@@ -148,7 +148,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
       const res = await fetch(`/api/questionnaire/links/${linkId}/invalidate`, {
         method: 'POST',
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
       });

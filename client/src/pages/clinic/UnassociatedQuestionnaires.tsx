@@ -109,7 +109,7 @@ export default function UnassociatedQuestionnaires() {
       const res = await fetch('/api/questionnaire/unassociated', {
         credentials: 'include',
         headers: {
-          'X-Hospital-Id': hospitalId || '',
+          'x-active-hospital-id': hospitalId || '',
         }
       });
       if (!res.ok) throw new Error('Failed to fetch unassociated responses');
@@ -124,7 +124,7 @@ export default function UnassociatedQuestionnaires() {
       const res = await fetch(`/api/patients?hospitalId=${hospitalId}`, {
         credentials: 'include',
         headers: {
-          'X-Hospital-Id': hospitalId || '',
+          'x-active-hospital-id': hospitalId || '',
         }
       });
       if (!res.ok) throw new Error('Failed to fetch patients');

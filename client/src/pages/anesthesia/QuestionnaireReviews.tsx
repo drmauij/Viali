@@ -168,7 +168,7 @@ export default function QuestionnaireReviews() {
     queryFn: async () => {
       const res = await fetch('/api/questionnaire/responses', {
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
       });
@@ -183,7 +183,7 @@ export default function QuestionnaireReviews() {
     queryFn: async () => {
       const res = await fetch(`/api/questionnaire/responses/${selectedResponseId}`, {
         headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
       });
@@ -199,7 +199,7 @@ export default function QuestionnaireReviews() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Hospital-Id': activeHospital?.id || '',
+          'x-active-hospital-id': activeHospital?.id || '',
         },
         credentials: 'include',
         body: JSON.stringify(data),
