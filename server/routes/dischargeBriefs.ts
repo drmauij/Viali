@@ -226,7 +226,6 @@ router.post(
         surgeryId: surgeryId || null,
         briefType,
         language,
-        templateId: templateId || null,
         content: "", // Will be updated after AI response
         sourceDataSnapshot: {
           selectedBlocks: blocks,
@@ -585,7 +584,6 @@ router.post(
       const template = await createDischargeBriefTemplate({
         ...parsed,
         createdBy: req.user?.id,
-        isActive: true,
       });
       res.json(template);
     } catch (error: any) {
@@ -846,7 +844,6 @@ Return ONLY valid JSON, no markdown fences.`,
         templateContent: parsed.content || rawText,
         procedureType: parsed.procedureType || null,
         createdBy: req.user?.id,
-        isActive: true,
       });
 
       res.json(template);

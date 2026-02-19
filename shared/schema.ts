@@ -5276,14 +5276,12 @@ export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
   templateContent: text("template_content"), // Reference document for AI
   assignedUserId: varchar("assigned_user_id").references(() => users.id), // Null = shared with all; set = personal
   procedureType: varchar("procedure_type"), // Free-text tag e.g. "Rhinoplasty"
-  isActive: boolean("is_active").default(true).notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_discharge_brief_templates_hospital").on(table.hospitalId),
   index("idx_discharge_brief_templates_type").on(table.briefType),
-  index("idx_discharge_brief_templates_active").on(table.isActive),
   index("idx_discharge_brief_templates_assigned").on(table.assignedUserId),
 ]);
 
@@ -5294,7 +5292,6 @@ export const dischargeBriefs = pgTable("discharge_briefs", {
   surgeryId: varchar("surgery_id").references(() => surgeries.id), // Nullable for standalone briefs
   briefType: dischargeBriefTypeEnum("brief_type").notNull(),
   language: varchar("language", { length: 5 }).notNull().default("de"),
-  templateId: varchar("template_id").references(() => dischargeBriefTemplates.id), // Null = generic
   content: text("content"), // Markdown content
   sourceDataSnapshot: jsonb("source_data_snapshot").$type<{
     selectedBlocks: string[];
@@ -5337,7 +5334,6 @@ export const dischargeBriefsRelations = relations(dischargeBriefs, ({ one }) => 
   hospital: one(hospitals, { fields: [dischargeBriefs.hospitalId], references: [hospitals.id] }),
   patient: one(patients, { fields: [dischargeBriefs.patientId], references: [patients.id] }),
   surgery: one(surgeries, { fields: [dischargeBriefs.surgeryId], references: [surgeries.id] }),
-  template: one(dischargeBriefTemplates, { fields: [dischargeBriefs.templateId], references: [dischargeBriefTemplates.id] }),
   signer: one(users, { fields: [dischargeBriefs.signedBy], references: [users.id] }),
   creator: one(users, { fields: [dischargeBriefs.createdBy], references: [users.id] }),
 }));

@@ -148,7 +148,6 @@ export async function getDischargeBriefTemplates(
 ): Promise<DischargeBriefTemplate[]> {
   const conditions = [
     eq(dischargeBriefTemplates.hospitalId, hospitalId),
-    eq(dischargeBriefTemplates.isActive, true),
   ];
   if (briefType) {
     conditions.push(eq(dischargeBriefTemplates.briefType, briefType as any));
@@ -172,16 +171,11 @@ export async function getDischargeBriefTemplates(
 export async function getAllDischargeBriefTemplates(
   hospitalId: string,
 ): Promise<DischargeBriefTemplate[]> {
-  // Admin view — shows all templates (shared + personal) but excludes soft-deleted
+  // Admin view — shows all templates (shared + personal)
   return db
     .select()
     .from(dischargeBriefTemplates)
-    .where(
-      and(
-        eq(dischargeBriefTemplates.hospitalId, hospitalId),
-        eq(dischargeBriefTemplates.isActive, true),
-      ),
-    )
+    .where(eq(dischargeBriefTemplates.hospitalId, hospitalId))
     .orderBy(desc(dischargeBriefTemplates.createdAt));
 }
 
@@ -220,10 +214,8 @@ export async function updateDischargeBriefTemplate(
 export async function deleteDischargeBriefTemplate(
   id: string,
 ): Promise<void> {
-  // Soft delete
   await db
-    .update(dischargeBriefTemplates)
-    .set({ isActive: false, updatedAt: new Date() })
+    .delete(dischargeBriefTemplates)
     .where(eq(dischargeBriefTemplates.id, id));
 }
 
