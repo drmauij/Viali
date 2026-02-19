@@ -46,6 +46,7 @@ import { DischargeBriefsSection } from "@/components/dischargeBriefs/DischargeBr
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
+import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/components/shared/ImportPreviousAssessmentDialog";
 import { usePatientQueries } from "./patientDetail/usePatientQueries";
 import { usePatientMutations } from "./patientDetail/usePatientMutations";
 import { PatientCardImageUploader } from "./patientDetail/components/PatientCardImageUploader";
@@ -117,6 +118,7 @@ export default function PatientDetail() {
     callbackSending, setCallbackSending,
     callbackSlots, setCallbackSlots,
     callbackPhoneNumber, setCallbackPhoneNumber,
+    isImportPreviousOpen, setIsImportPreviousOpen,
     assessmentData, setAssessmentData,
     openSections, setOpenSections,
     autoSaveTimeout, setAutoSaveTimeout,
@@ -171,6 +173,20 @@ export default function PatientDetail() {
     selectedQuestionnaireForImport,
     isFindQuestionnaireOpen,
     chopSearchTerm,
+  });
+
+  // Fetch previous assessments count for import badge
+  const { data: previousAssessments = [] } = useQuery<PreviousAssessmentEntry[]>({
+    queryKey: [`/api/preop/patient/${patient?.id}/previous`, selectedCaseId],
+    queryFn: async () => {
+      const res = await fetch(`/api/preop/patient/${patient?.id}/previous?excludeSurgeryId=${selectedCaseId}`, {
+        credentials: 'include',
+        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!patient?.id && !!selectedCaseId && !!activeHospital?.id,
   });
 
   // Upload file to S3 and create attachment record
@@ -1197,6 +1213,89 @@ export default function PatientDetail() {
 
     setIsImportQuestionnaireOpen(false);
     setSelectedQuestionnaireForImport(null);
+  };
+
+  // Handle importing data from a previous pre-op assessment
+  const handleImportFromPrevious = (entry: PreviousAssessmentEntry) => {
+    const a = entry.assessment;
+
+    setAssessmentData(prev => {
+      const newData = { ...prev };
+
+      // Common fields (both surgery and anesthesia assessments)
+      if (a.height) newData.height = a.height;
+      if (a.weight) newData.weight = a.weight;
+      if (a.cave) newData.cave = a.cave;
+      if (a.asa) newData.asa = a.asa;
+      if (a.specialNotes) newData.specialNotes = a.specialNotes;
+      if (a.allergies?.length > 0) newData.allergies = a.allergies;
+      if (a.allergiesOther) newData.allergiesOther = a.allergiesOther;
+      // Surgery assessments use otherAllergies instead of allergiesOther
+      if (a.otherAllergies) newData.allergiesOther = a.otherAllergies;
+      if (a.anticoagulationMeds?.length > 0) newData.anticoagulationMeds = a.anticoagulationMeds;
+      if (a.anticoagulationMedsOther) newData.anticoagulationMedsOther = a.anticoagulationMedsOther;
+      if (a.generalMeds?.length > 0) newData.generalMeds = a.generalMeds;
+      if (a.generalMedsOther) newData.generalMedsOther = a.generalMedsOther;
+      if (a.medicationsNotes) newData.medicationsNotes = a.medicationsNotes;
+
+      // Medical history fields (JSONB objects)
+      if (a.heartIllnesses && Object.keys(a.heartIllnesses).length > 0) newData.heartIllnesses = a.heartIllnesses;
+      if (a.heartNotes) newData.heartNotes = a.heartNotes;
+      if (a.lungIllnesses && Object.keys(a.lungIllnesses).length > 0) newData.lungIllnesses = a.lungIllnesses;
+      if (a.lungNotes) newData.lungNotes = a.lungNotes;
+      if (a.giIllnesses && Object.keys(a.giIllnesses).length > 0) newData.giIllnesses = a.giIllnesses;
+      if (a.kidneyIllnesses && Object.keys(a.kidneyIllnesses).length > 0) newData.kidneyIllnesses = a.kidneyIllnesses;
+      if (a.metabolicIllnesses && Object.keys(a.metabolicIllnesses).length > 0) newData.metabolicIllnesses = a.metabolicIllnesses;
+      if (a.giKidneyMetabolicNotes) newData.giKidneyMetabolicNotes = a.giKidneyMetabolicNotes;
+      if (a.neuroIllnesses && Object.keys(a.neuroIllnesses).length > 0) newData.neuroIllnesses = a.neuroIllnesses;
+      if (a.psychIllnesses && Object.keys(a.psychIllnesses).length > 0) newData.psychIllnesses = a.psychIllnesses;
+      if (a.skeletalIllnesses && Object.keys(a.skeletalIllnesses).length > 0) newData.skeletalIllnesses = a.skeletalIllnesses;
+      if (a.neuroPsychSkeletalNotes) newData.neuroPsychSkeletalNotes = a.neuroPsychSkeletalNotes;
+      if (a.coagulationIllnesses && Object.keys(a.coagulationIllnesses).length > 0) newData.coagulationIllnesses = a.coagulationIllnesses;
+      if (a.infectiousIllnesses && Object.keys(a.infectiousIllnesses).length > 0) newData.infectiousIllnesses = a.infectiousIllnesses;
+      if (a.coagulationInfectiousNotes) newData.coagulationInfectiousNotes = a.coagulationInfectiousNotes;
+      if (a.womanIssues && Object.keys(a.womanIssues).length > 0) newData.womanIssues = a.womanIssues;
+      if (a.womanNotes) newData.womanNotes = a.womanNotes;
+      if (a.noxen && Object.keys(a.noxen).length > 0) newData.noxen = a.noxen;
+      if (a.noxenNotes) newData.noxenNotes = a.noxenNotes;
+      if (a.childrenIssues && Object.keys(a.childrenIssues).length > 0) newData.childrenIssues = a.childrenIssues;
+      if (a.childrenNotes) newData.childrenNotes = a.childrenNotes;
+
+      // Anesthesia & surgical history
+      if (a.anesthesiaHistoryIssues && Object.keys(a.anesthesiaHistoryIssues).length > 0) newData.anesthesiaHistoryIssues = a.anesthesiaHistoryIssues;
+      if (a.dentalIssues && Object.keys(a.dentalIssues).length > 0) newData.dentalIssues = a.dentalIssues;
+      if (a.ponvTransfusionIssues && Object.keys(a.ponvTransfusionIssues).length > 0) newData.ponvTransfusionIssues = a.ponvTransfusionIssues;
+      if (a.previousSurgeries) newData.previousSurgeries = a.previousSurgeries;
+      if (a.anesthesiaSurgicalHistoryNotes) newData.anesthesiaSurgicalHistoryNotes = a.anesthesiaSurgicalHistoryNotes;
+
+      // Outpatient care
+      if (a.outpatientCaregiverFirstName) newData.outpatientCaregiverFirstName = a.outpatientCaregiverFirstName;
+      if (a.outpatientCaregiverLastName) newData.outpatientCaregiverLastName = a.outpatientCaregiverLastName;
+      if (a.outpatientCaregiverPhone) newData.outpatientCaregiverPhone = a.outpatientCaregiverPhone;
+
+      // Anesthesia-specific fields (only when importing from anesthesia assessment)
+      if (entry.assessmentType === 'anesthesia') {
+        if (a.anesthesiaTechniques) newData.anesthesiaTechniques = a.anesthesiaTechniques;
+        if (a.installations) newData.installations = a.installations;
+        if (a.installationsOther) newData.installationsOther = a.installationsOther;
+        if (a.anesthesiaOther) newData.anesthesiaOther = a.anesthesiaOther;
+        if (a.postOpICU !== undefined && a.postOpICU !== null) newData.postOpICU = a.postOpICU;
+        // Note: airway fields (mallampati, mouthOpening, dentition, airwayDifficult, airwayNotes)
+        // are not in the local assessmentData state — they're saved directly via API auto-save.
+        // Skip them here; they'll be imported if the user re-opens the assessment.
+      }
+
+      // Skip status, signatures, consent, approval — those are per-surgery
+
+      return newData;
+    });
+
+    toast({
+      title: t('anesthesia.patientDetail.previousAssessmentImported'),
+      description: t('anesthesia.patientDetail.previousAssessmentImportedDesc'),
+    });
+
+    setIsImportPreviousOpen(false);
   };
 
   // Handle pre-op assessment PDF download
@@ -3072,6 +3171,19 @@ export default function PatientDetail() {
                     >
                       <ClipboardList className="h-4 w-4" />
                       {t('anesthesia.patientDetail.findQuestionnaire', 'Find & Associate Questionnaire')}
+                    </Button>
+                  )}
+                  {!isPreOpReadOnly && previousAssessments.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsImportPreviousOpen(true)}
+                      className="gap-2"
+                      data-testid="button-import-previous"
+                    >
+                      <Import className="h-4 w-4" />
+                      {t('anesthesia.patientDetail.importFromPrevious')}
+                      <Badge variant="secondary" className="ml-1">{previousAssessments.length}</Badge>
                     </Button>
                   )}
                 </div>
@@ -6068,6 +6180,17 @@ export default function PatientDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Import from Previous Assessment Dialog */}
+      {patient?.id && selectedCaseId && (
+        <ImportPreviousAssessmentDialog
+          open={isImportPreviousOpen}
+          onOpenChange={setIsImportPreviousOpen}
+          patientId={patient.id}
+          currentSurgeryId={selectedCaseId}
+          onImport={handleImportFromPrevious}
+        />
+      )}
 
       {/* Find & Associate Questionnaire Dialog */}
       <Dialog open={isFindQuestionnaireOpen} onOpenChange={(open) => {

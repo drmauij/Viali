@@ -1166,6 +1166,81 @@ export async function updateSurgeryPreOpAssessment(id: string, updates: Partial<
   return updated;
 }
 
+// ========== PREVIOUS PRE-OP ASSESSMENTS (for import) ==========
+
+export type PreviousPreOpAssessment = {
+  surgeryId: string;
+  plannedDate: Date | null;
+  plannedSurgery: string | null;
+  assessmentType: 'anesthesia' | 'surgery';
+  assessmentDate: string | null;
+  assessment: PreOpAssessment | SurgeryPreOpAssessment;
+};
+
+export async function getPreviousPreOpAssessmentsForPatient(
+  patientId: string,
+  excludeSurgeryId: string | undefined,
+  hospitalId: string
+): Promise<PreviousPreOpAssessment[]> {
+  // Get all non-archived surgeries for this patient in this hospital
+  const patientSurgeries = await getSurgeries(hospitalId, { patientId });
+
+  // Filter out the current surgery
+  const otherSurgeries = excludeSurgeryId
+    ? patientSurgeries.filter(s => s.id !== excludeSurgeryId)
+    : patientSurgeries;
+
+  if (otherSurgeries.length === 0) return [];
+
+  const surgeryIds = otherSurgeries.map(s => s.id);
+  const surgeryMap = new Map(otherSurgeries.map(s => [s.id, s]));
+
+  // Batch fetch both types of assessments
+  const [anesthesiaAssessments, surgeryAssessments] = await Promise.all([
+    getPreOpAssessmentsBySurgeryIds(surgeryIds, [hospitalId]),
+    getSurgeryPreOpAssessmentsBySurgeryIds(surgeryIds, [hospitalId]),
+  ]);
+
+  const results: PreviousPreOpAssessment[] = [];
+
+  // Add completed anesthesia assessments
+  for (const a of anesthesiaAssessments) {
+    if (a.status !== 'completed') continue;
+    const surgery = surgeryMap.get(a.surgeryId);
+    results.push({
+      surgeryId: a.surgeryId,
+      plannedDate: surgery?.plannedDate || null,
+      plannedSurgery: surgery?.plannedSurgery || null,
+      assessmentType: 'anesthesia',
+      assessmentDate: a.assessmentDate || null,
+      assessment: a,
+    });
+  }
+
+  // Add completed surgery assessments
+  for (const a of surgeryAssessments) {
+    if (a.status !== 'completed') continue;
+    const surgery = surgeryMap.get(a.surgeryId);
+    results.push({
+      surgeryId: a.surgeryId,
+      plannedDate: surgery?.plannedDate || null,
+      plannedSurgery: surgery?.plannedSurgery || null,
+      assessmentType: 'surgery',
+      assessmentDate: a.assessmentDate || null,
+      assessment: a,
+    });
+  }
+
+  // Sort by planned date descending (most recent first)
+  results.sort((a, b) => {
+    const dateA = a.plannedDate ? new Date(a.plannedDate).getTime() : 0;
+    const dateB = b.plannedDate ? new Date(b.plannedDate).getTime() : 0;
+    return dateB - dateA;
+  });
+
+  return results;
+}
+
 // ========== CLINICAL SNAPSHOTS ==========
 
 export async function getClinicalSnapshot(anesthesiaRecordId: string): Promise<ClinicalSnapshot> {

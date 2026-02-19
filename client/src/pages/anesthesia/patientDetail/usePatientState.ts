@@ -258,6 +258,9 @@ export function usePatientState() {
   const [questionnaireSearchTerm, setQuestionnaireSearchTerm] = useState("");
   const [selectedUnassociatedQuestionnaire, setSelectedUnassociatedQuestionnaire] = useState<string | null>(null);
 
+  // Import from previous assessment
+  const [isImportPreviousOpen, setIsImportPreviousOpen] = useState(false);
+
   // Split-screen document preview state
   const [previewDocument, setPreviewDocument] = useState<PreviewDocument>(null);
 
@@ -580,6 +583,9 @@ export function usePatientState() {
     callbackSending, setCallbackSending,
     callbackSlots, setCallbackSlots,
     callbackPhoneNumber, setCallbackPhoneNumber,
+
+    // Import from previous assessment
+    isImportPreviousOpen, setIsImportPreviousOpen,
 
     // Assessment data (pre-op form)
     assessmentData, setAssessmentData,

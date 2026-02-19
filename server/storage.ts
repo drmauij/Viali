@@ -466,7 +466,8 @@ export interface IStorage {
   getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[]): Promise<Map<string, { status: string | null; standBy: boolean | null; standByReason: string | null; standByReasonNote: string | null; surgicalApproval: string | null }>>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
-  
+  getPreviousPreOpAssessmentsForPatient(patientId: string, excludeSurgeryId: string | undefined, hospitalId: string): Promise<anesthesiaStorage.PreviousPreOpAssessment[]>;
+
   // Surgery Pre-Op Assessment operations (Surgery module - simpler, file-based consent)
   getSurgeryPreOpAssessments(hospitalId: string): Promise<Array<any>>;
   getSurgeryPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<SurgeryPreOpAssessment[]>;
@@ -1140,6 +1141,7 @@ export class DatabaseStorage implements IStorage {
   getPreOpAssessmentStatusBySurgeryIds = anesthesiaStorage.getPreOpAssessmentStatusBySurgeryIds;
   createPreOpAssessment = anesthesiaStorage.createPreOpAssessment;
   updatePreOpAssessment = anesthesiaStorage.updatePreOpAssessment;
+  getPreviousPreOpAssessmentsForPatient = anesthesiaStorage.getPreviousPreOpAssessmentsForPatient;
   getSurgeryPreOpAssessments = anesthesiaStorage.getSurgeryPreOpAssessments;
   getSurgeryPreOpAssessmentsBySurgeryIds = anesthesiaStorage.getSurgeryPreOpAssessmentsBySurgeryIds;
   getSurgeryPreOpAssessment = anesthesiaStorage.getSurgeryPreOpAssessment;

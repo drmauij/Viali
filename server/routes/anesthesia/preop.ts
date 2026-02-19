@@ -73,6 +73,30 @@ router.get('/api/anesthesia/preop-assessments/bulk', isAuthenticated, async (req
   }
 });
 
+// Get previous pre-op assessments for a patient (for import into current form)
+router.get('/api/preop/patient/:patientId/previous', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const { excludeSurgeryId } = req.query;
+    const hospitalId = req.headers['x-active-hospital-id'] as string;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+
+    const assessments = await storage.getPreviousPreOpAssessmentsForPatient(
+      patientId,
+      excludeSurgeryId as string | undefined,
+      hospitalId
+    );
+
+    res.json(assessments);
+  } catch (error) {
+    logger.error("Error fetching previous pre-op assessments:", error);
+    res.status(500).json({ message: "Failed to fetch previous pre-op assessments" });
+  }
+});
+
 router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
