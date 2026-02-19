@@ -3,6 +3,7 @@ import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { z, ZodError } from "zod";
 import logger from "../logger";
 
 const router = Router();
@@ -433,25 +434,41 @@ router.patch('/api/user/preferences', isAuthenticated, async (req: any, res) => 
   }
 });
 
-// Update user's Timebutler ICS URL
-router.put('/api/user/timebutler-url', isAuthenticated, async (req: any, res) => {
+// Update user profile fields (phone, briefSignature, timebutlerIcsUrl)
+router.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const { url } = req.body;
-    
-    // Validate URL if provided
-    if (url && !url.startsWith('https://')) {
-      return res.status(400).json({ message: "URL must use HTTPS" });
+
+    const profileSchema = z.object({
+      phone: z.string().nullable().optional(),
+      briefSignature: z.string().nullable().optional(),
+      timebutlerIcsUrl: z.string().nullable().optional(),
+    });
+
+    const data = profileSchema.parse(req.body);
+
+    // Validate Timebutler URL if provided
+    if (data.timebutlerIcsUrl && !data.timebutlerIcsUrl.startsWith('https://')) {
+      return res.status(400).json({ message: "Timebutler URL must use HTTPS" });
     }
-    
+
+    // Build update object with only provided fields
+    const updateFields: Record<string, any> = { updatedAt: new Date() };
+    if ('phone' in data) updateFields.phone = data.phone || null;
+    if ('briefSignature' in data) updateFields.briefSignature = data.briefSignature || null;
+    if ('timebutlerIcsUrl' in data) updateFields.timebutlerIcsUrl = data.timebutlerIcsUrl || null;
+
     await db.update(users)
-      .set({ timebutlerIcsUrl: url || null, updatedAt: new Date() })
+      .set(updateFields)
       .where(eq(users.id, userId));
-    
+
     res.json({ success: true });
-  } catch (error) {
-    logger.error("Error updating Timebutler URL:", error);
-    res.status(500).json({ message: "Failed to update Timebutler URL" });
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ message: "Invalid request", details: error.errors });
+    }
+    logger.error("Error updating user profile:", error);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
