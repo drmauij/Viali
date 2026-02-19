@@ -25,6 +25,16 @@ Deployed on Exoscale VPS (Ubuntu), not Replit. Use standard environment variable
 3. Convert generated migration to idempotent SQL (use `IF NOT EXISTS`, `IF EXISTS`, etc.)
 4. `npm run db:migrate`
 
+## "Check db for deploy" workflow
+
+When the user says "check db for deploy", run this full checklist:
+
+1. Read the latest migration SQL file — verify every statement is idempotent (`IF EXISTS`, `IF NOT EXISTS`, `DO $$ ... END $$`)
+2. `npx drizzle-kit push` — confirm DB schema matches Drizzle schema (should say "Changes applied" with no pending diffs)
+3. `npm run check` — TypeScript must pass clean
+4. Confirm the Drizzle journal (`migrations/meta/_journal.json`) includes the latest migration entry
+5. Report result: safe to deploy, or list what needs fixing
+
 ## Communication
 
 Use simple, everyday language.
