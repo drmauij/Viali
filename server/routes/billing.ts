@@ -100,21 +100,10 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthRecords = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth);
     
-    // Calculate price per record including base price and per-record add-ons
-    // Note: questionnaire and surgery are now included in the base fee (no extra charge)
+    // Flat base rate per record — all features included
     const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 6.00;
-    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
-    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    const pricePerRecord = basePrice + dispocuraAddOn + monitorAddOn;
-    
-    // Calculate flat monthly add-ons
-    const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
-    const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
-    const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
-    const retellAddOn = hospital.addonRetell ? 15.00 : 0;
-    const monthlyFees = worktimeAddOn + logisticsAddOn + clinicAddOn + retellAddOn;
-    
-    const estimatedCost = (currentMonthRecords * pricePerRecord) + monthlyFees;
+    const pricePerRecord = basePrice;
+    const estimatedCost = currentMonthRecords * pricePerRecord;
 
     // Calculate trial status for "test" license type (15 day trial)
     const TRIAL_DAYS = 15;
@@ -179,14 +168,14 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
           trialDaysRemaining: null,
           trialExpired: false,
           addons: {
-            questionnaire: true, // Always included in base fee
-            dispocura: hospital.addonDispocura ?? false,
-            retell: hospital.addonRetell ?? false,
-            monitor: hospital.addonMonitor ?? false,
-            surgery: true, // Always included in base fee
-            worktime: hospital.addonWorktime ?? false,
-            logistics: hospital.addonLogistics ?? false,
-            clinic: hospital.addonClinic ?? false,
+            questionnaire: true,
+            dispocura: true,
+            retell: true,
+            monitor: true,
+            surgery: true,
+            worktime: true,
+            logistics: true,
+            clinic: true,
           },
           questionnaireDisabled: hospital.questionnaireDisabled ?? false,
         });
@@ -205,14 +194,6 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       hospital.licenseType === "test" ? trialInfo.trialExpired && !hospital.stripePaymentMethodId :
       !hospital.stripePaymentMethodId;
 
-    // Determine addon access:
-    // - free: always full access
-    // - test (within trial): full access
-    // - test (expired) or basic: use database values
-    const hasFullAccess = 
-      hospital.licenseType === "free" || 
-      (hospital.licenseType === "test" && !trialInfo.trialExpired);
-
     res.json({
       licenseType: hospital.licenseType,
       hasPaymentMethod: !!hospital.stripePaymentMethodId,
@@ -230,27 +211,16 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       estimatedCost,
       billingRequired,
       ...trialInfo,
-      addons: hasFullAccess 
-        ? {
-            questionnaire: true,
-            dispocura: true,
-            retell: true,
-            monitor: true,
-            surgery: true,
-            worktime: true,
-            logistics: true,
-            clinic: true,
-          }
-        : {
-            questionnaire: true, // Always included in base fee
-            dispocura: hospital.addonDispocura ?? false,
-            retell: hospital.addonRetell ?? false,
-            monitor: hospital.addonMonitor ?? false,
-            surgery: true, // Always included in base fee
-            worktime: hospital.addonWorktime ?? false,
-            logistics: hospital.addonLogistics ?? false,
-            clinic: hospital.addonClinic ?? false,
-          },
+      addons: {
+        questionnaire: true,
+        dispocura: true,
+        retell: true,
+        monitor: true,
+        surgery: true,
+        worktime: true,
+        logistics: true,
+        clinic: true,
+      },
       questionnaireDisabled: hospital.questionnaireDisabled ?? false,
     });
   } catch (error) {
@@ -1689,21 +1659,9 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       return res.status(400).json({ message: "No records found for this billing period" });
     }
     
-    // Calculate pricing
-    // Note: questionnaire and surgery are now included in the base fee (no extra charge)
+    // Flat base rate per record — all features included
     const basePrice = parseFloat(hospital.pricePerRecord || '6.00');
-    // Per-record add-ons (questionnaire and surgery no longer charged separately)
-    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
-    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    // Flat monthly add-ons
-    const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
-    const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
-    const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
-    
-    const pricePerRecord = basePrice + dispocuraAddOn + monitorAddOn;
-    // Flat monthly add-on for Retell
-    const retellAddOn = hospital.addonRetell ? 15.00 : 0;
-    const totalAmount = (recordCount * pricePerRecord) + worktimeAddOn + logisticsAddOn + clinicAddOn + retellAddOn;
+    const totalAmount = recordCount * basePrice;
     
     // Create Stripe invoice
     const invoice = await stripe.invoices.create({
@@ -1730,77 +1688,6 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       description: 'Anesthesia Records (Base)',
     });
     
-    // Note: questionnaire is now included in base fee, no separate line item
-    
-    if (hospital.addonDispocura) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount_decimal: String(Math.round(dispocuraAddOn * 100)),
-        currency: 'chf',
-        description: 'Dispocura Integration Add-on',
-      });
-    }
-    
-    if (hospital.addonRetell) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: 1,
-        unit_amount_decimal: String(Math.round(retellAddOn * 100)),
-        currency: 'chf',
-        description: 'Retell.ai Phone Booking (Monthly)',
-      });
-    }
-    
-    if (hospital.addonMonitor) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount_decimal: String(Math.round(monitorAddOn * 100)),
-        currency: 'chf',
-        description: 'Monitor Camera Connection Add-on',
-      });
-    }
-    
-    // Note: surgery is now included in base fee, no separate line item
-    
-    // Flat monthly add-ons (quantity: 1)
-    if (hospital.addonWorktime) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: 1,
-        unit_amount_decimal: String(Math.round(worktimeAddOn * 100)),
-        currency: 'chf',
-        description: 'Work Time Logs Module (Monthly)',
-      });
-    }
-    
-    if (hospital.addonLogistics) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: 1,
-        unit_amount_decimal: String(Math.round(logisticsAddOn * 100)),
-        currency: 'chf',
-        description: 'Logistics & Order Management Module (Monthly)',
-      });
-    }
-    
-    if (hospital.addonClinic) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: 1,
-        unit_amount_decimal: String(Math.round(clinicAddOn * 100)),
-        currency: 'chf',
-        description: 'Clinic Module with Invoices & Appointments (Monthly)',
-      });
-    }
-    
     // Finalize and pay invoice
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     
@@ -1811,14 +1698,14 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       periodEnd,
       recordCount,
       basePrice: (recordCount * basePrice).toFixed(2),
-      questionnairePrice: '0.00', // Included in base fee
-      dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
-      retellPrice: retellAddOn.toFixed(2),
-      monitorPrice: (recordCount * monitorAddOn).toFixed(2),
-      surgeryPrice: '0.00', // Included in base fee
-      worktimePrice: worktimeAddOn.toFixed(2),
-      logisticsPrice: logisticsAddOn.toFixed(2),
-      clinicPrice: clinicAddOn.toFixed(2),
+      questionnairePrice: '0.00',
+      dispocuraPrice: '0.00',
+      retellPrice: '0.00',
+      monitorPrice: '0.00',
+      surgeryPrice: '0.00',
+      worktimePrice: '0.00',
+      logisticsPrice: '0.00',
+      clinicPrice: '0.00',
       totalAmount: totalAmount.toFixed(2),
       currency: 'chf',
       stripeInvoiceId: finalizedInvoice.id,

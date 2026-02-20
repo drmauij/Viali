@@ -2351,15 +2351,9 @@ async function processMonthlyBilling(job: any): Promise<void> {
       return;
     }
     
-    // Calculate pricing
-    // Note: questionnaire and surgery are now included in base fee (no extra charge)
+    // Flat base rate per record — all features included
     const basePrice = parseFloat(hospital.pricePerRecord || '6.00');
-    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
-    const retellAddOn = hospital.addonRetell ? 1.00 : 0;
-    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    
-    const pricePerRecord = basePrice + dispocuraAddOn + retellAddOn + monitorAddOn;
-    const totalAmount = recordCount * pricePerRecord;
+    const totalAmount = recordCount * basePrice;
     
     // Create Stripe invoice
     const invoice = await stripe.invoices.create({
@@ -2386,41 +2380,6 @@ async function processMonthlyBilling(job: any): Promise<void> {
       description: 'Anesthesia Records (Base)',
     } as any);
 
-    // Note: questionnaire is now included in base fee, no separate line item
-
-    if (hospital.addonDispocura) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount: Math.round(dispocuraAddOn * 100),
-        currency: 'chf',
-        description: 'Dispocura Integration Add-on',
-      } as any);
-    }
-
-    if (hospital.addonRetell) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount: Math.round(retellAddOn * 100),
-        currency: 'chf',
-        description: 'Retell.ai Phone Booking Add-on',
-      } as any);
-    }
-
-    if (hospital.addonMonitor) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount: Math.round(monitorAddOn * 100),
-        currency: 'chf',
-        description: 'Monitor Camera Connection Add-on',
-      } as any);
-    }
-    
     // Finalize and pay invoice
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     
@@ -2431,10 +2390,14 @@ async function processMonthlyBilling(job: any): Promise<void> {
       periodEnd,
       recordCount,
       basePrice: (recordCount * basePrice).toFixed(2),
-      questionnairePrice: '0.00', // Included in base fee
-      dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
-      retellPrice: (recordCount * retellAddOn).toFixed(2),
-      monitorPrice: (recordCount * monitorAddOn).toFixed(2),
+      questionnairePrice: '0.00',
+      dispocuraPrice: '0.00',
+      retellPrice: '0.00',
+      monitorPrice: '0.00',
+      surgeryPrice: '0.00',
+      worktimePrice: '0.00',
+      logisticsPrice: '0.00',
+      clinicPrice: '0.00',
       totalAmount: totalAmount.toFixed(2),
       currency: 'chf',
       stripeInvoiceId: finalizedInvoice.id,

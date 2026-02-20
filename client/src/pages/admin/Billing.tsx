@@ -11,7 +11,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -22,27 +21,20 @@ import SignaturePad from "@/components/SignaturePad";
 import { TermsOfUseContent } from "@/components/TermsOfUseContent";
 import { PrivacyPolicyContent } from "@/components/PrivacyPolicyContent";
 import { AVVContent } from "@/components/AVVContent";
-import { 
-  CreditCard, 
-  ExternalLink, 
-  FileText, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  CreditCard,
+  ExternalLink,
+  FileText,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   Trash2,
   Download,
   FileSignature,
   Pen,
   Calculator,
-  Phone,
-  Camera,
   Clock,
-  ClipboardList,
   ChevronDown,
-  Scissors,
-  Truck,
-  Building2,
-  Timer
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -327,18 +319,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
-  const toggleAddon = useMutation({
-    mutationFn: async ({ addon, enabled }: { addon: string; enabled: boolean }) => {
-      return apiRequest("PATCH", `/api/billing/${hospitalId}/addons`, { addon, enabled });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "status"] });
-    },
-    onError: () => {
-      toast({ title: t('billing.failedToUpdateAddon'), variant: "destructive" });
-    },
-  });
-
   const generateInvoice = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", `/api/billing/${hospitalId}/generate-invoice`);
@@ -420,8 +400,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Base Fee */}
-            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+            {/* Flat Rate */}
+            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-primary" />
                 <div>
@@ -431,218 +411,11 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-lg font-bold">3.00 CHF</Badge>
+              <Badge variant="secondary" className="text-lg font-bold">
+                {billingStatus.pricePerRecord.toFixed(2)} CHF
+              </Badge>
             </div>
 
-            <Separator />
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">
-                {t('billing.optionalAddons')}
-              </p>
-
-              {/* Camera Monitor Connection */}
-              <div className="flex items-center justify-between p-3 border rounded-lg opacity-75">
-                <div className="flex items-center gap-3">
-                  <Camera className="h-5 w-5 text-orange-500" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{t('billing.addon.monitorCamera')}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.perRecord')}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {t('billing.comingSoon')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.monitorCameraDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-muted-foreground">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.monitor}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
-                    disabled={true}
-                    data-testid="switch-addon-monitor"
-                  />
-                </div>
-              </div>
-
-              {/* Work Time Logs */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Timer className="h-5 w-5 text-indigo-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{t('billing.addon.workTimeLogs')}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.monthly')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.workTimeLogsDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
-                  <Switch 
-                    checked={billingStatus.addons.worktime}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "worktime", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-worktime"
-                  />
-                </div>
-              </div>
-
-              {/* Dispocura Integration */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Calculator className="h-5 w-5 text-green-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">Dispocura</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.perRecord')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-bold">
-                      {t('billing.addon.dispocuraRequires')} <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.dispocuraDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.dispocura}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "dispocura", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-dispocura"
-                  />
-                </div>
-              </div>
-
-              {/* Logistics Module */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Truck className="h-5 w-5 text-orange-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{t('billing.addon.logistics')}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.monthly')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.logisticsDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
-                  <Switch 
-                    checked={billingStatus.addons.logistics}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "logistics", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-logistics"
-                  />
-                </div>
-              </div>
-
-              {/* Clinic Module */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-5 w-5 text-emerald-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{t('billing.addon.clinic')}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.monthly')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.clinicDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+10.00 CHF/Mt.</span>
-                  <Switch 
-                    checked={billingStatus.addons.clinic}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "clinic", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-clinic"
-                  />
-                </div>
-              </div>
-
-              {/* Retell.ai Phone Booking - Monthly */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">Retell.ai</p>
-                      <Badge variant="outline" className="text-xs">
-                        {t('billing.monthly')}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('billing.addon.retellDesc')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+15.00 CHF/Mt.</span>
-                  <Switch 
-                    checked={billingStatus.addons.retell}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "retell", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-retell"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Total Calculation */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
-                <p className="font-medium">
-                  {t('billing.totalPerRecord')}
-                </p>
-                <p className="text-xl font-bold text-primary">
-                  {(3 + 
-                    (billingStatus.addons.dispocura ? 1 : 0) + 
-                    (billingStatus.addons.monitor ? 1 : 0)
-                  ).toFixed(2)} CHF
-                </p>
-              </div>
-              {(billingStatus.addons.worktime || billingStatus.addons.logistics || billingStatus.addons.clinic || billingStatus.addons.retell) && (
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <p className="font-medium text-muted-foreground">
-                    {t('billing.additionalMonthly')}
-                  </p>
-                  <p className="text-lg font-semibold text-muted-foreground">
-                    +{(
-                      (billingStatus.addons.worktime ? 5 : 0) +
-                      (billingStatus.addons.logistics ? 5 : 0) +
-                      (billingStatus.addons.clinic ? 10 : 0) +
-                      (billingStatus.addons.retell ? 15 : 0)
-                    ).toFixed(2)} CHF
-                  </p>
-                </div>
-              )}
-            </div>
-            
             <p className="text-xs text-muted-foreground text-center">
               {t('billing.pricesNetVat')}
             </p>
