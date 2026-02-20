@@ -55,6 +55,7 @@ Viali uses external AI services for specific features. This section documents ex
 | **OpenAI** | Voice transcription (German drug commands) | `whisper-1` | — |
 | **OpenAI** | Drug command parsing (from transcribed text) | `gpt-4o-mini` | — |
 | **OpenAI** | Supplier product matching (batch jobs) | `gpt-4o-mini` | — |
+| **OpenMed** (local) | ML-based PII detection safety net | `pii_detection_superclinical` | `OPENMED_URL` env var |
 
 ### Where in the code
 
@@ -72,16 +73,24 @@ Viali uses external AI services for specific features. This section documents ex
 
 ### Data privacy and anonymization
 
-**Translation services (Mistral):** All text sent to Mistral for translation is **anonymized and sanitized** before leaving the server. The `anonymize()` function (in `server/utils/anonymize.ts`) replaces personally identifiable information with numbered placeholders:
+**Translation and discharge briefs (Mistral):** All text sent to Mistral is **anonymized and sanitized** before leaving the server using a three-layer pipeline (`server/utils/anonymize.ts`):
 
+1. **Known-value replacement** — replaces patient/staff names, emails, phones from the database with numbered placeholders
+2. **Regex sweep** — catches remaining Swiss AHV numbers, emails, phones, dates, URLs
+3. **OpenMed ML detection** — a locally-running ML model catches PII that the first two layers miss (e.g. third-party names in doctor notes like "patient's wife Maria", addresses, family member references)
+
+Placeholder format:
 - Patient and doctor names → `[NAME_1]`, `[NAME_2]`, ...
 - Email addresses → `[EMAIL_1]`, ...
 - Dates → `[DATE_1]`, `[DATETIME_1]`, ...
 - Phone numbers → `[PHONE_1]`, ...
 - URLs → `[LINK_1]`, ...
 - Swiss AHV social security numbers → `[AHV_1]`, ...
+- Locations/addresses (via OpenMed) → `[LOCATION_1]`, ...
 
-After the translated response comes back, the original values are restored via a `restore()` function. Every outbound call is audit-logged with a summary of what was anonymized.
+After the AI response comes back, the original values are restored via a `restore()` function. Every outbound call is audit-logged with a summary of what was anonymized (including how many entities OpenMed detected).
+
+**OpenMed runs 100% locally** on the VPS as a Python sidecar — no patient data leaves the machine. If the sidecar is unavailable, the system falls back gracefully to the first two layers.
 
 **Translation was moved from OpenAI to Mistral** specifically for EU data residency — Mistral is a French company and all data stays within the EU.
 
@@ -104,6 +113,7 @@ Hospital administrators can choose between OpenAI and Mistral (Pixtral) for all 
 | `MISTRAL_TEXT_MODEL` | No | `mistral-small-latest` |
 | `MISTRAL_VISION_MODEL` | No | `pixtral-large-latest` |
 | `OPENAI_VISION_MODEL` | No | `gpt-4o-mini` |
+| `OPENMED_URL` | No | `http://localhost:5050` |
 
 ## 🛠️ Technology Stack
 
@@ -140,6 +150,9 @@ Viali uses a **background worker architecture** for reliable bulk image processi
 Viali runs **two processes** managed by PM2:
 - **Main Application**: Web server handling HTTP requests (port 5000)
 - **Background Worker**: Processes bulk image imports asynchronously with progress tracking
+
+Plus an optional **sidecar service** managed by systemd:
+- **OpenMed PII Sidecar**: ML-based PII detection for patient data anonymization (port 5050, localhost only)
 
 ### Prerequisites
 - **Node.js** 20 or higher
@@ -381,6 +394,43 @@ This will:
 3. Rebuild the application
 4. Reload PM2 processes with zero-downtime
 5. Run database migrations automatically
+
+---
+
+### Step 6: OpenMed PII Sidecar (Optional)
+
+The OpenMed sidecar adds ML-based PII detection as a safety net for patient data anonymization. It runs locally — no data leaves the server.
+
+```bash
+# Install Python (if not already present)
+sudo apt install -y python3 python3-venv python3-pip
+
+# Run the setup script (creates venv, installs deps, starts systemd service)
+sudo bash services/openmed-pii/setup.sh
+```
+
+The first startup downloads the ML model (~500MB-1GB). Verify it's running:
+
+```bash
+# Health check
+curl http://localhost:5050/health
+
+# Test PII detection
+curl -X POST http://localhost:5050/detect \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Patientin Maria Schmidt, Bahnhofstrasse 42", "lang": "de"}'
+```
+
+Add `OPENMED_URL: 'http://localhost:5050'` to your `ecosystem.config.cjs` env blocks and restart PM2.
+
+If the sidecar is not installed or goes down, Viali continues working with the two existing anonymization layers.
+
+```bash
+# Manage the sidecar
+sudo systemctl status openmed-pii
+sudo systemctl restart openmed-pii
+sudo journalctl -u openmed-pii -n 50
+```
 
 ---
 

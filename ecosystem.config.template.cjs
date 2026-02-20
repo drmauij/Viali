@@ -21,7 +21,8 @@ module.exports = {
         RESEND_API_KEY: 'your-resend-api-key',
         RESEND_FROM_EMAIL: 'noreply@mail.viali.app',
         PRODUCTION_URL: 'https://your-domain.com',
-        DB_SSL_REJECT_UNAUTHORIZED: 'false'
+        DB_SSL_REJECT_UNAUTHORIZED: 'false',
+        OPENMED_URL: 'http://localhost:5050'
       },
       instances: 1,
       autorestart: true,
