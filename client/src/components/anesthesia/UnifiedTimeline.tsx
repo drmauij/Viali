@@ -3132,7 +3132,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         const response = await fetch('/api/analyze-monitor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: preprocessed.base64 }),
+          body: JSON.stringify({ image: preprocessed.base64, hospitalId: activeHospital?.id }),
           signal: controller.signal,
         });
         
