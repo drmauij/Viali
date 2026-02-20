@@ -26,4 +26,4 @@ export {
   getBulkImportImageLimit,
   checkLicenseLimit
 } from "./licensing";
-export { anonymize, logAiOutbound } from "./anonymize";
+export { anonymize, anonymizeWithOpenMed, logAiOutbound } from "./anonymize";

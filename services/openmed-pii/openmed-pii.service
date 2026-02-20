@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenMed PII Detection Sidecar
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/openmed-pii
+ExecStart=/opt/openmed-pii/venv/bin/uvicorn main:app --host 127.0.0.1 --port 5050
+Restart=on-failure
+RestartSec=5
+Environment=OPENMED_CONFIDENCE_THRESHOLD=0.7
+Environment=OPENMED_MODEL=pii_detection_superclinical
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/openmed-pii
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

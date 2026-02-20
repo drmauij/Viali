@@ -4,7 +4,7 @@ import {
   requireWriteAccess,
   requireHospitalAccess,
   requireHospitalAdmin,
-  anonymize,
+  anonymizeWithOpenMed,
   logAiOutbound,
 } from "../utils";
 import { z, ZodError } from "zod";
@@ -209,8 +209,8 @@ router.post(
       const staffNames = await collectStaffNames(patientId, hospitalId, surgeryId);
       const knownValues = buildKnownValues(patient, hospital, staffNames);
 
-      // 4. Anonymize
-      const { text: safeText, restore, summary } = anonymize(serializedText, { knownValues });
+      // 4. Anonymize (known-values + regex + OpenMed ML)
+      const { text: safeText, restore, summary } = await anonymizeWithOpenMed(serializedText, { knownValues });
 
       // 5. Get template content if selected
       let templateContent: string | null = null;
@@ -224,7 +224,7 @@ router.post(
 
       let userMessage = safeText;
       if (annotations) {
-        const { text: safeAnnotations } = anonymize(annotations, { knownValues });
+        const { text: safeAnnotations } = await anonymizeWithOpenMed(annotations, { knownValues });
         userMessage += `\n\n## Additional Notes from Doctor\n${safeAnnotations}`;
       }
 

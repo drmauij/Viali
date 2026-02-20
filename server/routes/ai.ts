@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, anonymize, logAiOutbound } from "../utils";
+import { requireWriteAccess, anonymizeWithOpenMed, logAiOutbound } from "../utils";
 import {
   analyzeMonitorImage,
   transcribeVoice,
@@ -203,8 +203,8 @@ router.post('/api/translate-message', isAuthenticated, requireWriteAccess, async
       fr: 'French',
     };
 
-    // Anonymize PII before sending to external AI
-    const { text: safeText, restore, summary } = anonymize(text, { knownValues });
+    // Anonymize PII before sending to external AI (known-values + regex + OpenMed ML)
+    const { text: safeText, restore, summary } = await anonymizeWithOpenMed(text, { knownValues });
 
     await logAiOutbound({
       anonymizedText: safeText,
