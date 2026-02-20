@@ -10,14 +10,15 @@ ExecStart=/opt/openmed-pii/venv/bin/uvicorn main:app --host 127.0.0.1 --port 505
 Restart=on-failure
 RestartSec=5
 Environment=OPENMED_CONFIDENCE_THRESHOLD=0.7
-Environment=OPENMED_MODEL=pii_detection_superclinical
+Environment=OPENMED_MODEL=OpenMed/OpenMed-PII-German-SuperClinical-Small-44M-v1
 Environment=HF_HOME=/opt/openmed-pii/.cache
 Environment=TRANSFORMERS_CACHE=/opt/openmed-pii/.cache
+Environment=XDG_CACHE_HOME=/opt/openmed-pii/.cache
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/opt/openmed-pii
+ReadWritePaths=/opt/openmed-pii /var/www/.cache
 PrivateTmp=true
 
 [Install]
