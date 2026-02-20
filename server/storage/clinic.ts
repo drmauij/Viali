@@ -1622,6 +1622,29 @@ export async function deleteExternalWorklogLink(id: string): Promise<void> {
   await db.delete(externalWorklogLinks).where(eq(externalWorklogLinks.id, id));
 }
 
+export async function getWorklogWorkers(hospitalId: string): Promise<{ email: string; firstName: string; lastName: string }[]> {
+  const rows = await db
+    .select({
+      email: externalWorklogLinks.email,
+      firstName: externalWorklogLinks.firstName,
+      lastName: externalWorklogLinks.lastName,
+    })
+    .from(externalWorklogLinks)
+    .where(eq(externalWorklogLinks.hospitalId, hospitalId))
+    .orderBy(asc(externalWorklogLinks.lastName), asc(externalWorklogLinks.firstName));
+
+  // Deduplicate by lowercase email (a worker may have links in multiple units)
+  const seen = new Set<string>();
+  return rows.reduce<{ email: string; firstName: string; lastName: string }[]>((acc, r) => {
+    const key = r.email.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      acc.push({ email: r.email, firstName: r.firstName || '', lastName: r.lastName || '' });
+    }
+    return acc;
+  }, []);
+}
+
 // ========== EXTERNAL SURGERY REQUESTS ==========
 
 export async function getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequest[]> {

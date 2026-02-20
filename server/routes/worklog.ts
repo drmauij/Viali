@@ -285,6 +285,18 @@ router.post('/api/worklog/resend', async (req, res) => {
   }
 });
 
+// Get distinct workers who have worklog links for this hospital (authenticated)
+router.get('/api/hospitals/:hospitalId/worklog/workers', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const workers = await storage.getWorklogWorkers(hospitalId);
+    res.json(workers);
+  } catch (error) {
+    logger.error("Error fetching worklog workers:", error);
+    res.status(500).json({ message: "Failed to fetch workers" });
+  }
+});
+
 // Get pending worklog entries for countersigning (authenticated)
 router.get('/api/hospitals/:hospitalId/worklog/pending', isAuthenticated, async (req: any, res) => {
   try {

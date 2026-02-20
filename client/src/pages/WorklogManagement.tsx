@@ -7,9 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
-import { Loader2, Clock, Download, User, Building2, Filter, FileText } from "lucide-react";
+import { Loader2, Clock, Download, User, Building2, Filter, FileText, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { de, enUS, type Locale } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -172,6 +175,12 @@ export default function WorklogManagement() {
   const [filterEmail, setFilterEmail] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [workerPopoverOpen, setWorkerPopoverOpen] = useState(false);
+
+  const { data: workers = [] } = useQuery<{ email: string; firstName: string; lastName: string }[]>({
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/workers`],
+    enabled: !!hospitalId,
+  });
 
   // Build the query URL with filters
   const buildWorklogEntriesUrl = () => {
@@ -303,13 +312,62 @@ export default function WorklogManagement() {
               </Select>
             </div>
             <div>
-              <Label>{t('worklogs.filterEmail')}</Label>
-              <Input 
-                placeholder={t('common.search') + "..."}
-                value={filterEmail}
-                onChange={(e) => setFilterEmail(e.target.value)}
-                data-testid="input-filter-email"
-              />
+              <Label>{t('worklogs.filterWorker')}</Label>
+              <Popover open={workerPopoverOpen} onOpenChange={setWorkerPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={workerPopoverOpen}
+                    className={cn(
+                      "w-full justify-between font-normal",
+                      !filterEmail && "text-muted-foreground"
+                    )}
+                    data-testid="select-filter-worker"
+                  >
+                    {filterEmail
+                      ? (() => {
+                          const w = workers.find(w => w.email.toLowerCase() === filterEmail.toLowerCase());
+                          return w ? `${w.lastName} ${w.firstName} (${w.email})` : filterEmail;
+                        })()
+                      : t('worklogs.filterAll')}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[350px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('common.search') + "..."} />
+                    <CommandList>
+                      <CommandEmpty>{t('worklogs.noWorkersFound')}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__all__"
+                          onSelect={() => {
+                            setFilterEmail("");
+                            setWorkerPopoverOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", !filterEmail ? "opacity-100" : "opacity-0")} />
+                          {t('worklogs.filterAll')}
+                        </CommandItem>
+                        {workers.map((w) => (
+                          <CommandItem
+                            key={w.email}
+                            value={`${w.lastName} ${w.firstName} ${w.email}`}
+                            onSelect={() => {
+                              setFilterEmail(w.email);
+                              setWorkerPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", filterEmail.toLowerCase() === w.email.toLowerCase() ? "opacity-100" : "opacity-0")} />
+                            {w.lastName} {w.firstName} — {w.email}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>{t('worklogs.filterFrom')}</Label>
