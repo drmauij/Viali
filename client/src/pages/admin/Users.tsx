@@ -1061,7 +1061,7 @@ export default function Users() {
   );
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 overflow-x-hidden">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">{t("admin.usersAndRoles")}</h1>
       </div>
@@ -1072,7 +1072,7 @@ export default function Users() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "appUsers" | "staffMembers")} className="w-full">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <TabsList>
               <TabsTrigger value="appUsers" className="flex items-center gap-2" data-testid="tab-app-users">
                 <UsersIcon className="h-4 w-4" />
@@ -1445,7 +1445,7 @@ export default function Users() {
               {t("admin.editUserDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-6 space-y-4">
             <div className="space-y-4 py-1">
               {/* Email field */}
               <div>
@@ -1609,13 +1609,13 @@ export default function Users() {
                     const unit = units.find(l => l.id === pair.unitId);
                     const showBookable = !!unit && unit.showAppointments === true;
                     return (
-                      <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md gap-2">
-                        <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                          <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
-                          <span className="text-xs text-primary/60 mx-1.5">@</span>
-                          <span className="text-xs text-primary/80">{unit?.name}</span>
+                      <div key={pair.id} className="flex flex-wrap items-center bg-muted p-2 rounded-md gap-2">
+                        <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1 min-w-0">
+                          <span className="text-xs font-medium text-primary truncate">{getRoleName(pair.role)}</span>
+                          <span className="text-xs text-primary/60 mx-1.5 shrink-0">@</span>
+                          <span className="text-xs text-primary/80 truncate">{unit?.name}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ml-auto">
                           {pair.id && (
                             <div className="flex items-center gap-1.5">
                               <Label htmlFor={`default-${pair.id}`} className="text-xs text-muted-foreground whitespace-nowrap">

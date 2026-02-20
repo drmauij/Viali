@@ -147,35 +147,35 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
 
   return (
     <div className="top-bar">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 min-w-0">
         {/* Module Menu and Hospital Switcher */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Module Drawer Toggle */}
           <button
             onClick={() => setIsDrawerOpen(true)}
-            className="w-10 h-10 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
+            className="w-10 h-10 shrink-0 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
             data-testid="module-menu-button"
           >
             <i className="fas fa-bars text-lg text-foreground"></i>
           </button>
-          
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-primary flex items-center justify-center">
             <i className="fas fa-hospital text-lg text-primary-foreground"></i>
           </div>
-          <div className="relative" ref={hospitalDropdownRef}>
+          <div className="relative min-w-0" ref={hospitalDropdownRef}>
             <button
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 min-w-0"
               onClick={() => setShowHospitalDropdown(!showHospitalDropdown)}
               data-testid="hospital-switcher"
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold text-foreground truncate">
                     {activeHospital?.name || t('topBar.selectHospital')}
                   </span>
-                  <i className="fas fa-chevron-down text-xs text-muted-foreground"></i>
+                  <i className="fas fa-chevron-down text-xs text-muted-foreground shrink-0"></i>
                 </div>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground truncate block">
                   {activeHospital?.unitName || t('topBar.noLocation')} • {activeHospital?.role || t('topBar.noRole')}
                 </span>
               </div>
@@ -243,7 +243,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Chat Panel Toggle */}
           <button
             onClick={() => setShowChatPanel(!showChatPanel)}

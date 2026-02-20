@@ -326,8 +326,8 @@ export default function ClinicServices() {
 
   return (
     <div className="p-4 space-y-4 pb-24">
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[120px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t('clinic.services.searchPlaceholder')}
@@ -338,9 +338,9 @@ export default function ClinicServices() {
           />
         </div>
         {!isBulkMode ? (
-          <>
-            <Button 
-              variant="outline" 
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
               onClick={() => setIsBulkMode(true)}
               data-testid="button-bulk-mode"
             >
@@ -351,16 +351,16 @@ export default function ClinicServices() {
               <Plus className="h-4 w-4 mr-2" />
               {t('clinic.services.create')}
             </Button>
-          </>
+          </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={toggleSelectAll}
               data-testid="button-select-all"
             >
-              {selectedServices.size === filteredServices.length && filteredServices.length > 0 
+              {selectedServices.size === filteredServices.length && filteredServices.length > 0
                 ? t('common.deselectAll', 'Deselect All')
                 : t('common.selectAll', 'Select All')}
             </Button>
