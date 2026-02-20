@@ -1392,7 +1392,7 @@ export default function PatientQuestionnaire() {
     const stepId = STEPS[stepIndex]?.id;
     switch (stepId) {
       case 'personal':
-        return !!(formData.patientFirstName && formData.patientLastName);
+        return !!(formData.patientFirstName && formData.patientLastName && formData.patientBirthday && formData.patientPhone && formData.height && formData.weight);
       case 'allergies':
         return formData.noAllergies || formData.allergies.length > 0 || !!formData.allergiesNotes;
       case 'conditions':
@@ -1879,7 +1879,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="firstName">{t("questionnaire.personal.firstName")}</Label>
+          <Label htmlFor="firstName">{t("questionnaire.personal.firstName")} <span className="text-red-500">*</span></Label>
           <Input
             id="firstName"
             value={formData.patientFirstName}
@@ -1888,7 +1888,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           />
         </div>
         <div>
-          <Label htmlFor="lastName">{t("questionnaire.personal.lastName")}</Label>
+          <Label htmlFor="lastName">{t("questionnaire.personal.lastName")} <span className="text-red-500">*</span></Label>
           <Input
             id="lastName"
             value={formData.patientLastName}
@@ -1899,7 +1899,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
       </div>
 
       <div>
-        <Label htmlFor="birthday">{t("questionnaire.personal.birthday")}</Label>
+        <Label htmlFor="birthday">{t("questionnaire.personal.birthday")} <span className="text-red-500">*</span></Label>
         <FlexibleDateInput
           id="birthday"
           value={formData.patientBirthday}
@@ -1922,7 +1922,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           />
         </div>
         <div>
-          <Label htmlFor="phone">{t("questionnaire.personal.phone")}</Label>
+          <Label htmlFor="phone">{t("questionnaire.personal.phone")} <span className="text-red-500">*</span></Label>
           <PhoneInputWithCountry
             id="phone"
             value={formData.patientPhone}
@@ -1955,7 +1955,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="height">{t("questionnaire.personal.height")}</Label>
+          <Label htmlFor="height">{t("questionnaire.personal.height")} <span className="text-red-500">*</span></Label>
           <Input
             id="height"
             type="number"
@@ -1966,7 +1966,7 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           />
         </div>
         <div>
-          <Label htmlFor="weight">{t("questionnaire.personal.weight")}</Label>
+          <Label htmlFor="weight">{t("questionnaire.personal.weight")} <span className="text-red-500">*</span></Label>
           <Input
             id="weight"
             type="number"

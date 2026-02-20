@@ -113,7 +113,7 @@ const generateLinkSchema = z.object({
 const saveProgressSchema = z.object({
   patientFirstName: z.string().optional(),
   patientLastName: z.string().optional(),
-  patientBirthday: z.string().optional(),
+  patientBirthday: z.string().optional().transform(v => v === '' ? null : v),
   patientEmail: z.string().optional(),
   patientPhone: z.string().optional(),
   allergies: z.array(z.string()).optional(),
@@ -169,7 +169,14 @@ const saveProgressSchema = z.object({
   completedSteps: z.array(z.string()).optional(),
 });
 
-const submitQuestionnaireSchema = saveProgressSchema;
+const submitQuestionnaireSchema = saveProgressSchema.extend({
+  patientFirstName: z.string().min(1, "First name is required"),
+  patientLastName: z.string().min(1, "Last name is required"),
+  patientBirthday: z.string().min(1, "Date of birth is required"),
+  patientPhone: z.string().min(1, "Phone is required"),
+  height: z.string().min(1, "Height is required"),
+  weight: z.string().min(1, "Weight is required"),
+});
 
 const createReviewSchema = z.object({
   mappings: z.record(z.string(), z.object({
