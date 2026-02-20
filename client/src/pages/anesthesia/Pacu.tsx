@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X, UserCircle, UserRound } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X, UserCircle, UserRound, List, LayoutGrid } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -11,6 +12,8 @@ import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { usePacuVitals } from "@/hooks/usePacuVitals";
+import { PacuVitalsCard } from "@/components/anesthesia/PacuVitalsCard";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -41,13 +44,13 @@ interface Surgery {
   pacuBedId?: string | null;
 }
 
-function PacuPatientCard({ 
-  patient, 
+function PacuPatientCard({
+  patient,
   onNavigate,
   formatTime,
   getTimeInPacu
-}: { 
-  patient: PacuPatient; 
+}: {
+  patient: PacuPatient;
   onNavigate: () => void;
   formatTime: (timestamp: number) => string;
   getTimeInPacu: (timestamp: number) => string;
@@ -62,7 +65,7 @@ function PacuPatientCard({
     enabled: !!activeHospital?.id,
   });
 
-  const pacuBeds = useMemo(() => 
+  const pacuBeds = useMemo(() =>
     allRooms.filter((room) => room.type === "PACU").sort((a, b) => a.name.localeCompare(b.name)),
     [allRooms]
   );
@@ -113,7 +116,7 @@ function PacuPatientCard({
     >
       <div className="flex gap-3">
         {/* Main content - clickable to navigate */}
-        <div 
+        <div
           className="flex-1 cursor-pointer min-w-0"
           onClick={onNavigate}
         >
@@ -132,13 +135,13 @@ function PacuPatientCard({
           <p className="text-sm text-muted-foreground" data-testid={`text-dob-${patient.surgeryId}`}>
             {patient.dateOfBirth || ''} • {patient.age} {t('anesthesia.pacu.yearsOld', 'y/o')}
           </p>
-          
+
           <div className="mt-2 space-y-1">
             <div className="flex items-center text-sm">
               <HeartPulse className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
               <span className="truncate" data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
             </div>
-            
+
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
               <span className="truncate">
@@ -151,12 +154,12 @@ function PacuPatientCard({
         {/* Bed square with integrated popover - right side */}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <div 
+            <div
               className="flex-shrink-0 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
               {patient.pacuBedId && patient.pacuBedName ? (
-                <div 
+                <div
                   className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors min-w-[60px] sm:min-w-[80px]"
                   data-testid={`button-bed-${patient.surgeryId}`}
                 >
@@ -166,7 +169,7 @@ function PacuPatientCard({
                   </p>
                 </div>
               ) : (
-                <div 
+                <div
                   className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-w-[60px] sm:min-w-[80px]"
                   data-testid={`button-assign-bed-${patient.surgeryId}`}
                 >
@@ -233,10 +236,23 @@ function PacuPatientCard({
   );
 }
 
+type ViewMode = 'list' | 'grid';
+
+const PACU_VIEW_MODE_KEY = 'pacu_view_mode';
+
+function getStoredViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem(PACU_VIEW_MODE_KEY);
+    if (stored === 'list' || stored === 'grid') return stored;
+  } catch {}
+  return 'list';
+}
+
 export default function Pacu() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<'transferring' | 'in_recovery' | 'discharged'>('in_recovery');
+  const [viewMode, setViewMode] = useState<ViewMode>(getStoredViewMode);
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
 
@@ -244,6 +260,19 @@ export default function Pacu() {
     queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  const isInRecoveryTab = activeTab === 'in_recovery';
+
+  const { data: pacuVitals = [] } = usePacuVitals(activeHospital?.id, isInRecoveryTab);
+
+  // Build vitals lookup map
+  const vitalsMap = useMemo(() => {
+    const map = new Map<string, { hr: any[]; bp: any[]; spo2: any[] }>();
+    for (const v of pacuVitals) {
+      map.set(v.anesthesiaRecordId, { hr: v.hr, bp: v.bp, spo2: v.spo2 });
+    }
+    return map;
+  }, [pacuVitals]);
 
   const filteredPatients = pacuPatients.filter(
     (patient) =>
@@ -276,6 +305,17 @@ export default function Pacu() {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
+  const handleViewModeChange = (value: string) => {
+    if (value === 'list' || value === 'grid') {
+      setViewMode(value);
+      try {
+        localStorage.setItem(PACU_VIEW_MODE_KEY, value);
+      } catch {}
+    }
+  };
+
+  const emptyVitals = { hr: [], bp: [], spo2: [] };
+
   return (
     <div className="pb-20 px-4 pt-4">
       <div className="mb-6">
@@ -303,33 +343,72 @@ export default function Pacu() {
         </div>
       </Tabs>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder={t('anesthesia.pacu.search')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-          data-testid="input-search-pacu"
-        />
+      {/* Search + View Toggle */}
+      <div className="flex gap-2 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder={t('anesthesia.pacu.search')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-pacu"
+          />
+        </div>
+        {isInRecoveryTab && (
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={handleViewModeChange}
+            size="sm"
+          >
+            <ToggleGroupItem value="list" aria-label={t('anesthesia.pacu.viewList')} data-testid="toggle-list-view">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grid" aria-label={t('anesthesia.pacu.viewGrid')} data-testid="toggle-grid-view">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </div>
 
-      <div className="space-y-4">
+      {/* Patient Cards */}
+      <div className={cn(
+        isInRecoveryTab && viewMode === 'grid'
+          ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+          : "space-y-4"
+      )}>
         {isLoading ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 col-span-full">
             <p className="text-muted-foreground">{t('common.loading')}</p>
           </div>
         ) : filteredPatients.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 col-span-full">
             <BedDouble className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">{t('anesthesia.pacu.noPatientsInPacu')}</p>
           </div>
+        ) : isInRecoveryTab ? (
+          filteredPatients.map((patient) => {
+            const vitals = vitalsMap.get(patient.anesthesiaRecordId) || emptyVitals;
+            return (
+              <PacuVitalsCard
+                key={patient.surgeryId}
+                patient={patient}
+                onNavigate={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+                formatTime={formatTime}
+                getTimeInPacu={getTimeInPacu}
+                hr={vitals.hr}
+                bp={vitals.bp}
+                spo2={vitals.spo2}
+              />
+            );
+          })
         ) : (
           filteredPatients.map((patient) => (
-            <PacuPatientCard 
-              key={patient.surgeryId} 
-              patient={patient} 
+            <PacuPatientCard
+              key={patient.surgeryId}
+              patient={patient}
               onNavigate={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
               formatTime={formatTime}
               getTimeInPacu={getTimeInPacu}

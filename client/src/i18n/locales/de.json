@@ -577,6 +577,8 @@
     "statusRejected": "Abgelehnt",
     "filterStatus": "Status",
     "filterEmail": "E-Mail",
+    "filterWorker": "Mitarbeiter",
+    "noWorkersFound": "Keine Mitarbeiter gefunden",
     "filterFrom": "Von",
     "filterTo": "Bis",
     "filterAll": "Alle",
@@ -2106,7 +2108,19 @@
       "occupied": "Belegt",
       "unassignBed": "Bett freigeben",
       "removeBed": "Bett-Zuweisung entfernen",
-      "yearsOld": "J."
+      "yearsOld": "J.",
+      "viewList": "Listenansicht",
+      "viewGrid": "Rasteransicht",
+      "noVitalsRecorded": "Keine Vitalwerte erfasst",
+      "lastVitals": "Letzte Vitalwerte",
+      "addVitals": "Vitalwerte hinzufügen",
+      "alerts": {
+        "hrLow": "HF niedrig",
+        "hrHigh": "HF hoch",
+        "spo2Low": "SpO2 niedrig",
+        "sbpLow": "RR sys. niedrig",
+        "sbpHigh": "RR sys. hoch"
+      }
     },
     "op": {
       "title": "OP-Überwachung",

@@ -1264,6 +1264,16 @@ export async function getClinicalSnapshot(anesthesiaRecordId: string): Promise<C
   return created;
 }
 
+export async function getClinicalSnapshotsByRecordIds(
+  anesthesiaRecordIds: string[]
+): Promise<ClinicalSnapshot[]> {
+  if (anesthesiaRecordIds.length === 0) return [];
+  return db
+    .select()
+    .from(clinicalSnapshots)
+    .where(inArray(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordIds));
+}
+
 export async function addVitalPoint(
   anesthesiaRecordId: string,
   vitalType: string,

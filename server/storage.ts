@@ -478,6 +478,7 @@ export interface IStorage {
   
   // Clinical Snapshots operations (NEW: Point-based CRUD)
   getClinicalSnapshot(anesthesiaRecordId: string): Promise<ClinicalSnapshot>;
+  getClinicalSnapshotsByRecordIds(anesthesiaRecordIds: string[]): Promise<ClinicalSnapshot[]>;
   addVitalPoint(anesthesiaRecordId: string, vitalType: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
   addBPPoint(anesthesiaRecordId: string, timestamp: string, sys: number, dia: number, mean?: number): Promise<ClinicalSnapshot>;
   updateVitalPoint(pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
@@ -1149,6 +1150,7 @@ export class DatabaseStorage implements IStorage {
   createSurgeryPreOpAssessment = anesthesiaStorage.createSurgeryPreOpAssessment;
   updateSurgeryPreOpAssessment = anesthesiaStorage.updateSurgeryPreOpAssessment;
   getClinicalSnapshot = anesthesiaStorage.getClinicalSnapshot;
+  getClinicalSnapshotsByRecordIds = anesthesiaStorage.getClinicalSnapshotsByRecordIds;
   addVitalPoint = anesthesiaStorage.addVitalPoint;
   addBPPoint = anesthesiaStorage.addBPPoint;
   updateBPPoint = anesthesiaStorage.updateBPPoint;
@@ -1428,6 +1430,7 @@ export class DatabaseStorage implements IStorage {
   rejectWorklogEntry = clinicStorage.rejectWorklogEntry;
   getWorklogLinksByUnit = clinicStorage.getWorklogLinksByUnit;
   deleteExternalWorklogLink = clinicStorage.deleteExternalWorklogLink;
+  getWorklogWorkers = clinicStorage.getWorklogWorkers;
   getExternalSurgeryRequests = clinicStorage.getExternalSurgeryRequests;
   getExternalSurgeryRequest = clinicStorage.getExternalSurgeryRequest;
   getExternalSurgeryRequestByHospitalToken = clinicStorage.getExternalSurgeryRequestByHospitalToken;

@@ -496,6 +496,8 @@
     "statusRejected": "Rejected",
     "filterStatus": "Status",
     "filterEmail": "Email",
+    "filterWorker": "Worker",
+    "noWorkersFound": "No workers found",
     "filterFrom": "From",
     "filterTo": "To",
     "filterAll": "All",
@@ -2025,7 +2027,19 @@
       "occupied": "Occupied",
       "unassignBed": "Unassign Bed",
       "removeBed": "Remove bed assignment",
-      "yearsOld": "y/o"
+      "yearsOld": "y/o",
+      "viewList": "List view",
+      "viewGrid": "Grid view",
+      "noVitalsRecorded": "No vitals recorded",
+      "lastVitals": "Last vitals",
+      "addVitals": "Add vitals",
+      "alerts": {
+        "hrLow": "HR low",
+        "hrHigh": "HR high",
+        "spo2Low": "SpO2 low",
+        "sbpLow": "SBP low",
+        "sbpHigh": "SBP high"
+      }
     },
     "op": {
       "title": "OP Monitoring",

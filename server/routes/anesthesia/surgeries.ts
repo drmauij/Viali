@@ -521,6 +521,64 @@ router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, requireStrictHos
   }
 });
 
+// Batch vitals for PACU overview (avoids N+1)
+router.get('/api/anesthesia/pacu/:hospitalId/vitals', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const pacuPatients = await storage.getPacuPatients(hospitalId);
+    const inRecovery = pacuPatients.filter(p => p.status === 'in_recovery');
+
+    if (inRecovery.length === 0) {
+      return res.json([]);
+    }
+
+    const recordIds = inRecovery.map(p => p.anesthesiaRecordId);
+    const snapshots = await storage.getClinicalSnapshotsByRecordIds(recordIds);
+
+    // Build a2Time lookup from inRecovery patients
+    const a2TimeMap = new Map<string, number>();
+    for (const p of inRecovery) {
+      a2TimeMap.set(p.anesthesiaRecordId, p.statusTimestamp);
+    }
+
+    const result = snapshots.map(snapshot => {
+      const data = snapshot.data as any || {};
+      const a2Time = a2TimeMap.get(snapshot.anesthesiaRecordId) || 0;
+      const a2Iso = a2Time ? new Date(a2Time).toISOString() : '';
+
+      // Filter points after A2 timestamp
+      const filterAfterA2 = (points: any[]) =>
+        (points || []).filter((p: any) => !a2Iso || p.timestamp >= a2Iso);
+
+      return {
+        anesthesiaRecordId: snapshot.anesthesiaRecordId,
+        hr: filterAfterA2(data.hr),
+        bp: filterAfterA2(data.bp),
+        spo2: filterAfterA2(data.spo2),
+      };
+    });
+
+    // Include records with no snapshot (empty vitals)
+    const snapshotRecordIds = new Set(snapshots.map(s => s.anesthesiaRecordId));
+    for (const p of inRecovery) {
+      if (!snapshotRecordIds.has(p.anesthesiaRecordId)) {
+        result.push({
+          anesthesiaRecordId: p.anesthesiaRecordId,
+          hr: [],
+          bp: [],
+          spo2: [],
+        });
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error("Error fetching PACU vitals:", error);
+    res.status(500).json({ message: "Failed to fetch PACU vitals" });
+  }
+});
+
 // ========== SURGERY PRE-OP ASSESSMENT ROUTES (Surgery Module) ==========
 
 router.get('/api/surgery/preop-assessments/bulk', isAuthenticated, async (req: any, res) => {
