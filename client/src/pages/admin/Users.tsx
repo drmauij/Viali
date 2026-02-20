@@ -771,6 +771,23 @@ export default function Users() {
   };
 
   const handleSaveUser = () => {
+    if (detectedExistingUser) {
+      // Existing user: only need unit and role, skip password/name validation
+      if (!userForm.unitId || !userForm.role) {
+        toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
+        return;
+      }
+      if (detectedUserAlreadyInHospital) {
+        toast({ title: t("common.error"), description: t("admin.userAlreadyInHospital"), variant: "destructive" });
+        return;
+      }
+      addExistingUserMutation.mutate({
+        userId: detectedExistingUser.id,
+        unitId: userForm.unitId,
+        role: userForm.role,
+      });
+      return;
+    }
     if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.unitId || !userForm.role) {
       toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
       return;
@@ -1302,7 +1319,7 @@ export default function Users() {
               </Button>
               <Button
                 onClick={handleSaveUser}
-                disabled={createUserMutation.isPending}
+                disabled={createUserMutation.isPending || addExistingUserMutation.isPending || (!!detectedExistingUser && detectedUserAlreadyInHospital)}
                 data-testid="button-save-user"
               >
                 {t("common.save")}
