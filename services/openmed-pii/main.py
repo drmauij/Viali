@@ -9,13 +9,14 @@ Usage:
     uvicorn main:app --host 127.0.0.1 --port 5050
 """
 
+import asyncio
 import os
 import re
 import logging
 from typing import Optional
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from openmed import extract_pii
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,8 @@ logger = logging.getLogger("openmed-pii")
 
 CONFIDENCE_THRESHOLD = float(os.environ.get("OPENMED_CONFIDENCE_THRESHOLD", "0.7"))
 MODEL_NAME = os.environ.get("OPENMED_MODEL", "pii_detection_superclinical")
+PRELOAD_MAX_RETRIES = int(os.environ.get("OPENMED_PRELOAD_RETRIES", "3"))
+PRELOAD_RETRY_DELAY = int(os.environ.get("OPENMED_PRELOAD_RETRY_DELAY", "5"))
 
 app = FastAPI(title="OpenMed PII Sidecar", version="1.0.0")
 
@@ -32,16 +35,21 @@ _model_ready = False
 
 @app.on_event("startup")
 async def preload_model():
-    """Load the model on startup so first request isn't slow."""
+    """Load the model on startup with retries so transient failures don't permanently brick the service."""
     global _model_ready
-    logger.info("Preloading OpenMed model '%s' ...", MODEL_NAME)
-    try:
-        extract_pii("warmup", model_name=MODEL_NAME)
-        _model_ready = True
-        logger.info("Model loaded successfully.")
-    except Exception as e:
-        logger.error("Failed to preload model: %s", e)
-        _model_ready = False
+    for attempt in range(1, PRELOAD_MAX_RETRIES + 1):
+        logger.info("Preloading OpenMed model '%s' (attempt %d/%d)...", MODEL_NAME, attempt, PRELOAD_MAX_RETRIES)
+        try:
+            extract_pii("warmup", model_name=MODEL_NAME)
+            _model_ready = True
+            logger.info("Model loaded successfully.")
+            return
+        except Exception as e:
+            logger.error("Failed to preload model (attempt %d/%d): %s", attempt, PRELOAD_MAX_RETRIES, e)
+            if attempt < PRELOAD_MAX_RETRIES:
+                await asyncio.sleep(PRELOAD_RETRY_DELAY)
+    _model_ready = False
+    logger.error("Model failed to load after %d attempts. Service running in degraded mode.", PRELOAD_MAX_RETRIES)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 mock_extract_pii = MagicMock()
 with patch.dict("sys.modules", {"openmed": MagicMock(extract_pii=mock_extract_pii)}):
     with patch("main.extract_pii", mock_extract_pii):
+        import main
         from main import app, _is_inside_placeholder, _find_entity_position
 
 
@@ -126,3 +127,65 @@ def test_find_entity_position():
 
     pos3 = _find_entity_position(text, "Maria", {0, 10})
     assert pos3 is None
+
+
+# ── Preload retry tests ──────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_preload_model_success_first_attempt():
+    """Model loads on the first attempt — _model_ready should be True."""
+    mock_extract_pii.reset_mock()
+    mock_extract_pii.side_effect = None
+    mock_extract_pii.return_value = MagicMock()
+    main._model_ready = False
+    main.PRELOAD_MAX_RETRIES = 3
+
+    await main.preload_model()
+
+    assert main._model_ready is True
+    assert mock_extract_pii.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_preload_model_success_after_retry():
+    """Model fails once then succeeds — _model_ready should be True."""
+    mock_extract_pii.reset_mock()
+    mock_extract_pii.side_effect = [RuntimeError("download failed"), MagicMock()]
+    main._model_ready = False
+    main.PRELOAD_MAX_RETRIES = 3
+    main.PRELOAD_RETRY_DELAY = 0  # no delay in tests
+
+    await main.preload_model()
+
+    assert main._model_ready is True
+    assert mock_extract_pii.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_preload_model_all_attempts_fail():
+    """All retry attempts fail — service stays degraded."""
+    mock_extract_pii.reset_mock()
+    mock_extract_pii.side_effect = RuntimeError("model not found")
+    main._model_ready = False
+    main.PRELOAD_MAX_RETRIES = 3
+    main.PRELOAD_RETRY_DELAY = 0
+
+    await main.preload_model()
+
+    assert main._model_ready is False
+    assert mock_extract_pii.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_preload_model_single_retry_configured():
+    """With max_retries=1, only one attempt is made."""
+    mock_extract_pii.reset_mock()
+    mock_extract_pii.side_effect = RuntimeError("fail")
+    main._model_ready = False
+    main.PRELOAD_MAX_RETRIES = 1
+    main.PRELOAD_RETRY_DELAY = 0
+
+    await main.preload_model()
+
+    assert main._model_ready is False
+    assert mock_extract_pii.call_count == 1

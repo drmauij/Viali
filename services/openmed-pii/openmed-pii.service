@@ -11,6 +11,8 @@ Restart=on-failure
 RestartSec=5
 Environment=OPENMED_CONFIDENCE_THRESHOLD=0.7
 Environment=OPENMED_MODEL=pii_detection_superclinical
+Environment=HF_HOME=/opt/openmed-pii/.cache
+Environment=TRANSFORMERS_CACHE=/opt/openmed-pii/.cache
 
 # Security hardening
 NoNewPrivileges=true
