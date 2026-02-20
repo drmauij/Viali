@@ -40,23 +40,24 @@ export function PacuLastVitals({ anesthesiaRecordId, hr, bp, spo2 }: PacuLastVit
     ? new Date(allTimestamps.reduce((a, b) => a > b ? a : b)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null;
 
-  const handleSave = (data: { hr?: number; sys?: number; dia?: number; spo2?: number; time: number }) => {
+  const handleSave = async (data: { hr?: number; sys?: number; dia?: number; spo2?: number; time: number }) => {
     const timestamp = new Date(data.time).toISOString();
 
+    // Run mutations sequentially to avoid race condition:
+    // Each mutation does read-modify-write on the same snapshot row,
+    // so concurrent writes would cause last-writer-wins data loss.
     if (data.hr !== undefined) {
-      addVitalPoint.mutate({ vitalType: 'hr', timestamp, value: data.hr });
+      await addVitalPoint.mutateAsync({ vitalType: 'hr', timestamp, value: data.hr });
     }
     if (data.spo2 !== undefined) {
-      addVitalPoint.mutate({ vitalType: 'spo2', timestamp, value: data.spo2 });
+      await addVitalPoint.mutateAsync({ vitalType: 'spo2', timestamp, value: data.spo2 });
     }
     if (data.sys !== undefined && data.dia !== undefined) {
-      addBPPoint.mutate({ timestamp, sys: data.sys, dia: data.dia });
+      await addBPPoint.mutateAsync({ timestamp, sys: data.sys, dia: data.dia });
     }
 
-    // Invalidate PACU vitals batch cache after a short delay for mutations to settle
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}/vitals`] });
-    }, 500);
+    // Invalidate PACU vitals batch cache after all mutations complete
+    queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}/vitals`] });
   };
 
   return (
