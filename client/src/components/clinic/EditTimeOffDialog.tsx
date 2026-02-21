@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -179,11 +180,9 @@ export default function EditTimeOffDialog({
                 <Calendar className="h-4 w-4" />
                 {t('common.date', 'Date')}
               </Label>
-              <Input
-                id="date"
-                type="date"
+              <DateInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(v) => setDate(v)}
                 data-testid="input-timeoff-date"
               />
             </div>
@@ -191,21 +190,17 @@ export default function EditTimeOffDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startTime">{t('common.startTime', 'Start Time')}</Label>
-                <Input
-                  id="startTime"
-                  type="time"
+                <TimeInput
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(v) => setStartTime(v)}
                   data-testid="input-timeoff-start"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endTime">{t('common.endTime', 'End Time')}</Label>
-                <Input
-                  id="endTime"
-                  type="time"
+                <TimeInput
                   value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={(v) => setEndTime(v)}
                   data-testid="input-timeoff-end"
                 />
               </div>

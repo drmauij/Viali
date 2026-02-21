@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -358,19 +359,17 @@ export default function WorklogManagement() {
             </div>
             <div>
               <Label>{t('worklogs.filterFrom')}</Label>
-              <Input 
-                type="date"
+              <DateInput
                 value={filterDateFrom}
-                onChange={(e) => setFilterDateFrom(e.target.value)}
+                onChange={(v) => setFilterDateFrom(v)}
                 data-testid="input-filter-datefrom"
               />
             </div>
             <div>
               <Label>{t('worklogs.filterTo')}</Label>
-              <Input 
-                type="date"
+              <DateInput
                 value={filterDateTo}
-                onChange={(e) => setFilterDateTo(e.target.value)}
+                onChange={(v) => setFilterDateTo(v)}
                 data-testid="input-filter-dateto"
               />
             </div>

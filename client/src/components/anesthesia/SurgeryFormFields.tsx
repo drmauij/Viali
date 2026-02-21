@@ -15,6 +15,7 @@ import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
+import { TimeInput } from "@/components/ui/time-input";
 import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 
 export interface SurgeryFormFieldsProps {
@@ -253,10 +254,9 @@ export function SurgeryFormFields({
       <div className={cn("grid gap-3", isSlotReservation ? "grid-cols-2" : "grid-cols-3")}>
         <div className="space-y-1">
           <Label>{t('anesthesia.quickSchedule.startTime')} *</Label>
-          <Input
-            type="time"
+          <TimeInput
             value={startTime}
-            onChange={(e) => onStartTimeChange(e.target.value)}
+            onChange={(v) => onStartTimeChange(v)}
             disabled={disabled}
             data-testid={tid("input-start-time")}
           />
@@ -275,10 +275,9 @@ export function SurgeryFormFields({
         {!isSlotReservation && (
           <div className="space-y-1">
             <Label>{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
-            <Input
-              type="time"
+            <TimeInput
               value={admissionTime}
-              onChange={(e) => onAdmissionTimeChange(e.target.value)}
+              onChange={(v) => onAdmissionTimeChange(v)}
               disabled={disabled}
               data-testid={tid("input-admission-time")}
             />

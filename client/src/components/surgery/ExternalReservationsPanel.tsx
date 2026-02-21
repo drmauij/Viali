@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -171,19 +173,17 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('surgery.externalRequests.date')}</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={plannedDate}
-                onChange={(e) => setPlannedDate(e.target.value)}
+                onChange={(v) => setPlannedDate(v)}
                 data-testid="input-schedule-date"
               />
             </div>
             <div className="space-y-2">
               <Label>{t('surgery.externalRequests.time')}</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={plannedTime}
-                onChange={(e) => setPlannedTime(e.target.value)}
+                onChange={(v) => setPlannedTime(v)}
                 data-testid="input-schedule-time"
               />
             </div>

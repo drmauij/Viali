@@ -28,6 +28,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { PREOP_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
@@ -5800,12 +5802,11 @@ export default function PatientDetail() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                          <Input
-                            type="date"
+                          <DateInput
                             value={slot.date}
-                            onChange={(e) => {
+                            onChange={(v) => {
                               const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], date: e.target.value };
+                              updated[index] = { ...updated[index], date: v };
                               setCallbackSlots(updated);
                             }}
                             className="flex-1"
@@ -5815,24 +5816,22 @@ export default function PatientDetail() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                          <Input
-                            type="time"
+                          <TimeInput
                             value={slot.fromTime}
-                            onChange={(e) => {
+                            onChange={(v) => {
                               const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], fromTime: e.target.value };
+                              updated[index] = { ...updated[index], fromTime: v };
                               setCallbackSlots(updated);
                             }}
                             className="flex-1"
                             data-testid={`input-callback-from-${index}`}
                           />
                           <span className="text-gray-500">–</span>
-                          <Input
-                            type="time"
+                          <TimeInput
                             value={slot.toTime}
-                            onChange={(e) => {
+                            onChange={(v) => {
                               const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], toTime: e.target.value };
+                              updated[index] = { ...updated[index], toTime: v };
                               setCallbackSlots(updated);
                             }}
                             className="flex-1"

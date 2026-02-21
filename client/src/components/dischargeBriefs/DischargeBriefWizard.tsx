@@ -21,6 +21,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import {
   Loader2,
   Check,
@@ -644,17 +646,15 @@ export function DischargeBriefWizard({
                         {showQuickAdd ? (
                           <div className="rounded border bg-muted/30 p-2 space-y-2">
                             <div className="flex gap-2">
-                              <Input
-                                type="date"
+                              <DateInput
                                 value={quickAddDate}
-                                onChange={(e) => setQuickAddDate(e.target.value)}
+                                onChange={(v) => setQuickAddDate(v)}
                                 className="h-8 text-xs"
                                 min={new Date().toISOString().split("T")[0]}
                               />
-                              <Input
-                                type="time"
+                              <TimeInput
                                 value={quickAddTime}
-                                onChange={(e) => setQuickAddTime(e.target.value)}
+                                onChange={(v) => setQuickAddTime(v)}
                                 className="h-8 text-xs w-24"
                               />
                             </div>

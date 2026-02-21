@@ -873,7 +873,9 @@ function EditableTimeCell({ value, surgeryId, plannedDate, field, onUpdate, isPe
   if (isEditing && canEdit) {
     return (
       <Input
-        type="time"
+        type="text"
+        inputMode="numeric"
+        placeholder="HH:mm"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onBlur={handleSave}

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
+import { DateInput } from "@/components/ui/date-input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -761,11 +762,9 @@ export default function ExternalSurgeryRequest() {
                       <Calendar className="h-4 w-4 inline mr-1" />
                       {t('surgery.externalRequest.wishedDate')} *
                     </Label>
-                    <Input
-                      id="wishedDate"
-                      type="date"
+                    <DateInput
                       value={formData.wishedDate}
-                      onChange={(e) => updateField('wishedDate', e.target.value)}
+                      onChange={(v) => updateField('wishedDate', v)}
                       min={new Date().toISOString().split('T')[0]}
                       data-testid="input-wished-date"
                     />

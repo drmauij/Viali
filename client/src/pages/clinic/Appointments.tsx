@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -851,10 +853,9 @@ function BookingDialog({
 
           <div>
             <Label>{t('appointments.date', 'Date')} *</Label>
-            <Input
-              type="date"
+            <DateInput
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(v) => setSelectedDate(v)}
               min={formatDateForInput(new Date())}
               data-testid="input-booking-date"
             />
@@ -863,24 +864,22 @@ function BookingDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t('appointments.startTime', 'Start Time')} *</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={selectedSlot.split('-')[0] || ''}
-                onChange={(e) => {
+                onChange={(v) => {
                   const endTime = selectedSlot.split('-')[1] || '';
-                  setSelectedSlot(`${e.target.value}-${endTime}`);
+                  setSelectedSlot(`${v}-${endTime}`);
                 }}
                 data-testid="input-booking-start-time"
               />
             </div>
             <div>
               <Label>{t('appointments.endTime', 'End Time')} *</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={selectedSlot.split('-')[1] || ''}
-                onChange={(e) => {
+                onChange={(v) => {
                   const startTime = selectedSlot.split('-')[0] || '';
-                  setSelectedSlot(`${startTime}-${e.target.value}`);
+                  setSelectedSlot(`${startTime}-${v}`);
                 }}
                 data-testid="input-booking-end-time"
               />
@@ -1097,10 +1096,9 @@ function InternalBookingDialog({
 
             <div>
               <Label>{t('appointments.date', 'Date')} *</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(v) => setSelectedDate(v)}
                 min={formatDateForInput(new Date())}
                 data-testid="input-internal-date"
               />
@@ -1110,24 +1108,22 @@ function InternalBookingDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t('appointments.startTime', 'Start Time')} *</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={selectedSlot.split('-')[0] || ''}
-                onChange={(e) => {
+                onChange={(v) => {
                   const endTime = selectedSlot.split('-')[1] || '';
-                  setSelectedSlot(`${e.target.value}-${endTime}`);
+                  setSelectedSlot(`${v}-${endTime}`);
                 }}
                 data-testid="input-internal-start-time"
               />
             </div>
             <div>
               <Label>{t('appointments.endTime', 'End Time')} *</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={selectedSlot.split('-')[1] || ''}
-                onChange={(e) => {
+                onChange={(v) => {
                   const startTime = selectedSlot.split('-')[0] || '';
-                  setSelectedSlot(`${startTime}-${e.target.value}`);
+                  setSelectedSlot(`${startTime}-${v}`);
                 }}
                 data-testid="input-internal-end-time"
               />

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -276,28 +278,25 @@ export default function WorktimeKiosk() {
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label className="text-sm">{t("worktime.date", "Date")}</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={formData.workDate}
-                  onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, workDate: v })}
                   required
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("worktime.start", "Start")}</Label>
-                <Input
-                  type="time"
+                <TimeInput
                   value={formData.timeStart}
-                  onChange={(e) => setFormData({ ...formData, timeStart: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, timeStart: v })}
                   required
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("worktime.end", "End")}</Label>
-                <Input
-                  type="time"
+                <TimeInput
                   value={formData.timeEnd}
-                  onChange={(e) => setFormData({ ...formData, timeEnd: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, timeEnd: v })}
                   required
                 />
               </div>

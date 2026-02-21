@@ -23,6 +23,8 @@ import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 
@@ -1173,7 +1175,7 @@ export default function ExternalWorklog() {
                           <FormItem>
                             <FormLabel className="dark:text-gray-200">{t("externalWorklog.workDate")}</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-workdate" />
+                              <DateInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-workdate" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1188,7 +1190,7 @@ export default function ExternalWorklog() {
                             <FormItem>
                               <FormLabel className="dark:text-gray-200">{t("externalWorklog.from")}</FormLabel>
                               <FormControl>
-                                <Input type="time" {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-timestart" />
+                                <TimeInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-timestart" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1201,7 +1203,7 @@ export default function ExternalWorklog() {
                             <FormItem>
                               <FormLabel className="dark:text-gray-200">{t("externalWorklog.to")}</FormLabel>
                               <FormControl>
-                                <Input type="time" {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-timeend" />
+                                <TimeInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-timeend" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1494,11 +1496,9 @@ export default function ExternalWorklog() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.dateOfBirth")}</label>
-                      <Input
-                        type="date"
+                      <DateInput
                         value={personalData.dateOfBirth}
-                        onChange={(e) => setPersonalData({ ...personalData, dateOfBirth: e.target.value })}
-                        className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                        onChange={(v) => setPersonalData({ ...personalData, dateOfBirth: v })}
                         data-testid="input-personal-dob"
                       />
                     </div>
@@ -1708,11 +1708,9 @@ export default function ExternalWorklog() {
                         </div>
                         <div>
                           <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.residencePermitValidUntil")}</label>
-                          <Input
-                            type="date"
+                          <DateInput
                             value={personalData.residencePermitValidUntil}
-                            onChange={(e) => setPersonalData({ ...personalData, residencePermitValidUntil: e.target.value })}
-                            className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                            onChange={(v) => setPersonalData({ ...personalData, residencePermitValidUntil: v })}
                             data-testid="input-permit-valid-until"
                           />
                         </div>

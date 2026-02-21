@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SignatureCanvas } from "@/components/ui/signature-canvas";
 import { Loader2, CheckCircle, AlertCircle, Building2, FileText } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { DateInput } from "@/components/ui/date-input";
 
 interface HospitalInfo {
   id: string;
@@ -491,7 +492,7 @@ export default function WorkerContractForm() {
                       <FormItem>
                         <FormLabel>Geburtsdatum *</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" data-testid="input-date-of-birth" />
+                          <DateInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-date-of-birth" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

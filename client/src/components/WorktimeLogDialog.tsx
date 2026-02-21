@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
@@ -306,28 +308,27 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">{t("worktime.date", "Date")}</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={formData.workDate}
-                onChange={(e) => setFormData({ ...formData, workDate: e.target.value })}
+                onChange={(v) => setFormData({ ...formData, workDate: v })}
                 required
               />
             </div>
             <div>
               <Label className="text-xs">{t("worktime.start", "Start")}</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={formData.timeStart}
-                onChange={(e) => setFormData({ ...formData, timeStart: e.target.value })}
+                onChange={(v) => setFormData({ ...formData, timeStart: v })}
+                placeholder="08:00"
                 required
               />
             </div>
             <div>
               <Label className="text-xs">{t("worktime.end", "End")}</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={formData.timeEnd}
-                onChange={(e) => setFormData({ ...formData, timeEnd: e.target.value })}
+                onChange={(v) => setFormData({ ...formData, timeEnd: v })}
+                placeholder="17:00"
                 required
               />
             </div>

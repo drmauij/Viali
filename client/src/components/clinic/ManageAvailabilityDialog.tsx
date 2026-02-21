@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -413,18 +415,16 @@ export function ManageAvailabilityDialog({
                               <div className="space-y-2 ml-8">
                                 {daySlots.filter(s => s.isActive).map((slot, idx) => (
                                   <div key={slot.id} className="flex items-center gap-2">
-                                    <Input
-                                      type="time"
+                                    <TimeInput
                                       value={slot.startTime || "08:00"}
-                                      onChange={(e) => updateAvailabilitySlot(slot.id!, 'startTime', e.target.value)}
+                                      onChange={(v) => updateAvailabilitySlot(slot.id!, 'startTime', v)}
                                       className="w-28"
                                       data-testid={`input-start-dialog-${day.value}-${idx}`}
                                     />
                                     <span className="text-muted-foreground">-</span>
-                                    <Input
-                                      type="time"
+                                    <TimeInput
                                       value={slot.endTime || "17:00"}
-                                      onChange={(e) => updateAvailabilitySlot(slot.id!, 'endTime', e.target.value)}
+                                      onChange={(v) => updateAvailabilitySlot(slot.id!, 'endTime', v)}
                                       className="w-28"
                                       data-testid={`input-end-dialog-${day.value}-${idx}`}
                                     />
@@ -705,19 +705,17 @@ export function TimeOffDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t('availability.startDate', 'Start Date')}</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(v) => setStartDate(v)}
                 data-testid="input-timeoff-start-nested"
               />
             </div>
             <div>
               <Label>{t('availability.endDate', 'End Date')}</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(v) => setEndDate(v)}
                 min={startDate}
                 data-testid="input-timeoff-end-nested"
               />
@@ -737,19 +735,17 @@ export function TimeOffDialog({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t('availability.startTime', 'Start Time')}</Label>
-                <Input
-                  type="time"
+                <TimeInput
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(v) => setStartTime(v)}
                   data-testid="input-timeoff-start-time-nested"
                 />
               </div>
               <div>
                 <Label>{t('availability.endTime', 'End Time')}</Label>
-                <Input
-                  type="time"
+                <TimeInput
                   value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={(v) => setEndTime(v)}
                   data-testid="input-timeoff-end-time-nested"
                 />
               </div>
@@ -849,10 +845,9 @@ export function TimeOffDialog({
                 {recurrenceEndType === 'date' && (
                   <div>
                     <Label>{t('availability.endDate', 'End Date')}</Label>
-                    <Input
-                      type="date"
+                    <DateInput
                       value={recurrenceEndDate}
-                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                      onChange={(v) => setRecurrenceEndDate(v)}
                       min={startDate}
                       data-testid="input-recurrence-end-date-nested"
                     />
@@ -929,10 +924,9 @@ function AvailabilityWindowDialog({
         <div className="space-y-4">
           <div>
             <Label>{t('availability.date', 'Date')}</Label>
-            <Input
-              type="date"
+            <DateInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(v) => setDate(v)}
               min={format(new Date(), 'yyyy-MM-dd')}
               data-testid="input-window-date"
             />
@@ -941,19 +935,17 @@ function AvailabilityWindowDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>{t('availability.startTime', 'Start Time')}</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(v) => setStartTime(v)}
                 data-testid="input-window-start-time"
               />
             </div>
             <div>
               <Label>{t('availability.endTime', 'End Time')}</Label>
-              <Input
-                type="time"
+              <TimeInput
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(v) => setEndTime(v)}
                 data-testid="input-window-end-time"
               />
             </div>

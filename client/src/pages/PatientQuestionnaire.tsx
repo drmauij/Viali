@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
+import { DateInput } from "@/components/ui/date-input";
 import { 
   User, 
   Heart, 
@@ -3236,11 +3237,9 @@ function SubmitStep({ formData, updateField, t, onOpenSignature }: SubmitStepPro
           <Calendar className="h-4 w-4" />
           {t("questionnaire.submit.date")}
         </Label>
-        <Input
-          type="date"
+        <DateInput
           value={formData.submissionDate}
-          onChange={(e) => updateField("submissionDate", e.target.value)}
-          className="mt-1"
+          onChange={(v) => updateField("submissionDate", v)}
           data-testid="input-submission-date"
         />
       </div>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Repeat, Trash2, CalendarDays } from 'lucide-react';
@@ -302,21 +302,18 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">{t('staffPool.startDate')}</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={(v) => setStartDate(v)}
                   className="h-8 text-xs"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">{t('staffPool.endDate')}</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={(v) => setEndDate(v)}
                   className="h-8 text-xs"
-                  placeholder={t('staffPool.noEndDate')}
                 />
               </div>
             </div>
