@@ -13,6 +13,7 @@ interface Hospital {
   unitId: string;
   unitName: string;
   unitType?: string | null;
+  addonWorktime?: boolean;
 }
 
 interface LayoutProps {
