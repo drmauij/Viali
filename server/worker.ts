@@ -1826,22 +1826,26 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
   const hospitalId = job.hospitalId;
   
   logger.info(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
-  
-  // Only send reminders around 6pm (between 5:30pm and 6:30pm local time)
+
+  // Fetch hospital data first — need timezone for window check and disabled flag
+  const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  const tz = hospitalData[0]?.timezone || 'Europe/Zurich';
+
+  // Only send reminders around 6pm (between 5:30pm and 6:30pm in hospital timezone)
   const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  const currentHour = nowInTz.getHours();
+  const currentMinute = nowInTz.getMinutes();
   const timeInMinutes = currentHour * 60 + currentMinute;
   const reminderWindowStart = 17 * 60 + 30; // 5:30pm = 17:30
   const reminderWindowEnd = 18 * 60 + 30;   // 6:30pm = 18:30
-  
+
   if (timeInMinutes < reminderWindowStart || timeInMinutes > reminderWindowEnd) {
-    logger.info(`[Worker] Skipping pre-surgery reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} is outside 6pm window (17:30-18:30)`);
+    logger.info(`[Worker] Skipping pre-surgery reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} (${tz}) is outside 6pm window (17:30-18:30)`);
     return;
   }
-  
+
   // Check if pre-surgery reminder is manually disabled
-  const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
   if (hospitalData[0]?.preSurgeryReminderDisabled) {
     logger.info(`[Worker] Skipping pre-surgery reminder - manually disabled for hospital ${hospitalId}`);
     return;
@@ -1955,10 +1959,10 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       if (hasPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         // Build SMS message - only include time if admissionTime is provided
         const surgeryInfoDe = surgery.admissionTime
-          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })} in die Klinik.`
+          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })} in die Klinik.`
           : `Erinnerung an Ihre OP morgen.`;
         const surgeryInfoEn = surgery.admissionTime
-          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })}.`
+          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })}.`
           : `Reminder: Your surgery tomorrow.`;
 
         let smsMessage: string;
@@ -1997,16 +2001,17 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           surgeryDate,
           surgery.admissionTime ? new Date(surgery.admissionTime) : null,
           portalUrl,
-          isLASurgery
+          isLASurgery,
+          tz
         );
         
         if (emailResult.success) {
           sendSuccess = true;
           usedMethod = 'email';
           // Build email summary text for patient communication history
-          const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Zurich' });
+          const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
           const admissionTimeStr = surgery.admissionTime
-            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })
+            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz })
             : '';
           if (isLASurgery) {
             sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}`;
@@ -2087,15 +2092,16 @@ async function sendPreSurgeryReminderEmail(
   surgeryDate: Date,
   admissionTime: Date | null,
   portalUrl: string = '',
-  isLASurgery: boolean = false
+  isLASurgery: boolean = false,
+  timezone: string = 'Europe/Zurich'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@viali.ch';
-    const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
-    const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
+    const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: timezone });
+    const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: timezone });
     
     // ONLY show time/admission info if admissionTime is specifically provided
     // Do NOT use planned surgery time as fallback - it may be incorrect
@@ -2104,7 +2110,7 @@ async function sendPreSurgeryReminderEmail(
     let admissionInfoDe = '';
     let admissionInfoEn = '';
     if (admissionTime) {
-      const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' });
+      const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
       timeInfoDe = ` um ${admissionTimeStr}`;
       timeInfoEn = ` at ${admissionTimeStr}`;
       admissionInfoDe = `<p style="color: #059669; font-weight: bold;">Bitte kommen Sie um ${admissionTimeStr} in die Klinik.</p>`;
