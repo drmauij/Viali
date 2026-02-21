@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateForInput } from "@/lib/dateUtils";
 
 interface FormData {
   surgeonFirstName: string;
@@ -765,7 +766,7 @@ export default function ExternalSurgeryRequest() {
                     <DateInput
                       value={formData.wishedDate}
                       onChange={(v) => updateField('wishedDate', v)}
-                      min={new Date().toISOString().split('T')[0]}
+                      min={formatDateForInput(new Date())}
                       data-testid="input-wished-date"
                     />
                   </div>

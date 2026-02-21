@@ -138,7 +138,7 @@ export default function Hospital() {
     assignments: [{ unitId: "", role: "" }] as { unitId: string; role: string }[],
     roomIds: [] as string[],
     excludeWeekends: false,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: formatDateForInput(new Date()),
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
@@ -793,7 +793,7 @@ export default function Hospital() {
       assignments: [{ unitId: "", role: "" }],
       roomIds: [],
       excludeWeekends: false,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(new Date()),
     });
     setNewTemplateItem("");
     setEditingTemplate(null);
@@ -879,7 +879,7 @@ export default function Hospital() {
       assignments,
       roomIds: template.roomIds || [],
       excludeWeekends: template.excludeWeekends || false,
-      startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(template.startDate) || formatDateForInput(new Date()),
     });
     setTemplateDialogOpen(true);
   };
@@ -897,7 +897,7 @@ export default function Hospital() {
           : [{ unitId: "", role: "" }],
       roomIds: template.roomIds || [],
       excludeWeekends: template.excludeWeekends || false,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(new Date()),
     });
     setTemplateDialogOpen(true);
   };

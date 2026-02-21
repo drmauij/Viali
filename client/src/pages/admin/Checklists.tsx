@@ -33,7 +33,7 @@ export default function Checklists() {
     items: [] as string[],
     unitId: "",
     role: "",
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: formatDateForInput(new Date()),
     roomIds: [] as string[],
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
@@ -150,7 +150,7 @@ export default function Checklists() {
       items: [],
       unitId: "",
       role: "",
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(new Date()),
       roomIds: [],
     });
     setNewTemplateItem("");
@@ -170,7 +170,7 @@ export default function Checklists() {
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
       unitId: template.unitId || "",
       role: template.role || "",
-      startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(template.startDate) || formatDateForInput(new Date()),
       roomIds: template.roomIds || [],
     });
     setTemplateDialogOpen(true);
@@ -184,7 +184,7 @@ export default function Checklists() {
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
       unitId: template.unitId || "",
       role: template.role || "",
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: formatDateForInput(new Date()),
       roomIds: template.roomIds || [],
     });
     setTemplateDialogOpen(true);

@@ -43,7 +43,7 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatDateForInput } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -650,7 +650,7 @@ export function DischargeBriefWizard({
                                 value={quickAddDate}
                                 onChange={(v) => setQuickAddDate(v)}
                                 className="h-8 text-xs"
-                                min={new Date().toISOString().split("T")[0]}
+                                min={formatDateForInput(new Date())}
                               />
                               <TimeInput
                                 value={quickAddTime}

@@ -213,7 +213,10 @@ export const formatDateForInput = (date: string | Date | null | undefined): stri
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toISOString().split("T")[0];
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch (error) {
     console.error("Error formatting date for input:", error);
     return "";

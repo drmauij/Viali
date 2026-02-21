@@ -33,7 +33,7 @@ import { TimeInput } from "@/components/ui/time-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
-import { formatDate, formatDateTime, formatDateTimeForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
@@ -362,7 +362,7 @@ export default function PatientDetail() {
       setEditForm({
         surname: patient.surname || "",
         firstName: patient.firstName || "",
-        birthday: patient.birthday ? new Date(patient.birthday).toISOString().split('T')[0] : "",
+        birthday: patient.birthday ? formatDateForInput(patient.birthday) : "",
         sex: (patient.sex as "M" | "F" | "O") || "M",
         email: patient.email || "",
         phone: patient.phone || "",
@@ -626,7 +626,7 @@ export default function PatientDetail() {
         standBy: existingAssessment.standBy || false,
         standByReason: existingAssessment.standByReason || "",
         standByReasonNote: existingAssessment.standByReasonNote || "",
-        assessmentDate: existingAssessment.assessmentDate || new Date().toISOString().split('T')[0],
+        assessmentDate: existingAssessment.assessmentDate || formatDateForInput(new Date()),
         doctorName: existingAssessment.doctorName || currentUserName,
         doctorSignature: existingAssessment.doctorSignature || "",
       });
@@ -638,7 +638,7 @@ export default function PatientDetail() {
         installations: existingAssessment.consentInstallations || false,
         icuAdmission: existingAssessment.consentICU || false,
         notes: existingAssessment.consentNotes || "",
-        date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
+        date: existingAssessment.consentDate || formatDateForInput(new Date()),
         doctorSignature: existingAssessment.consentDoctorSignature || "",
         patientSignature: existingAssessment.patientSignature || "",
         emergencyNoSignature: existingAssessment.emergencyNoSignature || false,
@@ -858,7 +858,7 @@ export default function PatientDetail() {
     const now = new Date();
     const timestamp = formatDateTime(now);
     const signature = `${assessmentData.doctorName} - ${timestamp}`;
-    const today = now.toISOString().split('T')[0];
+    const today = formatDateForInput(now);
 
     // Update local state for UI
     setAssessmentData(prev => ({
@@ -5852,7 +5852,7 @@ export default function PatientDetail() {
                   );
                 })}
                 <button
-                  onClick={() => setCallbackSlots([...callbackSlots, { date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }])}
+                  onClick={() => setCallbackSlots([...callbackSlots, { date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }])}
                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                   data-testid="button-add-slot"
                 >
@@ -6255,7 +6255,7 @@ export default function PatientDetail() {
                         q.patientFirstName?.toLowerCase() === patient.firstName?.toLowerCase() &&
                         q.patientSurname?.toLowerCase() === patient.surname?.toLowerCase();
                       const matchesBirthday = patient && q.patientBirthday && 
-                        new Date(q.patientBirthday).toISOString().split('T')[0] === new Date(patient.birthday).toISOString().split('T')[0];
+                        formatDateForInput(q.patientBirthday) === formatDateForInput(patient.birthday);
                       const isExactMatch = matchesName && matchesBirthday;
                       const isPartialMatch = matchesName || matchesBirthday;
                       

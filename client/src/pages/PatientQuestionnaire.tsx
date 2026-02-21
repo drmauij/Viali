@@ -52,6 +52,7 @@ import {
 import SignaturePad from "@/components/SignaturePad";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
+import { formatDateForInput } from "@/lib/dateUtils";
 
 interface Medication {
   name: string;
@@ -1135,7 +1136,7 @@ export default function PatientQuestionnaire() {
     womanHealthNotes: "",
     additionalNotes: "",
     questionsForDoctor: "",
-    submissionDate: new Date().toISOString().split('T')[0],
+    submissionDate: formatDateForInput(new Date()),
     signature: "",
     privacyConsent: false,
     smsConsent: false,
@@ -1218,7 +1219,7 @@ export default function PatientQuestionnaire() {
         womanHealthNotes: existing?.womanHealthNotes || "",
         additionalNotes: existing?.additionalNotes || "",
         questionsForDoctor: existing?.questionsForDoctor || "",
-        submissionDate: (existing as any)?.submissionDate || new Date().toISOString().split('T')[0],
+        submissionDate: (existing as any)?.submissionDate || formatDateForInput(new Date()),
         signature: (existing as any)?.signature || "",
         privacyConsent: (existing as any)?.privacyConsent || false,
         smsConsent: (existing as any)?.smsConsent || false,

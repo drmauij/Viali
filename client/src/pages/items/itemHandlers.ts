@@ -5,7 +5,7 @@ import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
 import { parseCurrencyValue } from "./helpers";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatDateForInput } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Pure utility functions (no React deps)
@@ -383,7 +383,7 @@ export async function downloadInventoryPdf(params: DownloadInventoryPdfParams): 
 
   // Sanitize hospital name for filename
   const sanitizedHospitalName = hospitalName.replace(/[^a-zA-Z0-9]/g, '-');
-  const filename = `inventory-${sanitizedHospitalName}-${new Date().toISOString().split('T')[0]}.pdf`;
+  const filename = `inventory-${sanitizedHospitalName}-${formatDateForInput(new Date())}.pdf`;
 
   doc.save(filename);
 
@@ -554,7 +554,7 @@ export async function downloadItemsCatalog(params: DownloadItemsCatalogParams): 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `items_catalog_${hospitalName}_${new Date().toISOString().split('T')[0]}.csv`;
+  link.download = `items_catalog_${hospitalName}_${formatDateForInput(new Date())}.csv`;
   link.click();
 
   return itemsWithCodes.length;

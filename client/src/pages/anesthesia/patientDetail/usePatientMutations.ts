@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDateForInput } from "@/lib/dateUtils";
 
 type Patient = {
   id: string;
@@ -409,7 +410,7 @@ export function usePatientMutations({
       if (result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.response?.id) {
         setCallbackAssessmentId(result.response.id);
         setCallbackPhoneNumber(activeUnitPhone);
-        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
+        setCallbackSlots([{ date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }]);
         setShowCallbackAppointmentDialog(true);
       }
     },
@@ -454,7 +455,7 @@ export function usePatientMutations({
       if (isNewStandByReason && result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.assessmentId) {
         setCallbackAssessmentId(result.assessmentId);
         setCallbackPhoneNumber(activeUnitPhone);
-        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
+        setCallbackSlots([{ date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }]);
         setShowCallbackAppointmentDialog(true);
       }
     },

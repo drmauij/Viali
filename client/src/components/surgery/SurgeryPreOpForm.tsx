@@ -25,7 +25,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import type { SurgeryPreOpAssessment } from "@shared/schema";
 import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/components/shared/ImportPreviousAssessmentDialog";
-import { formatDate, formatTime } from "@/lib/dateUtils";
+import { formatDate, formatDateForInput, formatTime } from "@/lib/dateUtils";
 
 interface SurgeryPreOpFormProps {
   surgeryId: string;
@@ -2344,7 +2344,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                         q.patientFirstName?.toLowerCase() === patient.firstName?.toLowerCase() &&
                         q.patientSurname?.toLowerCase() === patient.surname?.toLowerCase();
                       const matchesBirthday = patient && q.patientBirthday && 
-                        new Date(q.patientBirthday).toISOString().split('T')[0] === new Date(patient.birthday).toISOString().split('T')[0];
+                        formatDateForInput(q.patientBirthday) === formatDateForInput(patient.birthday);
                       const isExactMatch = matchesName && matchesBirthday;
                       const isPartialMatch = matchesName || matchesBirthday;
                       

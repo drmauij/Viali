@@ -7,7 +7,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDate, formatDateTime } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatDateForInput } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -1057,7 +1057,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     doc.text(`Generated: ${formatDateTime(new Date())}`, 20, finalY + 21);
     
     // Download
-    doc.save(`PO-${order.id.slice(-4)}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`PO-${order.id.slice(-4)}_${formatDateForInput(new Date())}.pdf`);
   };
 
   const isMainDraftOrder = (order: OrderWithDetails): boolean => {

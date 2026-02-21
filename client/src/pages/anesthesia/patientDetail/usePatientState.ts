@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { formatDateForInput } from "@/lib/dateUtils";
 
 // Types for note attachments used by expandedNoteAttachments state
 export type NoteAttachment = {
@@ -347,7 +348,7 @@ export function usePatientState() {
     installations: false,
     icuAdmission: false,
     notes: "",
-    date: new Date().toISOString().split('T')[0],
+    date: formatDateForInput(new Date()),
     doctorSignature: "",
     patientSignature: "",
     emergencyNoSignature: false,
@@ -374,7 +375,7 @@ export function usePatientState() {
   const [callbackAssessmentId, setCallbackAssessmentId] = useState<string | null>(null);
   const [callbackSending, setCallbackSending] = useState(false);
   const [callbackSlots, setCallbackSlots] = useState<CallbackSlot[]>([
-    { date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }
+    { date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }
   ]);
   const [callbackPhoneNumber, setCallbackPhoneNumber] = useState('');
 
@@ -481,7 +482,7 @@ export function usePatientState() {
     standByReasonNote: "",
 
     // Doctor Info
-    assessmentDate: new Date().toISOString().split('T')[0],
+    assessmentDate: formatDateForInput(new Date()),
     doctorName: "",
     doctorSignature: "",
   }));
