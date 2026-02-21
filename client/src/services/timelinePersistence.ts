@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/queryClient';
+import { formatDateTime } from '@/lib/dateUtils';
 import type { InsertAnesthesiaMedication } from '@shared/schema';
 
 /**
@@ -123,7 +124,7 @@ export async function saveMedication(payload: SaveMedicationPayload): Promise<an
     timestampType: typeof payload.timestamp,
     timestampISO: payload.timestamp.toISOString(),
     timestampEpoch: payload.timestamp.getTime(),
-    timestampLocal: payload.timestamp.toLocaleString(),
+    timestampLocal: formatDateTime(payload.timestamp),
   });
 
   // Validate payload structure

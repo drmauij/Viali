@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -309,7 +310,7 @@ export default function ClinicServices() {
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
-    return `CHF ${parseFloat(price).toFixed(2)}`;
+    return formatCurrency(price);
   };
 
   if (!hospitalId) {

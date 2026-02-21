@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
 import { isTouchDevice } from "@/pages/items/helpers";
+import { formatCurrency } from "@/lib/dateUtils";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
   XCircle, DollarSign, CheckCircle2, Search, ChevronRight, Trash2, Star, Edit, Plus, Building2
@@ -339,7 +340,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
           const created = await createRes.json();
           setEditingSupplierCodes(prev => [...prev, created]);
           
-          setLookupMessage(t('items.supplierAddedFromLookup', `${supplierData.supplierName} supplier added with price ${priceValue ? priceValue + ' CHF' : 'N/A'}`));
+          setLookupMessage(t('items.supplierAddedFromLookup', `${supplierData.supplierName} supplier added with price ${priceValue ? formatCurrency(priceValue) : 'N/A'}`));
           
           // Check if supplier name differs from current item name
           if (result.name && editingItem.name) {
@@ -559,7 +560,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
-    return `CHF ${parseFloat(price).toFixed(2)}`;
+    return formatCurrency(price);
   };
 
   const getConfidenceBadge = (_confidence: string | number | null | undefined) => {
@@ -1151,7 +1152,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                                 </div>
                                 <div className="text-sm text-muted-foreground space-x-3">
                                   {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
-                                  {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
+                                  {supplier.basispreis && <span>{formatCurrency(supplier.basispreis)}</span>}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">

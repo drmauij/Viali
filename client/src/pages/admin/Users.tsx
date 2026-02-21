@@ -389,7 +389,7 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null; weeklyTargetHours?: string | null } }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
         ...data,
         hospitalId: activeHospital?.id 
@@ -826,6 +826,7 @@ export default function Users() {
           lastName: userForm.lastName,
           phone: userForm.phone || null,
           adminNotes: editingUserDetails.adminNotes ?? null,
+          weeklyTargetHours: editingUserDetails.weeklyTargetHours ?? null,
         },
       });
     } catch (error) {
@@ -1518,6 +1519,30 @@ export default function Users() {
                   className="text-sm resize-none"
                   data-testid="textarea-edit-admin-notes"
                 />
+              </div>
+
+              {/* Weekly Target Hours */}
+              <div>
+                <Label htmlFor="edit-weekly-target-hours" className="flex items-center gap-2 mb-2">
+                  {t("admin.weeklyTargetHours", "Weekly Target Hours")}
+                </Label>
+                <Input
+                  id="edit-weekly-target-hours"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="168"
+                  value={editingUserDetails?.weeklyTargetHours ?? ""}
+                  onChange={(e) => {
+                    if (editingUserDetails) {
+                      setEditingUserDetails({ ...editingUserDetails, weeklyTargetHours: e.target.value || null });
+                    }
+                  }}
+                  placeholder={t("admin.weeklyTargetHoursPlaceholder", "e.g. 42")}
+                  className="text-sm"
+                  data-testid="input-edit-weekly-target-hours"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.hoursPerWeek", "Used for overtime balance calculation")}</p>
               </div>
 
               {/* Change Password Button */}

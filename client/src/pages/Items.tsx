@@ -1,6 +1,7 @@
 import { useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { formatCurrency } from "@/lib/dateUtils";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -1191,7 +1192,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             await apiRequest("POST", `/api/items/${createdItem.id}/supplier-codes`, galexisSupplierData);
             toast({
               title: t('items.supplierAdded', 'Supplier added'),
-              description: `${galexisSupplierData.supplierName}: ${galexisSupplierData.basispreis} CHF`,
+              description: `${galexisSupplierData.supplierName}: ${formatCurrency(galexisSupplierData.basispreis)}`,
             });
           } catch (error: any) {
             console.error('Failed to create supplier code:', error);
@@ -4087,7 +4088,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                     </div>
                                     <div className="text-sm text-muted-foreground space-x-3">
                                       {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
-                                      {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
+                                      {supplier.basispreis && <span>{formatCurrency(supplier.basispreis)}</span>}
                                       {supplier.catalogUrl && <span className="text-xs truncate max-w-[150px] inline-block align-bottom">{supplier.catalogUrl}</span>}
                                     </div>
                                   </div>
@@ -4970,7 +4971,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                         {item.yourPrice && (
                           <div className="text-right">
                             <span className="text-xs text-muted-foreground">{t('items.yourPrice')}: </span>
-                            <span className="text-sm font-semibold text-green-600">CHF {item.yourPrice.toFixed(2)}</span>
+                            <span className="text-sm font-semibold text-green-600">{formatCurrency(item.yourPrice)}</span>
                           </div>
                         )}
                       </div>

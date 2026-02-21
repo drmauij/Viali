@@ -44,6 +44,7 @@ export const users = pgTable("users", {
   canLogin: boolean("can_login").default(true).notNull(), // Whether user can log into the app (false = staff-only member)
   staffType: varchar("staff_type", { enum: ["internal", "external"] }).default("internal").notNull(), // Internal (clinic) or external (rented/temp)
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly pay rate for cost calculations
+  weeklyTargetHours: decimal("weekly_target_hours", { precision: 5, scale: 2 }), // Target work hours per week for overtime calculation
   preferences: jsonb("preferences"), // User preferences including clinic provider filter
   timebutlerIcsUrl: varchar("timebutler_ics_url"), // Personal Timebutler iCal export URL for syncing absences
   briefSignature: text("brief_signature"), // Multi-line professional signature block for discharge briefs
@@ -58,7 +59,10 @@ export const hospitals = pgTable("hospitals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   address: text("address"),
-  timezone: varchar("timezone").default("UTC"),
+  timezone: varchar("timezone").default("Europe/Zurich"),
+  currency: varchar("currency").default("CHF"), // Display currency: CHF, EUR, USD
+  dateFormat: varchar("date_format").default("european"), // european (dd.MM.yyyy) or american (MM/dd/yyyy)
+  hourFormat: varchar("hour_format").default("24h"), // 24h or 12h
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic", "test"] }).default("test").notNull(),
@@ -4562,6 +4566,42 @@ export const insertExternalWorklogEntrySchema = createInsertSchema(externalWorkl
 
 export type ExternalWorklogEntry = typeof externalWorklogEntries.$inferSelect;
 export type InsertExternalWorklogEntry = z.infer<typeof insertExternalWorklogEntrySchema>;
+
+// ========================================
+// Internal Worktime Logs (TimeButler replacement)
+// ========================================
+
+export const worktimeLogs = pgTable("worktime_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  enteredById: varchar("entered_by_id").references(() => users.id), // null = self-entry, set = kiosk/admin entry
+  workDate: date("work_date").notNull(),
+  timeStart: varchar("time_start", { length: 5 }).notNull(), // "HH:MM"
+  timeEnd: varchar("time_end", { length: 5 }).notNull(), // "HH:MM"
+  pauseMinutes: integer("pause_minutes").notNull().default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_worktime_logs_user_date").on(table.userId, table.workDate),
+  index("idx_worktime_logs_hospital").on(table.hospitalId),
+]);
+
+export const worktimeLogsRelations = relations(worktimeLogs, ({ one }) => ({
+  user: one(users, { fields: [worktimeLogs.userId], references: [users.id], relationName: 'worktimeLogUser' }),
+  hospital: one(hospitals, { fields: [worktimeLogs.hospitalId], references: [hospitals.id] }),
+  enteredBy: one(users, { fields: [worktimeLogs.enteredById], references: [users.id], relationName: 'worktimeLogEnteredBy' }),
+}));
+
+export const insertWorktimeLogSchema = createInsertSchema(worktimeLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type WorktimeLog = typeof worktimeLogs.$inferSelect;
+export type InsertWorktimeLog = z.infer<typeof insertWorktimeLogSchema>;
 
 // Legal document types for terms acceptances
 export const legalDocumentTypes = ["terms", "agb", "privacy", "avv"] as const;

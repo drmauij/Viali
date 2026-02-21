@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrencySymbol } from "@/lib/dateUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -77,19 +78,19 @@ interface CompanyData {
 const roleInfo = {
   awr_nurse: {
     title: "Tagesklinik Pflege (AWR-Nurse)",
-    rate: "CHF 75.00",
+    rate: `${getCurrencySymbol()} 75.00`,
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Intensivpflege",
     roleTitle: "IMC-Pfleger im Aufwachraum",
   },
   anesthesia_nurse: {
     title: "Pflege-Anästhesist",
-    rate: "CHF 80.00",
+    rate: `${getCurrencySymbol()} 80.00`,
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
     roleTitle: "Anästhesiepfleger",
   },
   anesthesia_doctor: {
     title: "Arzt Anästhesie",
-    rate: "CHF 150.00",
+    rate: `${getCurrencySymbol()} 150.00`,
     description: "Facharzt Anästhesiologie, in der Schweiz anerkannt",
     roleTitle: "Anästhesiearzt",
   },

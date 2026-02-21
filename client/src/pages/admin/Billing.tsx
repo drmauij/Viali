@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import SignaturePad from "@/components/SignaturePad";
+import { formatCurrency, formatDate, formatMonthYear } from "@/lib/dateUtils";
 import { TermsOfUseContent } from "@/components/TermsOfUseContent";
 import { PrivacyPolicyContent } from "@/components/PrivacyPolicyContent";
 import { AVVContent } from "@/components/AVVContent";
@@ -328,7 +329,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "billing-invoices"] });
       toast({
         title: t('billing.invoiceGenerated'),
-        description: `${data.invoice?.recordCount || 0} ${t('billing.records')} - CHF ${data.invoice?.totalAmount || '0.00'}`
+        description: `${data.invoice?.recordCount || 0} ${t('billing.records')} - ${formatCurrency(data.invoice?.totalAmount || 0)}`
       });
     },
     onError: (error: any) => {
@@ -412,7 +413,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </div>
               </div>
               <Badge variant="secondary" className="text-lg font-bold">
-                {billingStatus.pricePerRecord.toFixed(2)} CHF
+                {formatCurrency(billingStatus.pricePerRecord)}
               </Badge>
             </div>
 
@@ -500,7 +501,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                           {acceptance && (
                             <p className="text-sm text-muted-foreground truncate">
                               {t('billing.signedBy')} {acceptance.signedByName}{" "}
-                              {t('billing.on')} {new Date(acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                              {t('billing.on')} {formatDate(acceptance.signedAt)}
                             </p>
                           )}
                         </div>
@@ -671,7 +672,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               </div>
               
               <div className="text-sm text-muted-foreground">
-                {t('billing.date')}: {new Date().toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                {t('billing.date')}: {formatDate(new Date())}
               </div>
             </div>
           </div>
@@ -832,14 +833,14 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Price per record</span>
                     <span className="font-medium">
-                      CHF {billingStatus.pricePerRecord?.toFixed(2) || "0.00"}
+                      {formatCurrency(billingStatus.pricePerRecord ?? 0)}
                     </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Estimated cost</span>
                     <span className="font-bold text-lg">
-                      CHF {billingStatus.estimatedCost?.toFixed(2) || "0.00"}
+                      {formatCurrency(billingStatus.estimatedCost ?? 0)}
                     </span>
                   </div>
                 </>
@@ -904,10 +905,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               <div className="space-y-2">
                 {invoicesData.invoices.map((invoice) => {
                   const periodStart = new Date(invoice.periodStart);
-                  const periodLabel = periodStart.toLocaleDateString(isGerman ? 'de-CH' : 'en-US', { 
-                    month: 'long', 
-                    year: 'numeric' 
-                  });
+                  const periodLabel = formatMonthYear(periodStart);
                   
                   return (
                     <div

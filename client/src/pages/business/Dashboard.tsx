@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatCurrencyLocale, getCurrencySymbol } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -205,7 +206,7 @@ export default function BusinessDashboard() {
         />
         <KPICard
           title={t('business.kpi.totalCosts')}
-          value="€318,450"
+          value={formatCurrencyLocale(318450)}
           subtitle={t('business.kpi.materialsAndSupplies')}
           trend={-2.4}
           trendLabel={t('business.kpi.vsLastMonth')}
@@ -235,7 +236,7 @@ export default function BusinessDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title={t('business.kpi.staffCosts')}
-          value="€158,000"
+          value={formatCurrencyLocale(158000)}
           subtitle={t('business.kpi.hourlyStaffThisMonth')}
           trend={3.8}
           trendLabel={t('business.kpi.vsLastMonth')}
@@ -244,7 +245,7 @@ export default function BusinessDashboard() {
         />
         <KPICard
           title={t('business.kpi.costPerSurgery')}
-          value="€302"
+          value={formatCurrencyLocale(302)}
           subtitle={t('business.kpi.averageMaterialCost')}
           trend={-1.8}
           trendLabel={t('business.kpi.vsLastMonth')}
@@ -333,9 +334,9 @@ export default function BusinessDashboard() {
               <LineChart data={mockCostTrend}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                <YAxis className="text-xs" tickFormatter={(value) => `${getCurrencySymbol()} ${(value/1000).toFixed(0)}k`} />
                 <RechartsTooltip 
-                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                  formatter={(value: number) => [formatCurrencyLocale(value), '']}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))',
                     border: '1px solid hsl(var(--border))',
@@ -377,9 +378,9 @@ export default function BusinessDashboard() {
               <LineChart data={mockStaffCostTrend}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                <YAxis className="text-xs" tickFormatter={(value) => `${getCurrencySymbol()} ${(value/1000).toFixed(0)}k`} />
                 <RechartsTooltip 
-                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                  formatter={(value: number) => [formatCurrencyLocale(value), '']}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))',
                     border: '1px solid hsl(var(--border))',
@@ -519,7 +520,7 @@ export default function BusinessDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip 
-                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                  formatter={(value: number) => [formatCurrencyLocale(value), '']}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))',
                     border: '1px solid hsl(var(--border))',

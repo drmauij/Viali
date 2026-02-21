@@ -31,6 +31,7 @@ import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Command,
@@ -695,7 +696,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                             data-testid={`item-option-${item.id}`}
                           >
                             <div className="flex flex-col">
-                              <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
+                              <span>{item.name} {item.patientPrice && `(${formatCurrency(item.patientPrice)})`}</span>
                               {(item.pharmacode || item.gtin) && (
                                 <span className="text-xs text-muted-foreground">
                                   {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
@@ -742,7 +743,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span>{service.name}</span>
-                                <span className="text-primary font-medium">CHF {service.price}</span>
+                                <span className="text-primary font-medium">{formatCurrency(service.price)}</span>
                                 {service.isShared && (
                                   <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('clinic.services.shared', 'Shared')}</span>
                                 )}
@@ -793,7 +794,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2">
                             {item?.patientPrice && (
-                              <span>CHF {item.patientPrice} / {t('clinic.invoices.unit', 'unit')}</span>
+                              <span>{formatCurrency(item.patientPrice)} / {t('clinic.invoices.unit', 'unit')}</span>
                             )}
                             <span className={taxRate > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
                               {taxRate > 0 ? `+${taxRate}% ${t('clinic.invoices.vat', 'VAT')}` : t('clinic.invoices.taxExempt', 'Tax-exempt')}
@@ -824,7 +825,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                         
                         {/* Line total */}
                         <div className="w-24 text-right font-medium" data-testid={`item-total-${index}`}>
-                          CHF {((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
+                          {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0))}
                         </div>
                         
                         {/* Remove button */}
@@ -863,7 +864,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                   <Briefcase className="h-3 w-3" />
                   {t('clinic.invoices.services', 'Services')} ({t('clinic.invoices.taxExempt', 'Tax-exempt')}):
                 </span>
-                <span>CHF {totals.servicesSubtotal.toFixed(2)}</span>
+                <span>{formatCurrency(totals.servicesSubtotal)}</span>
               </div>
             )}
             {totals.itemsSubtotal > 0 && (
@@ -872,22 +873,22 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                   <Package className="h-3 w-3" />
                   {t('clinic.invoices.products', 'Products')}:
                 </span>
-                <span>CHF {totals.itemsSubtotal.toFixed(2)}</span>
+                <span>{formatCurrency(totals.itemsSubtotal)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm text-muted-foreground border-t pt-1">
               <span>{t('clinic.invoices.subtotal')}:</span>
-              <span>CHF {totals.subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(totals.subtotal)}</span>
             </div>
             {totals.vatAmount > 0 && (
               <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
                 <span>{t('clinic.invoices.vatOnProducts', 'VAT on products')} (2.6%):</span>
-                <span>CHF {totals.vatAmount.toFixed(2)}</span>
+                <span>{formatCurrency(totals.vatAmount)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold border-t pt-1">
               <span>{t('clinic.invoices.total')}:</span>
-              <span>CHF {totals.total.toFixed(2)}</span>
+              <span>{formatCurrency(totals.total)}</span>
             </div>
           </div>
         </div>

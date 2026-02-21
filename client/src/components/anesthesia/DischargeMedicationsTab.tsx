@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil, Save, Download, Stethoscope } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatCurrency } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
 
 interface DischargeMedicationsTabProps {
@@ -690,7 +690,7 @@ export function DischargeMedicationsTab({
                         )}
                         {medItem.endPrice && (
                           <Badge variant="outline" className="text-green-600 border-green-300">
-                            CHF {parseFloat(medItem.endPrice).toFixed(2)}
+                            {formatCurrency(medItem.endPrice)}
                           </Badge>
                         )}
                       </div>
@@ -974,7 +974,7 @@ export function DischargeMedicationsTab({
                                       <Badge variant="destructive" className="text-xs">BTM</Badge>
                                     )}
                                     {item.patientPrice && (
-                                      <span className="text-xs text-muted-foreground">CHF {parseFloat(item.patientPrice).toFixed(2)}</span>
+                                      <span className="text-xs text-muted-foreground">{formatCurrency(item.patientPrice)}</span>
                                     )}
                                   </div>
                                 </div>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { formatCurrency, formatCurrencyLocale, getCurrencySymbol } from "@/lib/dateUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -746,7 +747,7 @@ export default function StaffCosts() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}
+                            {staff.hourlyRate ? `${getCurrencySymbol()} ${staff.hourlyRate}/h` : '-'}
                           </TableCell>
                           <TableCell>
                             <span className={staff.staffType === 'internal' ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'}>
@@ -821,7 +822,7 @@ export default function StaffCosts() {
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                      formatter={(value: number) => [formatCurrencyLocale(value), '']}
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--background))',
                         border: '1px solid hsl(var(--border))',
@@ -830,7 +831,7 @@ export default function StaffCosts() {
                     />
                     <Legend 
                       formatter={(value, entry: any) => (
-                        <span className="text-xs">{value}: €{entry.payload.value.toLocaleString()}</span>
+                        <span className="text-xs">{value}: {formatCurrencyLocale(entry.payload.value)}</span>
                       )}
                     />
                   </PieChart>
@@ -849,9 +850,9 @@ export default function StaffCosts() {
                     <BarChart data={mockCostTrend}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="month" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                      <YAxis className="text-xs" tickFormatter={(value) => `${getCurrencySymbol()} ${(value/1000).toFixed(0)}k`} />
                       <RechartsTooltip 
-                        formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                        formatter={(value: number) => [formatCurrencyLocale(value), '']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
@@ -893,10 +894,10 @@ export default function StaffCosts() {
                     {mockCostPerSurgery.map((row) => (
                       <TableRow key={row.type}>
                         <TableCell className="font-medium">{row.type}</TableCell>
-                        <TableCell className="text-right">€{row.avgStaffCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.avgStaffCost)}</TableCell>
                         <TableCell className="text-right">{row.surgeries}</TableCell>
                         <TableCell className="text-right font-medium">
-                          €{(row.avgStaffCost * row.surgeries).toLocaleString()}
+                          {formatCurrencyLocale(row.avgStaffCost * row.surgeries)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -935,11 +936,11 @@ export default function StaffCosts() {
                       <TableRow key={row.id}>
                         <TableCell>{row.date}</TableCell>
                         <TableCell className="font-medium">{row.surgery}</TableCell>
-                        <TableCell className="text-right">€{row.surgeons.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">€{row.anesthesia.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">€{row.nurses.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">€{row.assistants.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-bold">€{row.total.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.surgeons)}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.anesthesia)}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.nurses)}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.assistants)}</TableCell>
+                        <TableCell className="text-right font-bold">{formatCurrencyLocale(row.total)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1022,7 +1023,7 @@ export default function StaffCosts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Label htmlFor="hourlyRate">{t('business.staff.hourlyRate')} ({getCurrencySymbol()})</Label>
                 <Input
                   id="hourlyRate"
                   type="number"
@@ -1105,7 +1106,7 @@ export default function StaffCosts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} ({getCurrencySymbol()})</Label>
                 <Input
                   id="edit-hourlyRate"
                   type="number"

@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import InvoiceForm from "./InvoiceForm";
 import jsPDF from "jspdf";
@@ -367,14 +368,14 @@ export default function ClinicInvoices() {
       return [
         description,
         item.quantity.toString(),
-        `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
-        `CHF ${parseFloat(item.total).toFixed(2)}`
+        formatCurrency(item.unitPrice),
+        formatCurrency(item.total)
       ];
     });
-    
+
     const rightMargin = 25;
     const tableRightEdge = 210 - rightMargin;
-    
+
     autoTable(doc, {
       startY: yPos,
       head: tableHeaders,
@@ -390,32 +391,32 @@ export default function ClinicInvoices() {
       margin: { left: 20, right: rightMargin },
       styles: { cellPadding: 2, fontSize: 9 },
     });
-    
+
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    
+
     doc.setFontSize(10);
     doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 120, finalY);
-    doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, tableRightEdge, finalY, { align: 'right' });
-    
+    doc.text(formatCurrency(invoice.subtotal), tableRightEdge, finalY, { align: 'right' });
+
     doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 120, finalY + 6);
-    doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, tableRightEdge, finalY + 6, { align: 'right' });
-    
+    doc.text(formatCurrency(invoice.vatAmount), tableRightEdge, finalY + 6, { align: 'right' });
+
     doc.setLineWidth(0.5);
     doc.line(120, finalY + 10, tableRightEdge, finalY + 10);
-    
+
     doc.setFontSize(12);
     doc.setFont(undefined as any, 'bold');
     doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 120, finalY + 17);
-    doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, tableRightEdge, finalY + 17, { align: 'right' });
-    
+    doc.text(formatCurrency(invoice.total), tableRightEdge, finalY + 17, { align: 'right' });
+
     doc.setFont(undefined as any, 'normal');
-    
+
     if (invoice.comments) {
       doc.setFontSize(10);
       doc.text(isGerman ? 'Bemerkungen:' : 'Comments:', 20, finalY + 30);
       doc.text(invoice.comments, 20, finalY + 36);
     }
-    
+
     // Return base64 without the data URI prefix
     const pdfOutput = doc.output('datauristring');
     return pdfOutput.split(',')[1];
@@ -593,15 +594,15 @@ export default function ClinicInvoices() {
         return [
           description,
           item.quantity.toString(),
-          `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
-          `CHF ${parseFloat(item.total).toFixed(2)}`
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total)
         ];
       });
-      
+
       // Right margin is 25, so table ends at 210-25=185
       const rightMargin = 25;
       const tableRightEdge = 210 - rightMargin; // 185
-      
+
       autoTable(doc, {
         startY: yPos,
         head: tableHeaders,
@@ -620,24 +621,24 @@ export default function ClinicInvoices() {
         margin: { left: 20, right: rightMargin },
         styles: { cellPadding: 2, fontSize: 9 },
       });
-      
+
       const finalY = (doc as any).lastAutoTable.finalY + 10;
-      
+
       // Summary section aligned with table right edge
       doc.setFontSize(10);
       doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 120, finalY);
-      doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, tableRightEdge, finalY, { align: 'right' });
-      
+      doc.text(formatCurrency(invoice.subtotal), tableRightEdge, finalY, { align: 'right' });
+
       doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 120, finalY + 6);
-      doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, tableRightEdge, finalY + 6, { align: 'right' });
-      
+      doc.text(formatCurrency(invoice.vatAmount), tableRightEdge, finalY + 6, { align: 'right' });
+
       doc.setLineWidth(0.5);
       doc.line(120, finalY + 10, tableRightEdge, finalY + 10);
-      
+
       doc.setFontSize(12);
       doc.setFont(undefined as any, 'bold');
       doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 120, finalY + 17);
-      doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, tableRightEdge, finalY + 17, { align: 'right' });
+      doc.text(formatCurrency(invoice.total), tableRightEdge, finalY + 17, { align: 'right' });
       
       doc.setFont(undefined as any, 'normal');
       
@@ -767,7 +768,7 @@ export default function ClinicInvoices() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-lg" data-testid={`text-total-${invoice.id}`}>
-                      CHF {parseFloat(invoice.total).toFixed(2)}
+                      {formatCurrency(invoice.total)}
                     </p>
                     <div className="flex gap-1 mt-2">
                       <Button
@@ -854,7 +855,7 @@ export default function ClinicInvoices() {
                           )}
                           <span className="text-muted-foreground">x{item.quantity}</span>
                         </div>
-                        <span>CHF {parseFloat(item.total).toFixed(2)}</span>
+                        <span>{formatCurrency(item.total)}</span>
                       </div>
                     ))}
                   </div>
@@ -864,15 +865,15 @@ export default function ClinicInvoices() {
               <div className="border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span>{t('clinic.invoices.subtotal')}</span>
-                  <span>CHF {parseFloat(selectedInvoice.subtotal).toFixed(2)}</span>
+                  <span>{formatCurrency(selectedInvoice.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>{t('clinic.invoices.vat')} ({selectedInvoice.vatRate}%)</span>
-                  <span>CHF {parseFloat(selectedInvoice.vatAmount).toFixed(2)}</span>
+                  <span>{formatCurrency(selectedInvoice.vatAmount)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t mt-2 pt-2">
                   <span>{t('clinic.invoices.total')}</span>
-                  <span>CHF {parseFloat(selectedInvoice.total).toFixed(2)}</span>
+                  <span>{formatCurrency(selectedInvoice.total)}</span>
                 </div>
               </div>
               {selectedInvoice.comments && (

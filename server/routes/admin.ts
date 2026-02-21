@@ -23,6 +23,10 @@ const updateHospitalSchema = z.object({
   companyLogoUrl: z.string().optional(),
   questionnaireDisabled: z.boolean().optional(),
   preSurgeryReminderDisabled: z.boolean().optional(),
+  currency: z.enum(["CHF", "EUR", "USD"]).optional(),
+  dateFormat: z.enum(["european", "american"]).optional(),
+  hourFormat: z.enum(["24h", "12h"]).optional(),
+  timezone: z.string().optional(),
 });
 
 const updateUnitSchema = z.object({
@@ -338,6 +342,7 @@ router.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req,
         lastName: u.user.lastName,
         phone: u.user.phone,
         adminNotes: u.user.adminNotes,
+        weeklyTargetHours: u.user.weeklyTargetHours,
         profileImageUrl: u.user.profileImageUrl,
         canLogin: u.user.canLogin,
         staffType: u.user.staffType,
@@ -706,7 +711,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, phone, adminNotes, hospitalId } = req.body;
+    const { firstName, lastName, phone, adminNotes, weeklyTargetHours, hospitalId } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
@@ -740,6 +745,9 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
     }
     if (adminNotes !== undefined) {
       updateData.adminNotes = adminNotes || null;
+    }
+    if (weeklyTargetHours !== undefined) {
+      updateData.weeklyTargetHours = weeklyTargetHours === null || weeklyTargetHours === '' ? null : String(weeklyTargetHours);
     }
     await storage.updateUser(userId, updateData);
     res.json({ success: true });

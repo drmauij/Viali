@@ -58,6 +58,7 @@ const WorkerContractForm = React.lazy(() => import("@/pages/WorkerContractForm")
 const ExternalWorklog = React.lazy(() => import("@/pages/ExternalWorklog"));
 const WorklogManagement = React.lazy(() => import("@/pages/WorklogManagement"));
 const UnitWorklogs = React.lazy(() => import("@/pages/UnitWorklogs"));
+const WorktimeKiosk = React.lazy(() => import("@/pages/clinic/WorktimeKiosk"));
 const EditableValuesDemo = React.lazy(() => import("@/pages/EditableValuesDemo"));
 const ApiPlayground = React.lazy(() => import("@/pages/ApiPlayground"));
 const ClinicInvoices = React.lazy(() => import("@/pages/clinic/Invoices"));
@@ -229,6 +230,8 @@ function Router() {
               <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
               <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
               <Route path="/business/worklogs">{() => <ProtectedRoute requireBusiness><WorklogManagement /></ProtectedRoute>}</Route>
+              {/* Worktime Kiosk - any authenticated user */}
+              <Route path="/worktime-kiosk" component={WorktimeKiosk} />
               {/* Clinic Module - ambulatory invoicing */}
               <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
               <Route path="/clinic/appointments">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>

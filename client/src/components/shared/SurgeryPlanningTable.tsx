@@ -52,6 +52,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { ROLE_CONFIG } from "@/components/anesthesia/PlannedStaffBox";
+import { formatCurrency } from "@/lib/dateUtils";
 import type { Surgery, Patient, DailyStaffPool } from "@shared/schema";
 
 export type ModuleContext = "anesthesia" | "surgery" | "business" | "marketing";
@@ -126,11 +127,11 @@ function formatTime(dateStr: string | Date | null | undefined): string {
   }
 }
 
-function formatCurrency(value: string | number | null | undefined): string {
+function formatCurrencyValue(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "-";
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (isNaN(num)) return "-";
-  return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF" }).format(num);
+  return formatCurrency(num);
 }
 
 interface EditableDateCellProps {
@@ -770,7 +771,7 @@ function EditableCurrencyCell({ value, surgeryId, field, onUpdate, isPending }: 
       {isPending ? (
         <Loader2 className="h-3 w-3 animate-spin" />
       ) : (
-        formatCurrency(value)
+        formatCurrencyValue(value)
       )}
     </Button>
   );

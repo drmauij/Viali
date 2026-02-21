@@ -21,6 +21,7 @@ import aiRouter from "./ai";
 import importJobsRouter from "./importJobs";
 import hospitalsRouter from "./hospitals";
 import dischargeBriefsRouter from "./dischargeBriefs";
+import worktimeLogsRouter from "./worktimeLogs";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -45,4 +46,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(importJobsRouter);
   app.use(hospitalsRouter);
   app.use(dischargeBriefsRouter);
+  app.use(worktimeLogsRouter);
 }

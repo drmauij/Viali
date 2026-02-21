@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { formatTime as formatTimeUtil } from "@/lib/dateUtils";
 import { usePacuVitals } from "@/hooks/usePacuVitals";
 import { PacuVitalsCard } from "@/components/anesthesia/PacuVitalsCard";
 
@@ -289,11 +290,7 @@ export default function Pacu() {
   };
 
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+    return formatTimeUtil(new Date(timestamp));
   };
 
   const getTimeInPacu = (timestamp: number) => {

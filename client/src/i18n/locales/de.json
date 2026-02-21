@@ -334,7 +334,8 @@
     "darkMode": "Dunkler Modus",
     "language": "Sprache",
     "english": "Englisch",
-    "german": "Deutsch"
+    "german": "Deutsch",
+    "workTime": "Arbeitszeit"
   },
   "bottomNav": {
     "home": "Startseite",
@@ -1526,6 +1527,9 @@
     "filterExternal": "Extern",
     "adminNotes": "Notizen",
     "adminNotesPlaceholder": "Notizen zu diesem Benutzer hinzufügen...",
+    "weeklyTargetHours": "Wöchentliche Sollstunden",
+    "weeklyTargetHoursPlaceholder": "z.B. 42",
+    "hoursPerWeek": "Für die Überstunden-Berechnung",
     "adminNotesSaved": "Notizen gespeichert",
     "adminNotesSaveError": "Notizen konnten nicht gespeichert werden",
     "confirmConvertToStaffMember": "{{name}} in einen Mitarbeiter umwandeln? Sie können sich dann nicht mehr in die App einloggen.",
@@ -6822,5 +6826,31 @@
     "unlock": "Entsperren",
     "editorPlaceholder": "Schreiben Sie Ihren Austrittsbericht in Markdown...",
     "signedByAt": "Unterschrieben von {{name}} am {{date}}"
+  },
+  "worktime": {
+    "title": "Arbeitszeit",
+    "thisWeek": "Diese Woche",
+    "thisMonth": "Dieser Monat",
+    "runningBalance": "Saldo",
+    "notConfigured": "Nicht konfiguriert",
+    "noEntries": "Noch keine Einträge",
+    "addEntry": "Eintrag hinzufügen",
+    "editEntry": "Eintrag bearbeiten",
+    "entrySaved": "Eintrag gespeichert",
+    "entryUpdated": "Eintrag aktualisiert",
+    "entryDeleted": "Eintrag gelöscht",
+    "confirmDelete": "Diesen Eintrag löschen?",
+    "date": "Datum",
+    "start": "Beginn",
+    "end": "Ende",
+    "pause": "Pause (Min.)",
+    "notes": "Notizen",
+    "notesPlaceholder": "Optionale Notizen...",
+    "netHours": "Netto",
+    "logTime": "Zeit erfassen",
+    "kioskTitle": "Arbeitszeit Mitarbeiter",
+    "searchStaff": "Mitarbeiter suchen...",
+    "allUnits": "Alle Abteilungen",
+    "noStaffFound": "Keine Mitarbeiter gefunden"
   }
 }

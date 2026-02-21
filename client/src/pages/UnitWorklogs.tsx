@@ -45,19 +45,8 @@ interface WorklogEntry {
   };
 }
 
-function calculateWorkHours(timeStart: string, timeEnd: string, pauseMinutes: number): string {
-  if (!timeStart || !timeEnd) return "0:00";
-  
-  const [startH, startM] = timeStart.split(":").map(Number);
-  const [endH, endM] = timeEnd.split(":").map(Number);
-  
-  let totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - pauseMinutes;
-  if (totalMinutes < 0) totalMinutes = 0;
-  
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}:${minutes.toString().padStart(2, "0")}`;
-}
+// Shared utility — see client/src/lib/worktimeUtils.ts
+import { calculateWorkHours } from "@/lib/worktimeUtils";
 
 function getStatusBadge(status: string, t: TFunction) {
   switch (status) {

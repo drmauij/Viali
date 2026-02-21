@@ -174,6 +174,8 @@ import {
   type InsertPatientDischargeMedication,
   type PatientDischargeMedicationItem,
   type InsertPatientDischargeMedicationItem,
+  type WorktimeLog,
+  type InsertWorktimeLog,
 } from "@shared/schema";
 
 export { db } from "./db";
@@ -189,6 +191,7 @@ import * as anesthesiaStorage from "./storage/anesthesia";
 import * as chatStorage from "./storage/chat";
 import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
+import * as worktimeStorage from "./storage/worktime";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -935,6 +938,15 @@ export interface IStorage {
   updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
 
+  // Worktime Log operations
+  getWorktimeLogs(hospitalId: string, filters?: { userId?: string; dateFrom?: string; dateTo?: string }): Promise<WorktimeLog[]>;
+  getWorktimeLogsByUser(hospitalId: string, userId: string, dateFrom?: string, dateTo?: string): Promise<WorktimeLog[]>;
+  getWorktimeLog(id: string): Promise<WorktimeLog | undefined>;
+  createWorktimeLog(data: InsertWorktimeLog): Promise<WorktimeLog>;
+  updateWorktimeLog(id: string, updates: Partial<InsertWorktimeLog>): Promise<WorktimeLog>;
+  deleteWorktimeLog(id: string): Promise<void>;
+  calculateWorktimeBalance(hospitalId: string, userId: string): Promise<{ configured: boolean; weeklyTargetMinutes: number | null; thisWeekMinutes: number; thisMonthMinutes: number; totalOvertimeMinutes: number }>;
+
   // Batch query methods
   getItemsByIds(itemIds: string[]): Promise<any[]>;
   getMedicationConfigsByItemIds(itemIds: string[]): Promise<any[]>;
@@ -1439,6 +1451,15 @@ export class DatabaseStorage implements IStorage {
   getExternalSurgeryRequestDocuments = clinicStorage.getExternalSurgeryRequestDocuments;
   createExternalSurgeryRequestDocument = clinicStorage.createExternalSurgeryRequestDocument;
   getPendingExternalSurgeryRequestsCount = clinicStorage.getPendingExternalSurgeryRequestsCount;
+
+  // ========== WORKTIME LOG OPERATIONS ==========
+  getWorktimeLogs = worktimeStorage.getWorktimeLogs;
+  getWorktimeLogsByUser = worktimeStorage.getWorktimeLogsByUser;
+  getWorktimeLog = worktimeStorage.getWorktimeLog;
+  createWorktimeLog = worktimeStorage.createWorktimeLog;
+  updateWorktimeLog = worktimeStorage.updateWorktimeLog;
+  deleteWorktimeLog = worktimeStorage.deleteWorktimeLog;
+  calculateWorktimeBalance = worktimeStorage.calculateWorktimeBalance;
 }
 
 export const storage = new DatabaseStorage();

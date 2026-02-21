@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatCurrencyLocale } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -142,11 +143,11 @@ export default function SimplifiedDashboard() {
                     <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
                       <TableCell>{row.date}</TableCell>
                       <TableCell className="font-medium">{row.surgery}</TableCell>
-                      <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.staffCost)}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.anesthesiaMaterials)}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.surgeryMaterials)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrencyLocale(row.totalCost)}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">{formatCurrencyLocale(row.patientPayment)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -194,11 +195,11 @@ export default function SimplifiedDashboard() {
                     <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
                       <TableCell>{row.date}</TableCell>
                       <TableCell className="font-medium">{row.surgery}</TableCell>
-                      <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.staffCost)}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.anesthesiaMaterials)}</TableCell>
+                      <TableCell className="text-right">{formatCurrencyLocale(row.surgeryMaterials)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrencyLocale(row.totalCost)}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">{formatCurrencyLocale(row.patientPayment)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

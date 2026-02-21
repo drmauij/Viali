@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { getCurrencySymbol } from "@/lib/dateUtils";
 import { Redirect } from "wouter";
 import {
   Card,
@@ -606,7 +607,7 @@ export default function SimplifiedStaff() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}
+                        {staff.hourlyRate ? `${getCurrencySymbol()} ${staff.hourlyRate}/h` : '-'}
                       </TableCell>
                       <TableCell>
                         <span className={staff.staffType === 'internal' ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'}>
@@ -728,7 +729,7 @@ export default function SimplifiedStaff() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Label htmlFor="hourlyRate">{t('business.staff.hourlyRate')} ({getCurrencySymbol()})</Label>
                 <Input
                   id="hourlyRate"
                   type="number"
@@ -811,7 +812,7 @@ export default function SimplifiedStaff() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} ({getCurrencySymbol()})</Label>
                 <Input
                   id="edit-hourlyRate"
                   type="number"

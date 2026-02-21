@@ -114,9 +114,9 @@ export interface DateFormatConfig {
 }
 
 const DEFAULT_CONFIG: DateFormatConfig = {
-  locale: "en-GB",
-  dateFormat: "dd/MM/yyyy",
-  dateTimeFormat: "dd/MM/yyyy HH:mm",
+  locale: "de-CH",
+  dateFormat: "dd.MM.yyyy",
+  dateTimeFormat: "dd.MM.yyyy HH:mm",
   timeFormat: "HH:mm",
 };
 
@@ -127,6 +127,7 @@ const localeMap: Record<string, Locale> = {
   "en-US": enUS,
   "de": de,
   "de-DE": de,
+  "de-CH": de,
   "fr": fr,
   "fr-FR": fr,
   "es": es,
@@ -318,4 +319,75 @@ export const formatElapsedTime = (timestamp: number | Date | null | undefined): 
     console.error("Error calculating elapsed time:", error);
     return "";
   }
+};
+
+// --- Currency formatting ---
+
+type CurrencyCode = "CHF" | "EUR" | "USD";
+
+const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+  CHF: "CHF",
+  EUR: "€",
+  USD: "$",
+};
+
+let currentCurrency: CurrencyCode = "CHF";
+
+export const setCurrencyConfig = (currency: string) => {
+  if (currency === "CHF" || currency === "EUR" || currency === "USD") {
+    currentCurrency = currency;
+  }
+};
+
+export const getCurrencyCode = (): CurrencyCode => currentCurrency;
+
+export const getCurrencySymbol = (): string => CURRENCY_SYMBOLS[currentCurrency];
+
+/**
+ * Format a number as currency using the hospital's configured currency.
+ * Examples: "CHF 12.50", "€12.50", "$12.50"
+ */
+export const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num)) return `${getCurrencySymbol()} 0.00`;
+  const formatted = num.toFixed(2);
+  const symbol = getCurrencySymbol();
+  // CHF uses prefix with space; EUR/USD use prefix without space
+  if (currentCurrency === "CHF") return `CHF ${formatted}`;
+  return `${symbol}${formatted}`;
+};
+
+/**
+ * Format a number as currency with locale-aware thousand separators.
+ * Examples: "CHF 1'234.50", "€1,234.50", "$1,234.50"
+ */
+export const formatCurrencyLocale = (amount: number | string): string => {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num)) return `${getCurrencySymbol()} 0.00`;
+  const locale = currentCurrency === "CHF" ? "de-CH" : currentCurrency === "EUR" ? "de-DE" : "en-US";
+  const formatted = num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const symbol = getCurrencySymbol();
+  if (currentCurrency === "CHF") return `CHF ${formatted}`;
+  return `${symbol}${formatted}`;
+};
+
+/**
+ * Apply hospital settings to the global date/currency config.
+ * Call this when the active hospital data loads.
+ */
+export const applyHospitalSettings = (settings: {
+  dateFormat?: string;
+  hourFormat?: string;
+  currency?: string;
+}) => {
+  const isEuropean = settings.dateFormat !== "american";
+  const is24h = settings.hourFormat !== "12h";
+
+  const dateFormat = isEuropean ? "dd.MM.yyyy" : "MM/dd/yyyy";
+  const timeFormat = is24h ? "HH:mm" : "h:mm a";
+  const dateTimeFormat = `${dateFormat} ${timeFormat}`;
+  const locale = isEuropean ? "de-CH" : "en-US";
+
+  setDateFormatConfig({ locale, dateFormat, timeFormat, dateTimeFormat });
+  setCurrencyConfig(settings.currency || "CHF");
 };

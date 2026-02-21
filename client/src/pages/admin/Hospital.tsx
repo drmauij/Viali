@@ -21,7 +21,7 @@ import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { formatDateLong } from "@/lib/dateUtils";
+import { formatDateLong, formatCurrency } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 
@@ -101,6 +101,10 @@ export default function Hospital() {
     runwayLookbackDays: 30,
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
+    currency: "CHF" as string,
+    dateFormat: "european" as string,
+    hourFormat: "24h" as string,
+    timezone: "Europe/Zurich" as string,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -648,6 +652,10 @@ export default function Hospital() {
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
+        currency: fullHospitalData.currency || "CHF",
+        dateFormat: fullHospitalData.dateFormat || "european",
+        hourFormat: fullHospitalData.hourFormat || "24h",
+        timezone: fullHospitalData.timezone || "Europe/Zurich",
       });
     }
   }, [fullHospitalData, hospitalDialogOpen, activeTab]);
@@ -1105,6 +1113,107 @@ export default function Hospital() {
         {/* General Settings Tab Content */}
         <TabsContent value="settings">
         <div className="space-y-6">
+
+          {/* General Settings Section */}
+          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <i className="fas fa-globe text-primary"></i>
+              {t("admin.generalSettingsSection", "General Settings")}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">{t("admin.generalSettingsDescription", "Configure regional preferences for this hospital")}</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Currency */}
+              <div>
+                <Label>{t("admin.currency", "Currency")}</Label>
+                <Select
+                  value={hospitalForm.currency}
+                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, currency: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CHF">CHF (Swiss Franc)</SelectItem>
+                    <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                    <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.currencyDescription", "Currency used for displaying prices across the app")}</p>
+              </div>
+
+              {/* Timezone */}
+              <div>
+                <Label>{t("admin.timezone", "Timezone")}</Label>
+                <Select
+                  value={hospitalForm.timezone}
+                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, timezone: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Europe/Zurich">Europe/Zurich</SelectItem>
+                    <SelectItem value="Europe/Berlin">Europe/Berlin</SelectItem>
+                    <SelectItem value="Europe/Vienna">Europe/Vienna</SelectItem>
+                    <SelectItem value="Europe/Paris">Europe/Paris</SelectItem>
+                    <SelectItem value="Europe/London">Europe/London</SelectItem>
+                    <SelectItem value="America/New_York">America/New York</SelectItem>
+                    <SelectItem value="America/Los_Angeles">America/Los Angeles</SelectItem>
+                    <SelectItem value="UTC">UTC</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.timezoneDescription", "Hospital timezone for scheduling and timestamps")}</p>
+              </div>
+
+              {/* Date Format */}
+              <div>
+                <Label>{t("admin.dateFormatLabel", "Date Format")}</Label>
+                <Select
+                  value={hospitalForm.dateFormat}
+                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, dateFormat: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="european">{t("admin.dateFormatEuropean", "European (dd.MM.yyyy)")}</SelectItem>
+                    <SelectItem value="american">{t("admin.dateFormatAmerican", "American (MM/dd/yyyy)")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.dateFormatDescription", "How dates are displayed across the app")}</p>
+              </div>
+
+              {/* Hour Format */}
+              <div>
+                <Label>{t("admin.hourFormatLabel", "Hour Format")}</Label>
+                <Select
+                  value={hospitalForm.hourFormat}
+                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, hourFormat: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="24h">{t("admin.hourFormat24h", "24-hour (14:30)")}</SelectItem>
+                    <SelectItem value="12h">{t("admin.hourFormat12h", "12-hour (2:30 PM)")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.hourFormatDescription", "How times are displayed across the app")}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={handleSaveHospital}
+                disabled={updateHospitalMutation.isPending || isUploadingLogo}
+              >
+                <i className="fas fa-save mr-2"></i>
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+
           {/* Company Settings Section */}
           <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -2244,7 +2353,7 @@ export default function Hospital() {
                                   GTIN: {galexisDebugResult.gtin || 'N/A'}
                                 </p>
                                 <p className="text-muted-foreground">
-                                  Your Price: CHF {galexisDebugResult.yourPrice?.toFixed(2) || 'N/A'} | 
+                                  Your Price: {galexisDebugResult.yourPrice ? formatCurrency(galexisDebugResult.yourPrice) : 'N/A'} |
                                   Discount: {galexisDebugResult.discountPercent?.toFixed(1) || 0}%
                                 </p>
                                 {galexisDebugResult.packSize && (

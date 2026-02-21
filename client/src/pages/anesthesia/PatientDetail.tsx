@@ -31,7 +31,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
-import { formatDate, formatDateTimeForInput, toProperCase, parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatDateTimeForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
@@ -854,13 +854,7 @@ export default function PatientDetail() {
 
     // Generate signature (simple text signature: name + timestamp)
     const now = new Date();
-    const timestamp = now.toLocaleString('de-DE', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    const timestamp = formatDateTime(now);
     const signature = `${assessmentData.doctorName} - ${timestamp}`;
     const today = now.toISOString().split('T')[0];
 
@@ -2042,7 +2036,7 @@ export default function PatientDetail() {
                             }
                           </span>
                           <span>•</span>
-                          <span>{new Date(note.createdAt).toLocaleString()}</span>
+                          <span>{formatDateTime(note.createdAt)}</span>
                           {note.updatedAt && note.updatedAt !== note.createdAt && (
                             <>
                               <span>•</span>
@@ -2835,7 +2829,7 @@ export default function PatientDetail() {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <p className="font-semibold">CHF {parseFloat(invoice.total).toFixed(2)}</p>
+                            <p className="font-semibold">{formatCurrency(invoice.total)}</p>
                             <Badge className={statusColors[invoice.status] || statusColors.draft}>
                               {t(`anesthesia.patientDetail.invoiceStatus.${invoice.status}`, invoice.status)}
                             </Badge>

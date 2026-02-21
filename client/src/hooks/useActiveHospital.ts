@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect } from "react";
 import { useAuth } from "./useAuth";
+import { applyHospitalSettings } from "@/lib/dateUtils";
 
 interface Hospital {
   id: string;
@@ -17,6 +18,10 @@ interface Hospital {
   showControlledMedications?: boolean;
   externalSurgeryToken?: string | null;
   visionAiProvider?: string;
+  currency?: string;
+  dateFormat?: string;
+  hourFormat?: string;
+  timezone?: string;
 }
 
 function subscribe(callback: () => void) {
@@ -37,16 +42,29 @@ export function useActiveHospital(): Hospital | null {
   const savedHospitalKey = useSyncExternalStore(subscribe, getSnapshot);
 
   const userHospitals = (user as any)?.hospitals;
-  if (!userHospitals || userHospitals.length === 0) return null;
-  
-  // Try to get active hospital from localStorage
-  if (savedHospitalKey) {
-    const saved = userHospitals.find((h: any) => 
+  let activeHospital: Hospital | null = null;
+
+  if (!userHospitals || userHospitals.length === 0) {
+    activeHospital = null;
+  } else if (savedHospitalKey) {
+    const saved = userHospitals.find((h: any) =>
       `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
     );
-    if (saved) return saved;
+    activeHospital = saved || userHospitals[0];
+  } else {
+    activeHospital = userHospitals[0];
   }
-  
-  // Default to first hospital
-  return userHospitals[0];
+
+  // Apply hospital date/currency settings globally whenever the active hospital changes
+  useEffect(() => {
+    if (activeHospital) {
+      applyHospitalSettings({
+        dateFormat: activeHospital.dateFormat,
+        hourFormat: activeHospital.hourFormat,
+        currency: activeHospital.currency,
+      });
+    }
+  }, [activeHospital?.id, activeHospital?.dateFormat, activeHospital?.hourFormat, activeHospital?.currency]);
+
+  return activeHospital;
 }

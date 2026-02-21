@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatCurrency, formatCurrencyLocale, getCurrencySymbol } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -631,7 +632,7 @@ export default function CostAnalytics() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <SummaryCard
               title={t('business.costs.totalSpending')}
-              value={`€${totalCosts.toLocaleString()}`}
+              value={formatCurrencyLocale(totalCosts)}
               subtitle={t('business.costs.thisMonth')}
               trend={2.4}
               helpText={t('business.help.totalSpending')}
@@ -639,7 +640,7 @@ export default function CostAnalytics() {
             />
             <SummaryCard
               title={t('business.costs.staffCosts')}
-              value="€158,000"
+              value={formatCurrencyLocale(158000)}
               subtitle={`${((158000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
               trend={3.8}
               helpText={t('business.help.staffCosts')}
@@ -648,7 +649,7 @@ export default function CostAnalytics() {
             />
             <SummaryCard
               title={t('business.costs.medicationCosts')}
-              value="€94,000"
+              value={formatCurrencyLocale(94000)}
               subtitle={`${((94000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
               trend={-1.2}
               helpText={t('business.help.medicationCosts')}
@@ -657,7 +658,7 @@ export default function CostAnalytics() {
             />
             <SummaryCard
               title={t('business.costs.suppliesCosts')}
-              value="€138,000"
+              value={formatCurrencyLocale(138000)}
               subtitle={`${((138000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
               trend={3.2}
               helpText={t('business.help.suppliesCosts')}
@@ -666,7 +667,7 @@ export default function CostAnalytics() {
             />
             <SummaryCard
               title={t('business.costs.avgCostPerSurgery')}
-              value="€890"
+              value={formatCurrencyLocale(890)}
               subtitle={t('business.costs.inclLabor')}
               trend={-1.8}
               helpText={t('business.help.avgCostPerSurgeryInclLabor')}
@@ -698,7 +699,7 @@ export default function CostAnalytics() {
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                      formatter={(value: number) => [formatCurrencyLocale(value), '']}
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--background))',
                         border: '1px solid hsl(var(--border))',
@@ -707,7 +708,7 @@ export default function CostAnalytics() {
                     />
                     <Legend 
                       formatter={(value, entry: any) => (
-                        <span className="text-xs">{value}: €{entry.payload.value.toLocaleString()}</span>
+                        <span className="text-xs">{value}: {formatCurrencyLocale(entry.payload.value)}</span>
                       )}
                     />
                   </PieChart>
@@ -726,9 +727,9 @@ export default function CostAnalytics() {
                     <AreaChart data={mockMonthlyCosts}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="month" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                      <YAxis className="text-xs" tickFormatter={(value) => `${getCurrencySymbol()} ${(value/1000).toFixed(0)}k`} />
                       <RechartsTooltip 
-                        formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                        formatter={(value: number) => [formatCurrencyLocale(value), '']}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))',
                           border: '1px solid hsl(var(--border))',
@@ -758,9 +759,9 @@ export default function CostAnalytics() {
                 <LineChart data={mockCostPerSurgeryTrend}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(value) => `€${value}`} />
+                  <YAxis className="text-xs" tickFormatter={(value) => `${getCurrencySymbol()} ${value}`} />
                   <RechartsTooltip 
-                    formatter={(value: number) => [`€${value}`, '']}
+                    formatter={(value: number) => [formatCurrencyLocale(value), '']}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--background))',
                       border: '1px solid hsl(var(--border))',
@@ -805,11 +806,11 @@ export default function CostAnalytics() {
                     {mockCostBySurgeryType.map((row) => (
                       <TableRow key={row.type}>
                         <TableCell className="font-medium">{row.type}</TableCell>
-                        <TableCell className="text-right">€{row.avgMaterialCost.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-purple-600 dark:text-purple-400">€{row.avgLaborCost.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-semibold">€{row.avgTotalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{formatCurrencyLocale(row.avgMaterialCost)}</TableCell>
+                        <TableCell className="text-right text-purple-600 dark:text-purple-400">{formatCurrencyLocale(row.avgLaborCost)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrencyLocale(row.avgTotalCost)}</TableCell>
                         <TableCell className="text-right">{row.count}</TableCell>
-                        <TableCell className="text-right font-medium">€{row.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrencyLocale(row.totalCost)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end">
                             {row.trend > 0 ? (
@@ -864,9 +865,9 @@ export default function CostAnalytics() {
                             "border-purple-500/50 text-purple-600 dark:text-purple-400"
                           }>{staff.role}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">€{staff.hourlyRate}/h</TableCell>
+                        <TableCell className="text-right">{getCurrencySymbol()} {staff.hourlyRate}/h</TableCell>
                         <TableCell className="text-right">{staff.hoursWorked}h</TableCell>
-                        <TableCell className="text-right font-medium">€{staff.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrencyLocale(staff.totalCost)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end">
                             {staff.trend > 0 ? (
@@ -917,9 +918,9 @@ export default function CostAnalytics() {
                         <TableCell>
                           <Badge variant="outline">{item.category}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">€{item.unitCost}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.unitCost)}</TableCell>
                         <TableCell className="text-right">{item.usage}</TableCell>
-                        <TableCell className="text-right font-medium">€{item.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrencyLocale(item.totalCost)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end">
                             {item.trend > 0 ? (
@@ -1002,7 +1003,7 @@ export default function CostAnalytics() {
                             {t('business.costs.totalCosts', 'Total Costs')}
                           </div>
                           <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            CHF {surgeriesWithCosts.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {formatCurrencyLocale(surgeriesWithCosts.reduce((sum, s) => sum + (s.totalCost ?? 0), 0))}
                           </div>
                         </div>
                         
@@ -1013,7 +1014,7 @@ export default function CostAnalytics() {
                             {t('business.costs.totalPaid')}
                           </div>
                           <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                            CHF {surgeriesWithCosts.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {formatCurrencyLocale(surgeriesWithCosts.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0))}
                           </div>
                         </div>
                         
@@ -1028,7 +1029,7 @@ export default function CostAnalytics() {
                                 {t('business.costs.totalDifference')}
                               </div>
                               <div className={`text-xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                CHF {totalDiff.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                {formatCurrencyLocale(totalDiff)}
                               </div>
                             </div>
                           );
@@ -1094,19 +1095,19 @@ export default function CostAnalytics() {
                                 {t('business.costs.avgCostPerHour', 'Avg Cost/Hour')}
                               </div>
                               <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
-                                CHF {avgCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                {formatCurrencyLocale(avgCostPerHour)}
                               </div>
                               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-indigo-200 dark:border-indigo-700">
                                 <div className="text-center">
                                   <div className="text-[10px] text-muted-foreground">{t('business.costs.anesthesia', 'Anesthesia')}</div>
                                   <div className="text-xs font-semibold text-green-600 dark:text-green-400">
-                                    CHF {avgAnesthesiaCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {formatCurrencyLocale(avgAnesthesiaCostPerHour)}
                                   </div>
                                 </div>
                                 <div className="text-center">
                                   <div className="text-[10px] text-muted-foreground">{t('business.costs.surgery', 'Surgery')}</div>
                                   <div className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                                    CHF {avgSurgeryCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {formatCurrencyLocale(avgSurgeryCostPerHour)}
                                   </div>
                                 </div>
                               </div>
@@ -1132,7 +1133,7 @@ export default function CostAnalytics() {
                                 {t('business.costs.avgPaidPerHour', 'Avg Paid/Hour')}
                               </div>
                               <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                                CHF {avgPaidPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                {formatCurrencyLocale(avgPaidPerHour)}
                               </div>
                             </div>
                           );
@@ -1209,21 +1210,21 @@ export default function CostAnalytics() {
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-purple-600 dark:text-purple-400">
-                                CHF {(surgery.staffCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatCurrency(surgery.staffCost ?? 0)}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-green-600 dark:text-green-400">
-                                CHF {(surgery.anesthesiaCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatCurrency(surgery.anesthesiaCost ?? 0)}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-blue-600 dark:text-blue-400">
-                                CHF {(surgery.surgeryCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatCurrency(surgery.surgeryCost ?? 0)}
                               </span>
                             </TableCell>
                             <TableCell className="text-right font-semibold">
-                              CHF {(surgery.totalCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {formatCurrency(surgery.totalCost ?? 0)}
                             </TableCell>
                             <TableCell className="text-right">
                               {(() => {
@@ -1231,19 +1232,19 @@ export default function CostAnalytics() {
                                 const costPerHour = hours > 0 ? (surgery.totalCost ?? 0) / hours : 0;
                                 return (
                                   <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                                    CHF {costPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {formatCurrency(costPerHour)}
                                   </span>
                                 );
                               })()}
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-orange-600 dark:text-orange-400">
-                                CHF {(surgery.paidAmount ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatCurrency(surgery.paidAmount ?? 0)}
                               </span>
                             </TableCell>
                             <TableCell className="text-right font-semibold">
                               <span className={(surgery.difference ?? 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                                CHF {(surgery.difference ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatCurrency(surgery.difference ?? 0)}
                               </span>
                             </TableCell>
                           </TableRow>
@@ -1274,7 +1275,7 @@ export default function CostAnalytics() {
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">{t('business.costs.totalInventoryValue')}</p>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    CHF {unitInventories.reduce((sum, u) => sum + u.totalValue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatCurrency(unitInventories.reduce((sum, u) => sum + u.totalValue, 0))}
                   </p>
                 </div>
               </div>
@@ -1320,7 +1321,7 @@ export default function CostAnalytics() {
                           <div className="text-right min-w-[120px]">
                             <p className="text-xs text-muted-foreground">{t('business.costs.unitValue')}</p>
                             <p className="font-semibold text-green-600 dark:text-green-400">
-                              CHF {unit.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {formatCurrency(unit.totalValue)}
                             </p>
                           </div>
                         </div>
@@ -1362,13 +1363,13 @@ export default function CostAnalytics() {
                                     {item.stockLevel}
                                   </TableCell>
                                   <TableCell className="text-right text-muted-foreground">
-                                    {item.supplierPrice > 0 
-                                      ? `CHF ${item.supplierPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                    {item.supplierPrice > 0
+                                      ? formatCurrency(item.supplierPrice)
                                       : '-'}
                                   </TableCell>
                                   <TableCell className="text-right font-medium">
-                                    {item.totalValue > 0 
-                                      ? <span className="text-green-600 dark:text-green-400">CHF {item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    {item.totalValue > 0
+                                      ? <span className="text-green-600 dark:text-green-400">{formatCurrency(item.totalValue)}</span>
                                       : '-'}
                                   </TableCell>
                                 </TableRow>
@@ -1420,7 +1421,7 @@ export default function CostAnalytics() {
                         borderRadius: '8px'
                       }}
                       formatter={(value: number) => [
-                        `CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        formatCurrency(value)
                       ]}
                     />
                     <Legend />
@@ -1507,7 +1508,7 @@ export default function CostAnalytics() {
                     const costPerHour = hours > 0 ? surgeryDetails.grandTotal / hours : 0;
                     return (
                       <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                        CHF {costPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatCurrency(costPerHour)}
                       </span>
                     );
                   })()}
@@ -1537,13 +1538,13 @@ export default function CostAnalytics() {
                           <TableCell>{staff.name}</TableCell>
                           <TableCell>{staff.role}</TableCell>
                           <TableCell className="text-right">{staff.durationHours.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">CHF {staff.hourlyRate.toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-purple-600">CHF {staff.cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(staff.hourlyRate)}</TableCell>
+                          <TableCell className="text-right text-purple-600">{formatCurrency(staff.cost)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-semibold bg-muted/50">
                         <TableCell colSpan={4}>{t('business.costs.totalStaffCosts')}</TableCell>
-                        <TableCell className="text-right text-purple-600">CHF {surgeryDetails.staffTotal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-purple-600">{formatCurrency(surgeryDetails.staffTotal)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -1573,13 +1574,13 @@ export default function CostAnalytics() {
                         <TableRow key={item.itemId}>
                           <TableCell>{item.itemName}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">CHF {item.unitPrice.toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-green-600">CHF {item.cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell className="text-right text-green-600">{formatCurrency(item.cost)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-semibold bg-muted/50">
                         <TableCell colSpan={3}>{t('business.costs.totalAnesthesiaCosts')}</TableCell>
-                        <TableCell className="text-right text-green-600">CHF {surgeryDetails.anesthesiaTotal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(surgeryDetails.anesthesiaTotal)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -1609,13 +1610,13 @@ export default function CostAnalytics() {
                         <TableRow key={item.itemId}>
                           <TableCell>{item.itemName}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">CHF {item.unitPrice.toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-blue-600">CHF {item.cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell className="text-right text-blue-600">{formatCurrency(item.cost)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-semibold bg-muted/50">
                         <TableCell colSpan={3}>{t('business.costs.totalSurgeryCosts')}</TableCell>
-                        <TableCell className="text-right text-blue-600">CHF {surgeryDetails.surgeryTotal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-blue-600">{formatCurrency(surgeryDetails.surgeryTotal)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -1628,7 +1629,7 @@ export default function CostAnalytics() {
               <div className="p-4 bg-primary/10 rounded-lg" data-testid="section-grand-total">
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-semibold">{t('business.costs.grandTotal')}</span>
-                  <span className="text-2xl font-bold" data-testid="text-grand-total">CHF {surgeryDetails.grandTotal.toFixed(2)}</span>
+                  <span className="text-2xl font-bold" data-testid="text-grand-total">{formatCurrency(surgeryDetails.grandTotal)}</span>
                 </div>
               </div>
             </div>

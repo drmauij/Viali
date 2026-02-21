@@ -253,7 +253,8 @@
     "darkMode": "Dark Mode",
     "language": "Language",
     "english": "English",
-    "german": "German"
+    "german": "German",
+    "workTime": "Work Time"
   },
   "bottomNav": {
     "home": "Home",
@@ -1438,6 +1439,9 @@
     "filterExternal": "External",
     "adminNotes": "Notes",
     "adminNotesPlaceholder": "Add notes about this user...",
+    "weeklyTargetHours": "Weekly Target Hours",
+    "weeklyTargetHoursPlaceholder": "e.g. 42",
+    "hoursPerWeek": "Used for overtime balance calculation",
     "adminNotesSaved": "Notes saved",
     "adminNotesSaveError": "Failed to save notes",
     "confirmConvertToStaffMember": "Convert {{name}} to a staff member? They will no longer be able to log into the app.",
@@ -6802,5 +6806,31 @@
     "unlock": "Unlock",
     "editorPlaceholder": "Write your discharge brief in Markdown...",
     "signedByAt": "Signed by {{name}} on {{date}}"
+  },
+  "worktime": {
+    "title": "Work Time",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "runningBalance": "Balance",
+    "notConfigured": "Not configured",
+    "noEntries": "No entries yet",
+    "addEntry": "Add Entry",
+    "editEntry": "Edit Entry",
+    "entrySaved": "Entry saved",
+    "entryUpdated": "Entry updated",
+    "entryDeleted": "Entry deleted",
+    "confirmDelete": "Delete this entry?",
+    "date": "Date",
+    "start": "Start",
+    "end": "End",
+    "pause": "Pause (min)",
+    "notes": "Notes",
+    "notesPlaceholder": "Optional notes...",
+    "netHours": "Net",
+    "logTime": "Log Time",
+    "kioskTitle": "Staff Work Time",
+    "searchStaff": "Search staff...",
+    "allUnits": "All units",
+    "noStaffFound": "No staff found"
   }
 }

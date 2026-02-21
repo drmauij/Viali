@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import PersonalSettingsDialog from "./PersonalSettingsDialog";
+import WorktimeLogDialog from "./WorktimeLogDialog";
 import { useModule } from "@/contexts/ModuleContext";
 import { MessageCircle } from "lucide-react";
 import ChatDock from "./chat/ChatDock";
@@ -18,6 +19,7 @@ interface Hospital {
   unitId: string;
   unitName: string;
   unitType?: string | null;
+  addonWorktime?: boolean;
 }
 
 interface TopBarProps {
@@ -37,6 +39,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showPersonalSettings, setShowPersonalSettings] = useState(false);
+  const [showWorktimeLog, setShowWorktimeLog] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [initialConversationId, setInitialConversationId] = useState<string | null>(null);
 
@@ -335,7 +338,22 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 <i className="fas fa-user-cog w-4"></i>
                 <span>{t('settings.personalSettings', 'Personal Settings')}</span>
               </button>
-              
+
+              {/* Work Time */}
+              {activeHospital?.addonWorktime && (
+                <button
+                  className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
+                  onClick={() => {
+                    setShowWorktimeLog(true);
+                    setShowUserMenu(false);
+                  }}
+                  data-testid="button-worktime-log"
+                >
+                  <i className="fas fa-clock w-4"></i>
+                  <span>{t('topBar.workTime', 'Work Time')}</span>
+                </button>
+              )}
+
               {/* Logout */}
               <button
                 className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3 text-destructive"
@@ -355,6 +373,14 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         open={showChangePassword} 
         onOpenChange={setShowChangePassword}
       />
+
+      {activeHospital?.addonWorktime && activeHospital?.id && (
+        <WorktimeLogDialog
+          open={showWorktimeLog}
+          onOpenChange={setShowWorktimeLog}
+          hospitalId={activeHospital.id}
+        />
+      )}
 
       <PersonalSettingsDialog
         open={showPersonalSettings}
