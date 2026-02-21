@@ -41,6 +41,7 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDate } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -425,9 +426,7 @@ export function DischargeBriefWizard({
   // ---- format surgery label ----
   const surgeryLabel = useCallback(
     (s: { plannedSurgery: string | null; plannedDate: Date | string }) => {
-      const date = new Date(s.plannedDate);
-      const formatted = `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
-      return `${s.plannedSurgery ?? t("common.untitled", "Untitled")} - ${formatted}`;
+      return `${s.plannedSurgery ?? t("common.untitled", "Untitled")} - ${formatDate(s.plannedDate)}`;
     },
     [t],
   );
@@ -575,7 +574,7 @@ export function DischargeBriefWizard({
                                 {note.title}
                               </span>
                               <span className="text-xs text-muted-foreground shrink-0">
-                                {new Date(note.createdAt).toLocaleDateString()}
+                                {formatDate(note.createdAt)}
                               </span>
                             </label>
                           ))}
@@ -610,7 +609,7 @@ export function DischargeBriefWizard({
                                 </Badge>
                               )}
                               <span className="text-xs text-muted-foreground shrink-0">
-                                {new Date(slot.createdAt).toLocaleDateString()}
+                                {formatDate(slot.createdAt)}
                               </span>
                             </label>
                           ))}

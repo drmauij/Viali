@@ -8,7 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Shield, Pencil, Lock, Unlock, Trash2, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface AuditEntry {
   id: string;
@@ -99,8 +99,7 @@ export function DischargeBriefAuditDialog({
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {entry.timestamp &&
-                        format(new Date(entry.timestamp), "dd.MM.yyyy HH:mm:ss")}
+                      {entry.timestamp && formatDateTime(entry.timestamp)}
                     </p>
                     {entry.reason && (
                       <p className="text-xs mt-1 italic">

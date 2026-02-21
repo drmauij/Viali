@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { formatCurrency, formatCurrencyLocale, getCurrencySymbol } from "@/lib/dateUtils";
+import { formatCurrency, formatCurrencyLocale, getCurrencySymbol, formatDate, formatShortDate } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -553,7 +553,7 @@ export default function CostAnalytics() {
     return Array.from(dateMap.values())
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(entry => ({
-        date: new Date(entry.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        date: formatShortDate(new Date(entry.date)),
         totalValue: entry.totalValue,
         ...entry.unitBreakdown,
       }));
@@ -589,17 +589,8 @@ export default function CostAnalytics() {
     return `${hours}h ${mins}min`;
   };
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  // Format birthday for display
-  const formatBirthday = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
+  // formatDate imported from dateUtils handles both formatDate and formatBirthday
+  const formatBirthday = (dateStr: string) => formatDate(dateStr);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">

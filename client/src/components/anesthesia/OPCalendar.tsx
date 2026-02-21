@@ -15,8 +15,7 @@ import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature } from "lucide-react";
-import { format } from "date-fns";
-import { de, enGB } from "date-fns/locale";
+import { formatDate, formatMonthYear, formatTime as formatTimeUtil } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -456,7 +455,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         ? t('opCalendar.slotReserved', 'SLOT RESERVED')
         : patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
       const patientBirthday = patient?.birthday
-        ? new Date(patient.birthday).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        ? formatDate(new Date(patient.birthday))
         : "";
       
       const plannedDate = new Date(surgery.plannedDate);
@@ -675,7 +674,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       roomInfo.staffByRole.set(staff.role, names);
     });
 
-    const displayDate = format(selectedDate, 'dd.MM.yyyy');
+    const displayDate = formatDate(selectedDate);
     const columns: DayPlanPdfColumn[] = [
       { ...defaultColumns.datum(displayDate), width: 30 },
       { ...defaultColumns.patient(), width: 40 },
@@ -1251,20 +1250,19 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     setSelectedDate(newDate);
   };
 
-  const formatDateHeader = () => {
-    const dateLocale = i18n.language.startsWith('de') ? de : enGB;
+  const formatCalendarDateHeader = () => {
     if (currentView === "month") {
-      return format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
+      return formatMonthYear(selectedDate);
     }
     if (currentView === "week") {
       const start = new Date(selectedDate);
       start.setDate(start.getDate() - start.getDay() + 1); // Monday
       const end = new Date(start);
       end.setDate(end.getDate() + 6); // Sunday
-      return `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
+      return `${formatDate(start)} - ${formatDate(end)}`;
     }
     // Day view: show day name followed by date
-    return format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: dateLocale });
+    return formatDate(selectedDate);
   };
 
   return (
@@ -1310,7 +1308,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
         {/* Date label */}
         <span className="font-semibold text-sm sm:text-base flex-shrink-0" data-testid="text-calendar-date">
-          {formatDateHeader()}
+          {formatCalendarDateHeader()}
         </span>
 
         {/* View buttons - wrapped on small screens */}
@@ -1664,7 +1662,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   <div className="space-y-1 text-sm text-muted-foreground">
                     <p><span className="font-medium text-foreground">{t("checklists.completedBy", "Completed by")}:</span> {selectedChecklist.todayCompletion.completedByName || selectedChecklist.todayCompletion.completedBy}</p>
                     {selectedChecklist.todayCompletion.completedAt && (
-                      <p><span className="font-medium text-foreground">{t("checklists.completedAt", "Time")}:</span> {new Date(selectedChecklist.todayCompletion.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p><span className="font-medium text-foreground">{t("checklists.completedAt", "Time")}:</span> {formatTimeUtil(new Date(selectedChecklist.todayCompletion.completedAt))}</p>
                     )}
                     {selectedChecklist.todayCompletion.comment && (
                       <p><span className="font-medium text-foreground">{t("checklists.comment", "Comment")}:</span> {selectedChecklist.todayCompletion.comment}</p>

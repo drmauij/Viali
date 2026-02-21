@@ -28,8 +28,7 @@ import {
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { formatDateLong } from "@/lib/dateUtils";
 import type { ExternalSurgeryRequest } from "@shared/schema";
 
 interface SurgeryRoom {
@@ -295,8 +294,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
   };
 
   const formatWishedDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return format(date, 'PPP', { locale: isGerman ? de : enUS });
+    return formatDateLong(dateStr);
   };
 
   return (

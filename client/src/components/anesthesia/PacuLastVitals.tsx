@@ -6,6 +6,7 @@ import { ManualVitalsDialog } from "@/components/anesthesia/dialogs/ManualVitals
 import { useAddVitalPoint, useAddBPPoint } from "@/hooks/useVitalsQuery";
 import { queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { formatTime } from "@/lib/dateUtils";
 import type { VitalPointWithId, BPPointWithId } from "@/hooks/useVitalsQuery";
 
 interface PacuLastVitalsProps {
@@ -37,7 +38,7 @@ export function PacuLastVitals({ anesthesiaRecordId, hr, bp, spo2 }: PacuLastVit
   // Find the most recent timestamp across all vitals
   const allTimestamps = [lastHr?.timestamp, lastBp?.timestamp, lastSpo2?.timestamp].filter(Boolean) as string[];
   const mostRecent = allTimestamps.length > 0
-    ? new Date(allTimestamps.reduce((a, b) => a > b ? a : b)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+    ? formatTime(new Date(allTimestamps.reduce((a, b) => a > b ? a : b)))
     : null;
 
   const handleSave = async (data: { hr?: number; sys?: number; dia?: number; spo2?: number; time: number }) => {

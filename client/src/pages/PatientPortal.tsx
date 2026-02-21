@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateHeader, formatTime as formatTimeUtil, formatDate as formatDateUtil } from "@/lib/dateUtils";
 
 interface PortalData {
   token: string;
@@ -722,27 +723,12 @@ export default function PatientPortal() {
   }, [data?.language]);
 
 
-  const localeMap: Record<Lang, string> = {
-    de: 'de-CH', en: 'en-US', it: 'it-CH', es: 'es-ES', fr: 'fr-CH',
-  };
-
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
-    return date.toLocaleDateString(localeMap[lang], options);
+    return formatDateHeader(new Date(dateStr));
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString(localeMap[lang], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatTimeLocal = (dateStr: string) => {
+    return formatTimeUtil(dateStr);
   };
 
   const getAnesthesiaTypeLabel = (type: string | null) => {
@@ -1612,8 +1598,8 @@ export default function PatientPortal() {
                       </p>
                       {consentInfo.callbackAppointmentSlots.map((slot, idx) => {
                         const d = new Date(slot.date + 'T12:00:00');
-                        const dayName = d.toLocaleDateString(localeMap[lang], { weekday: 'long' });
-                        const dateStr = d.toLocaleDateString(localeMap[lang], { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        const dayName = formatDateHeader(d).split(',')[0];
+                        const dateStr = formatDateUtil(d);
                         return (
                           <div key={idx} className="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700" data-testid={`callback-slot-display-${idx}`}>
                             <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
@@ -1757,7 +1743,7 @@ export default function PatientPortal() {
                         <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
                         <div>
                           <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t.arrivalTime}</p>
-                          <p className="text-base font-semibold text-blue-900 dark:text-blue-100">{formatTime(data.surgery.admissionTime)}</p>
+                          <p className="text-base font-semibold text-blue-900 dark:text-blue-100">{formatTimeLocal(data.surgery.admissionTime)}</p>
                         </div>
                       </div>
                     )}
@@ -1767,7 +1753,7 @@ export default function PatientPortal() {
                         <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
                         <div>
                           <p className="text-xs text-muted-foreground dark:text-gray-400">{t.plannedTime}</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.plannedDate)}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTimeLocal(data.surgery.plannedDate)}</p>
                         </div>
                       </div>
                     )}

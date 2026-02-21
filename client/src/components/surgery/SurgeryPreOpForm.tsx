@@ -25,6 +25,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import type { SurgeryPreOpAssessment } from "@shared/schema";
 import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/components/shared/ImportPreviousAssessmentDialog";
+import { formatDate, formatTime } from "@/lib/dateUtils";
 
 interface SurgeryPreOpFormProps {
   surgeryId: string;
@@ -885,11 +886,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
 
   // Helper to format date for display
   const formatDateDisplay = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
+    return formatDate(dateStr);
   };
 
   // Helper functions to check if sections have data
@@ -936,7 +933,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
               ) : (
                 <>
                   <CheckCircle2 className="h-3 w-3 text-green-600" />
-                  {t('common.lastSaved')}: {lastSaved.toLocaleTimeString()}
+                  {t('common.lastSaved')}: {formatTime(lastSaved)}
                 </>
               )}
             </p>

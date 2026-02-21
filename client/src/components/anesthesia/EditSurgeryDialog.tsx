@@ -15,8 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { SurgeryFormFields } from "./SurgeryFormFields";
@@ -525,7 +525,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                                             selectedPatientId === p.id ? "opacity-100" : "opacity-0"
                                           )}
                                         />
-                                        {p.surname}, {p.firstName} ({p.birthday ? new Date(p.birthday).toLocaleDateString() : 'N/A'})
+                                        {p.surname}, {p.firstName} ({p.birthday ? formatDate(new Date(p.birthday)) : 'N/A'})
                                       </CommandItem>
                                     ))}
                                   </CommandGroup>
@@ -546,11 +546,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     </div>
                     {patient.birthday && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        {t('anesthesia.editSurgery.born')}: {new Date(patient.birthday).toLocaleDateString('de-DE', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
+                        {t('anesthesia.editSurgery.born')}: {formatDate(new Date(patient.birthday))}
                       </div>
                     )}
                   </div>
@@ -682,7 +678,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                                   {note.author?.firstName} {note.author?.lastName}
                                 </span>
                                 <span className="mx-1">&bull;</span>
-                                {note.createdAt && format(new Date(note.createdAt), 'dd.MM.yyyy HH:mm')}
+                                {note.createdAt && formatDateTime(new Date(note.createdAt))}
                                 {note.updatedAt && note.updatedAt !== note.createdAt && (
                                   <span className="ml-1 italic">({t('common.edited', 'edited')})</span>
                                 )}

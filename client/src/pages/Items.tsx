@@ -1,7 +1,7 @@
 import { useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { formatCurrency } from "@/lib/dateUtils";
+import { formatCurrency, formatDate } from "@/lib/dateUtils";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -1210,7 +1210,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             });
             toast({
               title: "Lot created",
-              description: `LOT: ${lotData.lotNumber}${lotData.expiryDate ? ` (Exp: ${new Date(lotData.expiryDate).toLocaleDateString()})` : ''}`,
+              description: `LOT: ${lotData.lotNumber}${lotData.expiryDate ? ` (Exp: ${formatDate(new Date(lotData.expiryDate))})` : ''}`,
             });
           } catch (error: any) {
             console.error('Failed to create lot:', error);
@@ -4299,7 +4299,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                         </div>
                                         <div className="text-sm text-muted-foreground">
                                           {lot.expiryDate ? (
-                                            <span>Expires: {new Date(lot.expiryDate).toLocaleDateString()}</span>
+                                            <span>Expires: {formatDate(new Date(lot.expiryDate))}</span>
                                           ) : (
                                             <span>No expiry date</span>
                                           )}

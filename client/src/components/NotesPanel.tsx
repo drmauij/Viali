@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, Trash2, Edit2, Save } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
@@ -257,7 +257,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
                           </ReactMarkdown>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{note.createdAt && format(new Date(note.createdAt), "MMM d, yyyy h:mm a")}</span>
+                          <span>{note.createdAt && formatDateTime(note.createdAt)}</span>
                           {/* Show edit/delete buttons based on permissions:
                               - Personal notes: only the creator
                               - Unit notes: creator OR any user in the same unit (unitId matches)

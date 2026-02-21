@@ -12,8 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { formatDateLong } from "@/lib/dateUtils";
+import { formatDateLong, formatDateForInput } from "@/lib/dateUtils";
 
 export default function Checklists() {
   const { t } = useTranslation();
@@ -523,7 +522,7 @@ export default function Checklists() {
                     selected={templateForm.startDate ? new Date(templateForm.startDate) : undefined}
                     onSelect={(date) => {
                       if (date) {
-                        setTemplateForm({ ...templateForm, startDate: format(date, "yyyy-MM-dd") });
+                        setTemplateForm({ ...templateForm, startDate: formatDateForInput(date) });
                         setDatePickerOpen(false);
                       }
                     }}

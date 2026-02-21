@@ -15,8 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { SignatureCanvas } from "@/components/ui/signature-canvas";
 import { Loader2, CheckCircle, AlertCircle, Building2, FileText } from "lucide-react";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { formatDate } from "@/lib/dateUtils";
 
 interface HospitalInfo {
   id: string;
@@ -327,7 +326,7 @@ export default function WorkerContractForm() {
                 
                 <div className="mt-6 flex justify-between items-end">
                   <div>
-                    <p>{formValues.workerSignatureLocation}, {format(new Date(), "dd.MM.yyyy", { locale: de })}</p>
+                    <p>{formValues.workerSignatureLocation}, {formatDate(new Date())}</p>
                     <p className="mt-2">Auftragnehmer/in</p>
                     {formValues.workerSignature && (
                       <img 

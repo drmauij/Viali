@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrencySymbol } from "@/lib/dateUtils";
+import { getCurrencySymbol, formatDate, formatDateForInput } from "@/lib/dateUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -14,8 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
 import jsPDF from "jspdf";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
 import { 
   FileText, 
   Download, 
@@ -235,7 +233,7 @@ function ContractPreview({
                     className="h-16 border rounded bg-white"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {contract.workerSignatureLocation}, {format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                    {contract.workerSignatureLocation}, {formatDate(new Date(contract.workerSignedAt || contract.createdAt))}
                   </p>
                 </>
               ) : (
@@ -252,7 +250,7 @@ function ContractPreview({
                     className="h-16 border rounded bg-white"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {contract.managerName}, {format(new Date(contract.managerSignedAt!), 'dd.MM.yyyy', { locale: de })}
+                    {contract.managerName}, {formatDate(new Date(contract.managerSignedAt!))}
                   </p>
                 </>
               ) : (
@@ -578,7 +576,7 @@ export default function Contracts() {
     yPos += 10;
 
     if (contract.workerSignature) {
-      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}`, 20, yPos);
+      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${formatDate(new Date(contract.workerSignedAt || contract.createdAt))}`, 20, yPos);
       yPos += 5;
       doc.text("Auftragnehmer/in", 20, yPos);
       yPos += 3;
@@ -590,7 +588,7 @@ export default function Contracts() {
     }
 
     if (contract.managerSignature && contract.managerSignedAt) {
-      doc.text(`Kreuzlingen, ${format(new Date(contract.managerSignedAt), 'dd.MM.yyyy', { locale: de })}`, 120, yPos - 8);
+      doc.text(`Kreuzlingen, ${formatDate(new Date(contract.managerSignedAt))}`, 120, yPos - 8);
       doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
       doc.text(contract.managerName || "Manager", 120, yPos + 2);
       try {
@@ -600,7 +598,7 @@ export default function Contracts() {
       }
     }
 
-    doc.save(`Vertrag_${contract.lastName}_${contract.firstName}_${format(new Date(contract.createdAt), 'yyyy-MM-dd')}.pdf`);
+    doc.save(`Vertrag_${contract.lastName}_${contract.firstName}_${formatDateForInput(new Date(contract.createdAt))}.pdf`);
   };
 
   const generateContractPDFBase64 = async (contract: WorkerContract): Promise<string | null> => {
@@ -765,7 +763,7 @@ export default function Contracts() {
     yPos += 10;
 
     if (contract.workerSignature) {
-      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}`, 20, yPos);
+      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${formatDate(new Date(contract.workerSignedAt || contract.createdAt))}`, 20, yPos);
       yPos += 5;
       doc.text("Auftragnehmer/in", 20, yPos);
       yPos += 3;
@@ -777,7 +775,7 @@ export default function Contracts() {
     }
 
     if (contract.managerSignature && contract.managerSignedAt) {
-      doc.text(`Kreuzlingen, ${format(new Date(contract.managerSignedAt), 'dd.MM.yyyy', { locale: de })}`, 120, yPos - 8);
+      doc.text(`Kreuzlingen, ${formatDate(new Date(contract.managerSignedAt))}`, 120, yPos - 8);
       doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
       doc.text(contract.managerName || "Manager", 120, yPos + 2);
       try {
@@ -844,7 +842,7 @@ export default function Contracts() {
                   <span>{contract.city}</span>
                 </div>
                 <div className="text-gray-400">
-                  {t('business.contracts.card.submitted')}: {format(new Date(contract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                  {t('business.contracts.card.submitted')}: {formatDate(new Date(contract.createdAt))}
                 </div>
               </div>
             </div>

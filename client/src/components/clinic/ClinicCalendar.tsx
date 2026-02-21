@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft } from "lucide-react";
-import { format } from "date-fns";
-import { de, enGB } from "date-fns/locale";
+import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -279,7 +278,7 @@ export default function ClinicCalendar({
   });
 
   const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
-    queryKey: [`/api/clinic/${hospitalId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
+    queryKey: [`/api/clinic/${hospitalId}/appointments?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}`],
     enabled: !!hospitalId,
     refetchInterval: 30000,
   });
@@ -291,10 +290,10 @@ export default function ClinicCalendar({
   }
   
   const { data: allSurgeries = [] } = useQuery<AllSurgery[]>({
-    queryKey: [`/api/clinic/${hospitalId}/all-surgeries`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: [`/api/clinic/${hospitalId}/all-surgeries`, formatDateForInput(dateRange.start), formatDateForInput(dateRange.end)],
     queryFn: async () => {
       const response = await fetch(
-        `/api/clinic/${hospitalId}/all-surgeries?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        `/api/clinic/${hospitalId}/all-surgeries?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];
@@ -337,10 +336,10 @@ export default function ClinicCalendar({
 
   // Fetch provider absences (Timebutler sync)
   const { data: providerAbsences = [] } = useQuery<ProviderAbsence[]>({
-    queryKey: [`/api/clinic/${hospitalId}/absences`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: [`/api/clinic/${hospitalId}/absences`, formatDateForInput(dateRange.start), formatDateForInput(dateRange.end)],
     queryFn: async () => {
       const response = await fetch(
-        `/api/clinic/${hospitalId}/absences?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        `/api/clinic/${hospitalId}/absences?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];
@@ -352,10 +351,10 @@ export default function ClinicCalendar({
 
   // Fetch provider time offs (manually created) - expanded for recurring entries
   const { data: providerTimeOffs = [] } = useQuery<ProviderTimeOff[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd'), 'expanded'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`, formatDateForInput(dateRange.start), formatDateForInput(dateRange.end), 'expanded'],
     queryFn: async () => {
       const response = await fetch(
-        `/api/clinic/${hospitalId}/units/${unitId}/time-off?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}&expand=true`,
+        `/api/clinic/${hospitalId}/units/${unitId}/time-off?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}&expand=true`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];
@@ -367,10 +366,10 @@ export default function ClinicCalendar({
 
   // Fetch provider availability windows (date-specific availability)
   const { data: availabilityWindows = [] } = useQuery<ProviderAvailabilityWindowData[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/availability-windows`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/availability-windows`, formatDateForInput(dateRange.start), formatDateForInput(dateRange.end)],
     queryFn: async () => {
       const response = await fetch(
-        `/api/clinic/${hospitalId}/units/${unitId}/availability-windows?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        `/api/clinic/${hospitalId}/units/${unitId}/availability-windows?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];
@@ -390,10 +389,10 @@ export default function ClinicCalendar({
   }
 
   const { data: staffPoolRange = [] } = useQuery<StaffPoolRangeEntry[]>({
-    queryKey: [`/api/staff-pool/${hospitalId}/range`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: [`/api/staff-pool/${hospitalId}/range`, formatDateForInput(dateRange.start), formatDateForInput(dateRange.end)],
     queryFn: async () => {
       const response = await fetch(
-        `/api/staff-pool/${hospitalId}/range?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        `/api/staff-pool/${hospitalId}/range?startDate=${formatDateForInput(dateRange.start)}&endDate=${formatDateForInput(dateRange.end)}`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];
@@ -572,7 +571,7 @@ export default function ClinicCalendar({
     
     if (mode === 'windows_required') {
       // Must be within an availability window
-      const dateStr = format(date, 'yyyy-MM-dd');
+      const dateStr = formatDateForInput(date);
       const inWindow = availabilityWindows.some(window => {
         if (window.providerId !== providerId) return false;
         if (window.date !== dateStr) return false;
@@ -603,7 +602,7 @@ export default function ClinicCalendar({
 
       if (!isWithinWeeklySchedule) {
         // Check availability windows as fallback
-        const dateStr = format(date, 'yyyy-MM-dd');
+        const dateStr = formatDateForInput(date);
         const inWindow = availabilityWindows.some(window => {
           if (window.providerId !== providerId) return false;
           if (window.date !== dateStr) return false;
@@ -769,7 +768,7 @@ export default function ClinicCalendar({
           const displayLabel = absence.notes || defaultLabel;
           
           absenceBlockEvents.push({
-            id: `absence-${absence.id}-${format(currentDate, 'yyyy-MM-dd')}`,
+            id: `absence-${absence.id}-${formatDateForInput(currentDate)}`,
             title: `${icon} ${displayLabel}`,
             start: dayStart,
             end: dayEnd,
@@ -826,7 +825,7 @@ export default function ClinicCalendar({
           const reason = timeOff.notes || t('appointments.timeOff', 'Time Off');
 
           timeOffBlockEvents.push({
-            id: `timeoff-${timeOff.id}-${format(currentDate, 'yyyy-MM-dd')}`,
+            id: `timeoff-${timeOff.id}-${formatDateForInput(currentDate)}`,
             title: `${icon} ${reason}`,
             start: dayStart,
             end: dayEnd,
@@ -968,9 +967,9 @@ export default function ClinicCalendar({
     
     rescheduleAppointmentMutation.mutate({
       appointmentId,
-      appointmentDate: format(start, 'yyyy-MM-dd'),
-      startTime: format(start, 'HH:mm'),
-      endTime: format(end, 'HH:mm'),
+      appointmentDate: formatDateForInput(start),
+      startTime: formatTime(start),
+      endTime: formatTime(end),
       providerId: newProviderId !== event.resource ? newProviderId : undefined,
     });
   }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
@@ -1002,9 +1001,9 @@ export default function ClinicCalendar({
     
     rescheduleAppointmentMutation.mutate({
       appointmentId,
-      appointmentDate: format(start, 'yyyy-MM-dd'),
-      startTime: format(start, 'HH:mm'),
-      endTime: format(end, 'HH:mm'),
+      appointmentDate: formatDateForInput(start),
+      startTime: formatTime(start),
+      endTime: formatTime(end),
     });
   }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
 
@@ -1205,17 +1204,16 @@ export default function ClinicCalendar({
     setSelectedDate(newDate);
   };
 
-  const formatDateHeader = () => {
-    const dateLocale = i18n.language.startsWith('de') ? de : enGB;
-    if (currentView === "month") return format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
+  const formatCalendarDateHeader = () => {
+    if (currentView === "month") return formatMonthYear(selectedDate);
     if (currentView === "week") {
       const start = new Date(selectedDate);
       start.setDate(start.getDate() - start.getDay() + 1);
       const end = new Date(start);
       end.setDate(end.getDate() + 6);
-      return `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
+      return `${formatDateUtil(start)} - ${formatDateUtil(end)}`;
     }
-    return format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: dateLocale });
+    return formatDateUtil(selectedDate);
   };
 
   if (!hospitalId || !unitId) {
@@ -1267,7 +1265,7 @@ export default function ClinicCalendar({
         </div>
 
         <span className="font-semibold text-sm sm:text-base flex-shrink-0" data-testid="text-calendar-date">
-          {formatDateHeader()}
+          {formatCalendarDateHeader()}
         </span>
 
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
@@ -1424,7 +1422,7 @@ export default function ClinicCalendar({
             components={{
               event: EventComponent,
               resourceHeader: ({ resource }: { resource: CalendarResource }) => {
-                const dayStr = format(selectedDate, 'yyyy-MM-dd');
+                const dayStr = formatDateForInput(selectedDate);
                 const poolEntry = staffPoolByDateUser.get(dayStr)?.get(resource.id);
                 const isPlanned = !!poolEntry;
                 return (

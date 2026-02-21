@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Plus, Copy, Check, Send, Trash2, Link as LinkIcon, Mail } from "lucide-react";
-import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
+import { formatDate } from "@/lib/dateUtils";
 
 interface WorklogLink {
   id: string;
@@ -29,12 +28,11 @@ interface WorklogLinkManagerProps {
 }
 
 export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLinkManagerProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [showNewLinkDialog, setShowNewLinkDialog] = useState(false);
   const [newLinkEmail, setNewLinkEmail] = useState("");
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
-  const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: worklogLinks = [], isLoading } = useQuery<WorklogLink[]>({
     queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`],
@@ -175,7 +173,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{link.email}</div>
                   <div className="text-xs text-muted-foreground">
-                    {t('worklogs.createdOn')}: {format(new Date(link.createdAt), "dd.MM.yyyy", { locale: dateLocale })}
+                    {t('worklogs.createdOn')}: {formatDate(link.createdAt)}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 ml-3">

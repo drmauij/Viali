@@ -42,6 +42,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatDateForInput, formatTime, formatDateLong } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -286,8 +287,8 @@ export default function ClinicAppointments() {
   const handleDragSelectRange = (providerId: string, startDate: Date, endDate: Date) => {
     setTimeOffDefaults({
       providerId,
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd'),
+      startDate: formatDateForInput(startDate),
+      endDate: formatDateForInput(endDate),
     });
     setExtendedTimeOffOpen(true);
   };
@@ -311,17 +312,17 @@ export default function ClinicAppointments() {
             // Week/month view: open TimeOffDialog to let user pick full-day or time range
             setTimeOffDefaults({
               providerId: bookingDefaults.providerId,
-              startDate: format(bookingDefaults.date, 'yyyy-MM-dd'),
-              endDate: format(bookingDefaults.date, 'yyyy-MM-dd'),
+              startDate: formatDateForInput(bookingDefaults.date),
+              endDate: formatDateForInput(bookingDefaults.date),
             });
             setExtendedTimeOffOpen(true);
           } else {
             // Day view: precise time selection, create immediately
             createOffTimeMutation.mutate({
               providerId: bookingDefaults.providerId,
-              date: format(bookingDefaults.date, 'yyyy-MM-dd'),
-              startTime: format(bookingDefaults.date, 'HH:mm'),
-              endTime: bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 30 * 60000), 'HH:mm'),
+              date: formatDateForInput(bookingDefaults.date),
+              startTime: formatTime(bookingDefaults.date),
+              endTime: bookingDefaults.endDate ? formatTime(bookingDefaults.endDate) : formatTime(new Date(bookingDefaults.date.getTime() + 30 * 60000)),
             });
           }
         }
@@ -476,7 +477,7 @@ export default function ClinicAppointments() {
                 <div>
                   <p className="text-muted-foreground">{t('appointments.date', 'Date')}</p>
                   <p className="font-medium" data-testid="text-appointment-date">
-                    {format(parseISO(selectedAppointment.appointmentDate), 'PPP', { locale: dateLocale })}
+                    {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
                   </p>
                 </div>
                 <div>
@@ -685,11 +686,11 @@ function BookingDialog({
   const [selectedProviderId, setSelectedProviderId] = useState<string>(defaults?.providerId || "");
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(
-    defaults?.date ? format(defaults.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+    defaults?.date ? formatDateForInput(defaults.date) : formatDateForInput(new Date())
   );
   const [selectedSlot, setSelectedSlot] = useState<string>(
-    defaults?.date && defaults?.endDate 
-      ? `${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`
+    defaults?.date && defaults?.endDate
+      ? `${formatTime(defaults.date)}-${formatTime(defaults.endDate)}`
       : ""
   );
   const [patientSearch, setPatientSearch] = useState("");
@@ -699,9 +700,9 @@ function BookingDialog({
   useMemo(() => {
     if (defaults?.providerId) setSelectedProviderId(defaults.providerId);
     if (defaults?.date) {
-      setSelectedDate(format(defaults.date, 'yyyy-MM-dd'));
+      setSelectedDate(formatDateForInput(defaults.date));
       if (defaults.endDate) {
-        setSelectedSlot(`${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`);
+        setSelectedSlot(`${formatTime(defaults.date)}-${formatTime(defaults.endDate)}`);
       }
     }
   }, [defaults]);
@@ -745,7 +746,7 @@ function BookingDialog({
     setSelectedPatientId("");
     setSelectedProviderId("");
     setSelectedServiceId("");
-    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+    setSelectedDate(formatDateForInput(new Date()));
     setSelectedSlot("");
     setPatientSearch("");
     setNotes("");
@@ -854,7 +855,7 @@ function BookingDialog({
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              min={format(new Date(), 'yyyy-MM-dd')}
+              min={formatDateForInput(new Date())}
               data-testid="input-booking-date"
             />
           </div>
@@ -934,18 +935,17 @@ function InternalBookingDialog({
   providers: { id: string; firstName: string | null; lastName: string | null }[];
   defaults?: { providerId?: string; date?: Date; endDate?: Date };
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
-  const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const [selectedColleagueId, setSelectedColleagueId] = useState<string>("");
   const [selectedProviderId, setSelectedProviderId] = useState<string>(defaults?.providerId || "");
   const [selectedDate, setSelectedDate] = useState<string>(
-    defaults?.date ? format(defaults.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+    defaults?.date ? formatDateForInput(defaults.date) : formatDateForInput(new Date())
   );
   const [selectedSlot, setSelectedSlot] = useState<string>(
-    defaults?.date && defaults?.endDate 
-      ? `${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`
+    defaults?.date && defaults?.endDate
+      ? `${formatTime(defaults.date)}-${formatTime(defaults.endDate)}`
       : ""
   );
   const [colleagueSearch, setColleagueSearch] = useState("");
@@ -955,9 +955,9 @@ function InternalBookingDialog({
   useMemo(() => {
     if (defaults?.providerId) setSelectedProviderId(defaults.providerId);
     if (defaults?.date) {
-      setSelectedDate(format(defaults.date, 'yyyy-MM-dd'));
+      setSelectedDate(formatDateForInput(defaults.date));
       if (defaults.endDate) {
-        setSelectedSlot(`${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`);
+        setSelectedSlot(`${formatTime(defaults.date)}-${formatTime(defaults.endDate)}`);
       }
     }
   }, [defaults]);
@@ -998,7 +998,7 @@ function InternalBookingDialog({
   const resetForm = () => {
     setSelectedColleagueId("");
     setSelectedProviderId("");
-    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+    setSelectedDate(formatDateForInput(new Date()));
     setSelectedSlot("");
     setColleagueSearch("");
     setNotes("");
@@ -1101,7 +1101,7 @@ function InternalBookingDialog({
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                min={format(new Date(), 'yyyy-MM-dd')}
+                min={formatDateForInput(new Date())}
                 data-testid="input-internal-date"
               />
             </div>

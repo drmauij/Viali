@@ -10,7 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
-import { format, subDays } from "date-fns";
+import { subDays } from "date-fns";
+import { formatDate, formatDateForInput } from "@/lib/dateUtils";
 import { Pencil, Trash2, Plus, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -55,8 +56,8 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
   const { user } = useAuth();
   const userId = (user as any)?.id;
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const fourteenDaysAgo = format(subDays(new Date(), 14), "yyyy-MM-dd");
+  const today = formatDateForInput(new Date());
+  const fourteenDaysAgo = formatDateForInput(subDays(new Date(), 14));
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -251,7 +252,7 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
                 <div key={entry.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-accent/50">
                   <div className="flex items-center gap-4 text-sm">
                     <span className="font-medium w-24">
-                      {format(new Date(entry.workDate + "T00:00:00"), "dd.MM.yyyy")}
+                      {formatDate(new Date(entry.workDate + "T00:00:00"))}
                     </span>
                     <span className="text-muted-foreground">
                       {entry.timeStart}–{entry.timeEnd}

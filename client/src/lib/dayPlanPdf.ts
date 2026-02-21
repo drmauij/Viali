@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format } from "date-fns";
+import { formatDate, formatTime, formatDateForInput } from "@/lib/dateUtils";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
 export interface DayPlanPdfColumn {
@@ -52,8 +52,8 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
 
   const doc = new jsPDF({ orientation: 'landscape' });
   
-  const displayDate = format(date, 'dd.MM.yyyy');
-  const dateKey = format(date, 'yyyy-MM-dd');
+  const displayDate = formatDate(date);
+  const dateKey = formatDateForInput(date);
   
   doc.setFontSize(16);
   doc.text(`OP-TAG ${displayDate}`, 14, 15);
@@ -82,11 +82,11 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
     displayDate,
     formatTime: (dateVal: any) => {
       if (!dateVal) return '-';
-      return format(new Date(dateVal), 'HH:mm');
+      return formatTime(new Date(dateVal));
     },
     formatDate: (dateVal: any) => {
       if (!dateVal) return '-';
-      return format(new Date(dateVal), 'dd.MM.yyyy');
+      return formatDate(new Date(dateVal));
     },
   };
   
@@ -247,7 +247,7 @@ export const defaultColumns = {
       const patient = surgery.patientId ? helpers.patientMap.get(surgery.patientId) : null;
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : (surgery.patientId ? '-' : 'SLOT RESERVED');
       const patientBirthday = patient?.birthday 
-        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
+        ? `(${formatDate(new Date(patient.birthday))})`
         : '';
       // Add allergies if available
       const allergies = patient?.allergies;

@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { apiRequest } from '@/lib/queryClient';
+import { formatDateHeader } from '@/lib/dateUtils';
 
 type StaffRole = 
   | "surgeon"
@@ -65,7 +66,7 @@ const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: string; colo
 };
 
 export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hospitalId }: PlanStaffDialogProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const queryClient = useQueryClient();
@@ -287,7 +288,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
             {t('staffPool.planStaff', 'Plan Staff')}
           </DialogTitle>
           <DialogDescription>
-            {selectedDate.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+            {formatDateHeader(selectedDate)}
           </DialogDescription>
         </DialogHeader>
         

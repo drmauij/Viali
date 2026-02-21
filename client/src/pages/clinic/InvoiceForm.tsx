@@ -27,11 +27,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarIcon, Plus, Trash2, Save, X, Search, UserPlus, Pencil, Check, Loader2, Package, Briefcase } from "lucide-react";
-import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatCurrency } from "@/lib/dateUtils";
+import { formatCurrency, formatDateForInput, formatShortDate } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Command,
@@ -335,7 +334,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         hospitalId,
         firstName: quickCreateForm.firstName.trim(),
         surname: quickCreateForm.surname.trim(),
-        birthday: format(quickCreateForm.birthday, 'yyyy-MM-dd'),
+        birthday: formatDateForInput(quickCreateForm.birthday),
         sex: 'O',
       });
       
@@ -444,7 +443,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                       data-testid="button-date-picker"
                     >
                       {field.value ? (
-                        format(field.value, "PP", { locale: dateLocale })
+                        formatShortDate(field.value)
                       ) : (
                         <span>{t('common.pickDate')}</span>
                       )}
@@ -962,7 +961,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {quickCreateForm.birthday ? (
-                      format(quickCreateForm.birthday, "PP", { locale: dateLocale })
+                      formatShortDate(quickCreateForm.birthday)
                     ) : (
                       <span>{t('common.pickDate', 'Pick a date')}</span>
                     )}

@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
-import { format } from "date-fns";
+import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -237,21 +237,6 @@ export default function SurgerySummaryDialog({
   if (!surgery) {
     return null;
   }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
 
   const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '';
   const patientBirthday = patient?.birthday ? formatDate(patient.birthday) : '';
@@ -527,7 +512,7 @@ export default function SurgerySummaryDialog({
                             {note.author?.firstName} {note.author?.lastName}
                           </span>
                           <span>•</span>
-                          {note.createdAt && format(new Date(note.createdAt), 'dd.MM HH:mm')}
+                          {note.createdAt && formatDateTime(note.createdAt)}
                         </div>
                         <p className="whitespace-pre-wrap text-sm leading-snug">{note.content}</p>
                       </div>

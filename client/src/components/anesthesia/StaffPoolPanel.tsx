@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { apiRequest } from '@/lib/queryClient';
+import { formatDateHeader } from '@/lib/dateUtils';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { DailyStaffPool } from '@shared/schema';
@@ -418,7 +419,7 @@ export default function StaffPoolPanel({ selectedDate, hospitalId }: StaffPoolPa
           </div>
         </div>
         <div className="text-xs text-muted-foreground mt-1">
-          {selectedDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+          {formatDateHeader(selectedDate)}
         </div>
       </CardHeader>
       

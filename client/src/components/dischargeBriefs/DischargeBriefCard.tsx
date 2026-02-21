@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -147,8 +147,7 @@ export function DischargeBriefCard({
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {creatorName && `${creatorName} · `}
-              {brief.createdAt &&
-                format(new Date(brief.createdAt), "dd.MM.yyyy HH:mm")}
+              {brief.createdAt && formatDateTime(brief.createdAt)}
             </p>
           </div>
         </div>

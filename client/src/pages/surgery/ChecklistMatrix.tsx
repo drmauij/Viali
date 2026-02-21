@@ -35,8 +35,7 @@ import {
 import { SurgeonChecklistTemplateEditor } from "@/components/anesthesia/SurgeonChecklistTemplateEditor";
 import { resolvePlaceholders, type SurgeryContext } from "@shared/checklistPlaceholders";
 import type { SurgeonChecklistTemplate, SurgeonChecklistTemplateItem, Surgery, Patient } from "@shared/schema";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { formatDate, formatTime } from "@/lib/dateUtils";
 
 type TabValue = "matrix" | "past";
 
@@ -59,7 +58,7 @@ interface MatrixCellState {
 }
 
 export default function ChecklistMatrix() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -778,7 +777,7 @@ export default function ChecklistMatrix() {
                               </span>
                               {surgery.patient.birthday && (
                                 <span className="text-xs text-muted-foreground">
-                                  {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                                  {formatDate(new Date(surgery.patient.birthday))}
                                 </span>
                               )}
                             </Link>
@@ -791,9 +790,9 @@ export default function ChecklistMatrix() {
                         <td className="px-3 py-2">
                           {surgery.plannedDate ? (
                             <div className="flex flex-col">
-                              <span>{format(new Date(surgery.plannedDate), 'dd.MM.yyyy', { locale: i18n.language === 'de' ? de : undefined })}</span>
+                              <span>{formatDate(new Date(surgery.plannedDate))}</span>
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(surgery.plannedDate), 'HH:mm')}
+                                {formatTime(new Date(surgery.plannedDate))}
                               </span>
                             </div>
                           ) : '-'}
@@ -1012,7 +1011,7 @@ export default function ChecklistMatrix() {
                                 </span>
                                 {surgery.patient.birthday && (
                                   <span className="text-xs text-muted-foreground">
-                                    {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                                    {formatDate(new Date(surgery.patient.birthday))}
                                   </span>
                                 )}
                               </Link>
@@ -1025,9 +1024,9 @@ export default function ChecklistMatrix() {
                           <td className="px-3 py-2">
                             {surgery.plannedDate ? (
                               <div className="flex flex-col">
-                                <span>{format(new Date(surgery.plannedDate), 'dd.MM.yyyy', { locale: i18n.language === 'de' ? de : undefined })}</span>
+                                <span>{formatDate(new Date(surgery.plannedDate))}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {format(new Date(surgery.plannedDate), 'HH:mm')}
+                                  {formatTime(new Date(surgery.plannedDate))}
                                 </span>
                               </div>
                             ) : '-'}

@@ -1964,7 +1964,7 @@ export default function PatientDetail() {
                           </Badge>
                           {note.surgery && (
                             <span className="text-xs text-muted-foreground">
-                              {note.surgery.plannedSurgery} ({new Date(note.surgery.plannedDate).toLocaleDateString()})
+                              {note.surgery.plannedSurgery} ({formatDate(new Date(note.surgery.plannedDate))})
                             </span>
                           )}
                           <div className="flex-1" />
@@ -2765,7 +2765,7 @@ export default function PatientDetail() {
                                 <p className="text-sm text-muted-foreground line-clamp-2">{att.noteContent}</p>
                               )}
                               <p className="text-xs text-muted-foreground">
-                                {new Date(att.createdAt).toLocaleDateString()}
+                                {formatDate(new Date(att.createdAt))}
                               </p>
                             </div>
                           </div>
@@ -5017,7 +5017,7 @@ export default function PatientDetail() {
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {t('anesthesia.patientDetail.remoteConsentSignedOn', 'Signed remotely on {{date}}', {
-                              date: new Date(existingAssessment.consentRemoteSignedAt).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              date: formatDateTime(new Date(existingAssessment.consentRemoteSignedAt))
                             })}
                           </p>
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -139,7 +139,7 @@ export function DuplicateRecordsDialog({
                     
                     <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
                       <Calendar className="h-3.5 w-3.5" />
-                      {t('anesthesia.duplicates.created', 'Created')}: {format(new Date(record.createdAt), "dd.MM.yyyy HH:mm")}
+                      {t('anesthesia.duplicates.created', 'Created')}: {formatDateTime(new Date(record.createdAt))}
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-sm">

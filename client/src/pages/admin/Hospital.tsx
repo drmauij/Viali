@@ -20,8 +20,7 @@ import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as Lin
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { format } from "date-fns";
-import { formatDateLong, formatCurrency } from "@/lib/dateUtils";
+import { formatDateLong, formatCurrency, formatDateForInput } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 
@@ -3031,7 +3030,7 @@ export default function Hospital() {
                     selected={templateForm.startDate ? new Date(templateForm.startDate) : undefined}
                     onSelect={(date) => {
                       if (date) {
-                        setTemplateForm({ ...templateForm, startDate: format(date, "yyyy-MM-dd") });
+                        setTemplateForm({ ...templateForm, startDate: formatDateForInput(date) });
                         setDatePickerOpen(false);
                       }
                     }}

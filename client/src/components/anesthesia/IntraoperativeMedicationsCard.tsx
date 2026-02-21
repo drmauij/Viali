@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Pill, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
+import { formatTime as formatTimeUtil } from "@/lib/dateUtils";
 
 interface MedicationRecord {
   id: string;
@@ -203,7 +203,7 @@ export function IntraoperativeMedicationsCard({ medications, items, patientWeigh
   };
 
   const formatTime = (timestamp: number) => {
-    return format(new Date(timestamp), 'HH:mm');
+    return formatTimeUtil(new Date(timestamp));
   };
 
   const formatTimeAgo = (timestamp: number) => {

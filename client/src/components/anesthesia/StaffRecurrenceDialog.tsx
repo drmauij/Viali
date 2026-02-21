@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Repeat, Trash2, CalendarDays } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { formatShortDate } from '@/lib/dateUtils';
 import { ROLE_CONFIG, type StaffPoolEntry } from './PlannedStaffBox';
 
 type StaffRole = StaffPoolEntry['role'];
@@ -159,9 +160,9 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
       patternText = `${t('staffPool.daysOfMonth').toLowerCase()} ${days}`;
     }
     const dateObj = new Date(startDate + 'T12:00:00');
-    const dateStr = dateObj.toLocaleDateString(isDE ? 'de-DE' : 'en-US', { month: 'short', day: 'numeric' });
+    const dateStr = formatShortDate(dateObj);
     return t('staffPool.rulePreview', { pattern: patternText, date: dateStr });
-  }, [pattern, selectedDays, selectedMonthDays, startDate, t, dayLabels, isDE]);
+  }, [pattern, selectedDays, selectedMonthDays, startDate, t, dayLabels]);
 
   const canCreate = pattern === 'daily' ||
     (pattern === 'weekly' && selectedDays.length > 0) ||
@@ -197,7 +198,7 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
                     <span>{describeRule(rule, dayLabels)}</span>
                     {rule.endDate && (
                       <span className="text-xs text-muted-foreground">
-                        → {new Date(rule.endDate + 'T12:00:00').toLocaleDateString(isDE ? 'de-DE' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        → {formatShortDate(new Date(rule.endDate + 'T12:00:00'))}
                       </span>
                     )}
                   </div>

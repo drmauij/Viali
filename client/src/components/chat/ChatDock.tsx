@@ -41,7 +41,8 @@ import {
   Check
 } from "lucide-react";
 import html2canvas from "html2canvas";
-import { format, isToday, isYesterday } from "date-fns";
+import { isToday, isYesterday } from "date-fns";
+import { formatDate, formatTime } from "@/lib/dateUtils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -464,7 +465,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         let formattedBirthday = '';
         if (p.birthday) {
           try {
-            formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+            formattedBirthday = formatDate(new Date(p.birthday));
           } catch {
             formattedBirthday = p.birthday;
           }
@@ -478,7 +479,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         let formattedDob = '';
         if (p.birthday) {
           try {
-            formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
+            formattedDob = formatDate(new Date(p.birthday));
           } catch {
             formattedDob = p.birthday;
           }
@@ -526,7 +527,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         let formattedBirthday = '';
         if (p.birthday) {
           try {
-            formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+            formattedBirthday = formatDate(new Date(p.birthday));
           } catch {
             formattedBirthday = p.birthday;
           }
@@ -540,7 +541,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         let formattedDob = '';
         if (p.birthday) {
           try {
-            formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
+            formattedDob = formatDate(new Date(p.birthday));
           } catch {
             formattedDob = p.birthday;
           }
@@ -685,7 +686,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
           let formattedBirthday = '';
           if (p.birthday) {
             try {
-              formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+              formattedBirthday = formatDate(new Date(p.birthday));
             } catch {
               formattedBirthday = p.birthday;
             }
@@ -701,7 +702,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
           let formattedDob = '';
           if (p.birthday) {
             try {
-              formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
+              formattedDob = formatDate(new Date(p.birthday));
             } catch {
               formattedDob = p.birthday;
             }
@@ -1462,9 +1463,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
 
   const formatMessageTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    if (isToday(date)) return format(date, 'HH:mm');
-    if (isYesterday(date)) return `${t('chat.yesterday', 'Yesterday')} ${format(date, 'HH:mm')}`;
-    return format(date, 'MMM d, HH:mm');
+    if (isToday(date)) return formatTime(date);
+    if (isYesterday(date)) return `${t('chat.yesterday', 'Yesterday')} ${formatTime(date)}`;
+    return `${formatDate(date)} ${formatTime(date)}`;
   };
 
   const getInitials = (firstName?: string, lastName?: string, email?: string) => {

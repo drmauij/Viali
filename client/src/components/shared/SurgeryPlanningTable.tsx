@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, Fragment, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { formatDate, formatDateTime, formatTime, formatDateForInput, formatDateHeader } from "@/lib/dateUtils";
 import { 
   ArrowUpDown, 
   ArrowUp, 
@@ -97,35 +98,6 @@ const DEFAULT_COLUMN_GROUPS: Record<ModuleContext, ColumnGroup[]> = {
   marketing: ["clinical", "business"],
 };
 
-function formatDate(dateStr: string | Date | null | undefined): string {
-  if (!dateStr) return "-";
-  try {
-    const date = typeof dateStr === "string" ? parseISO(dateStr) : dateStr;
-    return format(date, "dd.MM.yyyy");
-  } catch {
-    return "-";
-  }
-}
-
-function formatDateTime(dateStr: string | Date | null | undefined): string {
-  if (!dateStr) return "-";
-  try {
-    const date = typeof dateStr === "string" ? parseISO(dateStr) : dateStr;
-    return format(date, "dd.MM.yyyy HH:mm");
-  } catch {
-    return "-";
-  }
-}
-
-function formatTime(dateStr: string | Date | null | undefined): string {
-  if (!dateStr) return "-";
-  try {
-    const date = typeof dateStr === "string" ? parseISO(dateStr) : dateStr;
-    return format(date, "HH:mm");
-  } catch {
-    return "-";
-  }
-}
 
 function formatCurrencyValue(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "-";
@@ -209,11 +181,8 @@ const formatNoteAuthor = (author: SurgeryNoteWithAuthor['author']) => {
 };
 
 const formatNoteDate = (dateStr: string) => {
-  try {
-    return format(parseISO(dateStr), 'dd.MM.yyyy HH:mm');
-  } catch {
-    return dateStr;
-  }
+  const result = formatDateTime(dateStr);
+  return result === "N/A" ? dateStr : result;
 };
 
 // Inline Case Notes component for expanded row detail
@@ -804,7 +773,7 @@ function EditableDateCell({ value, surgeryId, field, onUpdate, isPending }: Edit
           mode="single"
           selected={currentDate}
           onSelect={(date) => {
-            onUpdate(surgeryId, field, date ? format(date, "yyyy-MM-dd") : null);
+            onUpdate(surgeryId, field, date ? formatDateForInput(date) : null);
             setOpen(false);
           }}
           initialFocus
@@ -873,7 +842,7 @@ function EditableTimeCell({ value, surgeryId, plannedDate, field, onUpdate, isPe
     if (!canEdit) return;
     if (value) {
       const date = typeof value === "string" ? parseISO(value) : value;
-      setInputValue(format(date, "HH:mm"));
+      setInputValue(formatTime(date));
     } else {
       setInputValue("");
     }
@@ -1029,7 +998,7 @@ export function SurgeryPlanningTable({
   const uniqueDates = useMemo(() => {
     const dates = new Set<string>();
     surgeries.forEach((surgery) => {
-      const dateKey = new Date(surgery.plannedDate).toLocaleDateString('en-CA');
+      const dateKey = formatDateForInput(new Date(surgery.plannedDate));
       dates.add(dateKey);
     });
     return Array.from(dates);
@@ -1289,11 +1258,7 @@ export function SurgeryPlanningTable({
   
   // Generate PDF for a day's surgeries using shared utility
   const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
-    const displayDate = new Date(dateKey + 'T12:00:00').toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric'
-    });
+    const displayDate = formatDate(new Date(dateKey + 'T12:00:00'));
     
     // Build roomStaffByRoom Map for PDF from fetched data
     const roomStaffForDate = roomStaffByDateAndRoom[dateKey] || {};
@@ -1420,7 +1385,7 @@ export function SurgeryPlanningTable({
   const groupedByDay = useMemo(() => {
     const groups = new Map<string, Surgery[]>();
     sortedSurgeries.forEach((surgery) => {
-      const dateKey = new Date(surgery.plannedDate).toLocaleDateString('en-CA'); // YYYY-MM-DD format for sorting
+      const dateKey = formatDateForInput(new Date(surgery.plannedDate)); // YYYY-MM-DD format for sorting
       if (!groups.has(dateKey)) {
         groups.set(dateKey, []);
       }
@@ -1629,12 +1594,7 @@ export function SurgeryPlanningTable({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>
-                        {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
+                        {formatDateHeader(new Date(dateKey + 'T12:00:00'))}
                         <span className="ml-2 text-muted-foreground font-normal">
                           ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
                         </span>

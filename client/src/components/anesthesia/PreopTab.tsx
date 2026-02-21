@@ -21,6 +21,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useTranslation } from "react-i18next";
+import { formatTime } from "@/lib/dateUtils";
 import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
@@ -442,7 +443,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               ) : (
                 <>
                   <CheckCircle2 className="h-3 w-3 text-green-600" />
-                  {t("anesthesia.preop.lastSaved", { time: lastSaved.toLocaleTimeString() })}
+                  {t("anesthesia.preop.lastSaved", { time: formatTime(lastSaved) })}
                 </>
               )}
             </p>

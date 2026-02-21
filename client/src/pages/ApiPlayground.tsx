@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatTime } from "@/lib/dateUtils";
 import { Play, Copy, Clock, Check, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -329,7 +330,7 @@ export default function ApiPlayground() {
                           </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {item.timestamp.toLocaleTimeString()} - {item.duration}ms
+                          {formatTime(item.timestamp)} - {item.duration}ms
                         </div>
                       </button>
                     ))}

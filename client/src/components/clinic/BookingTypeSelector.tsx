@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { User, Users, Clock, Scissors, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTime, formatShortDate } from "@/lib/dateUtils";
 
 export type BookingType = "external" | "internal" | "off_time" | "surgery";
 
@@ -95,11 +96,11 @@ export function BookingTypeSelector({
   ];
 
   const timeDisplay = slotInfo?.date && slotInfo?.endDate
-    ? `${slotInfo.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${slotInfo.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    ? `${formatTime(slotInfo.date)} - ${formatTime(slotInfo.endDate)}`
     : null;
 
   const dateDisplay = slotInfo?.date
-    ? slotInfo.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    ? formatShortDate(slotInfo.date)
     : null;
 
   return (

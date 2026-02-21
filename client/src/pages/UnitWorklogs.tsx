@@ -15,8 +15,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2, Search } from "lucide-react";
-import { format } from "date-fns";
-import { de, enUS, type Locale } from "date-fns/locale";
+import { formatDate, formatDateTime, formatDateForInput, formatDateHeader } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
 import type { TFunction } from "i18next";
 
@@ -61,7 +60,7 @@ function getStatusBadge(status: string, t: TFunction) {
   }
 }
 
-function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction, locale: Locale) {
+function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -86,20 +85,20 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunct
   
   y += 10;
   doc.text(`${t('worklogs.pdf.workDate')}:`, leftCol, y);
-  doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale }), rightCol, y);
-  
+  doc.text(formatDate(entry.workDate), rightCol, y);
+
   y += 10;
   doc.text(`${t('worklogs.pdf.workTime')}:`, leftCol, y);
   doc.text(`${entry.timeStart} - ${entry.timeEnd}`, rightCol, y);
-  
+
   y += 10;
   doc.text(`${t('worklogs.pdf.break')}:`, leftCol, y);
   doc.text(`${entry.pauseMinutes} ${t('worklogs.minutes')}`, rightCol, y);
-  
+
   y += 10;
   doc.text(`${t('worklogs.pdf.netWorkTime')}:`, leftCol, y);
   doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), rightCol, y);
-  
+
   if (entry.notes) {
     y += 15;
     doc.text(`${t('worklogs.pdf.notes')}:`, leftCol, y);
@@ -108,14 +107,14 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunct
     doc.text(splitNotes, leftCol, y);
     y += splitNotes.length * 6;
   }
-  
+
   y += 20;
   doc.setLineWidth(0.5);
   doc.line(leftCol, y, pageWidth - 20, y);
-  
+
   y += 15;
   doc.text(`${t('worklogs.pdf.workerSignature')}:`, leftCol, y);
-  
+
   if (entry.workerSignature) {
     try {
       doc.addImage(entry.workerSignature, "PNG", leftCol, y + 5, 60, 25);
@@ -123,10 +122,10 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunct
       doc.text(`[${t('worklogs.signature')}]`, leftCol, y + 15);
     }
   }
-  
+
   y += 40;
   doc.text(`${t('worklogs.pdf.countersignature')}:`, leftCol, y);
-  
+
   if (entry.status === "countersigned" && entry.countersignature) {
     try {
       doc.addImage(entry.countersignature, "PNG", leftCol, y + 5, 60, 25);
@@ -137,23 +136,22 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunct
     doc.setFontSize(9);
     doc.text(`${t('worklogs.pdf.countersignedBy')}: ${entry.countersignerName || "Unknown"}`, leftCol, y);
     if (entry.countersignedAt) {
-      doc.text(`${t('worklogs.pdf.on')} ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale })}`, leftCol, y + 5);
+      doc.text(`${t('worklogs.pdf.on')} ${formatDateTime(entry.countersignedAt)}`, leftCol, y + 5);
     }
   }
-  
-  const fileName = `Worklog_${entry.lastName}_${format(new Date(entry.workDate), "yyyy-MM-dd")}.pdf`;
+
+  const fileName = `Worklog_${entry.lastName}_${formatDateForInput(entry.workDate)}.pdf`;
   doc.save(fileName);
 }
 
 export default function UnitWorklogs() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital() as (Hospital & { id: string; name: string; unitId: string; unitName?: string }) | null;
   const hospitalId = activeHospital?.id;
   const hospitalName = activeHospital?.name;
   const unitId = activeHospital?.unitId;
   const unitName = activeHospital?.unitName || t('worklogs.department');
-  const dateLocale = i18n.language === 'de' ? de : enUS;
   
   const [activeTab, setActiveTab] = useState("pending");
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -271,7 +269,7 @@ export default function UnitWorklogs() {
         <div className="grid grid-cols-2 gap-4 text-sm mt-4">
           <div>
             <span className="text-gray-500">{t('worklogs.date')}:</span>
-            <div className="font-medium">{format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: dateLocale })}</div>
+            <div className="font-medium">{formatDateHeader(new Date(entry.workDate))}</div>
           </div>
           <div>
             <span className="text-gray-500">{t('worklogs.department')}:</span>
@@ -305,7 +303,7 @@ export default function UnitWorklogs() {
         
         {entry.status === "countersigned" && (
           <div className="mt-3 text-sm text-gray-500">
-            {t('worklogs.countersignedBy', { name: entry.countersignerName, date: entry.countersignedAt ? format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: dateLocale }) : "" })}
+            {t('worklogs.countersignedBy', { name: entry.countersignerName, date: entry.countersignedAt ? formatDateTime(entry.countersignedAt) : "" })}
           </div>
         )}
         
@@ -336,7 +334,7 @@ export default function UnitWorklogs() {
             <Button 
               size="sm" 
               variant="outline"
-              onClick={() => generateWorklogPDF(entry, hospitalName || '', t, dateLocale)}
+              onClick={() => generateWorklogPDF(entry, hospitalName || '', t)}
               data-testid={`button-pdf-${entry.id}`}
             >
               <Download className="w-4 h-4 mr-1" />

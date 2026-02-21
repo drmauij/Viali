@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -530,7 +531,7 @@ export default function ExternalWorklog() {
     
     y += 10;
     doc.text(isGerman ? "Arbeitsdatum:" : "Work Date:", leftCol, y);
-    doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale: dateLocale }), rightCol, y);
+    doc.text(formatDate(new Date(entry.workDate)), rightCol, y);
     
     y += 10;
     doc.text(isGerman ? "Arbeitszeit:" : "Work Time:", leftCol, y);
@@ -593,7 +594,7 @@ export default function ExternalWorklog() {
       doc.setFontSize(9);
       doc.text(`${isGerman ? "Gegengezeichnet von:" : "Countersigned by:"} ${entry.countersignerName || (isGerman ? "Unbekannt" : "Unknown")}`, leftCol, y);
       if (entry.countersignedAt) {
-        doc.text(`${isGerman ? "am" : "on"} ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: dateLocale })}`, leftCol, y + 5);
+        doc.text(`${isGerman ? "am" : "on"} ${formatDateTime(new Date(entry.countersignedAt))}`, leftCol, y + 5);
       }
     } else if (entry.status === "rejected") {
       y += 15;
@@ -898,7 +899,7 @@ export default function ExternalWorklog() {
       
       y += 30;
       doc.setFontSize(8);
-      doc.text(`${isGerman ? "Erstellt am" : "Generated on"}: ${format(new Date(), "dd.MM.yyyy HH:mm")}`, leftMargin, y);
+      doc.text(`${isGerman ? "Erstellt am" : "Generated on"}: ${formatDateTime(new Date())}`, leftMargin, y);
       
       const fileName = `${isGerman ? "Arbeitszeitbericht" : "WorkReport"}_${personalData.lastName || "Report"}_${format(new Date(), "yyyy-MM")}.pdf`;
       doc.save(fileName);
@@ -1105,7 +1106,7 @@ export default function ExternalWorklog() {
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                               {t("externalWorklog.countersignedBy", { name: entry.countersignerName })}
                               {entry.countersignedAt && (
-                                <> {t("externalWorklog.countersignedOn", { date: format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: dateLocale }) })}</>
+                                <> {t("externalWorklog.countersignedOn", { date: formatDateTime(new Date(entry.countersignedAt)) })}</>
                               )}
                             </div>
                           )}
@@ -1386,7 +1387,7 @@ export default function ExternalWorklog() {
                             </div>
                             {contract.workerSignedAt && (
                               <div className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                                {t("externalWorklog.contracts.signedAt")}: {format(new Date(contract.workerSignedAt), "dd.MM.yyyy", { locale: dateLocale })}
+                                {t("externalWorklog.contracts.signedAt")}: {formatDate(new Date(contract.workerSignedAt))}
                               </div>
                             )}
                           </div>
@@ -2009,7 +2010,7 @@ export default function ExternalWorklog() {
                               />
                               <div className="flex-1">
                                 <div className="font-medium text-sm dark:text-gray-100">
-                                  {format(new Date(entry.workDate), "dd.MM.yyyy", { locale: dateLocale })}
+                                  {formatDate(new Date(entry.workDate))}
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {entry.timeStart} - {entry.timeEnd} ({calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)} {t("externalWorklog.netHours")})

@@ -27,8 +27,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { formatDateTime } from "@/lib/dateUtils";
 import type { PatientMessage, UserMessageTemplate } from "@shared/schema";
 
 interface PatientCommunicationContentProps {
@@ -738,7 +737,7 @@ export function PatientCommunicationContent({
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}</span>
+                  <span>{formatDateTime(item.date)}</span>
                   {item.status && (
                     <span className={`px-1.5 py-0.5 rounded text-xs ${
                       item.status === 'submitted' ? 'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-200' :

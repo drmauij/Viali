@@ -6473,7 +6473,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     setShowVentilationBulkDialog(true);
                   }}
                   data-testid={`vent-entry-marker-${timestamp}`}
-                  title={new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                  title={formatTime(new Date(timestamp))}
                 />
               );
             })}
@@ -6494,7 +6494,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             {t('anesthesia.timeline.clickBulkEntry', 'Click for bulk entry/edit')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+            {formatTime(new Date(ventilationBulkHoverInfo.time))}
           </div>
         </div>
       )}
@@ -7152,7 +7152,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 // Show success message immediately
                 toast({
                   title: t("anesthesia.timeline.toasts.rateInfusionStopped", "Rate infusion stopped"),
-                  description: t("anesthesia.timeline.toasts.rateInfusionStoppedDesc", "{{label}} stopped at {{time}}", { label: session.label, time: new Date(clickTime).toLocaleTimeString() }),
+                  description: t("anesthesia.timeline.toasts.rateInfusionStoppedDesc", "{{label}} stopped at {{time}}", { label: session.label, time: formatTime(new Date(clickTime)) }),
                 });
                 
                 // Background: Persist to database (set the stop timestamp)
@@ -7196,7 +7196,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 // Show success message immediately
                 toast({
                   title: t("anesthesia.timeline.toasts.newRateInfusionStarted", "New rate infusion started"),
-                  description: t("anesthesia.timeline.toasts.newRateInfusionStartedDesc", "Stopped at {{stopTime}}, new infusion starts at {{startTime}}", { stopTime: new Date(clickTime).toLocaleTimeString(), startTime: new Date(newStartTime).toLocaleTimeString() }),
+                  description: t("anesthesia.timeline.toasts.newRateInfusionStartedDesc", "Stopped at {{stopTime}}, new infusion starts at {{startTime}}", { stopTime: formatTime(new Date(clickTime)), startTime: formatTime(new Date(newStartTime)) }),
                 });
                 
                 // Background: 1. Stop current (set the stop timestamp)

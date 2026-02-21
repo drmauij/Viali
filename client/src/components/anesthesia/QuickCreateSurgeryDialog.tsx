@@ -14,6 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { formatDate } from "@/lib/dateUtils";
 import { SurgeryFormFields } from "./SurgeryFormFields";
 
 interface QuickCreateSurgeryDialogProps {
@@ -92,15 +93,6 @@ export default function QuickCreateSurgeryDialog({
   const [newPatientGender, setNewPatientGender] = useState("m");
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [birthdayInput, setBirthdayInput] = useState("");
-
-  // Helper to format date for display (DD/MM/YYYY)
-  const formatDate = (isoDate: string): string => {
-    const date = new Date(isoDate);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
 
   // Parse birthday from various formats to ISO format (yyyy-mm-dd)
   const parseBirthday = (input: string): string | null => {
@@ -412,7 +404,7 @@ export default function QuickCreateSurgeryDialog({
                                   selectedPatientId === patient.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {patient.surname}, {patient.firstName} ({patient.birthday ? new Date(patient.birthday).toLocaleDateString() : 'N/A'})
+                              {patient.surname}, {patient.firstName} ({patient.birthday ? formatDate(new Date(patient.birthday)) : 'N/A'})
                             </CommandItem>
                           ))}
                         </CommandGroup>

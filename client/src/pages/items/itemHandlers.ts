@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
 import { parseCurrencyValue } from "./helpers";
+import { formatDate } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Pure utility functions (no React deps)
@@ -283,7 +284,7 @@ export async function downloadInventoryPdf(params: DownloadInventoryPdfParams): 
   doc.text("INVENTORY LIST", 105, 15, { align: "center" });
 
   doc.setFontSize(10);
-  const exportDate = new Date().toLocaleDateString('en-GB');
+  const exportDate = formatDate(new Date());
   doc.text(`Hospital: ${hospitalName}`, 15, 25);
   doc.text(`Date: ${exportDate}`, 150, 25);
 
