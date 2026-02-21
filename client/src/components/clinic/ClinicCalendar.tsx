@@ -177,9 +177,10 @@ const ABSENCE_TYPE_ICONS: Record<string, string> = {
 interface ClinicCalendarProps {
   hospitalId: string;
   unitId: string;
-  onBookAppointment?: (data: { providerId: string; date: Date; endDate?: Date }) => void;
+  onBookAppointment?: (data: { providerId: string; date: Date; endDate?: Date; source?: 'day' | 'week-month' }) => void;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onProviderClick?: (providerId: string) => void;
+  onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
   statusLegend?: React.ReactNode;
 }
 
@@ -189,6 +190,7 @@ export default function ClinicCalendar({
   onBookAppointment,
   onEventClick,
   onProviderClick,
+  onDragSelectRange,
   statusLegend,
 }: ClinicCalendarProps) {
   const { t, i18n } = useTranslation();
@@ -1026,6 +1028,7 @@ export default function ClinicCalendar({
           providerId,
           date: slotInfo.start,
           endDate: slotInfo.end,
+          source: 'day',
         });
       }
     }
@@ -1347,7 +1350,7 @@ export default function ClinicCalendar({
                   return;
                 }
               }
-              onBookAppointment?.({ providerId, date: time, endDate: endTime });
+              onBookAppointment?.({ providerId, date: time, endDate: endTime, source: 'week-month' });
             }}
             onDayClick={(date) => {
               setSelectedDate(date);
@@ -1360,6 +1363,7 @@ export default function ClinicCalendar({
             onSaalPopoverChange={setSaalPopoverState}
             saalPopoverState={saalPopoverState}
             onSaalAdded={invalidateStaffPool}
+            onDragSelectRange={onDragSelectRange}
           />
         ) : currentView === "month" ? (
           <AppointmentsMonthView
@@ -1377,6 +1381,7 @@ export default function ClinicCalendar({
             hospitalId={hospitalId}
             onRemoveFromSaal={(poolEntryId) => removeFromStaffPoolMutation.mutate(poolEntryId)}
             onSaalAdded={invalidateStaffPool}
+            onDragSelectRange={onDragSelectRange}
           />
         ) : (
           <DragAndDropCalendar

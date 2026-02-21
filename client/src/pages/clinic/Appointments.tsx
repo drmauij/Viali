@@ -27,7 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Calendar,
   Clock,
-  Plus,
   User,
   Users,
   Phone,
@@ -46,7 +45,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
-import { ManageAvailabilityDialog } from "@/components/clinic/ManageAvailabilityDialog";
+import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
 import QuickCreateSurgeryDialog from "@/components/anesthesia/QuickCreateSurgeryDialog";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
@@ -78,9 +77,13 @@ export default function ClinicAppointments() {
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [internalBookingDialogOpen, setInternalBookingDialogOpen] = useState(false);
   const [quickSurgeryDialogOpen, setQuickSurgeryDialogOpen] = useState(false);
-  const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
+  const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date; source?: 'day' | 'week-month' }>({});
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
   const [selectedProviderForAvailability, setSelectedProviderForAvailability] = useState<string | undefined>();
+  const [extendedTimeOffOpen, setExtendedTimeOffOpen] = useState(false);
+  const [timeOffDefaults, setTimeOffDefaults] = useState<{
+    providerId: string; startDate: string; endDate: string;
+  } | null>(null);
 
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
@@ -260,7 +263,36 @@ export default function ClinicAppointments() {
     },
   });
 
-  const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date }) => {
+  const createExtendedTimeOffMutation = useMutation({
+    mutationFn: async (data: { providerId: string; payload: any }) => {
+      return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/providers/${data.providerId}/time-off`, data.payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}`);
+        }
+      });
+      toast({ title: t('appointments.timeOffCreated', 'Time off created') });
+      setExtendedTimeOffOpen(false);
+      setTimeOffDefaults(null);
+    },
+    onError: () => {
+      toast({ title: t('appointments.offTimeError', 'Failed to create time off'), variant: "destructive" });
+    },
+  });
+
+  const handleDragSelectRange = (providerId: string, startDate: Date, endDate: Date) => {
+    setTimeOffDefaults({
+      providerId,
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
+    });
+    setExtendedTimeOffOpen(true);
+  };
+
+  const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date; source?: 'day' | 'week-month' }) => {
     setBookingDefaults(data);
     setBookingTypeSelectorOpen(true);
   };
@@ -275,12 +307,23 @@ export default function ClinicAppointments() {
         break;
       case 'off_time':
         if (bookingDefaults.providerId && bookingDefaults.date) {
-          createOffTimeMutation.mutate({
-            providerId: bookingDefaults.providerId,
-            date: format(bookingDefaults.date, 'yyyy-MM-dd'),
-            startTime: format(bookingDefaults.date, 'HH:mm'),
-            endTime: bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 30 * 60000), 'HH:mm'),
-          });
+          if (bookingDefaults.source === 'week-month') {
+            // Week/month view: open TimeOffDialog to let user pick full-day or time range
+            setTimeOffDefaults({
+              providerId: bookingDefaults.providerId,
+              startDate: format(bookingDefaults.date, 'yyyy-MM-dd'),
+              endDate: format(bookingDefaults.date, 'yyyy-MM-dd'),
+            });
+            setExtendedTimeOffOpen(true);
+          } else {
+            // Day view: precise time selection, create immediately
+            createOffTimeMutation.mutate({
+              providerId: bookingDefaults.providerId,
+              date: format(bookingDefaults.date, 'yyyy-MM-dd'),
+              startTime: format(bookingDefaults.date, 'HH:mm'),
+              endTime: bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 30 * 60000), 'HH:mm'),
+            });
+          }
         }
         break;
       case 'surgery':
@@ -342,17 +385,6 @@ export default function ClinicAppointments() {
             <RefreshCw className={`h-4 w-4 mr-1 ${syncCalendarsMutation.isPending || calcomConfigLoading ? 'animate-spin' : ''}`} />
             {t('appointments.syncCalendars', 'Sync Calendars')}
           </Button>
-          <Button 
-            size="sm"
-            onClick={() => {
-              setBookingDefaults({});
-              setBookingTypeSelectorOpen(true);
-            }}
-            data-testid="button-new-appointment"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {t('appointments.new', 'New Appointment')}
-          </Button>
         </div>
       </div>
 
@@ -363,6 +395,7 @@ export default function ClinicAppointments() {
           onBookAppointment={handleBookAppointment}
           onEventClick={handleEventClick}
           onProviderClick={handleProviderClick}
+          onDragSelectRange={handleDragSelectRange}
           statusLegend={
             <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
               {Object.entries(STATUS_COLORS).map(([status, colors]) => (
@@ -604,6 +637,27 @@ export default function ClinicAppointments() {
         providers={providers}
         initialProviderId={selectedProviderForAvailability}
       />
+
+      {timeOffDefaults && (
+        <TimeOffDialog
+          open={extendedTimeOffOpen}
+          onOpenChange={(open) => {
+            setExtendedTimeOffOpen(open);
+            if (!open) setTimeOffDefaults(null);
+          }}
+          onSubmit={(data) => {
+            if (timeOffDefaults) {
+              createExtendedTimeOffMutation.mutate({
+                providerId: timeOffDefaults.providerId,
+                payload: data,
+              });
+            }
+          }}
+          isPending={createExtendedTimeOffMutation.isPending}
+          defaultStartDate={timeOffDefaults.startDate}
+          defaultEndDate={timeOffDefaults.endDate}
+        />
+      )}
     </div>
   );
 }
