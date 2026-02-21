@@ -32,12 +32,6 @@ router.get('/api/hospitals/:hospitalId/worktime-logs', isAuthenticated, requireS
     const userId = req.user.id;
     const { userId: filterUserId, dateFrom, dateTo } = req.query;
 
-    // Check if hospital has worktime addon
-    const hospital = await storage.getHospital(hospitalId);
-    if (!hospital?.addonWorktime) {
-      return res.status(403).json({ message: "Worktime feature not enabled" });
-    }
-
     const role = await getUserRole(userId, hospitalId);
     const isAdmin = role === "admin";
 
@@ -62,11 +56,6 @@ router.post('/api/hospitals/:hospitalId/worktime-logs', isAuthenticated, require
   try {
     const { hospitalId } = req.params;
     const currentUserId = req.user.id;
-
-    const hospital = await storage.getHospital(hospitalId);
-    if (!hospital?.addonWorktime) {
-      return res.status(403).json({ message: "Worktime feature not enabled" });
-    }
 
     const body = createWorktimeLogSchema.parse(req.body);
     const role = await getUserRole(currentUserId, hospitalId);
@@ -98,11 +87,6 @@ router.patch('/api/hospitals/:hospitalId/worktime-logs/:id', isAuthenticated, re
   try {
     const { hospitalId, id } = req.params;
     const currentUserId = req.user.id;
-
-    const hospital = await storage.getHospital(hospitalId);
-    if (!hospital?.addonWorktime) {
-      return res.status(403).json({ message: "Worktime feature not enabled" });
-    }
 
     const existing = await storage.getWorktimeLog(id);
     if (!existing || existing.hospitalId !== hospitalId) {
@@ -136,11 +120,6 @@ router.delete('/api/hospitals/:hospitalId/worktime-logs/:id', isAuthenticated, r
     const { hospitalId, id } = req.params;
     const currentUserId = req.user.id;
 
-    const hospital = await storage.getHospital(hospitalId);
-    if (!hospital?.addonWorktime) {
-      return res.status(403).json({ message: "Worktime feature not enabled" });
-    }
-
     const existing = await storage.getWorktimeLog(id);
     if (!existing || existing.hospitalId !== hospitalId) {
       return res.status(404).json({ message: "Worktime log not found" });
@@ -166,11 +145,6 @@ router.get('/api/hospitals/:hospitalId/worktime-logs/balance/:userId', isAuthent
   try {
     const { hospitalId, userId: targetUserId } = req.params;
     const currentUserId = req.user.id;
-
-    const hospital = await storage.getHospital(hospitalId);
-    if (!hospital?.addonWorktime) {
-      return res.status(403).json({ message: "Worktime feature not enabled" });
-    }
 
     const role = await getUserRole(currentUserId, hospitalId);
     const isAdmin = role === "admin";

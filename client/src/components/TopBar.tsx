@@ -340,7 +340,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               </button>
 
               {/* Work Time */}
-              {activeHospital?.addonWorktime && (
+              {activeHospital?.id && (
                 <button
                   className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
                   onClick={() => {
@@ -374,7 +374,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         onOpenChange={setShowChangePassword}
       />
 
-      {activeHospital?.addonWorktime && activeHospital?.id && (
+      {activeHospital?.id && (
         <WorktimeLogDialog
           open={showWorktimeLog}
           onOpenChange={setShowWorktimeLog}
