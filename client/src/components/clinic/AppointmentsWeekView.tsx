@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import moment from "moment";
 import "moment/locale/en-gb";
 import "moment/locale/de";
@@ -53,6 +53,7 @@ interface AppointmentsWeekViewProps {
   onSaalPopoverChange?: (state: { providerId: string; providerName: string; dateStr: string } | null) => void;
   saalPopoverState?: { providerId: string; providerName: string; dateStr: string } | null;
   onSaalAdded?: () => void;
+  onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -70,6 +71,9 @@ const ABSENCE_COLORS: Record<string, string> = {
   training: "bg-blue-100 dark:bg-blue-900/50",
   parental: "bg-pink-100 dark:bg-pink-900/50",
   homeoffice: "bg-teal-100 dark:bg-teal-900/50",
+  overtime: "bg-amber-100 dark:bg-amber-900/50",
+  blocked: "bg-orange-100 dark:bg-orange-900/50",
+  sabbatical: "bg-indigo-100 dark:bg-indigo-900/50",
   default: "bg-gray-100 dark:bg-gray-800/50",
 };
 
@@ -79,6 +83,9 @@ const ABSENCE_ICONS: Record<string, string> = {
   training: "📚",
   parental: "👶",
   homeoffice: "🏠",
+  overtime: "⏱️",
+  blocked: "🚫",
+  sabbatical: "✈️",
   default: "🚫",
 };
 
@@ -88,6 +95,8 @@ const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }>
   training: { key: 'appointments.absence.training', fallback: 'Training' },
   parental: { key: 'appointments.absence.parental', fallback: 'Parental Leave' },
   homeoffice: { key: 'appointments.absence.homeoffice', fallback: 'Home Office' },
+  overtime: { key: 'appointments.absence.overtime', fallback: 'Overtime Reduction' },
+  blocked: { key: 'appointments.absence.blocked', fallback: 'Blocked / Other' },
   sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
   default: { key: 'appointments.absence.default', fallback: 'Absent' },
 };
@@ -110,12 +119,13 @@ export default function AppointmentsWeekView({
   onSaalPopoverChange,
   saalPopoverState,
   onSaalAdded,
+  onDragSelectRange,
 }: AppointmentsWeekViewProps) {
   const { t, i18n } = useTranslation();
-  
+
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
   moment.locale(momentLocale);
-  
+
   const weekDays = useMemo(() => {
     const weekStart = moment(selectedDate).startOf('isoWeek');
     const days = [];
@@ -124,6 +134,53 @@ export default function AppointmentsWeekView({
     }
     return days;
   }, [selectedDate, momentLocale]);
+
+  // Drag selection state for multi-day off-time
+  const [dragState, setDragState] = useState<{
+    providerId: string;
+    startIdx: number;
+    currentIdx: number;
+  } | null>(null);
+  const dragStateRef = useRef(dragState);
+  dragStateRef.current = dragState;
+
+  const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
+    setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
+  }, []);
+
+  const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
+    setDragState(prev => {
+      if (!prev || prev.providerId !== providerId) return prev;
+      return { ...prev, currentIdx: dayIdx };
+    });
+  }, []);
+
+  // Global mouseup to finalize or cancel drag
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const ds = dragStateRef.current;
+      if (!ds) return;
+      setDragState(null);
+      if (ds.startIdx !== ds.currentIdx && onDragSelectRange) {
+        const minIdx = Math.min(ds.startIdx, ds.currentIdx);
+        const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
+        onDragSelectRange(
+          ds.providerId,
+          weekDays[minIdx].toDate(),
+          weekDays[maxIdx].toDate(),
+        );
+      }
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, [onDragSelectRange, weekDays]);
+
+  const isDayInDragRange = useCallback((providerId: string, dayIdx: number) => {
+    if (!dragState || dragState.providerId !== providerId) return false;
+    const minIdx = Math.min(dragState.startIdx, dragState.currentIdx);
+    const maxIdx = Math.max(dragState.startIdx, dragState.currentIdx);
+    return dayIdx >= minIdx && dayIdx <= maxIdx && dragState.startIdx !== dragState.currentIdx;
+  }, [dragState]);
 
   const getAbsenceLabel = (type: string): string => {
     const cfg = ABSENCE_TYPE_LABEL_KEYS[type] || ABSENCE_TYPE_LABEL_KEYS.default;
@@ -252,16 +309,35 @@ export default function AppointmentsWeekView({
                 const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
                 const isSaalPlanned = !!poolEntry;
 
+                const inDragRange = isDayInDragRange(provider.id, dayIdx);
+
                 return (
                   <div
                     key={dayIdx}
                     className={cn(
-                      "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors relative",
+                      "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors relative select-none",
                       isToday(day) && "bg-primary/5",
-                      absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default)
+                      absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
+                      inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                     )}
                     style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
-                    onClick={() => (!absence || absence.isPartial) && handleCanvasClick(provider.id, day)}
+                    onClick={() => {
+                      // Only fire click if there was no drag
+                      if (!dragState && (!absence || absence.isPartial)) {
+                        handleCanvasClick(provider.id, day);
+                      }
+                    }}
+                    onMouseDown={(e) => {
+                      if (e.button === 0 && onDragSelectRange) {
+                        e.preventDefault();
+                        handleDragStart(provider.id, dayIdx);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (dragState) {
+                        handleDragEnter(provider.id, dayIdx);
+                      }
+                    }}
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
                     {/* Saal toggle in top-right corner — always visible */}

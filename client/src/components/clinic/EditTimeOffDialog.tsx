@@ -6,10 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, parse } from "date-fns";
 import { AlertTriangle, Clock, Calendar, Trash2 } from "lucide-react";
+import { TIME_OFF_TYPE_OPTIONS } from "./ManageAvailabilityDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -201,6 +209,22 @@ export default function EditTimeOffDialog({
                   data-testid="input-timeoff-end"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('availability.timeOffTypeLabel', 'Type')}</Label>
+              <Select value={reason} onValueChange={setReason}>
+                <SelectTrigger data-testid="select-timeoff-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_OFF_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.icon} {t(opt.labelKey, opt.fallback)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

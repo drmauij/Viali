@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -50,6 +51,19 @@ const DAYS_OF_WEEK = [
   { value: 6, label: "Saturday" },
   { value: 0, label: "Sunday" },
 ];
+
+export const TIME_OFF_TYPE_OPTIONS = [
+  { value: 'vacation', icon: '🏖️', labelKey: 'availability.timeOffTypes.vacation', fallback: 'Vacation' },
+  { value: 'sick', icon: '🤒', labelKey: 'availability.timeOffTypes.sick', fallback: 'Sick Leave' },
+  { value: 'training', icon: '📚', labelKey: 'availability.timeOffTypes.training', fallback: 'Training' },
+  { value: 'parental', icon: '👶', labelKey: 'availability.timeOffTypes.parental', fallback: 'Parental Leave' },
+  { value: 'overtime', icon: '⏱️', labelKey: 'availability.timeOffTypes.overtime', fallback: 'Overtime Reduction' },
+  { value: 'blocked', icon: '🚫', labelKey: 'availability.timeOffTypes.blocked', fallback: 'Blocked / Other' },
+] as const;
+
+export const TIME_OFF_TYPE_ICONS: Record<string, string> = Object.fromEntries(
+  TIME_OFF_TYPE_OPTIONS.map(o => [o.value, o.icon])
+);
 
 interface ManageAvailabilityDialogProps {
   open: boolean;
@@ -552,7 +566,15 @@ export function ManageAvailabilityDialog({
                               </p>
                             )}
                             {item.reason && (
-                              <p className="text-muted-foreground">{item.reason}</p>
+                              <p className="text-muted-foreground">
+                                {TIME_OFF_TYPE_ICONS[item.reason] || '🚫'}{' '}
+                                {TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)
+                                  ? t(TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)!.labelKey, TIME_OFF_TYPE_OPTIONS.find(o => o.value === item.reason)!.fallback)
+                                  : item.reason}
+                              </p>
+                            )}
+                            {item.notes && (
+                              <p className="text-xs text-muted-foreground/70">{item.notes}</p>
                             )}
                           </div>
                           <Button
@@ -602,21 +624,38 @@ const DAY_NAME_KEYS = [
   { key: 'availability.daysShort.sat', fallback: 'Sat' },
 ];
 
-function TimeOffDialog({
+export function TimeOffDialog({
   open,
   onOpenChange,
   onSubmit,
   isPending,
+  defaultStartDate,
+  defaultEndDate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   isPending: boolean;
+  defaultStartDate?: string;
+  defaultEndDate?: string;
 }) {
   const { t } = useTranslation();
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [reason, setReason] = useState("");
+  const [startDate, setStartDate] = useState(defaultStartDate || format(new Date(), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(defaultEndDate || format(new Date(), 'yyyy-MM-dd'));
+
+  // Reset form when dialog opens or defaults change
+  useEffect(() => {
+    if (defaultStartDate) setStartDate(defaultStartDate);
+    if (defaultEndDate) setEndDate(defaultEndDate);
+  }, [defaultStartDate, defaultEndDate]);
+  useEffect(() => {
+    if (open) {
+      setReason("blocked");
+      setNotes("");
+    }
+  }, [open]);
+  const [reason, setReason] = useState("blocked");
+  const [notes, setNotes] = useState("");
   const [isFullDay, setIsFullDay] = useState(true);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -640,7 +679,8 @@ function TimeOffDialog({
     onSubmit({
       startDate,
       endDate: isRecurring ? startDate : endDate,
-      reason: reason || null,
+      reason: reason || 'blocked',
+      notes: notes || null,
       startTime: isFullDay ? null : startTime,
       endTime: isFullDay ? null : endTime,
       isRecurring,
@@ -717,12 +757,29 @@ function TimeOffDialog({
           )}
 
           <div>
-            <Label>{t('availability.reason', 'Reason (optional)')}</Label>
-            <Input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={t('availability.reasonPlaceholder', 'e.g., Vacation, Conference')}
-              data-testid="input-timeoff-reason-nested"
+            <Label>{t('availability.timeOffTypeLabel', 'Type')}</Label>
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger data-testid="select-timeoff-type-nested">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIME_OFF_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.icon} {t(opt.labelKey, opt.fallback)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>{t('availability.notes', 'Notes (optional)')}</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t('availability.timeOffNotesPlaceholder', 'Additional details...')}
+              rows={2}
+              data-testid="input-timeoff-notes-nested"
             />
           </div>
 

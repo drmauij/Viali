@@ -23,6 +23,7 @@ import AppointmentsMonthView from "./AppointmentsMonthView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
 import SaalStaffPopover from "./SaalStaffPopover";
+import { TIME_OFF_TYPE_ICONS } from "./ManageAvailabilityDialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -160,6 +161,8 @@ const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }>
   training: { key: 'appointments.absence.training', fallback: 'Training' },
   parental: { key: 'appointments.absence.parental', fallback: 'Parental Leave' },
   homeoffice: { key: 'appointments.absence.homeoffice', fallback: 'Home Office' },
+  overtime: { key: 'appointments.absence.overtime', fallback: 'Overtime Reduction' },
+  blocked: { key: 'appointments.absence.blocked', fallback: 'Blocked / Other' },
   sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
   default: { key: 'appointments.absence.default', fallback: 'Absent' },
 };
@@ -170,6 +173,8 @@ const ABSENCE_TYPE_ICONS: Record<string, string> = {
   training: '📚',
   parental: '👶',
   homeoffice: '🏠',
+  overtime: '⏱️',
+  blocked: '🚫',
   sabbatical: '✈️',
   default: '🚫',
 };
@@ -816,11 +821,13 @@ export default function ClinicCalendar({
             dayEnd.setHours(18, 0, 0, 0);
           }
           
-          const reason = timeOff.reason || t('appointments.timeOff', 'Time Off');
-          
+          const reasonKey = timeOff.reason || 'blocked';
+          const icon = TIME_OFF_TYPE_ICONS[reasonKey] || ABSENCE_TYPE_ICONS[reasonKey] || '🚫';
+          const reason = timeOff.notes || t('appointments.timeOff', 'Time Off');
+
           timeOffBlockEvents.push({
             id: `timeoff-${timeOff.id}-${format(currentDate, 'yyyy-MM-dd')}`,
-            title: `🚫 ${reason}`,
+            title: `${icon} ${reason}`,
             start: dayStart,
             end: dayEnd,
             resource: timeOff.providerId,
@@ -833,7 +840,7 @@ export default function ClinicCalendar({
             isSurgeryBlock: false,
             isAbsenceBlock: false,
             isTimeOffBlock: true,
-            timeOffReason: reason,
+            timeOffReason: reasonKey,
           });
           
           // Move to next day
