@@ -1608,6 +1608,8 @@
     "questionnaireDisabled": "Fragebogen-Funktion deaktiviert",
     "atLeastOneAssignment": "Mindestens eine Abteilungs-/Rollenzuweisung ist erforderlich",
     "generalSettings": "Allgemeine Einstellungen",
+    "regionalPreferences": "Regionale Einstellungen",
+    "stockRunwayAlerts": "Lagerbestand-Warnungen",
     "dataAndLinks": "Daten & Links",
     "rooms": "Räume",
     "integrations": "Integrationen",

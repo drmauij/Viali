@@ -323,8 +323,8 @@ export function StandBySection({ form, isReadOnly = false }: BaseFormSectionProp
                   <SelectValue placeholder={t('preop.placeholders.selectReason', 'Select reason...')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="signature_missing">{t('preop.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
                   <SelectItem value="consent_required">{t('preop.standByReasons.consentRequired', 'Only written, consent talk required')}</SelectItem>
+                  <SelectItem value="signature_missing">{t('preop.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
                   <SelectItem value="waiting_exams">{t('preop.standByReasons.waitingExams', 'Waiting for EKG/Labs/Other exams')}</SelectItem>
                   <SelectItem value="other">{t('preop.standByReasons.other', 'Other reason')}</SelectItem>
                 </SelectContent>

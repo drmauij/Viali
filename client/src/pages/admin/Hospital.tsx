@@ -1071,7 +1071,7 @@ export default function Hospital() {
           <TabsList className="flex flex-row md:flex-col h-auto w-full md:w-52 shrink-0 justify-start overflow-x-auto md:overflow-x-visible scrollbar-hide bg-muted/50 md:bg-transparent p-1 md:p-0 md:gap-1">
             <TabsTrigger value="settings" data-testid="tab-settings" className="justify-start md:w-full">
               <Settings className="h-4 w-4 mr-2 shrink-0" />
-              <span className="truncate">{t("admin.generalSettings", "General Settings")}</span>
+              <span className="truncate">{t("admin.settings", "Settings")}</span>
             </TabsTrigger>
             <TabsTrigger value="data" data-testid="tab-data" className="justify-start md:w-full">
               <i className="fas fa-database mr-2 shrink-0"></i>
@@ -1110,254 +1110,274 @@ export default function Hospital() {
           {/* Tab content area */}
           <div className="flex-1 min-w-0">
 
-        {/* General Settings Tab Content */}
+        {/* Settings Tab Content — with horizontal sub-tabs */}
         <TabsContent value="settings">
-        <div className="space-y-6">
+        <div className="space-y-4">
+          <Tabs defaultValue="company">
+            <TabsList>
+              <TabsTrigger value="company">
+                <i className="fas fa-building mr-2"></i>
+                {t("admin.generalSettings", "General Settings")}
+              </TabsTrigger>
+              <TabsTrigger value="general">
+                <i className="fas fa-globe mr-2"></i>
+                {t("admin.regionalPreferences", "Regional Preferences")}
+              </TabsTrigger>
+              <TabsTrigger value="runway">
+                <i className="fas fa-chart-line mr-2"></i>
+                {t("admin.stockRunwayAlerts", "Stock Runway Alerts")}
+              </TabsTrigger>
+            </TabsList>
 
-          {/* General Settings Section */}
-          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <i className="fas fa-globe text-primary"></i>
-              {t("admin.generalSettingsSection", "General Settings")}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">{t("admin.generalSettingsDescription", "Configure regional preferences for this hospital")}</p>
+            {/* General Settings Sub-Tab */}
+            <TabsContent value="general" className="mt-4">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+                <p className="text-sm text-muted-foreground mb-4">{t("admin.generalSettingsDescription", "Configure regional preferences for this hospital")}</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Currency */}
-              <div>
-                <Label>{t("admin.currency", "Currency")}</Label>
-                <Select
-                  value={hospitalForm.currency}
-                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, currency: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CHF">CHF (Swiss Franc)</SelectItem>
-                    <SelectItem value="EUR">EUR (Euro)</SelectItem>
-                    <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.currencyDescription", "Currency used for displaying prices across the app")}</p>
-              </div>
-
-              {/* Timezone */}
-              <div>
-                <Label>{t("admin.timezone", "Timezone")}</Label>
-                <Select
-                  value={hospitalForm.timezone}
-                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, timezone: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Europe/Zurich">Europe/Zurich</SelectItem>
-                    <SelectItem value="Europe/Berlin">Europe/Berlin</SelectItem>
-                    <SelectItem value="Europe/Vienna">Europe/Vienna</SelectItem>
-                    <SelectItem value="Europe/Paris">Europe/Paris</SelectItem>
-                    <SelectItem value="Europe/London">Europe/London</SelectItem>
-                    <SelectItem value="America/New_York">America/New York</SelectItem>
-                    <SelectItem value="America/Los_Angeles">America/Los Angeles</SelectItem>
-                    <SelectItem value="UTC">UTC</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.timezoneDescription", "Hospital timezone for scheduling and timestamps")}</p>
-              </div>
-
-              {/* Date Format */}
-              <div>
-                <Label>{t("admin.dateFormatLabel", "Date Format")}</Label>
-                <Select
-                  value={hospitalForm.dateFormat}
-                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, dateFormat: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="european">{t("admin.dateFormatEuropean", "European (dd.MM.yyyy)")}</SelectItem>
-                    <SelectItem value="american">{t("admin.dateFormatAmerican", "American (MM/dd/yyyy)")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.dateFormatDescription", "How dates are displayed across the app")}</p>
-              </div>
-
-              {/* Hour Format */}
-              <div>
-                <Label>{t("admin.hourFormatLabel", "Hour Format")}</Label>
-                <Select
-                  value={hospitalForm.hourFormat}
-                  onValueChange={(value) => setHospitalForm(prev => ({ ...prev, hourFormat: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">{t("admin.hourFormat24h", "24-hour (14:30)")}</SelectItem>
-                    <SelectItem value="12h">{t("admin.hourFormat12h", "12-hour (2:30 PM)")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.hourFormatDescription", "How times are displayed across the app")}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4">
-              <Button
-                onClick={handleSaveHospital}
-                disabled={updateHospitalMutation.isPending || isUploadingLogo}
-              >
-                <i className="fas fa-save mr-2"></i>
-                {t("common.save")}
-              </Button>
-            </div>
-          </div>
-
-          {/* Company Settings Section */}
-          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <i className="fas fa-building text-primary"></i>
-              {t("admin.companySettings", "Company Settings")}
-            </h2>
-            
-            <div className="space-y-6">
-              {/* Hospital Name (System name) - First Field */}
-              <div>
-                <Label htmlFor="hospital-name-inline">{t("admin.hospitalNameLabel")} *</Label>
-                <Input
-                  id="hospital-name-inline"
-                  value={hospitalForm.name}
-                  onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder={t("admin.hospitalNamePlaceholder")}
-                  data-testid="input-hospital-name-inline"
-                />
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
-              </div>
-
-              {/* Logo Section */}
-              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                <div className="flex-shrink-0 flex flex-col items-center sm:items-start">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
-                    {hospitalForm.companyLogoUrl ? (
-                      <img 
-                        src={hospitalForm.companyLogoUrl} 
-                        alt="Company Logo" 
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <i className="fas fa-building text-4xl text-muted-foreground"></i>
-                    )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Currency */}
+                  <div>
+                    <Label>{t("admin.currency", "Currency")}</Label>
+                    <Select
+                      value={hospitalForm.currency}
+                      onValueChange={(value) => setHospitalForm(prev => ({ ...prev, currency: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CHF">CHF (Swiss Franc)</SelectItem>
+                        <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                        <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.currencyDescription", "Currency used for displaying prices across the app")}</p>
                   </div>
-                  <div className="mt-2">
-                    <label htmlFor="logo-upload-inline" className="cursor-pointer">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full"
-                        disabled={isUploadingLogo}
-                        asChild
-                      >
-                        <span>
-                          <i className="fas fa-upload mr-2"></i>
-                          {isUploadingLogo ? t("common.loading") : t("admin.uploadLogo")}
-                        </span>
-                      </Button>
-                      <input
-                        id="logo-upload-inline"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleLogoUpload}
-                        data-testid="input-logo-upload-inline"
-                      />
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1 text-center">{t("admin.logoMaxSize")}</p>
+
+                  {/* Timezone */}
+                  <div>
+                    <Label>{t("admin.timezone", "Timezone")}</Label>
+                    <Select
+                      value={hospitalForm.timezone}
+                      onValueChange={(value) => setHospitalForm(prev => ({ ...prev, timezone: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Europe/Zurich">Europe/Zurich</SelectItem>
+                        <SelectItem value="Europe/Berlin">Europe/Berlin</SelectItem>
+                        <SelectItem value="Europe/Vienna">Europe/Vienna</SelectItem>
+                        <SelectItem value="Europe/Paris">Europe/Paris</SelectItem>
+                        <SelectItem value="Europe/London">Europe/London</SelectItem>
+                        <SelectItem value="America/New_York">America/New York</SelectItem>
+                        <SelectItem value="America/Los_Angeles">America/Los Angeles</SelectItem>
+                        <SelectItem value="UTC">UTC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.timezoneDescription", "Hospital timezone for scheduling and timestamps")}</p>
+                  </div>
+
+                  {/* Date Format */}
+                  <div>
+                    <Label>{t("admin.dateFormatLabel", "Date Format")}</Label>
+                    <Select
+                      value={hospitalForm.dateFormat}
+                      onValueChange={(value) => setHospitalForm(prev => ({ ...prev, dateFormat: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="european">{t("admin.dateFormatEuropean", "European (dd.MM.yyyy)")}</SelectItem>
+                        <SelectItem value="american">{t("admin.dateFormatAmerican", "American (MM/dd/yyyy)")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.dateFormatDescription", "How dates are displayed across the app")}</p>
+                  </div>
+
+                  {/* Hour Format */}
+                  <div>
+                    <Label>{t("admin.hourFormatLabel", "Hour Format")}</Label>
+                    <Select
+                      value={hospitalForm.hourFormat}
+                      onValueChange={(value) => setHospitalForm(prev => ({ ...prev, hourFormat: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="24h">{t("admin.hourFormat24h", "24-hour (14:30)")}</SelectItem>
+                        <SelectItem value="12h">{t("admin.hourFormat12h", "12-hour (2:30 PM)")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.hourFormatDescription", "How times are displayed across the app")}</p>
                   </div>
                 </div>
 
-                {/* Company Data Section */}
-                <div className="flex-1 space-y-4">
+                <div className="flex justify-end pt-4">
+                  <Button
+                    onClick={handleSaveHospital}
+                    disabled={updateHospitalMutation.isPending || isUploadingLogo}
+                  >
+                    <i className="fas fa-save mr-2"></i>
+                    {t("common.save")}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Company Settings Sub-Tab */}
+            <TabsContent value="company" className="mt-4">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+                <div className="space-y-6">
+                  {/* Hospital Name (System name) - First Field */}
                   <div>
-                    <Label htmlFor="company-name-inline">{t("admin.companyName")} *</Label>
+                    <Label htmlFor="hospital-name-inline">{t("admin.hospitalNameLabel")} *</Label>
                     <Input
-                      id="company-name-inline"
-                      value={hospitalForm.companyName}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyName: e.target.value }))}
-                      placeholder={t("admin.companyNamePlaceholder")}
-                      data-testid="input-company-name-inline"
+                      id="hospital-name-inline"
+                      value={hospitalForm.name}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder={t("admin.hospitalNamePlaceholder")}
+                      data-testid="input-hospital-name-inline"
                     />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="company-street-inline">{t("admin.companyStreet")}</Label>
-                    <Input
-                      id="company-street-inline"
-                      value={hospitalForm.companyStreet}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
-                      placeholder={t("admin.companyStreetPlaceholder")}
-                      data-testid="input-company-street-inline"
-                    />
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
                   </div>
 
-                  {/* Postal Code and City on same row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div>
-                      <Label htmlFor="company-postal-code-inline">{t("admin.companyPostalCode")}</Label>
-                      <Input
-                        id="company-postal-code-inline"
-                        value={hospitalForm.companyPostalCode}
-                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPostalCode: e.target.value }))}
-                        placeholder="8000"
-                        data-testid="input-company-postal-code-inline"
-                      />
+                  {/* Logo Section */}
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    <div className="flex-shrink-0 flex flex-col items-center sm:items-start">
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {hospitalForm.companyLogoUrl ? (
+                          <img
+                            src={hospitalForm.companyLogoUrl}
+                            alt="Company Logo"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <i className="fas fa-building text-4xl text-muted-foreground"></i>
+                        )}
+                      </div>
+                      <div className="mt-2">
+                        <label htmlFor="logo-upload-inline" className="cursor-pointer">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            disabled={isUploadingLogo}
+                            asChild
+                          >
+                            <span>
+                              <i className="fas fa-upload mr-2"></i>
+                              {isUploadingLogo ? t("common.loading") : t("admin.uploadLogo")}
+                            </span>
+                          </Button>
+                          <input
+                            id="logo-upload-inline"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                            data-testid="input-logo-upload-inline"
+                          />
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-1 text-center">{t("admin.logoMaxSize")}</p>
+                      </div>
                     </div>
-                    <div className="sm:col-span-2">
-                      <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
-                      <Input
-                        id="company-city-inline"
-                        value={hospitalForm.companyCity}
-                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
-                        placeholder={t("admin.companyCityPlaceholder")}
-                        data-testid="input-company-city-inline"
-                      />
+
+                    {/* Company Data Section */}
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <Label htmlFor="company-name-inline">{t("admin.companyName")} *</Label>
+                        <Input
+                          id="company-name-inline"
+                          value={hospitalForm.companyName}
+                          onChange={(e) => setHospitalForm(prev => ({ ...prev, companyName: e.target.value }))}
+                          placeholder={t("admin.companyNamePlaceholder")}
+                          data-testid="input-company-name-inline"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="company-street-inline">{t("admin.companyStreet")}</Label>
+                        <Input
+                          id="company-street-inline"
+                          value={hospitalForm.companyStreet}
+                          onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
+                          placeholder={t("admin.companyStreetPlaceholder")}
+                          data-testid="input-company-street-inline"
+                        />
+                      </div>
+
+                      {/* Postal Code and City on same row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                        <div>
+                          <Label htmlFor="company-postal-code-inline">{t("admin.companyPostalCode")}</Label>
+                          <Input
+                            id="company-postal-code-inline"
+                            value={hospitalForm.companyPostalCode}
+                            onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPostalCode: e.target.value }))}
+                            placeholder="8000"
+                            data-testid="input-company-postal-code-inline"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
+                          <Input
+                            id="company-city-inline"
+                            value={hospitalForm.companyCity}
+                            onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
+                            placeholder={t("admin.companyCityPlaceholder")}
+                            data-testid="input-company-city-inline"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Phone and Email on same row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                          <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
+                          <PhoneInputWithCountry
+                            id="company-phone-inline"
+                            value={hospitalForm.companyPhone}
+                            onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
+                            placeholder="44 123 45 67"
+                            data-testid="input-company-phone-inline"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="company-email-inline">{t("admin.companyEmail")}</Label>
+                          <Input
+                            id="company-email-inline"
+                            type="email"
+                            value={hospitalForm.companyEmail}
+                            onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
+                            placeholder="info@klinik.ch"
+                            data-testid="input-company-email-inline"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Phone and Email on same row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
-                      <PhoneInputWithCountry
-                        id="company-phone-inline"
-                        value={hospitalForm.companyPhone}
-                        onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
-                        placeholder="44 123 45 67"
-                        data-testid="input-company-phone-inline"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="company-email-inline">{t("admin.companyEmail")}</Label>
-                      <Input
-                        id="company-email-inline"
-                        type="email"
-                        value={hospitalForm.companyEmail}
-                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
-                        placeholder="info@klinik.ch"
-                        data-testid="input-company-email-inline"
-                      />
-                    </div>
+                  <div className="flex justify-end pt-4">
+                    <Button
+                      onClick={handleSaveHospital}
+                      disabled={updateHospitalMutation.isPending || isUploadingLogo}
+                      data-testid="button-save-hospital-inline"
+                    >
+                      <i className="fas fa-save mr-2"></i>
+                      {t("common.save")}
+                    </Button>
                   </div>
                 </div>
               </div>
+            </TabsContent>
 
-              {/* Stock Runway Alert Configuration */}
-              <div className="pt-4 border-t">
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <i className="fas fa-chart-line text-primary"></i>
-                  {t("admin.runwayConfigTitle")}
-                </h4>
+            {/* Stock Runway Alerts Sub-Tab */}
+            <TabsContent value="runway" className="mt-4">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
                 <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div>
@@ -1400,21 +1420,20 @@ export default function Hospital() {
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayLookbackHint")}</p>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end pt-4">
-                <Button
-                  onClick={handleSaveHospital}
-                  disabled={updateHospitalMutation.isPending || isUploadingLogo}
-                  data-testid="button-save-hospital-inline"
-                >
-                  <i className="fas fa-save mr-2"></i>
-                  {t("common.save")}
-                </Button>
+                <div className="flex justify-end pt-4">
+                  <Button
+                    onClick={handleSaveHospital}
+                    disabled={updateHospitalMutation.isPending || isUploadingLogo}
+                    data-testid="button-save-runway-inline"
+                  >
+                    <i className="fas fa-save mr-2"></i>
+                    {t("common.save")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-
+            </TabsContent>
+          </Tabs>
         </div>
         </TabsContent>
 
@@ -2477,7 +2496,7 @@ export default function Hospital() {
           <Tabs defaultValue="calcom">
             <TabsList>
               <TabsTrigger value="calcom">
-                <i className="fas fa-phone mr-2"></i>
+                <i className="fas fa-calendar mr-2"></i>
                 Cal.com
               </TabsTrigger>
               <TabsTrigger value="vonage">
@@ -3660,11 +3679,11 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-              <ExternalLink className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <CalendarIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
               <h3 className="font-semibold text-foreground">Cal.com</h3>
-              <p className="text-sm text-muted-foreground">Enable phone-based appointment booking via Cal.com</p>
+              <p className="text-sm text-muted-foreground">Enable appointment booking via Cal.com</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

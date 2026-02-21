@@ -1523,6 +1523,8 @@
     "preSurgeryReminderEnabledSuccess": "Pre-surgery reminder enabled",
     "atLeastOneAssignment": "At least one unit/role assignment is required",
     "generalSettings": "General Settings",
+    "regionalPreferences": "Regional Preferences",
+    "stockRunwayAlerts": "Stock Runway Alerts",
     "dataAndLinks": "Data & Links",
     "rooms": "Rooms",
     "integrations": "Integrations",
