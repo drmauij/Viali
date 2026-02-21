@@ -1940,8 +1940,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                             <SelectValue placeholder={t('anesthesia.patientDetail.selectReason', 'Select reason...')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
                             <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired', 'Consent talk required')}</SelectItem>
+                            <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
                             <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams', 'Waiting for EKG/Labs/Other exams')}</SelectItem>
                             <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other', 'Other reason')}</SelectItem>
                           </SelectContent>

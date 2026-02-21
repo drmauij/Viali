@@ -1060,8 +1060,8 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                         <SelectValue placeholder={t("anesthesia.preop.selectReason")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="signature_missing">{t("anesthesia.preop.signatureMissing")}</SelectItem>
                         <SelectItem value="consent_required">{t("anesthesia.preop.consentRequired")}</SelectItem>
+                        <SelectItem value="signature_missing">{t("anesthesia.preop.signatureMissing")}</SelectItem>
                         <SelectItem value="waiting_exams">{t("anesthesia.preop.waitingExams")}</SelectItem>
                         <SelectItem value="other">{t("anesthesia.preop.otherReason")}</SelectItem>
                       </SelectContent>

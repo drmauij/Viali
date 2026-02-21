@@ -4646,8 +4646,8 @@ export default function PatientDetail() {
                               <SelectValue placeholder={t('anesthesia.patientDetail.selectReason')} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing')}</SelectItem>
                               <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired')}</SelectItem>
+                              <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing')}</SelectItem>
                               <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams')}</SelectItem>
                               <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other')}</SelectItem>
                             </SelectContent>
