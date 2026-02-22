@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -185,6 +185,12 @@ export default function Hospital() {
   // External surgery token query
   const { data: externalSurgeryTokenData } = useQuery<{ token: string | null }>({
     queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Kiosk token query
+  const { data: kioskTokenData } = useQuery<{ kioskToken: string | null }>({
+    queryKey: [`/api/admin/${activeHospital?.id}/kiosk-token`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -486,6 +492,56 @@ export default function Hospital() {
       toast({ title: t("common.error"), description: error.message || "Failed to disable link", variant: "destructive" });
     },
   });
+
+  // Kiosk token mutations
+  const generateKioskTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/kiosk-token/generate`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/kiosk-token`] });
+      toast({ title: t("common.success"), description: t("admin.kioskLinkGenerated", "Kiosk link generated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to generate link", variant: "destructive" });
+    },
+  });
+
+  const deleteKioskTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/admin/${activeHospital?.id}/kiosk-token`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/kiosk-token`] });
+      toast({ title: t("common.success"), description: t("admin.kioskLinkDisabled", "Kiosk link disabled") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to disable link", variant: "destructive" });
+    },
+  });
+
+  const getKioskUrl = () => {
+    if (!kioskTokenData?.kioskToken) return null;
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/kiosk/${kioskTokenData.kioskToken}`;
+  };
+
+  const [kioskLinkCopied, setKioskLinkCopied] = useState(false);
+  const handleCopyKioskLink = async () => {
+    const url = getKioskUrl();
+    if (url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setKioskLinkCopied(true);
+        toast({ title: t("common.success"), description: t("admin.linkCopied", "Link copied to clipboard") });
+        setTimeout(() => setKioskLinkCopied(false), 2000);
+      } catch (err) {
+        toast({ title: t("common.error"), description: t("admin.failedToCopy", "Failed to copy link"), variant: "destructive" });
+      }
+    }
+  };
 
   // Helper function to get the questionnaire URL
   const getQuestionnaireUrl = () => {
@@ -1675,6 +1731,97 @@ export default function Hospital() {
                     data-testid="button-generate-external-surgery-link"
                   >
                     {generateExternalSurgeryTokenMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                    )}
+                    {t("admin.generateLink", "Generate Link")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Worktime Kiosk Link Section */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    {t("admin.worktimeKioskLink", "Worktime Kiosk")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.worktimeKioskDescription", "Public link for a shared tablet where staff can log work hours using a personal PIN")}
+                  </p>
+                </div>
+              </div>
+
+              {kioskTokenData?.kioskToken ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <Input
+                      value={getKioskUrl() || ""}
+                      readOnly
+                      className="flex-1 bg-background text-sm font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyKioskLink}
+                    >
+                      {kioskLinkCopied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateKioskTokenMutation.mutate()}
+                      disabled={generateKioskTokenMutation.isPending}
+                    >
+                      {generateKioskTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.regenerateLink", "Regenerate Link")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm(t("admin.disableKioskLinkConfirm", "Are you sure you want to disable this link? Staff won't be able to log time via the kiosk."))) {
+                          deleteKioskTokenMutation.mutate();
+                        }
+                      }}
+                      disabled={deleteKioskTokenMutation.isPending}
+                    >
+                      {deleteKioskTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.disableLink", "Disable Link")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.noKioskLinkGenerated", "No kiosk link has been generated yet.")}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => generateKioskTokenMutation.mutate()}
+                    disabled={generateKioskTokenMutation.isPending}
+                  >
+                    {generateKioskTokenMutation.isPending ? (
                       <i className="fas fa-spinner fa-spin mr-2"></i>
                     ) : (
                       <LinkIcon className="h-4 w-4 mr-2" />

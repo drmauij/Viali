@@ -379,6 +379,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           open={showWorktimeLog}
           onOpenChange={setShowWorktimeLog}
           hospitalId={activeHospital.id}
+          hasKioskPin={(user as any)?.hasKioskPin ?? false}
         />
       )}
 
@@ -388,6 +389,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         currentPhone={(user as any)?.phone}
         currentBriefSignature={(user as any)?.briefSignature}
         currentTimebutlerUrl={(user as any)?.timebutlerIcsUrl}
+        hasKioskPin={(user as any)?.hasKioskPin ?? false}
       />
 
       <ChatDock 

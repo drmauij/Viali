@@ -1227,6 +1227,113 @@ router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isA
   }
 });
 
+// Kiosk token management
+router.get('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    res.json({
+      kioskToken: hospital.kioskToken || null
+    });
+  } catch (error) {
+    logger.error("Error fetching kiosk token:", error);
+    res.status(500).json({ message: "Failed to fetch kiosk token" });
+  }
+});
+
+router.post('/api/admin/:hospitalId/kiosk-token/generate', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { nanoid } = await import('nanoid');
+
+    const token = nanoid(24);
+    const hospital = await storage.setHospitalKioskToken(hospitalId, token);
+
+    res.json({
+      kioskToken: hospital.kioskToken
+    });
+  } catch (error) {
+    logger.error("Error generating kiosk token:", error);
+    res.status(500).json({ message: "Failed to generate kiosk token" });
+  }
+});
+
+router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    await storage.setHospitalKioskToken(hospitalId, null);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error deleting kiosk token:", error);
+    res.status(500).json({ message: "Failed to delete kiosk token" });
+  }
+});
+
+// Kiosk PIN management
+router.post('/api/admin/users/:userId/set-kiosk-pin', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { pin, hospitalId } = req.body;
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be exactly 4 digits" });
+    }
+
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some((h: any) => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    await storage.setUserKioskPin(userId, pin);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error setting kiosk PIN:", error);
+    res.status(500).json({ message: "Failed to set kiosk PIN" });
+  }
+});
+
+router.delete('/api/admin/users/:userId/kiosk-pin', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { hospitalId } = req.body;
+
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    await storage.clearUserKioskPin(userId);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error clearing kiosk PIN:", error);
+    res.status(500).json({ message: "Failed to clear kiosk PIN" });
+  }
+});
+
 // Admin file upload endpoint (for unit info flyers, etc.)
 router.post('/api/admin/:hospitalId/upload', isAuthenticated, isAdmin, async (req, res) => {
   try {

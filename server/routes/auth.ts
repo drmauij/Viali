@@ -262,10 +262,11 @@ router.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     
     const hospitals = await storage.getUserHospitals(userId);
     
-    const { passwordHash, ...sanitizedUser } = user;
-    
+    const { passwordHash, kioskPinHash, ...sanitizedUser } = user;
+
     res.json({
       ...sanitizedUser,
+      hasKioskPin: !!kioskPinHash,
       hospitals,
       mustChangePassword: user.mustChangePassword || false,
     });
@@ -469,6 +470,38 @@ router.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
     }
     logger.error("Error updating user profile:", error);
     res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
+// Self-service kiosk PIN management
+router.post('/api/user/kiosk-pin', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const pinSchema = z.object({
+      pin: z.string().regex(/^\d{4}$/, "PIN must be exactly 4 digits"),
+    });
+
+    const { pin } = pinSchema.parse(req.body);
+    await storage.setUserKioskPin(userId, pin);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ message: "PIN must be exactly 4 digits" });
+    }
+    logger.error("Error setting own kiosk PIN:", error);
+    res.status(500).json({ message: "Failed to set kiosk PIN" });
+  }
+});
+
+router.delete('/api/user/kiosk-pin', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    await storage.clearUserKioskPin(userId);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error clearing own kiosk PIN:", error);
+    res.status(500).json({ message: "Failed to clear kiosk PIN" });
   }
 });
 

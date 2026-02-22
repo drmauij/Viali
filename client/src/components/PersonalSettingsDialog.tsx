@@ -15,6 +15,7 @@ interface PersonalSettingsDialogProps {
   currentPhone?: string | null;
   currentBriefSignature?: string | null;
   currentTimebutlerUrl?: string | null;
+  hasKioskPin?: boolean;
 }
 
 export default function PersonalSettingsDialog({

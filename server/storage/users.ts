@@ -162,3 +162,70 @@ export async function updateUserPassword(userId: string, newPassword: string): P
 export async function deleteUser(userId: string): Promise<void> {
   await db.delete(users).where(eq(users.id, userId));
 }
+
+export async function setUserKioskPin(userId: string, pin: string): Promise<void> {
+  const bcrypt = await import('bcrypt');
+  const hashedPin = await bcrypt.hash(pin, 10);
+
+  await db
+    .update(users)
+    .set({ kioskPinHash: hashedPin, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+export async function clearUserKioskPin(userId: string): Promise<void> {
+  await db
+    .update(users)
+    .set({ kioskPinHash: null, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+export async function verifyUserKioskPin(userId: string, pin: string): Promise<boolean> {
+  const [user] = await db
+    .select({ kioskPinHash: users.kioskPinHash })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!user?.kioskPinHash) return false;
+
+  const bcrypt = await import('bcrypt');
+  return bcrypt.compare(pin, user.kioskPinHash);
+}
+
+export async function getKioskStaffList(hospitalId: string): Promise<{ id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null; hasPinSet: boolean }[]> {
+  const results = await db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      profileImageUrl: users.profileImageUrl,
+      kioskPinHash: users.kioskPinHash,
+    })
+    .from(users)
+    .innerJoin(userHospitalRoles, eq(users.id, userHospitalRoles.userId))
+    .where(
+      and(
+        eq(userHospitalRoles.hospitalId, hospitalId),
+        isNull(users.archivedAt)
+      )
+    )
+    .orderBy(asc(users.lastName), asc(users.firstName));
+
+  // Deduplicate by user ID (user may have multiple roles)
+  const seen = new Set<string>();
+  const deduped: typeof results = [];
+  for (const r of results) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id);
+      deduped.push(r);
+    }
+  }
+
+  return deduped.map(r => ({
+    id: r.id,
+    firstName: r.firstName,
+    lastName: r.lastName,
+    profileImageUrl: r.profileImageUrl,
+    hasPinSet: !!r.kioskPinHash,
+  }));
+}

@@ -205,6 +205,8 @@ export interface IStorage {
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined>;
   setHospitalQuestionnaireToken(hospitalId: string, token: string | null): Promise<Hospital>;
+  getHospitalByKioskToken(token: string): Promise<Hospital | undefined>;
+  setHospitalKioskToken(hospitalId: string, token: string | null): Promise<Hospital>;
   
   // Folder operations
   getFolders(hospitalId: string, unitId: string): Promise<Folder[]>;
@@ -314,7 +316,11 @@ export interface IStorage {
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
   updateUserPassword(userId: string, newPassword: string): Promise<void>;
   deleteUser(userId: string): Promise<void>;
-  
+  setUserKioskPin(userId: string, pin: string): Promise<void>;
+  clearUserKioskPin(userId: string): Promise<void>;
+  verifyUserKioskPin(userId: string, pin: string): Promise<boolean>;
+  getKioskStaffList(hospitalId: string): Promise<{ id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null; hasPinSet: boolean }[]>;
+
   // Controlled Checks
   createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
   getControlledChecks(hospitalId: string, unitId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
@@ -970,6 +976,10 @@ export class DatabaseStorage implements IStorage {
   updateUser = userStorage.updateUser;
   updateUserPassword = userStorage.updateUserPassword;
   deleteUser = userStorage.deleteUser;
+  setUserKioskPin = userStorage.setUserKioskPin;
+  clearUserKioskPin = userStorage.clearUserKioskPin;
+  verifyUserKioskPin = userStorage.verifyUserKioskPin;
+  getKioskStaffList = userStorage.getKioskStaffList;
 
   // ========== HOSPITAL OPERATIONS ==========
   getHospital = hospitalStorage.getHospital;
@@ -978,6 +988,8 @@ export class DatabaseStorage implements IStorage {
   updateHospital = hospitalStorage.updateHospital;
   getHospitalByQuestionnaireToken = hospitalStorage.getHospitalByQuestionnaireToken;
   setHospitalQuestionnaireToken = hospitalStorage.setHospitalQuestionnaireToken;
+  getHospitalByKioskToken = hospitalStorage.getHospitalByKioskToken;
+  setHospitalKioskToken = hospitalStorage.setHospitalKioskToken;
   getUnits = hospitalStorage.getUnits;
   getUnit = hospitalStorage.getUnit;
   createUnit = hospitalStorage.createUnit;

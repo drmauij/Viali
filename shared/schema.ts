@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   timebutlerIcsUrl: varchar("timebutler_ics_url"), // Personal Timebutler iCal export URL for syncing absences
   briefSignature: text("brief_signature"), // Multi-line professional signature block for discharge briefs
   adminNotes: text("admin_notes"),
+  kioskPinHash: varchar("kiosk_pin_hash"), // Hashed 4-digit PIN for public worktime kiosk
   archivedAt: timestamp("archived_at"), // Soft delete - archived users are hidden from lists but preserved for audit
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -83,6 +84,7 @@ export const hospitals = pgTable("hospitals", {
   questionnaireToken: varchar("questionnaire_token").unique(),
   contractToken: varchar("contract_token").unique(), // Token for public contract form links
   externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
+  kioskToken: varchar("kiosk_token").unique(), // Token for public worktime kiosk (PIN-authenticated)
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)

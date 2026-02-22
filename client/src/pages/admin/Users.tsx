@@ -173,6 +173,11 @@ export default function Users() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Kiosk PIN states
+  const [kioskPinDialogOpen, setKioskPinDialogOpen] = useState(false);
+  const [kioskPinUser, setKioskPinUser] = useState<User | null>(null);
+  const [kioskPin, setKioskPin] = useState("");
+
   // Existing user confirmation states
   const [existingUserDialogOpen, setExistingUserDialogOpen] = useState(false);
   const [existingUserInfo, setExistingUserInfo] = useState<User | null>(null);
@@ -459,6 +464,44 @@ export default function Users() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.passwordResetError"), variant: "destructive" });
+    },
+  });
+
+  // Set kiosk PIN mutation
+  const setKioskPinMutation = useMutation({
+    mutationFn: async ({ userId, pin }: { userId: string; pin: string }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${userId}/set-kiosk-pin`, {
+        pin,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      setKioskPinDialogOpen(false);
+      setKioskPinUser(null);
+      setKioskPin("");
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.kioskPinSet", "Kiosk PIN set successfully") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to set PIN", variant: "destructive" });
+    },
+  });
+
+  // Clear kiosk PIN mutation
+  const clearKioskPinMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/users/${userId}/kiosk-pin`, {
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.kioskPinCleared", "Kiosk PIN cleared") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to clear PIN", variant: "destructive" });
     },
   });
 
@@ -1545,8 +1588,8 @@ export default function Users() {
                 <p className="text-xs text-muted-foreground mt-1">{t("admin.hoursPerWeek", "Used for overtime balance calculation")}</p>
               </div>
 
-              {/* Change Password Button */}
-              <div className="border-t pt-4">
+              {/* Change Password & Kiosk PIN */}
+              <div className="border-t pt-4 flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   onClick={() => editingUserDetails && handleOpenChangePassword(editingUserDetails)}
@@ -1556,6 +1599,37 @@ export default function Users() {
                   <Key className="h-4 w-4 mr-2" />
                   {t("auth.changePassword")}
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (editingUserDetails) {
+                      setKioskPinUser(editingUserDetails);
+                      setKioskPin("");
+                      setKioskPinDialogOpen(true);
+                    }
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  <Key className="h-4 w-4 mr-2" />
+                  {editingUserDetails?.kioskPinHash
+                    ? t("admin.resetKioskPin", "Reset Kiosk PIN")
+                    : t("admin.setKioskPin", "Set Kiosk PIN")}
+                </Button>
+                {editingUserDetails?.kioskPinHash && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto text-destructive border-destructive/50 hover:bg-destructive/10"
+                    onClick={() => {
+                      if (editingUserDetails && confirm(t("admin.clearKioskPinConfirm", "Clear kiosk PIN for this user? They won't be able to use the kiosk until a new PIN is set."))) {
+                        clearKioskPinMutation.mutate(editingUserDetails.id);
+                      }
+                    }}
+                    disabled={clearKioskPinMutation.isPending}
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    {t("admin.clearKioskPin", "Clear PIN")}
+                  </Button>
+                )}
               </div>
 
               {/* Access Settings */}
@@ -1861,6 +1935,47 @@ export default function Users() {
                 onClick={handleChangePassword}
                 disabled={changePasswordMutation.isPending}
                 data-testid="button-save-password"
+              >
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Kiosk PIN Dialog */}
+      <Dialog open={kioskPinDialogOpen} onOpenChange={setKioskPinDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("admin.setKioskPin", "Set Kiosk PIN")}</DialogTitle>
+            <DialogDescription>
+              {kioskPinUser?.firstName} {kioskPinUser?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="kiosk-pin">{t("admin.kioskPinLabel", "4-digit PIN")} *</Label>
+              <Input
+                id="kiosk-pin"
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={kioskPin}
+                onChange={(e) => setKioskPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="0000"
+                className="text-center text-2xl tracking-[0.5em] font-mono"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setKioskPinDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!kioskPinUser || kioskPin.length !== 4) return;
+                  setKioskPinMutation.mutate({ userId: kioskPinUser.id, pin: kioskPin });
+                }}
+                disabled={setKioskPinMutation.isPending || kioskPin.length !== 4}
               >
                 {t("common.save")}
               </Button>

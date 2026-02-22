@@ -59,6 +59,7 @@ const ExternalWorklog = React.lazy(() => import("@/pages/ExternalWorklog"));
 const WorklogManagement = React.lazy(() => import("@/pages/WorklogManagement"));
 const UnitWorklogs = React.lazy(() => import("@/pages/UnitWorklogs"));
 const WorktimeKiosk = React.lazy(() => import("@/pages/clinic/WorktimeKiosk"));
+const PublicWorktimeKiosk = React.lazy(() => import("@/pages/PublicWorktimeKiosk"));
 const EditableValuesDemo = React.lazy(() => import("@/pages/EditableValuesDemo"));
 const ApiPlayground = React.lazy(() => import("@/pages/ApiPlayground"));
 const ClinicInvoices = React.lazy(() => import("@/pages/clinic/Invoices"));
@@ -163,6 +164,7 @@ function Router() {
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
           <Route path="/contract/:token" component={WorkerContractForm} />
           <Route path="/worklog/:token" component={ExternalWorklog} />
+          <Route path="/kiosk/:token" component={PublicWorktimeKiosk} />
           
           {!isAuthenticated ? (
             <>

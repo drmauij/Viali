@@ -14,13 +14,14 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 import { subDays } from "date-fns";
 import { formatDate, formatDateForInput } from "@/lib/dateUtils";
-import { Pencil, Trash2, Plus, Clock } from "lucide-react";
+import { Pencil, Trash2, Plus, Clock, Key, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface WorktimeLogDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hospitalId: string;
+  hasKioskPin?: boolean;
 }
 
 interface WorktimeLog {
@@ -52,7 +53,7 @@ function formatMinutes(minutes: number): string {
   return `${sign}${h}:${m.toString().padStart(2, "0")}`;
 }
 
-export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: WorktimeLogDialogProps) {
+export default function WorktimeLogDialog({ open, onOpenChange, hospitalId, hasKioskPin = false }: WorktimeLogDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -62,6 +63,9 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
   const fourteenDaysAgo = formatDateForInput(subDays(new Date(), 14));
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [kioskPin, setKioskPin] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
   const [formData, setFormData] = useState({
     workDate: today,
     timeStart: "08:00",
@@ -111,6 +115,36 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/hospitals", hospitalId, "worktime-logs"] });
+  };
+
+  const handleSetPin = async () => {
+    if (kioskPin.length !== 4) return;
+    setPinSaving(true);
+    try {
+      await apiRequest("POST", "/api/user/kiosk-pin", { pin: kioskPin });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: t("common.success"), description: t("settings.kioskPinSet", "Kiosk PIN set") });
+      setShowPinInput(false);
+      setKioskPin("");
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message || "Failed to set PIN", variant: "destructive" });
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
+  const handleClearPin = async () => {
+    if (!window.confirm(t("settings.clearKioskPinConfirm", "Clear your kiosk PIN? You won't be able to use the kiosk until you set a new one."))) return;
+    setPinSaving(true);
+    try {
+      await apiRequest("DELETE", "/api/user/kiosk-pin");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: t("common.success"), description: t("settings.kioskPinCleared", "Kiosk PIN cleared") });
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message || "Failed to clear PIN", variant: "destructive" });
+    } finally {
+      setPinSaving(false);
+    }
   };
 
   const createMutation = useMutation({
@@ -193,17 +227,61 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            {t("worktime.title", "Work Time")}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 overflow-hidden">
+        {/* Header — always visible */}
+        <div className="flex items-center justify-between">
+          <DialogHeader className="flex-1">
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {t("worktime.title", "Work Time")}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Kiosk PIN — compact, top right */}
+          <div className="flex items-center gap-2 mr-6">
+            {showPinInput ? (
+              <>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={kioskPin}
+                  onChange={(e) => setKioskPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="PIN"
+                  className="w-16 h-7 text-center text-xs tracking-[0.2em] font-mono"
+                />
+                <Button type="button" size="sm" variant="default" className="h-7 text-xs px-2" onClick={handleSetPin} disabled={pinSaving || kioskPin.length !== 4}>
+                  <Check className="h-3 w-3" />
+                </Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setShowPinInput(false); setKioskPin(""); }}>
+                  {t("common.cancel", "Cancel")}
+                </Button>
+              </>
+            ) : (
+              <>
+                {hasKioskPin && (
+                  <span className="text-green-600 flex items-center gap-1 text-xs">
+                    <Check className="h-3 w-3" />
+                    PIN
+                  </span>
+                )}
+                <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => setShowPinInput(true)}>
+                  <Key className="h-3 w-3 mr-1" />
+                  {hasKioskPin ? t("settings.changePin", "Change") : t("settings.setKioskPin", "Set PIN")}
+                </Button>
+                {hasKioskPin && (
+                  <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-1 text-destructive" onClick={handleClearPin} disabled={pinSaving}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Balance Summary */}
         {balance && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3 mt-4">
             <div className="rounded-lg border p-3 text-center">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("worktime.thisWeek", "This Week")}
@@ -242,8 +320,8 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
           </div>
         )}
 
-        {/* Entry List */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[280px] border rounded-lg">
+        {/* Scrollable entry list */}
+        <ScrollArea className="flex-1 min-h-0 max-h-[280px] border rounded-lg mt-4">
           <div className="divide-y">
             {entries.length === 0 ? (
               <div className="p-6 text-center text-muted-foreground text-sm">
@@ -290,8 +368,8 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
           </div>
         </ScrollArea>
 
-        {/* Quick Add / Edit Form */}
-        <form onSubmit={handleSubmit} className="border rounded-lg p-4 space-y-3">
+        {/* Footer — always visible */}
+        <form onSubmit={handleSubmit} className="border rounded-lg p-4 space-y-3 mt-4">
           <div className="flex items-center justify-between mb-1">
             <h4 className="text-sm font-medium">
               {editingId
@@ -370,6 +448,7 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId }: Wo
             </Button>
           </div>
         </form>
+
       </DialogContent>
     </Dialog>
   );

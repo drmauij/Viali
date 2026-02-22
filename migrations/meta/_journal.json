@@ -925,6 +925,13 @@
       "when": 1771700000000,
       "tag": "0131_worktime_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1771800000000,
+      "tag": "0132_public_worktime_kiosk",
+      "breakpoints": true
     }
   ]
 }
