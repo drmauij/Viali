@@ -6064,10 +6064,21 @@
     "statusRejected": "REJECTED",
     "pendingLabel": "(Pending)",
     "tabs": {
+      "planning": "Planning",
       "worklogs": "Work Logs",
       "contracts": "Contracts",
       "personalData": "Personal Data",
       "reports": "Reports"
+    },
+    "planning": {
+      "title": "Planning Calendar",
+      "description": "See your planned shifts for upcoming months.",
+      "noShifts": "No planned shifts this month.",
+      "notLinked": "Your email is not yet linked to a planning account. Please contact the hospital administration.",
+      "role": "Role",
+      "rooms": "Rooms",
+      "logTime": "Log time",
+      "recordTime": "Record Work Time"
     },
     "reports": {
       "title": "Work Reports",

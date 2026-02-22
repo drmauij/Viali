@@ -7,15 +7,13 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
-import { Loader2, CheckCircle, AlertCircle, Clock, Building2, FileText, PenLine, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check, Camera, Upload, CreditCard, Baby, Car, Image } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Clock, Building2, FileText, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check, Camera, Upload, CreditCard, Baby, Car, CalendarDays } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,9 +22,10 @@ import { de, enUS } from "date-fns/locale";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
 import { DateInput } from "@/components/ui/date-input";
-import { TimeInput } from "@/components/ui/time-input";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
+import PlanningCalendar from "@/components/PlanningCalendar";
+import WorklogEntryDialog from "@/components/WorklogEntryDialog";
 
 interface WorklogEntry {
   id: string;
@@ -100,6 +99,17 @@ interface PersonalData {
 // Shared utility — see client/src/lib/worktimeUtils.ts
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 
+// Map staff pool roles to worklog activity types
+const POOL_ROLE_TO_ACTIVITY: Record<string, "anesthesia_nurse" | "op_nurse" | "anesthesia_doctor" | "other"> = {
+  anesthesiaNurse: "anesthesia_nurse",
+  anesthesiologist: "anesthesia_doctor",
+  instrumentNurse: "op_nurse",
+  circulatingNurse: "op_nurse",
+  surgeon: "other",
+  surgicalAssistant: "other",
+  pacuNurse: "other",
+};
+
 const roleLabels: Record<string, { en: string; de: string; rate: string }> = {
   awr_nurse: { en: "Day Clinic Nurse (AWR)", de: "Tagesklinik Pflege (AWR-Nurse)", rate: "CHF 75.00/h" },
   anesthesia_nurse: { en: "Anesthesia Nurse", de: "Pflege-Anästhesist", rate: "CHF 80.00/h" },
@@ -125,12 +135,11 @@ export default function ExternalWorklog() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showWorklogDialog, setShowWorklogDialog] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
-  const [activeTab, setActiveTab] = useState("worklogs");
+  const [activeTab, setActiveTab] = useState("planning");
   const [reportWizardStep, setReportWizardStep] = useState(0);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
@@ -212,6 +221,20 @@ export default function ExternalWorklog() {
     const newLang = currentLang === "de" ? "en" : "de";
     i18n.changeLanguage(newLang);
     localStorage.setItem("language", newLang);
+  };
+
+  const handleAddWorklogFromCalendar = (date: string, poolRole: string) => {
+    const activityType = POOL_ROLE_TO_ACTIVITY[poolRole] || "other";
+    form.setValue("workDate", date);
+    form.setValue("activityType", activityType);
+    form.setValue("workerSignature", "");
+    setShowWorklogDialog(true);
+  };
+
+  const handleAddWorklogForDay = (date: string) => {
+    form.setValue("workDate", date);
+    form.setValue("workerSignature", "");
+    setShowWorklogDialog(true);
   };
 
   const fetchData = async () => {
@@ -320,8 +343,7 @@ export default function ExternalWorklog() {
         throw new Error(errorData.message || t("externalWorklog.errorSubmit"));
       }
       
-      setIsSubmitted(true);
-      setShowForm(false);
+      setShowWorklogDialog(false);
       form.reset({
         firstName: personalData.firstName,
         lastName: personalData.lastName,
@@ -993,7 +1015,12 @@ export default function ExternalWorklog() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1 dark:bg-gray-800 p-1">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 dark:bg-gray-800 p-1">
+            <TabsTrigger value="planning" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-planning">
+              <CalendarDays className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{t("externalWorklog.tabs.planning")}</span>
+              <span className="sm:hidden">{t("externalWorklog.tabs.planning")}</span>
+            </TabsTrigger>
             <TabsTrigger value="worklogs" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-worklogs">
               <History className="w-4 h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">{t("externalWorklog.tabs.worklogs")}</span>
@@ -1016,345 +1043,146 @@ export default function ExternalWorklog() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="worklogs" className="mt-4">
-            {!showForm ? (
-              <div className="space-y-6">
-                <Button 
-                  className="w-full py-6 text-base" 
-                  size="lg"
-                  onClick={() => setShowForm(true)}
-                  data-testid="button-new-entry"
-                >
-                  <Plus className="w-5 h-5 mr-2" />
-                  {t("externalWorklog.newEntry")}
-                </Button>
-
-                {sortedEntries.length > 0 && (
-                  <Card className="dark:bg-gray-800 dark:border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
-                        <History className="w-5 h-5" />
-                        {t("externalWorklog.myEntries")}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {sortedEntries.map((entry) => (
-                        <div 
-                          key={entry.id} 
-                          className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-750 dark:bg-gray-800/50"
-                          data-testid={`entry-row-${entry.id}`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <div className="font-medium dark:text-gray-100">
-                                {format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: dateLocale })}
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {entry.timeStart} - {entry.timeEnd} ({calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)} {t("externalWorklog.netHours")})
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {getStatusBadge(entry.status)}
-                              {entry.status === "pending" && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                      disabled={deletingId === entry.id}
-                                      data-testid={`button-delete-${entry.id}`}
-                                    >
-                                      {deletingId === entry.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Trash2 className="w-4 h-4" />
-                                      )}
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle className="dark:text-gray-100">{t("externalWorklog.confirmDeleteTitle")}</AlertDialogTitle>
-                                      <AlertDialogDescription className="dark:text-gray-400">
-                                        {t("externalWorklog.confirmDeleteMessage")}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel className="dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600">{t("common.cancel")}</AlertDialogCancel>
-                                      <AlertDialogAction 
-                                        onClick={() => handleDelete(entry.id)}
-                                        className="bg-red-600 hover:bg-red-700"
-                                      >
-                                        {t("common.delete")}
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {entry.notes && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{entry.notes}</p>
-                          )}
-                          
-                          {entry.status === "rejected" && entry.rejectionReason && (
-                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-400">
-                              {t("externalWorklog.reason")}: {entry.rejectionReason}
-                            </div>
-                          )}
-                          
-                          {entry.status === "countersigned" && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                              {t("externalWorklog.countersignedBy", { name: entry.countersignerName })}
-                              {entry.countersignedAt && (
-                                <> {t("externalWorklog.countersignedOn", { date: formatDateTime(new Date(entry.countersignedAt)) })}</>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
+          <TabsContent value="planning" className="mt-4">
+            <Card className="dark:bg-gray-800 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="dark:text-gray-100">{t("externalWorklog.planning.title")}</CardTitle>
+                <CardDescription className="dark:text-gray-400">{t("externalWorklog.planning.description")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {token && (
+                  <PlanningCalendar
+                    token={token}
+                    dateLocale={dateLocale}
+                    entries={linkInfo?.entries || []}
+                    onAddWorklog={handleAddWorklogFromCalendar}
+                    onAddWorklogForDay={handleAddWorklogForDay}
+                    onDeleteEntry={handleDelete}
+                    deletingId={deletingId}
+                  />
                 )}
-
-                {sortedEntries.length === 0 && !isSubmitted && (
-                  <Card className="dark:bg-gray-800 dark:border-gray-700">
-                    <CardContent className="py-8 text-center text-gray-500 dark:text-gray-400">
-                      <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                      <p>{t("externalWorklog.noEntries")}</p>
-                      <p className="text-sm mt-1">{t("externalWorklog.noEntriesHint")}</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            ) : (
-              <Card className="dark:bg-gray-800 dark:border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-lg dark:text-gray-100">{t("externalWorklog.recordTime")}</CardTitle>
-                  <CardDescription className="dark:text-gray-400">
-                    {t("externalWorklog.fillAllFields")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.firstName")}</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-firstname" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.lastName")}</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-lastname" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="workDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.workDate")}</FormLabel>
-                            <FormControl>
-                              <DateInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-workdate" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="timeStart"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.from")}</FormLabel>
-                              <FormControl>
-                                <TimeInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-timestart" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="timeEnd"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.to")}</FormLabel>
-                              <FormControl>
-                                <TimeInput value={field.value ?? ""} onChange={field.onChange} data-testid="input-timeend" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="pauseMinutes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.breakMinutes")}</FormLabel>
-                              <FormControl>
-                                <Input type="number" min={0} {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-pause" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="activityType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.activityType")} *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="select-activity-type">
-                                  <SelectValue placeholder={t("externalWorklog.activityTypeRequired")} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="anesthesia_nurse">{t("externalWorklog.activityTypes.anesthesia_nurse")}</SelectItem>
-                                <SelectItem value="op_nurse">{t("externalWorklog.activityTypes.op_nurse")}</SelectItem>
-                                <SelectItem value="springer_nurse">{t("externalWorklog.activityTypes.springer_nurse")}</SelectItem>
-                                <SelectItem value="anesthesia_doctor">{t("externalWorklog.activityTypes.anesthesia_doctor")}</SelectItem>
-                                <SelectItem value="other">{t("externalWorklog.activityTypes.other")}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{t("externalWorklog.netWorkTime")}: </span>
-                        <span className="font-semibold text-blue-700 dark:text-blue-400">{workHours}</span>
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="notes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.notesOptional")}</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder={t("externalWorklog.notesPlaceholder")}
-                                {...field} 
-                                className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                                data-testid="input-notes"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Separator className="dark:bg-gray-700" />
-
-                      <FormField
-                        control={form.control}
-                        name="workerSignature"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.signature")}</FormLabel>
-                            <FormControl>
-                              <div>
-                                {field.value ? (
-                                  <div className="border dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-700">
-                                    <img 
-                                      src={field.value} 
-                                      alt={t("externalWorklog.signature")} 
-                                      className="h-20 mx-auto"
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full mt-2 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-200"
-                                      onClick={() => setShowSignaturePad(true)}
-                                      data-testid="button-change-signature"
-                                    >
-                                      {t("externalWorklog.changeSignature")}
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                                    onClick={() => setShowSignaturePad(true)}
-                                    data-testid="button-add-signature"
-                                  >
-                                    <PenLine className="w-4 h-4 mr-2" />
-                                    {t("externalWorklog.addSignature")}
-                                  </Button>
-                                )}
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                          onClick={() => setShowForm(false)}
-                          disabled={isSubmitting}
-                          data-testid="button-cancel"
-                        >
-                          {t("externalWorklog.cancel")}
-                        </Button>
-                        <Button
-                          type="submit"
-                          className="flex-1"
-                          disabled={isSubmitting}
-                          data-testid="button-submit"
-                        >
-                          {isSubmitting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              {t("externalWorklog.submitting")}
-                            </>
-                          ) : (
-                            t("externalWorklog.submit")
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-            )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          <TabsContent value="contracts">
+          <TabsContent value="worklogs" className="mt-4">
+            <div className="space-y-6">
+              <Button
+                className="w-full py-6 text-base"
+                size="lg"
+                onClick={() => {
+                  form.setValue("workDate", format(new Date(), "yyyy-MM-dd"));
+                  form.setValue("workerSignature", "");
+                  setShowWorklogDialog(true);
+                }}
+                data-testid="button-new-entry"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                {t("externalWorklog.newEntry")}
+              </Button>
+
+              {sortedEntries.length > 0 && (
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
+                      <History className="w-5 h-5" />
+                      {t("externalWorklog.myEntries")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {sortedEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-750 dark:bg-gray-800/50"
+                        data-testid={`entry-row-${entry.id}`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-medium dark:text-gray-100">
+                              {format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: dateLocale })}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {entry.timeStart} - {entry.timeEnd} ({calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)} {t("externalWorklog.netHours")})
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(entry.status)}
+                            {entry.status === "pending" && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    disabled={deletingId === entry.id}
+                                    data-testid={`button-delete-${entry.id}`}
+                                  >
+                                    {deletingId === entry.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="dark:text-gray-100">{t("externalWorklog.confirmDeleteTitle")}</AlertDialogTitle>
+                                    <AlertDialogDescription className="dark:text-gray-400">
+                                      {t("externalWorklog.confirmDeleteMessage")}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600">{t("common.cancel")}</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(entry.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      {t("common.delete")}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </div>
+
+                        {entry.notes && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{entry.notes}</p>
+                        )}
+
+                        {entry.status === "rejected" && entry.rejectionReason && (
+                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-400">
+                            {t("externalWorklog.reason")}: {entry.rejectionReason}
+                          </div>
+                        )}
+
+                        {entry.status === "countersigned" && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            {t("externalWorklog.countersignedBy", { name: entry.countersignerName })}
+                            {entry.countersignedAt && (
+                              <> {t("externalWorklog.countersignedOn", { date: formatDateTime(new Date(entry.countersignedAt)) })}</>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {sortedEntries.length === 0 && (
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <p>{t("externalWorklog.noEntries")}</p>
+                    <p className="text-sm mt-1">{t("externalWorklog.noEntriesHint")}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="contracts" className="mt-4">
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
@@ -1419,7 +1247,7 @@ export default function ExternalWorklog() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="personal">
+          <TabsContent value="personal" className="mt-4">
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
@@ -2219,6 +2047,17 @@ export default function ExternalWorklog() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <WorklogEntryDialog
+        open={showWorklogDialog}
+        onOpenChange={setShowWorklogDialog}
+        form={form}
+        onSubmit={onSubmit}
+        isSubmitting={isSubmitting}
+        onOpenSignaturePad={() => setShowSignaturePad(true)}
+        workHours={workHours}
+        dateLocale={dateLocale}
+      />
 
       <SignaturePad
         isOpen={showSignaturePad}

@@ -2,12 +2,14 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { externalWorklogLinks, externalWorklogEntries, units, workerContracts } from "@shared/schema";
+import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms } from "@shared/schema";
 import { getActiveUnitIdFromRequest } from "../utils";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { ObjectStorageService } from "../objectStorage";
 import crypto from "crypto";
 import logger from "../logger";
+import { searchUserByEmail } from "../storage/users";
+import { materializeRulesForDate } from "../utils/staffPool";
 
 const router = Router();
 
@@ -705,6 +707,89 @@ router.get('/api/worklog/:token/contracts', async (req, res) => {
   } catch (error) {
     logger.error("Error fetching contracts:", error);
     res.status(500).json({ message: "Failed to fetch contracts" });
+  }
+});
+
+// Public route: Get planned shifts for a month (no auth required, uses token)
+router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const link = await storage.getExternalWorklogLinkByToken(token);
+
+    if (!link) {
+      return res.status(404).json({ message: "Invalid or expired link" });
+    }
+
+    if (!link.isActive) {
+      return res.status(410).json({ message: "This link has been deactivated" });
+    }
+
+    // Validate month param (YYYY-MM)
+    const month = req.query.month as string;
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: "month query param required (format: YYYY-MM)" });
+    }
+
+    // Look up user by email
+    const user = await searchUserByEmail(link.email.toLowerCase());
+    if (!user) {
+      return res.json({ shifts: [], userLinked: false });
+    }
+
+    // Compute date range for the month
+    const [yearStr, monthStr] = month.split('-');
+    const year = parseInt(yearStr, 10);
+    const mon = parseInt(monthStr, 10);
+    const firstDay = `${year}-${String(mon).padStart(2, '0')}-01`;
+    const lastDayDate = new Date(year, mon, 0); // last day of month
+    const lastDay = `${year}-${String(mon).padStart(2, '0')}-${String(lastDayDate.getDate()).padStart(2, '0')}`;
+
+    // Materialize rules for each day in the month
+    for (let d = 1; d <= lastDayDate.getDate(); d++) {
+      const dateStr = `${year}-${String(mon).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      await materializeRulesForDate(link.hospitalId, dateStr);
+    }
+
+    // Query shifts for this user in the date range
+    const poolEntries = await db
+      .select({
+        id: dailyStaffPool.id,
+        date: dailyStaffPool.date,
+        role: dailyStaffPool.role,
+      })
+      .from(dailyStaffPool)
+      .where(
+        and(
+          eq(dailyStaffPool.hospitalId, link.hospitalId),
+          eq(dailyStaffPool.userId, user.id),
+          gte(dailyStaffPool.date, firstDay),
+          lte(dailyStaffPool.date, lastDay)
+        )
+      );
+
+    // Fetch room assignments for each entry
+    const shifts = await Promise.all(
+      poolEntries.map(async (entry) => {
+        const roomAssignments = await db
+          .select({
+            roomName: surgeryRooms.name,
+          })
+          .from(dailyRoomStaff)
+          .innerJoin(surgeryRooms, eq(dailyRoomStaff.surgeryRoomId, surgeryRooms.id))
+          .where(eq(dailyRoomStaff.dailyStaffPoolId, entry.id));
+
+        return {
+          date: entry.date,
+          role: entry.role,
+          roomAssignments: roomAssignments.map(r => ({ roomName: r.roomName })),
+        };
+      })
+    );
+
+    res.json({ shifts, userLinked: true });
+  } catch (error) {
+    logger.error("Error fetching planned shifts:", error);
+    res.status(500).json({ message: "Failed to fetch planned shifts" });
   }
 });
 

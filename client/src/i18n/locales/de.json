@@ -6165,10 +6165,21 @@
     "statusRejected": "ABGELEHNT",
     "pendingLabel": "(Ausstehend)",
     "tabs": {
+      "planning": "Planung",
       "worklogs": "Arbeitszeiten",
       "contracts": "Verträge",
       "personalData": "Persönliche Daten",
       "reports": "Berichte"
+    },
+    "planning": {
+      "title": "Planungskalender",
+      "description": "Sehen Sie Ihre geplanten Einsätze für die kommenden Monate.",
+      "noShifts": "Keine geplanten Einsätze in diesem Monat.",
+      "notLinked": "Ihre E-Mail ist noch nicht mit einem Planungskonto verknüpft. Bitte kontaktieren Sie die Spitalverwaltung.",
+      "role": "Rolle",
+      "rooms": "Säle",
+      "logTime": "Zeit erfassen",
+      "recordTime": "Arbeitszeit erfassen"
     },
     "reports": {
       "title": "Arbeitsberichte",
