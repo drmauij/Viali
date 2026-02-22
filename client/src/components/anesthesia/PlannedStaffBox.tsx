@@ -27,6 +27,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import StaffRecurrenceDialog from './StaffRecurrenceDialog';
+import StaffManagementDialog from './StaffManagementDialog';
 
 type StaffRole = 
   | "surgeon"
@@ -53,6 +54,8 @@ export interface StaffPoolEntry {
   assignedSurgeryIds: string[];
   assignedRooms: Array<{ roomId: string; roomName: string }>;
   isBooked: boolean;
+  canLogin?: boolean | null;
+  email?: string | null;
 }
 
 export const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: string; colorClass: string; bgClass: string }> = {
@@ -218,6 +221,15 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
   const queryClient = useQueryClient();
   
   const [recurrenceDialogStaff, setRecurrenceDialogStaff] = useState<StaffPoolEntry | null>(null);
+  const [managementDialogStaff, setManagementDialogStaff] = useState<StaffPoolEntry | null>(null);
+
+  const handleStaffClick = useCallback((staff: StaffPoolEntry) => {
+    if (staff.canLogin === false && staff.userId) {
+      setManagementDialogStaff(staff);
+    } else {
+      setRecurrenceDialogStaff(staff);
+    }
+  }, []);
 
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(() => {
     const saved = sessionStorage.getItem(STAFF_FILTER_KEY);
@@ -373,7 +385,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
                   staff={staff}
                   onRemove={handleRemoveStaff}
                   availability={staffAvailability[staff.userId || '']}
-                  onClick={setRecurrenceDialogStaff}
+                  onClick={handleStaffClick}
                 />
               ))}
             </div>
@@ -391,6 +403,15 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
         open={!!recurrenceDialogStaff}
         onOpenChange={(open) => { if (!open) setRecurrenceDialogStaff(null); }}
         staff={recurrenceDialogStaff}
+        hospitalId={hospitalId}
+        selectedDate={selectedDate}
+      />
+    )}
+    {managementDialogStaff && (
+      <StaffManagementDialog
+        open={!!managementDialogStaff}
+        onOpenChange={(open) => { if (!open) setManagementDialogStaff(null); }}
+        staff={managementDialogStaff}
         hospitalId={hospitalId}
         selectedDate={selectedDate}
       />

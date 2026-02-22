@@ -6030,7 +6030,22 @@
     "existingRules": "Aktive Regeln",
     "noRules": "Keine wiederkehrenden Regeln",
     "ruleCreated": "Wiederkehrende Regel erstellt",
-    "ruleDeleted": "Wiederkehrende Regel entfernt"
+    "ruleDeleted": "Wiederkehrende Regel entfernt",
+    "workerInfo": "Mitarbeiter-Info",
+    "recurringPlanning": "Wiederkehrende Planung",
+    "emailLocalWarning": "Automatisch generierte E-Mail — bitte echte E-Mail-Adresse hinterlegen",
+    "saveEmail": "E-Mail speichern",
+    "emailUpdated": "E-Mail aktualisiert",
+    "adminRequiredForEmail": "Admin-Zugang erforderlich, um E-Mail zu ändern",
+    "worklogLinkStatus": "Arbeitszeit-Link",
+    "noWorklogLink": "Für diese E-Mail existiert noch kein Arbeitszeit-Link",
+    "createWorklogLink": "Link erstellen & senden",
+    "copyLink": "Kopieren",
+    "resendEmail": "Erneut senden",
+    "linkSent": "Arbeitszeit-Link E-Mail gesendet",
+    "linkCopied": "Arbeitszeit-Link in die Zwischenablage kopiert",
+    "linkCreated": "Arbeitszeit-Link erstellt und E-Mail gesendet",
+    "linkAlreadyExists": "Ein Arbeitszeit-Link existiert bereits für diese E-Mail"
   },
   "todoList": {
     "title": "To-Do",

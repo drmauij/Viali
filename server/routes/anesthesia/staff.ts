@@ -515,6 +515,8 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, requireStrictHo
         createdBy: dailyStaffPool.createdBy,
         createdAt: dailyStaffPool.createdAt,
         staffType: users.staffType,
+        canLogin: users.canLogin,
+        email: users.email,
       })
       .from(dailyStaffPool)
       .leftJoin(users, eq(dailyStaffPool.userId, users.id))

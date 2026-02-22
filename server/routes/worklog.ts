@@ -285,6 +285,40 @@ router.post('/api/worklog/resend', async (req, res) => {
   }
 });
 
+// Lookup worklog links by email for a hospital (authenticated)
+router.get('/api/hospitals/:hospitalId/worklog/links/by-email', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: "Email query parameter is required" });
+    }
+
+    const links = await db
+      .select({
+        id: externalWorklogLinks.id,
+        unitId: externalWorklogLinks.unitId,
+        hospitalId: externalWorklogLinks.hospitalId,
+        email: externalWorklogLinks.email,
+        token: externalWorklogLinks.token,
+        isActive: externalWorklogLinks.isActive,
+        unitName: units.name,
+      })
+      .from(externalWorklogLinks)
+      .innerJoin(units, eq(externalWorklogLinks.unitId, units.id))
+      .where(and(
+        eq(externalWorklogLinks.hospitalId, hospitalId),
+        eq(externalWorklogLinks.email, email.toLowerCase())
+      ));
+
+    res.json(links);
+  } catch (error) {
+    logger.error("Error fetching worklog links by email:", error);
+    res.status(500).json({ message: "Failed to fetch worklog links" });
+  }
+});
+
 // Get distinct workers who have worklog links for this hospital (authenticated)
 router.get('/api/hospitals/:hospitalId/worklog/workers', isAuthenticated, async (req: any, res) => {
   try {

@@ -5929,7 +5929,22 @@
     "existingRules": "Active Rules",
     "noRules": "No recurring rules set",
     "ruleCreated": "Recurring rule created",
-    "ruleDeleted": "Recurring rule removed"
+    "ruleDeleted": "Recurring rule removed",
+    "workerInfo": "Worker Info",
+    "recurringPlanning": "Recurring Planning",
+    "emailLocalWarning": "Auto-generated email — please add a real email address",
+    "saveEmail": "Save Email",
+    "emailUpdated": "Email updated",
+    "adminRequiredForEmail": "Admin access required to change email",
+    "worklogLinkStatus": "Worklog Link",
+    "noWorklogLink": "No worklog link exists for this email yet",
+    "createWorklogLink": "Create & Send Link",
+    "copyLink": "Copy",
+    "resendEmail": "Resend",
+    "linkSent": "Worklog link email sent",
+    "linkCopied": "Worklog link copied to clipboard",
+    "linkCreated": "Worklog link created and email sent",
+    "linkAlreadyExists": "A worklog link already exists for this email"
   },
   "todoList": {
     "title": "To-Do",

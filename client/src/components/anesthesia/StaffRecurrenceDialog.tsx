@@ -37,6 +37,13 @@ interface StaffRecurrenceDialogProps {
   selectedDate: Date;
 }
 
+export interface StaffRecurrenceContentProps {
+  staff: StaffPoolEntry;
+  hospitalId: string;
+  selectedDate: Date;
+  onClose: () => void;
+}
+
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LABELS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
@@ -57,7 +64,7 @@ function describeRule(rule: StaffPoolRule, dayLabels: string[]): string {
   return rule.recurrencePattern;
 }
 
-export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospitalId, selectedDate }: StaffRecurrenceDialogProps) {
+export function StaffRecurrenceContent({ staff, hospitalId, selectedDate, onClose }: StaffRecurrenceContentProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -88,7 +95,6 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
       }
       return allRules;
     },
-    enabled: open,
   });
 
   const createMutation = useMutation({
@@ -113,7 +119,7 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
       queryClient.invalidateQueries({ queryKey: ['/api/staff-pool'] });
       queryClient.invalidateQueries({ queryKey: ['/api/staff-pool-rules'] });
       toast({ title: t('common.success'), description: t('staffPool.ruleCreated') });
-      onOpenChange(false);
+      onClose();
     },
     onError: () => {
       toast({ title: t('common.error'), description: t('staffPool.planError'), variant: 'destructive' });
@@ -169,6 +175,167 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
     (pattern === 'monthly' && selectedMonthDays.length > 0);
 
   return (
+    <div className="space-y-4">
+      {/* Staff info */}
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{staff.name}</span>
+        <Badge variant="secondary" className={`text-xs ${config?.bgClass}`}>
+          {t(config?.labelKey || '')}
+        </Badge>
+      </div>
+
+      {/* Existing rules */}
+      {rules.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">{t('staffPool.existingRules')}</Label>
+          {rules.map(rule => (
+            <div key={rule.id} className="flex items-center justify-between p-2 rounded border bg-muted/30">
+              <div className="flex items-center gap-2 text-sm">
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{describeRule(rule, dayLabels)}</span>
+                {rule.endDate && (
+                  <span className="text-xs text-muted-foreground">
+                    → {formatShortDate(new Date(rule.endDate + 'T12:00:00'))}
+                  </span>
+                )}
+              </div>
+              {confirmDeleteId === rule.id ? (
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-6 text-xs px-2"
+                    onClick={() => deleteMutation.mutate(rule.id)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {t('common.confirm')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-xs px-2"
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs px-1 text-destructive hover:text-destructive"
+                  onClick={() => setConfirmDeleteId(rule.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Create new rule */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">{t('staffPool.createRule')}</Label>
+
+        {/* Pattern selection */}
+        <div className="flex gap-1">
+          {(['daily', 'weekly', 'monthly'] as const).map(p => (
+            <Button
+              key={p}
+              size="sm"
+              variant={pattern === p ? 'default' : 'outline'}
+              className="h-7 text-xs flex-1"
+              onClick={() => setPattern(p)}
+            >
+              {t(`staffPool.pattern${p.charAt(0).toUpperCase() + p.slice(1)}`)}
+            </Button>
+          ))}
+        </div>
+
+        {/* Weekly day toggles */}
+        {pattern === 'weekly' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">{t('staffPool.daysOfWeek')}</Label>
+            <div className="flex gap-1">
+              {dayLabels.map((label, i) => (
+                <Button
+                  key={i}
+                  size="sm"
+                  variant={selectedDays.includes(i) ? 'default' : 'outline'}
+                  className="h-7 w-9 text-xs p-0"
+                  onClick={() => toggleDay(i)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Monthly day selection */}
+        {pattern === 'monthly' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">{t('staffPool.daysOfMonth')}</Label>
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                <Button
+                  key={day}
+                  size="sm"
+                  variant={selectedMonthDays.includes(day) ? 'default' : 'outline'}
+                  className="h-7 text-xs p-0"
+                  onClick={() => toggleMonthDay(day)}
+                >
+                  {day}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">{t('staffPool.startDate')}</Label>
+            <DateInput
+              value={startDate}
+              onChange={(v) => setStartDate(v)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">{t('staffPool.endDate')}</Label>
+            <DateInput
+              value={endDate}
+              onChange={(v) => setEndDate(v)}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+
+        {/* Preview */}
+        <p className="text-xs text-muted-foreground italic">{previewText}</p>
+
+        {/* Create button */}
+        <Button
+          onClick={() => createMutation.mutate()}
+          disabled={!canCreate || createMutation.isPending}
+          className="w-full h-8 text-sm"
+        >
+          <Repeat className="h-3.5 w-3.5 mr-1.5" />
+          {t('staffPool.createRule')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospitalId, selectedDate }: StaffRecurrenceDialogProps) {
+  const { t } = useTranslation();
+
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -177,161 +344,12 @@ export default function StaffRecurrenceDialog({ open, onOpenChange, staff, hospi
             {t('staffPool.recurringRule')}
           </DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Staff info */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{staff.name}</span>
-            <Badge variant="secondary" className={`text-xs ${config?.bgClass}`}>
-              {t(config?.labelKey || '')}
-            </Badge>
-          </div>
-
-          {/* Existing rules */}
-          {rules.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">{t('staffPool.existingRules')}</Label>
-              {rules.map(rule => (
-                <div key={rule.id} className="flex items-center justify-between p-2 rounded border bg-muted/30">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{describeRule(rule, dayLabels)}</span>
-                    {rule.endDate && (
-                      <span className="text-xs text-muted-foreground">
-                        → {formatShortDate(new Date(rule.endDate + 'T12:00:00'))}
-                      </span>
-                    )}
-                  </div>
-                  {confirmDeleteId === rule.id ? (
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-6 text-xs px-2"
-                        onClick={() => deleteMutation.mutate(rule.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        {t('common.confirm')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-xs px-2"
-                        onClick={() => setConfirmDeleteId(null)}
-                      >
-                        {t('common.cancel')}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs px-1 text-destructive hover:text-destructive"
-                      onClick={() => setConfirmDeleteId(rule.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Create new rule */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">{t('staffPool.createRule')}</Label>
-
-            {/* Pattern selection */}
-            <div className="flex gap-1">
-              {(['daily', 'weekly', 'monthly'] as const).map(p => (
-                <Button
-                  key={p}
-                  size="sm"
-                  variant={pattern === p ? 'default' : 'outline'}
-                  className="h-7 text-xs flex-1"
-                  onClick={() => setPattern(p)}
-                >
-                  {t(`staffPool.pattern${p.charAt(0).toUpperCase() + p.slice(1)}`)}
-                </Button>
-              ))}
-            </div>
-
-            {/* Weekly day toggles */}
-            {pattern === 'weekly' && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('staffPool.daysOfWeek')}</Label>
-                <div className="flex gap-1">
-                  {dayLabels.map((label, i) => (
-                    <Button
-                      key={i}
-                      size="sm"
-                      variant={selectedDays.includes(i) ? 'default' : 'outline'}
-                      className="h-7 w-9 text-xs p-0"
-                      onClick={() => toggleDay(i)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Monthly day selection */}
-            {pattern === 'monthly' && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('staffPool.daysOfMonth')}</Label>
-                <div className="grid grid-cols-7 gap-1">
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                    <Button
-                      key={day}
-                      size="sm"
-                      variant={selectedMonthDays.includes(day) ? 'default' : 'outline'}
-                      className="h-7 text-xs p-0"
-                      onClick={() => toggleMonthDay(day)}
-                    >
-                      {day}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">{t('staffPool.startDate')}</Label>
-                <DateInput
-                  value={startDate}
-                  onChange={(v) => setStartDate(v)}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t('staffPool.endDate')}</Label>
-                <DateInput
-                  value={endDate}
-                  onChange={(v) => setEndDate(v)}
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Preview */}
-            <p className="text-xs text-muted-foreground italic">{previewText}</p>
-
-            {/* Create button */}
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={!canCreate || createMutation.isPending}
-              className="w-full h-8 text-sm"
-            >
-              <Repeat className="h-3.5 w-3.5 mr-1.5" />
-              {t('staffPool.createRule')}
-            </Button>
-          </div>
-        </div>
+        <StaffRecurrenceContent
+          staff={staff}
+          hospitalId={hospitalId}
+          selectedDate={selectedDate}
+          onClose={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );
