@@ -285,6 +285,30 @@ router.post('/api/worklog/resend', async (req, res) => {
   }
 });
 
+// Get staff-only users (canLogin=false) for a hospital — used to pick existing staff when creating worklog links
+router.get('/api/hospitals/:hospitalId/worklog/staff-users', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+
+    const staffUsers = hospitalUsers
+      .filter(hu => hu.user.canLogin === false)
+      .map(hu => ({
+        id: hu.user.id,
+        name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
+        email: hu.user.email,
+        canLogin: hu.user.canLogin,
+      }));
+
+    // Deduplicate by user id (a user may appear in multiple units)
+    const unique = Array.from(new Map(staffUsers.map(u => [u.id, u])).values());
+    res.json(unique);
+  } catch (error) {
+    logger.error("Error fetching staff users for worklog:", error);
+    res.status(500).json({ message: "Failed to fetch staff users" });
+  }
+});
+
 // Lookup worklog links by email for a hospital (authenticated)
 router.get('/api/hospitals/:hospitalId/worklog/links/by-email', isAuthenticated, async (req: any, res) => {
   try {
