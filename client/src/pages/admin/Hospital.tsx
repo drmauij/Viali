@@ -183,7 +183,7 @@ export default function Hospital() {
   });
 
   // External surgery token query
-  const { data: externalSurgeryTokenData } = useQuery<{ token: string | null }>({
+  const { data: externalSurgeryTokenData } = useQuery<{ token: string | null; notificationEmail: string | null }>({
     queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`],
     enabled: !!activeHospital?.id && isAdmin,
   });
@@ -197,6 +197,12 @@ export default function Hospital() {
   // Questionnaire link state
   const [linkCopied, setLinkCopied] = useState(false);
   const [externalSurgeryLinkCopied, setExternalSurgeryLinkCopied] = useState(false);
+
+  // External surgery notification email state
+  const [notificationEmail, setNotificationEmail] = useState('');
+  useEffect(() => {
+    setNotificationEmail(externalSurgeryTokenData?.notificationEmail || '');
+  }, [externalSurgeryTokenData?.notificationEmail]);
 
   // Determine if we need to poll for job updates
   const hasActiveJob = Array.isArray(priceSyncJobs) && priceSyncJobs.some((j: any) => j.status === 'queued' || j.status === 'processing');
@@ -490,6 +496,22 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || "Failed to disable link", variant: "destructive" });
+    },
+  });
+
+  // External surgery notification email mutation
+  const saveNotificationEmailMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { externalSurgeryNotificationEmail: email });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      toast({ title: t("common.success"), description: t("admin.notificationEmailSaved", "Notification email saved") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to save notification email", variant: "destructive" });
     },
   });
 
@@ -1739,6 +1761,39 @@ export default function Hospital() {
                   </Button>
                 </div>
               )}
+
+              {/* Notification Email */}
+              <div className="border-t border-border pt-4 space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  {t("admin.notificationEmailLabel", "Notification Email")}
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.notificationEmailDescription", "When set, new external surgery requests are sent to this email instead of all OR admins.")}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="email"
+                    value={notificationEmail}
+                    onChange={(e) => setNotificationEmail(e.target.value)}
+                    placeholder={t("admin.notificationEmailPlaceholder", "e.g. op-planung@spital.ch")}
+                    className="flex-1"
+                    data-testid="input-notification-email"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => saveNotificationEmailMutation.mutate(notificationEmail)}
+                    disabled={saveNotificationEmailMutation.isPending || notificationEmail === (externalSurgeryTokenData?.notificationEmail || '')}
+                    data-testid="button-save-notification-email"
+                  >
+                    {saveNotificationEmailMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    {t("common.save", "Save")}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 

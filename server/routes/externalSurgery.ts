@@ -164,6 +164,32 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
 
     (async () => {
       try {
+        const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+        const deepLinkUrl = `${baseUrl}/anesthesia/op?openRequests=true`;
+        const patientName = parsed.data.isReservationOnly
+          ? 'Slot Reservation (no patient)'
+          : `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
+        const surgeonName = `Dr. ${parsed.data.surgeonLastName}, ${parsed.data.surgeonFirstName}`;
+        const wishedDate = parsed.data.wishedDate || '';
+
+        // If a dedicated notification email is configured, send to that address only
+        if (result.hospital.externalSurgeryNotificationEmail) {
+          sendExternalSurgeryRequestNotification(
+            result.hospital.externalSurgeryNotificationEmail,
+            result.hospital.name,
+            result.hospital.name,
+            patientName,
+            parsed.data.surgeryName || 'Slot Reservation',
+            surgeonName,
+            wishedDate,
+            deepLinkUrl,
+            'de'
+          ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to configured email', result.hospital.externalSurgeryNotificationEmail, err));
+          logger.info(`[ExternalSurgery] Sent notification to configured email ${result.hospital.externalSurgeryNotificationEmail} for hospital ${result.hospital.name}`);
+          return;
+        }
+
+        // Fallback: notify all OR admins
         const orAdmins = await db
           .select({
             email: users.email,
@@ -185,14 +211,6 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
           logger.info('[ExternalSurgery] No OR-admin users found for hospital', result.hospital.id);
           return;
         }
-
-        const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
-        const deepLinkUrl = `${baseUrl}/anesthesia/op?openRequests=true`;
-        const patientName = parsed.data.isReservationOnly
-          ? 'Slot Reservation (no patient)'
-          : `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
-        const surgeonName = `Dr. ${parsed.data.surgeonLastName}, ${parsed.data.surgeonFirstName}`;
-        const wishedDate = parsed.data.wishedDate || '';
 
         for (const admin of orAdmins) {
           if (!admin.email) continue;
@@ -650,7 +668,7 @@ router.get('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated,
       return res.status(404).json({ message: "Hospital not found" });
     }
     
-    res.json({ token: hospital.externalSurgeryToken || null });
+    res.json({ token: hospital.externalSurgeryToken || null, notificationEmail: hospital.externalSurgeryNotificationEmail || null });
   } catch (error) {
     logger.error("Error fetching token:", error);
     res.status(500).json({ message: "Failed to fetch token" });

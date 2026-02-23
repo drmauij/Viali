@@ -21,6 +21,7 @@ const updateHospitalSchema = z.object({
   companyFax: z.string().optional(),
   companyEmail: z.string().email().optional().or(z.literal('')),
   companyLogoUrl: z.string().optional(),
+  externalSurgeryNotificationEmail: z.string().email().optional().or(z.literal('')),
   questionnaireDisabled: z.boolean().optional(),
   preSurgeryReminderDisabled: z.boolean().optional(),
   currency: z.enum(["CHF", "EUR", "USD"]).optional(),

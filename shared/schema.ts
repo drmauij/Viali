@@ -84,6 +84,7 @@ export const hospitals = pgTable("hospitals", {
   questionnaireToken: varchar("questionnaire_token").unique(),
   contractToken: varchar("contract_token").unique(), // Token for public contract form links
   externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
+  externalSurgeryNotificationEmail: varchar("external_surgery_notification_email"), // Email to notify on new external surgery requests (fallback: OR admins)
   kioskToken: varchar("kiosk_token").unique(), // Token for public worktime kiosk (PIN-authenticated)
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
