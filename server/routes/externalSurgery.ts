@@ -461,18 +461,14 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     const surgeryUnit = allUnits.find(u => u.type === 'or');
     const surgeryUnitId = surgeryUnit?.id || unitId;
     
-    // Check if a user with matching email + firstName + lastName already exists
-    const existingSurgeon = await storage.findUserByEmailAndName(
-      request.surgeonEmail,
-      request.surgeonFirstName,
-      request.surgeonLastName
-    );
-    
+    // Look up by email first (email has a unique constraint, so it's the reliable key)
+    const existingSurgeon = await storage.searchUserByEmail(request.surgeonEmail);
+
     if (existingSurgeon) {
       surgeonUserId = existingSurgeon.id;
       // Ensure they're assigned to this hospital's surgery unit as a doctor
       const hospitalUsers = await storage.getHospitalUsers(request.hospitalId);
-      const hasRoleInSurgeryUnit = hospitalUsers.some(hu => 
+      const hasRoleInSurgeryUnit = hospitalUsers.some(hu =>
         hu.userId === existingSurgeon.id && hu.unitId === surgeryUnitId && hu.role === 'doctor'
       );
       if (!hasRoleInSurgeryUnit) {
@@ -500,7 +496,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         canLogin: false, // External surgeons don't need app access by default
       });
       surgeonUserId = newSurgeon.id;
-      
+
       // Add them to surgery unit with doctor role
       await storage.createUserHospitalRole({
         userId: newSurgeon.id,
