@@ -576,9 +576,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     const preOpData = preOpMap.get(surgeryId);
     if (!preOpData) return '-';
 
-    if (preOpData.standBy) return 'Stand-by';
-
     const parts: string[] = [];
+
+    if (preOpData.standBy) parts.push('Stand-by');
 
     // ASA classification
     if (preOpData.asa) parts.push(`ASA ${preOpData.asa}`);
