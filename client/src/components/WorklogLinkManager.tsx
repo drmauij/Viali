@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Plus, Copy, Check, Send, Trash2, Link as LinkIcon, Mail, User, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Copy, Check, Send, Trash2, Link as LinkIcon, Mail, User, AlertTriangle, Search } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 
 interface WorklogLink {
@@ -45,6 +45,9 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
   const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
   const [staffSearchInput, setStaffSearchInput] = useState("");
   const [emailOverride, setEmailOverride] = useState("");
+  const [sendingLinkId, setSendingLinkId] = useState<string | null>(null);
+  const [deletingLinkId, setDeletingLinkId] = useState<string | null>(null);
+  const [linkSearchQuery, setLinkSearchQuery] = useState("");
 
   const { data: worklogLinks = [], isLoading } = useQuery<WorklogLink[]>({
     queryKey: [`/api/hospitals/${hospitalId}/worklog/links`],
@@ -65,6 +68,15 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       (s.email && s.email.toLowerCase().includes(q))
     );
   }, [staffUsers, staffSearchInput]);
+
+  const filteredLinks = useMemo(() => {
+    if (!linkSearchQuery.trim()) return worklogLinks;
+    const q = linkSearchQuery.toLowerCase();
+    return worklogLinks.filter(link =>
+      link.email.toLowerCase().includes(q) ||
+      (link.unitName && link.unitName.toLowerCase().includes(q))
+    );
+  }, [worklogLinks, linkSearchQuery]);
 
   const isAutoEmail = (email: string | null) => email?.endsWith('@staff.local');
 
@@ -104,6 +116,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
 
   const sendLinkMutation = useMutation({
     mutationFn: async ({ linkId }: { linkId: string }) => {
+      setSendingLinkId(linkId);
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/links/${linkId}/send`, {});
     },
     onSuccess: () => {
@@ -119,10 +132,14 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      setSendingLinkId(null);
+    },
   });
 
   const deleteLinkMutation = useMutation({
     mutationFn: async ({ linkId }: { linkId: string }) => {
+      setDeletingLinkId(linkId);
       return apiRequest('DELETE', `/api/hospitals/${hospitalId}/worklog/links/${linkId}`, {});
     },
     onSuccess: () => {
@@ -138,6 +155,9 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
         description: error.message || t('worklogs.linkDeleteFailed'),
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      setDeletingLinkId(null);
     },
   });
 
@@ -232,7 +252,24 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
           </div>
         ) : (
           <div className="space-y-3">
-            {worklogLinks.map((link) => (
+            {worklogLinks.length > 1 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('worklogs.searchLinks', 'Search by email...')}
+                  value={linkSearchQuery}
+                  onChange={(e) => setLinkSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-links"
+                />
+              </div>
+            )}
+            {filteredLinks.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>{t('common.noResults', 'No results found')}</p>
+              </div>
+            ) : filteredLinks.map((link) => (
               <div
                 key={link.id}
                 className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -267,22 +304,30 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                     size="icon"
                     variant="ghost"
                     onClick={() => sendLinkMutation.mutate({ linkId: link.id })}
-                    disabled={sendLinkMutation.isPending}
+                    disabled={sendingLinkId === link.id}
                     title={t('worklogs.resendLink')}
                     data-testid={`button-send-link-${link.id}`}
                   >
-                    <Send className="w-4 h-4" />
+                    {sendingLinkId === link.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </Button>
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => deleteLinkMutation.mutate({ linkId: link.id })}
-                    disabled={deleteLinkMutation.isPending}
+                    disabled={deletingLinkId === link.id}
                     title={t('worklogs.deleteLink')}
                     className="text-destructive hover:text-destructive"
                     data-testid={`button-delete-link-${link.id}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {deletingLinkId === link.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </Button>
                 </div>
               </div>
