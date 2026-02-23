@@ -16,3 +16,6 @@ logs/
 # Production config with secrets - DO NOT COMMIT
 ecosystem.config.cjs
 .env
+
+# Worktrees
+.worktrees/
