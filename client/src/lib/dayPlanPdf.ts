@@ -285,7 +285,9 @@ export const defaultColumns = {
         positionText = '\n' + parts.join(' | ');
       }
 
-      return surgeryText + surgeonText + positionText;
+      const abText = surgery.antibioseProphylaxe ? '\nAB-Prophylaxe' : '';
+
+      return surgeryText + surgeonText + positionText + abText;
     },
   }),
   
