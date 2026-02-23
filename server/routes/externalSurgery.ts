@@ -562,6 +562,8 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         day: 'numeric',
       });
       
+      // Try email first; only fall back to SMS if email wasn't sent
+      let emailSent = false;
       if (request.surgeonEmail) {
         try {
           const resendApiKey = process.env.RESEND_API_KEY;
@@ -589,17 +591,19 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
                 <p>Best regards,<br>${hospitalName}</p>
               `,
             });
-            
+
             await storage.updateExternalSurgeryRequest(id, {
               confirmationEmailSent: true,
             });
+            emailSent = true;
           }
         } catch (emailError) {
           logger.error("Error sending confirmation email:", emailError);
         }
       }
-      
-      if (request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
+
+      // SMS only as fallback when email wasn't available or failed
+      if (!emailSent && request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
         try {
           const smsText = request.isReservationOnly
             ? `Slot reservation confirmed at ${hospitalName} on ${formattedDate}. - ${hospitalName}`
@@ -609,7 +613,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
             smsText,
             request.hospitalId
           );
-          
+
           await storage.updateExternalSurgeryRequest(id, {
             confirmationSmsSent: true,
           });
