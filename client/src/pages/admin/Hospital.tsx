@@ -16,13 +16,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle, Clock, Download } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDateLong, formatCurrency, formatDateForInput } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
+import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
 
 // Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
@@ -1610,6 +1611,23 @@ export default function Hospital() {
                             <Trash2 className="h-4 w-4 mr-2" />
                           )}
                           {t("admin.disableLink", "Disable Link")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const url = getQuestionnaireUrl();
+                            if (!url) return;
+                            await generateQuestionnairePosterPdf({
+                              questionnaireUrl: url,
+                              hospitalName: hospitalForm.name || activeHospital?.name || "",
+                              companyLogoUrl: hospitalForm.companyLogoUrl || undefined,
+                            });
+                          }}
+                          data-testid="button-download-qr-poster"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {t("admin.downloadQrPoster", "Download QR Poster")}
                         </Button>
                       </div>
                     </div>
