@@ -4495,7 +4495,7 @@ export const externalWorklogLinks = pgTable("external_worklog_links", {
   index("idx_external_worklog_links_hospital").on(table.hospitalId),
   index("idx_external_worklog_links_email").on(table.email),
   index("idx_external_worklog_links_token").on(table.token),
-  unique("idx_external_worklog_links_unit_email").on(table.unitId, table.email),
+  unique("idx_external_worklog_links_hospital_email").on(table.hospitalId, table.email),
 ]);
 
 export const insertExternalWorklogLinkSchema = createInsertSchema(externalWorklogLinks).omit({

@@ -361,9 +361,8 @@ router.get('/api/hospitals/:hospitalId/worklog/workers', isAuthenticated, async 
 router.get('/api/hospitals/:hospitalId/worklog/pending', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const unitId = getActiveUnitIdFromRequest(req);
-    
-    const entries = await storage.getPendingWorklogEntries(hospitalId, unitId ?? undefined);
+
+    const entries = await storage.getPendingWorklogEntries(hospitalId);
     res.json(entries);
   } catch (error) {
     logger.error("Error fetching pending worklogs:", error);
@@ -409,17 +408,17 @@ router.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/countersign', i
       return res.status(404).json({ message: "Entry not found" });
     }
     
-    // Check if user is assigned to the entry's unit
+    // Check if user belongs to this hospital (any unit)
     const userHospitals = await storage.getUserHospitals(userId);
-    const hasUnitAccess = userHospitals.some(h => h.unitId === entry.unitId);
-    
-    if (!hasUnitAccess) {
-      return res.status(403).json({ message: "You do not have permission to countersign entries for this unit" });
+    const hasHospitalAccess = userHospitals.some(h => h.id === entry.hospitalId);
+
+    if (!hasHospitalAccess) {
+      return res.status(403).json({ message: "You do not have permission to countersign entries for this hospital" });
     }
-    
+
     const user = await storage.getUser(userId);
     const signerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown';
-    
+
     const updated = await storage.countersignWorklogEntry(entryId, userId, signature, signerName);
     res.json(updated);
   } catch (error) {
@@ -441,12 +440,12 @@ router.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/reject', isAuth
       return res.status(404).json({ message: "Entry not found" });
     }
     
-    // Check if user is assigned to the entry's unit
+    // Check if user belongs to this hospital (any unit)
     const userHospitals = await storage.getUserHospitals(userId);
-    const hasUnitAccess = userHospitals.some(h => h.unitId === entry.unitId);
-    
-    if (!hasUnitAccess) {
-      return res.status(403).json({ message: "You do not have permission to reject entries for this unit" });
+    const hasHospitalAccess = userHospitals.some(h => h.id === entry.hospitalId);
+
+    if (!hasHospitalAccess) {
+      return res.status(403).json({ message: "You do not have permission to reject entries for this hospital" });
     }
     
     const user = await storage.getUser(userId);
@@ -460,14 +459,11 @@ router.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/reject', isAuth
   }
 });
 
-// Get all worklog links for the current unit (gets unitId from header)
+// Get all worklog links for the hospital
 router.get('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (req: any, res) => {
   try {
-    const unitId = getActiveUnitIdFromRequest(req);
-    if (!unitId) {
-      return res.status(400).json({ message: "Unit ID required" });
-    }
-    const links = await storage.getWorklogLinksByUnit(unitId);
+    const { hospitalId } = req.params;
+    const links = await storage.getWorklogLinksByHospital(hospitalId);
     res.json(links);
   } catch (error) {
     logger.error("Error fetching worklog links:", error);
@@ -489,15 +485,12 @@ router.post('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (
       return res.status(400).json({ message: "Email is required" });
     }
     
-    // Check if link already exists for this unit+email
-    const existing = await storage.getExternalWorklogLinkByEmail(unitId, email);
+    // Check if link already exists for this hospital+email
+    const existing = await storage.getExternalWorklogLinkByEmail(hospitalId, email);
     if (existing) {
-      return res.status(409).json({ 
-        message: "A link already exists for this email", 
-        link: existing 
-      });
+      return res.json(existing);
     }
-    
+
     const token = crypto.randomUUID();
     const link = await storage.createExternalWorklogLink({
       unitId,
@@ -506,17 +499,17 @@ router.post('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (
       token,
       isActive: true,
     });
-    
+
     if (sendEmail) {
       const { sendWorklogLinkEmail } = await import('../email');
       const unit = await storage.getUnit(unitId);
       const hospital = await storage.getHospital(hospitalId);
-      
+
       if (unit && hospital) {
         await sendWorklogLinkEmail(email, token, unit.name, hospital.name);
       }
     }
-    
+
     res.status(201).json(link);
   } catch (error) {
     logger.error("Error creating worklog link:", error);
@@ -572,13 +565,10 @@ router.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenti
       return res.status(400).json({ message: "Email is required" });
     }
     
-    // Check if link already exists for this unit+email
-    const existing = await storage.getExternalWorklogLinkByEmail(unitId, email);
+    // Check if link already exists for this hospital+email
+    const existing = await storage.getExternalWorklogLinkByEmail(hospitalId, email);
     if (existing) {
-      return res.status(409).json({ 
-        message: "A link already exists for this email", 
-        link: existing 
-      });
+      return res.json(existing);
     }
     
     const token = crypto.randomUUID();
@@ -607,11 +597,11 @@ router.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenti
   }
 });
 
-// Get all worklog links for a unit (authenticated)
+// Get all worklog links for the hospital (unit route kept for backward compat)
 router.get('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenticated, async (req: any, res) => {
   try {
-    const { unitId } = req.params;
-    const links = await storage.getWorklogLinksByUnit(unitId);
+    const { hospitalId } = req.params;
+    const links = await storage.getWorklogLinksByHospital(hospitalId);
     res.json(links);
   } catch (error) {
     logger.error("Error fetching worklog links:", error);

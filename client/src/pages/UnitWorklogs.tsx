@@ -161,13 +161,13 @@ export default function UnitWorklogs() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: pendingEntries = [], isLoading: isPendingLoading } = useQuery<WorklogEntry[]>({
-    queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`],
-    enabled: !!hospitalId && !!unitId,
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`],
+    enabled: !!hospitalId,
   });
 
   const { data: countersignedEntries = [], isLoading: isCountersignedLoading } = useQuery<WorklogEntry[]>({
-    queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?unitId=${unitId}&status=countersigned`],
-    enabled: !!hospitalId && !!unitId,
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?status=countersigned`],
+    enabled: !!hospitalId,
   });
 
   const countersignMutation = useMutation({
@@ -176,8 +176,8 @@ export default function UnitWorklogs() {
     },
     onSuccess: () => {
       // Invalidate pending, countersigned, and all worklog entries
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?unitId=${unitId}&status=countersigned`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?status=countersigned`] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -206,7 +206,7 @@ export default function UnitWorklogs() {
     },
     onSuccess: () => {
       // Invalidate both pending worklogs (this page) and all worklog entries (business module)
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];

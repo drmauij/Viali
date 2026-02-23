@@ -20,6 +20,7 @@ interface WorklogLink {
   token: string;
   isActive: boolean;
   createdAt: string;
+  unitName?: string;
 }
 
 interface StaffUser {
@@ -46,8 +47,8 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
   const [emailOverride, setEmailOverride] = useState("");
 
   const { data: worklogLinks = [], isLoading } = useQuery<WorklogLink[]>({
-    queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`],
-    enabled: !!hospitalId && !!unitId,
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/links`],
+    enabled: !!hospitalId,
   });
 
   // Fetch staff-only users for the staff picker
@@ -84,7 +85,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       return apiRequest('POST', `/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`, { email: finalEmail, sendEmail: true });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/links`] });
       queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/staff-users`] });
       toast({
         title: t('worklogs.linkCreated'),
@@ -125,7 +126,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       return apiRequest('DELETE', `/api/hospitals/${hospitalId}/worklog/links/${linkId}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/links`] });
       toast({
         title: t('worklogs.linkDeleted'),
         description: t('worklogs.linkDeletedDesc'),
@@ -238,7 +239,12 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                 data-testid={`worklog-link-${link.id}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{link.email}</div>
+                  <div className="font-medium truncate flex items-center gap-2">
+                    {link.email}
+                    {link.unitName && (
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">{link.unitName}</span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {t('worklogs.createdOn')}: {formatDate(link.createdAt)}
                   </div>

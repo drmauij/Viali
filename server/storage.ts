@@ -1452,7 +1452,7 @@ export class DatabaseStorage implements IStorage {
   getAllWorklogEntries = clinicStorage.getAllWorklogEntries;
   countersignWorklogEntry = clinicStorage.countersignWorklogEntry;
   rejectWorklogEntry = clinicStorage.rejectWorklogEntry;
-  getWorklogLinksByUnit = clinicStorage.getWorklogLinksByUnit;
+  getWorklogLinksByHospital = clinicStorage.getWorklogLinksByHospital;
   deleteExternalWorklogLink = clinicStorage.deleteExternalWorklogLink;
   getWorklogWorkers = clinicStorage.getWorklogWorkers;
   getExternalSurgeryRequests = clinicStorage.getExternalSurgeryRequests;

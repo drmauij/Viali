@@ -1445,12 +1445,12 @@ export async function getExternalWorklogLinkByToken(token: string): Promise<(Ext
   };
 }
 
-export async function getExternalWorklogLinkByEmail(unitId: string, email: string): Promise<ExternalWorklogLink | undefined> {
+export async function getExternalWorklogLinkByEmail(hospitalId: string, email: string): Promise<ExternalWorklogLink | undefined> {
   const [link] = await db
     .select()
     .from(externalWorklogLinks)
     .where(and(
-      eq(externalWorklogLinks.unitId, unitId),
+      eq(externalWorklogLinks.hospitalId, hospitalId),
       eq(externalWorklogLinks.email, email.toLowerCase())
     ));
   return link;
@@ -1508,16 +1508,12 @@ export async function createExternalWorklogEntry(data: InsertExternalWorklogEntr
   return entry;
 }
 
-export async function getPendingWorklogEntries(hospitalId: string, unitId?: string): Promise<(ExternalWorklogEntry & { unit: Unit })[]> {
+export async function getPendingWorklogEntries(hospitalId: string): Promise<(ExternalWorklogEntry & { unit: Unit })[]> {
   const conditions = [
     eq(externalWorklogEntries.hospitalId, hospitalId),
     eq(externalWorklogEntries.status, 'pending')
   ];
-  
-  if (unitId) {
-    conditions.push(eq(externalWorklogEntries.unitId, unitId));
-  }
-  
+
   const results = await db
     .select()
     .from(externalWorklogEntries)
@@ -1602,12 +1598,17 @@ export async function rejectWorklogEntry(id: string, userId: string, reason: str
   return updated;
 }
 
-export async function getWorklogLinksByUnit(unitId: string): Promise<ExternalWorklogLink[]> {
-  return await db
+export async function getWorklogLinksByHospital(hospitalId: string): Promise<(ExternalWorklogLink & { unitName: string })[]> {
+  const results = await db
     .select()
     .from(externalWorklogLinks)
-    .where(eq(externalWorklogLinks.unitId, unitId))
+    .innerJoin(units, eq(units.id, externalWorklogLinks.unitId))
+    .where(eq(externalWorklogLinks.hospitalId, hospitalId))
     .orderBy(desc(externalWorklogLinks.createdAt));
+  return results.map(r => ({
+    ...r.external_worklog_links,
+    unitName: r.units.name,
+  }));
 }
 
 export async function getExternalWorklogLink(id: string): Promise<ExternalWorklogLink | undefined> {
