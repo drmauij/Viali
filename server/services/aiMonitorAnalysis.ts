@@ -208,6 +208,14 @@ export async function analyzeMonitorImage(base64Image: string, hospitalId?: stri
   const model = getVisionModel(provider);
   logger.info(`[VisionAI] Using ${provider} (${model}) for monitor analysis`);
 
+  const imageContent: any = {
+    type: "image_url",
+    image_url: {
+      url: `data:image/jpeg;base64,${base64Image}`,
+      ...(provider !== "pixtral" && { detail: "high" }),
+    }
+  };
+
   const response = await openai.chat.completions.create({
     model,
     messages: [
@@ -215,18 +223,12 @@ export async function analyzeMonitorImage(base64Image: string, hospitalId?: stri
         role: "user",
         content: [
           { type: "text", text: MONITOR_ANALYSIS_PROMPT },
-          {
-            type: "image_url",
-            image_url: { 
-              url: `data:image/jpeg;base64,${base64Image}`,
-              detail: "high"
-            }
-          }
+          imageContent,
         ]
       }
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+    ...(provider === "pixtral" ? { max_tokens: 4096 } : { max_completion_tokens: 4096 }),
   });
 
   const aiResponse = JSON.parse(response.choices[0].message.content || '{}');

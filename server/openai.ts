@@ -141,11 +141,11 @@ Important:
         },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 2048,
+      ...(provider === "pixtral" ? { max_tokens: 2048 } : { max_completion_tokens: 2048 }),
     });
 
     const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
-    
+
     // Start with barcode decoder results (most reliable for GTIN/lot/dates from DataMatrix)
     // Then use AI results as fallback for anything not decoded
     let gtin = decodedBarcode?.gtin || result.gtin;
@@ -308,11 +308,11 @@ Return ONLY valid JSON.`
         },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 1024,
+      ...(provider === "pixtral" ? { max_tokens: 1024 } : { max_completion_tokens: 1024 }),
     });
 
     const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
-    
+
     // Merge barcode decoder results with AI results (decoder takes priority)
     let gtin = decodedBarcode?.gtin || result.gtin;
     let expiryDate = decodedBarcode?.expiryDate || result.expiryDate;
@@ -429,7 +429,7 @@ Important instructions:
           },
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4096,
+        ...(provider === "pixtral" ? { max_tokens: 4096 } : { max_completion_tokens: 4096 }),
       }, {
         timeout: 120000, // 2 minute timeout per batch
       });
