@@ -270,7 +270,8 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const unitId = completionData.unitId || template.unitId;
+    const unitId = completionData.unitId || template.unitId
+      || template.assignments?.find(a => a.unitId)?.unitId;
     if (!unitId) {
       return res.status(400).json({ message: "Unit ID is required for completion" });
     }
@@ -324,7 +325,8 @@ router.post('/api/checklists/dismiss', isAuthenticated, requireWriteAccess, asyn
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const unitId = dismissalData.unitId || template.unitId;
+    const unitId = dismissalData.unitId || template.unitId
+      || template.assignments?.find(a => a.unitId)?.unitId;
     if (!unitId) {
       return res.status(400).json({ message: "Unit ID is required for dismissal" });
     }

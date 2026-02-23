@@ -580,15 +580,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
     const parts: string[] = [];
 
-    // Status label
-    if (preOpData.status === 'completed') {
-      if (preOpData.surgicalApproval === 'approved') parts.push('Approved');
-      else if (preOpData.surgicalApproval === 'not-approved') parts.push('Not approved');
-      else parts.push('Completed');
-    } else {
-      parts.push('Started');
-    }
-
     // ASA classification
     if (preOpData.asa) parts.push(`ASA ${preOpData.asa}`);
 
