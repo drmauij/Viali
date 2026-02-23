@@ -1107,7 +1107,7 @@ async function sendQuestionnaireEmail(
       `;
 
     await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
       to: patientEmail,
       subject: emailSubject,
       html: emailHtml,
@@ -2099,7 +2099,7 @@ async function sendPreSurgeryReminderEmail(
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@viali.ch';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app';
     const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: timezone });
     const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: timezone });
     

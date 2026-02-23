@@ -2101,7 +2101,7 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const resend = new Resend(process.env.RESEND_API_KEY);
     
     const emailResult = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
       to: recipientEmail,
       subject: `${t.emailSubject} - ${hospital?.name || 'Hospital'}`,
       html: `
@@ -2252,7 +2252,7 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
           const resend = new Resend(process.env.RESEND_API_KEY);
           const emailSubject = `${hospitalName}: Einwilligungserklärung online unterschreiben / Sign informed consent online`;
           const emailResult = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
             to: patient.email,
             subject: emailSubject,
             html: `
@@ -2437,7 +2437,7 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
             `<li style="margin: 4px 0;">${formatSlot(s, 'de')} / ${formatSlot(s, 'en')}</li>`
           ).join('');
           const emailResult = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
             to: patient.email,
             subject: emailSubject,
             html: `

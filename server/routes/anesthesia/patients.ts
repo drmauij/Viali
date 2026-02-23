@@ -1002,7 +1002,7 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
         const resend = new Resend(process.env.RESEND_API_KEY);
         
         await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+          from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
           to: recipient,
           subject: `Message from ${hospital?.name || 'Hospital'}`,
           html: `

@@ -588,7 +588,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           if (resendApiKey) {
             const resend = new Resend(resendApiKey);
             await resend.emails.send({
-              from: 'noreply@viali.ch',
+              from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
               to: request.surgeonEmail,
               subject: request.isReservationOnly
                 ? `Slot Reservation Confirmed - ${formattedDate}`
