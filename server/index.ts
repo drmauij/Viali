@@ -248,36 +248,47 @@ app.use((req, res, next) => {
                 if (unappliedMigrations.length > 0) {
                   for (const migration of unappliedMigrations) {
                     const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
-                    
+
                     if (fs.existsSync(migrationFile)) {
                       const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
                       const statements = migrationSql
                         .split('--> statement-breakpoint')
                         .map((s: string) => s.trim())
                         .filter((s: string) => s.length > 0);
-                      
+
                       log(`   Running: ${migration.tag}`);
-                      
+
+                      let migrationFailed = false;
                       for (const statement of statements) {
                         try {
                           await db.execute(sql.raw(statement));
                         } catch (stmtError: any) {
-                          if (!stmtError.message?.includes('already exists') && 
-                              !stmtError.message?.includes('duplicate key')) {
-                            log(`   ⚠ ${stmtError.message}`);
+                          if (stmtError.message?.includes('already exists') ||
+                              stmtError.message?.includes('duplicate key')) {
+                            // Harmless — idempotent guard caught it
+                          } else {
+                            log(`   ✗ Migration ${migration.tag} failed: ${stmtError.message}`);
+                            migrationFailed = true;
+                            break;
                           }
                         }
                       }
+
+                      if (migrationFailed) {
+                        log(`   ⚠ Skipping ${migration.tag} — will retry on next startup`);
+                        continue;
+                      }
                     }
-                    
+
                     const timestamp = Date.now();
                     await db.execute(sql.raw(`
                       INSERT INTO __drizzle_migrations (hash, created_at)
                       VALUES ('${migration.tag}', ${timestamp})
                       ON CONFLICT (hash) DO NOTHING
                     `));
+                    log(`   ✓ Applied: ${migration.tag}`);
                   }
-                  
+
                   log("✓ Migrations synchronized");
                 }
               }
