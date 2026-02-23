@@ -146,151 +146,127 @@ app.use((req, res, next) => {
     const fs = await import('fs');
     const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
     
+    // Drizzle stores migrations in the "drizzle" schema, not "public"
+    const MIGRATIONS_SCHEMA = 'drizzle';
+    const MIGRATIONS_TABLE = '__drizzle_migrations';
+
     let shouldRunMigrations = true;
-    
+
     try {
-      // First check if __drizzle_migrations table exists
       const tableCheck = await db.execute(sql`
         SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = '__drizzle_migrations'
+          SELECT FROM information_schema.tables
+          WHERE table_schema = ${MIGRATIONS_SCHEMA}
+          AND table_name = ${MIGRATIONS_TABLE}
         )
       `);
-      
+
       const migrationsTableExists = tableCheck.rows[0]?.exists;
-      
+
       if (migrationsTableExists && fs.existsSync(metaPath)) {
         const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
         const allMigrations = journal.entries || [];
-        
-        const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
-        const appliedTags = new Set(result.rows.map((r: any) => r.hash));
-        
-        const unappliedMigrations = allMigrations.filter(
-          (m: any) => !appliedTags.has(m.tag)
+
+        const result = await db.execute(
+          sql.raw(`SELECT hash, created_at FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}"`)
         );
-        
+        const appliedHashes = new Set(result.rows.map((r: any) => r.hash));
+
+        const unappliedMigrations = allMigrations.filter(
+          (m: any) => !appliedHashes.has(m.tag)
+        );
+
         if (unappliedMigrations.length === 0) {
           log(`✓ Database up-to-date (${allMigrations.length} migrations applied)`);
           shouldRunMigrations = false;
         } else {
-          log(`Found ${unappliedMigrations.length} pending migrations`);
+          log(`Found ${unappliedMigrations.length} pending migration(s)`);
         }
       }
     } catch (checkError: any) {
       log(`Migration check failed, will run full migration: ${checkError.message}`);
     }
-    
+
     if (shouldRunMigrations) {
       try {
         log(`Running database migrations from: ${migrationsPath}`);
         await migrate(db, { migrationsFolder: migrationsPath });
         log("✓ Database migrations completed successfully");
       } catch (error: any) {
-        // Handle migration failures gracefully
+        // Handle "already exists" errors from non-idempotent migrations
         if (error.message && error.message.includes('already exists')) {
           log("⚠ Migration encountered existing schema - recovering...");
-          
+
           try {
-            // First check if __drizzle_migrations table exists
-            const tableCheck = await db.execute(sql`
-              SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = '__drizzle_migrations'
+            // Ensure drizzle schema and migrations table exist
+            await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS "${MIGRATIONS_SCHEMA}"`));
+            await db.execute(sql.raw(`
+              CREATE TABLE IF NOT EXISTS "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" (
+                id SERIAL PRIMARY KEY,
+                hash text NOT NULL,
+                created_at bigint
               )
-            `);
-            
-            const migrationsTableExists = tableCheck.rows[0]?.exists;
-            
-            if (!migrationsTableExists) {
-              log("   Creating migration tracking table...");
-              
-              await db.execute(sql`
-                CREATE TABLE IF NOT EXISTS __drizzle_migrations (
-                  id SERIAL PRIMARY KEY,
-                  hash text NOT NULL UNIQUE,
-                  created_at bigint
-                )
-              `);
-              
-              if (fs.existsSync(metaPath)) {
-                const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-                const allMigrations = journal.entries || [];
-                
-                log(`   Marking ${allMigrations.length} existing migrations as applied...`);
-                
-                for (const migration of allMigrations) {
-                  const timestamp = Date.now();
-                  await db.execute(sql.raw(`
-                    INSERT INTO __drizzle_migrations (hash, created_at)
-                    VALUES ('${migration.tag}', ${timestamp})
-                    ON CONFLICT (hash) DO NOTHING
-                  `));
-                }
-                
-                log("✓ Migration tracking initialized");
-              }
-            } else {
-              // Migrations table exists, run unapplied idempotent migrations
-              if (fs.existsSync(metaPath)) {
-                const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-                const allMigrations = journal.entries || [];
-                
-                const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
-                const appliedTags = new Set(result.rows.map((r: any) => r.hash));
-                
-                const unappliedMigrations = allMigrations.filter(
-                  (m: any) => !appliedTags.has(m.tag)
-                );
-                
-                if (unappliedMigrations.length > 0) {
-                  for (const migration of unappliedMigrations) {
-                    const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
+            `));
 
-                    if (fs.existsSync(migrationFile)) {
-                      const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
-                      const statements = migrationSql
-                        .split('--> statement-breakpoint')
-                        .map((s: string) => s.trim())
-                        .filter((s: string) => s.length > 0);
+            if (fs.existsSync(metaPath)) {
+              const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+              const allMigrations = journal.entries || [];
 
-                      log(`   Running: ${migration.tag}`);
+              const result = await db.execute(
+                sql.raw(`SELECT hash FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}"`)
+              );
+              const appliedHashes = new Set(result.rows.map((r: any) => r.hash));
 
-                      let migrationFailed = false;
-                      for (const statement of statements) {
-                        try {
-                          await db.execute(sql.raw(statement));
-                        } catch (stmtError: any) {
-                          if (stmtError.message?.includes('already exists') ||
-                              stmtError.message?.includes('duplicate key')) {
-                            // Harmless — idempotent guard caught it
-                          } else {
-                            log(`   ✗ Migration ${migration.tag} failed: ${stmtError.message}`);
-                            migrationFailed = true;
-                            break;
-                          }
+              const unappliedMigrations = allMigrations.filter(
+                (m: any) => !appliedHashes.has(m.tag)
+              );
+
+              if (unappliedMigrations.length > 0) {
+                for (const migration of unappliedMigrations) {
+                  const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
+
+                  if (fs.existsSync(migrationFile)) {
+                    const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
+                    const statements = migrationSql
+                      .split('--> statement-breakpoint')
+                      .map((s: string) => s.trim())
+                      .filter((s: string) => s.length > 0);
+
+                    log(`   Running: ${migration.tag}`);
+
+                    let migrationFailed = false;
+                    for (const statement of statements) {
+                      try {
+                        await db.execute(sql.raw(statement));
+                      } catch (stmtError: any) {
+                        if (stmtError.message?.includes('already exists') ||
+                            stmtError.message?.includes('duplicate key')) {
+                          // Harmless — idempotent guard caught it
+                        } else {
+                          log(`   ✗ Migration ${migration.tag} failed: ${stmtError.message}`);
+                          migrationFailed = true;
+                          break;
                         }
-                      }
-
-                      if (migrationFailed) {
-                        log(`   ⚠ Skipping ${migration.tag} — will retry on next startup`);
-                        continue;
                       }
                     }
 
-                    const timestamp = Date.now();
-                    await db.execute(sql.raw(`
-                      INSERT INTO __drizzle_migrations (hash, created_at)
-                      VALUES ('${migration.tag}', ${timestamp})
-                      ON CONFLICT (hash) DO NOTHING
-                    `));
-                    log(`   ✓ Applied: ${migration.tag}`);
+                    if (migrationFailed) {
+                      log(`   ⚠ Skipping ${migration.tag} — will retry on next startup`);
+                      continue;
+                    }
                   }
 
-                  log("✓ Migrations synchronized");
+                  await db.execute(sql.raw(`
+                    INSERT INTO "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" (hash, created_at)
+                    VALUES ('${migration.tag}', ${migration.when})
+                    ON CONFLICT DO NOTHING
+                  `));
+                  log(`   ✓ Applied: ${migration.tag}`);
                 }
+
+                log("✓ Migrations synchronized");
+              } else {
+                log("✓ All migrations already applied");
               }
             }
           } catch (recoveryError: any) {
