@@ -23,7 +23,11 @@ import { calculateWorkHours } from "@/lib/worktimeUtils";
 interface PlannedShift {
   date: string;
   role: string;
-  roomAssignments: { roomName: string }[];
+  roomAssignments: {
+    roomName: string;
+    saalBegin: string | null;
+    saalEnd: string | null;
+  }[];
 }
 
 interface WorklogEntry {
@@ -265,7 +269,17 @@ export default function PlanningCalendar({
                       </span>
                       {shift.roomAssignments.length > 0 && (
                         <span className="text-muted-foreground ml-2">
-                          {shift.roomAssignments.map((r) => r.roomName).join(", ")}
+                          {shift.roomAssignments.map((r, j) => (
+                            <span key={j}>
+                              {j > 0 && ", "}
+                              {r.roomName}
+                              {(r.saalBegin || r.saalEnd) && (
+                                <span className="text-xs ml-1">
+                                  ({r.saalBegin}{r.saalEnd ? ` – ${r.saalEnd}` : ""})
+                                </span>
+                              )}
+                            </span>
+                          ))}
                         </span>
                       )}
                     </div>

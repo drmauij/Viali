@@ -2,9 +2,9 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms } from "@shared/schema";
+import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms, surgeries } from "@shared/schema";
 import { getActiveUnitIdFromRequest } from "../utils";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, ne, min, max, count, sql } from "drizzle-orm";
 import { ObjectStorageService } from "../objectStorage";
 import crypto from "crypto";
 import logger from "../logger";
@@ -757,24 +757,99 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
         )
       );
 
-    // Fetch room assignments for each entry
-    const shifts = await Promise.all(
-      poolEntries.map(async (entry) => {
-        const roomAssignments = await db
-          .select({
-            roomName: surgeryRooms.name,
-          })
-          .from(dailyRoomStaff)
-          .innerJoin(surgeryRooms, eq(dailyRoomStaff.surgeryRoomId, surgeryRooms.id))
-          .where(eq(dailyRoomStaff.dailyStaffPoolId, entry.id));
+    // Batch fetch room assignments for all pool entries
+    let shifts: {
+      date: string;
+      role: string;
+      roomAssignments: { roomName: string; saalBegin: string | null; saalEnd: string | null }[];
+    }[] = [];
 
+    if (poolEntries.length > 0) {
+      const poolIds = poolEntries.map(e => e.id);
+
+      const allRoomAssignments = await db
+        .select({
+          dailyStaffPoolId: dailyRoomStaff.dailyStaffPoolId,
+          surgeryRoomId: dailyRoomStaff.surgeryRoomId,
+          roomName: surgeryRooms.name,
+          date: dailyRoomStaff.date,
+        })
+        .from(dailyRoomStaff)
+        .innerJoin(surgeryRooms, eq(dailyRoomStaff.surgeryRoomId, surgeryRooms.id))
+        .where(inArray(dailyRoomStaff.dailyStaffPoolId, poolIds));
+
+      // Aggregate surgery times per room+date for Saal begin/end
+      const uniqueRoomIds = [...new Set(allRoomAssignments.map(r => r.surgeryRoomId))];
+      const saalTimesMap = new Map<string, { saalBegin: string | null; saalEnd: string | null }>();
+
+      if (uniqueRoomIds.length > 0) {
+        const saalRows = await db
+          .select({
+            surgeryRoomId: surgeries.surgeryRoomId,
+            dateStr: sql<string>`DATE(${surgeries.plannedDate})`.as("date_str"),
+            firstStart: min(surgeries.plannedDate).as("first_start"),
+            lastEnd: max(surgeries.actualEndTime).as("last_end"),
+            missingEndCount: sql<number>`COUNT(*) FILTER (WHERE ${surgeries.actualEndTime} IS NULL)`.as("missing_end_count"),
+          })
+          .from(surgeries)
+          .where(
+            and(
+              eq(surgeries.hospitalId, link.hospitalId),
+              eq(surgeries.isArchived, false),
+              eq(surgeries.isSuspended, false),
+              ne(surgeries.status, "cancelled"),
+              gte(surgeries.plannedDate, new Date(firstDay)),
+              lte(surgeries.plannedDate, new Date(lastDay + "T23:59:59")),
+              inArray(surgeries.surgeryRoomId, uniqueRoomIds)
+            )
+          )
+          .groupBy(surgeries.surgeryRoomId, sql`DATE(${surgeries.plannedDate})`);
+
+        for (const row of saalRows) {
+          const key = `${row.dateStr}|${row.surgeryRoomId}`;
+          const firstStart = row.firstStart ? new Date(row.firstStart) : null;
+          const lastEnd = row.lastEnd ? new Date(row.lastEnd) : null;
+
+          let saalBegin: string | null = null;
+          let saalEnd: string | null = null;
+
+          if (firstStart) {
+            const begin = new Date(firstStart.getTime() - 60 * 60 * 1000);
+            saalBegin = begin.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false });
+          }
+          if (lastEnd && Number(row.missingEndCount) === 0) {
+            const end = new Date(lastEnd.getTime() + 60 * 60 * 1000);
+            saalEnd = end.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false });
+          }
+
+          saalTimesMap.set(key, { saalBegin, saalEnd });
+        }
+      }
+
+      // Group room assignments by pool entry ID
+      const roomsByPoolId = new Map<string, typeof allRoomAssignments>();
+      for (const ra of allRoomAssignments) {
+        const list = roomsByPoolId.get(ra.dailyStaffPoolId) || [];
+        list.push(ra);
+        roomsByPoolId.set(ra.dailyStaffPoolId, list);
+      }
+
+      shifts = poolEntries.map(entry => {
+        const rooms = roomsByPoolId.get(entry.id) || [];
         return {
           date: entry.date,
           role: entry.role,
-          roomAssignments: roomAssignments.map(r => ({ roomName: r.roomName })),
+          roomAssignments: rooms.map(r => {
+            const times = saalTimesMap.get(`${r.date}|${r.surgeryRoomId}`);
+            return {
+              roomName: r.roomName,
+              saalBegin: times?.saalBegin ?? null,
+              saalEnd: times?.saalEnd ?? null,
+            };
+          }),
         };
-      })
-    );
+      });
+    }
 
     res.json({ shifts, userLinked: true });
   } catch (error) {
