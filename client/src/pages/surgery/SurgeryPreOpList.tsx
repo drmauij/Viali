@@ -191,26 +191,20 @@ export default function SurgeryPreOpList() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
-            <TabsTrigger value="planned" data-testid="tab-surgery-preop-planned" className="whitespace-nowrap">
-              <CalendarPlus className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('surgery.preop.tabPlanned')} ({groupedByStatus.planned.length})
-            </TabsTrigger>
-            <TabsTrigger value="draft" data-testid="tab-surgery-preop-draft" className="whitespace-nowrap">
-              <FileEdit className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('surgery.preop.tabInProgress')} ({groupedByStatus.draft.length})
-            </TabsTrigger>
-            <TabsTrigger value="standby" data-testid="tab-surgery-preop-standby" className="whitespace-nowrap">
-              <PauseCircle className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('surgery.preop.tabStandBy')} ({groupedByStatus.standby.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" data-testid="tab-surgery-preop-completed" className="whitespace-nowrap">
-              <FileCheck className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('surgery.preop.tabCompleted')} ({groupedByStatus.completed.length})
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="flex w-full">
+          <TabsTrigger value="planned" data-testid="tab-surgery-preop-planned" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('surgery.preop.tabPlanned')} ({groupedByStatus.planned.length})
+          </TabsTrigger>
+          <TabsTrigger value="draft" data-testid="tab-surgery-preop-draft" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('surgery.preop.tabInProgress')} ({groupedByStatus.draft.length})
+          </TabsTrigger>
+          <TabsTrigger value="standby" data-testid="tab-surgery-preop-standby" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('surgery.preop.tabStandBy')} ({groupedByStatus.standby.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-surgery-preop-completed" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('surgery.preop.tabCompleted')} ({groupedByStatus.completed.length})
+          </TabsTrigger>
+        </TabsList>
       </Tabs>
 
       <div className="mb-6 space-y-3">

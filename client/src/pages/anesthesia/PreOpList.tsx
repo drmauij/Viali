@@ -399,26 +399,20 @@ export default function PreOpList() {
 
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
-            <TabsTrigger value="planned" data-testid="tab-planned" className="whitespace-nowrap">
-              <CalendarPlus className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})
-            </TabsTrigger>
-            <TabsTrigger value="draft" data-testid="tab-draft" className="whitespace-nowrap">
-              <FileEdit className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
-            </TabsTrigger>
-            <TabsTrigger value="standby" data-testid="tab-standby" className="whitespace-nowrap">
-              <PauseCircle className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('anesthesia.preop.tabStandBy')} ({groupedByStatus.standby.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" data-testid="tab-completed" className="whitespace-nowrap">
-              <FileCheck className="h-4 w-4 mr-1 hidden sm:inline-block" />
-              {t('anesthesia.preop.tabCompleted')} ({groupedByStatus.completed.length})
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="flex w-full">
+          <TabsTrigger value="planned" data-testid="tab-planned" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})
+          </TabsTrigger>
+          <TabsTrigger value="draft" data-testid="tab-draft" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
+          </TabsTrigger>
+          <TabsTrigger value="standby" data-testid="tab-standby" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('anesthesia.preop.tabStandBy')} ({groupedByStatus.standby.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed" className="flex-1 min-w-0 !whitespace-normal text-xs sm:text-sm px-1 sm:px-3">
+            {t('anesthesia.preop.tabCompleted')} ({groupedByStatus.completed.length})
+          </TabsTrigger>
+        </TabsList>
       </Tabs>
 
       {/* Search and Stand-By Filter */}

@@ -308,6 +308,7 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, requi
           ...link,
           response: response ? {
             id: response.id,
+            // Core fields
             allergies: response.allergies,
             allergiesNotes: response.allergiesNotes,
             medications: response.medications,
@@ -325,6 +326,37 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, requi
             breastfeeding: response.breastfeeding,
             womanHealthNotes: response.womanHealthNotes,
             additionalNotes: response.additionalNotes,
+            // Dental
+            dentalIssues: response.dentalIssues,
+            dentalNotes: response.dentalNotes,
+            noDentalIssues: response.noDentalIssues,
+            // PONV & Transfusion
+            ponvTransfusionIssues: response.ponvTransfusionIssues,
+            ponvTransfusionNotes: response.ponvTransfusionNotes,
+            noPonvIssues: response.noPonvIssues,
+            // Drug use
+            drugUse: response.drugUse,
+            drugUseDetails: response.drugUseDetails,
+            noDrugUse: response.noDrugUse,
+            // Questions for doctor
+            questionsForDoctor: response.questionsForDoctor,
+            // Outpatient caregiver
+            outpatientCaregiverFirstName: response.outpatientCaregiverFirstName,
+            outpatientCaregiverLastName: response.outpatientCaregiverLastName,
+            outpatientCaregiverPhone: response.outpatientCaregiverPhone,
+            // "None" flags
+            noAllergies: response.noAllergies,
+            noMedications: response.noMedications,
+            noConditions: response.noConditions,
+            noSmokingAlcohol: response.noSmokingAlcohol,
+            noPreviousSurgeries: response.noPreviousSurgeries,
+            noAnesthesiaProblems: response.noAnesthesiaProblems,
+            // Patient identification
+            patientFirstName: response.patientFirstName,
+            patientLastName: response.patientLastName,
+            patientBirthday: response.patientBirthday,
+            patientEmail: response.patientEmail,
+            patientPhone: response.patientPhone,
           } : undefined,
         };
       })
@@ -482,6 +514,37 @@ router.get('/api/questionnaire/responses/:responseId', isAuthenticated, requireS
   } catch (error) {
     logger.error("Error fetching response details:", error);
     res.status(500).json({ message: "Failed to fetch response details" });
+  }
+});
+
+// Staff edit endpoint — update a questionnaire response (no status restriction)
+router.put('/api/questionnaire/responses/:responseId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = req.resolvedHospitalId;
+    const { responseId } = req.params;
+
+    const response = await storage.getQuestionnaireResponse(responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Verify the link belongs to this hospital
+    const link = await storage.getQuestionnaireLink(response.linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const parsed = saveProgressSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+    }
+
+    const updated = await storage.updateQuestionnaireResponse(responseId, parsed.data);
+
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error updating questionnaire response:", error);
+    res.status(500).json({ message: "Failed to update questionnaire response" });
   }
 });
 

@@ -104,6 +104,37 @@ type QuestionnaireLink = {
     breastfeeding?: boolean;
     womanHealthNotes?: string;
     additionalNotes?: string;
+    // Dental
+    dentalIssues?: Record<string, boolean>;
+    dentalNotes?: string;
+    noDentalIssues?: boolean;
+    // PONV & Transfusion
+    ponvTransfusionIssues?: Record<string, boolean>;
+    ponvTransfusionNotes?: string;
+    noPonvIssues?: boolean;
+    // Drug use
+    drugUse?: Record<string, boolean>;
+    drugUseDetails?: string;
+    noDrugUse?: boolean;
+    // Questions for doctor
+    questionsForDoctor?: string;
+    // Outpatient caregiver
+    outpatientCaregiverFirstName?: string;
+    outpatientCaregiverLastName?: string;
+    outpatientCaregiverPhone?: string;
+    // "None" flags
+    noAllergies?: boolean;
+    noMedications?: boolean;
+    noConditions?: boolean;
+    noSmokingAlcohol?: boolean;
+    noPreviousSurgeries?: boolean;
+    noAnesthesiaProblems?: boolean;
+    // Patient identification
+    patientFirstName?: string;
+    patientLastName?: string;
+    patientBirthday?: string;
+    patientEmail?: string;
+    patientPhone?: string;
   };
 };
 
@@ -288,7 +319,7 @@ export function usePatientQueries({
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!derivedPatientId && !!hospitalId && isPreOpOpen,
+    enabled: !!derivedPatientId && !!hospitalId,
   });
 
   // Get the selected questionnaire response details (including uploads)

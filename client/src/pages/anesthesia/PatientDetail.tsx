@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -47,6 +47,7 @@ import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSec
 import { DischargeBriefsSection } from "@/components/dischargeBriefs/DischargeBriefsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
+import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
 import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/components/shared/ImportPreviousAssessmentDialog";
 import { usePatientQueries } from "./patientDetail/usePatientQueries";
@@ -1529,7 +1530,7 @@ export default function PatientDetail() {
       );
     }
     return (
-      <div className="container mx-auto p-4 pb-20">
+      <div className="container mx-auto p-4 pb-20 overflow-x-hidden">
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
@@ -1565,7 +1566,7 @@ export default function PatientDetail() {
       );
     }
     return (
-      <div className="container mx-auto p-4 pb-20">
+      <div className="container mx-auto p-4 pb-20 overflow-x-hidden">
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
@@ -1807,36 +1808,45 @@ export default function PatientDetail() {
 
       {/* Main Content Tabs - Notes, Surgeries, Documents, Invoices, and Medications */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-4">
-          <TabsTrigger value="notes" data-testid="tab-notes">
-            <StickyNote className="h-4 w-4 mr-1" />
-            {t('anesthesia.patientDetail.notes', 'Notes')}
-            {notesTimeline && notesTimeline.length > 0 && (
-              <Badge variant="secondary" className="ml-2">{notesTimeline.length}</Badge>
+        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 mb-4">
+          <TabsList className={cn("inline-flex w-auto min-w-full", addons.questionnaire ? "md:grid md:grid-cols-6 md:w-full" : "md:grid md:grid-cols-5 md:w-full")}>
+            <TabsTrigger value="notes" data-testid="tab-notes" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.notes', 'Notes')}
+              {notesTimeline && notesTimeline.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{notesTimeline.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="surgeries" data-testid="tab-surgeries" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
+              {surgeries && surgeries.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{surgeries.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.documents', 'Documents')}
+              {(staffDocuments.length + noteAttachmentDocs.length) > 0 && (
+                <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="invoices" data-testid="tab-invoices" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.invoices', 'Invoices')}
+              {patientInvoices.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{patientInvoices.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="medications" data-testid="tab-medications" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.medications', 'Medications')}
+            </TabsTrigger>
+            {addons.questionnaire && (
+              <TabsTrigger value="questionnaire" data-testid="tab-questionnaire" className="whitespace-nowrap">
+                {t('questionnaireTab.tabTitle', 'Questionnaire')}
+                {submittedQuestionnaires.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{submittedQuestionnaires.length}</Badge>
+                )}
+              </TabsTrigger>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="surgeries" data-testid="tab-surgeries">
-            {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
-            {surgeries && surgeries.length > 0 && (
-              <Badge variant="secondary" className="ml-2">{surgeries.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="documents" data-testid="tab-documents">
-            {t('anesthesia.patientDetail.documents', 'Documents')}
-            {(staffDocuments.length + noteAttachmentDocs.length) > 0 && (
-              <Badge variant="secondary" className="ml-2">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="invoices" data-testid="tab-invoices">
-            {t('anesthesia.patientDetail.invoices', 'Invoices')}
-            {patientInvoices.length > 0 && (
-              <Badge variant="secondary" className="ml-2">{patientInvoices.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="medications" data-testid="tab-medications">
-            {t('anesthesia.patientDetail.medications', 'Medications')}
-          </TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         {/* Notes Tab - Combined timeline of patient notes and surgery notes */}
         <TabsContent value="notes" className="mt-0 space-y-4">
@@ -1888,7 +1898,7 @@ export default function PatientDetail() {
                 )}
                 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1909,7 +1919,7 @@ export default function PatientDetail() {
                     <Paperclip className="h-4 w-4 mr-1" />
                     {t('anesthesia.patientDetail.attachFile', 'Attach File')}
                   </Button>
-                  <div className="flex-1" />
+                  <div className="flex-1 min-w-0" />
                   <Button
                     onClick={() => createPatientNoteMutation.mutate({ content: newPatientNote, attachments: pendingAttachments })}
                     disabled={(!newPatientNote.trim() && pendingAttachments.length === 0) || createPatientNoteMutation.isPending}
@@ -2879,6 +2889,19 @@ export default function PatientDetail() {
             surgeries={surgeries}
           />
         </TabsContent>
+
+        {addons.questionnaire && (
+          <TabsContent value="questionnaire" className="mt-0">
+            <QuestionnaireTab
+              patientId={derivedPatientId || ""}
+              hospitalId={activeHospital?.id || ""}
+              canWrite={canWrite}
+              patientSex={patient?.sex}
+              questionnaireLinks={questionnaireLinks}
+              onOpenSendDialog={() => setIsSendQuestionnaireOpen(true)}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Pre-OP Full Screen Dialog */}

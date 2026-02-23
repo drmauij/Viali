@@ -469,6 +469,28 @@ export function usePatientMutations({
     },
   });
 
+  // Mutation to update a questionnaire response (staff edit)
+  const updateQuestionnaireResponseMutation = useMutation({
+    mutationFn: async ({ responseId, data }: { responseId: string; data: Record<string, any> }) => {
+      const response = await apiRequest('PUT', `/api/questionnaire/responses/${responseId}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', derivedPatientId, 'links'] });
+      toast({
+        title: t('questionnaireTab.saved', 'Changes saved'),
+        description: t('questionnaireTab.savedDesc', 'Questionnaire response has been updated.'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('questionnaireTab.saveError', 'Failed to save changes'),
+        variant: "destructive",
+      });
+    },
+  });
+
   // Mutation to associate questionnaire with patient
   const associateQuestionnaireMutation = useMutation({
     mutationFn: async ({ responseId, patientId }: { responseId: string; patientId: string }) => {
@@ -510,6 +532,7 @@ export function usePatientMutations({
     updatePreOpMutation,
     sendEmailMutation,
     associateQuestionnaireMutation,
+    updateQuestionnaireResponseMutation,
   };
 }
 
