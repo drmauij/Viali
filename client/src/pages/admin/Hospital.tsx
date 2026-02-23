@@ -105,6 +105,7 @@ export default function Hospital() {
     dateFormat: "european" as string,
     hourFormat: "24h" as string,
     timezone: "Europe/Zurich" as string,
+    defaultLanguage: "de" as string,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -734,6 +735,7 @@ export default function Hospital() {
         dateFormat: fullHospitalData.dateFormat || "european",
         hourFormat: fullHospitalData.hourFormat || "24h",
         timezone: fullHospitalData.timezone || "Europe/Zurich",
+        defaultLanguage: fullHospitalData.defaultLanguage || "de",
       });
     }
   }, [fullHospitalData, hospitalDialogOpen, activeTab]);
@@ -1290,6 +1292,24 @@ export default function Hospital() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.hourFormatDescription", "How times are displayed across the app")}</p>
+                  </div>
+
+                  {/* Default Language */}
+                  <div>
+                    <Label>{t("admin.defaultLanguage", "Default Language")}</Label>
+                    <Select
+                      value={hospitalForm.defaultLanguage}
+                      onValueChange={(value) => setHospitalForm(prev => ({ ...prev, defaultLanguage: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="de">{t("admin.defaultLanguageDe", "Deutsch")}</SelectItem>
+                        <SelectItem value="en">{t("admin.defaultLanguageEn", "English")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.defaultLanguageDescription", "Language used for automated emails and SMS notifications")}</p>
                   </div>
                 </div>
 

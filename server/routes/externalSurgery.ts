@@ -183,7 +183,7 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             surgeonName,
             wishedDate,
             deepLinkUrl,
-            'de'
+            (result.hospital.defaultLanguage as 'de' | 'en') || 'de'
           ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to configured email', result.hospital.externalSurgeryNotificationEmail, err));
           logger.info(`[ExternalSurgery] Sent notification to configured email ${result.hospital.externalSurgeryNotificationEmail} for hospital ${result.hospital.name}`);
           return;
@@ -224,7 +224,7 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             surgeonName,
             wishedDate,
             deepLinkUrl,
-            'de'
+            (result.hospital.defaultLanguage as 'de' | 'en') || 'de'
           ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to', admin.email, err));
         }
         logger.info(`[ExternalSurgery] Sent notifications to ${orAdmins.length} OR-admin(s) for hospital ${result.hospital.name}`);
@@ -573,13 +573,16 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     if (sendConfirmation) {
       const hospital = await storage.getHospital(request.hospitalId);
       const hospitalName = hospital?.name || 'the hospital';
-      const formattedDate = new Date(plannedDate).toLocaleDateString('de-CH', {
+      const lang = (hospital?.defaultLanguage as 'de' | 'en') || 'de';
+      const isGerman = lang === 'de';
+      const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+      const formattedDate = new Date(plannedDate).toLocaleDateString(dateLocale, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       });
-      
+
       // Try email first; only fall back to SMS if email wasn't sent
       let emailSent = false;
       if (request.surgeonEmail) {
@@ -587,26 +590,37 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           const resendApiKey = process.env.RESEND_API_KEY;
           if (resendApiKey) {
             const resend = new Resend(resendApiKey);
+
+            const subjectText = request.isReservationOnly
+              ? (isGerman ? `Slot-Reservierung bestätigt – ${formattedDate}` : `Slot Reservation Confirmed - ${formattedDate}`)
+              : (isGerman
+                ? `OP bestätigt – ${request.patientLastName}, ${request.patientFirstName}`
+                : `Surgery Confirmed - ${request.patientLastName}, ${request.patientFirstName}`);
+
+            const headingText = request.isReservationOnly
+              ? (isGerman ? 'Slot-Reservierung bestätigt' : 'Slot Reservation Confirmed')
+              : (isGerman ? 'OP-Reservierung bestätigt' : 'Surgery Reservation Confirmed');
+
             await resend.emails.send({
               from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
               to: request.surgeonEmail,
-              subject: request.isReservationOnly
-                ? `Slot Reservation Confirmed - ${formattedDate}`
-                : `Surgery Confirmed - ${request.patientLastName}, ${request.patientFirstName}`,
+              subject: subjectText,
               html: `
-                <h2>${request.isReservationOnly ? 'Slot Reservation Confirmed' : 'Surgery Reservation Confirmed'}</h2>
-                <p>Dear Dr. ${request.surgeonLastName},</p>
-                <p>Your ${request.isReservationOnly ? 'slot reservation' : 'surgery reservation'} request has been confirmed at ${hospitalName}.</p>
-                <h3>Details:</h3>
+                <h2>${headingText}</h2>
+                <p>${isGerman ? 'Sehr geehrte/r Dr.' : 'Dear Dr.'} ${request.surgeonLastName},</p>
+                <p>${isGerman
+                  ? `Ihre ${request.isReservationOnly ? 'Slot-Reservierung' : 'OP-Reservierung'} wurde bei ${hospitalName} bestätigt.`
+                  : `Your ${request.isReservationOnly ? 'slot reservation' : 'surgery reservation'} request has been confirmed at ${hospitalName}.`}</p>
+                <h3>${isGerman ? 'Details:' : 'Details:'}</h3>
                 <ul>
-                  ${!request.isReservationOnly ? `<li><strong>Patient:</strong> ${request.patientLastName}, ${request.patientFirstName}</li>` : ''}
-                  <li><strong>Surgery:</strong> ${request.surgeryName || 'Slot Reservation'}</li>
-                  <li><strong>Date:</strong> ${formattedDate}</li>
-                  <li><strong>Duration:</strong> ${request.surgeryDurationMinutes} minutes</li>
-                  <li><strong>Anesthesia:</strong> ${request.withAnesthesia ? 'Yes' : 'No'}</li>
+                  ${!request.isReservationOnly ? `<li><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${request.patientLastName}, ${request.patientFirstName}</li>` : ''}
+                  <li><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${request.surgeryName || (isGerman ? 'Slot-Reservierung' : 'Slot Reservation')}</li>
+                  <li><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${formattedDate}</li>
+                  <li><strong>${isGerman ? 'Dauer' : 'Duration'}:</strong> ${request.surgeryDurationMinutes} ${isGerman ? 'Minuten' : 'minutes'}</li>
+                  <li><strong>${isGerman ? 'Anästhesie' : 'Anesthesia'}:</strong> ${request.withAnesthesia ? (isGerman ? 'Ja' : 'Yes') : (isGerman ? 'Nein' : 'No')}</li>
                 </ul>
-                <p>If you have any questions, please contact us directly.</p>
-                <p>Best regards,<br>${hospitalName}</p>
+                <p>${isGerman ? 'Bei Fragen kontaktieren Sie uns bitte direkt.' : 'If you have any questions, please contact us directly.'}</p>
+                <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br>${hospitalName}</p>
               `,
             });
 
@@ -624,8 +638,12 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       if (!emailSent && request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
         try {
           const smsText = request.isReservationOnly
-            ? `Slot reservation confirmed at ${hospitalName} on ${formattedDate}. - ${hospitalName}`
-            : `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`;
+            ? (isGerman
+              ? `Slot-Reservierung bestätigt bei ${hospitalName} am ${formattedDate}. – ${hospitalName}`
+              : `Slot reservation confirmed at ${hospitalName} on ${formattedDate}. - ${hospitalName}`)
+            : (isGerman
+              ? `OP bestätigt bei ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} am ${formattedDate}. – ${hospitalName}`
+              : `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`);
           await sendSms(
             request.surgeonPhone,
             smsText,

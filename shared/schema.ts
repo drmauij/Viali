@@ -64,6 +64,7 @@ export const hospitals = pgTable("hospitals", {
   currency: varchar("currency").default("CHF"), // Display currency: CHF, EUR, USD
   dateFormat: varchar("date_format").default("european"), // european (dd.MM.yyyy) or american (MM/dd/yyyy)
   hourFormat: varchar("hour_format").default("24h"), // 24h or 12h
+  defaultLanguage: varchar("default_language").default("de"), // Notification language: 'de' or 'en'
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic", "test"] }).default("test").notNull(),
