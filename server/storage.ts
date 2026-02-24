@@ -212,7 +212,9 @@ export interface IStorage {
   setHospitalQuestionnaireToken(hospitalId: string, token: string | null): Promise<Hospital>;
   getHospitalByKioskToken(token: string): Promise<Hospital | undefined>;
   setHospitalKioskToken(hospitalId: string, token: string | null): Promise<Hospital>;
-  
+  getHospitalByCardReaderToken(token: string): Promise<Hospital | undefined>;
+  setHospitalCardReaderToken(hospitalId: string, token: string | null): Promise<Hospital>;
+
   // Folder operations
   getFolders(hospitalId: string, unitId: string): Promise<Folder[]>;
   getFolder(id: string): Promise<Folder | undefined>;
@@ -396,7 +398,9 @@ export interface IStorage {
   archivePatient(id: string, userId: string): Promise<Patient>;
   unarchivePatient(id: string): Promise<Patient>;
   generatePatientNumber(hospitalId: string): Promise<string>;
-  
+  findPatientByInsuranceNumber(hospitalId: string, number: string, type: 'health' | 'insurance'): Promise<Patient | undefined>;
+  findPatientByNameAndBirthday(hospitalId: string, surname: string, firstName: string, birthday: string): Promise<Patient | undefined>;
+
   // Case operations
   getCases(hospitalId: string, patientId?: string, status?: string): Promise<Case[]>;
   getCase(id: string): Promise<Case | undefined>;
@@ -1020,6 +1024,8 @@ export class DatabaseStorage implements IStorage {
   setHospitalQuestionnaireToken = hospitalStorage.setHospitalQuestionnaireToken;
   getHospitalByKioskToken = hospitalStorage.getHospitalByKioskToken;
   setHospitalKioskToken = hospitalStorage.setHospitalKioskToken;
+  getHospitalByCardReaderToken = hospitalStorage.getHospitalByCardReaderToken;
+  setHospitalCardReaderToken = hospitalStorage.setHospitalCardReaderToken;
   getUnits = hospitalStorage.getUnits;
   getUnit = hospitalStorage.getUnit;
   createUnit = hospitalStorage.createUnit;
@@ -1153,6 +1159,8 @@ export class DatabaseStorage implements IStorage {
   archivePatient = anesthesiaStorage.archivePatient;
   unarchivePatient = anesthesiaStorage.unarchivePatient;
   generatePatientNumber = anesthesiaStorage.generatePatientNumber;
+  findPatientByInsuranceNumber = anesthesiaStorage.findPatientByInsuranceNumber;
+  findPatientByNameAndBirthday = anesthesiaStorage.findPatientByNameAndBirthday;
   getCases = anesthesiaStorage.getCases;
   getCase = anesthesiaStorage.getCase;
   createCase = anesthesiaStorage.createCase;

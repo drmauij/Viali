@@ -1278,6 +1278,55 @@ router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, as
   }
 });
 
+// Card reader token management
+router.get('/api/admin/:hospitalId/card-reader-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    res.json({
+      cardReaderToken: hospital.cardReaderToken || null
+    });
+  } catch (error) {
+    logger.error("Error fetching card reader token:", error);
+    res.status(500).json({ message: "Failed to fetch card reader token" });
+  }
+});
+
+router.post('/api/admin/:hospitalId/card-reader-token/generate', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { nanoid } = await import('nanoid');
+
+    const token = nanoid(24);
+    const hospital = await storage.setHospitalCardReaderToken(hospitalId, token);
+
+    res.json({
+      cardReaderToken: hospital.cardReaderToken
+    });
+  } catch (error) {
+    logger.error("Error generating card reader token:", error);
+    res.status(500).json({ message: "Failed to generate card reader token" });
+  }
+});
+
+router.delete('/api/admin/:hospitalId/card-reader-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    await storage.setHospitalCardReaderToken(hospitalId, null);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error deleting card reader token:", error);
+    res.status(500).json({ message: "Failed to delete card reader token" });
+  }
+});
+
 // Kiosk PIN management
 router.post('/api/admin/users/:userId/set-kiosk-pin', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {

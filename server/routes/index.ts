@@ -23,6 +23,7 @@ import hospitalsRouter from "./hospitals";
 import dischargeBriefsRouter from "./dischargeBriefs";
 import worktimeLogsRouter from "./worktimeLogs";
 import kioskRouter from "./kiosk";
+import cardReaderRouter from "./cardReader";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -49,4 +50,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(dischargeBriefsRouter);
   app.use(worktimeLogsRouter);
   app.use(kioskRouter);
+  app.use(cardReaderRouter);
 }

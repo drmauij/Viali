@@ -87,6 +87,7 @@ export const hospitals = pgTable("hospitals", {
   externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
   externalSurgeryNotificationEmail: varchar("external_surgery_notification_email"), // Email to notify on new external surgery requests (fallback: OR admins)
   kioskToken: varchar("kiosk_token").unique(), // Token for public worktime kiosk (PIN-authenticated)
+  cardReaderToken: varchar("card_reader_token").unique(), // Token for insurance card reader bridge
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)

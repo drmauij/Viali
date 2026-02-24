@@ -988,6 +988,13 @@
       "when": 1771941796756,
       "tag": "0140_classy_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1771947280069,
+      "tag": "0141_funny_betty_brant",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -59,6 +59,34 @@ export default function Patients() {
   const [birthdayInput, setBirthdayInput] = useState("");
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
   const [selectedPatientForForm, setSelectedPatientForForm] = useState<Patient | null>(null);
+
+  // Pre-fill patient creation form from URL params (used by card reader bridge)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('newPatient') === '1') {
+      const prefill: typeof newPatient = {
+        surname: params.get('surname') || "",
+        firstName: params.get('firstName') || "",
+        birthday: params.get('birthday') || "",
+        sex: params.get('sex') || "",
+        email: "",
+        phone: "",
+        street: params.get('street') || "",
+        postalCode: params.get('postalCode') || "",
+        city: params.get('city') || "",
+        allergies: [],
+        otherAllergies: "",
+        internalNotes: "",
+      };
+      setNewPatient(prefill);
+      if (prefill.birthday) {
+        setBirthdayInput(prefill.birthday);
+      }
+      setIsCreateDialogOpen(true);
+      // Clean URL without triggering navigation
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Parse birthday from various formats to ISO format (yyyy-mm-dd)
   // Supported formats:

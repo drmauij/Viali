@@ -249,6 +249,35 @@ export async function unarchivePatient(id: string): Promise<Patient> {
   return restored;
 }
 
+export async function findPatientByInsuranceNumber(hospitalId: string, number: string, type: 'health' | 'insurance'): Promise<Patient | undefined> {
+  const field = type === 'health' ? patients.healthInsuranceNumber : patients.insuranceNumber;
+  const [patient] = await db
+    .select()
+    .from(patients)
+    .where(and(
+      eq(patients.hospitalId, hospitalId),
+      eq(field, number),
+      isNull(patients.deletedAt)
+    ))
+    .limit(1);
+  return patient;
+}
+
+export async function findPatientByNameAndBirthday(hospitalId: string, surname: string, firstName: string, birthday: string): Promise<Patient | undefined> {
+  const [patient] = await db
+    .select()
+    .from(patients)
+    .where(and(
+      eq(patients.hospitalId, hospitalId),
+      ilike(patients.surname, surname),
+      ilike(patients.firstName, firstName),
+      eq(patients.birthday, birthday),
+      isNull(patients.deletedAt)
+    ))
+    .limit(1);
+  return patient;
+}
+
 export async function generatePatientNumber(hospitalId: string): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `P-${year}-`;
