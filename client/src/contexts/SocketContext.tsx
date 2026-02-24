@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { io, Socket } from 'socket.io-client';
 import { queryClient } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { clientSessionId } from '@/utils/sessionId';
 
 export type AnesthesiaDataSection = 
@@ -103,6 +105,8 @@ interface SocketProviderProps {
 
 export function SocketProvider({ children }: SocketProviderProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { t } = useTranslation();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -271,7 +275,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
       setLastHeartbeat(Date.now());
       
       startHeartbeat(socketInstance);
-      
+
+      // Request browser notification permission (only prompts once)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
       if (currentRoomRef.current) {
         socketInstance.emit('join-surgery', currentRoomRef.current);
         invalidateAllAnesthesiaQueries(currentRoomRef.current);
@@ -413,6 +422,43 @@ export function SocketProvider({ children }: SocketProviderProps) {
       // And history
       queryClient.invalidateQueries({
         queryKey: [`/api/checklists/history/${payload.hospitalId}`],
+        refetchType: 'active',
+      });
+    });
+
+    // Listen for questionnaire submission notifications
+    socketInstance.on('questionnaire:submitted', (payload: { notification: { patientName: string; hospitalName: string; submittedAt: string }; timestamp: number }) => {
+      console.log('[Socket] Received questionnaire submission notification:', payload);
+
+      const { patientName } = payload.notification;
+
+      // Browser notification (works even when on another tab)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const browserNotif = new Notification(
+          t('questionnaireTab.newSubmission', 'New Questionnaire Submitted'),
+          {
+            body: t('questionnaireTab.newSubmissionBody', 'Patient: {{patientName}}', { patientName }),
+            icon: '/favicon.ico',
+          }
+        );
+        browserNotif.onclick = () => {
+          window.focus();
+          window.location.href = '/clinic/questionnaires';
+        };
+      }
+
+      // In-app toast
+      toast({
+        title: t('questionnaireTab.newSubmissionToast', 'New Questionnaire'),
+        description: t('questionnaireTab.newSubmissionToastDesc', '{{patientName}} submitted a questionnaire', { patientName }),
+      });
+
+      // Invalidate unassociated questionnaires query so the list refreshes
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && typeof key[0] === 'string' && key[0].includes('/api/questionnaire/unassociated');
+        },
         refetchType: 'active',
       });
     });

@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { userMessageTemplates } from "@shared/schema";
+import { userMessageTemplates, users, userHospitalRoles, units } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, requireStrictHospitalAccess, getUserUnitForHospital } from "../utils";
@@ -12,6 +12,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
+import { sendQuestionnaireSubmittedNotification } from "../resend";
+import { notifyQuestionnaireSubmitted } from "../socket";
+import { inArray } from "drizzle-orm";
 import logger from "../logger";
 
 const router = Router();
@@ -1447,10 +1450,79 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
     // Note: Audit logging skipped for public submissions (no authenticated user)
     // The submission is already tracked via submittedAt, ipAddress, userAgent in the response record
 
-    res.json({ 
+    res.json({
       message: "Questionnaire submitted successfully",
       submittedAt: submitted.submittedAt,
     });
+
+    // Fire-and-forget: notify clinic users for general (unassociated) submissions
+    (async () => {
+      try {
+        // Only notify for general hospital link submissions (no patient linked)
+        if (link.patientId !== null) return;
+
+        const hospital = await storage.getHospital(link.hospitalId);
+        if (!hospital) return;
+
+        const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+        const deepLinkUrl = `${baseUrl}/clinic/questionnaires`;
+        const patientName = [submitted.patientFirstName, submitted.patientLastName].filter(Boolean).join(' ') || 'Unknown';
+        const submittedAtStr = submitted.submittedAt
+          ? new Date(submitted.submittedAt).toLocaleString(hospital.defaultLanguage === 'de' ? 'de-CH' : 'en-US')
+          : new Date().toLocaleString('en-US');
+
+        // Query clinic nurse + admin users
+        const clinicUsers = await db
+          .select({
+            userId: userHospitalRoles.userId,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          })
+          .from(userHospitalRoles)
+          .innerJoin(users, eq(users.id, userHospitalRoles.userId))
+          .innerJoin(units, eq(units.id, userHospitalRoles.unitId))
+          .where(
+            and(
+              eq(userHospitalRoles.hospitalId, hospital.id),
+              eq(units.type, 'clinic'),
+              inArray(userHospitalRoles.role, ['nurse', 'admin'])
+            )
+          );
+
+        if (clinicUsers.length === 0) {
+          logger.info('[Questionnaire] No clinic nurse/admin users found for hospital', hospital.id);
+          return;
+        }
+
+        for (const clinicUser of clinicUsers) {
+          // Send email notification
+          if (clinicUser.email) {
+            const userName = [clinicUser.firstName, clinicUser.lastName].filter(Boolean).join(' ') || 'User';
+            sendQuestionnaireSubmittedNotification(
+              clinicUser.email,
+              userName,
+              hospital.name,
+              patientName,
+              submittedAtStr,
+              deepLinkUrl,
+              (hospital.defaultLanguage as 'de' | 'en') || 'de'
+            ).catch(err => logger.error('[Questionnaire] Failed to send notification to', clinicUser.email, err));
+          }
+
+          // Send socket notification
+          notifyQuestionnaireSubmitted(clinicUser.userId, {
+            patientName,
+            hospitalName: hospital.name,
+            submittedAt: submitted.submittedAt,
+          });
+        }
+
+        logger.info(`[Questionnaire] Sent notifications to ${clinicUsers.length} clinic user(s) for hospital ${hospital.name}`);
+      } catch (err) {
+        logger.error('[Questionnaire] Error sending submission notifications:', err);
+      }
+    })();
   } catch (error) {
     logger.error("Error submitting questionnaire:", error);
     res.status(500).json({ message: "Failed to submit questionnaire" });

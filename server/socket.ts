@@ -304,11 +304,25 @@ export function notifyUserOfNewMessage(userId: string, notification: any): void 
     logger.warn('[Socket.IO] Server not initialized, cannot notify user');
     return;
   }
-  
+
   io.to(`user:${userId}`).emit('chat:notification', {
     notification,
     timestamp: Date.now()
   });
-  
+
   logger.info(`[Socket.IO] Sent notification to user room user:${userId}`);
+}
+
+export function notifyQuestionnaireSubmitted(userId: string, notification: any): void {
+  if (!io) {
+    logger.warn('[Socket.IO] Server not initialized, cannot notify user');
+    return;
+  }
+
+  io.to(`user:${userId}`).emit('questionnaire:submitted', {
+    notification,
+    timestamp: Date.now()
+  });
+
+  logger.info(`[Socket.IO] Sent questionnaire submission notification to user room user:${userId}`);
 }
