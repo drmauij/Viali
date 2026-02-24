@@ -1172,7 +1172,7 @@ export default function CostAnalytics() {
                           </div>
                           <div className="flex items-center gap-6">
                             <div className="text-right">
-                              <div className="text-xs text-muted-foreground">{t('business.costs.avgPerDay')}</div>
+                              <div className="text-xs text-muted-foreground">Avg/Mo</div>
                               <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{avgHoursPerMonth.toFixed(1)}h</div>
                             </div>
                             <div className="text-right">
