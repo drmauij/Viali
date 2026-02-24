@@ -1176,7 +1176,7 @@ export default function CostAnalytics() {
                               <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{avgHoursPerMonth.toFixed(1)}h</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs text-muted-foreground">{t('business.costs.cost')}/mo</div>
+                              <div className="text-xs text-muted-foreground">{t('business.costs.cost')}/mo ({anesthesiaNurseRate} {getCurrencySymbol()}/h)</div>
                               <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{formatCurrencyLocale(avgCostPerMonth)}</div>
                             </div>
                             <ChevronRight className="h-5 w-5 text-muted-foreground" />
