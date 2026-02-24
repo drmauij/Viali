@@ -960,6 +960,13 @@
       "when": 1771920000000,
       "tag": "0136_condemned_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1771925964889,
+      "tag": "0137_dusty_mad_thinker",
+      "breakpoints": true
     }
   ]
 }

@@ -48,6 +48,7 @@ import { DischargeBriefsSection } from "@/components/dischargeBriefs/DischargeBr
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
+import { EpisodesTab } from "@/components/episodes/EpisodesTab";
 import { usePatientState, type StaffDocument } from "./patientDetail/usePatientState";
 import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/components/shared/ImportPreviousAssessmentDialog";
 import { usePatientQueries } from "./patientDetail/usePatientQueries";
@@ -1809,7 +1810,7 @@ export default function PatientDetail() {
       {/* Main Content Tabs - Notes, Surgeries, Documents, Invoices, and Medications */}
       <Tabs defaultValue="notes" className="w-full">
         <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 mb-4">
-          <TabsList className={cn("inline-flex w-auto min-w-full", addons.questionnaire ? "md:grid md:grid-cols-6 md:w-full" : "md:grid md:grid-cols-5 md:w-full")}>
+          <TabsList className={cn("inline-flex w-auto min-w-full", addons.questionnaire ? "md:grid md:grid-cols-7 md:w-full" : "md:grid md:grid-cols-6 md:w-full")}>
             <TabsTrigger value="notes" data-testid="tab-notes" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.notes', 'Notes')}
               {notesTimeline && notesTimeline.length > 0 && (
@@ -1827,6 +1828,9 @@ export default function PatientDetail() {
               {(staffDocuments.length + noteAttachmentDocs.length) > 0 && (
                 <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="episodes" data-testid="tab-episodes" className="whitespace-nowrap">
+              Episodes
             </TabsTrigger>
             <TabsTrigger value="invoices" data-testid="tab-invoices" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.invoices', 'Invoices')}
@@ -2876,6 +2880,15 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="episodes" className="mt-0">
+          <EpisodesTab
+            patientId={derivedPatientId || ""}
+            canWrite={canWrite}
+            surgeries={surgeries || []}
+            notes={notesTimeline || []}
+          />
         </TabsContent>
 
         <TabsContent value="medications" className="mt-0">

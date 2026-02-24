@@ -828,11 +828,63 @@ export const patientDocuments = pgTable("patient_documents", {
   source: varchar("source", { enum: ["questionnaire", "staff_upload", "import"] }).default("staff_upload"),
   reviewed: boolean("reviewed").default(false),
   questionnaireUploadId: varchar("questionnaire_upload_id"),
+  episodeId: varchar("episode_id"),
+  episodeFolderId: varchar("episode_folder_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_documents_hospital").on(table.hospitalId),
   index("idx_patient_documents_patient").on(table.patientId),
 ]);
+
+// Patient Episodes - Clinical journey grouping (broader than hospital admission)
+export const patientEpisodes = pgTable("patient_episodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  episodeNumber: varchar("episode_number").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  referenceDate: timestamp("reference_date"),
+  status: varchar("status", { enum: ["open", "closed"] }).notNull().default("open"),
+  createdBy: varchar("created_by").references(() => users.id),
+  closedAt: timestamp("closed_at"),
+  closedBy: varchar("closed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_episodes_hospital").on(table.hospitalId),
+  index("idx_patient_episodes_patient").on(table.patientId),
+  index("idx_patient_episodes_status").on(table.status),
+  unique("uq_patient_episodes_number").on(table.hospitalId, table.episodeNumber),
+]);
+
+export const insertPatientEpisodeSchema = createInsertSchema(patientEpisodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  closedAt: true,
+  closedBy: true,
+});
+export type InsertPatientEpisode = z.infer<typeof insertPatientEpisodeSchema>;
+export type PatientEpisode = typeof patientEpisodes.$inferSelect;
+
+// Episode Folders - Organize documents within an episode
+export const episodeFolders = pgTable("episode_folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  episodeId: varchar("episode_id").notNull().references(() => patientEpisodes.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_episode_folders_episode").on(table.episodeId),
+]);
+
+export const insertEpisodeFolderSchema = createInsertSchema(episodeFolders).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEpisodeFolder = z.infer<typeof insertEpisodeFolderSchema>;
+export type EpisodeFolder = typeof episodeFolders.$inferSelect;
 
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {
@@ -855,6 +907,7 @@ export const cases = pgTable("cases", {
 export const surgeries = pgTable("surgeries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id").references(() => cases.id), // Optional: links to case if using episode of care
+  episodeId: varchar("episode_id"), // Optional: links to patient episode
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   patientId: varchar("patient_id"), // Nullable for slot reservations (no patient assigned yet)
   surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id),
@@ -979,6 +1032,7 @@ export const patientNotes = pgTable("patient_notes", {
   patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
   authorId: varchar("author_id").notNull().references(() => users.id),
   content: text("content").notNull(),
+  episodeId: varchar("episode_id"), // Optional: links to patient episode
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

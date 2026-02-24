@@ -10,6 +10,7 @@ import eventsRouter from "./events";
 import staffRouter from "./staff";
 import inventoryRouter from "./inventory";
 import installationsRouter from "./installations";
+import episodesRouter from "./episodes";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use(eventsRouter);
 router.use(staffRouter);
 router.use(inventoryRouter);
 router.use(installationsRouter);
+router.use(episodesRouter);
 
 export default router;

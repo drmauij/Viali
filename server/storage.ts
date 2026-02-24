@@ -176,6 +176,10 @@ import {
   type InsertPatientDischargeMedicationItem,
   type WorktimeLog,
   type InsertWorktimeLog,
+  type PatientEpisode,
+  type InsertPatientEpisode,
+  type EpisodeFolder,
+  type InsertEpisodeFolder,
 } from "@shared/schema";
 
 export { db } from "./db";
@@ -192,6 +196,7 @@ import * as chatStorage from "./storage/chat";
 import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
 import * as worktimeStorage from "./storage/worktime";
+import * as episodeStorage from "./storage/episodes";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -958,6 +963,31 @@ export interface IStorage {
   getMedicationConfigsByItemIds(itemIds: string[]): Promise<any[]>;
   getAnesthesiaRecordsByIds(recordIds: string[]): Promise<any[]>;
   getAnesthesiaRecordsBySurgeryIds(surgeryIds: string[]): Promise<Map<string, any>>;
+
+  // ========== PATIENT EPISODE OPERATIONS ==========
+  generateEpisodeNumber(hospitalId: string): Promise<string>;
+  getPatientEpisodes(patientId: string, status?: string): Promise<PatientEpisode[]>;
+  getEpisode(id: string): Promise<PatientEpisode | undefined>;
+  getEpisodeWithDetails(id: string): Promise<{ episode: PatientEpisode; folders: EpisodeFolder[]; documentCount: number; surgeryCount: number; noteCount: number } | undefined>;
+  createEpisode(data: InsertPatientEpisode): Promise<PatientEpisode>;
+  updateEpisode(id: string, updates: Partial<PatientEpisode>): Promise<PatientEpisode>;
+  closeEpisode(id: string, userId: string): Promise<PatientEpisode>;
+  reopenEpisode(id: string): Promise<PatientEpisode>;
+  getEpisodeFolders(episodeId: string): Promise<EpisodeFolder[]>;
+  createEpisodeFolder(data: InsertEpisodeFolder): Promise<EpisodeFolder>;
+  updateEpisodeFolder(id: string, updates: Partial<EpisodeFolder>): Promise<EpisodeFolder>;
+  deleteEpisodeFolder(id: string): Promise<void>;
+  reorderEpisodeFolders(episodeId: string, folderIds: string[]): Promise<void>;
+  getEpisodeDocuments(episodeId: string): Promise<PatientDocument[]>;
+  assignDocumentToEpisode(docId: string, episodeId: string, folderId?: string): Promise<PatientDocument>;
+  unassignDocumentFromEpisode(docId: string): Promise<PatientDocument>;
+  moveDocumentToFolder(docId: string, folderId: string | null): Promise<PatientDocument>;
+  linkSurgeryToEpisode(surgeryId: string, episodeId: string): Promise<Surgery>;
+  unlinkSurgeryFromEpisode(surgeryId: string): Promise<Surgery>;
+  getEpisodeSurgeries(episodeId: string): Promise<Surgery[]>;
+  linkNoteToEpisode(noteId: string, episodeId: string): Promise<PatientNote>;
+  unlinkNoteFromEpisode(noteId: string): Promise<PatientNote>;
+  getEpisodeNotes(episodeId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1472,6 +1502,31 @@ export class DatabaseStorage implements IStorage {
   updateWorktimeLog = worktimeStorage.updateWorktimeLog;
   deleteWorktimeLog = worktimeStorage.deleteWorktimeLog;
   calculateWorktimeBalance = worktimeStorage.calculateWorktimeBalance;
+
+  // ========== PATIENT EPISODE OPERATIONS ==========
+  generateEpisodeNumber = episodeStorage.generateEpisodeNumber;
+  getPatientEpisodes = episodeStorage.getPatientEpisodes;
+  getEpisode = episodeStorage.getEpisode;
+  getEpisodeWithDetails = episodeStorage.getEpisodeWithDetails;
+  createEpisode = episodeStorage.createEpisode;
+  updateEpisode = episodeStorage.updateEpisode;
+  closeEpisode = episodeStorage.closeEpisode;
+  reopenEpisode = episodeStorage.reopenEpisode;
+  getEpisodeFolders = episodeStorage.getEpisodeFolders;
+  createEpisodeFolder = episodeStorage.createEpisodeFolder;
+  updateEpisodeFolder = episodeStorage.updateEpisodeFolder;
+  deleteEpisodeFolder = episodeStorage.deleteEpisodeFolder;
+  reorderEpisodeFolders = episodeStorage.reorderEpisodeFolders;
+  getEpisodeDocuments = episodeStorage.getEpisodeDocuments;
+  assignDocumentToEpisode = episodeStorage.assignDocumentToEpisode;
+  unassignDocumentFromEpisode = episodeStorage.unassignDocumentFromEpisode;
+  moveDocumentToFolder = episodeStorage.moveDocumentToFolder;
+  linkSurgeryToEpisode = episodeStorage.linkSurgeryToEpisode;
+  unlinkSurgeryFromEpisode = episodeStorage.unlinkSurgeryFromEpisode;
+  getEpisodeSurgeries = episodeStorage.getEpisodeSurgeries;
+  linkNoteToEpisode = episodeStorage.linkNoteToEpisode;
+  unlinkNoteFromEpisode = episodeStorage.unlinkNoteFromEpisode;
+  getEpisodeNotes = episodeStorage.getEpisodeNotes;
 }
 
 export const storage = new DatabaseStorage();
