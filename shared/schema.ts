@@ -826,7 +826,7 @@ export const patientDocuments = pgTable("patient_documents", {
   fileSize: integer("file_size"),
   description: text("description"),
   uploadedBy: varchar("uploaded_by").references(() => users.id),
-  source: varchar("source", { enum: ["questionnaire", "staff_upload", "import"] }).default("staff_upload"),
+  source: varchar("source", { enum: ["questionnaire", "staff_upload", "import", "patient_upload"] }).default("staff_upload"),
   reviewed: boolean("reviewed").default(false),
   questionnaireUploadId: varchar("questionnaire_upload_id"),
   episodeId: varchar("episode_id"),

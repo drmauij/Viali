@@ -26,7 +26,7 @@ export type PatientDocument = {
   fileSize?: number;
   description?: string | null;
   uploadedBy?: string | null;
-  source?: "questionnaire" | "staff_upload" | "import" | null;
+  source?: "questionnaire" | "staff_upload" | "import" | "patient_upload" | null;
   reviewed?: boolean | null;
   questionnaireUploadId?: string | null;
   createdAt: string;
@@ -241,7 +241,7 @@ export function PatientDocumentsSection({
   const renderDocumentCard = (doc: PatientDocument) => {
     const isImage = doc.mimeType?.startsWith('image/');
     const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
-    const needsReview = doc.source === 'questionnaire' && !doc.reviewed;
+    const needsReview = (doc.source === 'questionnaire' || doc.source === 'patient_upload') && !doc.reviewed;
     const isRecentDoc = isRecent(doc.createdAt);
 
     return (
@@ -264,6 +264,12 @@ export function PatientDocumentsSection({
                     <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                       <ClipboardList className="h-3 w-3 mr-1" />
                       {t('anesthesia.patientDetail.fromQuestionnaire', 'Questionnaire')}
+                    </Badge>
+                  )}
+                  {doc.source === 'patient_upload' && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      <Upload className="h-3 w-3 mr-1" />
+                      {t('anesthesia.patientDetail.patientUpload', 'Patient Upload')}
                     </Badge>
                   )}
                   {needsReview && (
@@ -301,7 +307,7 @@ export function PatientDocumentsSection({
                       <Pencil className="h-3 w-3" />
                     </Button>
                   )}
-                  {doc.source === 'questionnaire' && canWrite && (
+                  {(doc.source === 'questionnaire' || doc.source === 'patient_upload') && canWrite && (
                     <Button
                       size="sm"
                       variant={doc.reviewed ? "default" : "outline"}
@@ -356,6 +362,12 @@ export function PatientDocumentsSection({
                     {t('anesthesia.patientDetail.fromQuestionnaire', 'Patient')}
                   </Badge>
                 )}
+                {doc.source === 'patient_upload' && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    <Upload className="h-3 w-3 mr-1" />
+                    {t('anesthesia.patientDetail.patientUpload', 'Patient Upload')}
+                  </Badge>
+                )}
                 {needsReview && (
                   <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
                     {t('anesthesia.patientDetail.needsReview', 'Review')}
@@ -388,7 +400,7 @@ export function PatientDocumentsSection({
                   )}
                 </div>
               )}
-              {doc.source === 'questionnaire' && canWrite && (
+              {(doc.source === 'questionnaire' || doc.source === 'patient_upload') && canWrite && (
                 <Button
                   size="sm"
                   variant={doc.reviewed ? "default" : "outline"}

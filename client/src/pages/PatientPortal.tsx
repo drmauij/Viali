@@ -3,11 +3,11 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  FileText, 
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  FileText,
   ClipboardList,
   AlertTriangle,
   Loader2,
@@ -28,7 +28,9 @@ import {
   Upload,
   Camera as CameraIcon,
   ArrowLeft,
-  CalendarPlus
+  CalendarPlus,
+  X,
+  Trash2
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -176,6 +178,22 @@ const translations = {
     callbackStepTitle: "Aufklärungsgespräch",
     callbackStepDesc: "Bitte rufen Sie uns an, um einen Termin für das Aufklärungsgespräch zu vereinbaren.",
     callbackSlotsTimes: "Verfügbare Termine",
+    uploadDocsTitle: "Dokumente hochladen",
+    uploadDocsDesc: "Laden Sie zusätzliche Dokumente hoch (Laborbefunde, Bildgebung, Überweisungen, etc.)",
+    uploadDocsAction: "Dokument hochladen",
+    uploadDocsUploading: "Wird hochgeladen...",
+    uploadDocsError: "Hochladen fehlgeschlagen",
+    uploadDocsMaxSize: "Max. 10 MB",
+    uploadDocsCategory: "Kategorie",
+    uploadDocsCatLabResult: "Laborbefund",
+    uploadDocsCatImaging: "Bildgebung",
+    uploadDocsCatReferral: "Überweisung",
+    uploadDocsCatExamResult: "Untersuchungsbefund",
+    uploadDocsCatMedList: "Medikamentenliste",
+    uploadDocsCatOther: "Sonstiges",
+    uploadDocsDelete: "Löschen",
+    uploadDocsNoFiles: "Noch keine Dokumente hochgeladen",
+    uploadDocsLimitReached: "Maximale Anzahl an Dokumenten erreicht (20)",
   },
   en: {
     title: "Patient Portal",
@@ -282,6 +300,22 @@ const translations = {
     callbackStepTitle: "Consent Talk",
     callbackStepDesc: "Please call us to schedule your consent talk.",
     callbackSlotsTimes: "Available times",
+    uploadDocsTitle: "Upload Documents",
+    uploadDocsDesc: "Upload additional documents (lab results, imaging, referrals, etc.)",
+    uploadDocsAction: "Upload Document",
+    uploadDocsUploading: "Uploading...",
+    uploadDocsError: "Upload failed",
+    uploadDocsMaxSize: "Max 10 MB",
+    uploadDocsCategory: "Category",
+    uploadDocsCatLabResult: "Lab Result",
+    uploadDocsCatImaging: "Imaging",
+    uploadDocsCatReferral: "Referral",
+    uploadDocsCatExamResult: "Exam Result",
+    uploadDocsCatMedList: "Medication List",
+    uploadDocsCatOther: "Other",
+    uploadDocsDelete: "Delete",
+    uploadDocsNoFiles: "No documents uploaded yet",
+    uploadDocsLimitReached: "Maximum number of documents reached (20)",
   },
   it: {
     title: "Portale Paziente",
@@ -388,6 +422,22 @@ const translations = {
     callbackStepTitle: "Colloquio di consenso",
     callbackStepDesc: "Si prega di chiamarci per fissare un appuntamento per il colloquio di consenso.",
     callbackSlotsTimes: "Orari disponibili",
+    uploadDocsTitle: "Carica documenti",
+    uploadDocsDesc: "Carica documenti aggiuntivi (referti di laboratorio, immagini, impegnative, ecc.)",
+    uploadDocsAction: "Carica documento",
+    uploadDocsUploading: "Caricamento in corso...",
+    uploadDocsError: "Caricamento fallito",
+    uploadDocsMaxSize: "Max 10 MB",
+    uploadDocsCategory: "Categoria",
+    uploadDocsCatLabResult: "Referto di laboratorio",
+    uploadDocsCatImaging: "Diagnostica per immagini",
+    uploadDocsCatReferral: "Impegnativa",
+    uploadDocsCatExamResult: "Esito esame",
+    uploadDocsCatMedList: "Lista farmaci",
+    uploadDocsCatOther: "Altro",
+    uploadDocsDelete: "Elimina",
+    uploadDocsNoFiles: "Nessun documento caricato",
+    uploadDocsLimitReached: "Numero massimo di documenti raggiunto (20)",
   },
   es: {
     title: "Portal del Paciente",
@@ -494,6 +544,22 @@ const translations = {
     callbackStepTitle: "Conversación de consentimiento",
     callbackStepDesc: "Por favor llámenos para programar su conversación de consentimiento.",
     callbackSlotsTimes: "Horarios disponibles",
+    uploadDocsTitle: "Subir documentos",
+    uploadDocsDesc: "Suba documentos adicionales (resultados de laboratorio, imágenes, derivaciones, etc.)",
+    uploadDocsAction: "Subir documento",
+    uploadDocsUploading: "Subiendo...",
+    uploadDocsError: "Error al subir",
+    uploadDocsMaxSize: "Máx. 10 MB",
+    uploadDocsCategory: "Categoría",
+    uploadDocsCatLabResult: "Resultado de laboratorio",
+    uploadDocsCatImaging: "Imagen diagnóstica",
+    uploadDocsCatReferral: "Derivación",
+    uploadDocsCatExamResult: "Resultado de examen",
+    uploadDocsCatMedList: "Lista de medicamentos",
+    uploadDocsCatOther: "Otro",
+    uploadDocsDelete: "Eliminar",
+    uploadDocsNoFiles: "Aún no se han subido documentos",
+    uploadDocsLimitReached: "Número máximo de documentos alcanzado (20)",
   },
   fr: {
     title: "Portail Patient",
@@ -600,6 +666,22 @@ const translations = {
     callbackStepTitle: "Entretien de consentement",
     callbackStepDesc: "Veuillez nous appeler pour fixer un rendez-vous pour l'entretien de consentement.",
     callbackSlotsTimes: "Horaires disponibles",
+    uploadDocsTitle: "Télécharger des documents",
+    uploadDocsDesc: "Téléchargez des documents supplémentaires (résultats de laboratoire, imagerie, ordonnances, etc.)",
+    uploadDocsAction: "Télécharger un document",
+    uploadDocsUploading: "Téléchargement en cours...",
+    uploadDocsError: "Échec du téléchargement",
+    uploadDocsMaxSize: "Max 10 Mo",
+    uploadDocsCategory: "Catégorie",
+    uploadDocsCatLabResult: "Résultat de laboratoire",
+    uploadDocsCatImaging: "Imagerie",
+    uploadDocsCatReferral: "Ordonnance",
+    uploadDocsCatExamResult: "Résultat d'examen",
+    uploadDocsCatMedList: "Liste de médicaments",
+    uploadDocsCatOther: "Autre",
+    uploadDocsDelete: "Supprimer",
+    uploadDocsNoFiles: "Aucun document téléchargé",
+    uploadDocsLimitReached: "Nombre maximum de documents atteint (20)",
   }
 };
 
@@ -649,6 +731,10 @@ export default function PatientPortal() {
   });
   const fileInputFrontRef = useRef<HTMLInputElement>(null);
   const fileInputBackRef = useRef<HTMLInputElement>(null);
+  const fileInputDocRef = useRef<HTMLInputElement>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadDocError, setUploadDocError] = useState<string | null>(null);
+  const [uploadDocCategory, setUploadDocCategory] = useState('other');
 
   useEffect(() => {
     if (isDark) {
@@ -711,6 +797,104 @@ export default function PatientPortal() {
     },
     enabled: !!token && !!data,
   });
+
+  const { data: portalDocs, refetch: refetchPortalDocs } = useQuery<Array<{
+    id: string;
+    fileName: string;
+    category: string;
+    fileSize: number | null;
+    createdAt: string;
+  }>>({
+    queryKey: ['/api/patient-portal', token, 'documents'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/documents`);
+      if (!res.ok) return [];
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) return [];
+      return res.json();
+    },
+    enabled: !!token && !!data && data.questionnaireStatus === 'completed',
+  });
+
+  const handleDocumentUpload = async (file: File) => {
+    if (!token) return;
+    setUploadDocError(null);
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadDocError(t.uploadDocsMaxSize);
+      return;
+    }
+
+    const allowedTypes = [
+      'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowedTypes.includes(file.type) && !file.type.startsWith('image/')) {
+      setUploadDocError('Unsupported file type');
+      return;
+    }
+
+    setUploadingDoc(true);
+    try {
+      // Step 1: Get pre-signed URL
+      const urlRes = await fetch(`/api/patient-portal/${token}/documents/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+      });
+      if (!urlRes.ok) {
+        const err = await urlRes.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to get upload URL');
+      }
+      const { uploadUrl, fileUrl } = await urlRes.json();
+
+      // Step 2: Upload to S3
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error('Upload failed');
+
+      // Step 3: Register document record
+      const regRes = await fetch(`/api/patient-portal/${token}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: uploadDocCategory,
+          fileName: file.name,
+          fileUrl,
+          mimeType: file.type,
+          fileSize: file.size,
+        }),
+      });
+      if (!regRes.ok) {
+        const err = await regRes.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to register document');
+      }
+
+      refetchPortalDocs();
+    } catch (err: any) {
+      setUploadDocError(err.message || t.uploadDocsError);
+    } finally {
+      setUploadingDoc(false);
+      if (fileInputDocRef.current) fileInputDocRef.current.value = '';
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/patient-portal/${token}/documents/${docId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to delete');
+      }
+      refetchPortalDocs();
+    } catch (err: any) {
+      setUploadDocError(err.message || 'Failed to delete document');
+    }
+  };
 
   useEffect(() => {
     if (data?.language) {
@@ -1422,6 +1606,108 @@ export default function PatientPortal() {
                         : t.fillQuestionnaire}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
+
+                  {/* Document upload section (shown after questionnaire is completed) */}
+                  {step1Complete && (
+                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700" data-testid="section-patient-doc-upload">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground dark:text-gray-400">{t.uploadDocsTitle}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground dark:text-gray-500 mb-2">
+                        {t.uploadDocsDesc}
+                      </p>
+
+                      {/* Uploaded files list */}
+                      {portalDocs && portalDocs.length > 0 && (
+                        <div className="space-y-1.5 mb-2">
+                          {portalDocs.map((doc) => (
+                            <div key={doc.id} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                <span className="text-xs truncate">{doc.fileName}</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive flex-shrink-0"
+                                onClick={() => handleDeleteDoc(doc.id)}
+                                data-testid={`button-delete-doc-${doc.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Category selector + Upload button */}
+                      {(!portalDocs || portalDocs.length < 20) ? (
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Select value={uploadDocCategory} onValueChange={setUploadDocCategory}>
+                            <SelectTrigger className="h-8 text-xs flex-1">
+                              <SelectValue placeholder={t.uploadDocsCategory} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="lab_result">{t.uploadDocsCatLabResult}</SelectItem>
+                              <SelectItem value="imaging">{t.uploadDocsCatImaging}</SelectItem>
+                              <SelectItem value="referral">{t.uploadDocsCatReferral}</SelectItem>
+                              <SelectItem value="exam_result">{t.uploadDocsCatExamResult}</SelectItem>
+                              <SelectItem value="medication_list">{t.uploadDocsCatMedList}</SelectItem>
+                              <SelectItem value="other">{t.uploadDocsCatOther}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs w-full sm:w-auto"
+                            disabled={uploadingDoc}
+                            onClick={() => fileInputDocRef.current?.click()}
+                            data-testid="button-upload-doc"
+                          >
+                            {uploadingDoc ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                {t.uploadDocsUploading}
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-3.5 w-3.5 mr-1" />
+                                {t.uploadDocsAction}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">{t.uploadDocsLimitReached}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground dark:text-gray-500 mt-1">{t.uploadDocsMaxSize}</p>
+
+                      {/* Error message */}
+                      {uploadDocError && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-destructive">
+                          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span>{uploadDocError}</span>
+                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0 ml-auto" onClick={() => setUploadDocError(null)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Hidden file input */}
+                      <input
+                        ref={fileInputDocRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleDocumentUpload(file);
+                        }}
+                        data-testid="input-doc-file"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

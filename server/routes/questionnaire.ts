@@ -2,13 +2,13 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { userMessageTemplates, users, userHospitalRoles, units } from "@shared/schema";
+import { userMessageTemplates, users, userHospitalRoles, units, patientDocuments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, requireStrictHospitalAccess, getUserUnitForHospital } from "../utils";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
@@ -2476,6 +2476,264 @@ router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async
   } catch (error) {
     logger.error("Error signing consent:", error);
     res.status(500).json({ message: "Failed to sign consent" });
+  }
+});
+
+// ========== PATIENT PORTAL DOCUMENT UPLOAD ENDPOINTS ==========
+
+// Validation helper: like validateLinkForEdit but does NOT block submitted questionnaires
+async function validateLinkForPortal(token: string): Promise<{ valid: true; link: any } | { valid: false; error: string; status: number }> {
+  const link = await storage.getQuestionnaireLinkByToken(token);
+  if (!link) {
+    return { valid: false, error: "Link not found", status: 404 };
+  }
+  if ((link.status as string) === 'invalidated') {
+    return { valid: false, error: "Link has been invalidated", status: 410 };
+  }
+  if (!link.patientId) {
+    return { valid: false, error: "No patient associated with this link", status: 400 };
+  }
+
+  // Check if expired by time or status, with auto-extend logic for upcoming surgeries
+  const isTimeExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
+  const isStatusExpired = link.status === 'expired';
+
+  if (isTimeExpired || isStatusExpired) {
+    let upcomingSurgeryDate: Date | null = null;
+
+    if (link.surgeryId) {
+      const surgery = await storage.getSurgery(link.surgeryId);
+      if (surgery?.plannedDate && new Date(surgery.plannedDate) >= startOfToday()) {
+        upcomingSurgeryDate = new Date(surgery.plannedDate);
+      }
+    }
+
+    if (!upcomingSurgeryDate && link.patientId) {
+      const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
+        patientId: link.patientId,
+        dateFrom: startOfToday(),
+      });
+      if (patientSurgeries.length > 0) {
+        const sorted = patientSurgeries.sort((a, b) =>
+          new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+        );
+        upcomingSurgeryDate = new Date(sorted[0].plannedDate);
+      }
+    }
+
+    if (upcomingSurgeryDate) {
+      const newExpiresAt = new Date(upcomingSurgeryDate);
+      newExpiresAt.setDate(newExpiresAt.getDate() + 1);
+      const updateData: any = { expiresAt: newExpiresAt };
+      if (link.status === 'expired') {
+        const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
+        updateData.status = existingResponse ? 'started' : 'pending';
+      }
+      await storage.updateQuestionnaireLink(link.id, updateData);
+    } else {
+      return { valid: false, error: "Link has expired", status: 410 };
+    }
+  }
+
+  return { valid: true, link };
+}
+
+const patientDocUploadLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 15,
+  keyPrefix: 'pdocup'
+});
+
+const ALLOWED_DOC_CATEGORIES = ["lab_result", "imaging", "referral", "exam_result", "medication_list", "other"];
+
+// Get pre-signed S3 upload URL for patient document
+router.post('/api/patient-portal/:token/documents/upload-url', patientDocUploadLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const validation = await validateLinkForPortal(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    const { fileName, mimeType } = req.body;
+    if (!fileName) {
+      return res.status(400).json({ message: "fileName is required" });
+    }
+
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(503).json({ message: "File storage not configured" });
+    }
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    const fileId = randomUUID();
+    const extension = fileName.split('.').pop() || '';
+    const objectName = extension ? `${fileId}.${extension}` : fileId;
+    const key = `patient-documents/${link.hospitalId}/${link.patientId}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: mimeType || 'application/octet-stream',
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+    const fileUrl = `/objects/${key}`;
+
+    res.json({ uploadUrl, fileUrl, key });
+  } catch (error) {
+    logger.error("Error generating patient document upload URL:", error);
+    res.status(500).json({ message: "Failed to generate upload URL" });
+  }
+});
+
+// Register uploaded patient document
+router.post('/api/patient-portal/:token/documents', patientDocUploadLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const validation = await validateLinkForPortal(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    const { category, fileName, fileUrl, mimeType, fileSize } = req.body;
+    if (!fileName || !fileUrl) {
+      return res.status(400).json({ message: "fileName and fileUrl are required" });
+    }
+    if (category && !ALLOWED_DOC_CATEGORIES.includes(category)) {
+      return res.status(400).json({ message: "Invalid category" });
+    }
+
+    // Cap at 20 patient_upload documents per patient
+    const existingDocs = await storage.getPatientDocuments(link.patientId);
+    const patientUploadCount = existingDocs.filter(d => d.source === 'patient_upload').length;
+    if (patientUploadCount >= 20) {
+      return res.status(429).json({ message: "Maximum number of uploads reached (20)" });
+    }
+
+    const document = await storage.createPatientDocument({
+      hospitalId: link.hospitalId,
+      patientId: link.patientId,
+      category: category || 'other',
+      fileName,
+      fileUrl,
+      mimeType,
+      fileSize,
+      uploadedBy: null,
+      source: 'patient_upload',
+      reviewed: false,
+    });
+
+    res.status(201).json({
+      id: document.id,
+      fileName: document.fileName,
+      category: document.category,
+      fileSize: document.fileSize,
+      createdAt: document.createdAt,
+    });
+  } catch (error) {
+    logger.error("Error registering patient document:", error);
+    res.status(500).json({ message: "Failed to register document" });
+  }
+});
+
+// List patient's portal uploads (metadata only, no fileUrl)
+router.get('/api/patient-portal/:token/documents', patientDocUploadLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const validation = await validateLinkForPortal(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    const allDocs = await storage.getPatientDocuments(link.patientId);
+    const portalDocs = allDocs
+      .filter(d => d.source === 'patient_upload')
+      .map(d => ({
+        id: d.id,
+        fileName: d.fileName,
+        category: d.category,
+        fileSize: d.fileSize,
+        createdAt: d.createdAt,
+      }));
+
+    res.json(portalDocs);
+  } catch (error) {
+    logger.error("Error listing patient portal documents:", error);
+    res.status(500).json({ message: "Failed to list documents" });
+  }
+});
+
+// Delete patient portal upload (only if source=patient_upload and not yet reviewed)
+router.delete('/api/patient-portal/:token/documents/:docId', patientDocUploadLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token, docId } = req.params;
+    const validation = await validateLinkForPortal(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    const doc = await storage.getPatientDocument(docId);
+    if (!doc || doc.patientId !== link.patientId) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+    if (doc.source !== 'patient_upload') {
+      return res.status(403).json({ message: "Cannot delete this document" });
+    }
+    if (doc.reviewed) {
+      return res.status(403).json({ message: "Cannot delete a reviewed document" });
+    }
+
+    // Delete from S3
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (endpoint && accessKeyId && secretAccessKey && bucket && doc.fileUrl) {
+      try {
+        const s3Client = new S3Client({
+          endpoint,
+          region,
+          credentials: { accessKeyId, secretAccessKey },
+          forcePathStyle: true,
+        });
+
+        let key = doc.fileUrl;
+        if (key.startsWith("/objects/")) {
+          key = key.slice("/objects/".length);
+        }
+
+        await s3Client.send(new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        }));
+      } catch (s3Error) {
+        logger.error("Error deleting patient document from S3:", s3Error);
+      }
+    }
+
+    await storage.deletePatientDocument(docId);
+    res.json({ message: "Document deleted" });
+  } catch (error) {
+    logger.error("Error deleting patient portal document:", error);
+    res.status(500).json({ message: "Failed to delete document" });
   }
 });
 
