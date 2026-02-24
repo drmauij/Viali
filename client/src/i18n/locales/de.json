@@ -5221,7 +5221,15 @@
       "avgCostPerHour": "Ø Kosten/Std.",
       "anesthesia": "Anästhesie",
       "surgery": "Operation",
-      "costPerHour": "Kosten/Std."
+      "costPerHour": "Kosten/Std.",
+      "anesthesiaNurseHours": "Anästhesie-Pflegestunden",
+      "anesthesiaNurseHoursDesc": "Berechnet von 07:00 bis letztes OP-Ende + 1h Puffer",
+      "hourlyRate": "Stundenansatz",
+      "surgeryDays": "OP-Tage",
+      "avgPerDay": "Ø pro Tag",
+      "pastTotal": "Total vergangen",
+      "plannedTotal": "Total geplant",
+      "planned": "Geplant"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

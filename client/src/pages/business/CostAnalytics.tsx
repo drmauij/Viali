@@ -327,6 +327,7 @@ export default function CostAnalytics() {
   const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
   const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
+  const [showNurseHoursDialog, setShowNurseHoursDialog] = useState(false);
   // Chart unit filter removed - now showing all units as separate lines
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
@@ -360,6 +361,21 @@ export default function CostAnalytics() {
     status: string;
   }[]>({
     queryKey: [`/api/business/${activeHospital?.id}/surgeries`],
+    enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
+  });
+
+  // Fetch anesthesia nurse hours by month
+  const [anesthesiaNurseRate, setAnesthesiaNurseRate] = useState(100);
+  const { data: nurseHoursData } = useQuery<{
+    months: Array<{
+      month: string;
+      totalHours: number;
+      surgeryDays: number;
+      isPast: boolean;
+    }>;
+    hourlyRate: number;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/anesthesia-nurse-hours`],
     enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
   });
 
@@ -1134,7 +1150,42 @@ export default function CostAnalytics() {
                       })()}
                     </div>
                   )}
-                  
+
+                  {/* Anesthesia Nurse Hours summary card */}
+                  {nurseHoursData && nurseHoursData.months.length > 0 && (() => {
+                    const pastMonths = nurseHoursData.months.filter(m => m.isPast);
+                    const totalHours = pastMonths.reduce((sum, m) => sum + m.totalHours, 0);
+                    const avgHoursPerMonth = pastMonths.length > 0 ? totalHours / pastMonths.length : 0;
+                    const avgCostPerMonth = avgHoursPerMonth * anesthesiaNurseRate;
+                    return (
+                      <div
+                        className="mb-6 bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4 border border-teal-200 dark:border-teal-800 cursor-pointer hover:border-teal-400 dark:hover:border-teal-600 transition-colors"
+                        onClick={() => setShowNurseHoursDialog(true)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Clock className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                            <div>
+                              <div className="text-sm font-medium">{t('business.costs.anesthesiaNurseHours')}</div>
+                              <div className="text-xs text-muted-foreground">{t('business.costs.anesthesiaNurseHoursDesc')}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground">{t('business.costs.avgPerDay')}</div>
+                              <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{avgHoursPerMonth.toFixed(1)}h</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground">{t('business.costs.cost')}/mo</div>
+                              <div className="text-lg font-bold text-teal-600 dark:text-teal-400">{formatCurrencyLocale(avgCostPerMonth)}</div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1629,6 +1680,100 @@ export default function CostAnalytics() {
               {t('business.costs.noSurgeriesFound')}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Anesthesia Nurse Hours Detail Dialog */}
+      <Dialog open={showNurseHoursDialog} onOpenChange={setShowNurseHoursDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {t('business.costs.anesthesiaNurseHours')}
+            </DialogTitle>
+            <DialogDescription>{t('business.costs.anesthesiaNurseHoursDesc')}</DialogDescription>
+          </DialogHeader>
+          {nurseHoursData && nurseHoursData.months.length > 0 && (() => {
+            const pastMonths = nurseHoursData.months.filter(m => m.isPast);
+            const futureMonths = nurseHoursData.months.filter(m => !m.isPast);
+            const pastTotalHours = pastMonths.reduce((sum, m) => sum + m.totalHours, 0);
+            const futureTotalHours = futureMonths.reduce((sum, m) => sum + m.totalHours, 0);
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+            const formatMonth = (monthStr: string) => {
+              const [year, month] = monthStr.split('-');
+              const date = new Date(parseInt(year), parseInt(month) - 1);
+              return date.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+            };
+
+            return (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-sm text-muted-foreground">{t('business.costs.hourlyRate')}:</span>
+                  <Input
+                    type="number"
+                    value={anesthesiaNurseRate}
+                    onChange={(e) => setAnesthesiaNurseRate(Number(e.target.value) || 0)}
+                    className="w-20 h-8 text-right"
+                  />
+                  <span className="text-sm text-muted-foreground">CHF/h</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('business.costs.date')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.surgeryDays')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.hours')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.avgPerDay')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.cost')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pastMonths.map((m) => (
+                        <TableRow key={m.month} className={m.month === currentMonth ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                          <TableCell className="font-medium">{formatMonth(m.month)}</TableCell>
+                          <TableCell className="text-right">{m.surgeryDays}</TableCell>
+                          <TableCell className="text-right">{m.totalHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{m.surgeryDays > 0 ? (m.totalHours / m.surgeryDays).toFixed(1) : '0.0'}</TableCell>
+                          <TableCell className="text-right">{formatCurrencyLocale(m.totalHours * anesthesiaNurseRate)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {pastMonths.length > 0 && (
+                        <TableRow className="border-t-2 font-semibold">
+                          <TableCell colSpan={4} className="text-right text-muted-foreground">{t('business.costs.pastTotal')}</TableCell>
+                          <TableCell className="text-right">{formatCurrencyLocale(pastTotalHours * anesthesiaNurseRate)}</TableCell>
+                        </TableRow>
+                      )}
+                      {futureMonths.length > 0 && (
+                        <TableRow className="border-t-2 border-b-0 bg-muted/30">
+                          <TableCell colSpan={5} className="text-center text-sm font-semibold text-muted-foreground tracking-wider py-1">
+                            {t('business.costs.planned')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {futureMonths.map((m) => (
+                        <TableRow key={m.month} className="text-muted-foreground italic">
+                          <TableCell className="font-medium">{formatMonth(m.month)}</TableCell>
+                          <TableCell className="text-right">{m.surgeryDays}</TableCell>
+                          <TableCell className="text-right">{m.totalHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{m.surgeryDays > 0 ? (m.totalHours / m.surgeryDays).toFixed(1) : '0.0'}</TableCell>
+                          <TableCell className="text-right">{formatCurrencyLocale(m.totalHours * anesthesiaNurseRate)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {futureMonths.length > 0 && (
+                        <TableRow className="border-t-2 font-semibold">
+                          <TableCell colSpan={4} className="text-right text-muted-foreground">{t('business.costs.plannedTotal')}</TableCell>
+                          <TableCell className="text-right">{formatCurrencyLocale(futureTotalHours * anesthesiaNurseRate)}</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

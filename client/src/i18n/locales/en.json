@@ -5125,7 +5125,15 @@
       "avgCostPerHour": "Avg Cost/Hour",
       "anesthesia": "Anesthesia",
       "surgery": "Surgery",
-      "costPerHour": "Cost/Hour"
+      "costPerHour": "Cost/Hour",
+      "anesthesiaNurseHours": "Anesthesia Nurse Hours",
+      "anesthesiaNurseHoursDesc": "Calculated from 07:00 to last surgery end + 1h buffer",
+      "hourlyRate": "Hourly Rate",
+      "surgeryDays": "Surgery Days",
+      "avgPerDay": "Avg/Day",
+      "pastTotal": "Past total",
+      "plannedTotal": "Planned total",
+      "planned": "Planned"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

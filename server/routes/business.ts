@@ -1549,4 +1549,105 @@ router.get('/api/business/:hospitalId/surgeries/:surgeryId/costs', isAuthenticat
   }
 });
 
+// Get anesthesia nurse hours aggregated by month
+router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    // Get all non-archived, non-cancelled, non-suspended surgeries with their anesthesia records
+    const surgeriesData = await db
+      .select({
+        surgery: surgeries,
+        anesthesiaRecord: anesthesiaRecords,
+      })
+      .from(surgeries)
+      .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        eq(surgeries.isArchived, false),
+        eq(surgeries.isSuspended, false),
+        ne(surgeries.status, 'cancelled')
+      ))
+      .orderBy(desc(surgeries.plannedDate));
+
+    // For each surgery, determine end time
+    const surgeryEndTimes: { date: string; endTime: number }[] = [];
+
+    for (const { surgery, anesthesiaRecord } of surgeriesData) {
+      let endTime: number;
+
+      // 1. Check for A2 marker in anesthesia record
+      if (anesthesiaRecord?.timeMarkers) {
+        const markers = anesthesiaRecord.timeMarkers as Array<{ code: string; time: number | null }>;
+        const a2Marker = markers.find(m => m.code === 'A2');
+        if (a2Marker?.time) {
+          endTime = a2Marker.time;
+        } else if (surgery.actualEndTime) {
+          endTime = new Date(surgery.actualEndTime).getTime();
+        } else {
+          endTime = new Date(surgery.plannedDate).getTime() + 3 * 60 * 60 * 1000; // +3h default
+        }
+      } else if (surgery.actualEndTime) {
+        endTime = new Date(surgery.actualEndTime).getTime();
+      } else {
+        endTime = new Date(surgery.plannedDate).getTime() + 3 * 60 * 60 * 1000; // +3h default
+      }
+
+      // Extract date portion (YYYY-MM-DD) from plannedDate
+      const dateStr = new Date(surgery.plannedDate).toISOString().split('T')[0];
+      surgeryEndTimes.push({ date: dateStr, endTime });
+    }
+
+    // Group by day and find max end time per day
+    const dayMap = new Map<string, number>();
+    for (const { date, endTime } of surgeryEndTimes) {
+      const current = dayMap.get(date);
+      if (!current || endTime > current) {
+        dayMap.set(date, endTime);
+      }
+    }
+
+    // Calculate hours per day: (maxEndTime + 1h buffer - 07:00) in hours
+    const dayHoursMap = new Map<string, number>();
+    for (const [date, maxEndTime] of dayMap) {
+      const dayStart = new Date(date + 'T07:00:00').getTime();
+      const dayEnd = maxEndTime + 60 * 60 * 1000; // +1h buffer
+      const hours = Math.max(0, (dayEnd - dayStart) / (60 * 60 * 1000));
+      dayHoursMap.set(date, Math.round(hours * 10) / 10); // round to 1 decimal
+    }
+
+    // Aggregate by month
+    const monthMap = new Map<string, { totalHours: number; surgeryDays: number }>();
+    for (const [date, hours] of dayHoursMap) {
+      const month = date.substring(0, 7); // YYYY-MM
+      const existing = monthMap.get(month) || { totalHours: 0, surgeryDays: 0 };
+      existing.totalHours += hours;
+      existing.surgeryDays += 1;
+      monthMap.set(month, existing);
+    }
+
+    // Determine current month for isPast flag
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Sort by month and build response
+    const months = Array.from(monthMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        month,
+        totalHours: Math.round(data.totalHours * 10) / 10,
+        surgeryDays: data.surgeryDays,
+        isPast: month <= currentMonth,
+      }));
+
+    res.json({
+      months,
+      hourlyRate: 100,
+    });
+  } catch (error) {
+    logger.error("Error fetching anesthesia nurse hours:", error);
+    res.status(500).json({ message: "Failed to fetch anesthesia nurse hours" });
+  }
+});
+
 export default router;
