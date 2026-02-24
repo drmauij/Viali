@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
+import StaffDuplicatesDialog from "@/components/admin/StaffDuplicatesDialog";
+import StaffMergeWizard from "@/components/admin/StaffMergeWizard";
 
 // Get available roles based on unit type
 // Anesthesia/OR units: doctor, nurse, guest, admin
@@ -217,6 +219,12 @@ export default function Users() {
     unitId: "",
     role: "",
   });
+
+  // Staff merge/dedup states
+  const [duplicatesDialogOpen, setDuplicatesDialogOpen] = useState(false);
+  const [mergeWizardOpen, setMergeWizardOpen] = useState(false);
+  const [mergeUser1Id, setMergeUser1Id] = useState("");
+  const [mergeUser2Id, setMergeUser2Id] = useState("");
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
@@ -1133,10 +1141,21 @@ export default function Users() {
                 {t("admin.createNewUser")}
               </Button>
             ) : (
-              <Button onClick={handleCreateStaffMember} size="sm" data-testid="button-create-staff-member">
-                <UserCog className="mr-2 h-4 w-4" />
-                {t("admin.createStaffMember")}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDuplicatesDialogOpen(true)}
+                  data-testid="button-find-duplicates"
+                >
+                  <Search className="mr-2 h-4 w-4" />
+                  {t("admin.findDuplicates", "Find Duplicates")}
+                </Button>
+                <Button onClick={handleCreateStaffMember} size="sm" data-testid="button-create-staff-member">
+                  <UserCog className="mr-2 h-4 w-4" />
+                  {t("admin.createStaffMember")}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -2146,6 +2165,32 @@ export default function Users() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Staff Duplicates Dialog */}
+      {activeHospital?.id && (
+        <StaffDuplicatesDialog
+          open={duplicatesDialogOpen}
+          onOpenChange={setDuplicatesDialogOpen}
+          hospitalId={activeHospital.id}
+          onMerge={(user1Id, user2Id) => {
+            setMergeUser1Id(user1Id);
+            setMergeUser2Id(user2Id);
+            setDuplicatesDialogOpen(false);
+            setMergeWizardOpen(true);
+          }}
+        />
+      )}
+
+      {/* Staff Merge Wizard */}
+      {activeHospital?.id && mergeUser1Id && mergeUser2Id && (
+        <StaffMergeWizard
+          open={mergeWizardOpen}
+          onOpenChange={setMergeWizardOpen}
+          hospitalId={activeHospital.id}
+          initialUser1Id={mergeUser1Id}
+          initialUser2Id={mergeUser2Id}
+        />
+      )}
     </div>
   );
 }

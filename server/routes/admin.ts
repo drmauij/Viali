@@ -1810,4 +1810,87 @@ router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, isAdmi
   }
 });
 
+// ============================================================
+// Staff Merge & Deduplication Endpoints
+// ============================================================
+
+import { findDuplicates } from "../services/staffDeduplication";
+import { previewStaffMerge, executeStaffMerge, undoStaffMerge } from "../services/staffMerge";
+
+// GET /api/admin/:hospitalId/staff-duplicates -- Find duplicate staff candidates
+router.get('/api/admin/:hospitalId/staff-duplicates', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const pairs = await findDuplicates(hospitalId);
+    res.json(pairs);
+  } catch (error: any) {
+    logger.error("[Admin] Duplicate detection error:", error);
+    res.status(500).json({ message: "Failed to find duplicates", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/staff-merge/preview -- Dry run merge preview
+router.post('/api/admin/:hospitalId/staff-merge/preview', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { primaryUserId, secondaryUserId } = req.body;
+
+    if (!primaryUserId || !secondaryUserId) {
+      return res.status(400).json({ message: "primaryUserId and secondaryUserId are required" });
+    }
+    if (primaryUserId === secondaryUserId) {
+      return res.status(400).json({ message: "Cannot merge a user with themselves" });
+    }
+
+    const preview = await previewStaffMerge(primaryUserId, secondaryUserId, hospitalId);
+    res.json(preview);
+  } catch (error: any) {
+    logger.error("[Admin] Merge preview error:", error);
+    res.status(500).json({ message: "Failed to generate merge preview", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/staff-merge/execute -- Execute merge
+router.post('/api/admin/:hospitalId/staff-merge/execute', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { primaryUserId, secondaryUserId, fieldChoices } = req.body;
+    const mergedBy = (req as any).user.id;
+
+    if (!primaryUserId || !secondaryUserId) {
+      return res.status(400).json({ message: "primaryUserId and secondaryUserId are required" });
+    }
+    if (primaryUserId === secondaryUserId) {
+      return res.status(400).json({ message: "Cannot merge a user with themselves" });
+    }
+
+    const result = await executeStaffMerge(
+      primaryUserId,
+      secondaryUserId,
+      fieldChoices ?? {},
+      mergedBy,
+      hospitalId
+    );
+
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    logger.error("[Admin] Merge execution error:", error);
+    res.status(500).json({ message: "Failed to execute merge", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/staff-merge/undo/:mergeId -- Undo a completed merge
+router.post('/api/admin/:hospitalId/staff-merge/undo/:mergeId', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { mergeId } = req.params;
+    const undoneBy = (req as any).user.id;
+
+    await undoStaffMerge(mergeId, undoneBy);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("[Admin] Merge undo error:", error);
+    res.status(500).json({ message: "Failed to undo merge", error: error.message });
+  }
+});
+
 export default router;

@@ -5456,3 +5456,48 @@ export type DischargeBriefTemplate = typeof dischargeBriefTemplates.$inferSelect
 export type InsertDischargeBriefTemplate = z.infer<typeof insertDischargeBriefTemplateSchema>;
 export type DischargeBrief = typeof dischargeBriefs.$inferSelect;
 export type InsertDischargeBrief = z.infer<typeof insertDischargeBriefSchema>;
+
+// Staff Merge Status
+export const staffMergeStatusEnum = pgEnum("staff_merge_status", ["completed", "undone"]);
+
+// Staff Merges (Audit trail for staff member deduplication/merge operations)
+export const staffMerges = pgTable("staff_merges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  primaryUserId: varchar("primary_user_id").notNull().references(() => users.id),
+  secondaryUserId: varchar("secondary_user_id").notNull().references(() => users.id),
+  mergedBy: varchar("merged_by").notNull().references(() => users.id),
+  // Full snapshots for undo capability
+  primaryUserSnapshot: jsonb("primary_user_snapshot").notNull(), // Full user record before merge
+  secondaryUserSnapshot: jsonb("secondary_user_snapshot").notNull(), // Full user record before merge
+  // Detailed log of all changes made
+  fkUpdates: jsonb("fk_updates").notNull(), // Array of { table, column, recordIds, fromUserId, toUserId }
+  roleMerges: jsonb("role_merges").notNull(), // Array of { action: "transferred"|"merged"|"deleted", roleId, details }
+  fieldChoices: jsonb("field_choices").notNull(), // { fieldName: { chosen: "primary"|"secondary", value } }
+  linkedOrphans: jsonb("linked_orphans"), // Array of { table, recordId, matchedName, confidence }
+  // Status tracking
+  status: staffMergeStatusEnum("status").notNull().default("completed"),
+  undoneAt: timestamp("undone_at"),
+  undoneBy: varchar("undone_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_staff_merges_hospital").on(table.hospitalId),
+  index("idx_staff_merges_primary").on(table.primaryUserId),
+  index("idx_staff_merges_secondary").on(table.secondaryUserId),
+  index("idx_staff_merges_status").on(table.status),
+]);
+
+export const staffMergesRelations = relations(staffMerges, ({ one }) => ({
+  hospital: one(hospitals, { fields: [staffMerges.hospitalId], references: [hospitals.id] }),
+  primaryUser: one(users, { fields: [staffMerges.primaryUserId], references: [users.id] }),
+  secondaryUser: one(users, { fields: [staffMerges.secondaryUserId], references: [users.id] }),
+  merger: one(users, { fields: [staffMerges.mergedBy], references: [users.id] }),
+}));
+
+export const insertStaffMergeSchema = createInsertSchema(staffMerges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type StaffMerge = typeof staffMerges.$inferSelect;
+export type InsertStaffMerge = z.infer<typeof insertStaffMergeSchema>;
