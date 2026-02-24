@@ -967,6 +967,13 @@
       "when": 1771925964889,
       "tag": "0137_dusty_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1771926975968,
+      "tag": "0138_lumpy_mentor",
+      "breakpoints": true
     }
   ]
 }

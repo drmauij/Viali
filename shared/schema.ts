@@ -845,6 +845,7 @@ export const patientEpisodes = pgTable("patient_episodes", {
   title: varchar("title").notNull(),
   description: text("description"),
   referenceDate: timestamp("reference_date"),
+  endDate: timestamp("end_date"),
   status: varchar("status", { enum: ["open", "closed"] }).notNull().default("open"),
   createdBy: varchar("created_by").references(() => users.id),
   closedAt: timestamp("closed_at"),

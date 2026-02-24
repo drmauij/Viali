@@ -8,6 +8,7 @@ export type PatientEpisode = {
   title: string;
   description?: string | null;
   referenceDate?: string | null;
+  endDate?: string | null;
   status: "open" | "closed";
   createdBy?: string | null;
   closedAt?: string | null;

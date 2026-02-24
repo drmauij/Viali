@@ -23,9 +23,11 @@ export function EpisodeCard({ episode, onClick }: EpisodeCardProps) {
               </span>
               <h3 className="font-medium truncate">{episode.title}</h3>
             </div>
-            {episode.referenceDate && (
+            {(episode.referenceDate || episode.endDate) && (
               <p className="text-sm text-muted-foreground">
-                {format(new Date(episode.referenceDate), "MMM d, yyyy")}
+                {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
+                {episode.referenceDate && episode.endDate && " — "}
+                {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
               </p>
             )}
           </div>

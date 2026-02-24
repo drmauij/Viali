@@ -18,7 +18,7 @@ export function useEpisodeMutations(patientId: string) {
   };
 
   const createEpisode = useMutation({
-    mutationFn: async (data: { title: string; description?: string; referenceDate?: string }) => {
+    mutationFn: async (data: { title: string; description?: string; referenceDate?: string; endDate?: string }) => {
       const res = await apiRequest("POST", `/api/patients/${patientId}/episodes`, data);
       return res.json();
     },
@@ -32,7 +32,7 @@ export function useEpisodeMutations(patientId: string) {
   });
 
   const updateEpisode = useMutation({
-    mutationFn: async ({ episodeId, ...data }: { episodeId: string; title?: string; description?: string; referenceDate?: string }) => {
+    mutationFn: async ({ episodeId, ...data }: { episodeId: string; title?: string; description?: string; referenceDate?: string; endDate?: string }) => {
       const res = await apiRequest("PATCH", `/api/patients/${patientId}/episodes/${episodeId}`, data);
       return res.json();
     },

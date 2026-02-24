@@ -111,9 +111,11 @@ export function EpisodeDetailView({
               {episode.description}
             </p>
           )}
-          {episode.referenceDate && (
+          {(episode.referenceDate || episode.endDate) && (
             <p className="text-xs text-muted-foreground mt-1">
-              Reference: {format(new Date(episode.referenceDate), "MMM d, yyyy")}
+              {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
+              {episode.referenceDate && episode.endDate && " — "}
+              {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
             </p>
           )}
         </div>

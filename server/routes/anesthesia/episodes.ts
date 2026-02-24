@@ -65,7 +65,7 @@ router.post('/api/patients/:patientId/episodes', isAuthenticated, requireWriteAc
   try {
     const { patientId } = req.params;
     const userId = req.user.id;
-    const { title, description, referenceDate } = req.body;
+    const { title, description, referenceDate, endDate } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
@@ -89,6 +89,7 @@ router.post('/api/patients/:patientId/episodes', isAuthenticated, requireWriteAc
       title,
       description: description || null,
       referenceDate: referenceDate ? new Date(referenceDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
       status: "open",
       createdBy: userId,
     });
@@ -104,7 +105,7 @@ router.patch('/api/patients/:patientId/episodes/:episodeId', isAuthenticated, re
   try {
     const { patientId, episodeId } = req.params;
     const userId = req.user.id;
-    const { title, description, referenceDate } = req.body;
+    const { title, description, referenceDate, endDate } = req.body;
 
     const patient = await storage.getPatient(patientId);
     if (!patient) {
@@ -126,6 +127,7 @@ router.patch('/api/patients/:patientId/episodes/:episodeId', isAuthenticated, re
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (referenceDate !== undefined) updates.referenceDate = referenceDate ? new Date(referenceDate) : null;
+    if (endDate !== undefined) updates.endDate = endDate ? new Date(endDate) : null;
 
     const updated = await storage.updateEpisode(episodeId, updates);
     res.json(updated);

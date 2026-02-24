@@ -29,6 +29,7 @@ export function CreateEpisodeDialog({
   const [referenceDate, setReferenceDate] = useState(
     format(new Date(), "yyyy-MM-dd")
   );
+  const [endDate, setEndDate] = useState("");
 
   const { createEpisode } = useEpisodeMutations(patientId);
 
@@ -41,12 +42,14 @@ export function CreateEpisodeDialog({
         title: title.trim(),
         description: description.trim() || undefined,
         referenceDate: referenceDate || undefined,
+        endDate: endDate || undefined,
       },
       {
         onSuccess: () => {
           setTitle("");
           setDescription("");
           setReferenceDate(format(new Date(), "yyyy-MM-dd"));
+          setEndDate("");
           onOpenChange(false);
         },
       }
@@ -80,14 +83,25 @@ export function CreateEpisodeDialog({
               rows={3}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="episode-date">Reference Date</Label>
-            <Input
-              id="episode-date"
-              type="date"
-              value={referenceDate}
-              onChange={(e) => setReferenceDate(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="episode-start-date">Start Date</Label>
+              <Input
+                id="episode-start-date"
+                type="date"
+                value={referenceDate}
+                onChange={(e) => setReferenceDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="episode-end-date">End Date</Label>
+              <Input
+                id="episode-end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
