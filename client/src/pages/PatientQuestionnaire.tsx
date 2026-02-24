@@ -104,6 +104,8 @@ interface QuestionnaireConfig {
     alcoholDetails?: string;
     height?: string;
     weight?: string;
+    referralSource?: string;
+    referralSourceDetail?: string;
     previousSurgeries?: string;
     previousAnesthesiaProblems?: string;
     pregnancyStatus?: string;
@@ -152,6 +154,8 @@ interface FormData {
   patientPhone: string;
   height: string;
   weight: string;
+  referralSource: string;
+  referralSourceDetail: string;
   allergies: string[];
   allergiesNotes: string;
   noAllergies: boolean;
@@ -226,6 +230,19 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.phone": "Phone",
     "questionnaire.personal.height": "Height (cm)",
     "questionnaire.personal.weight": "Weight (kg)",
+    "questionnaire.personal.referralSource": "How did you hear about us? (optional)",
+    "questionnaire.personal.referral.social": "Social Media",
+    "questionnaire.personal.referral.facebook": "Facebook",
+    "questionnaire.personal.referral.instagram": "Instagram",
+    "questionnaire.personal.referral.tiktok": "TikTok",
+    "questionnaire.personal.referral.searchEngine": "Search Engine",
+    "questionnaire.personal.referral.google": "Google",
+    "questionnaire.personal.referral.bing": "Bing",
+    "questionnaire.personal.referral.llm": "AI Assistant (e.g. ChatGPT)",
+    "questionnaire.personal.referral.wordOfMouth": "Word of Mouth",
+    "questionnaire.personal.referral.belegarzt": "Referring Doctor",
+    "questionnaire.personal.referral.other": "Other",
+    "questionnaire.personal.referral.otherPlaceholder": "Please specify...",
     "questionnaire.conditions.title": "Do you have any of the following conditions?",
     "questionnaire.conditions.noneCheckbox": "I have no pre-existing conditions",
     "questionnaire.conditions.noPreviousSurgeries": "I have had no previous surgeries",
@@ -345,6 +362,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.documents": "Documents",
     "questionnaire.summary.additionalNotes": "Additional Notes",
     "questionnaire.summary.questionsForDoctor": "Questions for Doctor",
+    "questionnaire.summary.referralSource": "Referral",
     "questionnaire.none.confirmed": "✓ Confirmed: None",
     "questionnaire.submit.title": "Review and Submit",
     "questionnaire.submit.subtitle": "Please review your information and sign to complete the questionnaire",
@@ -398,6 +416,19 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.phone": "Telefon",
     "questionnaire.personal.height": "Größe (cm)",
     "questionnaire.personal.weight": "Gewicht (kg)",
+    "questionnaire.personal.referralSource": "Wie haben Sie von uns erfahren? (optional)",
+    "questionnaire.personal.referral.social": "Soziale Medien",
+    "questionnaire.personal.referral.facebook": "Facebook",
+    "questionnaire.personal.referral.instagram": "Instagram",
+    "questionnaire.personal.referral.tiktok": "TikTok",
+    "questionnaire.personal.referral.searchEngine": "Suchmaschine",
+    "questionnaire.personal.referral.google": "Google",
+    "questionnaire.personal.referral.bing": "Bing",
+    "questionnaire.personal.referral.llm": "KI-Assistent (z.B. ChatGPT)",
+    "questionnaire.personal.referral.wordOfMouth": "Mundpropaganda",
+    "questionnaire.personal.referral.belegarzt": "Belegarzt",
+    "questionnaire.personal.referral.other": "Andere",
+    "questionnaire.personal.referral.otherPlaceholder": "Bitte angeben...",
     "questionnaire.conditions.title": "Haben Sie eine der folgenden Erkrankungen?",
     "questionnaire.conditions.noneCheckbox": "Ich habe keine Vorerkrankungen",
     "questionnaire.conditions.noPreviousSurgeries": "Ich hatte keine früheren Operationen",
@@ -517,6 +548,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.documents": "Dokumente",
     "questionnaire.summary.additionalNotes": "Zusätzliche Hinweise",
     "questionnaire.summary.questionsForDoctor": "Fragen an den Arzt",
+    "questionnaire.summary.referralSource": "Empfehlung",
     "questionnaire.none.confirmed": "✓ Bestätigt: Keine",
     "questionnaire.submit.title": "Überprüfen und Absenden",
     "questionnaire.submit.subtitle": "Bitte überprüfen Sie Ihre Angaben und unterschreiben Sie, um den Fragebogen abzuschließen",
@@ -570,6 +602,19 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.phone": "Telefono",
     "questionnaire.personal.height": "Altezza (cm)",
     "questionnaire.personal.weight": "Peso (kg)",
+    "questionnaire.personal.referralSource": "Come ci ha conosciuto? (opzionale)",
+    "questionnaire.personal.referral.social": "Social Media",
+    "questionnaire.personal.referral.facebook": "Facebook",
+    "questionnaire.personal.referral.instagram": "Instagram",
+    "questionnaire.personal.referral.tiktok": "TikTok",
+    "questionnaire.personal.referral.searchEngine": "Motore di ricerca",
+    "questionnaire.personal.referral.google": "Google",
+    "questionnaire.personal.referral.bing": "Bing",
+    "questionnaire.personal.referral.llm": "Assistente AI (es. ChatGPT)",
+    "questionnaire.personal.referral.wordOfMouth": "Passaparola",
+    "questionnaire.personal.referral.belegarzt": "Medico curante",
+    "questionnaire.personal.referral.other": "Altro",
+    "questionnaire.personal.referral.otherPlaceholder": "Specificare...",
     "questionnaire.conditions.title": "Ha una delle seguenti patologie?",
     "questionnaire.conditions.noneCheckbox": "Non ho patologie pregresse",
     "questionnaire.conditions.noPreviousSurgeries": "Non ho avuto interventi chirurgici precedenti",
@@ -689,6 +734,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.documents": "Documenti",
     "questionnaire.summary.additionalNotes": "Note aggiuntive",
     "questionnaire.summary.questionsForDoctor": "Domande per il medico",
+    "questionnaire.summary.referralSource": "Referenza",
     "questionnaire.none.confirmed": "✓ Confermato: Nessuno",
     "questionnaire.submit.title": "Verifica e invio",
     "questionnaire.submit.subtitle": "Si prega di verificare le informazioni e firmare per completare il questionario",
@@ -742,6 +788,19 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.phone": "Teléfono",
     "questionnaire.personal.height": "Altura (cm)",
     "questionnaire.personal.weight": "Peso (kg)",
+    "questionnaire.personal.referralSource": "¿Cómo nos conoció? (opcional)",
+    "questionnaire.personal.referral.social": "Redes sociales",
+    "questionnaire.personal.referral.facebook": "Facebook",
+    "questionnaire.personal.referral.instagram": "Instagram",
+    "questionnaire.personal.referral.tiktok": "TikTok",
+    "questionnaire.personal.referral.searchEngine": "Motor de búsqueda",
+    "questionnaire.personal.referral.google": "Google",
+    "questionnaire.personal.referral.bing": "Bing",
+    "questionnaire.personal.referral.llm": "Asistente de IA (ej. ChatGPT)",
+    "questionnaire.personal.referral.wordOfMouth": "Boca a boca",
+    "questionnaire.personal.referral.belegarzt": "Médico remitente",
+    "questionnaire.personal.referral.other": "Otro",
+    "questionnaire.personal.referral.otherPlaceholder": "Por favor especifique...",
     "questionnaire.conditions.title": "¿Tiene alguna de las siguientes patologías?",
     "questionnaire.conditions.noneCheckbox": "No tengo patologías previas",
     "questionnaire.conditions.noPreviousSurgeries": "No he tenido operaciones previas",
@@ -861,6 +920,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.documents": "Documentos",
     "questionnaire.summary.additionalNotes": "Notas adicionales",
     "questionnaire.summary.questionsForDoctor": "Preguntas para el médico",
+    "questionnaire.summary.referralSource": "Referencia",
     "questionnaire.none.confirmed": "✓ Confirmado: Ninguno",
     "questionnaire.submit.title": "Revisar y enviar",
     "questionnaire.submit.subtitle": "Por favor revise su información y firme para completar el cuestionario",
@@ -914,6 +974,19 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.phone": "Téléphone",
     "questionnaire.personal.height": "Taille (cm)",
     "questionnaire.personal.weight": "Poids (kg)",
+    "questionnaire.personal.referralSource": "Comment nous avez-vous connu ? (optionnel)",
+    "questionnaire.personal.referral.social": "Réseaux sociaux",
+    "questionnaire.personal.referral.facebook": "Facebook",
+    "questionnaire.personal.referral.instagram": "Instagram",
+    "questionnaire.personal.referral.tiktok": "TikTok",
+    "questionnaire.personal.referral.searchEngine": "Moteur de recherche",
+    "questionnaire.personal.referral.google": "Google",
+    "questionnaire.personal.referral.bing": "Bing",
+    "questionnaire.personal.referral.llm": "Assistant IA (ex. ChatGPT)",
+    "questionnaire.personal.referral.wordOfMouth": "Bouche à oreille",
+    "questionnaire.personal.referral.belegarzt": "Médecin référent",
+    "questionnaire.personal.referral.other": "Autre",
+    "questionnaire.personal.referral.otherPlaceholder": "Veuillez préciser...",
     "questionnaire.conditions.title": "Avez-vous l'une des pathologies suivantes ?",
     "questionnaire.conditions.noneCheckbox": "Je n'ai pas de pathologies préexistantes",
     "questionnaire.conditions.noPreviousSurgeries": "Je n'ai pas eu d'opérations précédentes",
@@ -1033,6 +1106,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.summary.documents": "Documents",
     "questionnaire.summary.additionalNotes": "Notes supplémentaires",
     "questionnaire.summary.questionsForDoctor": "Questions pour le médecin",
+    "questionnaire.summary.referralSource": "Recommandation",
     "questionnaire.none.confirmed": "✓ Confirmé : Aucun",
     "questionnaire.submit.title": "Vérifier et envoyer",
     "questionnaire.submit.subtitle": "Veuillez vérifier vos informations et signer pour compléter le questionnaire",
@@ -1102,6 +1176,8 @@ export default function PatientQuestionnaire() {
     patientPhone: "",
     height: "",
     weight: "",
+    referralSource: "",
+    referralSourceDetail: "",
     allergies: [],
     allergiesNotes: "",
     noAllergies: false,
@@ -1185,6 +1261,8 @@ export default function PatientQuestionnaire() {
         patientPhone: existing?.patientPhone || config.patientPhone || "",
         height: existing?.height || "",
         weight: existing?.weight || "",
+        referralSource: (existing as any)?.referralSource || "",
+        referralSourceDetail: (existing as any)?.referralSourceDetail || "",
         allergies: existing?.allergies || [],
         allergiesNotes: existing?.allergiesNotes || "",
         noAllergies: (existing as any)?.noAllergies || false,
@@ -1978,6 +2056,101 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             data-testid="input-weight"
           />
         </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <Label>{t("questionnaire.personal.referralSource")}</Label>
+        <RadioGroup
+          value={formData.referralSource}
+          onValueChange={(value) => {
+            updateField("referralSource", value);
+            updateField("referralSourceDetail", "");
+          }}
+          className="space-y-2"
+        >
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="social" id="referral-social" />
+              <Label htmlFor="referral-social" className="font-normal">{t("questionnaire.personal.referral.social")}</Label>
+            </div>
+            {formData.referralSource === "social" && (
+              <div className="ml-6 flex flex-wrap gap-2">
+                {["facebook", "instagram", "tiktok"].map((platform) => (
+                  <button
+                    key={platform}
+                    type="button"
+                    onClick={() => updateField("referralSourceDetail", platform)}
+                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                      formData.referralSourceDetail === platform
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-muted border-input"
+                    }`}
+                  >
+                    {t(`questionnaire.personal.referral.${platform}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="search_engine" id="referral-search" />
+              <Label htmlFor="referral-search" className="font-normal">{t("questionnaire.personal.referral.searchEngine")}</Label>
+            </div>
+            {formData.referralSource === "search_engine" && (
+              <div className="ml-6 flex flex-wrap gap-2">
+                {["google", "bing"].map((engine) => (
+                  <button
+                    key={engine}
+                    type="button"
+                    onClick={() => updateField("referralSourceDetail", engine)}
+                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                      formData.referralSourceDetail === engine
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-muted border-input"
+                    }`}
+                  >
+                    {t(`questionnaire.personal.referral.${engine}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="llm" id="referral-llm" />
+            <Label htmlFor="referral-llm" className="font-normal">{t("questionnaire.personal.referral.llm")}</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="word_of_mouth" id="referral-wom" />
+            <Label htmlFor="referral-wom" className="font-normal">{t("questionnaire.personal.referral.wordOfMouth")}</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="belegarzt" id="referral-belegarzt" />
+            <Label htmlFor="referral-belegarzt" className="font-normal">{t("questionnaire.personal.referral.belegarzt")}</Label>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="other" id="referral-other" />
+              <Label htmlFor="referral-other" className="font-normal">{t("questionnaire.personal.referral.other")}</Label>
+            </div>
+            {formData.referralSource === "other" && (
+              <div className="ml-6">
+                <Input
+                  value={formData.referralSourceDetail}
+                  onChange={(e) => updateField("referralSourceDetail", e.target.value)}
+                  placeholder={t("questionnaire.personal.referral.otherPlaceholder")}
+                />
+              </div>
+            )}
+          </div>
+        </RadioGroup>
       </div>
     </div>
   );
@@ -3012,6 +3185,19 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
           <p className="text-sm">{formData.patientFirstName} {formData.patientLastName}</p>
           {formData.patientBirthday && <p className="text-sm text-gray-500">{formData.patientBirthday}</p>}
           {formData.patientPhone && <p className="text-sm text-gray-500">{formData.patientPhone}</p>}
+          {formData.referralSource && (
+            <p className="text-sm text-gray-500">
+              {t("questionnaire.summary.referralSource")}: {t(`questionnaire.personal.referral.${
+                formData.referralSource === "search_engine" ? "searchEngine" :
+                formData.referralSource === "word_of_mouth" ? "wordOfMouth" :
+                formData.referralSource
+              }`)}{formData.referralSourceDetail && ` — ${
+                formData.referralSource === "other"
+                  ? formData.referralSourceDetail
+                  : t(`questionnaire.personal.referral.${formData.referralSourceDetail}`)
+              }`}
+            </p>
+          )}
         </div>
 
         <div className="border rounded-lg p-3 space-y-1">

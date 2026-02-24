@@ -138,6 +138,8 @@ const saveProgressSchema = z.object({
   alcoholDetails: z.string().optional(),
   height: z.string().optional(),
   weight: z.string().optional(),
+  referralSource: z.string().optional(),
+  referralSourceDetail: z.string().optional(),
   previousSurgeries: z.string().optional(),
   previousAnesthesiaProblems: z.string().optional(),
   pregnancyStatus: z.string().optional(),

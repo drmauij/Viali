@@ -25,7 +25,6 @@ import {
   Send,
   AlertCircle,
   CheckCircle,
-  Minus,
   Calendar,
   ArrowLeft,
   ArrowRightLeft,
@@ -33,6 +32,10 @@ import {
 } from "lucide-react";
 import { formatDate, isoToDisplayDate } from "@/lib/dateUtils";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
+import { EditableCheckboxRecord } from "./EditableCheckboxRecord";
+import { EditableAllergies } from "./EditableAllergies";
+import { EditableMedications } from "./EditableMedications";
+import { EditableConditions } from "./EditableConditions";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -54,6 +57,8 @@ type QuestionnaireResponse = {
   alcoholDetails?: string;
   height?: string;
   weight?: string;
+  referralSource?: string;
+  referralSourceDetail?: string;
   previousSurgeries?: string;
   previousAnesthesiaProblems?: string;
   pregnancyStatus?: string;
@@ -196,6 +201,30 @@ function computeBmi(heightCm: string | undefined, weightKg: string | undefined):
   return bmi.toFixed(1);
 }
 
+const REFERRAL_SOURCE_LABELS: Record<string, string> = {
+  social: "Social Media",
+  search_engine: "Search Engine",
+  llm: "AI Assistant",
+  word_of_mouth: "Word of Mouth",
+  belegarzt: "Referring Doctor",
+  other: "Other",
+};
+
+const REFERRAL_DETAIL_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  google: "Google",
+  bing: "Bing",
+};
+
+function formatReferralSource(source: string, detail?: string): string {
+  const sourceLabel = REFERRAL_SOURCE_LABELS[source] || source;
+  if (!detail) return sourceLabel;
+  const detailLabel = REFERRAL_DETAIL_LABELS[detail] || detail;
+  return `${sourceLabel} — ${detailLabel}`;
+}
+
 
 // ─── Hooks ──────────────────────────────────────────────────────────────
 
@@ -267,6 +296,7 @@ export function QuestionnaireTab({
   const { t } = useTranslation();
   const { toast } = useToast();
   const conditionLabelMap = useConditionLabelMap(hospitalId, t);
+  const { data: settings } = useHospitalAnesthesiaSettings(hospitalId);
 
   // Filter to only submitted/reviewed responses
   const availableResponses = useMemo(
@@ -673,6 +703,15 @@ export function QuestionnaireTab({
                 />
               </div>
             </div>
+
+            {editedData.referralSource && (
+              <Field
+                label={t("questionnaireTab.referralSource", "Referral Source")}
+                value={formatReferralSource(editedData.referralSource, editedData.referralSourceDetail)}
+                onChange={() => {}}
+                readOnly
+              />
+            )}
           </div>
         </AccordionSection>
 
@@ -688,33 +727,20 @@ export function QuestionnaireTab({
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {t("questionnaireTab.allergies", "Allergies")}
                 </h4>
-                {editedData.noAllergies ? (
-                  <NoneConfirmed t={t} />
-                ) : (
-                  <>
-                    {editedData.allergies && editedData.allergies.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {editedData.allergies.map((a: string, i: number) => (
-                          <Badge key={i} variant="secondary">
-                            {a}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <Field
-                      label={t("questionnaireTab.allergiesNotes", "Notes")}
-                      value={editedData.allergiesNotes || ""}
-                      onChange={(v) => updateField("allergiesNotes", v)}
-                      readOnly={!canWrite}
-                    />
-                    {(!editedData.allergies || editedData.allergies.length === 0) &&
-                      !editedData.allergiesNotes && (
-                        <p className="text-sm text-muted-foreground italic">
-                          {t("questionnaireTab.noData", "No data provided")}
-                        </p>
-                      )}
-                  </>
-                )}
+                <EditableAllergies
+                  allergies={editedData.allergies}
+                  noAllergies={editedData.noAllergies}
+                  canWrite={canWrite}
+                  allergyList={settings?.allergyList || []}
+                  onAllergiesChange={(v) => updateField("allergies", v)}
+                  onNoAllergiesChange={(v) => updateField("noAllergies", v)}
+                />
+                <Field
+                  label={t("questionnaireTab.allergiesNotes", "Notes")}
+                  value={editedData.allergiesNotes || ""}
+                  onChange={(v) => updateField("allergiesNotes", v)}
+                  readOnly={!canWrite}
+                />
               </CardContent>
             </Card>
             <Card>
@@ -722,53 +748,19 @@ export function QuestionnaireTab({
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {t("questionnaireTab.medicationsTitle", "Medications")}
                 </h4>
-                {editedData.noMedications ? (
-                  <NoneConfirmed t={t} />
-                ) : (
-                  <>
-                    {editedData.medications &&
-                      editedData.medications.length > 0 && (
-                        <div className="space-y-2">
-                          {editedData.medications.map((med: any, i: number) => (
-                            <div
-                              key={i}
-                              className="flex flex-wrap gap-2 text-sm p-2 border rounded"
-                            >
-                              <span className="font-medium">{med.name}</span>
-                              {med.dosage && (
-                                <span className="text-muted-foreground">
-                                  | {med.dosage}
-                                </span>
-                              )}
-                              {med.frequency && (
-                                <span className="text-muted-foreground">
-                                  | {med.frequency}
-                                </span>
-                              )}
-                              {med.reason && (
-                                <span className="text-muted-foreground">
-                                  | {med.reason}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    <Field
-                      label={t("questionnaireTab.medicationsNotes", "Notes")}
-                      value={editedData.medicationsNotes || ""}
-                      onChange={(v) => updateField("medicationsNotes", v)}
-                      readOnly={!canWrite}
-                    />
-                    {(!editedData.medications ||
-                      editedData.medications.length === 0) &&
-                      !editedData.medicationsNotes && (
-                        <p className="text-sm text-muted-foreground italic">
-                          {t("questionnaireTab.noData", "No data provided")}
-                        </p>
-                      )}
-                  </>
-                )}
+                <EditableMedications
+                  medications={editedData.medications}
+                  noMedications={editedData.noMedications}
+                  canWrite={canWrite}
+                  onMedicationsChange={(v) => updateField("medications", v)}
+                  onNoMedicationsChange={(v) => updateField("noMedications", v)}
+                />
+                <Field
+                  label={t("questionnaireTab.medicationsNotes", "Notes")}
+                  value={editedData.medicationsNotes || ""}
+                  onChange={(v) => updateField("medicationsNotes", v)}
+                  readOnly={!canWrite}
+                />
               </CardContent>
             </Card>
           </div>
@@ -780,15 +772,15 @@ export function QuestionnaireTab({
           title={t("questionnaireTab.conditions", "Medical Conditions")}
           status={sectionStatuses.conditions}
         >
-          {editedData.noConditions ? (
-            <NoneConfirmed t={t} />
-          ) : (
-            <GroupedConditions
-              conditions={editedData.conditions}
-              conditionLabelMap={conditionLabelMap}
-              t={t}
-            />
-          )}
+          <EditableConditions
+            conditions={editedData.conditions}
+            noConditions={editedData.noConditions}
+            canWrite={canWrite}
+            conditionLabelMap={conditionLabelMap}
+            illnessLists={settings?.illnessLists}
+            onConditionsChange={(v) => updateField("conditions", v)}
+            onNoConditionsChange={(v) => updateField("noConditions", v)}
+          />
         </AccordionSection>
 
         {/* Lifestyle & Drug Use */}
@@ -846,34 +838,27 @@ export function QuestionnaireTab({
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {t("questionnaireTab.drugUse", "Drug Use")}
                 </h4>
-                {editedData.noDrugUse ? (
-                  <NoneConfirmed
-                    t={t}
-                    label={t(
-                      "questionnaireTab.noDrugUse",
-                      "No drug use confirmed"
-                    )}
-                  />
-                ) : (
-                  <>
-                    <CheckboxRecordDisplay
-                      data={editedData.drugUse}
-                      labelMap={{
-                        thc: "THC / Cannabis",
-                        cocaine: t("questionnaireTab.cocaine", "Cocaine"),
-                        heroin: t("questionnaireTab.heroin", "Heroin"),
-                        mdma: "MDMA / Ecstasy",
-                        other: t("questionnaireTab.otherDrugs", "Other"),
-                      }}
-                    />
-                    <Field
-                      label={t("questionnaireTab.drugDetails", "Details")}
-                      value={editedData.drugUseDetails || ""}
-                      onChange={(v) => updateField("drugUseDetails", v)}
-                      readOnly={!canWrite}
-                    />
-                  </>
-                )}
+                <EditableCheckboxRecord
+                  data={editedData.drugUse}
+                  options={[
+                    { id: "thc", label: "THC / Cannabis" },
+                    { id: "cocaine", label: t("questionnaireTab.cocaine", "Cocaine") },
+                    { id: "heroin", label: t("questionnaireTab.heroin", "Heroin") },
+                    { id: "mdma", label: "MDMA / Ecstasy" },
+                    { id: "other", label: t("questionnaireTab.otherDrugs", "Other") },
+                  ]}
+                  noneConfirmed={editedData.noDrugUse}
+                  canWrite={canWrite}
+                  onDataChange={(v) => updateField("drugUse", v)}
+                  onNoneConfirmedChange={(v) => updateField("noDrugUse", v)}
+                  noneLabel={t("questionnaireTab.noDrugUse", "No drug use confirmed")}
+                />
+                <Field
+                  label={t("questionnaireTab.drugDetails", "Details")}
+                  value={editedData.drugUseDetails || ""}
+                  onChange={(v) => updateField("drugUseDetails", v)}
+                  readOnly={!canWrite}
+                />
               </CardContent>
             </Card>
           </div>
@@ -938,40 +923,34 @@ export function QuestionnaireTab({
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   {t("questionnaireTab.dental", "Dental Status")}
                 </h4>
-                {editedData.noDentalIssues ? (
-                  <NoneConfirmed
-                    t={t}
-                    label={t(
-                      "questionnaireTab.noDentalIssues",
-                      "No dental issues confirmed"
-                    )}
-                  />
-                ) : (
-                  <>
-                    <CheckboxRecordDisplay
-                      data={editedData.dentalIssues}
-                      labelMap={{
-                        dentures: t("questionnaireTab.dentalDentures", "Dentures"),
-                        crowns: t("questionnaireTab.dentalCrowns", "Crowns"),
-                        implants: t("questionnaireTab.dentalImplants", "Implants"),
-                        looseTeeth: t(
-                          "questionnaireTab.dentalLooseTeeth",
-                          "Loose Teeth"
-                        ),
-                        damagedTeeth: t(
-                          "questionnaireTab.dentalDamagedTeeth",
-                          "Damaged Teeth"
-                        ),
-                      }}
-                    />
-                    <Field
-                      label={t("questionnaireTab.dentalNotes", "Notes")}
-                      value={editedData.dentalNotes || ""}
-                      onChange={(v) => updateField("dentalNotes", v)}
-                      readOnly={!canWrite}
-                    />
-                  </>
-                )}
+                <EditableCheckboxRecord
+                  data={editedData.dentalIssues}
+                  options={settings?.illnessLists?.dental || [
+                    { id: "dentures", label: t("questionnaireTab.dentalDentures", "Dentures") },
+                    { id: "crowns", label: t("questionnaireTab.dentalCrowns", "Crowns") },
+                    { id: "implants", label: t("questionnaireTab.dentalImplants", "Implants") },
+                    { id: "looseTeeth", label: t("questionnaireTab.dentalLooseTeeth", "Loose Teeth") },
+                    { id: "damagedTeeth", label: t("questionnaireTab.dentalDamagedTeeth", "Damaged Teeth") },
+                  ]}
+                  fallbackLabels={{
+                    dentures: t("questionnaireTab.dentalDentures", "Dentures"),
+                    crowns: t("questionnaireTab.dentalCrowns", "Crowns"),
+                    implants: t("questionnaireTab.dentalImplants", "Implants"),
+                    looseTeeth: t("questionnaireTab.dentalLooseTeeth", "Loose Teeth"),
+                    damagedTeeth: t("questionnaireTab.dentalDamagedTeeth", "Damaged Teeth"),
+                  }}
+                  noneConfirmed={editedData.noDentalIssues}
+                  canWrite={canWrite}
+                  onDataChange={(v) => updateField("dentalIssues", v)}
+                  onNoneConfirmedChange={(v) => updateField("noDentalIssues", v)}
+                  noneLabel={t("questionnaireTab.noDentalIssues", "No dental issues confirmed")}
+                />
+                <Field
+                  label={t("questionnaireTab.dentalNotes", "Notes")}
+                  value={editedData.dentalNotes || ""}
+                  onChange={(v) => updateField("dentalNotes", v)}
+                  readOnly={!canWrite}
+                />
               </CardContent>
             </Card>
           </div>
@@ -983,42 +962,32 @@ export function QuestionnaireTab({
           title={t("questionnaireTab.ponvTransfusion", "PONV & Transfusion")}
           status={sectionStatuses.ponv}
         >
-          {editedData.noPonvIssues ? (
-            <NoneConfirmed
-              t={t}
-              label={t(
-                "questionnaireTab.noPonvIssues",
-                "No PONV/transfusion issues confirmed"
-              )}
-            />
-          ) : (
-            <div className="space-y-3">
-              <CheckboxRecordDisplay
-                data={editedData.ponvTransfusionIssues}
-                labelMap={{
-                  ponvPrevious: t(
-                    "questionnaireTab.ponvPrevious",
-                    "Previous PONV"
-                  ),
-                  ponvFamily: t("questionnaireTab.ponvFamily", "Family PONV"),
-                  bloodTransfusion: t(
-                    "questionnaireTab.bloodTransfusion",
-                    "Blood Transfusion"
-                  ),
-                  transfusionReaction: t(
-                    "questionnaireTab.transfusionReaction",
-                    "Transfusion Reaction"
-                  ),
-                }}
-              />
-              <Field
-                label={t("questionnaireTab.ponvNotes", "Notes")}
-                value={editedData.ponvTransfusionNotes || ""}
-                onChange={(v) => updateField("ponvTransfusionNotes", v)}
-                readOnly={!canWrite}
-              />
-            </div>
-          )}
+          <EditableCheckboxRecord
+            data={editedData.ponvTransfusionIssues}
+            options={settings?.illnessLists?.ponvTransfusion || [
+              { id: "ponvPrevious", label: t("questionnaireTab.ponvPrevious", "Previous PONV") },
+              { id: "ponvFamily", label: t("questionnaireTab.ponvFamily", "Family PONV") },
+              { id: "bloodTransfusion", label: t("questionnaireTab.bloodTransfusion", "Blood Transfusion") },
+              { id: "transfusionReaction", label: t("questionnaireTab.transfusionReaction", "Transfusion Reaction") },
+            ]}
+            fallbackLabels={{
+              ponvPrevious: t("questionnaireTab.ponvPrevious", "Previous PONV"),
+              ponvFamily: t("questionnaireTab.ponvFamily", "Family PONV"),
+              bloodTransfusion: t("questionnaireTab.bloodTransfusion", "Blood Transfusion"),
+              transfusionReaction: t("questionnaireTab.transfusionReaction", "Transfusion Reaction"),
+            }}
+            noneConfirmed={editedData.noPonvIssues}
+            canWrite={canWrite}
+            onDataChange={(v) => updateField("ponvTransfusionIssues", v)}
+            onNoneConfirmedChange={(v) => updateField("noPonvIssues", v)}
+            noneLabel={t("questionnaireTab.noPonvIssues", "No PONV/transfusion issues confirmed")}
+          />
+          <Field
+            label={t("questionnaireTab.ponvNotes", "Notes")}
+            value={editedData.ponvTransfusionNotes || ""}
+            onChange={(v) => updateField("ponvTransfusionNotes", v)}
+            readOnly={!canWrite}
+          />
         </AccordionSection>
 
         {/* Women's Health (only if sex=F) — full width */}
@@ -1167,99 +1136,6 @@ export function QuestionnaireTab({
 
 // ─── Sub-components ────────────────────────────────────────────────────
 
-function GroupedConditions({
-  conditions,
-  conditionLabelMap,
-  t,
-}: {
-  conditions?: Record<string, { checked: boolean; notes?: string }>;
-  conditionLabelMap: ConditionLabelMap;
-  t: any;
-}) {
-  const grouped = useMemo(() => {
-    if (!conditions) return [];
-
-    const groups: Record<
-      string,
-      {
-        categoryLabel: string;
-        items: Array<{ id: string; label: string; notes?: string }>;
-      }
-    > = {};
-
-    const checked = Object.entries(conditions).filter(([, v]) => v.checked);
-
-    if (checked.length === 0) return [];
-
-    for (const [id, val] of checked) {
-      const info = conditionLabelMap[id];
-      const category = info?.category || "uncategorized";
-      const categoryLabel =
-        info?.categoryLabel ||
-        (category === "uncategorized"
-          ? t("questionnaireTab.summary.uncategorized", "Other")
-          : category);
-
-      if (!groups[category]) {
-        groups[category] = { categoryLabel, items: [] };
-      }
-      groups[category].items.push({
-        id,
-        label: info?.label || id,
-        notes: val.notes,
-      });
-    }
-
-    // Sort by CATEGORY_ORDER, uncategorized at end
-    return Object.entries(groups).sort(([a], [b]) => {
-      const aIdx = CATEGORY_ORDER.indexOf(a);
-      const bIdx = CATEGORY_ORDER.indexOf(b);
-      if (aIdx === -1 && bIdx === -1) return 0;
-      if (aIdx === -1) return 1;
-      if (bIdx === -1) return -1;
-      return aIdx - bIdx;
-    });
-  }, [conditions, conditionLabelMap, t]);
-
-  if (grouped.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground italic">
-        {t("questionnaireTab.noData", "No data provided")}
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {grouped.map(([category, { categoryLabel, items }]) => (
-        <div key={category}>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            {categoryLabel}
-          </h4>
-          <div className="space-y-1.5">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-2 text-sm py-1.5 px-2.5 border rounded-md bg-muted/30"
-              >
-                <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <span className="font-medium">{item.label}</span>
-                  {item.notes && (
-                    <span className="text-muted-foreground ml-2">
-                      — {item.notes}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function AccordionSection({
   value,
   title,
@@ -1364,33 +1240,6 @@ function StatusBadge({ status, t }: { status: string; t: any }) {
         ? t("questionnaireTab.statusSubmitted", "Submitted")
         : t("questionnaireTab.statusReviewed", "Reviewed")}
     </Badge>
-  );
-}
-
-function CheckboxRecordDisplay({
-  data,
-  labelMap,
-}: {
-  data?: Record<string, boolean>;
-  labelMap: Record<string, string>;
-}) {
-  if (!data) return null;
-  const checked = Object.entries(data).filter(([, v]) => v);
-  if (checked.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground italic">
-        No items selected
-      </p>
-    );
-  }
-  return (
-    <div className="flex flex-wrap gap-1">
-      {checked.map(([key]) => (
-        <Badge key={key} variant="secondary">
-          {labelMap[key] || key}
-        </Badge>
-      ))}
-    </div>
   );
 }
 

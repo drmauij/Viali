@@ -64,6 +64,8 @@ interface QuestionnaireResponse {
   alcoholDetails?: string;
   height?: string;
   weight?: string;
+  referralSource?: string;
+  referralSourceDetail?: string;
   previousSurgeries?: string;
   previousAnesthesiaProblems?: string;
   pregnancyStatus?: string;
@@ -483,6 +485,28 @@ export default function QuestionnaireReviews() {
                         <div data-testid="text-weight">{responseDetail.response.weight || '-'} kg</div>
                       </div>
                     </div>
+
+                    {responseDetail.response.referralSource && (() => {
+                      const sourceLabels: Record<string, string> = {
+                        social: "Social Media", search_engine: "Search Engine", llm: "AI Assistant",
+                        word_of_mouth: "Word of Mouth", belegarzt: "Referring Doctor", other: "Other",
+                      };
+                      const detailLabels: Record<string, string> = {
+                        facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", google: "Google", bing: "Bing",
+                      };
+                      const src = responseDetail.response.referralSource!;
+                      const det = responseDetail.response.referralSourceDetail;
+                      const label = sourceLabels[src] || src;
+                      const detLabel = det ? (src === "other" ? det : (detailLabels[det] || det)) : null;
+                      return (
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">{t('questionnaireTab.referralSource', 'Referral Source')}</div>
+                          <div data-testid="text-referral-source">
+                            {label}{detLabel && <span className="text-muted-foreground"> — {detLabel}</span>}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <Separator />
 

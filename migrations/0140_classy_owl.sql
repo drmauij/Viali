@@ -1,0 +1,2 @@
+ALTER TABLE "patient_questionnaire_responses" ADD COLUMN IF NOT EXISTS "referral_source" varchar;--> statement-breakpoint
+ALTER TABLE "patient_questionnaire_responses" ADD COLUMN IF NOT EXISTS "referral_source_detail" varchar;
