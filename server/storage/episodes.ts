@@ -119,14 +119,21 @@ export async function updateEpisode(id: string, updates: Partial<PatientEpisode>
 }
 
 export async function closeEpisode(id: string, userId: string): Promise<PatientEpisode> {
+  // If endDate is not already set, default it to today when closing
+  const episode = await getEpisode(id);
+  const updates: Partial<PatientEpisode> = {
+    status: "closed",
+    closedAt: new Date(),
+    closedBy: userId,
+    updatedAt: new Date(),
+  };
+  if (!episode?.endDate) {
+    updates.endDate = new Date();
+  }
+
   const [updated] = await db
     .update(patientEpisodes)
-    .set({
-      status: "closed",
-      closedAt: new Date(),
-      closedBy: userId,
-      updatedAt: new Date(),
-    })
+    .set(updates)
     .where(eq(patientEpisodes.id, id))
     .returning();
   return updated;
@@ -139,6 +146,7 @@ export async function reopenEpisode(id: string): Promise<PatientEpisode> {
       status: "open",
       closedAt: null,
       closedBy: null,
+      endDate: null,
       updatedAt: new Date(),
     })
     .where(eq(patientEpisodes.id, id))
