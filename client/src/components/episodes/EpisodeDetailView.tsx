@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Upload,
@@ -11,6 +14,8 @@ import {
   FileText,
   Scissors,
   StickyNote,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -47,6 +52,11 @@ export function EpisodeDetailView({
   const [linkSurgeryOpen, setLinkSurgeryOpen] = useState(false);
   const [linkNoteOpen, setLinkNoteOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
 
   const { data: detail, isLoading: detailLoading } = useEpisodeDetail(
     patientId,
@@ -57,6 +67,7 @@ export function EpisodeDetailView({
   const { data: linkedNotes = [] } = useEpisodeNotes(episodeId);
 
   const {
+    updateEpisode,
     closeEpisode,
     reopenEpisode,
     unlinkSurgery,
@@ -82,6 +93,38 @@ export function EpisodeDetailView({
   const { episode, folders } = detail;
   const isClosed = episode.status === "closed";
 
+  const formatDateForInput = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "";
+    try {
+      return format(new Date(dateStr), "yyyy-MM-dd");
+    } catch {
+      return "";
+    }
+  };
+
+  const startEditing = () => {
+    setEditTitle(episode.title);
+    setEditDescription(episode.description || "");
+    setEditStartDate(formatDateForInput(episode.referenceDate));
+    setEditEndDate(formatDateForInput(episode.endDate));
+    setIsEditing(true);
+  };
+
+  const saveEdit = () => {
+    updateEpisode.mutate(
+      {
+        episodeId: episode.id,
+        title: editTitle.trim(),
+        description: editDescription.trim() || undefined,
+        referenceDate: editStartDate || undefined,
+        endDate: editEndDate || undefined,
+      },
+      { onSuccess: () => setIsEditing(false) }
+    );
+  };
+
+  const cancelEdit = () => setIsEditing(false);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -90,37 +133,104 @@ export function EpisodeDetailView({
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground font-mono">
-              #{episode.episodeNumber}
-            </span>
-            <h2 className="text-xl font-semibold">{episode.title}</h2>
-            <Badge
-              variant={isClosed ? "secondary" : "default"}
-              className={
-                isClosed
-                  ? "bg-gray-100 text-gray-600"
-                  : "bg-green-100 text-green-800"
-              }
-            >
-              {episode.status}
-            </Badge>
-          </div>
-          {episode.description && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {episode.description}
-            </p>
-          )}
-          {(episode.referenceDate || episode.endDate) && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
-              {episode.referenceDate && episode.endDate && " — "}
-              {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
-            </p>
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Title</Label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Episode title"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Description</Label>
+                <Textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Optional description"
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={!editTitle.trim() || updateEpisode.isPending}
+                >
+                  {updateEpisode.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={cancelEdit}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground font-mono">
+                  #{episode.episodeNumber}
+                </span>
+                <h2 className="text-xl font-semibold">{episode.title}</h2>
+                <Badge
+                  variant={isClosed ? "secondary" : "default"}
+                  className={
+                    isClosed
+                      ? "bg-gray-100 text-gray-600"
+                      : "bg-green-100 text-green-800"
+                  }
+                >
+                  {episode.status}
+                </Badge>
+              </div>
+              {episode.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {episode.description}
+                </p>
+              )}
+              {(episode.referenceDate || episode.endDate) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
+                  {episode.referenceDate && episode.endDate && " — "}
+                  {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
+                </p>
+              )}
+            </>
           )}
         </div>
-        {canWrite && (
+        {canWrite && !isEditing && (
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={startEditing}
+              className="h-8 w-8"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             {isClosed ? (
               <Button
                 variant="outline"
