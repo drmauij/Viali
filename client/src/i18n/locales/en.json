@@ -5695,7 +5695,27 @@
     "caregiverPhone": "Phone",
     "additionalNotes": "Additional Notes",
     "additionalNotesField": "Notes",
-    "questionsForDoctor": "Questions for Doctor"
+    "questionsForDoctor": "Questions for Doctor",
+    "responseCount": "{{count}} questionnaire(s)",
+    "noDate": "No date",
+    "backToList": "Back to list",
+    "bmi": "BMI",
+    "patientRecord": "Record",
+    "patientUpdated": "Patient record updated",
+    "usePatientValue": "Use record",
+    "useQuestionnaireValue": "Use questionnaire",
+    "summary": {
+      "noneConfirmed": "None confirmed",
+      "noData": "No data",
+      "hasNotes": "Has notes",
+      "hasHistory": "Has history",
+      "oneMedication": "1 medication",
+      "countMedications": "{{count}} medications",
+      "uncategorized": "Other",
+      "submittedOn": "Submitted {{date}}",
+      "findings": "findings",
+      "clear": "clear"
+    }
   },
   "questionnaire": {
     "openLink": "Open Questionnaire Link",

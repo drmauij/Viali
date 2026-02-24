@@ -5796,7 +5796,27 @@
     "caregiverPhone": "Telefon",
     "additionalNotes": "Zusätzliche Bemerkungen",
     "additionalNotesField": "Bemerkungen",
-    "questionsForDoctor": "Fragen an den Arzt"
+    "questionsForDoctor": "Fragen an den Arzt",
+    "responseCount": "{{count}} Fragebogen/Fragebögen",
+    "noDate": "Kein Datum",
+    "backToList": "Zurück zur Liste",
+    "bmi": "BMI",
+    "patientRecord": "Akte",
+    "patientUpdated": "Patientenakte aktualisiert",
+    "usePatientValue": "Akte verwenden",
+    "useQuestionnaireValue": "Fragebogen verwenden",
+    "summary": {
+      "noneConfirmed": "Keine bestätigt",
+      "noData": "Keine Angaben",
+      "hasNotes": "Bemerkungen vorhanden",
+      "hasHistory": "Vorgeschichte vorhanden",
+      "oneMedication": "1 Medikament",
+      "countMedications": "{{count}} Medikamente",
+      "uncategorized": "Sonstige",
+      "submittedOn": "Eingereicht am {{date}}",
+      "findings": "Befunde",
+      "clear": "unauffällig"
+    }
   },
   "questionnaire": {
     "openLink": "Fragebogen-Link öffnen",

@@ -2899,6 +2899,13 @@ export default function PatientDetail() {
               patientSex={patient?.sex}
               questionnaireLinks={questionnaireLinks}
               onOpenSendDialog={() => setIsSendQuestionnaireOpen(true)}
+              patientRecord={patient ? {
+                firstName: patient.firstName,
+                surname: patient.surname,
+                birthday: patient.birthday,
+                email: patient.email,
+                phone: patient.phone,
+              } : undefined}
             />
           </TabsContent>
         )}

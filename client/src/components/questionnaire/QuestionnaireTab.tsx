@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +25,17 @@ import {
   Send,
   AlertCircle,
   CheckCircle,
+  Minus,
+  Calendar,
+  ArrowLeft,
+  ArrowRightLeft,
+  ChevronRight,
 } from "lucide-react";
-import { formatDate } from "@/lib/dateUtils";
-import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import { formatDate, isoToDisplayDate } from "@/lib/dateUtils";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 
-// Re-use the QuestionnaireLink type from queries
+// ─── Types ──────────────────────────────────────────────────────────────
+
 type QuestionnaireResponse = {
   id: string;
   allergies?: string[];
@@ -88,6 +95,16 @@ type QuestionnaireLink = {
   response?: QuestionnaireResponse;
 };
 
+type SectionStatus = "clear" | "findings" | "noData";
+
+type ConditionLabelEntry = {
+  label: string;
+  category: string;
+  categoryLabel: string;
+};
+
+type ConditionLabelMap = Record<string, ConditionLabelEntry>;
+
 interface QuestionnaireTabProps {
   patientId: string;
   hospitalId: string;
@@ -95,7 +112,138 @@ interface QuestionnaireTabProps {
   patientSex?: "M" | "F" | "O";
   questionnaireLinks: QuestionnaireLink[];
   onOpenSendDialog: () => void;
+  patientRecord?: {
+    firstName?: string;
+    surname?: string;
+    birthday?: string;
+    email?: string | null;
+    phone?: string | null;
+  };
 }
+
+type FieldDiff = {
+  key: string;
+  questionnaireKey: string;
+  label: string;
+  patientValue: string;
+  questionnaireValue: string;
+};
+
+// ─── Constants ──────────────────────────────────────────────────────────
+
+const CATEGORY_ORDER: string[] = [
+  "cardiovascular",
+  "pulmonary",
+  "gastrointestinal",
+  "kidney",
+  "metabolic",
+  "neurological",
+  "psychiatric",
+  "skeletal",
+  "coagulation",
+  "infectious",
+  "woman",
+  "noxen",
+  "children",
+  "anesthesiaHistory",
+  "dental",
+  "ponvTransfusion",
+];
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+
+function computeStatus(
+  noneConfirmed: boolean | undefined,
+  hasFindings: boolean
+): SectionStatus {
+  if (noneConfirmed) return "clear";
+  if (hasFindings) return "findings";
+  return "noData";
+}
+
+function hasCheckedConditions(
+  conditions?: Record<string, { checked: boolean; notes?: string }>
+): boolean {
+  if (!conditions) return false;
+  return Object.values(conditions).some((v) => v.checked);
+}
+
+function hasCheckedRecord(data?: Record<string, boolean>): boolean {
+  if (!data) return false;
+  return Object.values(data).some((v) => v);
+}
+
+/** Normalize strings for comparison: trim, lowercase, collapse whitespace, treat empty/null/undefined as "" */
+function normalize(val: string | null | undefined): string {
+  return (val ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function computeBmi(heightCm: string | undefined, weightKg: string | undefined): string | null {
+  const h = parseFloat(heightCm || "");
+  const w = parseFloat(weightKg || "");
+  if (!h || !w || h <= 0 || w <= 0) return null;
+  const bmi = w / ((h / 100) ** 2);
+  return bmi.toFixed(1);
+}
+
+
+// ─── Hooks ──────────────────────────────────────────────────────────────
+
+function useConditionLabelMap(hospitalId: string, t: any): ConditionLabelMap {
+  const { data: settings } = useHospitalAnesthesiaSettings(hospitalId);
+
+  return useMemo(() => {
+    const map: ConditionLabelMap = {};
+    if (!settings?.illnessLists) return map;
+
+    const categoryLabels: Record<string, string> = {
+      cardiovascular: t("anesthesia.settings.cardiovascular", "Cardiovascular"),
+      pulmonary: t("anesthesia.settings.pulmonary", "Pulmonary"),
+      gastrointestinal: t(
+        "anesthesia.settings.gastrointestinal",
+        "Gastrointestinal"
+      ),
+      kidney: t("anesthesia.settings.kidney", "Kidney"),
+      metabolic: t("anesthesia.settings.metabolic", "Metabolic"),
+      neurological: t("anesthesia.settings.neurological", "Neurological"),
+      psychiatric: t("anesthesia.settings.psychiatric", "Psychiatric"),
+      skeletal: t("anesthesia.settings.skeletal", "Skeletal"),
+      coagulation: t("anesthesia.settings.coagulation", "Coagulation"),
+      infectious: t(
+        "anesthesia.settings.infectiousDiseases",
+        "Infectious Diseases"
+      ),
+      woman: t("anesthesia.settings.gynecology", "Gynecology"),
+      noxen: t("anesthesia.settings.substanceUse", "Substance Use"),
+      children: t("anesthesia.settings.pediatric", "Pediatric"),
+      anesthesiaHistory: t(
+        "anesthesia.settings.anesthesiaHistory",
+        "Anesthesia & Surgical History"
+      ),
+      dental: t("anesthesia.settings.dentalStatus", "Dental Status"),
+      ponvTransfusion: t(
+        "anesthesia.settings.ponvTransfusion",
+        "PONV & Transfusion History"
+      ),
+    };
+
+    for (const [category, items] of Object.entries(settings.illnessLists)) {
+      if (!Array.isArray(items)) continue;
+      const categoryLabel = categoryLabels[category] || category;
+      for (const item of items) {
+        map[item.id] = {
+          label: item.label,
+          category,
+          categoryLabel,
+        };
+      }
+    }
+
+    return map;
+  }, [settings, t]);
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────
 
 export function QuestionnaireTab({
   patientId,
@@ -104,44 +252,48 @@ export function QuestionnaireTab({
   patientSex,
   questionnaireLinks,
   onOpenSendDialog,
+  patientRecord,
 }: QuestionnaireTabProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const conditionLabelMap = useConditionLabelMap(hospitalId, t);
 
   // Filter to only submitted/reviewed responses
   const availableResponses = useMemo(
     () =>
       questionnaireLinks.filter(
         (q) =>
-          (q.status === "submitted" || q.status === "reviewed") && q.response?.id
+          (q.status === "submitted" || q.status === "reviewed") &&
+          q.response?.id
       ),
     [questionnaireLinks]
   );
 
-  // Default to most recent
+  // null = list view, set = detail view
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const activeLink = useMemo(() => {
-    if (availableResponses.length === 0) return null;
-    if (selectedLinkId) {
-      return availableResponses.find((q) => q.id === selectedLinkId) || availableResponses[0];
-    }
-    return availableResponses[0];
+    if (!selectedLinkId || availableResponses.length === 0) return null;
+    return (
+      availableResponses.find((q) => q.id === selectedLinkId) || null
+    );
   }, [availableResponses, selectedLinkId]);
 
   // Editable copy of the response
-  const [editedData, setEditedData] = useState<Record<string, any> | null>(null);
+  const [editedData, setEditedData] = useState<Record<string, any> | null>(
+    null
+  );
   const [isDirty, setIsDirty] = useState(false);
 
+  // Controlled accordion state
+  const [openSections, setOpenSections] = useState<string[]>([]);
+
   // Initialize editedData when activeLink changes
-  const initEdit = useCallback(
-    (link: typeof activeLink) => {
-      if (link?.response) {
-        setEditedData({ ...link.response });
-        setIsDirty(false);
-      }
-    },
-    []
-  );
+  const initEdit = useCallback((link: typeof activeLink) => {
+    if (link?.response) {
+      setEditedData({ ...link.response });
+      setIsDirty(false);
+    }
+  }, []);
 
   // When activeLink changes, reset edit state
   useMemo(() => {
@@ -154,13 +306,10 @@ export function QuestionnaireTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLink?.id]);
 
-  const updateField = useCallback(
-    (field: string, value: any) => {
-      setEditedData((prev) => (prev ? { ...prev, [field]: value } : prev));
-      setIsDirty(true);
-    },
-    []
-  );
+  const updateField = useCallback((field: string, value: any) => {
+    setEditedData((prev) => (prev ? { ...prev, [field]: value } : prev));
+    setIsDirty(true);
+  }, []);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -180,17 +329,135 @@ export function QuestionnaireTab({
       setIsDirty(false);
       toast({
         title: t("questionnaireTab.saved", "Changes saved"),
-        description: t("questionnaireTab.savedDesc", "Questionnaire data updated."),
+        description: t(
+          "questionnaireTab.savedDesc",
+          "Questionnaire data updated."
+        ),
       });
     },
     onError: (error: Error) => {
       toast({
         title: t("common.error", "Error"),
-        description: error.message || t("questionnaireTab.saveError", "Failed to save"),
+        description:
+          error.message || t("questionnaireTab.saveError", "Failed to save"),
         variant: "destructive",
       });
     },
   });
+
+  // ─── Field diffs (patient record vs questionnaire) ─────────────────
+  const fieldDiffs = useMemo<FieldDiff[]>(() => {
+    if (!editedData || !patientRecord) return [];
+    const comparisons: Array<{ key: string; questionnaireKey: string; label: string; patient: string | null | undefined; questionnaire: string | null | undefined }> = [
+      { key: "firstName", questionnaireKey: "patientFirstName", label: t("questionnaireTab.firstName", "First Name"), patient: patientRecord.firstName, questionnaire: editedData.patientFirstName },
+      { key: "surname", questionnaireKey: "patientLastName", label: t("questionnaireTab.lastName", "Last Name"), patient: patientRecord.surname, questionnaire: editedData.patientLastName },
+      { key: "birthday", questionnaireKey: "patientBirthday", label: t("questionnaireTab.birthday", "Date of Birth"), patient: patientRecord.birthday, questionnaire: editedData.patientBirthday },
+      { key: "email", questionnaireKey: "patientEmail", label: t("questionnaireTab.email", "Email"), patient: patientRecord.email, questionnaire: editedData.patientEmail },
+      { key: "phone", questionnaireKey: "patientPhone", label: t("questionnaireTab.phone", "Phone"), patient: patientRecord.phone, questionnaire: editedData.patientPhone },
+    ];
+    return comparisons
+      .filter((c) => normalize(c.patient) !== normalize(c.questionnaire))
+      .map((c) => ({
+        key: c.key,
+        questionnaireKey: c.questionnaireKey,
+        label: c.label,
+        patientValue: c.patient ?? "",
+        questionnaireValue: (c.questionnaire as string) ?? "",
+      }));
+  }, [editedData, patientRecord, t]);
+
+  const fieldDiffMap = useMemo(
+    () => new Map(fieldDiffs.map((d) => [d.questionnaireKey, d])),
+    [fieldDiffs]
+  );
+
+  // Mutation to update patient record fields (when "Use questionnaire value" is chosen)
+  const updatePatientMutation = useMutation({
+    mutationFn: async (updates: Record<string, string>) => {
+      return await apiRequest("PATCH", `/api/patients/${patientId}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === "string" && key.startsWith("/api/patients");
+        },
+      });
+      toast({
+        title: t("questionnaireTab.patientUpdated", "Patient record updated"),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("common.error", "Error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resolveField = useCallback(
+    (diff: FieldDiff, direction: "usePatient" | "useQuestionnaire") => {
+      if (direction === "usePatient") {
+        // Update questionnaire field with patient record value
+        updateField(diff.questionnaireKey, diff.patientValue);
+      } else {
+        // Update patient record with questionnaire value
+        updatePatientMutation.mutate({ [diff.key]: diff.questionnaireValue });
+        // Also need to refresh to clear the diff — the patient query invalidation handles this
+      }
+    },
+    [updateField, updatePatientMutation]
+  );
+
+  // ─── Section statuses ───────────────────────────────────────────────
+  const sectionStatuses = useMemo(() => {
+    const d = editedData;
+    if (!d) return {} as Record<string, SectionStatus | undefined>;
+
+    return {
+      allergies: computeStatus(
+        d.noAllergies,
+        (d.allergies?.length ?? 0) > 0 || !!d.allergiesNotes
+      ),
+      medications: computeStatus(
+        d.noMedications,
+        (d.medications?.length ?? 0) > 0 || !!d.medicationsNotes
+      ),
+      conditions: computeStatus(
+        d.noConditions,
+        hasCheckedConditions(d.conditions)
+      ),
+      lifestyle: computeStatus(
+        d.noSmokingAlcohol,
+        !!d.smokingStatus || !!d.alcoholStatus
+      ),
+      surgeries: computeStatus(
+        d.noPreviousSurgeries && d.noAnesthesiaProblems,
+        !!d.previousSurgeries || !!d.previousAnesthesiaProblems
+      ),
+      dental: computeStatus(
+        d.noDentalIssues,
+        hasCheckedRecord(d.dentalIssues) || !!d.dentalNotes
+      ),
+      ponv: computeStatus(
+        d.noPonvIssues,
+        hasCheckedRecord(d.ponvTransfusionIssues) ||
+          !!d.ponvTransfusionNotes
+      ),
+      drugUse: computeStatus(
+        d.noDrugUse,
+        hasCheckedRecord(d.drugUse) || !!d.drugUseDetails
+      ),
+      womensHealth:
+        patientSex === "F"
+          ? computeStatus(
+              false,
+              !!d.pregnancyStatus || d.breastfeeding || !!d.womanHealthNotes
+            )
+          : undefined,
+    };
+  }, [editedData, patientSex]);
 
   // ─── Empty State ────────────────────────────────────────────────────
   if (availableResponses.length === 0) {
@@ -218,35 +485,612 @@ export function QuestionnaireTab({
     );
   }
 
-  if (!editedData || !activeLink) return null;
-
-  // ─── Selector (multiple responses) ─────────────────────────────────
-  const showSelector = availableResponses.length > 1;
-
-  return (
-    <div className="space-y-4">
-      {/* Selector Cards */}
-      {showSelector && (
-        <div className="flex gap-2 flex-wrap">
+  // ─── List View (no response selected) ──────────────────────────────
+  if (!selectedLinkId || !activeLink || !editedData) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            {t("questionnaireTab.responseCount", "{{count}} questionnaire(s)", {
+              count: availableResponses.length,
+            })}
+          </h3>
+          {canWrite && (
+            <Button variant="outline" size="sm" onClick={onOpenSendDialog}>
+              <Send className="h-4 w-4 mr-2" />
+              {t("questionnaireTab.sendQuestionnaire", "Send Questionnaire")}
+            </Button>
+          )}
+        </div>
+        <div className="space-y-2">
           {availableResponses.map((q) => (
             <button
               key={q.id}
               onClick={() => setSelectedLinkId(q.id)}
-              className={cn(
-                "px-3 py-2 rounded-md border text-sm flex items-center gap-2 transition-colors",
-                activeLink.id === q.id
-                  ? "border-primary bg-primary/5 font-medium"
-                  : "border-border hover:bg-muted"
-              )}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card text-left text-sm transition-all hover:bg-muted/50 hover:shadow-sm"
             >
-              {q.submittedAt && formatDate(q.submittedAt)}
-              <StatusBadge status={q.status} t={t} />
+              <div className="flex items-center gap-3">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">
+                  {q.submittedAt ? formatDate(q.submittedAt) : t("questionnaireTab.noDate", "No date")}
+                </span>
+                <StatusBadge status={q.status} t={t} />
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
           ))}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Dirty indicator + Save */}
+  return (
+    <div className="space-y-4">
+      {/* ─── Back button + response header ──────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setSelectedLinkId(null)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("questionnaireTab.backToList", "Back to list")}
+        </button>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {activeLink.submittedAt && (
+            <>
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{formatDate(activeLink.submittedAt)}</span>
+            </>
+          )}
+          <StatusBadge status={activeLink.status} t={t} />
+        </div>
+      </div>
+
+      {/* ─── Accordion Sections ───────────────────────────────────────── */}
+      <Accordion
+        type="multiple"
+        value={openSections}
+        onValueChange={setOpenSections}
+        className="space-y-2"
+      >
+        {/* 1. Personal Info — full width */}
+        <AccordionSection
+          value="personal"
+          title={t("questionnaireTab.personalInfo", "Personal Info")}
+          status={fieldDiffs.length > 0 ? "findings" : undefined}
+        >
+          <div className="space-y-3">
+            {/* Row 1: First Name | Last Name | Date of Birth */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <ComparisonField
+                label={t("questionnaireTab.firstName", "First Name")}
+                value={editedData.patientFirstName || ""}
+                onChange={(v) => updateField("patientFirstName", v)}
+                readOnly={!canWrite}
+                diff={fieldDiffMap.get("patientFirstName")}
+                onResolve={resolveField}
+                canWrite={canWrite}
+                t={t}
+              />
+              <ComparisonField
+                label={t("questionnaireTab.lastName", "Last Name")}
+                value={editedData.patientLastName || ""}
+                onChange={(v) => updateField("patientLastName", v)}
+                readOnly={!canWrite}
+                diff={fieldDiffMap.get("patientLastName")}
+                onResolve={resolveField}
+                canWrite={canWrite}
+                t={t}
+              />
+              <ComparisonField
+                label={t("questionnaireTab.birthday", "Date of Birth")}
+                value={editedData.patientBirthday || ""}
+                onChange={(v) => updateField("patientBirthday", v)}
+                readOnly={!canWrite}
+                diff={fieldDiffMap.get("patientBirthday")}
+                onResolve={resolveField}
+                canWrite={canWrite}
+                t={t}
+                displayTransform={isoToDisplayDate}
+              />
+            </div>
+            {/* Row 2: Email | Phone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ComparisonField
+                label={t("questionnaireTab.email", "Email")}
+                value={editedData.patientEmail || ""}
+                onChange={(v) => updateField("patientEmail", v)}
+                readOnly={!canWrite}
+                diff={fieldDiffMap.get("patientEmail")}
+                onResolve={resolveField}
+                canWrite={canWrite}
+                t={t}
+              />
+              <div className="space-y-1">
+                <Label className={cn(
+                  "text-xs text-muted-foreground",
+                  fieldDiffMap.has("patientPhone") && "text-amber-600 font-medium"
+                )}>
+                  {t("questionnaireTab.phone", "Phone")}
+                </Label>
+                <PhoneInputWithCountry
+                  value={editedData.patientPhone || ""}
+                  onChange={(v) => updateField("patientPhone", v)}
+                  disabled={!canWrite}
+                  className={cn(fieldDiffMap.has("patientPhone") && "ring-1 ring-amber-400")}
+                />
+                {fieldDiffMap.has("patientPhone") && (
+                  <DiffResolver
+                    diff={fieldDiffMap.get("patientPhone")!}
+                    onResolve={resolveField}
+                    canWrite={canWrite}
+                    t={t}
+                  />
+                )}
+              </div>
+            </div>
+            {/* Row 3: Height | Weight | BMI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Field
+                label={t("questionnaireTab.height", "Height (cm)")}
+                value={editedData.height || ""}
+                onChange={(v) => updateField("height", v)}
+                readOnly={!canWrite}
+              />
+              <Field
+                label={t("questionnaireTab.weight", "Weight (kg)")}
+                value={editedData.weight || ""}
+                onChange={(v) => updateField("weight", v)}
+                readOnly={!canWrite}
+              />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  {t("questionnaireTab.bmi", "BMI")}
+                </Label>
+                <Input
+                  value={computeBmi(editedData.height, editedData.weight) ?? "–"}
+                  readOnly
+                  className="bg-muted cursor-default"
+                />
+              </div>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* Row: Allergies + Medications */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
+          <AccordionSection
+            value="allergies"
+            title={t("questionnaireTab.allergies", "Allergies")}
+            status={sectionStatuses.allergies}
+          >
+            {editedData.noAllergies ? (
+              <NoneConfirmed t={t} />
+            ) : (
+              <div className="space-y-3">
+                {editedData.allergies && editedData.allergies.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {editedData.allergies.map((a: string, i: number) => (
+                      <Badge key={i} variant="secondary">
+                        {a}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <Field
+                  label={t("questionnaireTab.allergiesNotes", "Notes")}
+                  value={editedData.allergiesNotes || ""}
+                  onChange={(v) => updateField("allergiesNotes", v)}
+                  readOnly={!canWrite}
+                />
+                {(!editedData.allergies || editedData.allergies.length === 0) &&
+                  !editedData.allergiesNotes && (
+                    <p className="text-sm text-muted-foreground italic">
+                      {t("questionnaireTab.noData", "No data provided")}
+                    </p>
+                  )}
+              </div>
+            )}
+          </AccordionSection>
+
+          <AccordionSection
+            value="medications"
+            title={t("questionnaireTab.medicationsTitle", "Medications")}
+            status={sectionStatuses.medications}
+          >
+            {editedData.noMedications ? (
+              <NoneConfirmed t={t} />
+            ) : (
+              <div className="space-y-3">
+                {editedData.medications &&
+                  editedData.medications.length > 0 && (
+                    <div className="space-y-2">
+                      {editedData.medications.map((med: any, i: number) => (
+                        <div
+                          key={i}
+                          className="flex flex-wrap gap-2 text-sm p-2 border rounded"
+                        >
+                          <span className="font-medium">{med.name}</span>
+                          {med.dosage && (
+                            <span className="text-muted-foreground">
+                              | {med.dosage}
+                            </span>
+                          )}
+                          {med.frequency && (
+                            <span className="text-muted-foreground">
+                              | {med.frequency}
+                            </span>
+                          )}
+                          {med.reason && (
+                            <span className="text-muted-foreground">
+                              | {med.reason}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                <Field
+                  label={t("questionnaireTab.medicationsNotes", "Notes")}
+                  value={editedData.medicationsNotes || ""}
+                  onChange={(v) => updateField("medicationsNotes", v)}
+                  readOnly={!canWrite}
+                />
+                {(!editedData.medications ||
+                  editedData.medications.length === 0) &&
+                  !editedData.medicationsNotes && (
+                    <p className="text-sm text-muted-foreground italic">
+                      {t("questionnaireTab.noData", "No data provided")}
+                    </p>
+                  )}
+              </div>
+            )}
+          </AccordionSection>
+        </div>
+
+        {/* Medical Conditions — full width */}
+        <AccordionSection
+          value="conditions"
+          title={t("questionnaireTab.conditions", "Medical Conditions")}
+          status={sectionStatuses.conditions}
+        >
+          {editedData.noConditions ? (
+            <NoneConfirmed t={t} />
+          ) : (
+            <GroupedConditions
+              conditions={editedData.conditions}
+              conditionLabelMap={conditionLabelMap}
+              t={t}
+            />
+          )}
+        </AccordionSection>
+
+        {/* Row: Lifestyle + Drug Use */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
+          <AccordionSection
+            value="lifestyle"
+            title={t("questionnaireTab.lifestyle", "Lifestyle")}
+            status={sectionStatuses.lifestyle}
+          >
+            {editedData.noSmokingAlcohol ? (
+              <NoneConfirmed
+                t={t}
+                label={t(
+                  "questionnaireTab.noSmokingAlcohol",
+                  "No smoking or alcohol use confirmed"
+                )}
+              />
+            ) : (
+              <div className="space-y-3">
+                <Field
+                  label={t("questionnaireTab.smokingStatus", "Smoking")}
+                  value={editedData.smokingStatus || ""}
+                  onChange={(v) => updateField("smokingStatus", v)}
+                  readOnly={!canWrite}
+                />
+                <Field
+                  label={t("questionnaireTab.smokingDetails", "Smoking Details")}
+                  value={editedData.smokingDetails || ""}
+                  onChange={(v) => updateField("smokingDetails", v)}
+                  readOnly={!canWrite}
+                />
+                <Field
+                  label={t("questionnaireTab.alcoholStatus", "Alcohol")}
+                  value={editedData.alcoholStatus || ""}
+                  onChange={(v) => updateField("alcoholStatus", v)}
+                  readOnly={!canWrite}
+                />
+                <Field
+                  label={t("questionnaireTab.alcoholDetails", "Alcohol Details")}
+                  value={editedData.alcoholDetails || ""}
+                  onChange={(v) => updateField("alcoholDetails", v)}
+                  readOnly={!canWrite}
+                />
+              </div>
+            )}
+          </AccordionSection>
+
+          <AccordionSection
+            value="drugUse"
+            title={t("questionnaireTab.drugUse", "Drug Use")}
+            status={sectionStatuses.drugUse}
+          >
+            {editedData.noDrugUse ? (
+              <NoneConfirmed
+                t={t}
+                label={t(
+                  "questionnaireTab.noDrugUse",
+                  "No drug use confirmed"
+                )}
+              />
+            ) : (
+              <div className="space-y-3">
+                <CheckboxRecordDisplay
+                  data={editedData.drugUse}
+                  labelMap={{
+                    thc: "THC / Cannabis",
+                    cocaine: t("questionnaireTab.cocaine", "Cocaine"),
+                    heroin: t("questionnaireTab.heroin", "Heroin"),
+                    mdma: "MDMA / Ecstasy",
+                    other: t("questionnaireTab.otherDrugs", "Other"),
+                  }}
+                />
+                <Field
+                  label={t("questionnaireTab.drugDetails", "Details")}
+                  value={editedData.drugUseDetails || ""}
+                  onChange={(v) => updateField("drugUseDetails", v)}
+                  readOnly={!canWrite}
+                />
+              </div>
+            )}
+          </AccordionSection>
+        </div>
+
+        {/* Row: Previous Surgeries + Dental Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
+          <AccordionSection
+            value="surgeries"
+            title={t(
+              "questionnaireTab.previousSurgeries",
+              "Previous Surgeries & Anesthesia"
+            )}
+            status={sectionStatuses.surgeries}
+          >
+            <div className="space-y-3">
+              {editedData.noPreviousSurgeries ? (
+                <NoneConfirmed
+                  t={t}
+                  label={t(
+                    "questionnaireTab.noPreviousSurgeries",
+                    "No previous surgeries confirmed"
+                  )}
+                />
+              ) : (
+                <TextAreaField
+                  label={t(
+                    "questionnaireTab.prevSurgeries",
+                    "Previous Surgeries"
+                  )}
+                  value={editedData.previousSurgeries || ""}
+                  onChange={(v) => updateField("previousSurgeries", v)}
+                  readOnly={!canWrite}
+                />
+              )}
+              {editedData.noAnesthesiaProblems ? (
+                <NoneConfirmed
+                  t={t}
+                  label={t(
+                    "questionnaireTab.noAnesthesiaProblems",
+                    "No anesthesia problems confirmed"
+                  )}
+                />
+              ) : (
+                <TextAreaField
+                  label={t(
+                    "questionnaireTab.anesthesiaProblems",
+                    "Anesthesia Problems"
+                  )}
+                  value={editedData.previousAnesthesiaProblems || ""}
+                  onChange={(v) =>
+                    updateField("previousAnesthesiaProblems", v)
+                  }
+                  readOnly={!canWrite}
+                />
+              )}
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            value="dental"
+            title={t("questionnaireTab.dental", "Dental Status")}
+            status={sectionStatuses.dental}
+          >
+            {editedData.noDentalIssues ? (
+              <NoneConfirmed
+                t={t}
+                label={t(
+                  "questionnaireTab.noDentalIssues",
+                  "No dental issues confirmed"
+                )}
+              />
+            ) : (
+              <div className="space-y-3">
+                <CheckboxRecordDisplay
+                  data={editedData.dentalIssues}
+                  labelMap={{
+                    dentures: t("questionnaireTab.dentalDentures", "Dentures"),
+                    crowns: t("questionnaireTab.dentalCrowns", "Crowns"),
+                    implants: t("questionnaireTab.dentalImplants", "Implants"),
+                    looseTeeth: t(
+                      "questionnaireTab.dentalLooseTeeth",
+                      "Loose Teeth"
+                    ),
+                    damagedTeeth: t(
+                      "questionnaireTab.dentalDamagedTeeth",
+                      "Damaged Teeth"
+                    ),
+                  }}
+                />
+                <Field
+                  label={t("questionnaireTab.dentalNotes", "Notes")}
+                  value={editedData.dentalNotes || ""}
+                  onChange={(v) => updateField("dentalNotes", v)}
+                  readOnly={!canWrite}
+                />
+              </div>
+            )}
+          </AccordionSection>
+        </div>
+
+        {/* PONV & Transfusion — full width */}
+        <AccordionSection
+          value="ponv"
+          title={t("questionnaireTab.ponvTransfusion", "PONV & Transfusion")}
+          status={sectionStatuses.ponv}
+        >
+          {editedData.noPonvIssues ? (
+            <NoneConfirmed
+              t={t}
+              label={t(
+                "questionnaireTab.noPonvIssues",
+                "No PONV/transfusion issues confirmed"
+              )}
+            />
+          ) : (
+            <div className="space-y-3">
+              <CheckboxRecordDisplay
+                data={editedData.ponvTransfusionIssues}
+                labelMap={{
+                  ponvPrevious: t(
+                    "questionnaireTab.ponvPrevious",
+                    "Previous PONV"
+                  ),
+                  ponvFamily: t("questionnaireTab.ponvFamily", "Family PONV"),
+                  bloodTransfusion: t(
+                    "questionnaireTab.bloodTransfusion",
+                    "Blood Transfusion"
+                  ),
+                  transfusionReaction: t(
+                    "questionnaireTab.transfusionReaction",
+                    "Transfusion Reaction"
+                  ),
+                }}
+              />
+              <Field
+                label={t("questionnaireTab.ponvNotes", "Notes")}
+                value={editedData.ponvTransfusionNotes || ""}
+                onChange={(v) => updateField("ponvTransfusionNotes", v)}
+                readOnly={!canWrite}
+              />
+            </div>
+          )}
+        </AccordionSection>
+
+        {/* Women's Health (only if sex=F) — full width */}
+        {patientSex === "F" && (
+          <AccordionSection
+            value="womensHealth"
+            title={t("questionnaireTab.womensHealth", "Women's Health")}
+            status={sectionStatuses.womensHealth}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Field
+                label={t(
+                  "questionnaireTab.pregnancyStatus",
+                  "Pregnancy Status"
+                )}
+                value={editedData.pregnancyStatus || ""}
+                onChange={(v) => updateField("pregnancyStatus", v)}
+                readOnly={!canWrite}
+              />
+              <div className="flex items-center gap-2 pt-6">
+                <Checkbox
+                  id="breastfeeding"
+                  checked={editedData.breastfeeding || false}
+                  onCheckedChange={(checked) =>
+                    updateField("breastfeeding", !!checked)
+                  }
+                  disabled={!canWrite}
+                />
+                <Label htmlFor="breastfeeding" className="font-normal">
+                  {t("questionnaireTab.breastfeeding", "Breastfeeding")}
+                </Label>
+              </div>
+            </div>
+            <TextAreaField
+              label={t("questionnaireTab.womanHealthNotes", "Notes")}
+              value={editedData.womanHealthNotes || ""}
+              onChange={(v) => updateField("womanHealthNotes", v)}
+              readOnly={!canWrite}
+            />
+          </AccordionSection>
+        )}
+
+        {/* Row: Outpatient Caregiver + Additional Notes */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
+          <AccordionSection
+            value="caregiver"
+            title={t(
+              "questionnaireTab.outpatientCaregiver",
+              "Outpatient Caregiver"
+            )}
+          >
+            <div className="space-y-3">
+              <Field
+                label={t("questionnaireTab.caregiverFirstName", "First Name")}
+                value={editedData.outpatientCaregiverFirstName || ""}
+                onChange={(v) =>
+                  updateField("outpatientCaregiverFirstName", v)
+                }
+                readOnly={!canWrite}
+              />
+              <Field
+                label={t("questionnaireTab.caregiverLastName", "Last Name")}
+                value={editedData.outpatientCaregiverLastName || ""}
+                onChange={(v) =>
+                  updateField("outpatientCaregiverLastName", v)
+                }
+                readOnly={!canWrite}
+              />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  {t("questionnaireTab.caregiverPhone", "Phone")}
+                </Label>
+                <PhoneInputWithCountry
+                  value={editedData.outpatientCaregiverPhone || ""}
+                  onChange={(v) => updateField("outpatientCaregiverPhone", v)}
+                  disabled={!canWrite}
+                />
+              </div>
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
+            value="notes"
+            title={t("questionnaireTab.additionalNotes", "Additional Notes")}
+          >
+            <div className="space-y-3">
+              <TextAreaField
+                label={t("questionnaireTab.additionalNotesField", "Notes")}
+                value={editedData.additionalNotes || ""}
+                onChange={(v) => updateField("additionalNotes", v)}
+                readOnly={!canWrite}
+              />
+              <TextAreaField
+                label={t(
+                  "questionnaireTab.questionsForDoctor",
+                  "Questions for Doctor"
+                )}
+                value={editedData.questionsForDoctor || ""}
+                onChange={(v) => updateField("questionsForDoctor", v)}
+                readOnly={!canWrite}
+              />
+            </div>
+          </AccordionSection>
+        </div>
+      </Accordion>
+
+      {/* ─── Dirty indicator + Save ───────────────────────────────────── */}
       {canWrite && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm">
@@ -281,367 +1125,133 @@ export function QuestionnaireTab({
           </Button>
         </div>
       )}
-
-      {/* Accordion Sections */}
-      <Accordion type="multiple" className="space-y-2">
-        {/* 1. Personal Info */}
-        <AccordionSection value="personal" title={t("questionnaireTab.personalInfo", "Personal Info")}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field
-              label={t("questionnaireTab.firstName", "First Name")}
-              value={editedData.patientFirstName || ""}
-              onChange={(v) => updateField("patientFirstName", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.lastName", "Last Name")}
-              value={editedData.patientLastName || ""}
-              onChange={(v) => updateField("patientLastName", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.birthday", "Date of Birth")}
-              value={editedData.patientBirthday || ""}
-              onChange={(v) => updateField("patientBirthday", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.email", "Email")}
-              value={editedData.patientEmail || ""}
-              onChange={(v) => updateField("patientEmail", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.phone", "Phone")}
-              value={editedData.patientPhone || ""}
-              onChange={(v) => updateField("patientPhone", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.height", "Height (cm)")}
-              value={editedData.height || ""}
-              onChange={(v) => updateField("height", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.weight", "Weight (kg)")}
-              value={editedData.weight || ""}
-              onChange={(v) => updateField("weight", v)}
-              readOnly={!canWrite}
-            />
-          </div>
-        </AccordionSection>
-
-        {/* 2. Allergies */}
-        <AccordionSection value="allergies" title={t("questionnaireTab.allergies", "Allergies")}>
-          {editedData.noAllergies ? (
-            <NoneConfirmed t={t} />
-          ) : (
-            <div className="space-y-3">
-              {editedData.allergies && editedData.allergies.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {editedData.allergies.map((a: string, i: number) => (
-                    <Badge key={i} variant="secondary">{a}</Badge>
-                  ))}
-                </div>
-              )}
-              <Field
-                label={t("questionnaireTab.allergiesNotes", "Notes")}
-                value={editedData.allergiesNotes || ""}
-                onChange={(v) => updateField("allergiesNotes", v)}
-                readOnly={!canWrite}
-              />
-              {(!editedData.allergies || editedData.allergies.length === 0) && !editedData.allergiesNotes && (
-                <p className="text-sm text-muted-foreground italic">{t("questionnaireTab.noData", "No data provided")}</p>
-              )}
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 3. Medications */}
-        <AccordionSection value="medications" title={t("questionnaireTab.medicationsTitle", "Medications")}>
-          {editedData.noMedications ? (
-            <NoneConfirmed t={t} />
-          ) : (
-            <div className="space-y-3">
-              {editedData.medications && editedData.medications.length > 0 && (
-                <div className="space-y-2">
-                  {editedData.medications.map((med: any, i: number) => (
-                    <div key={i} className="flex flex-wrap gap-2 text-sm p-2 border rounded">
-                      <span className="font-medium">{med.name}</span>
-                      {med.dosage && <span className="text-muted-foreground">| {med.dosage}</span>}
-                      {med.frequency && <span className="text-muted-foreground">| {med.frequency}</span>}
-                      {med.reason && <span className="text-muted-foreground">| {med.reason}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <Field
-                label={t("questionnaireTab.medicationsNotes", "Notes")}
-                value={editedData.medicationsNotes || ""}
-                onChange={(v) => updateField("medicationsNotes", v)}
-                readOnly={!canWrite}
-              />
-              {(!editedData.medications || editedData.medications.length === 0) && !editedData.medicationsNotes && (
-                <p className="text-sm text-muted-foreground italic">{t("questionnaireTab.noData", "No data provided")}</p>
-              )}
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 4. Medical Conditions */}
-        <AccordionSection value="conditions" title={t("questionnaireTab.conditions", "Medical Conditions")}>
-          {editedData.noConditions ? (
-            <NoneConfirmed t={t} />
-          ) : (
-            <div className="space-y-2">
-              {editedData.conditions && Object.keys(editedData.conditions).length > 0 ? (
-                Object.entries(editedData.conditions as Record<string, { checked: boolean; notes?: string }>)
-                  .filter(([, v]) => v.checked)
-                  .map(([key, val]) => (
-                    <div key={key} className="flex items-start gap-2 text-sm p-2 border rounded">
-                      <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      <div>
-                        <span className="font-medium">{key}</span>
-                        {val.notes && <span className="text-muted-foreground ml-2">— {val.notes}</span>}
-                      </div>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm text-muted-foreground italic">{t("questionnaireTab.noData", "No data provided")}</p>
-              )}
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 5. Lifestyle */}
-        <AccordionSection value="lifestyle" title={t("questionnaireTab.lifestyle", "Lifestyle")}>
-          {editedData.noSmokingAlcohol ? (
-            <NoneConfirmed t={t} label={t("questionnaireTab.noSmokingAlcohol", "No smoking or alcohol use confirmed")} />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field
-                label={t("questionnaireTab.smokingStatus", "Smoking")}
-                value={editedData.smokingStatus || ""}
-                onChange={(v) => updateField("smokingStatus", v)}
-                readOnly={!canWrite}
-              />
-              <Field
-                label={t("questionnaireTab.smokingDetails", "Smoking Details")}
-                value={editedData.smokingDetails || ""}
-                onChange={(v) => updateField("smokingDetails", v)}
-                readOnly={!canWrite}
-              />
-              <Field
-                label={t("questionnaireTab.alcoholStatus", "Alcohol")}
-                value={editedData.alcoholStatus || ""}
-                onChange={(v) => updateField("alcoholStatus", v)}
-                readOnly={!canWrite}
-              />
-              <Field
-                label={t("questionnaireTab.alcoholDetails", "Alcohol Details")}
-                value={editedData.alcoholDetails || ""}
-                onChange={(v) => updateField("alcoholDetails", v)}
-                readOnly={!canWrite}
-              />
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 6. Previous Surgeries & Anesthesia */}
-        <AccordionSection value="surgeries" title={t("questionnaireTab.previousSurgeries", "Previous Surgeries & Anesthesia")}>
-          <div className="space-y-3">
-            {editedData.noPreviousSurgeries ? (
-              <NoneConfirmed t={t} label={t("questionnaireTab.noPreviousSurgeries", "No previous surgeries confirmed")} />
-            ) : (
-              <TextAreaField
-                label={t("questionnaireTab.prevSurgeries", "Previous Surgeries")}
-                value={editedData.previousSurgeries || ""}
-                onChange={(v) => updateField("previousSurgeries", v)}
-                readOnly={!canWrite}
-              />
-            )}
-            {editedData.noAnesthesiaProblems ? (
-              <NoneConfirmed t={t} label={t("questionnaireTab.noAnesthesiaProblems", "No anesthesia problems confirmed")} />
-            ) : (
-              <TextAreaField
-                label={t("questionnaireTab.anesthesiaProblems", "Anesthesia Problems")}
-                value={editedData.previousAnesthesiaProblems || ""}
-                onChange={(v) => updateField("previousAnesthesiaProblems", v)}
-                readOnly={!canWrite}
-              />
-            )}
-          </div>
-        </AccordionSection>
-
-        {/* 7. Women's Health (only if sex=F) */}
-        {patientSex === "F" && (
-          <AccordionSection value="womensHealth" title={t("questionnaireTab.womensHealth", "Women's Health")}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field
-                label={t("questionnaireTab.pregnancyStatus", "Pregnancy Status")}
-                value={editedData.pregnancyStatus || ""}
-                onChange={(v) => updateField("pregnancyStatus", v)}
-                readOnly={!canWrite}
-              />
-              <div className="flex items-center gap-2 pt-6">
-                <Checkbox
-                  id="breastfeeding"
-                  checked={editedData.breastfeeding || false}
-                  onCheckedChange={(checked) => updateField("breastfeeding", !!checked)}
-                  disabled={!canWrite}
-                />
-                <Label htmlFor="breastfeeding" className="font-normal">
-                  {t("questionnaireTab.breastfeeding", "Breastfeeding")}
-                </Label>
-              </div>
-            </div>
-            <TextAreaField
-              label={t("questionnaireTab.womanHealthNotes", "Notes")}
-              value={editedData.womanHealthNotes || ""}
-              onChange={(v) => updateField("womanHealthNotes", v)}
-              readOnly={!canWrite}
-            />
-          </AccordionSection>
-        )}
-
-        {/* 8. Dental */}
-        <AccordionSection value="dental" title={t("questionnaireTab.dental", "Dental Status")}>
-          {editedData.noDentalIssues ? (
-            <NoneConfirmed t={t} label={t("questionnaireTab.noDentalIssues", "No dental issues confirmed")} />
-          ) : (
-            <div className="space-y-3">
-              <CheckboxRecordDisplay
-                data={editedData.dentalIssues}
-                labelMap={{
-                  dentures: t("questionnaireTab.dentalDentures", "Dentures"),
-                  crowns: t("questionnaireTab.dentalCrowns", "Crowns"),
-                  implants: t("questionnaireTab.dentalImplants", "Implants"),
-                  looseTeeth: t("questionnaireTab.dentalLooseTeeth", "Loose Teeth"),
-                  damagedTeeth: t("questionnaireTab.dentalDamagedTeeth", "Damaged Teeth"),
-                }}
-              />
-              <Field
-                label={t("questionnaireTab.dentalNotes", "Notes")}
-                value={editedData.dentalNotes || ""}
-                onChange={(v) => updateField("dentalNotes", v)}
-                readOnly={!canWrite}
-              />
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 9. PONV & Transfusion */}
-        <AccordionSection value="ponv" title={t("questionnaireTab.ponvTransfusion", "PONV & Transfusion")}>
-          {editedData.noPonvIssues ? (
-            <NoneConfirmed t={t} label={t("questionnaireTab.noPonvIssues", "No PONV/transfusion issues confirmed")} />
-          ) : (
-            <div className="space-y-3">
-              <CheckboxRecordDisplay
-                data={editedData.ponvTransfusionIssues}
-                labelMap={{
-                  ponvPrevious: t("questionnaireTab.ponvPrevious", "Previous PONV"),
-                  ponvFamily: t("questionnaireTab.ponvFamily", "Family PONV"),
-                  bloodTransfusion: t("questionnaireTab.bloodTransfusion", "Blood Transfusion"),
-                  transfusionReaction: t("questionnaireTab.transfusionReaction", "Transfusion Reaction"),
-                }}
-              />
-              <Field
-                label={t("questionnaireTab.ponvNotes", "Notes")}
-                value={editedData.ponvTransfusionNotes || ""}
-                onChange={(v) => updateField("ponvTransfusionNotes", v)}
-                readOnly={!canWrite}
-              />
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 10. Drug Use */}
-        <AccordionSection value="drugUse" title={t("questionnaireTab.drugUse", "Drug Use")}>
-          {editedData.noDrugUse ? (
-            <NoneConfirmed t={t} label={t("questionnaireTab.noDrugUse", "No drug use confirmed")} />
-          ) : (
-            <div className="space-y-3">
-              <CheckboxRecordDisplay
-                data={editedData.drugUse}
-                labelMap={{
-                  thc: "THC / Cannabis",
-                  cocaine: t("questionnaireTab.cocaine", "Cocaine"),
-                  heroin: t("questionnaireTab.heroin", "Heroin"),
-                  mdma: "MDMA / Ecstasy",
-                  other: t("questionnaireTab.otherDrugs", "Other"),
-                }}
-              />
-              <Field
-                label={t("questionnaireTab.drugDetails", "Details")}
-                value={editedData.drugUseDetails || ""}
-                onChange={(v) => updateField("drugUseDetails", v)}
-                readOnly={!canWrite}
-              />
-            </div>
-          )}
-        </AccordionSection>
-
-        {/* 11. Outpatient Caregiver */}
-        <AccordionSection value="caregiver" title={t("questionnaireTab.outpatientCaregiver", "Outpatient Caregiver")}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field
-              label={t("questionnaireTab.caregiverFirstName", "First Name")}
-              value={editedData.outpatientCaregiverFirstName || ""}
-              onChange={(v) => updateField("outpatientCaregiverFirstName", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.caregiverLastName", "Last Name")}
-              value={editedData.outpatientCaregiverLastName || ""}
-              onChange={(v) => updateField("outpatientCaregiverLastName", v)}
-              readOnly={!canWrite}
-            />
-            <Field
-              label={t("questionnaireTab.caregiverPhone", "Phone")}
-              value={editedData.outpatientCaregiverPhone || ""}
-              onChange={(v) => updateField("outpatientCaregiverPhone", v)}
-              readOnly={!canWrite}
-            />
-          </div>
-        </AccordionSection>
-
-        {/* 12. Additional Notes */}
-        <AccordionSection value="notes" title={t("questionnaireTab.additionalNotes", "Additional Notes")}>
-          <div className="space-y-3">
-            <TextAreaField
-              label={t("questionnaireTab.additionalNotesField", "Notes")}
-              value={editedData.additionalNotes || ""}
-              onChange={(v) => updateField("additionalNotes", v)}
-              readOnly={!canWrite}
-            />
-            <TextAreaField
-              label={t("questionnaireTab.questionsForDoctor", "Questions for Doctor")}
-              value={editedData.questionsForDoctor || ""}
-              onChange={(v) => updateField("questionsForDoctor", v)}
-              readOnly={!canWrite}
-            />
-          </div>
-        </AccordionSection>
-      </Accordion>
     </div>
   );
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────
 
+function GroupedConditions({
+  conditions,
+  conditionLabelMap,
+  t,
+}: {
+  conditions?: Record<string, { checked: boolean; notes?: string }>;
+  conditionLabelMap: ConditionLabelMap;
+  t: any;
+}) {
+  const grouped = useMemo(() => {
+    if (!conditions) return [];
+
+    const groups: Record<
+      string,
+      {
+        categoryLabel: string;
+        items: Array<{ id: string; label: string; notes?: string }>;
+      }
+    > = {};
+
+    const checked = Object.entries(conditions).filter(([, v]) => v.checked);
+
+    if (checked.length === 0) return [];
+
+    for (const [id, val] of checked) {
+      const info = conditionLabelMap[id];
+      const category = info?.category || "uncategorized";
+      const categoryLabel =
+        info?.categoryLabel ||
+        (category === "uncategorized"
+          ? t("questionnaireTab.summary.uncategorized", "Other")
+          : category);
+
+      if (!groups[category]) {
+        groups[category] = { categoryLabel, items: [] };
+      }
+      groups[category].items.push({
+        id,
+        label: info?.label || id,
+        notes: val.notes,
+      });
+    }
+
+    // Sort by CATEGORY_ORDER, uncategorized at end
+    return Object.entries(groups).sort(([a], [b]) => {
+      const aIdx = CATEGORY_ORDER.indexOf(a);
+      const bIdx = CATEGORY_ORDER.indexOf(b);
+      if (aIdx === -1 && bIdx === -1) return 0;
+      if (aIdx === -1) return 1;
+      if (bIdx === -1) return -1;
+      return aIdx - bIdx;
+    });
+  }, [conditions, conditionLabelMap, t]);
+
+  if (grouped.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        {t("questionnaireTab.noData", "No data provided")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {grouped.map(([category, { categoryLabel, items }]) => (
+        <div key={category}>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            {categoryLabel}
+          </h4>
+          <div className="space-y-1.5">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-2 text-sm py-1.5 px-2.5 border rounded-md bg-muted/30"
+              >
+                <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <span className="font-medium">{item.label}</span>
+                  {item.notes && (
+                    <span className="text-muted-foreground ml-2">
+                      — {item.notes}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AccordionSection({
   value,
   title,
+  status,
   children,
 }: {
   value: string;
   title: string;
+  status?: SectionStatus;
   children: React.ReactNode;
 }) {
   return (
-    <AccordionItem value={value} className="border rounded-lg px-4">
-      <AccordionTrigger className="text-sm font-medium py-3">{title}</AccordionTrigger>
+    <AccordionItem
+      value={value}
+      id={`section-${value}`}
+      className="border rounded-lg px-4"
+    >
+      <AccordionTrigger className="text-sm font-medium py-3">
+        <span className="flex items-center gap-2">
+          {status === "clear" && (
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+          )}
+          {status === "findings" && (
+            <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+          )}
+          {title}
+        </span>
+      </AccordionTrigger>
       <AccordionContent className="pb-4">{children}</AccordionContent>
     </AccordionItem>
   );
@@ -699,7 +1309,13 @@ function NoneConfirmed({ t, label }: { t: any; label?: string }) {
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
       <CheckCircle className="h-4 w-4 text-green-500" />
-      <span>{label || t("questionnaireTab.noneConfirmed", "None (confirmed by patient)")}</span>
+      <span>
+        {label ||
+          t(
+            "questionnaireTab.noneConfirmed",
+            "None (confirmed by patient)"
+          )}
+      </span>
     </div>
   );
 }
@@ -725,7 +1341,11 @@ function CheckboxRecordDisplay({
   if (!data) return null;
   const checked = Object.entries(data).filter(([, v]) => v);
   if (checked.length === 0) {
-    return <p className="text-sm text-muted-foreground italic">No items selected</p>;
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        No items selected
+      </p>
+    );
   }
   return (
     <div className="flex flex-wrap gap-1">
@@ -734,6 +1354,109 @@ function CheckboxRecordDisplay({
           {labelMap[key] || key}
         </Badge>
       ))}
+    </div>
+  );
+}
+
+function DiffResolver({
+  diff,
+  onResolve,
+  canWrite,
+  t,
+}: {
+  diff: FieldDiff;
+  onResolve: (diff: FieldDiff, direction: "usePatient" | "useQuestionnaire") => void;
+  canWrite: boolean;
+  t: any;
+}) {
+  const displayPatient = diff.key === "birthday"
+    ? isoToDisplayDate(diff.patientValue)
+    : diff.patientValue;
+
+  return (
+    <div className="flex items-center gap-2 mt-1 text-xs">
+      <ArrowRightLeft className="h-3 w-3 text-amber-500 shrink-0" />
+      <span className="text-muted-foreground truncate">
+        {t("questionnaireTab.patientRecord", "Record")}: <span className="font-medium text-foreground">{displayPatient || "–"}</span>
+      </span>
+      {canWrite && (
+        <div className="flex gap-1 ml-auto shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[11px]"
+            onClick={() => onResolve(diff, "usePatient")}
+          >
+            {t("questionnaireTab.usePatientValue", "Use record")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[11px]"
+            onClick={() => onResolve(diff, "useQuestionnaire")}
+          >
+            {t("questionnaireTab.useQuestionnaireValue", "Use questionnaire")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonField({
+  label,
+  value,
+  onChange,
+  readOnly,
+  diff,
+  onResolve,
+  canWrite,
+  t,
+  displayTransform,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  readOnly: boolean;
+  diff?: FieldDiff;
+  onResolve: (diff: FieldDiff, direction: "usePatient" | "useQuestionnaire") => void;
+  canWrite: boolean;
+  t: any;
+  displayTransform?: (v: string) => string;
+}) {
+  const displayValue = displayTransform ? displayTransform(value) : value;
+  return (
+    <div className="space-y-1">
+      <Label className={cn(
+        "text-xs text-muted-foreground",
+        diff && "text-amber-600 font-medium"
+      )}>
+        {label}
+      </Label>
+      {displayTransform ? (
+        <Input
+          value={displayValue}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          className={cn(
+            readOnly && "bg-muted cursor-default",
+            diff && "ring-1 ring-amber-400"
+          )}
+        />
+      ) : (
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          className={cn(
+            readOnly && "bg-muted cursor-default",
+            diff && "ring-1 ring-amber-400"
+          )}
+        />
+      )}
+      {diff && (
+        <DiffResolver diff={diff} onResolve={onResolve} canWrite={canWrite} t={t} />
+      )}
     </div>
   );
 }
