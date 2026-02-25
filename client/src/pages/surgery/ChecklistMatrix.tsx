@@ -582,6 +582,17 @@ export default function ChecklistMatrix() {
 
   return (
     <div className="flex flex-col h-full">
+      <style>{`
+        @media (pointer: coarse) {
+          .checklist-matrix-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          .checklist-matrix-scroll {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+        }
+      `}</style>
       <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
@@ -699,7 +710,7 @@ export default function ChecklistMatrix() {
 
       {/* Past Surgeries Tab Content */}
       {activeTab === "past" && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0">
           {isPastLoading ? (
             <div className="p-4 space-y-4">
               <Skeleton className="h-12 w-full" />
@@ -728,26 +739,26 @@ export default function ChecklistMatrix() {
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-x-auto overflow-y-auto pr-4 py-4">
+            <div className="h-full overflow-x-auto overflow-y-auto pr-4 pb-4 checklist-matrix-scroll">
               <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
                 <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="sticky left-0 z-20 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <tr className="border-b">
+                    <th className="sticky top-0 left-0 z-30 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       {t('checklistMatrix.patient', 'Patient')}
                     </th>
-                    <th className="px-3 py-2 text-left font-medium min-w-[100px]">
+                    <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-left font-medium min-w-[100px]">
                       {t('checklistMatrix.date', 'Date')}
                     </th>
-                    <th className="px-3 py-2 text-left font-medium min-w-[150px]">
+                    <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-left font-medium min-w-[150px]">
                       {t('checklistMatrix.surgery', 'Surgery')}
                     </th>
-                    <th className="px-3 py-2 text-center font-medium min-w-[80px]">
+                    <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-center font-medium min-w-[80px]">
                       {t('checklistMatrix.status', 'Status')}
                     </th>
                     {selectedTemplate.items.map((item) => (
                       <th 
                         key={item.id} 
-                        className="px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
+                        className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
                         title={item.label}
                       >
                         <div className="truncate text-xs">
@@ -765,7 +776,7 @@ export default function ChecklistMatrix() {
                     
                     return (
                       <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
-                        <td className="sticky left-0 z-20 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
+                        <td className="sticky left-0 z-10 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
                           {surgery.patient ? (
                             <Link 
                               href={`/surgery/patients/${surgery.patient.id}`}
@@ -933,7 +944,7 @@ export default function ChecklistMatrix() {
 
       {/* Matrix Tab Content */}
       {activeTab === "matrix" && (
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0">
         {isLoading ? (
           <div className="p-4 space-y-4">
             <Skeleton className="h-12 w-full" />
@@ -962,26 +973,26 @@ export default function ChecklistMatrix() {
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-x-auto overflow-y-auto pr-4 py-4">
+          <div className="h-full overflow-x-auto overflow-y-auto pr-4 pb-4 checklist-matrix-scroll">
             <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
                   <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="sticky left-0 z-20 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <tr className="border-b">
+                      <th className="sticky top-0 left-0 z-30 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         {t('checklistMatrix.patient', 'Patient')}
                       </th>
-                      <th className="px-3 py-2 text-left font-medium min-w-[100px]">
+                      <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-left font-medium min-w-[100px]">
                         {t('checklistMatrix.date', 'Date')}
                       </th>
-                      <th className="px-3 py-2 text-left font-medium min-w-[150px]">
+                      <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-left font-medium min-w-[150px]">
                         {t('checklistMatrix.surgery', 'Surgery')}
                       </th>
-                      <th className="px-3 py-2 text-center font-medium min-w-[80px]">
+                      <th className="sticky top-0 z-20 bg-muted px-3 py-2 text-center font-medium min-w-[80px]">
                         {t('checklistMatrix.status', 'Status')}
                       </th>
                       {selectedTemplate.items.map((item, index) => (
                         <th 
                           key={item.id} 
-                          className="px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
+                          className="sticky top-0 z-20 bg-muted px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
                           title={item.label}
                         >
                           <div className="truncate text-xs">
@@ -999,7 +1010,7 @@ export default function ChecklistMatrix() {
                       
                       return (
                         <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
-                          <td className="sticky left-0 z-20 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
+                          <td className="sticky left-0 z-10 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
                             {surgery.patient ? (
                               <Link 
                                 href={`/surgery/patients/${surgery.patient.id}`}
