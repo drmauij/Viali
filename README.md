@@ -3,7 +3,7 @@
 A mobile-first web application designed for hospital operations, featuring comprehensive modules for Inventory Management, Anesthesia Records, and Administration.
 
 ![Viali Dashboard](https://img.shields.io/badge/Status-Active-success)
-[![License](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/License-Elastic%202.0-blue.svg)](./LICENSE)
 
 ## 🏥 Overview
 
@@ -548,13 +548,11 @@ Your support helps us:
 
 ## 📄 License
 
-viali.app is licensed under the [Business Source License 1.1](./LICENSE).
+viali.app is licensed under the [Elastic License 2.0 (ELv2)](./LICENSE).
 
 - ✅ Free for hospitals and healthcare providers
 - ✅ Modify and use internally without restrictions
-- ❌ Cannot resell or offer as commercial SaaS
-
-Converts to Apache 2.0 on 2029-01-20.
+- ❌ Cannot provide as a hosted/managed service (SaaS)
 
 See the [LICENSE](./LICENSE) file for full details.
 
