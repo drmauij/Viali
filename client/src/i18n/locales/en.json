@@ -6096,6 +6096,14 @@
     "linkCreated": "Worklog link created and email sent",
     "linkAlreadyExists": "A worklog link already exists for this email"
   },
+  "dayNotes": {
+    "title": "Day Notes",
+    "placeholder": "Add notes for this OP day...",
+    "pending": "Unsaved...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Error saving"
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Add a task... (use # for patient)",

@@ -25,7 +25,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
-import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
+import { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
+import DayInfoAccordion from "./DayInfoAccordion";
+import { useOpDayNotes } from "./DayNotesPanel";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -301,17 +303,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
   // Plan Staff dialog state
   const [planStaffDialogOpen, setPlanStaffDialogOpen] = useState(false);
   
-  // Planned staff box collapsed state
-  const [staffBoxOpen, setStaffBoxOpen] = useState(() => {
-    const saved = sessionStorage.getItem('oplist_staff_box_open');
-    return saved ? saved === 'true' : true;
-  });
-  
-  // Save staff box state
-  useEffect(() => {
-    sessionStorage.setItem('oplist_staff_box_open', String(staffBoxOpen));
-  }, [staffBoxOpen]);
-  
   // Date string for staff pool queries
   const dateString = useMemo(() => {
     const d = new Date(selectedDate);
@@ -395,6 +386,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     },
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch day notes for PDF export (warm cache from DayInfoAccordion)
+  const { data: dayNotesData } = useOpDayNotes(activeHospital?.id || '', selectedDate);
 
   // Fetch room-specific pending checklists for the selected date
   const { data: roomPendingChecklists = [] } = useQuery<RoomPendingChecklist[]>({
@@ -682,8 +676,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       roomMap,
       columns,
       roomStaffByRoom,
+      dayNotes: dayNotesData?.notes || '',
     });
-  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff, formatPreOpSummaryForPdf]);
+  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff, formatPreOpSummaryForPdf, dayNotesData]);
 
   // Helper to invalidate all room staff related queries
   const invalidateRoomStaffQueries = useCallback(() => {
@@ -1398,13 +1393,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         </div>
       )}
 
-      {/* Planned Staff Box - only show in day view */}
+      {/* Day Info Accordion (Staff + Day Notes) - only show in day view */}
       {surgeryRooms.length > 0 && activeHospital && currentView === "day" && (
-        <PlannedStaffBox
+        <DayInfoAccordion
           selectedDate={selectedDate}
           hospitalId={activeHospital.id}
-          isOpen={staffBoxOpen}
-          onToggle={() => setStaffBoxOpen(!staffBoxOpen)}
         />
       )}
 

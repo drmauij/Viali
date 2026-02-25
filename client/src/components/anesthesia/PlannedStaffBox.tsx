@@ -41,8 +41,9 @@ type StaffRole =
 interface PlannedStaffBoxProps {
   selectedDate: Date;
   hospitalId: string;
-  isOpen: boolean;
-  onToggle: () => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  variant?: 'standalone' | 'embedded';
 }
 
 export interface StaffPoolEntry {
@@ -215,7 +216,32 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
 
 const STAFF_FILTER_KEY = 'oplist_staff_filter_unassigned';
 
-export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle }: PlannedStaffBoxProps) {
+export function PlannedStaffTriggerContent({ staffCount, availableCount, bookedCount }: { staffCount: number; availableCount: number; bookedCount: number }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-2">
+      <Users className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-medium">
+        {t('staffPool.plannedStaff', 'Planned Staff')}
+      </span>
+      <Badge variant="secondary" className="text-xs">
+        {staffCount}
+      </Badge>
+      {availableCount > 0 && (
+        <span className="text-xs text-green-600 dark:text-green-400">
+          {availableCount} {t('staffPool.available', 'available')}
+        </span>
+      )}
+      {bookedCount > 0 && (
+        <span className="text-xs text-muted-foreground">
+          | {bookedCount} {t('staffPool.assigned', 'assigned')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle, variant = 'standalone' }: PlannedStaffBoxProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -301,7 +327,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     removeFromPoolMutation.mutate(id);
   };
   
-  if (staffPool.length === 0 && !isLoading) {
+  if (variant === 'standalone' && staffPool.length === 0 && !isLoading) {
     return null;
   }
   
@@ -312,33 +338,98 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     ? staffPool.filter(s => !s.isBooked) 
     : staffPool;
   
+  const staffContent = (
+    <div className={variant === 'standalone' ? "p-3 border border-t-0 rounded-b-lg bg-background" : "p-3"}>
+      {bookedCount > 0 && (
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+          <Filter className="h-3 w-3 text-muted-foreground" />
+          <Label
+            htmlFor="unassigned-filter"
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
+            {t('staffPool.showUnassignedOnly', 'Show unassigned only')}
+          </Label>
+          <Switch
+            id="unassigned-filter"
+            checked={showUnassignedOnly}
+            onCheckedChange={setShowUnassignedOnly}
+            className="scale-75"
+            data-testid="switch-unassigned-filter"
+          />
+        </div>
+      )}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+        </div>
+      ) : filteredStaffPool.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2 text-center">
+          {showUnassignedOnly
+            ? t('staffPool.noUnassignedStaff', 'All staff are assigned to rooms')
+            : t('staffPool.noStaff', 'No staff in pool')}
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {filteredStaffPool.map((staff) => (
+            <DraggableStaffChip
+              key={staff.id}
+              staff={staff}
+              onRemove={handleRemoveStaff}
+              availability={staffAvailability[staff.userId || '']}
+              onClick={handleStaffClick}
+            />
+          ))}
+        </div>
+      )}
+      {!isLoading && availableCount > 0 && !showUnassignedOnly && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {t('staffPool.dragHint', 'Drag staff onto room headers to assign')}
+        </p>
+      )}
+    </div>
+  );
+
+  const dialogs = (
+    <>
+      {recurrenceDialogStaff && (
+        <StaffRecurrenceDialog
+          open={!!recurrenceDialogStaff}
+          onOpenChange={(open) => { if (!open) setRecurrenceDialogStaff(null); }}
+          staff={recurrenceDialogStaff}
+          hospitalId={hospitalId}
+          selectedDate={selectedDate}
+        />
+      )}
+      {managementDialogStaff && (
+        <StaffManagementDialog
+          open={!!managementDialogStaff}
+          onOpenChange={(open) => { if (!open) setManagementDialogStaff(null); }}
+          staff={managementDialogStaff}
+          hospitalId={hospitalId}
+          selectedDate={selectedDate}
+        />
+      )}
+    </>
+  );
+
+  if (variant === 'embedded') {
+    return (
+      <>
+        {staffContent}
+        {dialogs}
+      </>
+    );
+  }
+
   return (
     <>
     <Collapsible open={isOpen} onOpenChange={onToggle} className="mx-4 mt-2">
       <CollapsibleTrigger asChild>
-        <div 
+        <div
           className="flex items-center justify-between p-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors border"
           data-testid="planned-staff-box-trigger"
         >
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {t('staffPool.plannedStaff', 'Planned Staff')}
-            </span>
-            <Badge variant="secondary" className="text-xs">
-              {staffPool.length}
-            </Badge>
-            {availableCount > 0 && (
-              <span className="text-xs text-green-600 dark:text-green-400">
-                {availableCount} {t('staffPool.available', 'available')}
-              </span>
-            )}
-            {bookedCount > 0 && (
-              <span className="text-xs text-muted-foreground">
-                | {bookedCount} {t('staffPool.assigned', 'assigned')}
-              </span>
-            )}
-          </div>
+          <PlannedStaffTriggerContent staffCount={staffPool.length} availableCount={availableCount} bookedCount={bookedCount} />
           {isOpen ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
@@ -346,76 +437,12 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
           )}
         </div>
       </CollapsibleTrigger>
-      
+
       <CollapsibleContent>
-        <div className="p-3 border border-t-0 rounded-b-lg bg-background">
-          {bookedCount > 0 && (
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-              <Filter className="h-3 w-3 text-muted-foreground" />
-              <Label 
-                htmlFor="unassigned-filter" 
-                className="text-xs text-muted-foreground cursor-pointer"
-              >
-                {t('staffPool.showUnassignedOnly', 'Show unassigned only')}
-              </Label>
-              <Switch
-                id="unassigned-filter"
-                checked={showUnassignedOnly}
-                onCheckedChange={setShowUnassignedOnly}
-                className="scale-75"
-                data-testid="switch-unassigned-filter"
-              />
-            </div>
-          )}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredStaffPool.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2 text-center">
-              {showUnassignedOnly 
-                ? t('staffPool.noUnassignedStaff', 'All staff are assigned to rooms')
-                : t('staffPool.noStaff', 'No staff in pool')}
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {filteredStaffPool.map((staff) => (
-                <DraggableStaffChip
-                  key={staff.id}
-                  staff={staff}
-                  onRemove={handleRemoveStaff}
-                  availability={staffAvailability[staff.userId || '']}
-                  onClick={handleStaffClick}
-                />
-              ))}
-            </div>
-          )}
-          {!isLoading && availableCount > 0 && !showUnassignedOnly && (
-            <p className="text-xs text-muted-foreground mt-2">
-              {t('staffPool.dragHint', 'Drag staff onto room headers to assign')}
-            </p>
-          )}
-        </div>
+        {staffContent}
       </CollapsibleContent>
     </Collapsible>
-    {recurrenceDialogStaff && (
-      <StaffRecurrenceDialog
-        open={!!recurrenceDialogStaff}
-        onOpenChange={(open) => { if (!open) setRecurrenceDialogStaff(null); }}
-        staff={recurrenceDialogStaff}
-        hospitalId={hospitalId}
-        selectedDate={selectedDate}
-      />
-    )}
-    {managementDialogStaff && (
-      <StaffManagementDialog
-        open={!!managementDialogStaff}
-        onOpenChange={(open) => { if (!open) setManagementDialogStaff(null); }}
-        staff={managementDialogStaff}
-        hospitalId={hospitalId}
-        selectedDate={selectedDate}
-      />
-    )}
+    {dialogs}
     </>
   );
 }

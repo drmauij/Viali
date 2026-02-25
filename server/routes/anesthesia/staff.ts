@@ -12,6 +12,7 @@ import {
   dailyRoomStaff,
   surgeryRooms,
   staffPoolRules,
+  opDayNotes,
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, gte, lte } from "drizzle-orm";
@@ -1099,6 +1100,63 @@ router.delete('/api/room-staff/by-pool/:roomId/:dailyStaffPoolId/:date', isAuthe
   } catch (error) {
     logger.error("Error removing room staff assignment:", error);
     res.status(500).json({ message: "Failed to remove room staff assignment" });
+  }
+});
+
+// =====================================
+// OP Day Notes Endpoints
+// =====================================
+
+router.get('/api/op-day-notes/:hospitalId/:date', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+
+    const [note] = await db
+      .select()
+      .from(opDayNotes)
+      .where(
+        and(
+          eq(opDayNotes.hospitalId, hospitalId),
+          eq(opDayNotes.date, date)
+        )
+      );
+
+    res.json(note || { notes: '' });
+  } catch (error) {
+    logger.error("Error fetching OP day notes:", error);
+    res.status(500).json({ message: "Failed to fetch OP day notes" });
+  }
+});
+
+router.put('/api/op-day-notes/:hospitalId/:date', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+    const { notes } = req.body;
+    const userId = req.user.id;
+
+    const [result] = await db
+      .insert(opDayNotes)
+      .values({
+        hospitalId,
+        date,
+        notes: notes ?? '',
+        createdBy: userId,
+        updatedBy: userId,
+      })
+      .onConflictDoUpdate({
+        target: [opDayNotes.hospitalId, opDayNotes.date],
+        set: {
+          notes: notes ?? '',
+          updatedBy: userId,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    res.json(result);
+  } catch (error) {
+    logger.error("Error saving OP day notes:", error);
+    res.status(500).json({ message: "Failed to save OP day notes" });
   }
 });
 

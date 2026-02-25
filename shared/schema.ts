@@ -2121,6 +2121,22 @@ export const dailyRoomStaff = pgTable("daily_room_staff", {
   unique("idx_daily_room_staff_unique").on(table.dailyStaffPoolId, table.surgeryRoomId, table.date),
 ]);
 
+// OP Day Notes (day-level notes per hospital per date)
+export const opDayNotes = pgTable("op_day_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  date: date("date").notNull(),
+  notes: text("notes").notNull().default(''),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_op_day_notes_hospital").on(table.hospitalId),
+  index("idx_op_day_notes_date").on(table.date),
+  unique("idx_op_day_notes_hospital_date").on(table.hospitalId, table.date),
+]);
+
 // Inventory Usage (Auto-computed from medication records)
 export const inventoryUsage = pgTable("inventory_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3381,6 +3397,12 @@ export const insertDailyRoomStaffSchema = createInsertSchema(dailyRoomStaff).omi
   createdAt: true,
 });
 
+export const insertOpDayNotesSchema = createInsertSchema(opDayNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -3494,6 +3516,8 @@ export type PlannedSurgeryStaff = typeof plannedSurgeryStaff.$inferSelect;
 export type InsertPlannedSurgeryStaff = z.infer<typeof insertPlannedSurgeryStaffSchema>;
 export type DailyRoomStaff = typeof dailyRoomStaff.$inferSelect;
 export type InsertDailyRoomStaff = z.infer<typeof insertDailyRoomStaffSchema>;
+export type OpDayNote = typeof opDayNotes.$inferSelect;
+export type InsertOpDayNote = z.infer<typeof insertOpDayNotesSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type InventoryCommit = typeof inventoryCommits.$inferSelect;

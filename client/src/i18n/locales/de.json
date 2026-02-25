@@ -6197,6 +6197,14 @@
     "linkCreated": "Arbeitszeit-Link erstellt und E-Mail gesendet",
     "linkAlreadyExists": "Ein Arbeitszeit-Link existiert bereits für diese E-Mail"
   },
+  "dayNotes": {
+    "title": "Tagesnotizen",
+    "placeholder": "Notizen fuer diesen OP-Tag hinzufuegen...",
+    "pending": "Nicht gespeichert...",
+    "saving": "Speichern...",
+    "saved": "Gespeichert",
+    "error": "Fehler beim Speichern"
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Aufgabe hinzufügen... (# für Patient)",

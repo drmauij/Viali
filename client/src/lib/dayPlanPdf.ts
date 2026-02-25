@@ -30,6 +30,7 @@ export interface DayPlanPdfOptions {
   roomMap: Map<string, string>;
   columns: DayPlanPdfColumn[];
   roomStaffByRoom?: Map<string, RoomStaffInfo>;
+  dayNotes?: string;
 }
 
 // Role labels for display
@@ -44,7 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
-  const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom } = options;
+  const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom, dayNotes } = options;
 
   if (surgeries.length === 0) {
     return;
@@ -91,7 +92,18 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
   };
   
   let currentY = 28;
-  
+
+  // Render day notes if present
+  if (dayNotes && dayNotes.trim()) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const wrappedLines = doc.splitTextToSize(dayNotes.trim(), pageWidth - 28);
+    doc.text(wrappedLines, 14, currentY);
+    currentY += wrappedLines.length * 4.5 + 3;
+    doc.setFont('helvetica', 'normal');
+  }
+
   sortedRoomIds.forEach((roomId, index) => {
     const roomSurgeries = surgeriesByRoom.get(roomId) || [];
     const roomName = roomId === 'unassigned' 
