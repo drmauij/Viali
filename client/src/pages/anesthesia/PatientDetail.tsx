@@ -750,7 +750,6 @@ export default function PatientDetail() {
     
     const data = {
       ...assessmentData,
-      ...overrideData, // Allow overriding specific fields (like signature)
       surgicalApproval: assessmentData.surgicalApprovalStatus,
       standBy: assessmentData.standBy,
       standByReason: assessmentData.standByReason,
@@ -773,9 +772,10 @@ export default function PatientDetail() {
       // - stand-by: goes to Stand-by tab (status stays as-is, standBy flag is true)
       // - approved/not-approved: goes to Completed tab
       // - no selection: stays in In Progress tab (draft)
-      status: markAsCompleted ? "completed" : 
+      status: markAsCompleted ? "completed" :
               (assessmentData.surgicalApprovalStatus === "approved" || assessmentData.surgicalApprovalStatus === "not-approved") ? "completed" :
               "draft",
+      ...overrideData, // Override specific fields (e.g. signature from async state update)
     };
 
     // Save allergies to patient table (single source of truth)
@@ -814,11 +814,13 @@ export default function PatientDetail() {
       // Set new timeout for auto-save (30 seconds after last change)
       const timeout = setTimeout(() => {
         // Only auto-save if there's meaningful user-entered data (not just defaults)
-        const hasUserData = assessmentData.height || assessmentData.weight || 
-                           assessmentData.asa || assessmentData.cave || 
+        const hasUserData = assessmentData.height || assessmentData.weight ||
+                           assessmentData.asa || assessmentData.cave ||
                            assessmentData.specialNotes ||
                            assessmentData.anticoagulationMeds.length > 0 ||
-                           assessmentData.generalMeds.length > 0;
+                           assessmentData.generalMeds.length > 0 ||
+                           consentData.patientSignature ||
+                           consentData.doctorSignature;
         
         // Don't auto-save if already completed
         const isCompleted = existingAssessment?.status === "completed";
@@ -5714,6 +5716,7 @@ export default function PatientDetail() {
         onSave={(signature) => {
           setConsentData({...consentData, doctorSignature: signature});
           setShowConsentDoctorSignaturePad(false);
+          handleSavePreOpAssessment(false, { consentDoctorSignature: signature });
         }}
         title={t('anesthesia.patientDetail.doctorSignatureConsent')}
       />
@@ -5724,6 +5727,7 @@ export default function PatientDetail() {
         onSave={(signature) => {
           setConsentData({...consentData, patientSignature: signature});
           setShowConsentPatientSignaturePad(false);
+          handleSavePreOpAssessment(false, { patientSignature: signature });
         }}
         title={t('anesthesia.patientDetail.patientSignature')}
       />
