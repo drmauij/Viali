@@ -489,7 +489,7 @@ export default function QuestionnaireReviews() {
                     {responseDetail.response.referralSource && (() => {
                       const sourceLabels: Record<string, string> = {
                         social: "Social Media", search_engine: "Search Engine", llm: "AI Assistant",
-                        word_of_mouth: "Word of Mouth", belegarzt: "Referring Doctor", other: "Other",
+                        word_of_mouth: "Personal Recommendation", belegarzt: "Referring Doctor", other: "Other",
                       };
                       const detailLabels: Record<string, string> = {
                         facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", google: "Google", bing: "Bing",
@@ -497,7 +497,7 @@ export default function QuestionnaireReviews() {
                       const src = responseDetail.response.referralSource!;
                       const det = responseDetail.response.referralSourceDetail;
                       const label = sourceLabels[src] || src;
-                      const detLabel = det ? (src === "other" ? det : (detailLabels[det] || det)) : null;
+                      const detLabel = det ? ((src === "other" || src === "word_of_mouth") ? det : (detailLabels[det] || det)) : null;
                       return (
                         <div className="space-y-1">
                           <div className="text-sm font-medium text-muted-foreground">{t('questionnaireTab.referralSource', 'Referral Source')}</div>

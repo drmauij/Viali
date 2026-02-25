@@ -205,7 +205,7 @@ const REFERRAL_SOURCE_LABELS: Record<string, string> = {
   social: "Social Media",
   search_engine: "Search Engine",
   llm: "AI Assistant",
-  word_of_mouth: "Word of Mouth",
+  word_of_mouth: "Personal Recommendation",
   belegarzt: "Referring Doctor",
   other: "Other",
 };
@@ -221,6 +221,7 @@ const REFERRAL_DETAIL_LABELS: Record<string, string> = {
 function formatReferralSource(source: string, detail?: string): string {
   const sourceLabel = REFERRAL_SOURCE_LABELS[source] || source;
   if (!detail) return sourceLabel;
+  if (source === "other" || source === "word_of_mouth") return `${sourceLabel} — ${detail}`;
   const detailLabel = REFERRAL_DETAIL_LABELS[detail] || detail;
   return `${sourceLabel} — ${detailLabel}`;
 }

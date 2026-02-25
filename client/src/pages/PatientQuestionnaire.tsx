@@ -239,7 +239,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.referral.google": "Google",
     "questionnaire.personal.referral.bing": "Bing",
     "questionnaire.personal.referral.llm": "AI Assistant (e.g. ChatGPT)",
-    "questionnaire.personal.referral.wordOfMouth": "Word of Mouth",
+    "questionnaire.personal.referral.wordOfMouth": "Personal recommendation",
+    "questionnaire.personal.referral.wordOfMouthPlaceholder": "Recommended by...",
     "questionnaire.personal.referral.belegarzt": "Referring Doctor",
     "questionnaire.personal.referral.other": "Other",
     "questionnaire.personal.referral.otherPlaceholder": "Please specify...",
@@ -425,7 +426,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.referral.google": "Google",
     "questionnaire.personal.referral.bing": "Bing",
     "questionnaire.personal.referral.llm": "KI-Assistent (z.B. ChatGPT)",
-    "questionnaire.personal.referral.wordOfMouth": "Mundpropaganda",
+    "questionnaire.personal.referral.wordOfMouth": "Persönliche Empfehlung",
+    "questionnaire.personal.referral.wordOfMouthPlaceholder": "Empfohlen durch...",
     "questionnaire.personal.referral.belegarzt": "Belegarzt",
     "questionnaire.personal.referral.other": "Andere",
     "questionnaire.personal.referral.otherPlaceholder": "Bitte angeben...",
@@ -611,7 +613,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.referral.google": "Google",
     "questionnaire.personal.referral.bing": "Bing",
     "questionnaire.personal.referral.llm": "Assistente AI (es. ChatGPT)",
-    "questionnaire.personal.referral.wordOfMouth": "Passaparola",
+    "questionnaire.personal.referral.wordOfMouth": "Raccomandazione personale",
+    "questionnaire.personal.referral.wordOfMouthPlaceholder": "Consigliato da...",
     "questionnaire.personal.referral.belegarzt": "Medico curante",
     "questionnaire.personal.referral.other": "Altro",
     "questionnaire.personal.referral.otherPlaceholder": "Specificare...",
@@ -797,7 +800,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.referral.google": "Google",
     "questionnaire.personal.referral.bing": "Bing",
     "questionnaire.personal.referral.llm": "Asistente de IA (ej. ChatGPT)",
-    "questionnaire.personal.referral.wordOfMouth": "Boca a boca",
+    "questionnaire.personal.referral.wordOfMouth": "Recomendación personal",
+    "questionnaire.personal.referral.wordOfMouthPlaceholder": "Recomendado por...",
     "questionnaire.personal.referral.belegarzt": "Médico remitente",
     "questionnaire.personal.referral.other": "Otro",
     "questionnaire.personal.referral.otherPlaceholder": "Por favor especifique...",
@@ -983,7 +987,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.referral.google": "Google",
     "questionnaire.personal.referral.bing": "Bing",
     "questionnaire.personal.referral.llm": "Assistant IA (ex. ChatGPT)",
-    "questionnaire.personal.referral.wordOfMouth": "Bouche à oreille",
+    "questionnaire.personal.referral.wordOfMouth": "Recommandation personnelle",
+    "questionnaire.personal.referral.wordOfMouthPlaceholder": "Recommandé par...",
     "questionnaire.personal.referral.belegarzt": "Médecin référent",
     "questionnaire.personal.referral.other": "Autre",
     "questionnaire.personal.referral.otherPlaceholder": "Veuillez préciser...",
@@ -1739,7 +1744,7 @@ export default function PatientQuestionnaire() {
           </CardContent>
         </Card>
 
-        <div className="flex overflow-x-auto gap-2 mb-4 pb-2">
+        <div className="flex overflow-x-auto scrollbar-hide gap-2 mb-4 pb-2">
           {STEPS.map((step, index) => {
             const Icon = step.icon;
             const isCompleted = formData.completedSteps.includes(step.id);
@@ -2125,9 +2130,20 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
             <Label htmlFor="referral-llm" className="font-normal">{t("questionnaire.personal.referral.llm")}</Label>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="word_of_mouth" id="referral-wom" />
-            <Label htmlFor="referral-wom" className="font-normal">{t("questionnaire.personal.referral.wordOfMouth")}</Label>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="word_of_mouth" id="referral-wom" />
+              <Label htmlFor="referral-wom" className="font-normal">{t("questionnaire.personal.referral.wordOfMouth")}</Label>
+            </div>
+            {formData.referralSource === "word_of_mouth" && (
+              <div className="ml-6">
+                <Input
+                  value={formData.referralSourceDetail}
+                  onChange={(e) => updateField("referralSourceDetail", e.target.value)}
+                  placeholder={t("questionnaire.personal.referral.wordOfMouthPlaceholder")}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -3192,7 +3208,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
                 formData.referralSource === "word_of_mouth" ? "wordOfMouth" :
                 formData.referralSource
               }`)}{formData.referralSourceDetail && ` — ${
-                formData.referralSource === "other"
+                formData.referralSource === "other" || formData.referralSource === "word_of_mouth"
                   ? formData.referralSourceDetail
                   : t(`questionnaire.personal.referral.${formData.referralSourceDetail}`)
               }`}
