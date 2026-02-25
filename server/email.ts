@@ -242,33 +242,51 @@ export async function sendWorklogLinkEmail(
   toEmail: string,
   token: string,
   unitName: string,
-  hospitalName: string
+  hospitalName: string,
+  language: 'de' | 'en' = 'de'
 ): Promise<boolean> {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
-    
+
     const baseUrl = getAppBaseUrl();
     const worklogLink = `${baseUrl}/worklog/${token}`;
-    
+
+    const isGerman = language === 'de';
+    const subject = isGerman
+      ? `Ihr persönlicher Arbeitszeiterfassungs-Link für ${unitName}`
+      : `Your personal time tracking link for ${unitName}`;
+    const heading = isGerman ? 'Arbeitszeiterfassung' : 'Time Tracking Portal';
+    const body1 = isGerman
+      ? `Sie haben einen persönlichen Link zur Arbeitszeiterfassung für <strong>${unitName}</strong> bei <strong>${hospitalName}</strong> erhalten.`
+      : `You have been set up with a personal time tracking link for <strong>${unitName}</strong> at <strong>${hospitalName}</strong>.`;
+    const body2 = isGerman
+      ? 'Verwenden Sie diesen Link, um Ihre Arbeitszeiten zu erfassen. Jeder Eintrag muss von Ihnen unterschrieben und von einem Vorgesetzten gegengezeichnet werden.'
+      : 'Use this link to submit your work hours. Each entry will need to be signed by you and countersigned by a manager.';
+    const buttonText = isGerman ? 'Arbeitszeiterfassung öffnen' : 'Open Time Tracking';
+    const copyLink = isGerman ? 'Oder kopieren Sie diesen Link:' : 'Or copy this link:';
+    const footer = isGerman
+      ? 'Dies ist Ihr persönlicher Link - bitte teilen Sie ihn nicht mit anderen.'
+      : 'This is your personal link - please do not share it with others.';
+
     await client.emails.send({
       from: fromEmail,
       to: toEmail,
-      subject: `Your personal time tracking link for ${unitName}`,
+      subject,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Time Tracking Portal</h2>
+          <h2 style="color: #333;">${heading}</h2>
           <p style="color: #666;">
-            You have been set up with a personal time tracking link for <strong>${unitName}</strong> at <strong>${hospitalName}</strong>.
+            ${body1}
           </p>
           <p style="color: #666;">
-            Use this link to submit your work hours. Each entry will need to be signed by you and countersigned by a manager.
+            ${body2}
           </p>
-          ${getEmailButton(worklogLink, 'Open Time Tracking')}
+          ${getEmailButton(worklogLink, buttonText)}
           <p style="color: #999; font-size: 12px;">
-            Or copy this link: <a href="${worklogLink}" style="color: #2563eb;">${worklogLink}</a>
+            ${copyLink} <a href="${worklogLink}" style="color: #2563eb;">${worklogLink}</a>
           </p>
           <p style="color: #999; font-size: 12px; margin-top: 24px;">
-            This is your personal link - please do not share it with others.
+            ${footer}
           </p>
         </div>
       `

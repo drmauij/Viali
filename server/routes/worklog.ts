@@ -275,7 +275,8 @@ router.post('/api/worklog/resend', async (req, res) => {
           email,
           link.token,
           unit.name,
-          hospital.name
+          hospital.name,
+          (hospital.defaultLanguage as 'de' | 'en') || 'de'
         );
       }
     }
@@ -506,7 +507,7 @@ router.post('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (
       const hospital = await storage.getHospital(hospitalId);
 
       if (unit && hospital) {
-        await sendWorklogLinkEmail(email, token, unit.name, hospital.name);
+        await sendWorklogLinkEmail(email, token, unit.name, hospital.name, (hospital.defaultLanguage as 'de' | 'en') || 'de');
       }
     }
 
@@ -532,7 +533,7 @@ router.post('/api/hospitals/:hospitalId/worklog/links/:linkId/send', isAuthentic
     const hospital = await storage.getHospital(hospitalId);
     
     if (unit && hospital) {
-      await sendWorklogLinkEmail(link.email, link.token, unit.name, hospital.name);
+      await sendWorklogLinkEmail(link.email, link.token, unit.name, hospital.name, (hospital.defaultLanguage as 'de' | 'en') || 'de');
       res.json({ success: true, message: "Email sent" });
     } else {
       res.status(400).json({ message: "Unit or hospital not found" });
@@ -586,10 +587,10 @@ router.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenti
       const hospital = await storage.getHospital(hospitalId);
       
       if (unit && hospital) {
-        await sendWorklogLinkEmail(email, token, unit.name, hospital.name);
+        await sendWorklogLinkEmail(email, token, unit.name, hospital.name, (hospital.defaultLanguage as 'de' | 'en') || 'de');
       }
     }
-    
+
     res.status(201).json(link);
   } catch (error) {
     logger.error("Error creating worklog link:", error);
