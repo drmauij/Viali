@@ -52,6 +52,10 @@ export default function Patients() {
     street: "",
     postalCode: "",
     city: "",
+    insuranceProvider: "",
+    insuranceNumber: "",
+    healthInsuranceNumber: "",
+    emergencyContact: "",
     allergies: [] as string[],
     otherAllergies: "",
     internalNotes: "",
@@ -74,13 +78,17 @@ export default function Patients() {
         street: params.get('street') || "",
         postalCode: params.get('postalCode') || "",
         city: params.get('city') || "",
+        insuranceProvider: params.get('insuranceProvider') || "",
+        insuranceNumber: params.get('insuranceNumber') || "",
+        healthInsuranceNumber: params.get('healthInsuranceNumber') || "",
+        emergencyContact: "",
         allergies: [],
         otherAllergies: "",
         internalNotes: "",
       };
       setNewPatient(prefill);
       if (prefill.birthday) {
-        setBirthdayInput(prefill.birthday);
+        setBirthdayInput(formatDate(prefill.birthday));
       }
       setIsCreateDialogOpen(true);
       // Clean URL without triggering navigation
@@ -190,16 +198,20 @@ export default function Patients() {
         description: "Patient has been created successfully",
       });
       setIsCreateDialogOpen(false);
-      setNewPatient({ 
-        surname: "", 
-        firstName: "", 
-        birthday: "", 
+      setNewPatient({
+        surname: "",
+        firstName: "",
+        birthday: "",
         sex: "",
         email: "",
         phone: "",
         street: "",
         postalCode: "",
         city: "",
+        insuranceProvider: "",
+        insuranceNumber: "",
+        healthInsuranceNumber: "",
+        emergencyContact: "",
         allergies: [],
         otherAllergies: "",
         internalNotes: ""
@@ -280,6 +292,10 @@ export default function Patients() {
       street: newPatient.street || null,
       postalCode: newPatient.postalCode || null,
       city: newPatient.city || null,
+      insuranceProvider: newPatient.insuranceProvider || null,
+      insuranceNumber: newPatient.insuranceNumber || null,
+      healthInsuranceNumber: newPatient.healthInsuranceNumber || null,
+      emergencyContact: newPatient.emergencyContact || null,
       allergies: newPatient.allergies.length > 0 ? newPatient.allergies : null,
       otherAllergies: newPatient.otherAllergies || null,
       internalNotes: newPatient.internalNotes || null,
@@ -374,6 +390,39 @@ export default function Patients() {
                   </div>
                 </div>
                 
+                {/* Insurance Information */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="insuranceProvider">{t('anesthesia.patients.insuranceProvider', 'Insurance Provider')}</Label>
+                    <Input
+                      id="insuranceProvider"
+                      value={newPatient.insuranceProvider}
+                      onChange={(e) => setNewPatient({ ...newPatient, insuranceProvider: e.target.value })}
+                      data-testid="input-insuranceProvider"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="insuranceNumber">{t('anesthesia.patients.insuranceNumber', 'Insurance Number')}</Label>
+                    <Input
+                      id="insuranceNumber"
+                      value={newPatient.insuranceNumber}
+                      onChange={(e) => setNewPatient({ ...newPatient, insuranceNumber: e.target.value })}
+                      data-testid="input-insuranceNumber"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="healthInsuranceNumber">{t('anesthesia.patients.healthInsuranceNumber', 'Health Insurance Number (AHV)')}</Label>
+                  <Input
+                    id="healthInsuranceNumber"
+                    value={newPatient.healthInsuranceNumber}
+                    onChange={(e) => setNewPatient({ ...newPatient, healthInsuranceNumber: e.target.value })}
+                    placeholder="756.xxxx.xxxx.xx"
+                    data-testid="input-healthInsuranceNumber"
+                  />
+                </div>
+
                 <div className="pt-2 text-xs text-muted-foreground">
                   * {t('anesthesia.patients.requiredFields', 'Required fields')}
                 </div>
@@ -402,6 +451,17 @@ export default function Patients() {
                       data-testid="input-phone"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                  <PhoneInputWithCountry
+                    id="emergencyContact"
+                    value={newPatient.emergencyContact}
+                    onChange={(value) => setNewPatient({ ...newPatient, emergencyContact: value })}
+                    data-testid="input-emergencyContact"
+                    placeholder="79 123 45 67"
+                  />
                 </div>
 
                 <div className="space-y-2">

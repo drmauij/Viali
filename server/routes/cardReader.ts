@@ -103,7 +103,7 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
       return res.status(400).json({ message: "Missing cardData in request body" });
     }
 
-    const { healthInsuranceNumber, insuranceNumber, surname, firstName, birthday, sex, street, postalCode, city } = cardData;
+    const { healthInsuranceNumber, insuranceNumber, insuranceName, cardNumber, surname, firstName, birthday, sex, street, postalCode, city } = cardData;
 
     // Search strategy:
     // 1. By healthInsuranceNumber (exact match)
@@ -140,6 +140,9 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
     if (street) params.set('street', street);
     if (postalCode) params.set('postalCode', postalCode);
     if (city) params.set('city', city);
+    if (insuranceName) params.set('insuranceProvider', insuranceName);
+    if (cardNumber) params.set('insuranceNumber', cardNumber);
+    if (healthInsuranceNumber) params.set('healthInsuranceNumber', healthInsuranceNumber);
 
     return res.json({
       found: false,
