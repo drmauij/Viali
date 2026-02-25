@@ -1400,8 +1400,8 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       }
     }
     
-    // Validate provider availability before creating appointment
-    if (providerId && appointmentDate && startTime) {
+    // Validate provider availability before creating appointment (skip for internal meetings)
+    if (providerId && appointmentDate && startTime && req.body.appointmentType !== 'internal') {
       // Use getAvailableSlots which handles all edge cases:
       // - Weekly availability schedule
       // - Time off / absences (Timebutler)

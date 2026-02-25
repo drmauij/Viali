@@ -813,7 +813,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   } else {
     weeklyConditions.push(eq(providerAvailability.unitId, effectiveUnitId!));
   }
-  const availabilityList = await db
+  let availabilityList = await db
     .select()
     .from(providerAvailability)
     .where(and(...weeklyConditions))
@@ -840,11 +840,39 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   } else {
     windowConditions.push(eq(providerAvailabilityWindows.unitId, effectiveUnitId!));
   }
-  const windowList = await db
+  let windowList = await db
     .select()
     .from(providerAvailabilityWindows)
     .where(and(...windowConditions))
     .orderBy(providerAvailabilityWindows.startTime);
+
+  // Fallback: if unit has own calendar but no unit-level schedule, try hospital-level
+  if (effectiveUnitId !== null && hospitalId && availabilityList.length === 0 && windowList.length === 0) {
+    const hospitalWeeklyConditions = [
+      eq(providerAvailability.providerId, providerId),
+      eq(providerAvailability.dayOfWeek, dayOfWeek),
+      eq(providerAvailability.isActive, true),
+      eq(providerAvailability.hospitalId, hospitalId),
+      isNull(providerAvailability.unitId),
+    ];
+    availabilityList = await db
+      .select()
+      .from(providerAvailability)
+      .where(and(...hospitalWeeklyConditions))
+      .orderBy(providerAvailability.startTime);
+
+    const hospitalWindowConditions = [
+      eq(providerAvailabilityWindows.providerId, providerId),
+      eq(providerAvailabilityWindows.date, date),
+      eq(providerAvailabilityWindows.hospitalId, hospitalId),
+      isNull(providerAvailabilityWindows.unitId),
+    ];
+    windowList = await db
+      .select()
+      .from(providerAvailabilityWindows)
+      .where(and(...hospitalWindowConditions))
+      .orderBy(providerAvailabilityWindows.startTime);
+  }
 
   // For windows_required mode, only use windows (ignore weekly schedule)
   // For always_available mode, use weekly schedule + windows
@@ -882,11 +910,17 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     ));
 
   const surgeryList = await db
-    .select()
+    .select({
+      plannedDate: surgeries.plannedDate,
+      actualStartTime: surgeries.actualStartTime,
+      actualEndTime: surgeries.actualEndTime,
+      status: surgeries.status,
+    })
     .from(surgeries)
     .where(and(
       eq(surgeries.surgeonId, providerId),
-      sql`DATE(${surgeries.plannedDate}) = ${date}`
+      sql`DATE(${surgeries.plannedDate}) = ${date}`,
+      sql`${surgeries.status} NOT IN ('cancelled')`
     ));
 
   const existingAppointments = await db
@@ -928,7 +962,14 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
         return mins < apptEnd && mins + durationMinutes > apptStart;
       });
 
-      const conflictsWithSurgery = surgeryList.length > 0;
+      const conflictsWithSurgery = surgeryList.some(s => {
+        // Use actual times if available, otherwise estimate from plannedDate
+        const surgStart = s.actualStartTime || s.plannedDate;
+        const surgEnd = s.actualEndTime || new Date(surgStart.getTime() + 120 * 60 * 1000); // default 2h block
+        const surgStartMins = surgStart.getHours() * 60 + surgStart.getMinutes();
+        const surgEndMins = surgEnd.getHours() * 60 + surgEnd.getMinutes();
+        return mins < surgEndMins && mins + durationMinutes > surgStartMins;
+      });
 
       if (!conflictsWithTimeOff && !conflictsWithAppointment && !conflictsWithSurgery) {
         result.push({ startTime: slotStart, endTime: slotEnd });
