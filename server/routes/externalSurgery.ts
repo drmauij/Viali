@@ -582,6 +582,10 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         month: 'long',
         day: 'numeric',
       });
+      const formattedTime = new Date(plannedDate).toLocaleTimeString(dateLocale, {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
       // Try email first; only fall back to SMS if email wasn't sent
       let emailSent = false;
@@ -615,7 +619,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
                 <ul>
                   ${!request.isReservationOnly ? `<li><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${request.patientLastName}, ${request.patientFirstName}</li>` : ''}
                   <li><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${request.surgeryName || (isGerman ? 'Slot-Reservierung' : 'Slot Reservation')}</li>
-                  <li><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${formattedDate}</li>
+                  <li><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${formattedDate}, ${formattedTime}</li>
                   <li><strong>${isGerman ? 'Dauer' : 'Duration'}:</strong> ${request.surgeryDurationMinutes} ${isGerman ? 'Minuten' : 'minutes'}</li>
                   <li><strong>${isGerman ? 'Anästhesie' : 'Anesthesia'}:</strong> ${request.withAnesthesia ? (isGerman ? 'Ja' : 'Yes') : (isGerman ? 'Nein' : 'No')}</li>
                 </ul>
@@ -639,11 +643,11 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         try {
           const smsText = request.isReservationOnly
             ? (isGerman
-              ? `Slot-Reservierung bestätigt bei ${hospitalName} am ${formattedDate}. – ${hospitalName}`
-              : `Slot reservation confirmed at ${hospitalName} on ${formattedDate}. - ${hospitalName}`)
+              ? `Slot-Reservierung bestätigt bei ${hospitalName} am ${formattedDate} um ${formattedTime}. – ${hospitalName}`
+              : `Slot reservation confirmed at ${hospitalName} on ${formattedDate} at ${formattedTime}. - ${hospitalName}`)
             : (isGerman
-              ? `OP bestätigt bei ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} am ${formattedDate}. – ${hospitalName}`
-              : `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`);
+              ? `OP bestätigt bei ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} am ${formattedDate} um ${formattedTime}. – ${hospitalName}`
+              : `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate} at ${formattedTime}. - ${hospitalName}`);
           await sendSms(
             request.surgeonPhone,
             smsText,
