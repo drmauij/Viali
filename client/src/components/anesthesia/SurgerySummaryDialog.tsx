@@ -765,66 +765,7 @@ export default function SurgerySummaryDialog({
               </div>
             )}
 
-            {/* Surgery Pre-Op Assessment - Only shown in surgery module, requires patient */}
-            {activeModule === 'surgery' && onOpenSurgeryPreOp && surgery?.patientId && (
-              <Card 
-                className="cursor-pointer hover:bg-accent transition-colors"
-                onClick={onOpenSurgeryPreOp}
-                data-testid="card-open-surgery-preop"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
-                        <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold mb-2">{t('surgery.preop.title')}</div>
-                        {isLoadingSurgeryPreOp ? (
-                          <div className="text-sm text-muted-foreground">
-                            {t('anesthesia.surgerySummary.loading')}
-                          </div>
-                        ) : hasSurgeryPreOpData ? (
-                          <div className="text-sm">
-                            {(() => {
-                              const parts = [];
-                              if (surgeryPreOpAssessment.weight != null && surgeryPreOpAssessment.weight !== '' && surgeryPreOpAssessment.weight !== 0) {
-                                parts.push(`${surgeryPreOpAssessment.weight}kg`);
-                              }
-                              if (surgeryPreOpAssessment.height != null && surgeryPreOpAssessment.height !== '' && surgeryPreOpAssessment.height !== 0) {
-                                parts.push(`${surgeryPreOpAssessment.height}cm`);
-                              }
-                              if (surgeryPreOpAssessment.heartRate != null && surgeryPreOpAssessment.heartRate !== '' && surgeryPreOpAssessment.heartRate !== 0) {
-                                parts.push(`HR ${surgeryPreOpAssessment.heartRate}`);
-                              }
-                              if (surgeryPreOpAssessment.bloodPressureSystolic != null && surgeryPreOpAssessment.bloodPressureDiastolic != null &&
-                                  surgeryPreOpAssessment.bloodPressureSystolic !== 0 && surgeryPreOpAssessment.bloodPressureDiastolic !== 0) {
-                                parts.push(`BP ${surgeryPreOpAssessment.bloodPressureSystolic}/${surgeryPreOpAssessment.bloodPressureDiastolic}`);
-                              }
-                              if (surgeryPreOpAssessment.cave != null && surgeryPreOpAssessment.cave !== '') {
-                                parts.push(`CAVE: ${surgeryPreOpAssessment.cave}`);
-                              }
-                              if (surgeryPreOpAssessment.specialNotes != null && surgeryPreOpAssessment.specialNotes !== '') {
-                                parts.push(surgeryPreOpAssessment.specialNotes);
-                              }
-                              if (surgeryPreOpAssessment.status === 'completed') {
-                                parts.push(`✓ ${t('common.completed')}`);
-                              }
-                              return parts.join(', ');
-                            })()}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">
-                            {t('anesthesia.surgerySummary.notYetCompleted')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Surgery Pre-Op Assessment - hidden for now, not actively used yet */}
 
             {/* Surgery Nursing Documentation - Only shown in surgery module */}
             {activeModule === 'surgery' && onOpenSurgeryDocumentation && (

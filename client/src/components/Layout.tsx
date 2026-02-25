@@ -96,7 +96,7 @@ export default function Layout({ children }: LayoutProps) {
     // Pages that actually exist in each module - only preserve if target module has the page
     const modulePages: Record<string, string[]> = {
       anesthesia: ["op", "patients", "pacu", "preop", "settings", "appointments"],
-      surgery: ["op", "patients", "preop", "checklists"],
+      surgery: ["op", "patients", "checklists"],
       clinic: ["patients", "appointments", "questionnaires"],
       logistic: ["inventory", "orders"],
       inventory: ["items", "services", "orders", "matches"],

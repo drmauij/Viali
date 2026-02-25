@@ -144,10 +144,10 @@ export default function BottomNav() {
         surgeryItems.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" });
       }
       surgeryItems.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" });
-      // Pre-op tab visible for admin and doctor roles - comes BEFORE OP
-      if (canAccessPreOp) {
-        surgeryItems.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.surgery.preop', 'Pre-Op'), path: "/surgery/preop" });
-      }
+      // Pre-op tab hidden for now — not actively used yet
+      // if (canAccessPreOp) {
+      //   surgeryItems.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.surgery.preop', 'Pre-Op'), path: "/surgery/preop" });
+      // }
       surgeryItems.push({ id: "op", icon: "fas fa-user-nurse", label: t('bottomNav.surgery.op'), path: "/surgery/op" });
       // Checklists tab only visible for admin and doctor roles
       if (canAccessPreOp) {
