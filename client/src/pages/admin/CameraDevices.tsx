@@ -11,7 +11,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, Plus, Edit, Trash2, Wifi, WifiOff, Copy, Check, RefreshCw, Eye } from "lucide-react";
+import { Camera, Plus, Edit, Trash2, Wifi, WifiOff, Copy, Check, RefreshCw, Eye, CreditCard, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import type { CameraDevice } from "@shared/schema";
 
@@ -122,6 +123,151 @@ function VisionAiProviderCard({ hospitalId, currentProvider }: { hospitalId?: st
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function CardReaderTab({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+
+  const { data: cardReaderTokenData } = useQuery<{ cardReaderToken: string | null }>({
+    queryKey: [`/api/admin/${hospitalId}/card-reader-token`],
+    enabled: !!hospitalId,
+  });
+
+  const generateCardReaderTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/admin/${hospitalId}/card-reader-token/generate`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/card-reader-token`] });
+      toast({ title: t("common.success"), description: t("admin.cardReaderTokenGenerated", "Card reader token generated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to generate token", variant: "destructive" });
+    },
+  });
+
+  const deleteCardReaderTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/admin/${hospitalId}/card-reader-token`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/card-reader-token`] });
+      toast({ title: t("common.success"), description: t("admin.cardReaderTokenRevoked", "Card reader token revoked") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to revoke token", variant: "destructive" });
+    },
+  });
+
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const handleCopyToken = async () => {
+    const token = cardReaderTokenData?.cardReaderToken;
+    if (token) {
+      try {
+        await navigator.clipboard.writeText(token);
+        setTokenCopied(true);
+        toast({ title: t("common.success"), description: t("admin.tokenCopied", "Token copied to clipboard") });
+        setTimeout(() => setTokenCopied(false), 2000);
+      } catch (err) {
+        toast({ title: t("common.error"), description: t("admin.failedToCopy", "Failed to copy"), variant: "destructive" });
+      }
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              {t("admin.cardReaderTitle", "Card Reader")}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {t("admin.cardReaderDescription", "API token for the insurance card reader bridge application. The bridge reads patient data from smart cards and sends it to Viali.")}
+            </p>
+          </div>
+        </div>
+
+        {cardReaderTokenData?.cardReaderToken ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <Input
+                value={cardReaderTokenData.cardReaderToken}
+                readOnly
+                className="flex-1 bg-background text-sm font-mono"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyToken}
+              >
+                {tokenCopied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generateCardReaderTokenMutation.mutate()}
+                disabled={generateCardReaderTokenMutation.isPending}
+              >
+                {generateCardReaderTokenMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {t("admin.regenerateToken", "Regenerate Token")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={() => {
+                  if (confirm(t("admin.revokeCardReaderTokenConfirm", "Are you sure you want to revoke this token? The card reader bridge will stop working."))) {
+                    deleteCardReaderTokenMutation.mutate();
+                  }
+                }}
+                disabled={deleteCardReaderTokenMutation.isPending}
+              >
+                {deleteCardReaderTokenMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                {t("admin.revokeToken", "Revoke Token")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              {t("admin.noCardReaderToken", "No card reader token has been generated yet.")}
+            </p>
+            <Button
+              size="sm"
+              onClick={() => generateCardReaderTokenMutation.mutate()}
+              disabled={generateCardReaderTokenMutation.isPending}
+            >
+              {generateCardReaderTokenMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {t("admin.generateToken", "Generate Token")}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -303,111 +449,126 @@ export default function CameraDevices() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Camera className="h-6 w-6" />
-            {t("admin.cameraDevices.title", "Camera Devices")}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {t("admin.cameraDevices.description", "Manage Raspberry Pi camera devices for automated vital signs capture")}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => refetch()} data-testid="button-refresh-cameras">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button onClick={handleOpenCreate} data-testid="button-add-camera">
-            <Plus className="h-4 w-4 mr-2" />
-            {t("admin.cameraDevices.addDevice", "Add Camera")}
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">{t("admin.devices.title", "Devices")}</h1>
+        <p className="text-muted-foreground mt-1">
+          {t("admin.devices.description", "Manage cameras and connected devices")}
+        </p>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : devices.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Camera className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">
-              {t("admin.cameraDevices.noDevices", "No camera devices registered")}
-            </h3>
-            <p className="text-muted-foreground text-center max-w-md mb-4">
-              {t("admin.cameraDevices.noDevicesDescription", "Register your Raspberry Pi camera devices to enable automated vital signs capture during anesthesia cases.")}
-            </p>
-            <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t("admin.cameraDevices.addFirstDevice", "Add your first camera")}
+      <Tabs defaultValue="cameras">
+        <TabsList>
+          <TabsTrigger value="cameras">
+            <Camera className="h-4 w-4 mr-2" />
+            {t("admin.devices.camerasTab", "Cameras")}
+          </TabsTrigger>
+          <TabsTrigger value="card-reader">
+            <CreditCard className="h-4 w-4 mr-2" />
+            {t("admin.cardReaderTitle", "Card Reader")}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cameras" className="mt-4 space-y-6">
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="icon" onClick={() => refetch()} data-testid="button-refresh-cameras">
+              <RefreshCw className="h-4 w-4" />
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {devices.map((device) => (
-            <Card key={device.id} data-testid={`card-camera-${device.id}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {isOnline(device.lastSeenAt) ? (
-                      <Badge variant="default" className="bg-green-500">
-                        <Wifi className="h-3 w-3 mr-1" />
-                        {t("admin.cameraDevices.online", "Online")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <WifiOff className="h-3 w-3 mr-1" />
-                        {t("admin.cameraDevices.offline", "Offline")}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(device)} data-testid={`button-edit-camera-${device.id}`}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDelete(device)} data-testid={`button-delete-camera-${device.id}`}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-                <CardTitle className="text-lg">{device.name}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t("admin.cameraDevices.cameraId", "Camera ID")}:</span>
-                  <div className="flex items-center gap-1">
-                    <code className="bg-muted px-2 py-0.5 rounded text-xs">{device.cameraId}</code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => handleCopyId(device.cameraId)}
-                      data-testid={`button-copy-cameraid-${device.id}`}
-                    >
-                      {copiedId === device.cameraId ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {device.lastSeenAt && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t("admin.cameraDevices.lastSeen", "Last seen")}:</span>
-                    <span>{formatDistanceToNow(new Date(device.lastSeenAt), { addSuffix: true })}</span>
-                  </div>
-                )}
+            <Button onClick={handleOpenCreate} data-testid="button-add-camera">
+              <Plus className="h-4 w-4 mr-2" />
+              {t("admin.cameraDevices.addDevice", "Add Camera")}
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : devices.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Camera className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  {t("admin.cameraDevices.noDevices", "No camera devices registered")}
+                </h3>
+                <p className="text-muted-foreground text-center max-w-md mb-4">
+                  {t("admin.cameraDevices.noDevicesDescription", "Register your Raspberry Pi camera devices to enable automated vital signs capture during anesthesia cases.")}
+                </p>
+                <Button onClick={handleOpenCreate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("admin.cameraDevices.addFirstDevice", "Add your first camera")}
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {devices.map((device) => (
+                <Card key={device.id} data-testid={`card-camera-${device.id}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        {isOnline(device.lastSeenAt) ? (
+                          <Badge variant="default" className="bg-green-500">
+                            <Wifi className="h-3 w-3 mr-1" />
+                            {t("admin.cameraDevices.online", "Online")}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <WifiOff className="h-3 w-3 mr-1" />
+                            {t("admin.cameraDevices.offline", "Offline")}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(device)} data-testid={`button-edit-camera-${device.id}`}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDelete(device)} data-testid={`button-delete-camera-${device.id}`}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardTitle className="text-lg">{device.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{t("admin.cameraDevices.cameraId", "Camera ID")}:</span>
+                      <div className="flex items-center gap-1">
+                        <code className="bg-muted px-2 py-0.5 rounded text-xs">{device.cameraId}</code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleCopyId(device.cameraId)}
+                          data-testid={`button-copy-cameraid-${device.id}`}
+                        >
+                          {copiedId === device.cameraId ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    {device.lastSeenAt && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{t("admin.cameraDevices.lastSeen", "Last seen")}:</span>
+                        <span>{formatDistanceToNow(new Date(device.lastSeenAt), { addSuffix: true })}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
-      {/* Vision AI Provider Selection */}
-      <VisionAiProviderCard hospitalId={activeHospital?.id} currentProvider={activeHospital?.visionAiProvider} />
+          {/* Vision AI Provider Selection */}
+          <VisionAiProviderCard hospitalId={activeHospital?.id} currentProvider={activeHospital?.visionAiProvider} />
+        </TabsContent>
+
+        <TabsContent value="card-reader" className="mt-4">
+          <CardReaderTab hospitalId={activeHospital?.id} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

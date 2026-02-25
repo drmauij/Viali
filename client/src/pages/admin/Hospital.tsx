@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle, Clock, Download, CreditCard } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle, Clock, Download } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -193,12 +193,6 @@ export default function Hospital() {
   // Kiosk token query
   const { data: kioskTokenData } = useQuery<{ kioskToken: string | null }>({
     queryKey: [`/api/admin/${activeHospital?.id}/kiosk-token`],
-    enabled: !!activeHospital?.id && isAdmin,
-  });
-
-  // Card reader token query
-  const { data: cardReaderTokenData } = useQuery<{ cardReaderToken: string | null }>({
-    queryKey: [`/api/admin/${activeHospital?.id}/card-reader-token`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -569,50 +563,6 @@ export default function Hospital() {
         setTimeout(() => setKioskLinkCopied(false), 2000);
       } catch (err) {
         toast({ title: t("common.error"), description: t("admin.failedToCopy", "Failed to copy link"), variant: "destructive" });
-      }
-    }
-  };
-
-  // Card reader token mutations
-  const generateCardReaderTokenMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/card-reader-token/generate`, {});
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/card-reader-token`] });
-      toast({ title: t("common.success"), description: t("admin.cardReaderTokenGenerated", "Card reader token generated") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to generate token", variant: "destructive" });
-    },
-  });
-
-  const deleteCardReaderTokenMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("DELETE", `/api/admin/${activeHospital?.id}/card-reader-token`);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/card-reader-token`] });
-      toast({ title: t("common.success"), description: t("admin.cardReaderTokenRevoked", "Card reader token revoked") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to revoke token", variant: "destructive" });
-    },
-  });
-
-  const [cardReaderTokenCopied, setCardReaderTokenCopied] = useState(false);
-  const handleCopyCardReaderToken = async () => {
-    const token = cardReaderTokenData?.cardReaderToken;
-    if (token) {
-      try {
-        await navigator.clipboard.writeText(token);
-        setCardReaderTokenCopied(true);
-        toast({ title: t("common.success"), description: t("admin.tokenCopied", "Token copied to clipboard") });
-        setTimeout(() => setCardReaderTokenCopied(false), 2000);
-      } catch (err) {
-        toast({ title: t("common.error"), description: t("admin.failedToCopy", "Failed to copy"), variant: "destructive" });
       }
     }
   };
@@ -1882,97 +1832,6 @@ export default function Hospital() {
                   </Button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Card Reader Token Section */}
-          <div className="bg-card border border-border rounded-lg p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                    {t("admin.cardReaderTitle", "Card Reader")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.cardReaderDescription", "API token for the insurance card reader bridge application. The bridge reads patient data from smart cards and sends it to Viali.")}
-                  </p>
-                </div>
-              </div>
-
-              {cardReaderTokenData?.cardReaderToken ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                    <Input
-                      value={cardReaderTokenData.cardReaderToken}
-                      readOnly
-                      className="flex-1 bg-background text-sm font-mono"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyCardReaderToken}
-                    >
-                      {cardReaderTokenCopied ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateCardReaderTokenMutation.mutate()}
-                      disabled={generateCardReaderTokenMutation.isPending}
-                    >
-                      {generateCardReaderTokenMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                      )}
-                      {t("admin.regenerateToken", "Regenerate Token")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm(t("admin.revokeCardReaderTokenConfirm", "Are you sure you want to revoke this token? The card reader bridge will stop working."))) {
-                          deleteCardReaderTokenMutation.mutate();
-                        }
-                      }}
-                      disabled={deleteCardReaderTokenMutation.isPending}
-                    >
-                      {deleteCardReaderTokenMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-2" />
-                      )}
-                      {t("admin.revokeToken", "Revoke Token")}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.noCardReaderToken", "No card reader token has been generated yet.")}
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => generateCardReaderTokenMutation.mutate()}
-                    disabled={generateCardReaderTokenMutation.isPending}
-                  >
-                    {generateCardReaderTokenMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4 mr-2" />
-                    )}
-                    {t("admin.generateToken", "Generate Token")}
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
 
