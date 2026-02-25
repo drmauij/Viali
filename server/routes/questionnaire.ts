@@ -224,12 +224,13 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireStrictHo
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    // Check for existing active link (reuse any non-expired link for the same patient portal)
+    // Check for existing active link (reuse only if same surgery)
     const existingLinks = await storage.getQuestionnaireLinksForPatient(patientId);
     const now = new Date();
-    const activeLink = existingLinks.find(l => 
+    const activeLink = existingLinks.find(l =>
       l.hospitalId === hospitalId &&
-      l.status !== 'expired' && 
+      l.surgeryId === (surgeryId || null) &&
+      l.status !== 'expired' &&
       l.expiresAt && new Date(l.expiresAt) > now
     );
 
