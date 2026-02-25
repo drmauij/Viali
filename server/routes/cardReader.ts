@@ -127,7 +127,7 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
       return res.json({
         found: true,
         patientId: patient.id,
-        url: `/anesthesia/patients/${patient.id}?openEdit=true`,
+        url: `/patients/${patient.id}?openEdit=true`,
       });
     }
 
@@ -146,7 +146,7 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
 
     return res.json({
       found: false,
-      url: `/anesthesia/patients?${params.toString()}`,
+      url: `/patients?${params.toString()}`,
     });
   } catch (error) {
     logger.error("Card reader lookup error:", error);

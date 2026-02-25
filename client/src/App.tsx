@@ -68,6 +68,7 @@ const ClinicQuestionnaires = React.lazy(() => import("@/pages/clinic/Unassociate
 const ClinicAppointments = React.lazy(() => import("@/pages/clinic/Appointments"));
 const PatientQuestionnaire = React.lazy(() => import("@/pages/PatientQuestionnaire"));
 const PatientPortal = React.lazy(() => import("@/pages/PatientPortal"));
+const PatientRedirect = React.lazy(() => import("@/pages/PatientRedirect"));
 const ExternalSurgeryRequest = React.lazy(() => import("@/pages/ExternalSurgeryRequest"));
 const LogisticInventory = React.lazy(() => import("@/pages/logistic/LogisticInventory"));
 const LogisticOrders = React.lazy(() => import("@/pages/logistic/LogisticOrders"));
@@ -174,6 +175,9 @@ function Router() {
           ) : (
             <>
               <Route path="/" component={HomeRedirect} />
+              {/* Module-agnostic patient redirect (card reader) */}
+              <Route path="/patients/:id" component={PatientRedirect} />
+              <Route path="/patients" component={PatientRedirect} />
               {/* Inventory Module */}
               <Route path="/inventory">{() => <Items />}</Route>
               <Route path="/inventory/items">{() => <Items />}</Route>
