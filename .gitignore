@@ -19,3 +19,10 @@ ecosystem.config.cjs
 
 # Worktrees
 .worktrees/
+
+# Card reader
+card-reader/config.env
+card-reader/venv/
+card-reader/build/
+card-reader/dist/
+card-reader/*.spec
