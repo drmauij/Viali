@@ -41,7 +41,7 @@ export default function DayInfoAccordion({ selectedDate, hospitalId }: DayInfoAc
   const bookedCount = staffPool.filter(s => s.isBooked).length;
 
   return (
-    <div className="mx-4 mt-2">
+    <div className="mx-4 mt-2 mb-3 pb-2 border-b">
       <Accordion type="single" defaultValue="staff" collapsible>
         <AccordionItem value="staff" className="border rounded-lg overflow-hidden">
           <AccordionTrigger className="p-2 px-3 bg-muted/50 hover:bg-muted/70 transition-colors hover:no-underline [&[data-state=open]]:rounded-t-lg [&[data-state=closed]]:rounded-lg">
