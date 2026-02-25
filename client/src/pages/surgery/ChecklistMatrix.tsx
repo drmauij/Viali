@@ -58,6 +58,18 @@ interface MatrixCellState {
 }
 
 export default function ChecklistMatrix() {
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // Hide page-level vertical scrollbar while this component is mounted
+  useEffect(() => {
+    document.documentElement.style.overflowY = 'hidden';
+    document.body.style.overflowY = 'hidden';
+    return () => {
+      document.documentElement.style.overflowY = '';
+      document.body.style.overflowY = '';
+    };
+  }, []);
+
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -581,9 +593,9 @@ export default function ChecklistMatrix() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <style>{`
-        @media (pointer: coarse) {
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 80px)' }}>
+      {isTouchDevice && (
+        <style>{`
           .checklist-matrix-scroll::-webkit-scrollbar {
             display: none;
           }
@@ -591,9 +603,9 @@ export default function ChecklistMatrix() {
             scrollbar-width: none;
             -ms-overflow-style: none;
           }
-        }
-      `}</style>
-      <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        `}</style>
+      )}
+      <div className="shrink-0 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
