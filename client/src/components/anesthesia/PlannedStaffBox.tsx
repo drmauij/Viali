@@ -43,7 +43,6 @@ interface PlannedStaffBoxProps {
   hospitalId: string;
   isOpen?: boolean;
   onToggle?: () => void;
-  variant?: 'standalone' | 'embedded';
 }
 
 export interface StaffPoolEntry {
@@ -216,32 +215,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
 
 const STAFF_FILTER_KEY = 'oplist_staff_filter_unassigned';
 
-export function PlannedStaffTriggerContent({ staffCount, availableCount, bookedCount }: { staffCount: number; availableCount: number; bookedCount: number }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex items-center gap-2">
-      <Users className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm font-medium">
-        {t('staffPool.plannedStaff', 'Planned Staff')}
-      </span>
-      <Badge variant="secondary" className="text-xs">
-        {staffCount}
-      </Badge>
-      {availableCount > 0 && (
-        <span className="text-xs text-green-600 dark:text-green-400">
-          {availableCount} {t('staffPool.available', 'available')}
-        </span>
-      )}
-      {bookedCount > 0 && (
-        <span className="text-xs text-muted-foreground">
-          | {bookedCount} {t('staffPool.assigned', 'assigned')}
-        </span>
-      )}
-    </div>
-  );
-}
-
-export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle, variant = 'standalone' }: PlannedStaffBoxProps) {
+export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle }: PlannedStaffBoxProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -327,7 +301,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     removeFromPoolMutation.mutate(id);
   };
   
-  if (variant === 'standalone' && staffPool.length === 0 && !isLoading) {
+  if (staffPool.length === 0 && !isLoading) {
     return null;
   }
   
@@ -339,7 +313,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     : staffPool;
   
   const staffContent = (
-    <div className={variant === 'standalone' ? "p-3 border border-t-0 rounded-b-lg bg-background" : "p-3"}>
+    <div className="p-3 border border-t-0 rounded-b-lg bg-background">
       {bookedCount > 0 && (
         <div className="flex items-center gap-2 mb-3 pb-2 border-b">
           <Filter className="h-3 w-3 text-muted-foreground" />
@@ -412,15 +386,6 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     </>
   );
 
-  if (variant === 'embedded') {
-    return (
-      <>
-        {staffContent}
-        {dialogs}
-      </>
-    );
-  }
-
   return (
     <>
     <Collapsible open={isOpen} onOpenChange={onToggle} className="mx-4 mt-2">
@@ -429,7 +394,25 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
           className="flex items-center justify-between p-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors border"
           data-testid="planned-staff-box-trigger"
         >
-          <PlannedStaffTriggerContent staffCount={staffPool.length} availableCount={availableCount} bookedCount={bookedCount} />
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              {t('staffPool.plannedStaff', 'Planned Staff')}
+            </span>
+            <Badge variant="secondary" className="text-xs">
+              {staffPool.length}
+            </Badge>
+            {availableCount > 0 && (
+              <span className="text-xs text-green-600 dark:text-green-400">
+                {availableCount} {t('staffPool.available', 'available')}
+              </span>
+            )}
+            {bookedCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                | {bookedCount} {t('staffPool.assigned', 'assigned')}
+              </span>
+            )}
+          </div>
           {isOpen ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (

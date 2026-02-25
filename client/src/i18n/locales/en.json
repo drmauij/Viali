@@ -6104,6 +6104,36 @@
     "saved": "Saved",
     "error": "Error saving"
   },
+  "pdf": {
+    "title": "OP DAY",
+    "filename": "OP-Day",
+    "dayNotes": "Day Notes",
+    "unassignedRoom": "Unassigned",
+    "room": "Room",
+    "admission": "Admission",
+    "incision": "Incision",
+    "surgeon": "Surgeon",
+    "allergies": "Allergies",
+    "abProphylaxis": "AB Prophylaxis",
+    "slotReserved": "SLOT RESERVED",
+    "col": {
+      "date": "Date",
+      "operator": "Operator",
+      "patient": "Patient",
+      "procedure": "Procedure",
+      "anesthesia": "Anesthesia",
+      "note": "Note"
+    },
+    "role": {
+      "surgeon": "Surgeon",
+      "surgicalAssistant": "Assistant",
+      "instrumentNurse": "Scrub Nurse",
+      "circulatingNurse": "Circulator",
+      "anesthesiologist": "Anesthesiologist",
+      "anesthesiaNurse": "Anesthesia Nurse",
+      "pacuNurse": "PACU Nurse"
+    }
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Add a task... (use # for patient)",

@@ -22,6 +22,8 @@ export interface RoomStaffInfo {
   staffByRole: Map<string, string[]>; // role -> names
 }
 
+type TFunction = (key: string, fallback: string) => string;
+
 export interface DayPlanPdfOptions {
   date: Date;
   hospitalName: string;
@@ -31,33 +33,36 @@ export interface DayPlanPdfOptions {
   columns: DayPlanPdfColumn[];
   roomStaffByRoom?: Map<string, RoomStaffInfo>;
   dayNotes?: string;
+  t: TFunction;
 }
 
-// Role labels for display
-const ROLE_LABELS: Record<string, string> = {
-  surgeon: 'Chirurg',
-  surgicalAssistant: 'Assistenz',
-  instrumentNurse: 'OTA',
-  circulatingNurse: 'Springer',
-  anesthesiologist: 'ANÄ',
-  anesthesiaNurse: 'Anä-Pflege',
-  pacuNurse: 'IMC/AWR',
-};
+function getRoleLabels(t: TFunction): Record<string, string> {
+  return {
+    surgeon: t('pdf.role.surgeon', 'Chirurg'),
+    surgicalAssistant: t('pdf.role.surgicalAssistant', 'Assistenz'),
+    instrumentNurse: t('pdf.role.instrumentNurse', 'OTA'),
+    circulatingNurse: t('pdf.role.circulatingNurse', 'Springer'),
+    anesthesiologist: t('pdf.role.anesthesiologist', 'ANÄ'),
+    anesthesiaNurse: t('pdf.role.anesthesiaNurse', 'Anä-Pflege'),
+    pacuNurse: t('pdf.role.pacuNurse', 'IMC/AWR'),
+  };
+}
 
 export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
-  const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom, dayNotes } = options;
+  const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom, dayNotes, t } = options;
 
   if (surgeries.length === 0) {
     return;
   }
 
   const doc = new jsPDF({ orientation: 'landscape' });
-  
+  const roleLabels = getRoleLabels(t);
+
   const displayDate = formatDate(date);
   const dateKey = formatDateForInput(date);
-  
+
   doc.setFontSize(16);
-  doc.text(`OP-TAG ${displayDate}`, 14, 15);
+  doc.text(`${t('pdf.title', 'OP-TAG')} ${displayDate}`, 14, 15);
   doc.setFontSize(10);
   doc.text(hospitalName || '', 14, 22);
   
@@ -93,22 +98,55 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
   
   let currentY = 28;
 
-  // Render day notes if present
+  // Render day notes if present — prominent box
   if (dayNotes && dayNotes.trim()) {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'italic');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const wrappedLines = doc.splitTextToSize(dayNotes.trim(), pageWidth - 28);
-    doc.text(wrappedLines, 14, currentY);
-    currentY += wrappedLines.length * 4.5 + 3;
+    const boxX = 14;
+    const boxW = pageWidth - 28;
+    const padding = 3;
+
+    // Label
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    const labelText = t('pdf.dayNotes', 'Tagesnotizen');
+    doc.text(labelText, boxX + padding, currentY + padding + 3);
+    const labelWidth = doc.getTextWidth(labelText);
+
+    // Notes text
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
+    const wrappedLines = doc.splitTextToSize(dayNotes.trim(), boxW - padding * 2 - labelWidth - 4);
+    const textHeight = wrappedLines.length * 4.5;
+    const boxH = Math.max(textHeight + padding * 2 + 2, 10);
+
+    // Amber-ish background + border
+    doc.setFillColor(255, 243, 205); // light amber
+    doc.setDrawColor(217, 175, 62);  // amber border
+    doc.roundedRect(boxX, currentY, boxW, boxH, 1.5, 1.5, 'FD');
+
+    // Re-draw label on top of fill
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(120, 80, 0);
+    doc.text(labelText, boxX + padding, currentY + padding + 3);
+
+    // Notes text
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 40, 0);
+    doc.text(wrappedLines, boxX + padding + labelWidth + 4, currentY + padding + 3);
+
+    // Reset colors
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(0, 0, 0);
+    currentY += boxH + 8;
   }
 
   sortedRoomIds.forEach((roomId, index) => {
     const roomSurgeries = surgeriesByRoom.get(roomId) || [];
-    const roomName = roomId === 'unassigned' 
-      ? 'Ohne Saal' 
-      : (roomMap.get(roomId) || `Saal ${roomId}`);
+    const roomName = roomId === 'unassigned'
+      ? t('pdf.unassignedRoom', 'Ohne Saal')
+      : (roomMap.get(roomId) || `${t('pdf.room', 'Saal')} ${roomId}`);
     
     const sortedRoomSurgeries = [...roomSurgeries].sort((a: any, b: any) => {
       const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
@@ -132,7 +170,7 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
         doc.setFont('helvetica', 'normal');
         const staffParts: string[] = [];
         roomStaffInfo.staffByRole.forEach((names, role) => {
-          const label = ROLE_LABELS[role] || role;
+          const label = roleLabels[role] || role;
           staffParts.push(`${label}: ${names.join(', ')}`);
         });
         const staffText = staffParts.join('  |  ');
@@ -180,10 +218,11 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
       margin: { left: marginLeft, right: marginRight },
       tableWidth: 'auto',
       didParseCell: (data) => {
-        // Check if cell content contains "Chirurg:" - store metadata for didDrawCell
+        // Check if cell content contains surgeon label - store metadata for didDrawCell
+        const surgeonPrefix = `${t('pdf.surgeon', 'Chirurg')}:`;
         if (data.section === 'body' && typeof data.cell.text === 'object') {
           const textArr = data.cell.text as string[];
-          const surgeonLineIndex = textArr.findIndex(line => line.startsWith('Chirurg:'));
+          const surgeonLineIndex = textArr.findIndex(line => line.startsWith(surgeonPrefix));
           if (surgeonLineIndex !== -1) {
             (data.cell as any).hasSurgeonLine = true;
             (data.cell as any).surgeonLineIndex = surgeonLineIndex;
@@ -228,59 +267,60 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
     }
   });
   
-  doc.save(`OP-Tag_${dateKey}.pdf`);
+  doc.save(`${t('pdf.filename', 'OP-Tag')}_${dateKey}.pdf`);
 }
 
 export const defaultColumns = {
-  datum: (displayDate: string): DayPlanPdfColumn => ({
-    header: 'Datum',
+  datum: (displayDate: string, t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.date', 'Datum'),
     width: 26,
     getValue: (surgery, helpers) => {
       const admissionTime = helpers.formatTime(surgery.admissionTime);
       const startTime = helpers.formatTime(surgery.plannedDate);
       return [
         displayDate,
-        `• Eintritt: ${admissionTime} Uhr`,
-        `• Schnitt: ${startTime}`
+        `• ${t('pdf.admission', 'Eintritt')}: ${admissionTime}`,
+        `• ${t('pdf.incision', 'Schnitt')}: ${startTime}`
       ].join('\n');
     },
   }),
-  
-  operator: (): DayPlanPdfColumn => ({
-    header: 'Operator',
+
+  operator: (t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.operator', 'Operator'),
     width: 22,
     getValue: (surgery) => surgery.surgeon || '-',
   }),
-  
-  patient: (): DayPlanPdfColumn => ({
-    header: 'Patient',
+
+  patient: (t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.patient', 'Patient'),
     width: 32,
     getValue: (surgery, helpers) => {
       const patient = surgery.patientId ? helpers.patientMap.get(surgery.patientId) : null;
-      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : (surgery.patientId ? '-' : 'SLOT RESERVED');
-      const patientBirthday = patient?.birthday 
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : (surgery.patientId ? '-' : t('pdf.slotReserved', 'SLOT RESERVED'));
+      const patientBirthday = patient?.birthday
         ? `(${formatDate(new Date(patient.birthday))})`
         : '';
-      // Add allergies if available
       const allergies = patient?.allergies;
       const otherAllergies = patient?.otherAllergies;
       let allergyText = '';
+      const allergiesLabel = t('pdf.allergies', 'Allergien');
       if (allergies && allergies.length > 0) {
-        allergyText = `\nAllergien: ${allergies.join(', ')}`;
+        allergyText = `\n${allergiesLabel}: ${allergies.join(', ')}`;
       }
       if (otherAllergies) {
-        allergyText += allergyText ? `, ${otherAllergies}` : `\nAllergien: ${otherAllergies}`;
+        allergyText += allergyText ? `, ${otherAllergies}` : `\n${allergiesLabel}: ${otherAllergies}`;
       }
       return `${patientName}\n${patientBirthday}${allergyText}`;
     },
   }),
-  
-  eingriff: (): DayPlanPdfColumn => ({
-    header: 'Eingriff',
+
+  eingriff: (t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.procedure', 'Eingriff'),
     width: 42,
     getValue: (surgery) => {
       const surgeryText = surgery.plannedSurgery || '-';
-      const surgeonText = surgery.surgeon ? `\nChirurg: ${surgery.surgeon}` : '';
+      const surgeonLabel = t('pdf.surgeon', 'Chirurg');
+      const surgeonText = surgery.surgeon ? `\n${surgeonLabel}: ${surgery.surgeon}` : '';
 
       let positionText = '';
       if (surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) {
@@ -297,20 +337,20 @@ export const defaultColumns = {
         positionText = '\n' + parts.join(' | ');
       }
 
-      const abText = surgery.antibioseProphylaxe ? '\nAB-Prophylaxe' : '';
+      const abText = surgery.antibioseProphylaxe ? `\n${t('pdf.abProphylaxis', 'AB-Prophylaxe')}` : '';
 
       return surgeryText + surgeonText + positionText + abText;
     },
   }),
-  
-  preOp: (formatPreOpSummary: (surgeryId: string) => string): DayPlanPdfColumn => ({
-    header: 'Anästhesie',
+
+  preOp: (formatPreOpSummary: (surgeryId: string) => string, t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.anesthesia', 'Anästhesie'),
     width: 50,
     getValue: (surgery) => formatPreOpSummary(surgery.id),
   }),
-  
-  note: (): DayPlanPdfColumn => ({
-    header: 'Note',
+
+  note: (t: TFunction): DayPlanPdfColumn => ({
+    header: t('pdf.col.note', 'Note'),
     width: 50,
     getValue: (surgery) => surgery.notes || '-',
   }),

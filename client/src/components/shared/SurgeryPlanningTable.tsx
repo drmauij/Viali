@@ -53,6 +53,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { ROLE_CONFIG } from "@/components/anesthesia/PlannedStaffBox";
+import { useOpDayNotes } from "@/components/anesthesia/DayNotesPanel";
 import { formatCurrency } from "@/lib/dateUtils";
 import type { Surgery, Patient, DailyStaffPool } from "@shared/schema";
 
@@ -937,6 +938,22 @@ function SortableHeader({ label, field, sortState, onSort }: SortableHeaderProps
   );
 }
 
+function DayNotesRow({ hospitalId, dateKey, colSpan }: { hospitalId: string; dateKey: string; colSpan: number }) {
+  const { data } = useOpDayNotes(hospitalId, new Date(dateKey + 'T12:00:00'));
+  const notes = data?.notes?.trim();
+  if (!notes) return null;
+  return (
+    <TableRow className="bg-amber-50/50 hover:bg-amber-50/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/20">
+      <TableCell colSpan={colSpan} className="py-1.5 px-4">
+        <div className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200">
+          <FileText className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <span className="whitespace-pre-line">{notes}</span>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function SurgeryPlanningTable({
   moduleContext,
   visibleColumnGroups,
@@ -1279,11 +1296,11 @@ export function SurgeryPlanningTable({
     });
     
     const columns: DayPlanPdfColumn[] = [
-      defaultColumns.datum(displayDate),
-      defaultColumns.patient(),
-      defaultColumns.eingriff(),
-      defaultColumns.note(),
-      { ...defaultColumns.preOp(formatPreOpSummaryForPdf), width: 50 },
+      defaultColumns.datum(displayDate, t),
+      defaultColumns.patient(t),
+      defaultColumns.eingriff(t),
+      defaultColumns.note(t),
+      { ...defaultColumns.preOp(formatPreOpSummaryForPdf, t), width: 50 },
     ];
 
     const activeSurgeries = daySurgeries.filter((s: any) => !s.isSuspended);
@@ -1295,6 +1312,7 @@ export function SurgeryPlanningTable({
       roomMap,
       columns,
       roomStaffByRoom,
+      t,
     });
   };
   
@@ -1619,6 +1637,10 @@ export function SurgeryPlanningTable({
                   </div>
                 </TableCell>
               </TableRow>
+              {/* Day notes row */}
+              {activeHospital && (
+                <DayNotesRow hospitalId={activeHospital.id} dateKey={dateKey} colSpan={totalColumns} />
+              )}
               {/* Surgeries for this day */}
               {daySurgeries.map((surgery) => {
                 const patient = surgery.patientId ? patientMap.get(surgery.patientId) : undefined;

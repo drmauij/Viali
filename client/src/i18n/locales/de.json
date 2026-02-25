@@ -6205,6 +6205,36 @@
     "saved": "Gespeichert",
     "error": "Fehler beim Speichern"
   },
+  "pdf": {
+    "title": "OP-TAG",
+    "filename": "OP-Tag",
+    "dayNotes": "Tagesnotizen",
+    "unassignedRoom": "Ohne Saal",
+    "room": "Saal",
+    "admission": "Eintritt",
+    "incision": "Schnitt",
+    "surgeon": "Chirurg",
+    "allergies": "Allergien",
+    "abProphylaxis": "AB-Prophylaxe",
+    "slotReserved": "SLOT RESERVIERT",
+    "col": {
+      "date": "Datum",
+      "operator": "Operator",
+      "patient": "Patient",
+      "procedure": "Eingriff",
+      "anesthesia": "Anästhesie",
+      "note": "Notiz"
+    },
+    "role": {
+      "surgeon": "Chirurg",
+      "surgicalAssistant": "Assistenz",
+      "instrumentNurse": "OTA",
+      "circulatingNurse": "Springer",
+      "anesthesiologist": "ANÄ",
+      "anesthesiaNurse": "Anä-Pflege",
+      "pacuNurse": "IMC/AWR"
+    }
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Aufgabe hinzufügen... (# für Patient)",

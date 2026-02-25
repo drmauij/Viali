@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText } from "lucide-react";
 import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
@@ -25,9 +25,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
-import { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
-import DayInfoAccordion from "./DayInfoAccordion";
-import { useOpDayNotes } from "./DayNotesPanel";
+import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
+import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -252,6 +251,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [staffBoxOpen, setStaffBoxOpen] = useState(true);
   
   // Drag and drop sensors
   const sensors = useSensors(
@@ -302,6 +302,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
   
   // Plan Staff dialog state
   const [planStaffDialogOpen, setPlanStaffDialogOpen] = useState(false);
+  const [dayNotesDialogOpen, setDayNotesDialogOpen] = useState(false);
+  const [notesBannerHidden, setNotesBannerHidden] = useState(() => sessionStorage.getItem('oplist_notes_banner_hidden') === 'true');
   
   // Date string for staff pool queries
   const dateString = useMemo(() => {
@@ -387,7 +389,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     enabled: !!activeHospital?.id,
   });
 
-  // Fetch day notes for PDF export (warm cache from DayInfoAccordion)
+  // Fetch day notes for PDF export (warm cache from DayNotesBanner)
   const { data: dayNotesData } = useOpDayNotes(activeHospital?.id || '', selectedDate);
 
   // Fetch room-specific pending checklists for the selected date
@@ -661,11 +663,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
     const displayDate = formatDate(selectedDate);
     const columns: DayPlanPdfColumn[] = [
-      { ...defaultColumns.datum(displayDate), width: 30 },
-      { ...defaultColumns.patient(), width: 40 },
-      { ...defaultColumns.eingriff(), width: 80 },
-      { ...defaultColumns.note(), width: 60 },
-      { ...defaultColumns.preOp(formatPreOpSummaryForPdf), width: 50 },
+      { ...defaultColumns.datum(displayDate, t), width: 30 },
+      { ...defaultColumns.patient(t), width: 40 },
+      { ...defaultColumns.eingriff(t), width: 80 },
+      { ...defaultColumns.note(t), width: 60 },
+      { ...defaultColumns.preOp(formatPreOpSummaryForPdf, t), width: 50 },
     ];
 
     generateDayPlanPdf({
@@ -677,6 +679,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       columns,
       roomStaffByRoom,
       dayNotes: dayNotesData?.notes || '',
+      t,
     });
   }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff, formatPreOpSummaryForPdf, dayNotesData]);
 
@@ -1353,6 +1356,28 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
               <span className="hidden sm:inline">{t('opCalendar.planStaff')}</span>
             </Button>
           )}
+          {activeHospital && currentView === "day" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (notesBannerHidden && dayNotesData?.notes?.trim()) {
+                  setNotesBannerHidden(false);
+                  sessionStorage.setItem('oplist_notes_banner_hidden', 'false');
+                } else {
+                  setDayNotesDialogOpen(true);
+                }
+              }}
+              data-testid="button-day-notes"
+              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm relative"
+            >
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+              <span className="hidden sm:inline">{t('dayNotes.title', 'Day Notes')}</span>
+              {notesBannerHidden && dayNotesData?.notes?.trim() && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1393,12 +1418,41 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         </div>
       )}
 
-      {/* Day Info Accordion (Staff + Day Notes) - only show in day view */}
+      {/* Planned Staff Box (standalone, hidden when empty) - only in day view */}
       {surgeryRooms.length > 0 && activeHospital && currentView === "day" && (
-        <DayInfoAccordion
-          selectedDate={selectedDate}
-          hospitalId={activeHospital.id}
-        />
+        <div className="pb-2">
+          <PlannedStaffBox
+            selectedDate={selectedDate}
+            hospitalId={activeHospital.id}
+            isOpen={staffBoxOpen}
+            onToggle={() => setStaffBoxOpen(o => !o)}
+          />
+        </div>
+      )}
+
+      {/* Day Notes Banner - shown below staff box when notes exist and not hidden */}
+      {surgeryRooms.length > 0 && activeHospital && currentView === "day" && dayNotesData?.notes?.trim() && !notesBannerHidden && (
+        <div
+          className="mx-4 mb-2 flex items-start gap-2 p-2 px-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+          onClick={() => setDayNotesDialogOpen(true)}
+          data-testid="day-notes-card"
+        >
+          <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-line line-clamp-3 flex-1 min-w-0">
+            {dayNotesData.notes.trim()}
+          </p>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setNotesBannerHidden(true);
+              sessionStorage.setItem('oplist_notes_banner_hidden', 'true');
+            }}
+            className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-600 dark:text-amber-400 shrink-0"
+            data-testid="day-notes-card-close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
       {/* Calendar */}
@@ -1527,6 +1581,21 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
           selectedDate={selectedDate}
           hospitalId={activeHospital.id}
         />
+      )}
+
+      {/* Day Notes Dialog */}
+      {activeHospital && (
+        <Dialog open={dayNotesDialogOpen} onOpenChange={setDayNotesDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('dayNotes.title', 'Day Notes')}</DialogTitle>
+              <DialogDescription>
+                {formatDateHeader(selectedDate)}
+              </DialogDescription>
+            </DialogHeader>
+            <DayNotesPanel hospitalId={activeHospital.id} selectedDate={selectedDate} />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Quick Create Surgery Dialog */}
