@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Mail, Loader2, Check } from "lucide-react";
+import { Download, Mail, Loader2, Check, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
@@ -157,6 +157,27 @@ export function InvoiceDetailDialog({
           "clinic.invoices.markPaidError",
           "Failed to mark invoice as paid"
         ),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/clinic/${hospitalId}/invoices/${invoiceId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: t("clinic.invoices.deleted", "Invoice deleted"),
+        description: t("clinic.invoices.deletedDescription", "The invoice has been deleted"),
+      });
+      onStatusChange?.();
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: t("common.error"),
+        description: t("clinic.invoices.deleteError", "Failed to delete invoice"),
         variant: "destructive",
       });
     },
@@ -606,7 +627,23 @@ export function InvoiceDetailDialog({
                 </div>
               </div>
             ) : (
-              <div className="border-t pt-4 flex gap-2 justify-end">
+              <div className="border-t pt-4 flex gap-2">
+                {invoiceWithItems.status === "draft" && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm(t("clinic.invoices.confirmDelete", "Delete this invoice?"))) {
+                        deleteMutation.mutate();
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    data-testid="button-delete-invoice-dialog"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t("common.delete", "Delete")}
+                  </Button>
+                )}
+                <div className="flex gap-2 ml-auto">
                 {invoiceWithItems.status === "draft" && (
                   <Button
                     variant="outline"
@@ -637,6 +674,7 @@ export function InvoiceDetailDialog({
                     ? t("common.loading")
                     : t("clinic.invoices.downloadPdf")}
                 </Button>
+                </div>
               </div>
             )}
           </div>
