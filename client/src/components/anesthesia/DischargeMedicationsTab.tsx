@@ -144,6 +144,21 @@ export function DischargeMedicationsTab({
     enabled: !!hospitalId,
   });
 
+  const { data: companyData } = useQuery<any>({
+    queryKey: ['/api/clinic', hospitalId, 'company-data'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/company-data`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch company data");
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const clinicDefaultNotes = useMemo(() => {
+    if (!companyData) return "";
+    return [companyData.companyName, companyData.companyPhone].filter(Boolean).join(" - ");
+  }, [companyData]);
+
   const filteredItems = useMemo(() => {
     if (!itemSearchQuery.trim()) return inventoryItems.slice(0, 50);
     const query = itemSearchQuery.toLowerCase();
@@ -239,7 +254,7 @@ export function DischargeMedicationsTab({
   const resetForm = () => {
     setSelectedSurgeryId(null);
     setSelectedDoctorId("");
-    setSlotNotes("");
+    setSlotNotes(clinicDefaultNotes);
     setMedicationItems([]);
     setSignature(null);
     setPendingSave(false);
@@ -863,12 +878,25 @@ export function DischargeMedicationsTab({
 
                 <div className="space-y-2">
                   <Label>{t('dischargeMedications.slotNotes', 'Notes (e.g. practice name)')}</Label>
-                  <Input
-                    value={slotNotes}
-                    onChange={(e) => setSlotNotes(e.target.value)}
-                    placeholder={t('dischargeMedications.slotNotesPlaceholder', 'Practice name, additional info...')}
-                    data-testid="input-slot-notes"
-                  />
+                  <div className="relative">
+                    <Input
+                      value={slotNotes}
+                      onChange={(e) => setSlotNotes(e.target.value)}
+                      placeholder={t('dischargeMedications.slotNotesPlaceholder', 'Practice name, additional info...')}
+                      data-testid="input-slot-notes"
+                      className="pr-8"
+                    />
+                    {slotNotes && (
+                      <button
+                        type="button"
+                        onClick={() => setSlotNotes("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
