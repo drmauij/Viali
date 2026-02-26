@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -55,6 +55,7 @@ import { ImportPreviousAssessmentDialog, type PreviousAssessmentEntry } from "@/
 import { usePatientQueries } from "./patientDetail/usePatientQueries";
 import { usePatientMutations } from "./patientDetail/usePatientMutations";
 import { PatientCardImageUploader } from "./patientDetail/components/PatientCardImageUploader";
+import { InvoiceDetailDialog } from "@/components/clinic/InvoiceDetailDialog";
 
 export default function PatientDetail() {
   const { t, i18n } = useTranslation();
@@ -128,6 +129,8 @@ export default function PatientDetail() {
     openSections, setOpenSections,
     autoSaveTimeout, setAutoSaveTimeout,
   } = usePatientState();
+
+  const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
 
   // --- Non-state hooks that remain in PatientDetail ---
   const activeHospital = useActiveHospital();
@@ -2851,7 +2854,7 @@ export default function PatientDetail() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setLocation(`/clinic/invoices/${invoice.id}`)}
+                            onClick={() => setViewInvoiceId(invoice.id)}
                             data-testid={`button-view-invoice-${invoice.id}`}
                           >
                             {t('common.view', 'View')}
@@ -6579,6 +6582,14 @@ export default function PatientDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <InvoiceDetailDialog
+        hospitalId={activeHospital?.id || ""}
+        invoiceId={viewInvoiceId}
+        open={!!viewInvoiceId}
+        onClose={() => setViewInvoiceId(null)}
+        onStatusChange={() => queryClient.invalidateQueries({ queryKey: ['/api/clinic', activeHospital?.id, 'invoices'] })}
+      />
     </div>
   );
 }
