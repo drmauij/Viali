@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { Calendar, TableProperties, FileText } from "lucide-react";
+import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
 import { ExternalReservationsPanel, ExternalRequestsBadge } from "@/components/surgery/ExternalReservationsPanel";
+import { cn } from "@/lib/utils";
 import { useModule } from "@/contexts/ModuleContext";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
@@ -62,6 +63,7 @@ export default function OpList() {
   const activeHospital = useActiveHospital();
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && activeHospital?.role === 'admin';
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const [openRequestsFromUrl] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('openRequests') === 'true';
@@ -76,7 +78,8 @@ export default function OpList() {
     const saved = sessionStorage.getItem(TABLE_TAB_KEY);
     return (saved === "current" || saved === "past") ? saved : "current";
   });
-  
+  const [isCompactView, setIsCompactView] = useState(true);
+
   // Preload the Op (Anesthesia Record) chunk so it opens instantly
   useEffect(() => {
     preloadOp();
@@ -92,7 +95,22 @@ export default function OpList() {
     sessionStorage.setItem(TABLE_TAB_KEY, tableTab);
   }, [tableTab]);
 
-  
+  // Block page-level scrolling in table mode so sticky header works
+  useEffect(() => {
+    if (viewMode === "table") {
+      document.documentElement.style.overflowY = 'hidden';
+      document.body.style.overflowY = 'hidden';
+    } else {
+      document.documentElement.style.overflowY = '';
+      document.body.style.overflowY = '';
+    }
+    return () => {
+      document.documentElement.style.overflowY = '';
+      document.body.style.overflowY = '';
+    };
+  }, [viewMode]);
+
+
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -282,9 +300,28 @@ export default function OpList() {
   };
 
   return (
-    <div className="container mx-auto px-0 py-6 pb-24">
+    <div className={cn(
+      "container mx-auto px-0",
+      viewMode === "table"
+        ? "flex flex-col overflow-hidden"
+        : "py-6 pb-24"
+    )} style={viewMode === "table" ? { height: 'calc(100dvh - 80px - 73px)' } : undefined}>
+      {viewMode === "table" && isTouchDevice && (
+        <style>{`
+          .op-table-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          .op-table-scroll {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+        `}</style>
+      )}
       {/* Header */}
-      <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className={cn(
+        "px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4",
+        viewMode === "table" ? "shrink-0 py-4" : "mb-6"
+      )}>
         <div>
           <h1 className="text-2xl font-bold mb-2">{t('anesthesia.op.scheduleTitle')}</h1>
           <p className="text-sm text-muted-foreground">
@@ -338,8 +375,8 @@ export default function OpList() {
       </div>
 
       {/* Calendar or Table View */}
-      <div>
-        {viewMode === "calendar" ? (
+      {viewMode === "calendar" ? (
+        <div>
           <OPCalendar
             onEventClick={handleEventClick}
             onEditSurgery={(surgeryId) => {
@@ -347,9 +384,11 @@ export default function OpList() {
               setEditSurgeryOpen(true);
             }}
           />
-        ) : (
-          <div className="px-4">
-            <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)}>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 px-4">
+          <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)} className="h-full flex flex-col">
+            <div className="shrink-0 flex items-center justify-between gap-2">
               <TabsList className="grid w-full max-w-md grid-cols-2">
                 <TabsTrigger value="current" data-testid="tab-current-surgeries">
                   {t('surgeryPlanning.currentAndFuture')}
@@ -358,47 +397,70 @@ export default function OpList() {
                   {t('surgeryPlanning.past')}
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="current" className="mt-4">
-                <SurgeryPlanningTable
-                  moduleContext="anesthesia"
-                  onSurgeryClick={handleTableSurgeryClick}
-                  dateFrom={(() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    return today;
-                  })()}
-                  dateTo={(() => {
-                    const future = new Date();
-                    future.setFullYear(future.getFullYear() + 1);
-                    future.setHours(23, 59, 59, 999);
-                    return future;
-                  })()}
-                  showFilters={true}
-                />
-              </TabsContent>
-              <TabsContent value="past" className="mt-4">
-                <SurgeryPlanningTable
-                  moduleContext="anesthesia"
-                  onSurgeryClick={handleTableSurgeryClick}
-                  dateFrom={(() => {
-                    const past = new Date();
-                    past.setFullYear(past.getFullYear() - 2);
-                    past.setHours(0, 0, 0, 0);
-                    return past;
-                  })()}
-                  dateTo={(() => {
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    yesterday.setHours(23, 59, 59, 999);
-                    return yesterday;
-                  })()}
-                  showFilters={true}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
-      </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCompactView(!isCompactView)}
+                className="gap-2 shrink-0"
+                data-testid="toggle-compact-view"
+              >
+                {isCompactView ? (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t("surgeryPlanning.extendedView")}</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t("surgeryPlanning.compactView")}</span>
+                  </>
+                )}
+              </Button>
+            </div>
+            <TabsContent value="current" className="flex-1 min-h-0 mt-2">
+              <SurgeryPlanningTable
+                moduleContext="anesthesia"
+                onSurgeryClick={handleTableSurgeryClick}
+                dateFrom={(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return today;
+                })()}
+                dateTo={(() => {
+                  const future = new Date();
+                  future.setFullYear(future.getFullYear() + 1);
+                  future.setHours(23, 59, 59, 999);
+                  return future;
+                })()}
+                showFilters={true}
+                contained
+                compactView={isCompactView}
+              />
+            </TabsContent>
+            <TabsContent value="past" className="flex-1 min-h-0 mt-2">
+              <SurgeryPlanningTable
+                moduleContext="anesthesia"
+                onSurgeryClick={handleTableSurgeryClick}
+                dateFrom={(() => {
+                  const past = new Date();
+                  past.setFullYear(past.getFullYear() - 2);
+                  past.setHours(0, 0, 0, 0);
+                  return past;
+                })()}
+                dateTo={(() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  yesterday.setHours(23, 59, 59, 999);
+                  return yesterday;
+                })()}
+                showFilters={true}
+                contained
+                compactView={isCompactView}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
 
       {/* Surgery Summary Dialog */}
       {selectedSurgeryId && (

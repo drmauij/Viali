@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCurrencyLocale } from "@/lib/dateUtils";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,16 +42,38 @@ const mockSurgeryCostBreakdown = [
 
 export default function SimplifiedDashboard() {
   const { t } = useTranslation();
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // Block page-level scrolling so sticky header works
+  useEffect(() => {
+    document.documentElement.style.overflowY = 'hidden';
+    document.body.style.overflowY = 'hidden';
+    return () => {
+      document.documentElement.style.overflowY = '';
+      document.body.style.overflowY = '';
+    };
+  }, []);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-24">
-      <div>
+    <div className="flex flex-col overflow-hidden p-4 md:p-6 gap-4" style={{ height: 'calc(100dvh - 80px - 73px)' }}>
+      {isTouchDevice && (
+        <style>{`
+          .op-table-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          .op-table-scroll {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+        `}</style>
+      )}
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold">{t('business.dashboard.title')}</h1>
         <p className="text-muted-foreground">{t('business.dashboard.subtitle')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardHeader className="shrink-0">
           <div className="flex items-center">
             <TableProperties className="h-5 w-5 mr-2 text-primary" />
             <CardTitle className="text-lg">{t('business.surgeryPlanning.title')}</CardTitle>
@@ -57,9 +81,9 @@ export default function SimplifiedDashboard() {
           </div>
           <CardDescription>{t('business.surgeryPlanning.descriptionWithCosts', 'Track billing, contracts, and costs for surgeries')}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="current">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+        <CardContent className="flex-1 min-h-0 flex flex-col">
+          <Tabs defaultValue="current" className="h-full flex flex-col">
+            <TabsList className="shrink-0 grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="current" data-testid="tab-business-current-surgeries">
                 {t('surgeryPlanning.currentAndFuture')}
               </TabsTrigger>
@@ -67,7 +91,7 @@ export default function SimplifiedDashboard() {
                 {t('surgeryPlanning.past')}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="current" className="mt-4">
+            <TabsContent value="current" className="flex-1 min-h-0 mt-2">
               <SurgeryPlanningTable
                 moduleContext="business"
                 dateFrom={(() => {
@@ -82,9 +106,10 @@ export default function SimplifiedDashboard() {
                   return future;
                 })()}
                 showFilters={true}
+                contained
               />
             </TabsContent>
-            <TabsContent value="past" className="mt-4">
+            <TabsContent value="past" className="flex-1 min-h-0 mt-2">
               <SurgeryPlanningTable
                 moduleContext="business"
                 dateFrom={(() => {
@@ -100,6 +125,7 @@ export default function SimplifiedDashboard() {
                   return yesterday;
                 })()}
                 showFilters={true}
+                contained
               />
             </TabsContent>
           </Tabs>

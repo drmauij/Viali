@@ -74,6 +74,9 @@ interface SurgeryPlanningTableProps {
   dateFrom?: Date;
   dateTo?: Date;
   showFilters?: boolean;
+  contained?: boolean;
+  /** Externally controlled compact view — hides internal toggle when provided */
+  compactView?: boolean;
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -961,6 +964,8 @@ export function SurgeryPlanningTable({
   dateFrom,
   dateTo,
   showFilters = true,
+  contained = false,
+  compactView,
 }: SurgeryPlanningTableProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -969,7 +974,8 @@ export function SurgeryPlanningTable({
   const [sortState, setSortState] = useState<SortState>({ field: "plannedDate", direction: "asc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
-  const [isCompactView, setIsCompactView] = useState(true); // Default to compact view
+  const [isCompactViewInternal, setIsCompactViewInternal] = useState(true);
+  const isCompactView = compactView ?? isCompactViewInternal;
   
   const columnGroups = visibleColumnGroups ?? DEFAULT_COLUMN_GROUPS[moduleContext];
   
@@ -1437,8 +1443,9 @@ export function SurgeryPlanningTable({
   const showPaidStatus = columnGroups.includes("paidStatus") && !isCompactView;
   const hideRoomAndAdmission = moduleContext === "business";
   
-  // Check if compact toggle should be shown (only for anesthesia/surgery modules with control columns)
-  const showCompactToggle = (moduleContext === "anesthesia" || moduleContext === "surgery") && 
+  // Check if compact toggle should be shown (only for anesthesia/surgery modules with control columns, hidden when externally controlled)
+  const showCompactToggle = compactView === undefined &&
+    (moduleContext === "anesthesia" || moduleContext === "surgery") &&
     (columnGroups.includes("paidStatus") || columnGroups.includes("contracts") || columnGroups.includes("implants"));
   
   // Calculate total columns for day header colspan
@@ -1477,13 +1484,13 @@ export function SurgeryPlanningTable({
   }
   
   return (
-    <div>
+    <div className={cn(contained && "h-full flex flex-col")}>
       {showCompactToggle && (
-        <div className="flex justify-end">
+        <div className={cn("flex justify-end", contained && "shrink-0")}>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsCompactView(!isCompactView)}
+            onClick={() => setIsCompactViewInternal(!isCompactView)}
             className="gap-2"
             data-testid="toggle-compact-view"
           >
@@ -1501,7 +1508,7 @@ export function SurgeryPlanningTable({
           </Button>
         </div>
       )}
-      <div className="rounded-md border overflow-x-auto">
+      <div className={cn("rounded-md border overflow-x-auto", contained && "flex-1 min-h-0 overflow-y-auto op-table-scroll")}>
           <table className="w-full caption-bottom text-sm">
             <thead className="sticky top-0 z-20 bg-background [&_tr]:border-b">
             <TableRow>
