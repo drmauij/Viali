@@ -1588,16 +1588,18 @@ export default function ControlledLog() {
                   {routineCheckItems.map((item) => (
                     <div
                       key={item.itemId}
-                      className={`bg-muted rounded-lg p-3 ${
+                      className={`bg-muted rounded-lg p-3 cursor-pointer select-none ${
                         !item.selected ? 'opacity-50' : ''
                       } ${
                         item.selected && item.actualQty > 0 && !item.match ? "border-2 border-destructive" : ""
                       }`}
+                      onClick={() => handleRoutineItemSelection(item.itemId, !item.selected)}
                     >
                       <div className="flex items-center gap-3 mb-2">
                         <Checkbox
                           checked={item.selected}
                           onCheckedChange={(checked) => handleRoutineItemSelection(item.itemId, !!checked)}
+                          onClick={(e) => e.stopPropagation()}
                           data-testid={`routine-item-checkbox-${item.itemId}`}
                         />
                         <div className="flex-1">
@@ -1613,7 +1615,7 @@ export default function ControlledLog() {
                         )}
                       </div>
                       {item.selected && (
-                        <div className="flex items-center gap-2 ml-7">
+                        <div className="flex items-center gap-2 ml-7" onClick={(e) => e.stopPropagation()}>
                           <Label htmlFor={`actual-${item.itemId}`} className="text-sm whitespace-nowrap">
                             Actual Count:
                           </Label>

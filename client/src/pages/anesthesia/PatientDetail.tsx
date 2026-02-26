@@ -4810,11 +4810,15 @@ export default function PatientDetail() {
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                        <Checkbox 
+                      <div
+                        className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                        onClick={() => !isPreOpReadOnly && setConsentData({...consentData, general: !consentData.general})}
+                      >
+                        <Checkbox
                           id="general"
                           checked={consentData.general}
                           onCheckedChange={(checked) => setConsentData({...consentData, general: checked as boolean})}
+                          onClick={(e) => e.stopPropagation()}
                           disabled={isPreOpReadOnly}
                           data-testid="checkbox-consent-general"
                         />
@@ -4831,11 +4835,15 @@ export default function PatientDetail() {
                         </div>
                       </div>
 
-                      <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                        <Checkbox 
+                      <div
+                        className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                        onClick={() => !isPreOpReadOnly && setConsentData({...consentData, analgosedation: !consentData.analgosedation})}
+                      >
+                        <Checkbox
                           id="analgosedation"
                           checked={consentData.analgosedation}
                           onCheckedChange={(checked) => setConsentData({...consentData, analgosedation: checked as boolean})}
+                          onClick={(e) => e.stopPropagation()}
                           disabled={isPreOpReadOnly}
                           data-testid="checkbox-consent-analgosedation"
                         />
@@ -4853,11 +4861,15 @@ export default function PatientDetail() {
                       </div>
                     </div>
 
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <Checkbox 
+                    <div
+                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      onClick={() => !isPreOpReadOnly && setConsentData({...consentData, regional: !consentData.regional})}
+                    >
+                      <Checkbox
                         id="regional"
                         checked={consentData.regional}
                         onCheckedChange={(checked) => setConsentData({...consentData, regional: checked as boolean})}
+                        onClick={(e) => e.stopPropagation()}
                         disabled={isPreOpReadOnly}
                         data-testid="checkbox-consent-regional"
                       />
@@ -4874,11 +4886,15 @@ export default function PatientDetail() {
                       </div>
                     </div>
 
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <Checkbox 
+                    <div
+                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      onClick={() => !isPreOpReadOnly && setConsentData({...consentData, installations: !consentData.installations})}
+                    >
+                      <Checkbox
                         id="installations"
                         checked={consentData.installations}
                         onCheckedChange={(checked) => setConsentData({...consentData, installations: checked as boolean})}
+                        onClick={(e) => e.stopPropagation()}
                         disabled={isPreOpReadOnly}
                         data-testid="checkbox-installations"
                       />
@@ -4895,11 +4911,15 @@ export default function PatientDetail() {
                       </div>
                     </div>
 
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <Checkbox 
+                    <div
+                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      onClick={() => !isPreOpReadOnly && setConsentData({...consentData, icuAdmission: !consentData.icuAdmission})}
+                    >
+                      <Checkbox
                         id="icuAdmission"
                         checked={consentData.icuAdmission}
                         onCheckedChange={(checked) => setConsentData({...consentData, icuAdmission: checked as boolean})}
+                        onClick={(e) => e.stopPropagation()}
                         disabled={isPreOpReadOnly}
                         data-testid="checkbox-icu"
                       />
