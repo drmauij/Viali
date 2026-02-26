@@ -213,6 +213,7 @@ export default function QuickCreateSurgeryDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/all-surgeries`] });
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
