@@ -1833,9 +1833,11 @@ export default function PatientDetail() {
                 <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
               )}
             </TabsTrigger>
+            {/* Episodes tab hidden for later use
             <TabsTrigger value="episodes" data-testid="tab-episodes" className="whitespace-nowrap">
               Episodes
             </TabsTrigger>
+            */}
             <TabsTrigger value="invoices" data-testid="tab-invoices" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.invoices', 'Invoices')}
               {patientInvoices.length > 0 && (
@@ -2878,6 +2880,7 @@ export default function PatientDetail() {
           )}
         </TabsContent>
 
+        {/* Episodes tab content hidden for later use
         <TabsContent value="episodes" className="mt-0">
           <EpisodesTab
             patientId={derivedPatientId || ""}
@@ -2886,6 +2889,7 @@ export default function PatientDetail() {
             notes={notesTimeline || []}
           />
         </TabsContent>
+        */}
 
         <TabsContent value="medications" className="mt-0">
           <DischargeMedicationsTab
