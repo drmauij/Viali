@@ -821,6 +821,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         });
       }
     }
+    e.target.value = '';
   };
 
   const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
