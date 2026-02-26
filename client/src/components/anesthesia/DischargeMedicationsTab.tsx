@@ -479,13 +479,13 @@ export function DischargeMedicationsTab({
     }
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = 210;
-    const pageH = 297;
-    const marginX = 10;
-    const marginY = 10;
-    const gap = 4;
-    const labelW = (pageW - 2 * marginX - (columns - 1) * gap) / columns;
-    const labelH = columns === 2 ? 50 : 38;
-    const rows = Math.floor((pageH - 2 * marginY + gap) / (labelH + gap));
+    // 3-col: physical sticker sheet — 3×8 labels, 70×36mm each, no margins/gaps
+    const marginX = columns === 3 ? 0 : 10;
+    const marginY = columns === 3 ? 0 : 10;
+    const gap = columns === 3 ? 0 : 4;
+    const labelW = columns === 3 ? 70 : (pageW - 2 * marginX - gap) / 2;
+    const labelH = columns === 3 ? 36 : 50;
+    const rows = columns === 3 ? 8 : Math.floor((297 - 2 * marginY + gap) / (labelH + gap));
     const doctorName = slot.doctor ? `Dr. ${slot.doctor.firstName} ${slot.doctor.lastName}` : '';
     const dateStr = formatDate(slot.createdAt);
     const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
@@ -504,9 +504,11 @@ export function DischargeMedicationsTab({
       const x = marginX + col * (labelW + gap);
       const y = marginY + row * (labelH + gap);
 
-      doc.setDrawColor(180);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(x, y, labelW, labelH, 2, 2);
+      if (columns !== 3) {
+        doc.setDrawColor(180);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(x, y, labelW, labelH, 2, 2);
+      }
 
       const px = x + 3;
       let py = y + 5;
