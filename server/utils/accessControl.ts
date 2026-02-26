@@ -641,6 +641,62 @@ export async function requireStrictWriteAccess(req: any, res: Response, next: Ne
   }
 }
 
+// Middleware to restrict surgery planning to admin/doctor roles in OR/anesthesia units
+export async function requireSurgeryPlanAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const hospitalId = await resolveHospitalIdFromRequest(req);
+
+    if (!hospitalId) {
+      return res.status(400).json({
+        message: "Hospital context required.",
+        code: "HOSPITAL_ID_REQUIRED"
+      });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({
+        message: "Access denied. You do not have access to this hospital's data.",
+        code: "HOSPITAL_ACCESS_DENIED"
+      });
+    }
+
+    // Check unit type from active unit header
+    const unitId = req.headers['x-active-unit-id'] as string | undefined;
+    let unitType: string | null = null;
+    if (unitId) {
+      const unit = await storage.getUnit(unitId);
+      unitType = unit?.type || null;
+    }
+
+    // Get the user's active role
+    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
+
+    const allowedRoles = ['admin', 'doctor'];
+    const allowedUnitTypes = ['or', 'anesthesia'];
+
+    if (!role || !allowedRoles.includes(role) || !unitType || !allowedUnitTypes.includes(unitType)) {
+      return res.status(403).json({
+        message: "Surgery planning requires admin or doctor role in an OR or anesthesia unit.",
+        code: "SURGERY_PLAN_ACCESS_DENIED"
+      });
+    }
+
+    req.resolvedHospitalId = hospitalId;
+    req.verifiedHospitalId = hospitalId;
+    req.resolvedRole = role;
+    next();
+  } catch (error) {
+    logger.error("Error checking surgery plan access:", error);
+    res.status(500).json({ message: "Error checking permissions" });
+  }
+}
+
 // Helper to verify a record belongs to the expected hospital (for use in route handlers)
 export async function verifyRecordBelongsToHospital(
   recordHospitalId: string | null | undefined,

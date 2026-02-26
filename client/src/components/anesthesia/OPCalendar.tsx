@@ -19,6 +19,7 @@ import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTime
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -249,6 +250,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
     return saved ? new Date(saved) : new Date();
   });
   const activeHospital = useActiveHospital();
+  const canPlanSurgery = useCanPlanSurgery();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [staffBoxOpen, setStaffBoxOpen] = useState(true);
@@ -884,6 +886,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
+    if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
     const newRoomId = resourceId || event.resource;
     
@@ -910,10 +913,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, canPlanSurgery]);
 
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
+    if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
     
     try {
@@ -938,10 +942,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, canPlanSurgery]);
 
   // Handle time slot selection (for quick create)
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
+    if (!canPlanSurgery) return;
     // Only open quick create for actual time range selections, not when clicking/dragging events
     // SlotInfo.action can be 'select', 'click', or 'doubleClick'
     // We only want to open quick create on 'select' (drag selection) in day/week views
@@ -953,7 +958,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       });
       setQuickCreateOpen(true);
     }
-  }, [currentView]);
+  }, [currentView, canPlanSurgery]);
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
@@ -1472,7 +1477,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   onEventClick(surgery.id, surgery.patientId);
                 }
               }}
-              onEventDrop={async (surgeryId, newStart, newEnd, newRoomId) => {
+              onEventDrop={canPlanSurgery ? async (surgeryId, newStart, newEnd, newRoomId) => {
                 try {
                   await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
                     plannedDate: newStart.toISOString(),
@@ -1493,8 +1498,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                     variant: "destructive",
                   });
                 }
-              }}
-              onCanvasClick={(roomId, time) => {
+              } : undefined}
+              onCanvasClick={canPlanSurgery ? (roomId, time) => {
                 // Set default 3-hour duration for new surgeries
                 const endTime = new Date(time.getTime() + 3 * 60 * 60 * 1000);
                 setQuickCreateData({
@@ -1503,8 +1508,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   roomId: roomId,
                 });
                 setQuickCreateOpen(true);
-              }}
-              onSlotSelect={(roomId, start, end) => {
+              } : undefined}
+              onSlotSelect={canPlanSurgery ? (roomId, start, end) => {
                 // Drag selection - use actual selected time range
                 setQuickCreateData({
                   date: start,
@@ -1512,7 +1517,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   roomId: roomId,
                 });
                 setQuickCreateOpen(true);
-              }}
+              } : undefined}
               onDayClick={(date) => {
                 setSelectedDate(date);
                 setCurrentView("day");
@@ -1558,8 +1563,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   />
                 ),
               }}
-              selectable
-              resizable
+              selectable={canPlanSurgery}
+              resizable={canPlanSurgery}
               step={10}
               timeslots={6}
               min={new Date(0, 0, 0, 7, 0, 0)}

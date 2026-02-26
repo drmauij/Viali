@@ -10,7 +10,7 @@ import {
   insertSurgeryPreOpAssessmentSchema,
 } from "@shared/schema";
 import { z } from "zod";
-import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess } from "../../utils";
 import logger from "../../logger";
 
 const router = Router();
@@ -228,7 +228,7 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
   }
 });
 
-router.post('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAccess, async (req: any, res) => {
   try {
     logger.info("Received surgery creation request:", JSON.stringify(req.body, null, 2));
 

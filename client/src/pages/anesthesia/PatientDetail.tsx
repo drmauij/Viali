@@ -32,6 +32,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import { useModule } from "@/contexts/ModuleContext";
 import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
@@ -132,6 +133,7 @@ export default function PatientDetail() {
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const canWrite = useCanWrite();
+  const canPlanSurgery = useCanPlanSurgery();
   const isPreOpReadOnly = !canWrite;
   const { activeModule } = useModule();
   const isSurgeryModule = activeModule === "surgery";
@@ -2122,7 +2124,7 @@ export default function PatientDetail() {
 
         <TabsContent value="surgeries" className="mt-0 space-y-4">
           {/* New Surgery Button */}
-          {canManageSurgeries && (
+          {canPlanSurgery && (
             <div className="flex justify-end">
               <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
                 <DialogTrigger asChild>

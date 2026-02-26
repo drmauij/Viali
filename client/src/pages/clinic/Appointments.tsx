@@ -51,6 +51,7 @@ import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
 import QuickCreateSurgeryDialog from "@/components/anesthesia/QuickCreateSurgeryDialog";
+import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -111,7 +112,7 @@ export default function ClinicAppointments() {
   const hospitalId = activeHospital?.id;
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
-  const canAccessSurgery = activeHospital?.role === 'admin' || activeHospital?.role === 'doctor';
+  const canPlanSurgery = useCanPlanSurgery();
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', hospitalId],
@@ -134,7 +135,7 @@ export default function ClinicAppointments() {
 
   const { data: surgeryRooms = [] } = useQuery<any[]>({
     queryKey: [`/api/surgery-rooms/${hospitalId}`],
-    enabled: !!hospitalId && canAccessSurgery,
+    enabled: !!hospitalId && canPlanSurgery,
   });
 
   const updateAppointmentMutation = useMutation({
@@ -330,7 +331,7 @@ export default function ClinicAppointments() {
         }
         break;
       case 'surgery':
-        if (canAccessSurgery && bookingDefaults.date) {
+        if (canPlanSurgery && bookingDefaults.date) {
           setQuickSurgeryDialogOpen(true);
         }
         break;
@@ -596,7 +597,7 @@ export default function ClinicAppointments() {
         open={bookingTypeSelectorOpen}
         onOpenChange={setBookingTypeSelectorOpen}
         onSelect={handleBookingTypeSelect}
-        canAccessSurgery={canAccessSurgery}
+        canAccessSurgery={canPlanSurgery}
         slotInfo={bookingDefaults}
       />
 
