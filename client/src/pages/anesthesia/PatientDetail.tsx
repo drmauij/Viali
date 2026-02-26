@@ -6588,7 +6588,7 @@ export default function PatientDetail() {
         invoiceId={viewInvoiceId}
         open={!!viewInvoiceId}
         onClose={() => setViewInvoiceId(null)}
-        onStatusChange={() => queryClient.invalidateQueries({ queryKey: ['/api/clinic', activeHospital?.id, 'invoices'] })}
+        onStatusChange={() => queryClient.invalidateQueries({ queryKey: [`/api/clinic/${activeHospital?.id}/invoices`] })}
       />
     </div>
   );
