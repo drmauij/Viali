@@ -397,7 +397,7 @@ export default function ControlledLog() {
         expectedQty,
         actualQty: 0,
         match: false,
-        selected: true,
+        selected: false,
       };
     }));
     setCheckNotes("");
@@ -446,7 +446,7 @@ export default function ControlledLog() {
         expectedQty,
         actualQty: 0,
         match: false,
-        selected: true,
+        selected: false,
       };
     }));
     setShowRoutineCheckModal(true);

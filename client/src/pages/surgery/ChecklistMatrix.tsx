@@ -593,7 +593,7 @@ export default function ChecklistMatrix() {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 80px)' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 80px - 73px)' }}>
       {isTouchDevice && (
         <style>{`
           .checklist-matrix-scroll::-webkit-scrollbar {
