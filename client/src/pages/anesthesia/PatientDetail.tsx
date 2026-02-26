@@ -4811,7 +4811,7 @@ export default function PatientDetail() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div
-                        className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                        className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none transition-colors ${consentData.general ? 'border-primary bg-primary/5' : ''}`}
                         onClick={() => !isPreOpReadOnly && setConsentData({...consentData, general: !consentData.general})}
                       >
                         <Checkbox
@@ -4836,7 +4836,7 @@ export default function PatientDetail() {
                       </div>
 
                       <div
-                        className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                        className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none transition-colors ${consentData.analgosedation ? 'border-primary bg-primary/5' : ''}`}
                         onClick={() => !isPreOpReadOnly && setConsentData({...consentData, analgosedation: !consentData.analgosedation})}
                       >
                         <Checkbox
@@ -4862,7 +4862,7 @@ export default function PatientDetail() {
                     </div>
 
                     <div
-                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none transition-colors ${consentData.regional ? 'border-primary bg-primary/5' : ''}`}
                       onClick={() => !isPreOpReadOnly && setConsentData({...consentData, regional: !consentData.regional})}
                     >
                       <Checkbox
@@ -4887,7 +4887,7 @@ export default function PatientDetail() {
                     </div>
 
                     <div
-                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none transition-colors ${consentData.installations ? 'border-primary bg-primary/5' : ''}`}
                       onClick={() => !isPreOpReadOnly && setConsentData({...consentData, installations: !consentData.installations})}
                     >
                       <Checkbox
@@ -4912,7 +4912,7 @@ export default function PatientDetail() {
                     </div>
 
                     <div
-                      className="flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none"
+                      className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer select-none transition-colors ${consentData.icuAdmission ? 'border-primary bg-primary/5' : ''}`}
                       onClick={() => !isPreOpReadOnly && setConsentData({...consentData, icuAdmission: !consentData.icuAdmission})}
                     >
                       <Checkbox
