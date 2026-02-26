@@ -17,9 +17,18 @@ import time
 import threading
 import webbrowser
 import logging
+import json
+import asyncio
 from pathlib import Path
 
 import requests as http_requests
+
+try:
+    import websockets
+    import websockets.asyncio.server
+    HAS_WEBSOCKETS = True
+except ImportError:
+    HAS_WEBSOCKETS = False
 
 try:
     from smartcard.System import readers
@@ -274,6 +283,66 @@ def post_card_data(config, patient_data):
 
 
 # ---------------------------------------------------------------------------
+# Local WebSocket Server (pushes navigation events to an open browser tab)
+# ---------------------------------------------------------------------------
+
+class LocalWSServer:
+    """Tiny WebSocket server on localhost for pushing card events to the browser."""
+
+    def __init__(self, port=21965):
+        self.port = port
+        self.clients: set = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    async def _handler(self, websocket):
+        self.clients.add(websocket)
+        log.info(f"Browser connected via WebSocket (clients: {len(self.clients)})")
+        try:
+            async for _ in websocket:
+                pass  # we only push, never receive
+        finally:
+            self.clients.discard(websocket)
+            log.info(f"Browser disconnected (clients: {len(self.clients)})")
+
+    def has_clients(self) -> bool:
+        return len(self.clients) > 0
+
+    def send(self, message: str) -> bool:
+        """Thread-safe send from the polling thread. Returns True if sent."""
+        if not self._loop or not self.clients:
+            return False
+        future = asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
+        try:
+            future.result(timeout=2)
+            return True
+        except Exception as e:
+            log.error(f"WebSocket broadcast error: {e}")
+            return False
+
+    async def _broadcast(self, message: str):
+        if self.clients:
+            await asyncio.gather(
+                *[c.send(message) for c in self.clients],
+                return_exceptions=True,
+            )
+
+    async def _serve(self):
+        self._loop = asyncio.get_running_loop()
+        async with websockets.asyncio.server.serve(
+            self._handler, "localhost", self.port
+        ):
+            log.info(f"WebSocket server listening on ws://localhost:{self.port}")
+            await asyncio.Future()  # run forever
+
+    def run(self):
+        """Blocking entry point — call from a daemon thread."""
+        try:
+            asyncio.run(self._serve())
+        except Exception as e:
+            log.error(f"WebSocket server error: {e}")
+
+
+# ---------------------------------------------------------------------------
 # System Tray Icon
 # ---------------------------------------------------------------------------
 
@@ -347,6 +416,13 @@ class CardReaderBridge:
         self.running = True
         self.last_card_ahv = None
         self.last_card_time = 0
+        ws_port = int(self.config.get("WS_PORT", "21965"))
+        if HAS_WEBSOCKETS and ws_port > 0:
+            self.ws_server = LocalWSServer(port=ws_port)
+        else:
+            self.ws_server = None
+            if not HAS_WEBSOCKETS:
+                log.warning("websockets not installed — local browser push disabled")
 
     def find_reader(self):
         """Find a suitable smart card reader."""
@@ -417,8 +493,20 @@ class CardReaderBridge:
 
                             success, result = post_card_data(self.config, patient)
                             if success:
-                                log.info(f"Opening: {result}")
-                                webbrowser.open(result)
+                                pushed = False
+                                if self.ws_server and self.ws_server.has_clients():
+                                    relative_url = result.replace(
+                                        self.config["VIALI_URL"].rstrip("/"), ""
+                                    )
+                                    msg = json.dumps({"type": "navigate", "url": relative_url})
+                                    pushed = self.ws_server.send(msg)
+                                    if pushed:
+                                        log.info(f"Pushed to browser: {relative_url}")
+
+                                if not pushed:
+                                    log.info(f"Opening new tab: {result}")
+                                    webbrowser.open(result)
+
                                 self.tray.set_status("green", f"Viali Card Reader - {name}")
                             else:
                                 log.error(f"API error: {result}")
@@ -475,6 +563,10 @@ class CardReaderBridge:
             except Exception as e:
                 log.warning(f"Cannot reach API: {e}")
                 self.tray.set_status("yellow", "Viali Card Reader - API unreachable")
+
+        if self.ws_server:
+            ws_thread = threading.Thread(target=self.ws_server.run, daemon=True)
+            ws_thread.start()
 
         poll_thread = threading.Thread(target=self.poll_loop, daemon=True)
         poll_thread.start()

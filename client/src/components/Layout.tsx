@@ -5,6 +5,7 @@ import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
 import ModuleDrawer from "./ModuleDrawer";
 import { BillingLock } from "./BillingLock";
+import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
 
 interface Hospital {
   id: string;
@@ -48,6 +49,9 @@ export default function Layout({ children }: LayoutProps) {
       }
     }
   }, [user, activeHospital]);
+
+  // Connect to local card reader bridge (silent if bridge isn't running)
+  useCardReaderBridge();
 
   const handleHospitalChange = (hospital: Hospital) => {
     // Save to localStorage before redirect
