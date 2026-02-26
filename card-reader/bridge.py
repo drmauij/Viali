@@ -572,7 +572,15 @@ class CardReaderBridge:
         poll_thread.start()
 
         log.info("Viali Card Reader Bridge started")
-        self.tray.run(on_quit=self.quit)
+        try:
+            self.tray.run(on_quit=self.quit)
+        except Exception as e:
+            log.warning(f"System tray unavailable ({e}), running headless — Ctrl+C to quit")
+            try:
+                while self.running:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                self.quit()
 
 
 # ---------------------------------------------------------------------------

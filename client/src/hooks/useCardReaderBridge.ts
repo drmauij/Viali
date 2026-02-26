@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 
 const WS_PORT = 21965;
-const RECONNECT_BASE_MS = 2000;
-const RECONNECT_MAX_MS = 30000;
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 5000;
 
 /**
  * Connects to the card reader bridge's local WebSocket server on localhost.
