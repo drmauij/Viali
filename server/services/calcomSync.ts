@@ -1,7 +1,8 @@
 import { db } from "../db";
-import { 
-  clinicAppointments, 
-  surgeries, 
+import {
+  clinicAppointments,
+  surgeries,
+  surgeryAssistants,
   patients,
   users,
   calcomProviderMappings,
@@ -11,6 +12,7 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
 import { createCalcomClient, type CalcomClient, type CalcomBooking } from "./calcomClient";
+import { updateAssistantCalcomUid } from "../storage/anesthesia";
 import logger from "../logger";
 
 export interface SyncResult {
@@ -440,6 +442,9 @@ export async function syncSingleSurgery(surgeryId: string): Promise<{ success: b
         logger.error(`Failed to delete Cal.com block for cancelled/completed surgery ${surgeryId}:`, error);
       }
     }
+    // Also clean up assistant blocks
+    const patientName = [surgery.patientFirstName, surgery.patientSurname].filter(Boolean).join(' ') || 'Patient';
+    await syncAssistantsForSurgery(surgery, patientName);
     return { success: true, calcomUid: undefined };
   }
 
@@ -491,9 +496,71 @@ export async function syncSingleSurgery(surgeryId: string): Promise<{ success: b
         .where(eq(surgeries.id, surgeryId));
     }
 
+    // Sync assistant Cal.com blocks
+    await syncAssistantsForSurgery(surgery, patientName);
+
     return { success: true, calcomUid: syncResult.uid };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+async function syncAssistantsForSurgery(
+  surgery: { id: string; hospitalId: string | null; plannedDate: Date | null; plannedSurgery: string | null; status: string | null },
+  patientName: string
+): Promise<void> {
+  const assistants = await db
+    .select({
+      userId: surgeryAssistants.userId,
+      calcomBusyBlockUid: surgeryAssistants.calcomBusyBlockUid,
+    })
+    .from(surgeryAssistants)
+    .where(eq(surgeryAssistants.surgeryId, surgery.id));
+
+  if (assistants.length === 0) return;
+
+  const isCancelled = ['cancelled', 'completed'].includes(surgery.status || '');
+  const calcomSetup = surgery.hospitalId ? await getCalcomClientForHospital(surgery.hospitalId) : null;
+  if (!calcomSetup) return;
+
+  for (const assistant of assistants) {
+    try {
+      if (isCancelled) {
+        if (assistant.calcomBusyBlockUid) {
+          await calcomSetup.client.deleteBusyBlock(assistant.calcomBusyBlockUid);
+          await updateAssistantCalcomUid(surgery.id, assistant.userId, null);
+        }
+        continue;
+      }
+
+      const [mapping] = await db
+        .select()
+        .from(calcomProviderMappings)
+        .where(and(
+          eq(calcomProviderMappings.hospitalId, surgery.hospitalId!),
+          eq(calcomProviderMappings.providerId, assistant.userId),
+          eq(calcomProviderMappings.isEnabled, true)
+        ));
+
+      if (!mapping?.calcomEventTypeId) continue;
+
+      const startDateTime = surgery.plannedDate?.toISOString() || new Date().toISOString();
+      const title = `Surgery (Assistant): ${surgery.plannedSurgery || 'Procedure'} - ${patientName}`;
+
+      const syncResult = await calcomSetup.client.syncBusyBlock(
+        parseInt(mapping.calcomEventTypeId, 10),
+        assistant.calcomBusyBlockUid,
+        startDateTime,
+        title,
+        { sourceType: 'surgery', sourceId: surgery.id, hospitalId: surgery.hospitalId!, patientName }
+      );
+
+      if (syncResult.uid !== assistant.calcomBusyBlockUid) {
+        await updateAssistantCalcomUid(surgery.id, assistant.userId, syncResult.uid);
+      }
+    } catch (err) {
+      logger.error(`Failed to sync Cal.com block for assistant ${assistant.userId} on surgery ${surgery.id}:`, err);
+    }
   }
 }
 
