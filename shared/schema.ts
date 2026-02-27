@@ -1006,6 +1006,22 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_calcom").on(table.calcomBusyBlockUid),
 ]);
 
+// Surgery Assistants - Join table linking surgeries to assistant surgeons
+export const surgeryAssistants = pgTable("surgery_assistants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  calcomBusyBlockUid: varchar("calcom_busy_block_uid"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_assistants_surgery").on(table.surgeryId),
+  index("idx_surgery_assistants_user").on(table.userId),
+  unique("uq_surgery_assistant").on(table.surgeryId, table.userId),
+]);
+
+export type SurgeryAssistant = typeof surgeryAssistants.$inferSelect;
+export type InsertSurgeryAssistant = typeof surgeryAssistants.$inferInsert;
+
 // Surgery Notes - Multiple notes per surgery with author tracking
 export const surgeryNotes = pgTable("surgery_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
