@@ -2608,8 +2608,8 @@ router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, requireStri
     if (!startDate || !endDate) {
       return res.status(400).json({ message: "startDate and endDate are required" });
     }
-    
-    const { surgeries, patients: patientsTable } = await import("@shared/schema");
+
+    const { surgeries, patients: patientsTable, surgeryAssistants } = await import("@shared/schema");
     
     const start = new Date(startDate as string);
     start.setHours(0, 0, 0, 0);
@@ -2665,23 +2665,32 @@ router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, requireStri
       });
     }
     
-    // Enrich result with surgeon names
-    const enrichedResult = result.map(surgery => {
-      if (surgery.surgeonId && surgeonMap.has(surgery.surgeonId)) {
-        const surgeon = surgeonMap.get(surgery.surgeonId)!;
-        return {
-          ...surgery,
-          surgeonFirstName: surgeon.firstName,
-          surgeonLastName: surgeon.lastName,
-        };
+    // Fetch assistants for all surgeries in one query
+    const surgeryIds = result.map(s => s.id);
+    let assistantsBySurgery = new Map<string, { userId: string }[]>();
+    if (surgeryIds.length > 0) {
+      const assistantRows = await db
+        .select({ surgeryId: surgeryAssistants.surgeryId, userId: surgeryAssistants.userId })
+        .from(surgeryAssistants)
+        .where(inArray(surgeryAssistants.surgeryId, surgeryIds));
+      for (const row of assistantRows) {
+        const list = assistantsBySurgery.get(row.surgeryId) ?? [];
+        list.push({ userId: row.userId });
+        assistantsBySurgery.set(row.surgeryId, list);
       }
+    }
+
+    // Enrich result with surgeon names and assistants
+    const enrichedResult = result.map(surgery => {
+      const surgeonInfo = surgery.surgeonId ? surgeonMap.get(surgery.surgeonId) : undefined;
       return {
         ...surgery,
-        surgeonFirstName: null,
-        surgeonLastName: null,
+        surgeonFirstName: surgeonInfo?.firstName ?? null,
+        surgeonLastName: surgeonInfo?.lastName ?? null,
+        assistants: assistantsBySurgery.get(surgery.id) ?? [],
       };
     });
-    
+
     res.json(enrichedResult);
   } catch (error) {
     logger.error("Error fetching all surgeries:", error);

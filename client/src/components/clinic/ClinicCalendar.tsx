@@ -287,6 +287,7 @@ export default function ClinicCalendar({
   interface AllSurgery extends ProviderSurgery {
     surgeonFirstName: string | null;
     surgeonLastName: string | null;
+    assistants: { userId: string }[];
   }
   
   const { data: allSurgeries = [] } = useQuery<AllSurgery[]>({
@@ -326,11 +327,12 @@ export default function ClinicCalendar({
 
   const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < providers.length;
 
-  // Filter surgeries based on selected providers (only bookable providers)
+  // Filter surgeries based on selected providers (main surgeon OR assistant)
   const providerSurgeries = useMemo(() => {
     const selectedIds = selectedProviderIds.size > 0 ? selectedProviderIds : new Set(providers.map(p => p.id));
     return allSurgeries.filter(surgery => {
-      return surgery.surgeonId && selectedIds.has(surgery.surgeonId);
+      if (surgery.surgeonId && selectedIds.has(surgery.surgeonId)) return true;
+      return (surgery.assistants ?? []).some(a => selectedIds.has(a.userId));
     });
   }, [allSurgeries, selectedProviderIds, providers]);
 
@@ -491,11 +493,13 @@ export default function ClinicCalendar({
     const slotStart = date.getTime();
     const slotEnd = slotStart + 15 * 60 * 1000; // 15-minute slots
 
-    // Check surgeries
+    // Check surgeries — provider may be main surgeon or assistant
     const hasSurgery = providerSurgeries.some(surgery => {
-      if (surgery.surgeonId !== providerId) return false;
+      const isInvolved = surgery.surgeonId === providerId ||
+        (surgery.assistants ?? []).some(a => a.userId === providerId);
+      if (!isInvolved) return false;
       const surgeryStart = new Date(surgery.plannedDate).getTime();
-      const surgeryEnd = surgery.actualEndTime 
+      const surgeryEnd = surgery.actualEndTime
         ? new Date(surgery.actualEndTime).getTime()
         : surgeryStart + 2 * 60 * 60 * 1000;
       return slotStart < surgeryEnd && slotEnd > surgeryStart;
@@ -703,31 +707,31 @@ export default function ClinicCalendar({
     });
 
     // Surgery block events (gray, non-editable)
-    // Only include surgeries where surgeonId is a bookable provider
+    // Create one block per involved provider (main surgeon + assistants)
     const providerIdSet = new Set(filteredProviders.map(p => p.id));
-    const surgeryBlockEvents = providerSurgeries
-      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
-      .map((surgery) => {
-        const patientName = surgery.patientSurname && surgery.patientFirstName
-          ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
-          : t('appointments.patient', 'Patient');
+    const surgeryBlockEvents: CalendarEvent[] = [];
+    for (const surgery of providerSurgeries) {
+      const patientName = surgery.patientSurname && surgery.patientFirstName
+        ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
+        : t('appointments.patient', 'Patient');
 
-        const start = new Date(surgery.plannedDate);
+      const start = new Date(surgery.plannedDate);
+      const end = surgery.actualEndTime
+        ? new Date(surgery.actualEndTime)
+        : new Date(start.getTime() + 2 * 60 * 60 * 1000);
 
-        // Calculate end time: use actualEndTime if available, otherwise default to 2 hours
-        let end: Date;
-        if (surgery.actualEndTime) {
-          end = new Date(surgery.actualEndTime);
-        } else {
-          end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
-        }
+      const involvedIds = [
+        surgery.surgeonId,
+        ...(surgery.assistants ?? []).map(a => a.userId),
+      ].filter((id): id is string => !!id && providerIdSet.has(id));
 
-        return {
-          id: `surgery-${surgery.id}`,
+      for (const pid of involvedIds) {
+        surgeryBlockEvents.push({
+          id: `surgery-${surgery.id}-${pid}`,
           title: surgery.plannedSurgery || t('appointments.surgery', 'Surgery'),
           start,
           end,
-          resource: surgery.surgeonId!,
+          resource: pid,
           appointmentId: surgery.id,
           patientId: surgery.patientId,
           patientName,
@@ -736,8 +740,9 @@ export default function ClinicCalendar({
           notes: null,
           isSurgeryBlock: true,
           surgeryName: surgery.plannedSurgery,
-        };
-      });
+        });
+      }
+    }
 
     // Absence block events (colored by type, non-editable)
     // Only include absences where providerId is in the filtered providers list

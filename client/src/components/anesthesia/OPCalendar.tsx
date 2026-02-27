@@ -1138,9 +1138,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
               {event.patientName}
               {event.patientBirthday && ` ${event.patientBirthday}`}
             </div>
-            {event.assistantNames && event.assistantNames.length > 0 && (
+            {event.surgeonName && (
               <div className="text-[10px] sm:text-xs leading-tight truncate opacity-80">
-                +{event.assistantNames.join(', ')}
+                {event.surgeonName}
               </div>
             )}
             {!event.isCancelled && !event.isSuspended && (
