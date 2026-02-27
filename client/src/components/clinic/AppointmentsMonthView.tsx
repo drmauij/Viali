@@ -382,6 +382,7 @@ export default function AppointmentsMonthView({
                           handleDragStart(provider.id, dayIdx);
                         }
                       }}
+                      onContextMenu={(e) => e.preventDefault()}
                       title={tooltip}
                       data-provider-id={provider.id}
                       data-day-idx={String(dayIdx)}

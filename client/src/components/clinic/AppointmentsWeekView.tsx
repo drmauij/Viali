@@ -364,6 +364,7 @@ export default function AppointmentsWeekView({
                         handleDragStart(provider.id, dayIdx);
                       }
                     }}
+                    onContextMenu={(e) => e.preventDefault()}
                     data-provider-id={provider.id}
                     data-day-idx={String(dayIdx)}
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
