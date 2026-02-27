@@ -21,6 +21,7 @@ import {
   patients,
   cases,
   surgeries,
+  surgeryAssistants,
   surgeryNotes,
   patientNotes,
   noteAttachments,
@@ -143,6 +144,17 @@ import {
   type DischargeMedicationTemplateItem,
 } from "@shared/schema";
 import logger from "../logger";
+
+// ========== SURGERY ASSISTANT TYPES ==========
+
+export type AssistantInfo = {
+  id: string;
+  userId: string;
+  name: string;
+  calcomBusyBlockUid: string | null;
+};
+
+export type SurgeryWithAssistants = Surgery & { assistants: AssistantInfo[] };
 
 // ========== HOSPITAL ANESTHESIA SETTINGS ==========
 
@@ -348,16 +360,16 @@ export async function getSurgeries(hospitalId: string, filters?: {
   dateFrom?: Date;
   dateTo?: Date;
   includeArchived?: boolean;
-}): Promise<Surgery[]> {
+}): Promise<SurgeryWithAssistants[]> {
   const conditions = [
     eq(surgeries.hospitalId, hospitalId),
     or(isNull(surgeries.patientId), isNull(patients.deletedAt))
   ];
-  
+
   if (!filters?.includeArchived) {
     conditions.push(eq(surgeries.isArchived, false));
   }
-  
+
   if (filters?.caseId) conditions.push(eq(surgeries.caseId, filters.caseId));
   if (filters?.patientId) conditions.push(eq(surgeries.patientId, filters.patientId));
   if (filters?.status) conditions.push(sql`${surgeries.status} = ${filters.status}`);
@@ -371,13 +383,59 @@ export async function getSurgeries(hospitalId: string, filters?: {
     .leftJoin(patients, eq(surgeries.patientId, patients.id))
     .where(and(...conditions))
     .orderBy(desc(surgeries.plannedDate));
-  
-  return result.map(r => r.surgery);
+
+  const surgeryList = result.map(r => r.surgery);
+
+  const surgeryIds = surgeryList.map(s => s.id);
+  const assistantsBySurgery = new Map<string, AssistantInfo[]>();
+  if (surgeryIds.length > 0) {
+    const allAssistants = await db
+      .select({
+        id: surgeryAssistants.id,
+        surgeryId: surgeryAssistants.surgeryId,
+        userId: surgeryAssistants.userId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        calcomBusyBlockUid: surgeryAssistants.calcomBusyBlockUid,
+      })
+      .from(surgeryAssistants)
+      .innerJoin(users, eq(surgeryAssistants.userId, users.id))
+      .where(inArray(surgeryAssistants.surgeryId, surgeryIds));
+    for (const a of allAssistants) {
+      const name = [a.firstName, a.lastName].filter(Boolean).join(' ') || a.userId;
+      const list = assistantsBySurgery.get(a.surgeryId) ?? [];
+      list.push({ id: a.id, userId: a.userId, name, calcomBusyBlockUid: a.calcomBusyBlockUid });
+      assistantsBySurgery.set(a.surgeryId, list);
+    }
+  }
+  return surgeryList.map(s => ({ ...s, assistants: assistantsBySurgery.get(s.id) ?? [] }));
 }
 
-export async function getSurgery(id: string): Promise<Surgery | undefined> {
+export async function getSurgeryAssistants(surgeryId: string): Promise<AssistantInfo[]> {
+  const results = await db
+    .select({
+      id: surgeryAssistants.id,
+      userId: surgeryAssistants.userId,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      calcomBusyBlockUid: surgeryAssistants.calcomBusyBlockUid,
+    })
+    .from(surgeryAssistants)
+    .innerJoin(users, eq(surgeryAssistants.userId, users.id))
+    .where(eq(surgeryAssistants.surgeryId, surgeryId));
+  return results.map(r => ({
+    id: r.id,
+    userId: r.userId,
+    name: [r.firstName, r.lastName].filter(Boolean).join(' ') || r.userId,
+    calcomBusyBlockUid: r.calcomBusyBlockUid,
+  }));
+}
+
+export async function getSurgery(id: string): Promise<SurgeryWithAssistants | undefined> {
   const [surgery] = await db.select().from(surgeries).where(eq(surgeries.id, id));
-  return surgery;
+  if (!surgery) return undefined;
+  const assistants = await getSurgeryAssistants(id);
+  return { ...surgery, assistants };
 }
 
 export async function createSurgery(surgery: InsertSurgery): Promise<Surgery> {
