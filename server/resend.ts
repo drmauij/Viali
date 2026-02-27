@@ -371,6 +371,90 @@ export async function sendExternalSurgeryRequestNotification(
   }
 }
 
+export async function sendExternalSurgeryDeclineNotification(
+  toEmail: string,
+  surgeonName: string,
+  hospitalName: string,
+  patientName: string,
+  surgeryName: string,
+  wishedDate: string,
+  declineReason?: string,
+  language: 'de' | 'en' = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `OP-Anfrage abgelehnt: ${patientName} – ${surgeryName}`
+      : `Surgery Request Declined: ${patientName} – ${surgeryName}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? 'OP-Anfrage abgelehnt' : 'Surgery Request Declined'}</h1>
+              <p style="margin: 0;">${hospitalName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Sehr geehrte/r Dr.' : 'Dear Dr.'} ${surgeonName},</p>
+              <p>${isGerman
+                ? `Ihre OP-Anfrage bei ${hospitalName} wurde leider abgelehnt.`
+                : `Your surgery request at ${hospitalName} has been declined.`}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+                <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryName}</p>
+                <p><strong>${isGerman ? 'Gewünschtes Datum' : 'Requested Date'}:</strong> ${wishedDate}</p>
+                ${declineReason ? `<p><strong>${isGerman ? 'Begründung' : 'Reason'}:</strong> ${declineReason}</p>` : ''}
+              </div>
+
+              <p>${isGerman
+                ? 'Bitte kontaktieren Sie uns für weitere Informationen oder um eine neue Anfrage einzureichen.'
+                : 'Please contact us for more information or to submit a new request.'}</p>
+              <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br>${hospitalName}</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send external surgery decline notification:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent external surgery decline notification to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending external surgery decline notification:', error);
+    return { success: false, error };
+  }
+}
+
 export interface StockAlertItem {
   itemName: string;
   currentUnits: number;

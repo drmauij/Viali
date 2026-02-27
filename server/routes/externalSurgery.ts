@@ -9,7 +9,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
-import { sendExternalSurgeryRequestNotification } from "../resend";
+import { sendExternalSurgeryRequestNotification, sendExternalSurgeryDeclineNotification } from "../resend";
 import { Resend } from "resend";
 import { db } from "../db";
 import { users, userHospitalRoles, units } from "@shared/schema";
@@ -432,8 +432,50 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
     if (declineReason !== undefined) updates.declineReason = declineReason;
     
     const updated = await storage.updateExternalSurgeryRequest(id, updates);
-    
+
     res.json(updated);
+
+    // Send decline notification after responding (fire-and-forget)
+    if (status === 'declined' && request.status !== 'declined') {
+      (async () => {
+        try {
+          const hospital = await storage.getHospital(request.hospitalId);
+          const lang = (hospital?.defaultLanguage as 'de' | 'en') || 'de';
+          const isGerman = lang === 'de';
+          const surgeonName = request.surgeonLastName;
+          const patientName = request.isReservationOnly
+            ? (isGerman ? 'Slot-Reservierung' : 'Slot Reservation')
+            : `${request.patientLastName}, ${request.patientFirstName}`;
+          const surgeryName = request.surgeryName || (isGerman ? 'Slot-Reservierung' : 'Slot Reservation');
+          const wishedDate = request.wishedDate || '';
+          const hospitalName = hospital?.name || '';
+
+          let emailSent = false;
+          if (request.surgeonEmail) {
+            const result = await sendExternalSurgeryDeclineNotification(
+              request.surgeonEmail,
+              surgeonName,
+              hospitalName,
+              patientName,
+              surgeryName,
+              wishedDate,
+              updates.declineReason || request.declineReason || undefined,
+              lang
+            );
+            emailSent = result.success;
+          }
+
+          if (!emailSent && request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
+            const smsText = isGerman
+              ? `Ihre OP-Anfrage bei ${hospitalName} (${patientName}, ${surgeryName}) wurde leider abgelehnt.${updates.declineReason ? ` Begründung: ${updates.declineReason}` : ''}`
+              : `Your surgery request at ${hospitalName} (${patientName}, ${surgeryName}) has been declined.${updates.declineReason ? ` Reason: ${updates.declineReason}` : ''}`;
+            await sendSms(request.surgeonPhone, smsText, request.hospitalId);
+          }
+        } catch (err) {
+          logger.error('[ExternalSurgery] Error sending decline notification:', err);
+        }
+      })();
+    }
   } catch (error) {
     logger.error("Error updating request:", error);
     res.status(500).json({ message: "Failed to update request" });

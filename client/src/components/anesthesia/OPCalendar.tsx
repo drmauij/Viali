@@ -28,6 +28,7 @@ import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
 import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
 import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
+import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -100,6 +101,9 @@ type ViewType = "day" | "week" | "month";
 interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string | null) => void;
   onEditSurgery?: (surgeryId: string) => void;
+  onDropFromOutside?: (info: { start: Date; end: Date; resource?: string }) => void;
+  tapSelectedRequest?: import("@shared/schema").ExternalSurgeryRequest | null;
+  onTapSlotWithSelection?: (info: { start: Date; resource?: string }) => void;
 }
 
 interface RoomStaffAssignment {
@@ -233,7 +237,7 @@ function DroppableRoomHeader({
   );
 }
 
-export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarProps) {
+export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
   // Set moment locale based on i18n language and create localizer
@@ -948,6 +952,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
 
   // Handle time slot selection (for quick create)
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
+    // Touch tap-to-place: if a request is tap-selected, use this click to place it
+    if (tapSelectedRequest && slotInfo.action === 'click') {
+      onTapSlotWithSelection?.({ start: slotInfo.start, resource: slotInfo.resourceId as string });
+      return;
+    }
     if (!canPlanSurgery) return;
     // Only open quick create for actual time range selections, not when clicking/dragging events
     // SlotInfo.action can be 'select', 'click', or 'doubleClick'
@@ -960,7 +969,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
       });
       setQuickCreateOpen(true);
     }
-  }, [currentView, canPlanSurgery]);
+  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection]);
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
@@ -1570,7 +1579,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
                   />
                 ),
               }}
-              selectable={canPlanSurgery}
+              selectable={canPlanSurgery || !!tapSelectedRequest}
               resizable={canPlanSurgery}
               step={10}
               timeslots={6}
@@ -1579,6 +1588,25 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
               style={{ minHeight: '600px' }}
               popup
               data-testid="calendar-main"
+              dragFromOutsideItem={() => {
+                if (!draggedRequest) return undefined as unknown as CalendarEvent;
+                return {
+                  id: 'ext-req',
+                  title: draggedRequest.surgeryName || 'Request',
+                  start: new Date(),
+                  end: new Date(),
+                  surgeryId: 'ext-req',
+                  patientId: null,
+                  plannedSurgery: draggedRequest.surgeryName || '',
+                  patientName: '',
+                  patientBirthday: '',
+                  isCancelled: false,
+                  isSuspended: false,
+                } as CalendarEvent;
+              }}
+              onDropFromOutside={onDropFromOutside ? ({ start, end, resource }) =>
+                onDropFromOutside({ start: new Date(start), end: new Date(end), resource: resource as string | undefined })
+              : undefined}
             />
           )}
           </div>

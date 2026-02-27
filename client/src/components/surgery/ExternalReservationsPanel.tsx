@@ -5,7 +5,7 @@ import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surger
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
@@ -14,55 +14,56 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Calendar, 
-  Phone, 
-  Mail, 
-  User, 
-  Clock, 
-  Stethoscope,
+import {
+  Calendar,
+  Phone,
+  Mail,
+  Clock,
   FileText,
   Check,
   X,
   Loader2,
   ExternalLink
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateLong } from "@/lib/dateUtils";
+import { formatDateLong, formatDate } from "@/lib/dateUtils";
+import { setDraggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import type { ExternalSurgeryRequest } from "@shared/schema";
 
-interface SurgeryRoom {
+export interface SurgeryRoom {
   id: string;
   name: string;
 }
 
-interface ScheduleDialogProps {
+export interface ScheduleDialogProps {
   request: ExternalSurgeryRequest;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onScheduled: () => void;
   surgeryRooms: SurgeryRoom[];
+  initialDate?: string;
+  initialTime?: string;
+  initialRoomId?: string;
 }
 
-function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms }: ScheduleDialogProps) {
+export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms, initialDate, initialTime, initialRoomId }: ScheduleDialogProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const isGerman = i18n.language === 'de';
-  
-  const [plannedDate, setPlannedDate] = useState(request.wishedDate);
-  const [plannedTime, setPlannedTime] = useState("08:00");
-  const [surgeryRoomId, setSurgeryRoomId] = useState<string>("");
+
+  const [plannedDate, setPlannedDate] = useState(initialDate ?? request.wishedDate);
+  const [plannedTime, setPlannedTime] = useState(initialTime ?? "08:00");
+  const [surgeryRoomId, setSurgeryRoomId] = useState<string>(initialRoomId ?? "");
   const [sendConfirmation, setSendConfirmation] = useState(true);
 
   useEffect(() => {
-    if (request.wishedDate) {
-      setPlannedDate(request.wishedDate);
-      setPlannedTime("08:00");
-      setSurgeryRoomId("");
-    }
-  }, [request.id, request.wishedDate]);
+    setPlannedDate(initialDate ?? request.wishedDate);
+    setPlannedTime(initialTime ?? "08:00");
+    setSurgeryRoomId(initialRoomId ?? "");
+  }, [request.id, request.wishedDate, initialDate, initialTime, initialRoomId]);
 
   const scheduleMutation = useMutation({
     mutationFn: async () => {
@@ -98,7 +99,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
             {t('surgery.externalRequests.scheduleSurgery')}
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           {/* Patient Info or Slot Reservation banner */}
           {request.isReservationOnly ? (
@@ -223,7 +224,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-schedule-cancel">
             {t('common.cancel')}
           </Button>
-          <Button data-testid="button-schedule-confirm" 
+          <Button data-testid="button-schedule-confirm"
             onClick={() => scheduleMutation.mutate()}
             disabled={!plannedDate || (surgeryRooms.length > 0 && !surgeryRoomId) || scheduleMutation.isPending}
           >
@@ -239,9 +240,22 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
 interface ExternalReservationsPanelProps {
   trigger?: React.ReactNode;
   defaultOpen?: boolean;
+  mode?: "sheet" | "inline";
+  surgeryRooms?: SurgeryRoom[];
+  onScheduleRequest?: (request: ExternalSurgeryRequest) => void;
+  selectedRequestId?: string | null;
+  onRequestTap?: (request: ExternalSurgeryRequest | null) => void;
 }
 
-export function ExternalReservationsPanel({ trigger, defaultOpen = false }: ExternalReservationsPanelProps) {
+export function ExternalReservationsPanel({
+  trigger,
+  defaultOpen = false,
+  mode = "sheet",
+  surgeryRooms: surgeryRoomsProp,
+  onScheduleRequest,
+  selectedRequestId,
+  onRequestTap,
+}: ExternalReservationsPanelProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
@@ -254,13 +268,15 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
 
   const { data: requests = [], isLoading, refetch } = useQuery<ExternalSurgeryRequest[]>({
     queryKey: [`/api/hospitals/${hospitalId}/external-surgery-requests?status=pending`],
-    enabled: !!hospitalId && open,
+    enabled: !!hospitalId && (mode === 'inline' || open),
   });
 
-  const { data: surgeryRooms = [] } = useQuery<SurgeryRoom[]>({
+  const { data: internalSurgeryRooms = [] } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms?hospitalId=${hospitalId}`],
-    enabled: !!hospitalId,
+    enabled: !!hospitalId && !surgeryRoomsProp,
   });
+
+  const surgeryRooms = surgeryRoomsProp ?? internalSurgeryRooms;
 
   const declineMutation = useMutation({
     mutationFn: async (requestId: string) => {
@@ -272,22 +288,26 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
         description: t('surgery.externalRequests.declinedDesc'),
       });
       refetch();
-      queryClient.invalidateQueries({ predicate: (query) => 
-        typeof query.queryKey[0] === 'string' && 
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
         query.queryKey[0].includes('external-surgery-requests')
       });
     },
   });
 
   const handleSchedule = (request: ExternalSurgeryRequest) => {
-    setSelectedRequest(request);
-    setScheduleDialogOpen(true);
+    if (mode === 'inline' && onScheduleRequest) {
+      onScheduleRequest(request);
+    } else {
+      setSelectedRequest(request);
+      setScheduleDialogOpen(true);
+    }
   };
 
   const handleScheduled = () => {
     refetch();
-    queryClient.invalidateQueries({ predicate: (query) => 
-      typeof query.queryKey[0] === 'string' && 
+    queryClient.invalidateQueries({ predicate: (query) =>
+      typeof query.queryKey[0] === 'string' &&
       query.queryKey[0].includes('external-surgery-requests')
     });
     queryClient.invalidateQueries({ queryKey: ['/api/surgeries'] });
@@ -296,6 +316,198 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
   const formatWishedDate = (dateStr: string) => {
     return formatDateLong(dateStr);
   };
+
+  const cardList = (
+    <div className={mode === 'inline' ? "space-y-3" : "mt-6 space-y-4"}>
+      {mode === 'inline' && selectedRequestId && (
+        <div className="p-2 bg-primary/10 border-b text-xs text-primary flex justify-between items-center">
+          <span>{t('surgery.externalRequests.tapSlotToSchedule', 'Tap a calendar slot to schedule')}</span>
+          <button onClick={() => onRequestTap?.(null)} className="ml-2 p-0.5 rounded hover:bg-primary/20">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>{t('surgery.externalRequests.noPendingRequests')}</p>
+        </div>
+      ) : (
+        requests.map((request: ExternalSurgeryRequest & { documents?: any[] }) => {
+          const isSelected = selectedRequestId === request.id;
+          return (
+            <Card
+              key={request.id}
+              className={cn(
+                "shadow-sm",
+                mode === 'inline' && "cursor-grab active:cursor-grabbing select-none",
+                isSelected && "ring-2 ring-primary ring-offset-1"
+              )}
+              draggable={mode === 'inline'}
+              onDragStart={mode === 'inline' ? (e) => {
+                setDraggedRequest(request);
+                e.dataTransfer.setData('text/plain', request.id);
+                e.dataTransfer.effectAllowed = 'move';
+              } : undefined}
+              onDragEnd={mode === 'inline' ? () => setDraggedRequest(null) : undefined}
+              onClick={mode === 'inline' ? () => onRequestTap?.(request) : undefined}
+            >
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    {request.isReservationOnly ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-lg text-violet-700 dark:text-violet-300">
+                            {t('opCalendar.slotReserved', 'SLOT RESERVED')}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Dr. {request.surgeonLastName}, {request.surgeonFirstName}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-lg">
+                          {request.patientLastName}, {request.patientFirstName}
+                        </p>
+                        {request.patientBirthday && (
+                          <p className="text-xs text-muted-foreground">
+                            *{formatDate(request.patientBirthday)}
+                          </p>
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {request.surgeryName}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  {request.isReservationOnly && (
+                    <Badge variant="outline" className="border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {request.surgeryDurationMinutes} min
+                    </Badge>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{formatWishedDate(request.wishedDate)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>{request.surgeryDurationMinutes} min</span>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-2 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                    {t('surgery.externalRequests.surgeon')}
+                  </p>
+                  <p className="text-sm font-medium">
+                    Dr. {request.surgeonLastName}, {request.surgeonFirstName}
+                  </p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {request.surgeonPhone}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {request.surgeonEmail}
+                    </span>
+                  </div>
+                </div>
+
+                {request.surgeryNotes && (
+                  <div className="text-sm">
+                    <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                      {t('surgery.externalRequests.notes')}
+                    </p>
+                    <p className="text-muted-foreground">{request.surgeryNotes}</p>
+                  </div>
+                )}
+
+                {request.documents && request.documents.length > 0 && (
+                  <div className="text-sm">
+                    <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                      {t('surgery.externalRequests.documents')} ({request.documents.length})
+                    </p>
+                    <div className="space-y-1">
+                      {request.documents.map((doc: { id: string; fileName: string; fileUrl: string }) => (
+                        <a
+                          key={doc.id}
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline"
+                          data-testid={`document-link-${doc.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText className="h-3 w-3" />
+                          {doc.fileName}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleSchedule(request)}
+                  >
+                    <Check className="mr-1 h-4 w-4" />
+                    {t('surgery.externalRequests.schedule')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={() => declineMutation.mutate(request.id)}
+                    disabled={declineMutation.isPending}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    {t('surgery.externalRequests.decline')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
+    </div>
+  );
+
+  if (mode === 'inline') {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 py-3 border-b flex items-center gap-2 shrink-0">
+          <Calendar className="h-5 w-5" />
+          <span className="font-semibold text-sm">
+            {t('surgery.externalRequests.externalSurgeryRequests')}
+          </span>
+          {requests.length > 0 && (
+            <Badge variant="destructive" className="ml-auto">
+              {requests.length}
+            </Badge>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-2">
+          {cardList}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -320,149 +532,7 @@ export function ExternalReservationsPanel({ trigger, defaultOpen = false }: Exte
               )}
             </SheetTitle>
           </SheetHeader>
-
-          <div className="mt-6 space-y-4">
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : requests.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>{t('surgery.externalRequests.noPendingRequests')}</p>
-              </div>
-            ) : (
-              requests.map((request: ExternalSurgeryRequest & { documents?: any[] }) => (
-                <Card key={request.id} className="shadow-sm">
-                  <CardContent className="pt-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        {request.isReservationOnly ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-lg text-violet-700 dark:text-violet-300">
-                                {t('opCalendar.slotReserved', 'SLOT RESERVED')}
-                              </p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Dr. {request.surgeonLastName}, {request.surgeonFirstName}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-semibold text-lg">
-                              {request.patientLastName}, {request.patientFirstName}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {request.surgeryName}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      {request.isReservationOnly ? (
-                        <Badge variant="outline" className="border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {request.surgeryDurationMinutes} min
-                        </Badge>
-                      ) : (
-                        <Badge variant={request.withAnesthesia ? "default" : "secondary"}>
-                          {request.withAnesthesia
-                            ? t('surgery.externalRequests.withAnesthesia')
-                            : t('surgery.externalRequests.noAnesthesia')}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <Separator />
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{formatWishedDate(request.wishedDate)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{request.surgeryDurationMinutes} min</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-muted/50 rounded-lg p-2 space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase">
-                        {t('surgery.externalRequests.surgeon')}
-                      </p>
-                      <p className="text-sm font-medium">
-                        Dr. {request.surgeonLastName}, {request.surgeonFirstName}
-                      </p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {request.surgeonPhone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {request.surgeonEmail}
-                        </span>
-                      </div>
-                    </div>
-
-                    {request.surgeryNotes && (
-                      <div className="text-sm">
-                        <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
-                          {t('surgery.externalRequests.notes')}
-                        </p>
-                        <p className="text-muted-foreground">{request.surgeryNotes}</p>
-                      </div>
-                    )}
-
-                    {request.documents && request.documents.length > 0 && (
-                      <div className="text-sm">
-                        <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
-                          {t('surgery.externalRequests.documents')} ({request.documents.length})
-                        </p>
-                        <div className="space-y-1">
-                          {request.documents.map((doc: { id: string; fileName: string; fileUrl: string }) => (
-                            <a 
-                              key={doc.id}
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-primary hover:underline"
-                              data-testid={`document-link-${doc.id}`}
-                            >
-                              <FileText className="h-3 w-3" />
-                              {doc.fileName}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-2">
-                      <Button 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleSchedule(request)}
-                      >
-                        <Check className="mr-1 h-4 w-4" />
-                        {t('surgery.externalRequests.schedule')}
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => declineMutation.mutate(request.id)}
-                        disabled={declineMutation.isPending}
-                      >
-                        <X className="mr-1 h-4 w-4" />
-                        {t('surgery.externalRequests.decline')}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+          {cardList}
         </SheetContent>
       </Sheet>
 

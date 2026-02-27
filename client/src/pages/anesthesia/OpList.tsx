@@ -1,21 +1,27 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
-import { ExternalReservationsPanel, ExternalRequestsBadge } from "@/components/surgery/ExternalReservationsPanel";
+import { ExternalReservationsPanel, ExternalRequestsBadge, ScheduleDialog } from "@/components/surgery/ExternalReservationsPanel";
+import type { SurgeryRoom } from "@/components/surgery/ExternalReservationsPanel";
 import { cn } from "@/lib/utils";
 import { useModule } from "@/contexts/ModuleContext";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
-import type { Surgery } from "@shared/schema";
+import { draggedRequest, setDraggedRequest } from "@/components/surgery/useExternalRequestDrag";
+import type { Surgery, ExternalSurgeryRequest } from "@shared/schema";
 
 const preloadOp = () => import("@/pages/anesthesia/Op");
 
@@ -61,6 +67,7 @@ export default function OpList() {
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
   const activeHospital = useActiveHospital();
+  const isMobile = useIsMobile();
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && activeHospital?.role === 'admin';
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -68,7 +75,7 @@ export default function OpList() {
     const params = new URLSearchParams(window.location.search);
     return params.get('openRequests') === 'true';
   });
-  
+
   // Initialize viewMode from sessionStorage to persist across navigation
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = sessionStorage.getItem(VIEW_MODE_KEY);
@@ -79,6 +86,20 @@ export default function OpList() {
     return (saved === "current" || saved === "past") ? saved : "current";
   });
   const [isCompactView, setIsCompactView] = useState(true);
+
+  // Split panel state (desktop only)
+  const [requestsPanelOpen, setRequestsPanelOpen] = useState(openRequestsFromUrl);
+  const [tapSelectedRequest, setTapSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
+  const [inlineSelectedRequest, setInlineSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleDropData, setScheduleDropData] = useState<{ date: string; time: string; roomId?: string } | null>(null);
+
+  // Surgery rooms query (hoisted from ExternalReservationsPanel to avoid double-fetching)
+  const hospitalId = activeHospital?.id;
+  const { data: surgeryRooms = [] } = useQuery<SurgeryRoom[]>({
+    queryKey: [`/api/surgery-rooms/${hospitalId}`],
+    enabled: !!hospitalId && showExternalRequests,
+  });
 
   // Preload the Op (Anesthesia Record) chunk so it opens instantly
   useEffect(() => {
@@ -176,7 +197,7 @@ export default function OpList() {
     // Use PACU path if X2 marker is set but P is not
     const modePath = usePacuMode ? 'pacu' : 'op';
     // Include recordId in URL if specified (for opening specific record when duplicates exist)
-    const url = recordIdToUse 
+    const url = recordIdToUse
       ? `/anesthesia/${modePath}/${surgeryIdToUse}?recordId=${recordIdToUse}`
       : `/anesthesia/${modePath}/${surgeryIdToUse}`;
     setLocation(url);
@@ -197,12 +218,12 @@ export default function OpList() {
 
   const handleOpenAnesthesia = async () => {
     if (!selectedSurgeryId || !selectedPatientId) return;
-    
+
     setIsCheckingDuplicates(true);
-    
+
     try {
       const records = await checkForDuplicateRecords(selectedSurgeryId);
-      
+
       if (records.length > 1) {
         // Multiple records found - show selection dialog
         setDuplicateRecords(records);
@@ -248,7 +269,7 @@ export default function OpList() {
     if (!selectedSurgeryId) return;
     const records = await checkForDuplicateRecords(selectedSurgeryId);
     setDuplicateRecords(records);
-    
+
     // If only one record remains, auto-close dialog and navigate
     if (records.length <= 1) {
       setDuplicatesDialogOpen(false);
@@ -299,12 +320,55 @@ export default function OpList() {
     }
   };
 
+  // Drop from outside: called by OPCalendar when a request card is dropped onto a slot
+  const handleDropFromOutside = useCallback(({ start, resource }: { start: Date; end: Date; resource?: string }) => {
+    const req = draggedRequest;
+    if (!req) return;
+    setInlineSelectedRequest(req);
+    setScheduleDropData({
+      date: format(start, 'yyyy-MM-dd'),
+      time: format(start, 'HH:mm'),
+      roomId: resource,
+    });
+    setScheduleDialogOpen(true);
+    setDraggedRequest(null);
+  }, []);
+
+  // Tap to place: called by OPCalendar when a slot is tapped while a request is selected
+  const handleTapSlotWithSelection = useCallback(({ start, resource }: { start: Date; resource?: string }) => {
+    if (!tapSelectedRequest) return;
+    setInlineSelectedRequest(tapSelectedRequest);
+    setScheduleDropData({
+      date: format(start, 'yyyy-MM-dd'),
+      time: format(start, 'HH:mm'),
+      roomId: resource,
+    });
+    setScheduleDialogOpen(true);
+    setTapSelectedRequest(null);
+  }, [tapSelectedRequest]);
+
+  // Show split panel when desktop + calendar + panel open
+  const showSplitPanel = !isMobile && viewMode === "calendar" && requestsPanelOpen && showExternalRequests;
+
+  const calendarElement = (
+    <OPCalendar
+      onEventClick={handleEventClick}
+      onEditSurgery={(surgeryId) => {
+        setSelectedSurgeryId(surgeryId);
+        setEditSurgeryOpen(true);
+      }}
+      onDropFromOutside={handleDropFromOutside}
+      tapSelectedRequest={tapSelectedRequest}
+      onTapSlotWithSelection={handleTapSlotWithSelection}
+    />
+  );
+
   return (
     <div className={cn(
       "container mx-auto px-0",
       viewMode === "table"
         ? "flex flex-col overflow-hidden"
-        : "py-6 pb-24"
+        : showSplitPanel ? "" : "py-6 pb-24"
     )} style={viewMode === "table" ? { height: 'calc(100dvh - 80px - 73px)' } : undefined}>
       {viewMode === "table" && isTouchDevice && (
         <style>{`
@@ -320,7 +384,8 @@ export default function OpList() {
       {/* Header */}
       <div className={cn(
         "px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4",
-        viewMode === "table" ? "shrink-0 py-4" : "mb-6"
+        viewMode === "table" ? "shrink-0 py-4" : "mb-6",
+        showSplitPanel && "py-4"
       )}>
         <div>
           <h1 className="text-2xl font-bold mb-2">{t('anesthesia.op.scheduleTitle')}</h1>
@@ -328,23 +393,39 @@ export default function OpList() {
             {t('anesthesia.op.scheduleSubtitle')}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {showExternalRequests && (
-            <ExternalReservationsPanel
-              defaultOpen={openRequestsFromUrl}
-              trigger={
-                <Button 
-                  variant="outline" 
-                  className="relative"
-                  data-testid="button-external-requests"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  {t('anesthesia.opList.requests')}
-                  <ExternalRequestsBadge />
-                </Button>
-              }
-            />
+            isMobile ? (
+              // Mobile: original Sheet behavior
+              <ExternalReservationsPanel
+                defaultOpen={openRequestsFromUrl}
+                surgeryRooms={surgeryRooms}
+                trigger={
+                  <Button
+                    variant="outline"
+                    className="relative"
+                    data-testid="button-external-requests"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {t('anesthesia.opList.requests')}
+                    <ExternalRequestsBadge />
+                  </Button>
+                }
+              />
+            ) : (
+              // Desktop: toggle split panel
+              <Button
+                variant={requestsPanelOpen ? "default" : "outline"}
+                className="relative"
+                data-testid="button-external-requests"
+                onClick={() => setRequestsPanelOpen(p => !p)}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {t('anesthesia.opList.requests')}
+                <ExternalRequestsBadge />
+              </Button>
+            )
           )}
 
           {/* View Toggle */}
@@ -376,15 +457,31 @@ export default function OpList() {
 
       {/* Calendar or Table View */}
       {viewMode === "calendar" ? (
-        <div>
-          <OPCalendar
-            onEventClick={handleEventClick}
-            onEditSurgery={(surgeryId) => {
-              setSelectedSurgeryId(surgeryId);
-              setEditSurgeryOpen(true);
-            }}
-          />
-        </div>
+        showSplitPanel ? (
+          <ResizablePanelGroup direction="horizontal" className="h-[calc(100dvh-10rem)]">
+            <ResizablePanel defaultSize={72} minSize={60}>
+              {calendarElement}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
+              <ExternalReservationsPanel
+                mode="inline"
+                surgeryRooms={surgeryRooms}
+                onScheduleRequest={(req) => {
+                  setInlineSelectedRequest(req);
+                  setScheduleDropData(null);
+                  setScheduleDialogOpen(true);
+                }}
+                selectedRequestId={tapSelectedRequest?.id ?? null}
+                onRequestTap={(req) => setTapSelectedRequest(p => p?.id === req?.id ? null : req)}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div>
+            {calendarElement}
+          </div>
+        )
       ) : (
         <div className="flex-1 min-h-0 px-4">
           <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)} className="h-full flex flex-col">
@@ -460,6 +557,24 @@ export default function OpList() {
             </TabsContent>
           </Tabs>
         </div>
+      )}
+
+      {/* Inline schedule dialog (for split panel / drag-and-drop) */}
+      {inlineSelectedRequest && (
+        <ScheduleDialog
+          request={inlineSelectedRequest}
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          onScheduled={() => {
+            setScheduleDialogOpen(false);
+            setInlineSelectedRequest(null);
+            setScheduleDropData(null);
+          }}
+          surgeryRooms={surgeryRooms}
+          initialDate={scheduleDropData?.date}
+          initialTime={scheduleDropData?.time}
+          initialRoomId={scheduleDropData?.roomId}
+        />
       )}
 
       {/* Surgery Summary Dialog */}
