@@ -206,7 +206,7 @@ export default function AppointmentsMonthView({
     if (!dragState || dragState.providerId !== providerId) return false;
     const minIdx = Math.min(dragState.startIdx, dragState.currentIdx);
     const maxIdx = Math.max(dragState.startIdx, dragState.currentIdx);
-    return dayIdx >= minIdx && dayIdx <= maxIdx && dragState.startIdx !== dragState.currentIdx;
+    return dayIdx >= minIdx && dayIdx <= maxIdx;
   }, [dragState]);
 
   const getAbsenceLabel = (type: string): string => {
