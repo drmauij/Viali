@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Surgery } from "@shared/schema";
 
+export type AssistantInfo = { id: string; userId: string; name: string; calcomBusyBlockUid: string | null };
+export type SurgeryWithAssistants = Surgery & { assistants: AssistantInfo[] };
+
 // ── Inline types (mirrored from PatientDetail.tsx) ──────────────────────────
 
 type Patient = {
@@ -255,7 +258,7 @@ export function usePatientQueries({
   });
 
   // Fetch surgeries for this patient
-  const surgeriesQuery = useQuery<Surgery[]>({
+  const surgeriesQuery = useQuery<SurgeryWithAssistants[]>({
     queryKey: [
       `/api/anesthesia/surgeries?hospitalId=${hospitalId}&patientId=${derivedPatientId}`,
     ],

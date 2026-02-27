@@ -26,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
+import type { SurgeryWithAssistants } from "./patientDetail/usePatientQueries";
 import { PREOP_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { DateInput } from "@/components/ui/date-input";
@@ -1349,7 +1350,7 @@ export default function PatientDetail() {
   };
 
   // Handle PDF download for a surgery - uses centralized PDF generation utility
-  const handleDownloadPDF = async (surgery: Surgery) => {
+  const handleDownloadPDF = async (surgery: SurgeryWithAssistants) => {
     if (!patient) {
       toast({
         title: "Cannot generate PDF",
@@ -2671,6 +2672,12 @@ export default function PatientDetail() {
                       ) : null;
                     })()}
                   </div>
+                  {surgery.assistants && surgery.assistants.length > 0 && (
+                    <div>
+                      <p className="text-muted-foreground">{t('anesthesia.surgery.assistants', 'Assistants')}</p>
+                      <p className="font-medium">{surgery.assistants.map((a: any) => a.name).join(', ')}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-muted-foreground">{t('anesthesia.patientDetail.room')}</p>
                     <p className="font-medium">
