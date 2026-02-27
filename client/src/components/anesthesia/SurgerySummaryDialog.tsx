@@ -555,6 +555,12 @@ export default function SurgerySummaryDialog({
                           <p className="text-sm mt-0.5 whitespace-pre-wrap" data-testid="text-summary-notes">{surgery.notes}</p>
                         </div>
                       )}
+                      {surgery.assistants && surgery.assistants.length > 0 && (
+                        <div className="text-sm mt-2 pt-2 border-t border-border/50">
+                          <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgery.assistants', 'Assistants')}</span>
+                          <p className="text-sm mt-0.5">{surgery.assistants.map((a: any) => a.name).join(', ')}</p>
+                        </div>
+                      )}
                       {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
                         <div className="mt-3 p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg" data-testid="text-summary-positioning">
                           <div className="flex items-center gap-1.5 mb-1.5">
