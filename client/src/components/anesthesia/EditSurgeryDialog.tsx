@@ -46,6 +46,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
+  const [assistantIds, setAssistantIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
@@ -204,6 +205,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setLeftArmPosition(surgery.leftArmPosition || "");
       setRightArmPosition(surgery.rightArmPosition || "");
       setSelectedPatientId(surgery.patientId || "");
+      setAssistantIds((surgery.assistants ?? []).map((a: any) => a.userId));
 
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -254,6 +256,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         patientPosition: patientPosition || null,
         leftArmPosition: leftArmPosition || null,
         rightArmPosition: rightArmPosition || null,
+        assistantIds,
       });
       return response.json();
     },
@@ -592,6 +595,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 hospitalId={surgery?.hospitalId || ""}
                 isSlotReservation={isSlotReservation}
                 isRoomBlock={isRoomBlock}
+                assistantIds={assistantIds}
+                onAssistantIdsChange={setAssistantIds}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
               />
