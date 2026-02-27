@@ -155,9 +155,9 @@ export default function AppointmentsWeekView({
     });
   }, []);
 
-  // Global mouseup to finalize or cancel drag
+  // Global mouseup/touchend to finalize or cancel drag
   useEffect(() => {
-    const handleMouseUp = () => {
+    const handleDragEnd = () => {
       const ds = dragStateRef.current;
       if (!ds) return;
       setDragState(null);
@@ -171,9 +171,30 @@ export default function AppointmentsWeekView({
         );
       }
     };
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [onDragSelectRange, weekDays]);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragStateRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cell = el?.closest('[data-provider-id][data-day-idx]') as HTMLElement | null;
+      if (!cell) return;
+      const providerId = cell.dataset.providerId;
+      const dayIdx = cell.dataset.dayIdx !== undefined ? parseInt(cell.dataset.dayIdx, 10) : NaN;
+      if (providerId && !isNaN(dayIdx)) {
+        handleDragEnter(providerId, dayIdx);
+      }
+    };
+    window.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('touchend', handleDragEnd);
+    window.addEventListener('touchcancel', handleDragEnd);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => {
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchend', handleDragEnd);
+      window.removeEventListener('touchcancel', handleDragEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [onDragSelectRange, weekDays, handleDragEnter]);
 
   const isDayInDragRange = useCallback((providerId: string, dayIdx: number) => {
     if (!dragState || dragState.providerId !== providerId) return false;
@@ -320,7 +341,7 @@ export default function AppointmentsWeekView({
                       absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
                       inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                     )}
-                    style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
+                    style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH, touchAction: onDragSelectRange ? 'none' : undefined }}
                     onClick={() => {
                       // Only fire click if there was no drag
                       if (!dragState && (!absence || absence.isPartial)) {
@@ -338,6 +359,13 @@ export default function AppointmentsWeekView({
                         handleDragEnter(provider.id, dayIdx);
                       }
                     }}
+                    onTouchStart={(e) => {
+                      if (onDragSelectRange) {
+                        handleDragStart(provider.id, dayIdx);
+                      }
+                    }}
+                    data-provider-id={provider.id}
+                    data-day-idx={String(dayIdx)}
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
                     {/* Saal toggle in top-right corner — always visible */}

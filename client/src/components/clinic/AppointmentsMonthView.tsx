@@ -161,9 +161,9 @@ export default function AppointmentsMonthView({
     });
   }, []);
 
-  // Global mouseup to finalize or cancel drag
+  // Global mouseup/touchend to finalize or cancel drag
   useEffect(() => {
-    const handleMouseUp = () => {
+    const handleDragEnd = () => {
       const ds = dragStateRef.current;
       if (!ds) return;
       setDragState(null);
@@ -177,9 +177,30 @@ export default function AppointmentsMonthView({
         );
       }
     };
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [onDragSelectRange, weekdays]);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragStateRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cell = el?.closest('[data-provider-id][data-day-idx]') as HTMLElement | null;
+      if (!cell) return;
+      const providerId = cell.dataset.providerId;
+      const dayIdx = cell.dataset.dayIdx !== undefined ? parseInt(cell.dataset.dayIdx, 10) : NaN;
+      if (providerId && !isNaN(dayIdx)) {
+        handleDragEnter(providerId, dayIdx);
+      }
+    };
+    window.addEventListener('mouseup', handleDragEnd);
+    window.addEventListener('touchend', handleDragEnd);
+    window.addEventListener('touchcancel', handleDragEnd);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => {
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchend', handleDragEnd);
+      window.removeEventListener('touchcancel', handleDragEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [onDragSelectRange, weekdays, handleDragEnter]);
 
   const isDayInDragRange = useCallback((providerId: string, dayIdx: number) => {
     if (!dragState || dragState.providerId !== providerId) return false;
@@ -339,7 +360,7 @@ export default function AppointmentsMonthView({
                         absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
                         inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                       )}
-                      style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 58 }}
+                      style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 58, touchAction: onDragSelectRange ? 'none' : undefined }}
                       onClick={() => {
                         if (!dragState) {
                           onDayClick?.(day.toDate());
@@ -356,7 +377,14 @@ export default function AppointmentsMonthView({
                           handleDragEnter(provider.id, dayIdx);
                         }
                       }}
+                      onTouchStart={() => {
+                        if (onDragSelectRange) {
+                          handleDragStart(provider.id, dayIdx);
+                        }
+                      }}
                       title={tooltip}
+                      data-provider-id={provider.id}
+                      data-day-idx={String(dayIdx)}
                       data-testid={`month-cell-${provider.id}-${dayStr}`}
                     >
                       {/* Saal toggle top-right — always visible */}
