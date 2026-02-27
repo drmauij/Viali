@@ -438,6 +438,29 @@ export async function getSurgery(id: string): Promise<SurgeryWithAssistants | un
   return { ...surgery, assistants };
 }
 
+export async function setSurgeryAssistants(surgeryId: string, userIds: string[]): Promise<void> {
+  await db.delete(surgeryAssistants).where(eq(surgeryAssistants.surgeryId, surgeryId));
+  if (userIds.length > 0) {
+    await db.insert(surgeryAssistants).values(
+      userIds.map(userId => ({ surgeryId, userId }))
+    );
+  }
+}
+
+export async function updateAssistantCalcomUid(
+  surgeryId: string,
+  userId: string,
+  calcomBusyBlockUid: string | null
+): Promise<void> {
+  await db
+    .update(surgeryAssistants)
+    .set({ calcomBusyBlockUid })
+    .where(and(
+      eq(surgeryAssistants.surgeryId, surgeryId),
+      eq(surgeryAssistants.userId, userId)
+    ));
+}
+
 export async function createSurgery(surgery: InsertSurgery): Promise<Surgery> {
   const [created] = await db.insert(surgeries).values(surgery).returning();
   return created;
