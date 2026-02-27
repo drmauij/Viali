@@ -1009,6 +1009,13 @@
       "when": 1772169898614,
       "tag": "0143_previous_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1772184938451,
+      "tag": "0144_furry_hellcat",
+      "breakpoints": true
     }
   ]
 }

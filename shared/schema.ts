@@ -4847,7 +4847,10 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   patientBirthday: date("patient_birthday"),
   patientEmail: varchar("patient_email"),
   patientPhone: varchar("patient_phone"),
-  
+  patientStreet: varchar("patient_street"),
+  patientPostalCode: varchar("patient_postal_code"),
+  patientCity: varchar("patient_city"),
+
   // Status and linking
   status: varchar("status", { enum: ["pending", "scheduled", "declined"] }).default("pending").notNull(),
   surgeryId: varchar("surgery_id").references(() => surgeries.id), // Linked surgery once scheduled
