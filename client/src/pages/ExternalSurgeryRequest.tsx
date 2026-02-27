@@ -905,6 +905,9 @@ export default function ExternalSurgeryRequest() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>
+                    {t('surgery.externalRequest.address', 'Address')} *
+                  </Label>
                   <AddressAutocomplete
                     showLabels
                     values={{
