@@ -47,6 +47,7 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   surgeonName?: string | null;
+  assistantNames?: string[];
   isCancelled: boolean;
   isSuspended: boolean;
   suspendedReason?: string | null;
@@ -522,6 +523,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
         patientName,
         patientBirthday,
         surgeonName: surgery.surgeon || null,
+        assistantNames: (surgery.assistants ?? []).map((a: any) => a.name),
         isCancelled,
         isSuspended,
         suspendedReason: surgery.suspendedReason || null,
@@ -1136,6 +1138,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery }: OPCalendarPr
               {event.patientName}
               {event.patientBirthday && ` ${event.patientBirthday}`}
             </div>
+            {event.assistantNames && event.assistantNames.length > 0 && (
+              <div className="text-[10px] sm:text-xs leading-tight truncate opacity-80">
+                +{event.assistantNames.join(', ')}
+              </div>
+            )}
             {!event.isCancelled && !event.isSuspended && (
               event.noPreOpRequired ? (
                 <div className="flex items-center gap-0.5 leading-tight mt-0.5" data-testid={`badge-la-${event.surgeryId}`} title={t('opCalendar.localAnesthesiaTooltip')}>
