@@ -102,13 +102,21 @@ const externalSurgeryRequestSchema = z.object({
   patientBirthday: z.string().optional().nullable().transform(v => v === '' ? null : v),
   patientEmail: z.string().optional().nullable().transform(v => v === '' ? null : v),
   patientPhone: z.string().optional().nullable().transform(v => v === '' ? null : v),
+  patientStreet: z.string().optional().nullable().transform(v => v === '' ? null : v),
+  patientPostalCode: z.string().optional().nullable().transform(v => v === '' ? null : v),
+  patientCity: z.string().optional().nullable().transform(v => v === '' ? null : v),
   patientPosition: z.enum(["supine", "trendelenburg", "reverse_trendelenburg", "lithotomy", "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"]).optional().nullable().or(z.literal("").transform(() => null)),
   leftArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
   rightArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
 }).refine((data) => {
   // If not reservation-only, patient fields are required
   if (!data.isReservationOnly) {
-    return !!(data.patientFirstName && data.patientLastName && data.patientBirthday && data.patientPhone && data.surgeryName);
+    return !!(
+      data.patientFirstName && data.patientLastName &&
+      data.patientBirthday && data.patientPhone &&
+      data.patientStreet && data.patientPostalCode && data.patientCity &&
+      data.surgeryName
+    );
   }
   return true;
 }, {
@@ -456,18 +464,41 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     // Create or find patient (skip for reservation-only requests)
     let patientId = request.patientId;
     if (!patientId && !request.isReservationOnly && request.patientFirstName && request.patientLastName && request.patientBirthday) {
-      const patientNumber = await storage.generatePatientNumber(request.hospitalId);
-      const patient = await storage.createPatient({
-        hospitalId: request.hospitalId,
-        firstName: request.patientFirstName,
-        surname: request.patientLastName,
-        birthday: request.patientBirthday,
-        patientNumber,
-        sex: 'O',
-        email: request.patientEmail || undefined,
-        phone: request.patientPhone || undefined,
-      });
-      patientId = patient.id;
+      // Dedup: reuse existing patient if name+birthday matches
+      const existing = await storage.findPatientByNameAndBirthday(
+        request.hospitalId,
+        request.patientLastName,
+        request.patientFirstName,
+        request.patientBirthday,
+      );
+
+      if (existing) {
+        patientId = existing.id;
+        // Back-fill address fields that are blank on the existing patient record
+        const addressPatch: Partial<{ street: string; postalCode: string; city: string }> = {};
+        if (!existing.street && request.patientStreet) addressPatch.street = request.patientStreet;
+        if (!existing.postalCode && request.patientPostalCode) addressPatch.postalCode = request.patientPostalCode;
+        if (!existing.city && request.patientCity) addressPatch.city = request.patientCity;
+        if (Object.keys(addressPatch).length > 0) {
+          await storage.updatePatient(existing.id, addressPatch);
+        }
+      } else {
+        const patientNumber = await storage.generatePatientNumber(request.hospitalId);
+        const patient = await storage.createPatient({
+          hospitalId: request.hospitalId,
+          firstName: request.patientFirstName,
+          surname: request.patientLastName,
+          birthday: request.patientBirthday,
+          patientNumber,
+          sex: 'O',
+          email: request.patientEmail || undefined,
+          phone: request.patientPhone || undefined,
+          street: request.patientStreet || undefined,
+          postalCode: request.patientPostalCode || undefined,
+          city: request.patientCity || undefined,
+        });
+        patientId = patient.id;
+      }
     }
     
     // Create or find external surgeon
