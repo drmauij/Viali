@@ -6,6 +6,7 @@ import {
   hospitals,
   units,
   surgeries,
+  surgeryAssistants,
   patients,
   userHospitalRoles,
   providerAvailability,
@@ -923,6 +924,24 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       sql`${surgeries.status} NOT IN ('cancelled')`
     ));
 
+  // Also block slots when provider is booked as an assistant surgeon
+  const assistantSurgeryList = await db
+    .select({
+      plannedDate: surgeries.plannedDate,
+      actualStartTime: surgeries.actualStartTime,
+      actualEndTime: surgeries.actualEndTime,
+      status: surgeries.status,
+    })
+    .from(surgeryAssistants)
+    .innerJoin(surgeries, eq(surgeryAssistants.surgeryId, surgeries.id))
+    .where(and(
+      eq(surgeryAssistants.userId, providerId),
+      sql`DATE(${surgeries.plannedDate}) = ${date}`,
+      sql`${surgeries.status} NOT IN ('cancelled')`
+    ));
+
+  const allSurgeryConflicts = [...surgeryList, ...assistantSurgeryList];
+
   const existingAppointments = await db
     .select()
     .from(clinicAppointments)
@@ -962,7 +981,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
         return mins < apptEnd && mins + durationMinutes > apptStart;
       });
 
-      const conflictsWithSurgery = surgeryList.some(s => {
+      const conflictsWithSurgery = allSurgeryConflicts.some(s => {
         // Use actual times if available, otherwise estimate from plannedDate
         const surgStart = s.actualStartTime || s.plannedDate;
         const surgEnd = s.actualEndTime || new Date(surgStart.getTime() + 120 * 60 * 1000); // default 2h block
