@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +12,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
@@ -54,6 +55,8 @@ export interface SurgeryFormFieldsProps {
   onPatientPositionChange: (v: string) => void;
   onLeftArmPositionChange: (v: string) => void;
   onRightArmPositionChange: (v: string) => void;
+  assistantIds: string[];
+  onAssistantIdsChange: (ids: string[]) => void;
 
   // Config
   surgeryRooms: any[];
@@ -76,6 +79,7 @@ export function SurgeryFormFields({
   onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
   onAntibioseProphylaxeChange, onPatientPositionChange,
   onLeftArmPositionChange, onRightArmPositionChange,
+  assistantIds, onAssistantIdsChange,
   surgeryRooms, surgeons, hospitalId,
   isSlotReservation = false, isRoomBlock = false,
   disabled = false, testIdPrefix = "",
@@ -89,6 +93,9 @@ export function SurgeryFormFields({
 
   // Surgeon search state
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
+
+  // Assistant search state
+  const [assistantSearchOpen, setAssistantSearchOpen] = useState(false);
   const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
   const [newSurgeonFirstName, setNewSurgeonFirstName] = useState("");
   const [newSurgeonLastName, setNewSurgeonLastName] = useState("");
@@ -128,6 +135,7 @@ export function SurgeryFormFields({
   }, [surgeons]);
 
   const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
+  const availableAssistants = sortedSurgeons.filter(s => s.id !== surgeonId);
 
   // Fetch units for creating new surgeons
   const { data: units = [] } = useQuery<Array<{id: string; name: string; type: string | null}>>({
@@ -649,6 +657,81 @@ export function SurgeryFormFields({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Assistants - hidden in room block mode */}
+      {!isRoomBlock && (
+        <div className="space-y-2">
+          <Label>{t('anesthesia.surgery.assistants', 'Assistants')} <span className="text-xs text-muted-foreground">({t('anesthesia.surgery.optional', 'optional')})</span></Label>
+          <Popover open={assistantSearchOpen} onOpenChange={setAssistantSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="w-full justify-between h-auto min-h-10"
+                disabled={disabled}
+                data-testid={tid("select-assistants")}
+              >
+                <div className="flex flex-wrap gap-1 flex-1 text-left">
+                  {assistantIds.length === 0 ? (
+                    <span className="text-muted-foreground">{t('anesthesia.surgery.noAssistantsSelected', 'No assistants selected')}</span>
+                  ) : (
+                    assistantIds.map(id => {
+                      const s = sortedSurgeons.find(s => s.id === id);
+                      return s ? (
+                        <Badge key={id} variant="secondary" className="text-xs gap-1">
+                          {s.name}
+                          <button
+                            type="button"
+                            className="hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAssistantIdsChange(assistantIds.filter(a => a !== id));
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ) : null;
+                    })
+                  )}
+                </div>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0">
+              <Command>
+                <CommandInput placeholder={t('anesthesia.surgery.searchAssistants', 'Search assistants...')} />
+                <CommandList>
+                  <CommandEmpty>{t('anesthesia.quickSchedule.noSurgeonsAvailable')}</CommandEmpty>
+                  <CommandGroup>
+                    {availableAssistants.map((s: any) => (
+                      <CommandItem
+                        key={s.id}
+                        value={`${s.name}__${s.id}`}
+                        onSelect={() => {
+                          const newIds = assistantIds.includes(s.id)
+                            ? assistantIds.filter(a => a !== s.id)
+                            : [...assistantIds, s.id];
+                          onAssistantIdsChange(newIds);
+                        }}
+                        data-testid={tid(`assistant-option-${s.id}`)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            assistantIds.includes(s.id) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {s.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       )}
 
