@@ -77,6 +77,7 @@ export default function QuickCreateSurgeryDialog({
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [selectedChopCode, setSelectedChopCode] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
+  const [assistantIds, setAssistantIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
@@ -248,6 +249,7 @@ export default function QuickCreateSurgeryDialog({
     setPlannedSurgery("");
     setSelectedChopCode("");
     setSurgeonId("");
+    setAssistantIds([]);
     setNotes("");
     setImplantDetails("");
     setNoPreOpRequired(false);
@@ -348,6 +350,7 @@ export default function QuickCreateSurgeryDialog({
       patientPosition: patientPosition || undefined,
       leftArmPosition: leftArmPosition || undefined,
       rightArmPosition: rightArmPosition || undefined,
+      assistantIds,
       status: "planned",
     });
   };
@@ -610,6 +613,8 @@ export default function QuickCreateSurgeryDialog({
             hospitalId={hospitalId}
             isSlotReservation={isSlotReservation}
             isRoomBlock={isRoomBlock}
+            assistantIds={assistantIds}
+            onAssistantIdsChange={setAssistantIds}
           />
         </div>
 
