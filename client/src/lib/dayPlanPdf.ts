@@ -288,7 +288,13 @@ export const defaultColumns = {
   operator: (t: TFunction): DayPlanPdfColumn => ({
     header: t('pdf.col.operator', 'Operator'),
     width: 22,
-    getValue: (surgery) => surgery.surgeon || '-',
+    getValue: (surgery) => {
+      const mainSurgeon = surgery.surgeon || '-';
+      const assistants = surgery.assistants as { name: string }[] | undefined;
+      if (!assistants || assistants.length === 0) return mainSurgeon;
+      const assistantLabel = t('pdf.assistants', 'Asst');
+      return `${mainSurgeon}\n${assistantLabel}: ${assistants.map(a => a.name).join(', ')}`;
+    },
   }),
 
   patient: (t: TFunction): DayPlanPdfColumn => ({
