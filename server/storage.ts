@@ -50,6 +50,7 @@ import {
   type InsertCase,
   type Surgery,
   type InsertSurgery,
+  type SurgeryAssistant,
   type SurgeryNote,
   type InsertSurgeryNote,
   type PatientNote,
@@ -192,6 +193,7 @@ import * as activityStorage from "./storage/activities";
 import * as checklistStorage from "./storage/checklists";
 import * as importJobStorage from "./storage/importJobs";
 import * as anesthesiaStorage from "./storage/anesthesia";
+import type { SurgeryWithAssistants, AssistantInfo } from "./storage/anesthesia";
 import * as chatStorage from "./storage/chat";
 import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
@@ -416,8 +418,11 @@ export interface IStorage {
     dateFrom?: Date;
     dateTo?: Date;
     includeArchived?: boolean;
-  }): Promise<Surgery[]>;
-  getSurgery(id: string): Promise<Surgery | undefined>;
+  }): Promise<SurgeryWithAssistants[]>;
+  getSurgery(id: string): Promise<SurgeryWithAssistants | undefined>;
+  getSurgeryAssistants(surgeryId: string): Promise<AssistantInfo[]>;
+  setSurgeryAssistants(surgeryId: string, userIds: string[]): Promise<void>;
+  updateAssistantCalcomUid(surgeryId: string, userId: string, calcomBusyBlockUid: string | null): Promise<void>;
   createSurgery(surgery: InsertSurgery): Promise<Surgery>;
   updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery>;
   archiveSurgery(id: string, userId: string): Promise<Surgery>;
@@ -1167,6 +1172,9 @@ export class DatabaseStorage implements IStorage {
   updateCase = anesthesiaStorage.updateCase;
   getSurgeries = anesthesiaStorage.getSurgeries;
   getSurgery = anesthesiaStorage.getSurgery;
+  getSurgeryAssistants = anesthesiaStorage.getSurgeryAssistants;
+  setSurgeryAssistants = anesthesiaStorage.setSurgeryAssistants;
+  updateAssistantCalcomUid = anesthesiaStorage.updateAssistantCalcomUid;
   createSurgery = anesthesiaStorage.createSurgery;
   updateSurgery = anesthesiaStorage.updateSurgery;
   archiveSurgery = anesthesiaStorage.archiveSurgery;

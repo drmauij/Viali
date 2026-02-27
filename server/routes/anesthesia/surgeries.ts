@@ -237,7 +237,12 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
     logger.info("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
     const newSurgery = await storage.createSurgery(validatedData);
-    
+
+    const { assistantIds } = req.body;
+    if (Array.isArray(assistantIds) && assistantIds.length > 0) {
+      await storage.setSurgeryAssistants(newSurgery.id, assistantIds);
+    }
+
     (async () => {
       try {
         const { syncSingleSurgery } = await import("../../services/calcomSync");
@@ -246,7 +251,7 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireSurgeryPlanAcce
         logger.error(`Failed to sync surgery ${newSurgery.id} to Cal.com:`, err);
       }
     })();
-    
+
     res.status(201).json(newSurgery);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -300,7 +305,11 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     }
 
     const updatedSurgery = await storage.updateSurgery(id, updateData);
-    
+
+    if (Array.isArray(req.body.assistantIds)) {
+      await storage.setSurgeryAssistants(id, req.body.assistantIds);
+    }
+
     (async () => {
       try {
         const { syncSingleSurgery, deleteCalcomBlock } = await import("../../services/calcomSync");
