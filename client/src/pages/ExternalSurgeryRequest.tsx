@@ -37,6 +37,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateForInput } from "@/lib/dateUtils";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface FormData {
   surgeonFirstName: string;
@@ -59,6 +60,9 @@ interface FormData {
   patientBirthday: string;
   patientEmail: string;
   patientPhone: string;
+  patientStreet: string;
+  patientPostalCode: string;
+  patientCity: string;
   isReservationOnly: boolean;
 }
 
@@ -125,6 +129,9 @@ export default function ExternalSurgeryRequest() {
     patientBirthday: '',
     patientEmail: '',
     patientPhone: '',
+    patientStreet: '',
+    patientPostalCode: '',
+    patientCity: '',
     isReservationOnly: false,
   });
 
@@ -274,7 +281,8 @@ export default function ExternalSurgeryRequest() {
         return formData.surgeryName && formData.surgeryDurationMinutes > 0 && formData.wishedDate;
       case 'patient':
         return formData.patientFirstName && formData.patientLastName &&
-               formData.patientBirthday && formData.patientPhone;
+               formData.patientBirthday && formData.patientPhone &&
+               formData.patientStreet && formData.patientPostalCode && formData.patientCity;
       case 'documents':
         return true;
       default:
@@ -894,6 +902,21 @@ export default function ExternalSurgeryRequest() {
                     value={formData.patientEmail}
                     onChange={(e) => updateField('patientEmail', e.target.value)}
                     data-testid="input-patient-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <AddressAutocomplete
+                    showLabels
+                    values={{
+                      street: formData.patientStreet,
+                      postalCode: formData.patientPostalCode,
+                      city: formData.patientCity,
+                    }}
+                    onChange={(addr) => {
+                      updateField('patientStreet', addr.street);
+                      updateField('patientPostalCode', addr.postalCode);
+                      updateField('patientCity', addr.city);
+                    }}
                   />
                 </div>
               </div>
