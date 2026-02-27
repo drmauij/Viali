@@ -526,7 +526,18 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         plannedSurgery: surgery.plannedSurgery || (isSlotReservation ? t('opCalendar.slotReserved', 'SLOT RESERVED') : 'No surgery specified'),
         patientName,
         patientBirthday,
-        surgeonName: surgery.surgeon || null,
+        surgeonName: (() => {
+          if (surgery.surgeonLastName) return `Dr. ${surgery.surgeonLastName}`;
+          if (surgery.surgeon) {
+            const name = surgery.surgeon.trim();
+            const commaIdx = name.indexOf(',');
+            const surname = commaIdx >= 0
+              ? name.substring(0, commaIdx).trim()
+              : name.split(/\s+/).pop() ?? name;
+            return `Dr. ${surname}`;
+          }
+          return null;
+        })(),
         assistantNames: (surgery.assistants ?? []).map((a: any) => a.name),
         isCancelled,
         isSuspended,

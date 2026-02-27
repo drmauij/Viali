@@ -343,7 +343,7 @@ export function ExternalReservationsPanel({
             <Card
               key={request.id}
               className={cn(
-                "shadow-sm",
+                "shadow-sm overflow-hidden",
                 mode === 'inline' && "cursor-grab active:cursor-grabbing select-none",
                 isSelected && "ring-2 ring-primary ring-offset-1"
               )}
@@ -414,14 +414,14 @@ export function ExternalReservationsPanel({
                   <p className="text-sm font-medium">
                     Dr. {request.surgeonLastName}, {request.surgeonFirstName}
                   </p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {request.surgeonPhone}
+                  <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 truncate">
+                      <Phone className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{request.surgeonPhone}</span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {request.surgeonEmail}
+                    <span className="flex items-center gap-1 truncate">
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{request.surgeonEmail}</span>
                     </span>
                   </div>
                 </div>
@@ -460,10 +460,10 @@ export function ExternalReservationsPanel({
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex flex-col gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   <Button
                     size="sm"
-                    className="flex-1"
+                    className="w-full"
                     onClick={() => handleSchedule(request)}
                   >
                     <Check className="mr-1 h-4 w-4" />
@@ -472,7 +472,7 @@ export function ExternalReservationsPanel({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 text-destructive hover:text-destructive"
+                    className="w-full text-destructive hover:text-destructive"
                     onClick={() => declineMutation.mutate(request.id)}
                     disabled={declineMutation.isPending}
                   >
