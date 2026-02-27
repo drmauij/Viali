@@ -110,6 +110,7 @@ export default function PatientDetail() {
     chopSearchTerm, setChopSearchTerm,
     chopSearchOpen, setChopSearchOpen,
     surgeonSearchOpen, setSurgeonSearchOpen,
+    assistantSearchOpen, setAssistantSearchOpen,
     editingCaseId, setEditingCaseId,
     archiveDialogSurgeryId, setArchiveDialogSurgeryId,
     consentData, setConsentData,
@@ -734,8 +735,9 @@ export default function PatientDetail() {
       leftArmPosition: newCase.leftArmPosition || null,
       rightArmPosition: newCase.rightArmPosition || null,
       antibioseProphylaxe: newCase.antibioseProphylaxe,
+      assistantIds: newCase.assistantIds ?? [],
     };
-    
+
     console.log("Creating surgery with data:", surgeryData);
     createSurgeryMutation.mutate(surgeryData);
   };
@@ -2456,9 +2458,62 @@ export default function PatientDetail() {
                       </Popover>
                     </div>
                     <div className="space-y-2">
+                      <Label>{t('anesthesia.surgery.assistants', 'Assistants')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
+                      <Popover open={assistantSearchOpen} onOpenChange={setAssistantSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between h-auto min-h-10" data-testid="select-assistants">
+                            <div className="flex flex-wrap gap-1 flex-1 text-left">
+                              {(newCase.assistantIds ?? []).length === 0 ? (
+                                <span className="text-muted-foreground">{t('anesthesia.surgery.noAssistantsSelected', 'No assistants selected')}</span>
+                              ) : (
+                                (newCase.assistantIds ?? []).map((id: string) => {
+                                  const s = surgeons.find((s: any) => s.id === id);
+                                  return s ? (
+                                    <Badge key={id} variant="secondary" className="text-xs gap-1">
+                                      {s.name}
+                                      <button type="button" className="hover:text-destructive" onClick={(e) => {
+                                        e.stopPropagation();
+                                        setNewCase({ ...newCase, assistantIds: (newCase.assistantIds ?? []).filter((a: string) => a !== id) });
+                                      }}>
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </Badge>
+                                  ) : null;
+                                })
+                              )}
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder={t('anesthesia.surgery.searchAssistants', 'Search assistants...')} />
+                            <CommandList>
+                              <CommandEmpty>{t('anesthesia.patientDetail.noSurgeonsAvailable')}</CommandEmpty>
+                              <CommandGroup>
+                                {surgeons.filter((s: any) => s.id !== newCase.surgeonId).map((s: any) => (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={`${s.name}__${s.id}`}
+                                    onSelect={() => {
+                                      const ids: string[] = newCase.assistantIds ?? [];
+                                      setNewCase({ ...newCase, assistantIds: ids.includes(s.id) ? ids.filter((a: string) => a !== s.id) : [...ids, s.id] });
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", (newCase.assistantIds ?? []).includes(s.id) ? "opacity-100" : "opacity-0")} />
+                                    {s.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="surgery-room">{t('anesthesia.patientDetail.surgeryRoom')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
-                      <Select 
-                        value={newCase.surgeryRoomId || "none"} 
+                      <Select
+                        value={newCase.surgeryRoomId || "none"}
                         onValueChange={(value) => setNewCase({ ...newCase, surgeryRoomId: value === "none" ? "" : value })}
                         disabled={isLoadingSurgeryRooms}
                       >

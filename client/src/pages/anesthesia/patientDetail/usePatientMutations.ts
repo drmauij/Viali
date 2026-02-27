@@ -69,6 +69,7 @@ interface UsePatientMutationsParams {
     duration: number;
     notes: string;
     noPreOpRequired: boolean;
+    assistantIds: string[];
   }) => void;
   setArchiveDialogSurgeryId: (value: string | null) => void;
 
@@ -227,7 +228,7 @@ export function usePatientMutations({
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", patientPosition: "", leftArmPosition: "", rightArmPosition: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
+      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", patientPosition: "", leftArmPosition: "", rightArmPosition: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false, assistantIds: [] });
     },
     onError: (error: any) => {
       toast({

@@ -91,6 +91,7 @@ export type NewCase = {
   duration: number;
   notes: string;
   noPreOpRequired: boolean;
+  assistantIds: string[];
 };
 
 // Type for consent data
@@ -329,10 +330,12 @@ export function usePatientState() {
     duration: 180, // Default 3 hours in minutes
     notes: "",
     noPreOpRequired: false,
+    assistantIds: [],
   });
   const [chopSearchTerm, setChopSearchTerm] = useState("");
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
+  const [assistantSearchOpen, setAssistantSearchOpen] = useState(false);
 
   // --- Surgery editing/archiving ---
 
@@ -560,6 +563,7 @@ export function usePatientState() {
     chopSearchTerm, setChopSearchTerm,
     chopSearchOpen, setChopSearchOpen,
     surgeonSearchOpen, setSurgeonSearchOpen,
+    assistantSearchOpen, setAssistantSearchOpen,
 
     // Surgery editing/archiving
     editingCaseId, setEditingCaseId,
