@@ -78,6 +78,16 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
       });
     },
     onSuccess: () => {
+      // Invalidate all relevant caches so the request disappears from lists
+      // and the new surgery appears on the calendar immediately
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('external-surgery-requests')
+      });
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        (query.queryKey[0].includes('/api/surgeries') || query.queryKey[0].includes('/api/anesthesia/surgeries'))
+      });
       toast({
         title: t('surgery.externalRequests.surgeryScheduled'),
         description: t('surgery.externalRequests.surgeryScheduledDesc'),
@@ -308,12 +318,8 @@ export function ExternalReservationsPanel({
   };
 
   const handleScheduled = () => {
+    // Cache invalidation is now handled inside ScheduleDialog itself
     refetch();
-    queryClient.invalidateQueries({ predicate: (query) =>
-      typeof query.queryKey[0] === 'string' &&
-      query.queryKey[0].includes('external-surgery-requests')
-    });
-    queryClient.invalidateQueries({ queryKey: ['/api/surgeries'] });
   };
 
   const formatWishedDate = (dateStr: string) => {
