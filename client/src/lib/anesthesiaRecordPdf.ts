@@ -68,6 +68,11 @@ interface InventoryUsageEntry {
   calculatedQty: string | number;
   overrideQty?: string | number | null;
   unit?: string | null;
+  itemUnit?: string | null;
+  unitId?: string | null;
+  unitName?: string | null;
+  pharmacode?: string | null;
+  gtin?: string | null;
 }
 
 interface InventoryItem {
@@ -1948,14 +1953,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.text(i18next.t("anesthesia.pdf.inventoryUsageDesc", "Berechneter Materialverbrauch basierend auf Medikamentenverabreichung"), 20, yPos);
     yPos += 6;
 
-    // Build map of item names from anesthesiaItems and inventoryItems
+    // Build fallback map of item names from anesthesiaItems and inventoryItems
     const itemNameMap = new Map<string, { name: string; unit: string | null }>();
     if (data.anesthesiaItems) {
       data.anesthesiaItems.forEach(item => {
         itemNameMap.set(item.id, { name: item.name, unit: item.administrationUnit || null });
       });
     }
-    // Also include regular inventory items for inventory usage lookup
     if (data.inventoryItems) {
       data.inventoryItems.forEach(item => {
         if (!itemNameMap.has(item.id)) {
@@ -1964,41 +1968,71 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       });
     }
 
-    const usageData = data.inventoryUsage.map(usage => {
-      const itemInfo = itemNameMap.get(usage.itemId);
-      const itemName = usage.itemName || itemInfo?.name || usage.itemId;
-      const unit = usage.unit || itemInfo?.unit || "";
-      const qty = usage.overrideQty !== null && usage.overrideQty !== undefined 
-        ? usage.overrideQty 
-        : usage.calculatedQty;
-      
-      return [
-        itemName,
-        `${qty} ${unit}`.trim(),
-        usage.overrideQty !== null && usage.overrideQty !== undefined 
-          ? i18next.t("anesthesia.pdf.manualOverride", "Manuell angepasst")
-          : i18next.t("anesthesia.pdf.autoCalculated", "Automatisch berechnet")
-      ];
-    });
+    // Group inventory usage by unit
+    const groupedByUnit = new Map<string, InventoryUsageEntry[]>();
+    for (const usage of data.inventoryUsage) {
+      const unitLabel = usage.unitName || i18next.t("anesthesia.pdf.unknownUnit", "Sonstige");
+      if (!groupedByUnit.has(unitLabel)) {
+        groupedByUnit.set(unitLabel, []);
+      }
+      groupedByUnit.get(unitLabel)!.push(usage);
+    }
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [[
-        i18next.t("anesthesia.pdf.materialItem", "Material / Artikel"),
-        i18next.t("anesthesia.pdf.quantity", "Menge"),
-        i18next.t("anesthesia.pdf.calculationType", "Berechnungsart")
-      ]],
-      body: usageData,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [16, 185, 129], textColor: 255 },
-      columnStyles: {
-        0: { cellWidth: 100 },
-        1: { cellWidth: 35, halign: 'center' },
-        2: { cellWidth: 45 },
-      },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    for (const [unitLabel, usageEntries] of groupedByUnit) {
+      yPos = checkPageBreak(doc, yPos, 30);
+
+      // Unit sub-header
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(unitLabel, 20, yPos);
+      yPos += 5;
+
+      const usageData = usageEntries.map(usage => {
+        const itemInfo = itemNameMap.get(usage.itemId);
+        const itemName = usage.itemName || itemInfo?.name || usage.itemId;
+        const unit = usage.itemUnit || usage.unit || itemInfo?.unit || "";
+        const qty = usage.overrideQty !== null && usage.overrideQty !== undefined
+          ? usage.overrideQty
+          : usage.calculatedQty;
+
+        // Build display: name on first line, pharmacode/GTIN smaller underneath
+        let displayName = itemName;
+        const codes: string[] = [];
+        if (usage.pharmacode) codes.push(`Pharmacode: ${usage.pharmacode}`);
+        if (usage.gtin) codes.push(`GTIN: ${usage.gtin}`);
+        if (codes.length > 0) {
+          displayName += `\n${codes.join("  |  ")}`;
+        }
+
+        return [
+          displayName,
+          `${qty} ${unit}`.trim(),
+          usage.overrideQty !== null && usage.overrideQty !== undefined
+            ? i18next.t("anesthesia.pdf.manualOverride", "Manuell angepasst")
+            : i18next.t("anesthesia.pdf.autoCalculated", "Automatisch berechnet")
+        ];
+      });
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [[
+          i18next.t("anesthesia.pdf.materialItem", "Material / Artikel"),
+          i18next.t("anesthesia.pdf.quantity", "Menge"),
+          i18next.t("anesthesia.pdf.calculationType", "Berechnungsart")
+        ]],
+        body: usageData,
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+        columnStyles: {
+          0: { cellWidth: 100 },
+          1: { cellWidth: 35, halign: 'center' },
+          2: { cellWidth: 45 },
+        },
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 8;
+    }
+    yPos += 2;
   }
 
   // ==================== VITAL SIGNS SUMMARY ====================

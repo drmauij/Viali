@@ -10,9 +10,11 @@ import {
   volumeToAmpules,
 } from "../services/inventoryCalculations";
 import {
+  units,
   users,
   hospitals,
   items,
+  itemCodes,
   stockLevels,
   activities,
   medicationConfigs,
@@ -3022,11 +3024,33 @@ export async function deletePeripheralBlock(id: string): Promise<void> {
 
 // ========== INVENTORY USAGE ==========
 
-export async function getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
+export async function getInventoryUsage(anesthesiaRecordId: string) {
   const usage = await db
-    .select()
+    .select({
+      id: inventoryUsage.id,
+      anesthesiaRecordId: inventoryUsage.anesthesiaRecordId,
+      itemId: inventoryUsage.itemId,
+      calculatedQty: inventoryUsage.calculatedQty,
+      overrideQty: inventoryUsage.overrideQty,
+      overrideReason: inventoryUsage.overrideReason,
+      overriddenBy: inventoryUsage.overriddenBy,
+      overriddenAt: inventoryUsage.overriddenAt,
+      createdAt: inventoryUsage.createdAt,
+      updatedAt: inventoryUsage.updatedAt,
+      // Enriched fields from joins
+      itemName: items.name,
+      itemUnit: items.unit,
+      unitId: items.unitId,
+      unitName: units.name,
+      pharmacode: itemCodes.pharmacode,
+      gtin: itemCodes.gtin,
+    })
     .from(inventoryUsage)
-    .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+    .innerJoin(items, eq(inventoryUsage.itemId, items.id))
+    .innerJoin(units, eq(items.unitId, units.id))
+    .leftJoin(itemCodes, eq(items.id, itemCodes.itemId))
+    .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId))
+    .orderBy(asc(units.name), asc(items.name));
   return usage;
 }
 
