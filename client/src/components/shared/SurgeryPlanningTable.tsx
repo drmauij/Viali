@@ -1592,9 +1592,11 @@ export function SurgeryPlanningTable({
                 </TableHead>
                 <TableHead className="text-center w-10">
                   <FileDown className="h-4 w-4 inline" />
+                  <span className="sr-only">{t("business.pdf.downloadFull", "Download Full Surgery PDF")}</span>
                 </TableHead>
                 <TableHead className="text-center w-10">
                   <Receipt className="h-4 w-4 inline" />
+                  <span className="sr-only">{t("business.pdf.downloadInvoice", "Download Invoice PDF")}</span>
                 </TableHead>
               </>
             )}
@@ -1855,7 +1857,7 @@ export function SurgeryPlanningTable({
                                 try {
                                   const result = await downloadAnesthesiaRecordPdf({
                                     surgery,
-                                    patient: patient as any,
+                                    patient,
                                     hospitalId: activeHospital.id,
                                     anesthesiaSettings,
                                   });
