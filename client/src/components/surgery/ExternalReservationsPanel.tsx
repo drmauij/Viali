@@ -405,6 +405,19 @@ export function ExternalReservationsPanel({
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>{request.surgeryDurationMinutes} min</span>
                   </div>
+                  {request.wishedTimeFrom != null && request.wishedTimeTo != null && (
+                    <div className="col-span-2 flex items-center gap-1 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>
+                        {t('surgery.externalRequests.wishedTime', 'Preferred time')}:{' '}
+                        <span className="text-foreground font-medium">
+                          {String(Math.floor(request.wishedTimeFrom / 60)).padStart(2, '0')}:{String(request.wishedTimeFrom % 60).padStart(2, '0')}
+                          {' – '}
+                          {String(Math.floor(request.wishedTimeTo / 60)).padStart(2, '0')}:{String(request.wishedTimeTo % 60).padStart(2, '0')}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-2 space-y-1">
