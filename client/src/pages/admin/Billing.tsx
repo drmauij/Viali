@@ -270,7 +270,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
-  const { data: usageHistory, isLoading: usageHistoryLoading } = useQuery<UsageHistoryData>({
+  const { data: usageHistory, isLoading: usageHistoryLoading, isError: usageHistoryError } = useQuery<UsageHistoryData>({
     queryKey: ["/api/billing", hospitalId, "usage-history"],
     queryFn: async () => {
       const res = await fetch(`/api/billing/${hospitalId}/usage-history`, { credentials: "include" });
@@ -882,6 +882,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
+                ) : usageHistoryError ? (
+                  <p className="text-center text-muted-foreground py-8 text-destructive">
+                    Failed to load usage history
+                  </p>
                 ) : !usageHistory?.months?.length ? (
                   <p className="text-center text-muted-foreground py-8">No usage history yet</p>
                 ) : (
@@ -895,7 +899,11 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       </div>
                       {usageHistory.months.map((entry) => {
                         const [year, month] = entry.month.split("-");
-                        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                        const yearNum = parseInt(year, 10);
+                        const monthNum = parseInt(month, 10);
+                        const date = !isNaN(yearNum) && !isNaN(monthNum)
+                          ? new Date(yearNum, monthNum - 1, 1)
+                          : new Date();
                         return (
                           <div
                             key={entry.month}
