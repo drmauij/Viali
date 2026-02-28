@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   XCircle,
   StickyNote,
-  Plus
+  Plus,
+  FileDown,
+  Receipt
 } from "lucide-react";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import {
@@ -55,6 +57,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ROLE_CONFIG } from "@/components/anesthesia/PlannedStaffBox";
 import { useOpDayNotes } from "@/components/anesthesia/DayNotesPanel";
 import { formatCurrency } from "@/lib/dateUtils";
+import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { generateInvoicePdf } from "@/lib/invoicePdf";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import type { Surgery, Patient, DailyStaffPool } from "@shared/schema";
 
 export type ModuleContext = "anesthesia" | "surgery" | "business" | "marketing";
@@ -976,6 +981,9 @@ export function SurgeryPlanningTable({
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
   const [isCompactViewInternal, setIsCompactViewInternal] = useState(true);
   const isCompactView = compactView ?? isCompactViewInternal;
+  const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
+  const [downloadingFullPdf, setDownloadingFullPdf] = useState<string | null>(null);
+  const [downloadingInvoicePdf, setDownloadingInvoicePdf] = useState<string | null>(null);
   
   const columnGroups = visibleColumnGroups ?? DEFAULT_COLUMN_GROUPS[moduleContext];
   
@@ -1455,7 +1463,7 @@ export function SurgeryPlanningTable({
     if (showScheduling) count += hideRoomAndAdmission ? 0 : 1; // (admission) - status column hidden
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
-    if (showBusiness) count += 7; // price, quote, contract sent/received, invoice, payment, notes
+    if (showBusiness) count += 9; // price, quote, contract sent/received, invoice, payment, notes, full PDF, invoice PDF
     if (showContracts && !showBusiness) count += 1; // contract received icon only
     if (!showBusiness) count += 1; // notes column for non-business views
     if (showImplants) count += 3;
@@ -1582,9 +1590,15 @@ export function SurgeryPlanningTable({
                   <StickyNote className="h-4 w-4 inline mr-1" />
                   {t("surgeryPlanning.columns.caseNotes", "Notes")}
                 </TableHead>
+                <TableHead className="text-center w-10">
+                  <FileDown className="h-4 w-4 inline" />
+                </TableHead>
+                <TableHead className="text-center w-10">
+                  <Receipt className="h-4 w-4 inline" />
+                </TableHead>
               </>
             )}
-            
+
             {showContracts && !showBusiness && (
               <TableHead className="text-center">
                 <FileText className="h-4 w-4 inline mr-1" />
@@ -1827,9 +1841,92 @@ export function SurgeryPlanningTable({
                       <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
                         <AdminNoteCell surgeryId={surgery.id} />
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={downloadingFullPdf === surgery.id || !patient}
+                              onClick={async () => {
+                                if (!patient || !activeHospital?.id) return;
+                                setDownloadingFullPdf(surgery.id);
+                                try {
+                                  const result = await downloadAnesthesiaRecordPdf({
+                                    surgery,
+                                    patient: patient as any,
+                                    hospitalId: activeHospital.id,
+                                    anesthesiaSettings,
+                                  });
+                                  if (!result.success) {
+                                    toast({
+                                      title: t("business.pdf.error", "PDF Error"),
+                                      description: result.error || t("business.pdf.generationFailed", "PDF generation failed"),
+                                      variant: "destructive",
+                                    });
+                                  }
+                                } finally {
+                                  setDownloadingFullPdf(null);
+                                }
+                              }}
+                            >
+                              {downloadingFullPdf === surgery.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <FileDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("business.pdf.downloadFull", "Download Full Surgery PDF")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={downloadingInvoicePdf === surgery.id || !patient}
+                              onClick={async () => {
+                                if (!patient || !activeHospital?.id) return;
+                                setDownloadingInvoicePdf(surgery.id);
+                                try {
+                                  const result = await generateInvoicePdf({
+                                    surgery,
+                                    patient,
+                                    hospitalId: activeHospital.id,
+                                  });
+                                  if (!result.success) {
+                                    toast({
+                                      title: t("business.pdf.error", "PDF Error"),
+                                      description: result.error || t("business.pdf.generationFailed", "PDF generation failed"),
+                                      variant: "destructive",
+                                    });
+                                  }
+                                } finally {
+                                  setDownloadingInvoicePdf(null);
+                                }
+                              }}
+                            >
+                              {downloadingInvoicePdf === surgery.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Receipt className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("business.pdf.downloadInvoice", "Download Invoice PDF")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
                     </>
                   )}
-                  
+
                   {showContracts && !showBusiness && (
                     <TableCell className="text-center">
                       {surgery.treatmentContractReceivedDate ? (
