@@ -38,8 +38,9 @@ const updateUnitSchema = z.object({
   showInventory: z.boolean().optional(),
   showAppointments: z.boolean().optional(),
   showControlledMedications: z.boolean().optional(),
-  questionnairePhone: z.string().optional(),
-  infoFlyerUrl: z.string().optional(),
+  hasOwnCalendar: z.boolean().optional(),
+  questionnairePhone: z.string().nullable().optional(),
+  infoFlyerUrl: z.string().nullable().optional(),
 });
 
 const updateUserRoleSchema = z.object({
@@ -237,7 +238,7 @@ router.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req,
 router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name, type, parentId, showInventory, showAppointments, questionnairePhone, infoFlyerUrl } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, hasOwnCalendar, questionnairePhone, infoFlyerUrl } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: "Unit name is required" });
@@ -263,7 +264,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
       showInventory: showInventory !== false, // default true
       showAppointments: showAppointments !== false, // default true
       showControlledMedications: false, // default false
-      hasOwnCalendar: false, // default false - shares hospital calendar
+      hasOwnCalendar: hasOwnCalendar || false, // default false - shares hospital calendar
       questionnairePhone: questionnairePhone || null,
       infoFlyerUrl: infoFlyerUrl || null,
     });
@@ -282,7 +283,7 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('
       return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
     }
 
-    const { name, type, parentId, showInventory, showAppointments, showControlledMedications, questionnairePhone, infoFlyerUrl } = parsed.data;
+    const { name, type, parentId, showInventory, showAppointments, showControlledMedications, hasOwnCalendar, questionnairePhone, infoFlyerUrl } = parsed.data;
 
     const updates: any = {};
     if (name !== undefined) updates.name = name;
@@ -302,6 +303,7 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('
     if (showInventory !== undefined) updates.showInventory = showInventory;
     if (showAppointments !== undefined) updates.showAppointments = showAppointments;
     if (showControlledMedications !== undefined) updates.showControlledMedications = showControlledMedications;
+    if (hasOwnCalendar !== undefined) updates.hasOwnCalendar = hasOwnCalendar;
     
     // Accept questionnaire help phone
     if (questionnairePhone !== undefined) updates.questionnairePhone = questionnairePhone;

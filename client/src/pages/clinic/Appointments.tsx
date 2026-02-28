@@ -115,9 +115,12 @@ export default function ClinicAppointments() {
   const canPlanSurgery = useCanPlanSurgery();
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
-    queryKey: ['bookable-providers', hospitalId],
+    queryKey: ['bookable-providers', hospitalId, unitId],
     queryFn: async () => {
-      const response = await fetch(`/api/clinic/${hospitalId}/bookable-providers`, {
+      const url = unitId
+        ? `/api/clinic/${hospitalId}/bookable-providers?unitId=${unitId}`
+        : `/api/clinic/${hospitalId}/bookable-providers`;
+      const response = await fetch(url, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch providers');

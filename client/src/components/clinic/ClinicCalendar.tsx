@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft } from "lucide-react";
-import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -258,7 +258,15 @@ export default function ClinicCalendar({
   type BookableProvider = ClinicProvider & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } };
   
   const { data: bookableProviders = [], isLoading: providersLoading } = useQuery<BookableProvider[]>({
-    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`],
+    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`, unitId],
+    queryFn: async () => {
+      const url = unitId
+        ? `/api/clinic/${hospitalId}/bookable-providers?unitId=${unitId}`
+        : `/api/clinic/${hospitalId}/bookable-providers`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch bookable providers');
+      return res.json();
+    },
     enabled: !!hospitalId,
   });
   
@@ -1218,7 +1226,7 @@ export default function ClinicCalendar({
       end.setDate(end.getDate() + 6);
       return `${formatDateUtil(start)} - ${formatDateUtil(end)}`;
     }
-    return formatDateUtil(selectedDate);
+    return formatDateHeader(selectedDate);
   };
 
   if (!hospitalId || !unitId) {

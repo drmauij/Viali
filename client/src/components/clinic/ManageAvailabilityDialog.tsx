@@ -99,7 +99,15 @@ export function ManageAvailabilityDialog({
   }, [open, initialProviderId]);
 
   const { data: clinicProviders = [] } = useQuery<(ClinicProvider & { user: any })[]>({
-    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`],
+    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`, unitId],
+    queryFn: async () => {
+      const url = unitId
+        ? `/api/clinic/${hospitalId}/bookable-providers?unitId=${unitId}`
+        : `/api/clinic/${hospitalId}/bookable-providers`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch bookable providers');
+      return res.json();
+    },
     enabled: !!hospitalId && open,
   });
 
@@ -148,7 +156,7 @@ export function ManageAvailabilityDialog({
       return apiRequest("PUT", `/api/clinic/${hospitalId}/providers/${selectedProviderId}/availability-mode`, { mode });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/bookable-providers`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/bookable-providers`, unitId] });
       toast({ title: t('availability.modeUpdated', 'Availability mode updated') });
     },
     onError: () => {

@@ -1633,12 +1633,21 @@ router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, requireS
 });
 
 // Get bookable providers for hospital (only those with isBookable=true)
+// When ?unitId= is provided and that unit has hasOwnCalendar, returns only unit-specific providers
 router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    
+    const unitId = req.query.unitId as string | undefined;
+
+    if (unitId) {
+      const scope = await getCalendarScope(unitId, hospitalId);
+      if (scope.hasOwnCalendar) {
+        const providers = await storage.getBookableProvidersByUnit(unitId);
+        return res.json(providers);
+      }
+    }
+
     const providers = await storage.getBookableProvidersByHospital(hospitalId);
-    
     res.json(providers);
   } catch (error) {
     logger.error("Error fetching bookable providers:", error);
@@ -1689,14 +1698,18 @@ router.get('/api/hospitals/:hospitalId/users', isAuthenticated, requireStrictHos
   }
 });
 
-// Legacy: Get bookable providers for a unit (redirects to hospital-level)
+// Get bookable providers for a unit (filters by unit if hasOwnCalendar is enabled)
 router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
-    const { hospitalId } = req.params;
-    
-    // Use hospital-level query for shared calendar
+    const { hospitalId, unitId } = req.params;
+
+    const scope = await getCalendarScope(unitId, hospitalId);
+    if (scope.hasOwnCalendar) {
+      const providers = await storage.getBookableProvidersByUnit(unitId);
+      return res.json(providers);
+    }
+
     const providers = await storage.getBookableProvidersByHospital(hospitalId);
-    
     res.json(providers);
   } catch (error) {
     logger.error("Error fetching bookable providers:", error);

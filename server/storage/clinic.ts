@@ -130,7 +130,32 @@ export async function getBookableProvidersByHospital(hospitalId: string): Promis
       eq(userHospitalRoles.isBookable, true)
     ))
     .orderBy(asc(users.lastName), asc(users.firstName));
-  
+
+  const seen = new Set<string>();
+  const unique: (ClinicProvider & { user: User })[] = [];
+  for (const r of results) {
+    if (!seen.has(r.role.userId)) {
+      seen.add(r.role.userId);
+      unique.push({ ...roleToClinicProvider(r.role), user: r.user });
+    }
+  }
+  return unique;
+}
+
+export async function getBookableProvidersByUnit(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
+  const results = await db
+    .select({
+      role: userHospitalRoles,
+      user: users
+    })
+    .from(userHospitalRoles)
+    .innerJoin(users, eq(userHospitalRoles.userId, users.id))
+    .where(and(
+      eq(userHospitalRoles.unitId, unitId),
+      eq(userHospitalRoles.isBookable, true)
+    ))
+    .orderBy(asc(users.lastName), asc(users.firstName));
+
   const seen = new Set<string>();
   const unique: (ClinicProvider & { user: User })[] = [];
   for (const r of results) {
