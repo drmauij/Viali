@@ -534,6 +534,8 @@ export async function upsertCalcomConfig(config: InsertCalcomConfig): Promise<Ca
         apiKey: config.apiKey,
         webhookSecret: config.webhookSecret,
         ...(config.feedToken ? { feedToken: config.feedToken } : {}),
+        ...(config.icsFeedCredentialId !== undefined ? { icsFeedCredentialId: config.icsFeedCredentialId } : {}),
+        ...(config.icsFeedSubscribedAt !== undefined ? { icsFeedSubscribedAt: config.icsFeedSubscribedAt } : {}),
         isEnabled: config.isEnabled,
         syncBusyBlocks: config.syncBusyBlocks,
         syncTimebutlerAbsences: config.syncTimebutlerAbsences,

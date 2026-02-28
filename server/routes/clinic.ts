@@ -3713,6 +3713,8 @@ router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, requireStric
     res.json({
       feedToken,
       feeds,
+      isSubscribed: !!config.icsFeedCredentialId,
+      subscribedAt: config.icsFeedSubscribedAt?.toISOString() || null,
     });
   } catch (error: any) {
     logger.error("Error getting Cal.com feeds:", error);
@@ -3724,12 +3726,13 @@ router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, requireStric
 router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    
+    const { force } = req.body || {};
+
     const config = await storage.getCalcomConfig(hospitalId);
     if (!config?.apiKey) {
       return res.status(400).json({ message: "Cal.com API key not configured" });
     }
-    
+
     // Generate feed token if not exists
     let feedToken = config.feedToken;
     if (!feedToken) {
@@ -3739,40 +3742,64 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
         feedToken,
       });
     }
-    
+
     const mappings = await storage.getCalcomProviderMappings(hospitalId);
     const enabledMappings = mappings.filter(m => m.isEnabled);
-    
+
     if (enabledMappings.length === 0) {
       return res.status(400).json({ message: "No provider mappings configured" });
     }
-    
-    // Get base URL - use production URL for Cal.com subscription
-    const baseUrl = process.env.APP_BASE_URL || 'https://use.viali.app';
-    
-    // Generate feed URLs
-    const feedUrls = enabledMappings.map(m => 
-      `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`
-    );
-    
+
+    // Check if already subscribed (prevent duplicates)
+    if (config.icsFeedCredentialId && !force) {
+      return res.json({
+        success: true,
+        alreadySubscribed: true,
+        message: `ICS feeds already subscribed to Cal.com (since ${config.icsFeedSubscribedAt?.toISOString() || 'unknown'}). Use force=true to re-subscribe.`,
+        credentialId: config.icsFeedCredentialId,
+      });
+    }
+
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
-    
+
+    // If re-subscribing, try to disconnect old ICS feeds first
+    if (config.icsFeedCredentialId && force) {
+      logger.info(`Re-subscribing ICS feeds for hospital ${hospitalId}, disconnecting old credential ${config.icsFeedCredentialId}`);
+      await calcom.disconnectIcsFeed(Number(config.icsFeedCredentialId));
+    }
+
+    // Get base URL - use production URL for Cal.com subscription
+    const baseUrl = process.env.APP_BASE_URL || 'https://use.viali.app';
+
+    // Generate feed URLs
+    const feedUrls = enabledMappings.map(m =>
+      `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`
+    );
+
     // Subscribe to all feeds
     const result = await calcom.subscribeToIcsFeed(feedUrls);
-    
+
+    // Store the credential ID to prevent duplicate subscriptions
+    await storage.upsertCalcomConfig({
+      ...config,
+      feedToken,
+      icsFeedCredentialId: String(result.id),
+      icsFeedSubscribedAt: new Date(),
+    });
+
     res.json({
       success: true,
       message: `Subscribed ${feedUrls.length} calendar feed(s) to Cal.com`,
-      calendarId: result.id,
+      credentialId: result.id,
       feedUrls,
     });
   } catch (error: any) {
     logger.error("Error subscribing ICS feeds to Cal.com:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Failed to subscribe feeds to Cal.com", 
-      error: error.message 
+      message: "Failed to subscribe feeds to Cal.com",
+      error: error.message
     });
   }
 });

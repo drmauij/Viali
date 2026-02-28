@@ -3881,9 +3881,11 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   });
 
   // ICS feeds query for calendar sync
-  const { data: feedsData } = useQuery<{
+  const { data: feedsData, refetch: refetchFeeds } = useQuery<{
     feedToken: string;
     feeds: Array<{ providerId: string; feedUrl: string; calcomEventTypeId: string }>;
+    isSubscribed: boolean;
+    subscribedAt: string | null;
   }>({
     queryKey: [`/api/clinic/${hospitalId}/calcom-feeds`],
     enabled: !!hospitalId && calcomEnabled && calcomMappings.length > 0,
@@ -3891,21 +3893,29 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
 
   // Subscribe ICS feeds to Cal.com mutation
   const subscribeFeedsMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-subscribe-feeds`);
+    mutationFn: async (force: boolean = false) => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-subscribe-feeds`, { force });
       return await response.json();
     },
     onSuccess: (data) => {
-      toast({ 
-        title: t("common.success"), 
-        description: `Subscribed ${data.feedUrls?.length || 0} calendar feed(s) to Cal.com`,
-      });
+      if (data.alreadySubscribed) {
+        toast({
+          title: "Already subscribed",
+          description: "ICS feeds are already subscribed to Cal.com. Use re-subscribe if you need to update.",
+        });
+      } else {
+        toast({
+          title: t("common.success"),
+          description: `Subscribed ${data.feedUrls?.length || 0} calendar feed(s) to Cal.com`,
+        });
+      }
+      refetchFeeds();
     },
     onError: (error: any) => {
-      toast({ 
-        title: t("common.error"), 
-        description: error.message || "Failed to subscribe feeds to Cal.com", 
-        variant: "destructive" 
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to subscribe feeds to Cal.com",
+        variant: "destructive"
       });
     },
   });
@@ -4104,20 +4114,45 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                     <p className="text-xs text-muted-foreground">
                       Subscribe your clinic calendar to Cal.com to block booked surgery/appointment times
                     </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => subscribeFeedsMutation.mutate()}
-                    disabled={subscribeFeedsMutation.isPending}
-                    data-testid="button-subscribe-feeds"
-                  >
-                    {subscribeFeedsMutation.isPending ? (
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                    ) : (
-                      <i className="fas fa-sync mr-2"></i>
+                    {feedsData?.isSubscribed && feedsData.subscribedAt && (
+                      <p className="text-xs text-green-500 mt-1">
+                        <i className="fas fa-check-circle mr-1"></i>
+                        Subscribed on {new Date(feedsData.subscribedAt).toLocaleDateString()}
+                      </p>
                     )}
-                    Subscribe to Cal.com
-                  </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    {feedsData?.isSubscribed ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => subscribeFeedsMutation.mutate(true)}
+                        disabled={subscribeFeedsMutation.isPending}
+                        data-testid="button-resubscribe-feeds"
+                      >
+                        {subscribeFeedsMutation.isPending ? (
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                        ) : (
+                          <i className="fas fa-sync mr-2"></i>
+                        )}
+                        Re-subscribe to Cal.com
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => subscribeFeedsMutation.mutate(false)}
+                        disabled={subscribeFeedsMutation.isPending}
+                        data-testid="button-subscribe-feeds"
+                      >
+                        {subscribeFeedsMutation.isPending ? (
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                        ) : (
+                          <i className="fas fa-sync mr-2"></i>
+                        )}
+                        Subscribe to Cal.com
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 {feedsData?.feeds && feedsData.feeds.length > 0 && (

@@ -4379,7 +4379,11 @@ export const calcomConfig = pgTable("calcom_config", {
   
   // ICS feed token for secure calendar feed access
   feedToken: varchar("feed_token"),
-  
+
+  // ICS feed subscription tracking (prevents duplicate subscriptions on Cal.com)
+  icsFeedCredentialId: varchar("ics_feed_credential_id"), // Cal.com credential ID returned from subscribe
+  icsFeedSubscribedAt: timestamp("ics_feed_subscribed_at"), // When feeds were last subscribed
+
   // Sync settings
   isEnabled: boolean("is_enabled").default(false),
   syncBusyBlocks: boolean("sync_busy_blocks").default(true), // Push appointments as busy blocks
