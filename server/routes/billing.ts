@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Stripe from "stripe";
 import { storage, db } from "../storage";
-import { hospitals, anesthesiaRecords, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs } from "@shared/schema";
+import { hospitals, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs } from "@shared/schema";
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 import { Resend } from "resend";
 import { jsPDF } from "jspdf";
@@ -51,20 +51,24 @@ async function requireAdminRoleCheck(req: any, res: any, next: any) {
   }
 }
 
-async function countAnesthesiaRecordsForHospital(
+async function countSurgeriesForHospital(
   hospitalId: string,
   startDate: Date,
   endDate?: Date
 ): Promise<number> {
-  const conditions = [eq(surgeries.hospitalId, hospitalId), gte(anesthesiaRecords.createdAt, startDate)];
+  const conditions = [
+    eq(surgeries.hospitalId, hospitalId),
+    gte(surgeries.plannedDate, startDate),
+    eq(surgeries.isArchived, false),
+    sql`${surgeries.status} != 'cancelled'`,
+  ];
   if (endDate) {
-    conditions.push(lt(anesthesiaRecords.createdAt, endDate));
+    conditions.push(lt(surgeries.plannedDate, endDate));
   }
 
   const [result] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(anesthesiaRecords)
-    .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+    .from(surgeries)
     .where(and(...conditions));
 
   return result?.count || 0;
@@ -98,7 +102,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthRecords = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth);
+    const currentMonthRecords = await countSurgeriesForHospital(hospitalId, startOfMonth);
     
     // Flat base rate per record — all features included
     const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 6.00;
@@ -472,7 +476,7 @@ router.get("/api/billing/:hospitalId/usage", isAuthenticated, async (req: any, r
     const startOfMonth = new Date(targetYear, targetMonth, 1);
     const endOfMonth = new Date(targetYear, targetMonth + 1, 1);
 
-    const recordCount = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth, endOfMonth);
+    const recordCount = await countSurgeriesForHospital(hospitalId, startOfMonth, endOfMonth);
     const pricePerRecord = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 0;
     const totalCost = recordCount * pricePerRecord;
 
@@ -519,7 +523,7 @@ router.post("/api/billing/:hospitalId/charge-month", isAuthenticated, requireAdm
     const startOfMonth = new Date(targetYear, targetMonth, 1);
     const endOfMonth = new Date(targetYear, targetMonth + 1, 1);
 
-    const recordCount = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth, endOfMonth);
+    const recordCount = await countSurgeriesForHospital(hospitalId, startOfMonth, endOfMonth);
     if (recordCount === 0) {
       return res.json({ message: "No records to charge", amount: 0 });
     }
@@ -544,7 +548,7 @@ router.post("/api/billing/:hospitalId/charge-month", isAuthenticated, requireAdm
       invoice: invoice.id,
       amount: totalAmount,
       currency: "chf",
-      description: `Anesthesia Records - ${monthName} (${recordCount} records @ CHF ${pricePerRecord.toFixed(2)})`,
+      description: `Fälle - ${monthName} (${recordCount} cases @ CHF ${pricePerRecord.toFixed(2)})`,
     });
 
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
@@ -1614,20 +1618,23 @@ router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req
       return res.status(404).json({ message: "Hospital not found" });
     }
 
-    // Find the earliest anesthesia record for this hospital
+    // Find the earliest surgery for this hospital
     const [earliest] = await db
-      .select({ createdAt: anesthesiaRecords.createdAt })
-      .from(anesthesiaRecords)
-      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
-      .where(eq(surgeries.hospitalId, hospitalId))
-      .orderBy(anesthesiaRecords.createdAt)
+      .select({ plannedDate: surgeries.plannedDate })
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        eq(surgeries.isArchived, false),
+        sql`${surgeries.status} != 'cancelled'`,
+      ))
+      .orderBy(surgeries.plannedDate)
       .limit(1);
 
     if (!earliest) {
       return res.json({ months: [] });
     }
 
-    // Build list of completed months from earliest record month up to (but not including) current month
+    // Build list of completed months from earliest surgery month up to (but not including) current month
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -1638,8 +1645,8 @@ router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req
     }> = [];
 
     let cursor = new Date(
-      earliest.createdAt!.getFullYear(),
-      earliest.createdAt!.getMonth(),
+      earliest.plannedDate.getFullYear(),
+      earliest.plannedDate.getMonth(),
       1
     );
 
@@ -1668,7 +1675,7 @@ router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req
     // Build result — count records for each month in parallel
     const results = await Promise.all(
       months.map(async ({ month, periodStart, periodEnd }) => {
-        const recordCount = await countAnesthesiaRecordsForHospital(
+        const recordCount = await countSurgeriesForHospital(
           hospitalId,
           periodStart,
           periodEnd
@@ -1775,7 +1782,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     }
     
     // Count records for the period
-    const recordCount = await countAnesthesiaRecordsForHospital(hospitalId, periodStart, periodEnd);
+    const recordCount = await countSurgeriesForHospital(hospitalId, periodStart, periodEnd);
     
     if (recordCount === 0) {
       return res.status(400).json({ message: "No records found for this billing period" });
@@ -1807,7 +1814,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       quantity: recordCount,
       unit_amount_decimal: String(Math.round(basePrice * 100)),
       currency: 'chf',
-      description: 'Anesthesia Records (Base)',
+      description: 'Fälle (Cases)',
     });
     
     // Finalize and pay invoice

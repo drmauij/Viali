@@ -833,7 +833,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Usage</CardTitle>
-            <CardDescription>Anesthesia record usage and cost</CardDescription>
+            <CardDescription>Cases (Fälle) per month and cost</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="current">
@@ -854,13 +854,13 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Records this month</span>
+                    <span className="text-muted-foreground">Cases this month</span>
                     <span className="font-medium">{billingStatus.currentMonthRecords}</span>
                   </div>
                   {billingStatus.licenseType !== "free" && (
                     <>
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Price per record</span>
+                        <span className="text-muted-foreground">Price per case</span>
                         <span className="font-medium">
                           {formatCurrency(billingStatus.pricePerRecord ?? 0)}
                         </span>
@@ -893,8 +893,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="space-y-1">
                       <div className="grid grid-cols-4 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
                         <span>Month</span>
-                        <span className="text-right">Records</span>
-                        <span className="text-right">Price/Record</span>
+                        <span className="text-right">Cases</span>
+                        <span className="text-right">Price/Case</span>
                         <span className="text-right">Total Cost</span>
                       </div>
                       {usageHistory.months.map((entry) => {
