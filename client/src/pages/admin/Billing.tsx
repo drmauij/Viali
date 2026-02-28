@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from "@stripe/stripe-js";
@@ -96,6 +97,18 @@ interface Invoice {
   failedAt: string | null;
   failureReason: string | null;
   createdAt: string;
+}
+
+interface UsageHistoryMonth {
+  month: string;
+  recordCount: number;
+  pricePerRecord: number | null;
+  totalCost: number | null;
+  hasInvoice: boolean;
+}
+
+interface UsageHistoryData {
+  months: UsageHistoryMonth[];
 }
 
 interface DocumentAcceptance {
@@ -253,6 +266,15 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     queryFn: async () => {
       const res = await fetch(`/api/billing/${hospitalId}/billing-invoices`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch invoices");
+      return res.json();
+    },
+  });
+
+  const { data: usageHistory, isLoading: usageHistoryLoading } = useQuery<UsageHistoryData>({
+    queryKey: ["/api/billing", hospitalId, "usage-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing/${hospitalId}/usage-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch usage history");
       return res.json();
     },
   });
@@ -810,42 +832,95 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Current Usage</CardTitle>
-            <CardDescription>This month's anesthesia records</CardDescription>
+            <CardTitle>Usage</CardTitle>
+            <CardDescription>Anesthesia record usage and cost</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Plan</span>
-                <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
-                  {billingStatus.licenseType === "free" ? "Free" : 
-                   billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) : 
-                   "Basic"}
-                </Badge>
-              </div>
-              <Separator />
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Records this month</span>
-                <span className="font-medium">{billingStatus.currentMonthRecords}</span>
-              </div>
-              {billingStatus.licenseType !== "free" && (
-                <>
+            <Tabs defaultValue="current">
+              <TabsList className="mb-4">
+                <TabsTrigger value="current">Current Month</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="current">
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Price per record</span>
-                    <span className="font-medium">
-                      {formatCurrency(billingStatus.pricePerRecord ?? 0)}
-                    </span>
+                    <span className="text-muted-foreground">Plan</span>
+                    <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
+                      {billingStatus.licenseType === "free" ? "Free" :
+                       billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
+                       "Basic"}
+                    </Badge>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Estimated cost</span>
-                    <span className="font-bold text-lg">
-                      {formatCurrency(billingStatus.estimatedCost ?? 0)}
-                    </span>
+                    <span className="text-muted-foreground">Records this month</span>
+                    <span className="font-medium">{billingStatus.currentMonthRecords}</span>
                   </div>
-                </>
-              )}
-            </div>
+                  {billingStatus.licenseType !== "free" && (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Price per record</span>
+                        <span className="font-medium">
+                          {formatCurrency(billingStatus.pricePerRecord ?? 0)}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Estimated cost</span>
+                        <span className="font-bold text-lg">
+                          {formatCurrency(billingStatus.estimatedCost ?? 0)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="history">
+                {usageHistoryLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : !usageHistory?.months?.length ? (
+                  <p className="text-center text-muted-foreground py-8">No usage history yet</p>
+                ) : (
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-1">
+                      <div className="grid grid-cols-4 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
+                        <span>Month</span>
+                        <span className="text-right">Records</span>
+                        <span className="text-right">Price/Record</span>
+                        <span className="text-right">Total Cost</span>
+                      </div>
+                      {usageHistory.months.map((entry) => {
+                        const [year, month] = entry.month.split("-");
+                        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                        return (
+                          <div
+                            key={entry.month}
+                            className="grid grid-cols-4 gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded"
+                          >
+                            <span className="font-medium">{formatMonthYear(date)}</span>
+                            <span className="text-right">{entry.recordCount}</span>
+                            <span className="text-right text-muted-foreground">
+                              {entry.pricePerRecord != null
+                                ? formatCurrency(entry.pricePerRecord)
+                                : "—"}
+                            </span>
+                            <span className="text-right font-medium">
+                              {entry.totalCost != null
+                                ? formatCurrency(entry.totalCost)
+                                : "—"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
