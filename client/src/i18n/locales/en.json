@@ -4291,6 +4291,7 @@
   },
   "surgery": {
     "noAnesthesia": "Without Anesthesia (local anesthesia only)",
+    "anesthesiaNotes": "Notes for Anesthesiologist",
     "opList": {
       "title": "Surgery Schedule",
       "subtitle": "Click on a surgery to open nursing documentation"
@@ -4712,6 +4713,9 @@
       "requirements": "Requirements",
       "antibioticProphylaxis": "Antibiotic Prophylaxis Required",
       "withAnesthesia": "With Anesthesia",
+      "anesthesiaNotes": "Notes for Anesthesiologist",
+      "wishedTimeSlot": "Wished Time Slot",
+      "wishedTimeSlotAnyTime": "Any time",
       "surgeryNotes": "Surgery Notes",
       "additionalInfo": "Additional information...",
       "patientInformation": "Patient Information",

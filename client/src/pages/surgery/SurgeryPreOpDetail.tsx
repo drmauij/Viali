@@ -61,6 +61,11 @@ export default function SurgeryPreOpDetail() {
           {surgery.surgeon && (
             <p className="text-sm text-muted-foreground">{t('surgery.preop.surgeon')}: {surgery.surgeon}</p>
           )}
+          {surgery.anesthesiaNotes && (
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+              <span className="font-medium">{t('surgery.anesthesiaNotes')}:</span> {surgery.anesthesiaNotes}
+            </p>
+          )}
         </div>
       </div>
 
