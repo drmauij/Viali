@@ -8,6 +8,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
@@ -53,8 +54,11 @@ interface FormData {
   antibioseProphylaxe: boolean;
   surgeryDurationMinutes: number;
   withAnesthesia: boolean;
+  anesthesiaNotes: string;
   surgeryNotes: string;
   wishedDate: string;
+  wishedTimeFrom: number | null;
+  wishedTimeTo: number | null;
   patientFirstName: string;
   patientLastName: string;
   patientBirthday: string;
@@ -73,6 +77,10 @@ interface UploadedFile {
   mimeType?: string;
   fileSize?: number;
   isUploading?: boolean;
+}
+
+function formatTimeMins(mins: number): string {
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${mins % 60 === 0 ? '00' : '30'}`;
 }
 
 const ALL_STEPS = [
@@ -122,8 +130,11 @@ export default function ExternalSurgeryRequest() {
     antibioseProphylaxe: false,
     surgeryDurationMinutes: 60,
     withAnesthesia: true,
+    anesthesiaNotes: '',
     surgeryNotes: '',
     wishedDate: '',
+    wishedTimeFrom: null,
+    wishedTimeTo: null,
     patientFirstName: '',
     patientLastName: '',
     patientBirthday: '',
@@ -753,6 +764,18 @@ export default function ExternalSurgeryRequest() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="wishedDate">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      {t('surgery.externalRequest.wishedDate')} *
+                    </Label>
+                    <DateInput
+                      value={formData.wishedDate}
+                      onChange={(v) => updateField('wishedDate', v)}
+                      min={formatDateForInput(new Date())}
+                      data-testid="input-wished-date"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="surgeryDuration">
                       {t('surgery.externalRequest.durationMinutes')} *
                     </Label>
@@ -766,17 +789,47 @@ export default function ExternalSurgeryRequest() {
                       data-testid="input-surgery-duration"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="wishedDate">
-                      <Calendar className="h-4 w-4 inline mr-1" />
-                      {t('surgery.externalRequest.wishedDate')} *
-                    </Label>
-                    <DateInput
-                      value={formData.wishedDate}
-                      onChange={(v) => updateField('wishedDate', v)}
-                      min={formatDateForInput(new Date())}
-                      data-testid="input-wished-date"
-                    />
+                </div>
+
+                {/* Wished Time Slot */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>{t('surgery.externalRequest.wishedTimeSlot')}</Label>
+                    <div className="flex items-center gap-2">
+                      {formData.wishedTimeFrom !== null && formData.wishedTimeTo !== null ? (
+                        <>
+                          <span className="text-sm font-medium tabular-nums">
+                            {formatTimeMins(formData.wishedTimeFrom)} – {formatTimeMins(formData.wishedTimeTo)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { updateField('wishedTimeFrom', null); updateField('wishedTimeTo', null); }}
+                            className="text-xs text-muted-foreground hover:text-foreground underline"
+                          >
+                            {t('surgery.externalRequest.clear')}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{t('surgery.externalRequest.wishedTimeSlotAnyTime')}</span>
+                      )}
+                    </div>
+                  </div>
+                  <Slider
+                    min={480}
+                    max={960}
+                    step={30}
+                    value={formData.wishedTimeFrom !== null && formData.wishedTimeTo !== null
+                      ? [formData.wishedTimeFrom, formData.wishedTimeTo]
+                      : [480, 960]}
+                    onValueChange={([from, to]) => {
+                      updateField('wishedTimeFrom', from);
+                      updateField('wishedTimeTo', to);
+                    }}
+                    data-testid="slider-wished-time"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>08:00</span>
+                    <span>16:00</span>
                   </div>
                 </div>
 
@@ -813,6 +866,22 @@ export default function ExternalSurgeryRequest() {
                     data-testid="switch-anesthesia"
                   />
                 </div>
+
+                {formData.withAnesthesia && (
+                  <div className="space-y-2">
+                    <Label htmlFor="anesthesiaNotes">
+                      {t('surgery.externalRequest.anesthesiaNotes')}
+                    </Label>
+                    <Textarea
+                      id="anesthesiaNotes"
+                      value={formData.anesthesiaNotes}
+                      onChange={(e) => updateField('anesthesiaNotes', e.target.value)}
+                      placeholder=""
+                      rows={3}
+                      data-testid="textarea-anesthesia-notes"
+                    />
+                  </div>
+                )}
                 </>
                 )}
 

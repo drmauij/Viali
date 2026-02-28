@@ -924,7 +924,8 @@ export const surgeries = pgTable("surgeries", {
   surgeon: varchar("surgeon"), // Display name / fallback for unmatched surgeons
   surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
-  
+  anesthesiaNotes: text("anesthesia_notes"), // Notes for the anesthesiologist (copied from external request)
+
   // Scheduling
   admissionTime: timestamp("admission_time"), // Patient arrival time (Eintritt)
   
@@ -4827,8 +4828,11 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   surgeryName: varchar("surgery_name"), // Nullable for reservation-only requests
   surgeryDurationMinutes: integer("surgery_duration_minutes").notNull(),
   withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
+  anesthesiaNotes: text("anesthesia_notes"), // Surgeon's notes for the anesthesiologist
   surgeryNotes: text("surgery_notes"),
   wishedDate: date("wished_date").notNull(),
+  wishedTimeFrom: integer("wished_time_from"), // Minutes since midnight, e.g. 480 = 08:00
+  wishedTimeTo: integer("wished_time_to"), // Minutes since midnight, e.g. 840 = 14:00
   
   // Patient positioning (preference from external surgeon)
   patientPosition: varchar("patient_position", { enum: [

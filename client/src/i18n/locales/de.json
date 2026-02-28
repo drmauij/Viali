@@ -4372,6 +4372,7 @@
   },
   "surgery": {
     "noAnesthesia": "Ohne Anästhesie (nur Lokalanästhesie)",
+    "anesthesiaNotes": "Hinweise für Anästhesist",
     "opList": {
       "title": "OP-Plan",
       "subtitle": "Klicken Sie auf eine OP, um die Pflegedokumentation zu öffnen"
@@ -4793,6 +4794,9 @@
       "requirements": "Anforderungen",
       "antibioticProphylaxis": "Antibiose-Prophylaxe erforderlich",
       "withAnesthesia": "Mit Anästhesie",
+      "anesthesiaNotes": "Hinweise für Anästhesist",
+      "wishedTimeSlot": "Wunschzeitfenster",
+      "wishedTimeSlotAnyTime": "Beliebige Zeit",
       "surgeryNotes": "OP Notizen",
       "additionalInfo": "Zusätzliche Informationen...",
       "patientInformation": "Patienten Daten",
