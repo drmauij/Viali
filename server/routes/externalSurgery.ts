@@ -649,15 +649,18 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       const lang = (hospital?.defaultLanguage as 'de' | 'en') || 'de';
       const isGerman = lang === 'de';
       const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+      const tz = hospital?.timezone || 'Europe/Zurich';
       const formattedDate = new Date(plannedDate).toLocaleDateString(dateLocale, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
+        timeZone: tz,
       });
       const formattedTime = new Date(plannedDate).toLocaleTimeString(dateLocale, {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: tz,
       });
 
       // Try email first; only fall back to SMS if email wasn't sent
