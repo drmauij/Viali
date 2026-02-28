@@ -562,17 +562,17 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { category, fileName, fileUrl, mimeType, fileSize, description } = req.body;
+    const { category, fileName, fileUrl, mimeType, fileSize, description, documentFolderId } = req.body;
 
     const patient = await storage.getPatient(id);
-    
+
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
     const hospitals = await storage.getUserHospitals(userId);
     const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
-    
+
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -587,6 +587,7 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
       fileSize,
       description,
       uploadedBy: userId,
+      documentFolderId: documentFolderId || null,
     });
 
     res.status(201).json(document);
@@ -735,6 +736,103 @@ router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWrit
   } catch (error) {
     logger.error("Error deleting patient document:", error);
     res.status(500).json({ message: "Failed to delete patient document" });
+  }
+});
+
+// ========== PATIENT DOCUMENT FOLDER ROUTES ==========
+
+router.get('/api/patients/:id/document-folders', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const folders = await storage.getPatientDocumentFolders(id);
+    res.json(folders);
+  } catch (error) {
+    logger.error("Error fetching patient document folders:", error);
+    res.status(500).json({ message: "Failed to fetch folders" });
+  }
+});
+
+router.post('/api/patients/:id/document-folders', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Folder name is required" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const folder = await storage.createPatientDocumentFolder({
+      hospitalId: patient.hospitalId,
+      patientId: id,
+      name,
+    });
+    res.status(201).json(folder);
+  } catch (error) {
+    logger.error("Error creating patient document folder:", error);
+    res.status(500).json({ message: "Failed to create folder" });
+  }
+});
+
+router.patch('/api/patients/:id/document-folders/:folderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { folderId } = req.params;
+    const { name, sortOrder } = req.body;
+
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+
+    const folder = await storage.updatePatientDocumentFolder(folderId, updates);
+    res.json(folder);
+  } catch (error) {
+    logger.error("Error updating patient document folder:", error);
+    res.status(500).json({ message: "Failed to update folder" });
+  }
+});
+
+router.delete('/api/patients/:id/document-folders/:folderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { folderId } = req.params;
+    await storage.deletePatientDocumentFolder(folderId);
+    res.json({ message: "Folder deleted" });
+  } catch (error) {
+    logger.error("Error deleting patient document folder:", error);
+    res.status(500).json({ message: "Failed to delete folder" });
+  }
+});
+
+router.post('/api/patients/:id/document-folders/reorder', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { folderIds } = req.body;
+
+    if (!Array.isArray(folderIds)) {
+      return res.status(400).json({ message: "folderIds must be an array" });
+    }
+
+    await storage.reorderPatientDocumentFolders(id, folderIds);
+    res.json({ message: "Folders reordered" });
+  } catch (error) {
+    logger.error("Error reordering patient document folders:", error);
+    res.status(500).json({ message: "Failed to reorder folders" });
+  }
+});
+
+router.patch('/api/patients/:id/documents/:docId/folder', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { docId } = req.params;
+    const { folderId } = req.body;
+
+    const document = await storage.moveDocumentToPatientFolder(docId, folderId ?? null);
+    res.json(document);
+  } catch (error) {
+    logger.error("Error moving document to folder:", error);
+    res.status(500).json({ message: "Failed to move document" });
   }
 });
 

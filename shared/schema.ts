@@ -831,6 +831,7 @@ export const patientDocuments = pgTable("patient_documents", {
   questionnaireUploadId: varchar("questionnaire_upload_id"),
   episodeId: varchar("episode_id"),
   episodeFolderId: varchar("episode_folder_id"),
+  documentFolderId: varchar("document_folder_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_documents_hospital").on(table.hospitalId),
@@ -887,6 +888,25 @@ export const insertEpisodeFolderSchema = createInsertSchema(episodeFolders).omit
 });
 export type InsertEpisodeFolder = z.infer<typeof insertEpisodeFolderSchema>;
 export type EpisodeFolder = typeof episodeFolders.$inferSelect;
+
+// Patient Document Folders - Organize documents within a patient's file (1-level)
+export const patientDocumentFolders = pgTable("patient_document_folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_document_folders_patient").on(table.patientId),
+]);
+
+export const insertPatientDocumentFolderSchema = createInsertSchema(patientDocumentFolders).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPatientDocumentFolder = z.infer<typeof insertPatientDocumentFolderSchema>;
+export type PatientDocumentFolder = typeof patientDocumentFolders.$inferSelect;
 
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {

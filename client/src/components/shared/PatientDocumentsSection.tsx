@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, ExternalLink, Trash2, Eye, ClipboardList } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, Trash2, Eye, ClipboardList, FolderPlus, Folder, FolderOpen, ChevronRight, MoreHorizontal, FolderInput } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +31,16 @@ export type PatientDocument = {
   source?: "questionnaire" | "staff_upload" | "import" | "patient_upload" | null;
   reviewed?: boolean | null;
   questionnaireUploadId?: string | null;
+  documentFolderId?: string | null;
+  createdAt: string;
+};
+
+type DocumentFolder = {
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  name: string;
+  sortOrder: number;
   createdAt: string;
 };
 
@@ -70,53 +82,73 @@ export function PatientDocumentsSection({
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<PatientDocument['category']>('other');
   const [uploadDescription, setUploadDescription] = useState('');
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editDescription, setEditDescription] = useState('');
   const [deleteConfirmDoc, setDeleteConfirmDoc] = useState<PatientDocument | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  // Folder state
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [folderDialogMode, setFolderDialogMode] = useState<'create' | 'rename'>('create');
+  const [editingFolder, setEditingFolder] = useState<DocumentFolder | null>(null);
+  const [folderName, setFolderName] = useState('');
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<DocumentFolder | null>(null);
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [uploadFolderId, setUploadFolderId] = useState<string | null>(null);
 
   const { data: documents = [], isLoading } = useQuery<PatientDocument[]>({
     queryKey: [`/api/patients/${patientId}/documents`, patientId],
     enabled: !!patientId && !!hospitalId,
   });
 
+  const { data: folders = [] } = useQuery<DocumentFolder[]>({
+    queryKey: [`/api/patients/${patientId}/document-folders`, patientId],
+    enabled: !!patientId && !!hospitalId,
+  });
+
+  // ========== UPLOAD MUTATION (supports multiple files) ==========
+
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, category, description }: { file: File; category: string; description: string }) => {
-      const urlRes = await apiRequest('POST', `/api/patients/${patientId}/documents/upload-url`, {
-        filename: file.name,
-        contentType: file.type,
-      });
-      const { uploadUrl, storageKey } = await urlRes.json();
+    mutationFn: async ({ files, category, description, folderId }: { files: File[]; category: string; description: string; folderId?: string | null }) => {
+      await Promise.all(files.map(async (file) => {
+        const urlRes = await apiRequest('POST', `/api/patients/${patientId}/documents/upload-url`, {
+          filename: file.name,
+          contentType: file.type,
+        });
+        const { uploadUrl, storageKey } = await urlRes.json();
 
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
 
-      if (!uploadResponse.ok) {
-        console.error('S3 upload failed:', uploadResponse.status, uploadResponse.statusText);
-        throw new Error(`File upload failed: ${uploadResponse.statusText || uploadResponse.status}`);
-      }
+        if (!uploadResponse.ok) {
+          console.error('S3 upload failed:', uploadResponse.status, uploadResponse.statusText);
+          throw new Error(`File upload failed for ${file.name}: ${uploadResponse.statusText || uploadResponse.status}`);
+        }
 
-      await apiRequest('POST', `/api/patients/${patientId}/documents`, {
-        hospitalId,
-        category,
-        fileName: file.name,
-        fileUrl: storageKey,
-        mimeType: file.type,
-        fileSize: file.size,
-        description: description || null,
-        source: 'staff_upload',
-      });
+        await apiRequest('POST', `/api/patients/${patientId}/documents`, {
+          hospitalId,
+          category,
+          fileName: file.name,
+          fileUrl: storageKey,
+          mimeType: file.type,
+          fileSize: file.size,
+          description: description || null,
+          source: 'staff_upload',
+          documentFolderId: folderId || null,
+        });
+      }));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
       setIsUploadDialogOpen(false);
-      setPendingFile(null);
+      setPendingFiles([]);
       setUploadCategory('other');
       setUploadDescription('');
+      setUploadFolderId(null);
       toast({
         title: t('common.success'),
         description: t('anesthesia.patientDetail.documentUploaded', 'Document uploaded successfully'),
@@ -169,10 +201,71 @@ export function PatientDocumentsSection({
     },
   });
 
+  // ========== FOLDER MUTATIONS ==========
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      await apiRequest('POST', `/api/patients/${patientId}/document-folders`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/document-folders`] });
+      setFolderDialogOpen(false);
+      setFolderName('');
+      toast({ title: t('common.success'), description: t('anesthesia.patientDetail.folderCreated', 'Folder created') });
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const renameFolderMutation = useMutation({
+    mutationFn: async ({ folderId, name }: { folderId: string; name: string }) => {
+      await apiRequest('PATCH', `/api/patients/${patientId}/document-folders/${folderId}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/document-folders`] });
+      setFolderDialogOpen(false);
+      setFolderName('');
+      setEditingFolder(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (folderId: string) => {
+      await apiRequest('DELETE', `/api/patients/${patientId}/document-folders/${folderId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/document-folders`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
+      setDeleteFolderConfirm(null);
+      toast({ title: t('common.success'), description: t('anesthesia.patientDetail.folderDeleted', 'Folder deleted') });
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const moveToFolderMutation = useMutation({
+    mutationFn: async ({ docId, folderId }: { docId: string; folderId: string | null }) => {
+      await apiRequest('PATCH', `/api/patients/${patientId}/documents/${docId}/folder`, { folderId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // ========== HANDLERS ==========
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPendingFile(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setPendingFiles(Array.from(files));
       setIsUploadDialogOpen(true);
     }
     if (fileInputRef.current) {
@@ -185,15 +278,19 @@ export function PatientDocumentsSection({
     const blob = await response.blob();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
-    setPendingFile(file);
+    setPendingFiles([file]);
     setIsCameraOpen(false);
     setIsUploadDialogOpen(true);
   };
 
   const handleUpload = () => {
-    if (pendingFile) {
-      uploadMutation.mutate({ file: pendingFile, category: uploadCategory, description: uploadDescription });
+    if (pendingFiles.length > 0) {
+      uploadMutation.mutate({ files: pendingFiles, category: uploadCategory, description: uploadDescription, folderId: uploadFolderId });
     }
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePreviewDocument = async (doc: PatientDocument) => {
@@ -219,6 +316,38 @@ export function PatientDocumentsSection({
     updateMutation.mutate({ docId: doc.id, reviewed: !doc.reviewed });
   };
 
+  const openCreateFolder = () => {
+    setFolderDialogMode('create');
+    setFolderName('');
+    setEditingFolder(null);
+    setFolderDialogOpen(true);
+  };
+
+  const openRenameFolder = (folder: DocumentFolder) => {
+    setFolderDialogMode('rename');
+    setFolderName(folder.name);
+    setEditingFolder(folder);
+    setFolderDialogOpen(true);
+  };
+
+  const handleFolderDialogSubmit = () => {
+    if (!folderName.trim()) return;
+    if (folderDialogMode === 'create') {
+      createFolderMutation.mutate(folderName.trim());
+    } else if (editingFolder) {
+      renameFolderMutation.mutate({ folderId: editingFolder.id, name: folderName.trim() });
+    }
+  };
+
+  const toggleFolder = (folderId: string) => {
+    setOpenFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
   const isRecent = (createdAt: string) => {
     const docDate = new Date(createdAt);
     const dayAgo = new Date();
@@ -238,11 +367,14 @@ export function PatientDocumentsSection({
     return t(key, categoryLabels[category] || category);
   };
 
+  // ========== DOCUMENT CARD RENDERING ==========
+
   const renderDocumentCard = (doc: PatientDocument) => {
     const isImage = doc.mimeType?.startsWith('image/');
     const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
     const needsReview = (doc.source === 'questionnaire' || doc.source === 'patient_upload') && !doc.reviewed;
     const isRecentDoc = isRecent(doc.createdAt);
+    const hasFolders = folders.length > 0;
 
     return (
       <div
@@ -252,7 +384,7 @@ export function PatientDocumentsSection({
       >
         {isCompactView ? (
           <div className="p-3 flex items-center gap-3">
-            <div 
+            <div
               className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity"
               onClick={() => handlePreviewDocument(doc)}
             >
@@ -319,6 +451,36 @@ export function PatientDocumentsSection({
                       {doc.reviewed ? t('anesthesia.patientDetail.reviewed', 'Reviewed') : t('anesthesia.patientDetail.markReviewed', 'Mark Reviewed')}
                     </Button>
                   )}
+                  {canWrite && hasFolders && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" data-testid={`button-move-folder-${doc.id}`}>
+                          <FolderInput className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {folders.map(f => (
+                          <DropdownMenuItem
+                            key={f.id}
+                            onClick={() => moveToFolderMutation.mutate({ docId: doc.id, folderId: f.id })}
+                            disabled={doc.documentFolderId === f.id}
+                          >
+                            <Folder className="h-3 w-3 mr-2" />
+                            {f.name}
+                          </DropdownMenuItem>
+                        ))}
+                        {doc.documentFolderId && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => moveToFolderMutation.mutate({ docId: doc.id, folderId: null })}>
+                              <X className="h-3 w-3 mr-2" />
+                              {t('anesthesia.patientDetail.removeFromFolder', 'Remove from folder')}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => handlePreviewDocument(doc)} data-testid={`button-preview-${doc.id}`}>
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -347,6 +509,36 @@ export function PatientDocumentsSection({
               <div className="flex items-start justify-between gap-1">
                 <p className="text-sm font-medium truncate flex-1" title={doc.fileName}>{doc.fileName}</p>
                 <div className="flex gap-1">
+                  {canWrite && hasFolders && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" data-testid={`button-move-folder-grid-${doc.id}`}>
+                          <FolderInput className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {folders.map(f => (
+                          <DropdownMenuItem
+                            key={f.id}
+                            onClick={() => moveToFolderMutation.mutate({ docId: doc.id, folderId: f.id })}
+                            disabled={doc.documentFolderId === f.id}
+                          >
+                            <Folder className="h-3 w-3 mr-2" />
+                            {f.name}
+                          </DropdownMenuItem>
+                        ))}
+                        {doc.documentFolderId && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => moveToFolderMutation.mutate({ docId: doc.id, folderId: null })}>
+                              <X className="h-3 w-3 mr-2" />
+                              {t('anesthesia.patientDetail.removeFromFolder', 'Remove from folder')}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   {canWrite && (
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => setDeleteConfirmDoc(doc)} data-testid={`button-delete-${doc.id}`}>
                       <Trash2 className="h-3 w-3" />
@@ -419,6 +611,102 @@ export function PatientDocumentsSection({
     );
   };
 
+  // ========== FOLDER-GROUPED RENDERING ==========
+
+  const renderDocumentList = () => {
+    const hasFolders = folders.length > 0;
+
+    if (!hasFolders) {
+      return (
+        <div className={isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
+          {documents.map(renderDocumentCard)}
+        </div>
+      );
+    }
+
+    const folderDocs = new Map<string, PatientDocument[]>();
+    const unfiledDocs: PatientDocument[] = [];
+
+    for (const doc of documents) {
+      if (doc.documentFolderId && folders.some(f => f.id === doc.documentFolderId)) {
+        const existing = folderDocs.get(doc.documentFolderId) || [];
+        existing.push(doc);
+        folderDocs.set(doc.documentFolderId, existing);
+      } else {
+        unfiledDocs.push(doc);
+      }
+    }
+
+    return (
+      <div className="space-y-3">
+        {folders.map(folder => {
+          const docs = folderDocs.get(folder.id) || [];
+          const isOpen = openFolders.has(folder.id);
+
+          return (
+            <Collapsible key={folder.id} open={isOpen} onOpenChange={() => toggleFolder(folder.id)}>
+              <div className="flex items-center gap-2 group">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 flex items-center gap-2 flex-1 justify-start">
+                    <ChevronRight className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    {isOpen ? <FolderOpen className="h-4 w-4 text-blue-500" /> : <Folder className="h-4 w-4 text-blue-500" />}
+                    <span className="font-medium text-sm">{folder.name}</span>
+                    <Badge variant="secondary" className="text-xs ml-1">{docs.length}</Badge>
+                  </Button>
+                </CollapsibleTrigger>
+                {canWrite && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`button-folder-menu-${folder.id}`}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openRenameFolder(folder)}>
+                        <Pencil className="h-3 w-3 mr-2" />
+                        {t('common.rename', 'Rename')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDeleteFolderConfirm(folder)} className="text-destructive">
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        {t('common.delete', 'Delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+              <CollapsibleContent>
+                {docs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground pl-10 py-2">
+                    {t('anesthesia.patientDetail.emptyFolder', 'No documents in this folder')}
+                  </p>
+                ) : (
+                  <div className={`pl-6 mt-1 ${isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}`}>
+                    {docs.map(renderDocumentCard)}
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+
+        {unfiledDocs.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">
+                {t('anesthesia.patientDetail.unfiled', 'Unfiled')}
+              </span>
+              <Badge variant="secondary" className="text-xs">{unfiledDocs.length}</Badge>
+            </div>
+            <div className={isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
+              {unfiledDocs.map(renderDocumentCard)}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const hasDocuments = documents.length > 0;
 
   const headerContent = (
@@ -438,6 +726,14 @@ export function PatientDocumentsSection({
         </Button>
         {canWrite && (
           <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => { e.stopPropagation(); openCreateFolder(); }}
+              data-testid="button-create-folder"
+            >
+              <FolderPlus className="h-4 w-4" />
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -466,7 +762,7 @@ export function PatientDocumentsSection({
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : documents.length === 0 ? (
+      ) : documents.length === 0 && folders.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>{t('anesthesia.patientDetail.noDocuments', 'No documents uploaded yet')}</p>
@@ -483,9 +779,7 @@ export function PatientDocumentsSection({
           )}
         </div>
       ) : (
-        <div className={isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
-          {documents.map(renderDocumentCard)}
-        </div>
+        renderDocumentList()
       )}
 
       <input
@@ -494,23 +788,37 @@ export function PatientDocumentsSection({
         onChange={handleFileSelect}
         accept="image/*,application/pdf"
         className="hidden"
+        multiple
         data-testid="input-file-upload"
       />
 
-      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+      {/* Upload dialog (multi-file) */}
+      <Dialog open={isUploadDialogOpen} onOpenChange={(open) => { if (!open) { setUploadFolderId(null); } setIsUploadDialogOpen(open); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}</DialogTitle>
+            <DialogTitle>
+              {t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}
+              {pendingFiles.length > 1 && ` (${pendingFiles.length})`}
+            </DialogTitle>
             <DialogDescription>{t('anesthesia.patientDetail.uploadDocumentDesc', 'Add a document to this patient\'s file')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {pendingFile && (
-              <div className="p-3 bg-muted rounded-lg flex items-center gap-3">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{pendingFile.name}</p>
-                  <p className="text-sm text-muted-foreground">{formatFileSize(pendingFile.size)}</p>
-                </div>
+            {pendingFiles.length > 0 && (
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {pendingFiles.map((file, i) => (
+                  <div key={i} className="p-2 bg-muted rounded-lg flex items-center gap-3">
+                    <FileText className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                    </div>
+                    {pendingFiles.length > 1 && (
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 flex-shrink-0" onClick={() => removePendingFile(i)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
             <div className="space-y-2">
@@ -531,6 +839,22 @@ export function PatientDocumentsSection({
                 </SelectContent>
               </Select>
             </div>
+            {folders.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('anesthesia.patientDetail.folder', 'Folder')} ({t('common.optional', 'optional')})</Label>
+                <Select value={uploadFolderId || '_none'} onValueChange={(v) => setUploadFolderId(v === '_none' ? null : v)}>
+                  <SelectTrigger data-testid="select-upload-folder">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">{t('anesthesia.patientDetail.noFolder', 'No folder')}</SelectItem>
+                    {folders.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{t('anesthesia.patientDetail.description', 'Description')} ({t('common.optional', 'optional')})</Label>
               <Input
@@ -543,14 +867,15 @@ export function PatientDocumentsSection({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleUpload} disabled={uploadMutation.isPending || !pendingFile} data-testid="button-confirm-upload">
+            <Button onClick={handleUpload} disabled={uploadMutation.isPending || pendingFiles.length === 0} data-testid="button-confirm-upload">
               {uploadMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t('common.upload', 'Upload')}
+              {t('common.upload', 'Upload')}{pendingFiles.length > 1 ? ` (${pendingFiles.length})` : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Camera dialog */}
       <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -561,6 +886,7 @@ export function PatientDocumentsSection({
         </DialogContent>
       </Dialog>
 
+      {/* Delete document dialog */}
       <Dialog open={!!deleteConfirmDoc} onOpenChange={() => setDeleteConfirmDoc(null)}>
         <DialogContent>
           <DialogHeader>
@@ -578,6 +904,72 @@ export function PatientDocumentsSection({
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/Rename folder dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {folderDialogMode === 'create'
+                ? t('anesthesia.patientDetail.createFolder', 'Create Folder')
+                : t('anesthesia.patientDetail.renameFolder', 'Rename Folder')}
+            </DialogTitle>
+            <DialogDescription>
+              {folderDialogMode === 'create'
+                ? t('anesthesia.patientDetail.createFolderDesc', 'Create a folder to group related documents')
+                : t('anesthesia.patientDetail.renameFolderDesc', 'Enter a new name for this folder')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.folderName', 'Folder name')}</Label>
+              <Input
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder={t('anesthesia.patientDetail.folderNamePlaceholder', 'e.g., Pre-op photos')}
+                onKeyDown={(e) => e.key === 'Enter' && handleFolderDialogSubmit()}
+                autoFocus
+                data-testid="input-folder-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFolderDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button
+              onClick={handleFolderDialogSubmit}
+              disabled={!folderName.trim() || createFolderMutation.isPending || renameFolderMutation.isPending}
+              data-testid="button-confirm-folder"
+            >
+              {(createFolderMutation.isPending || renameFolderMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {folderDialogMode === 'create' ? t('common.create', 'Create') : t('common.save', 'Save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete folder dialog */}
+      <Dialog open={!!deleteFolderConfirm} onOpenChange={() => setDeleteFolderConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.patientDetail.deleteFolder', 'Delete Folder')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.patientDetail.deleteFolderConfirm', 'Are you sure you want to delete this folder? Documents inside will be moved to "Unfiled" — they will not be deleted.')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFolderConfirm(null)}>{t('common.cancel')}</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteFolderConfirm && deleteFolderMutation.mutate(deleteFolderConfirm.id)}
+              disabled={deleteFolderMutation.isPending}
+              data-testid="button-confirm-delete-folder"
+            >
+              {deleteFolderMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t('common.delete')}
             </Button>
           </DialogFooter>

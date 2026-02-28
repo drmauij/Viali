@@ -121,6 +121,8 @@ import {
   type InsertPatientQuestionnaireReview,
   type PatientDocument,
   type InsertPatientDocument,
+  type PatientDocumentFolder,
+  type InsertPatientDocumentFolder,
   type PatientMessage,
   type InsertPatientMessage,
   type PersonalTodo,
@@ -199,6 +201,7 @@ import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
 import * as worktimeStorage from "./storage/worktime";
 import * as episodeStorage from "./storage/episodes";
+import * as patientDocumentFolderStorage from "./storage/patientDocumentFolders";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -765,7 +768,15 @@ export interface IStorage {
   createPatientDocument(doc: InsertPatientDocument): Promise<PatientDocument>;
   updatePatientDocument(id: string, updates: Partial<PatientDocument>): Promise<PatientDocument>;
   deletePatientDocument(id: string): Promise<void>;
-  
+
+  // ========== PATIENT DOCUMENT FOLDER OPERATIONS ==========
+  getPatientDocumentFolders(patientId: string): Promise<PatientDocumentFolder[]>;
+  createPatientDocumentFolder(data: InsertPatientDocumentFolder): Promise<PatientDocumentFolder>;
+  updatePatientDocumentFolder(id: string, updates: Partial<PatientDocumentFolder>): Promise<PatientDocumentFolder>;
+  deletePatientDocumentFolder(id: string): Promise<void>;
+  reorderPatientDocumentFolders(patientId: string, folderIds: string[]): Promise<void>;
+  moveDocumentToPatientFolder(docId: string, folderId: string | null): Promise<PatientDocument>;
+
   // ========== PERSONAL TODO OPERATIONS ==========
   getPersonalTodos(userId: string, hospitalId: string): Promise<PersonalTodo[]>;
   getPersonalTodo(id: string): Promise<PersonalTodo | undefined>;
@@ -1545,6 +1556,14 @@ export class DatabaseStorage implements IStorage {
   linkNoteToEpisode = episodeStorage.linkNoteToEpisode;
   unlinkNoteFromEpisode = episodeStorage.unlinkNoteFromEpisode;
   getEpisodeNotes = episodeStorage.getEpisodeNotes;
+
+  // ========== PATIENT DOCUMENT FOLDER OPERATIONS ==========
+  getPatientDocumentFolders = patientDocumentFolderStorage.getPatientDocumentFolders;
+  createPatientDocumentFolder = patientDocumentFolderStorage.createPatientDocumentFolder;
+  updatePatientDocumentFolder = patientDocumentFolderStorage.updatePatientDocumentFolder;
+  deletePatientDocumentFolder = patientDocumentFolderStorage.deletePatientDocumentFolder;
+  reorderPatientDocumentFolders = patientDocumentFolderStorage.reorderPatientDocumentFolders;
+  moveDocumentToPatientFolder = patientDocumentFolderStorage.moveDocumentToPatientFolder;
 }
 
 export const storage = new DatabaseStorage();
