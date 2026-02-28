@@ -36,6 +36,7 @@ import type { ExternalSurgeryRequest } from "@shared/schema";
 export interface SurgeryRoom {
   id: string;
   name: string;
+  type?: 'OP' | 'PACU';
 }
 
 export interface ScheduleDialogProps {
@@ -49,10 +50,12 @@ export interface ScheduleDialogProps {
   initialRoomId?: string;
 }
 
-export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms, initialDate, initialTime, initialRoomId }: ScheduleDialogProps) {
+export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms: allRooms, initialDate, initialTime, initialRoomId }: ScheduleDialogProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const isGerman = i18n.language === 'de';
+  // Only show OR rooms, not PACU rooms
+  const surgeryRooms = allRooms.filter(r => !r.type || r.type === 'OP');
 
   const [plannedDate, setPlannedDate] = useState(initialDate ?? request.wishedDate);
   const [plannedTime, setPlannedTime] = useState(initialTime ?? "08:00");
