@@ -825,6 +825,12 @@ export default function ExternalSurgeryRequest() {
                       updateField('wishedTimeFrom', from);
                       updateField('wishedTimeTo', to);
                     }}
+                    onPointerDown={() => {
+                      if (formData.wishedTimeFrom === null) {
+                        updateField('wishedTimeFrom', 480);
+                        updateField('wishedTimeTo', 960);
+                      }
+                    }}
                     data-testid="slider-wished-time"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
