@@ -1687,10 +1687,10 @@ router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req
         let totalCost: number | null = null;
 
         if (matchingInvoice) {
-          const invoicePrice = parseFloat(matchingInvoice.basePrice || "0");
-          if (invoicePrice > 0 && recordCount > 0) {
-            pricePerRecord = invoicePrice;
-            totalCost = recordCount * pricePerRecord;
+          const invoiceTotal = parseFloat(matchingInvoice.basePrice || "0");
+          if (invoiceTotal > 0 && recordCount > 0) {
+            totalCost = invoiceTotal;
+            pricePerRecord = invoiceTotal / recordCount;
           }
         } else if (currentPricePerRecord > 0 && recordCount > 0) {
           pricePerRecord = currentPricePerRecord;
