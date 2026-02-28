@@ -26,8 +26,7 @@ interface StaffEntry {
 interface InventoryUsageEntry {
   id: string;
   itemId: string;
-  qty?: string | number;
-  calculatedQty?: string | number;
+  calculatedQty: string | number;
   overrideQty?: string | number | null;
 }
 
@@ -38,18 +37,16 @@ interface LookupItem {
 
 // --- Helpers ---
 
-const t = (key: string, fallback: string): string => {
-  return i18next.t(key, fallback);
-};
+const t = i18next.t.bind(i18next);
 
 const ROLE_LABELS: Record<string, () => string> = {
-  surgeon: () => t("invoice.pdf.role.surgeon", "Surgeon"),
-  surgicalAssistant: () => t("invoice.pdf.role.surgicalAssistant", "Surgical Assistant"),
-  instrumentNurse: () => t("invoice.pdf.role.instrumentNurse", "Instrument Nurse"),
-  circulatingNurse: () => t("invoice.pdf.role.circulatingNurse", "Circulating Nurse"),
-  anesthesiologist: () => t("invoice.pdf.role.anesthesiologist", "Anesthesiologist"),
-  anesthesiaNurse: () => t("invoice.pdf.role.anesthesiaNurse", "Anesthesia Nurse"),
-  pacuNurse: () => t("invoice.pdf.role.pacuNurse", "PACU Nurse"),
+  surgeon: () => t("business.invoicePdf.role.surgeon", "Surgeon"),
+  surgicalAssistant: () => t("business.invoicePdf.role.surgicalAssistant", "Surgical Assistant"),
+  instrumentNurse: () => t("business.invoicePdf.role.instrumentNurse", "Instrument Nurse"),
+  circulatingNurse: () => t("business.invoicePdf.role.circulatingNurse", "Circulating Nurse"),
+  anesthesiologist: () => t("business.invoicePdf.role.anesthesiologist", "Anesthesiologist"),
+  anesthesiaNurse: () => t("business.invoicePdf.role.anesthesiaNurse", "Anesthesia Nurse"),
+  pacuNurse: () => t("business.invoicePdf.role.pacuNurse", "PACU Nurse"),
 };
 
 function getRoleLabel(role: string): string {
@@ -61,11 +58,11 @@ function getSideLabel(side: string | null | undefined): string {
   if (!side) return "";
   switch (side) {
     case "left":
-      return t("invoice.pdf.side.left", "Left");
+      return t("business.invoicePdf.side.left", "Left");
     case "right":
-      return t("invoice.pdf.side.right", "Right");
+      return t("business.invoicePdf.side.right", "Right");
     case "both":
-      return t("invoice.pdf.side.both", "Both");
+      return t("business.invoicePdf.side.both", "Both");
     default:
       return side;
   }
@@ -116,12 +113,7 @@ function buildItemNameMap(
  * Uses overrideQty if set, otherwise falls back to qty/calculatedQty.
  */
 function getEffectiveQty(entry: InventoryUsageEntry): number {
-  const raw =
-    entry.overrideQty != null
-      ? entry.overrideQty
-      : entry.qty != null
-        ? entry.qty
-        : entry.calculatedQty;
+  const raw = entry.overrideQty != null ? entry.overrideQty : entry.calculatedQty;
   const num = typeof raw === "string" ? parseFloat(raw) : (raw ?? 0);
   return isNaN(num) ? 0 : num;
 }
@@ -150,15 +142,23 @@ export async function generateInvoicePdf(
 
     const anesthesiaRecord = recordRes.ok ? await recordRes.json() : null;
 
-    // Step 2: Fetch staff, inventory, and lookup items in parallel
+    // Step 2: Fetch lookup items + staff/inventory all in parallel
     let staffMembers: StaffEntry[] = [];
     let inventoryUsage: InventoryUsageEntry[] = [];
 
-    // Always fetch lookup items (needed for inventory names)
-    const [anesthesiaItemsRes, inventoryItemsRes] = await Promise.all([
+    const parallelFetches: Promise<Response>[] = [
       fetch(`/api/anesthesia/items/${hospitalId}`, { credentials: "include" }),
       fetch(`/api/items/${hospitalId}`, { credentials: "include" }),
-    ]);
+    ];
+    if (anesthesiaRecord?.id) {
+      parallelFetches.push(
+        fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}`, { credentials: "include" }),
+      );
+    }
+
+    const responses = await Promise.all(parallelFetches);
+    const [anesthesiaItemsRes, inventoryItemsRes] = responses;
 
     const anesthesiaItems: LookupItem[] = anesthesiaItemsRes.ok
       ? await anesthesiaItemsRes.json()
@@ -167,17 +167,8 @@ export async function generateInvoicePdf(
       ? await inventoryItemsRes.json()
       : [];
 
-    // If we have a record, fetch staff and inventory
     if (anesthesiaRecord?.id) {
-      const [staffRes, inventoryRes] = await Promise.all([
-        fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, {
-          credentials: "include",
-        }),
-        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}`, {
-          credentials: "include",
-        }),
-      ]);
-
+      const [staffRes, inventoryRes] = [responses[2], responses[3]];
       staffMembers = staffRes.ok ? await staffRes.json() : [];
       inventoryUsage = inventoryRes.ok ? await inventoryRes.json() : [];
     }
@@ -199,7 +190,7 @@ export async function generateInvoicePdf(
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text(
-      t("invoice.pdf.title", "Surgery Documentation — Invoice"),
+      t("business.invoicePdf.title", "Surgery Documentation — Invoice"),
       pageWidth / 2,
       yPos,
       { align: "center" },
@@ -210,7 +201,7 @@ export async function generateInvoicePdf(
     doc.setFont("helvetica", "normal");
     doc.setTextColor(120, 120, 120);
     doc.text(
-      `${t("invoice.pdf.generated", "Generated")}: ${formatDateTime(new Date())}`,
+      `${t("business.invoicePdf.generated", "Generated")}: ${formatDateTime(new Date())}`,
       pageWidth / 2,
       yPos,
       { align: "center" },
@@ -226,7 +217,7 @@ export async function generateInvoicePdf(
     // --- Patient section ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(t("invoice.pdf.patient", "Patient"), margin, yPos);
+    doc.text(t("business.invoicePdf.patient", "Patient"), margin, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -234,14 +225,14 @@ export async function generateInvoicePdf(
 
     const patientName = `${patient.surname}, ${patient.firstName}`;
     doc.text(
-      `${t("invoice.pdf.name", "Name")}: ${patientName}`,
+      `${t("business.invoicePdf.name", "Name")}: ${patientName}`,
       margin,
       yPos,
     );
     yPos += 6;
 
     doc.text(
-      `${t("invoice.pdf.dob", "Date of Birth")}: ${formatDate(patient.birthday)}`,
+      `${t("business.invoicePdf.dob", "Date of Birth")}: ${formatDate(patient.birthday)}`,
       margin,
       yPos,
     );
@@ -250,7 +241,7 @@ export async function generateInvoicePdf(
     // --- Procedure section ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(t("invoice.pdf.procedure", "Procedure"), margin, yPos);
+    doc.text(t("business.invoicePdf.procedure", "Procedure"), margin, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -258,7 +249,7 @@ export async function generateInvoicePdf(
 
     const surgeryName = surgery.plannedSurgery || "-";
     doc.text(
-      `${t("invoice.pdf.surgery", "Surgery")}: ${surgeryName}`,
+      `${t("business.invoicePdf.surgery", "Surgery")}: ${surgeryName}`,
       margin,
       yPos,
     );
@@ -266,7 +257,7 @@ export async function generateInvoicePdf(
 
     if (surgery.surgeon) {
       doc.text(
-        `${t("invoice.pdf.surgeon", "Surgeon")}: ${surgery.surgeon}`,
+        `${t("business.invoicePdf.surgeon", "Surgeon")}: ${surgery.surgeon}`,
         margin,
         yPos,
       );
@@ -275,7 +266,7 @@ export async function generateInvoicePdf(
 
     if (surgery.surgerySide) {
       doc.text(
-        `${t("invoice.pdf.side", "Side")}: ${getSideLabel(surgery.surgerySide)}`,
+        `${t("business.invoicePdf.side", "Side")}: ${getSideLabel(surgery.surgerySide)}`,
         margin,
         yPos,
       );
@@ -287,14 +278,14 @@ export async function generateInvoicePdf(
     // --- Times section ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(t("invoice.pdf.times", "Times"), margin, yPos);
+    doc.text(t("business.invoicePdf.times", "Times"), margin, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
 
     doc.text(
-      `${t("invoice.pdf.date", "Date")}: ${formatDate(surgery.plannedDate)}`,
+      `${t("business.invoicePdf.date", "Date")}: ${formatDate(surgery.plannedDate)}`,
       margin,
       yPos,
     );
@@ -302,7 +293,7 @@ export async function generateInvoicePdf(
 
     if (surgery.admissionTime) {
       doc.text(
-        `${t("invoice.pdf.admission", "Admission")}: ${formatDateTime(surgery.admissionTime)}`,
+        `${t("business.invoicePdf.admission", "Admission")}: ${formatDateTime(surgery.admissionTime)}`,
         margin,
         yPos,
       );
@@ -311,7 +302,7 @@ export async function generateInvoicePdf(
 
     if (surgery.actualStartTime) {
       doc.text(
-        `${t("invoice.pdf.startTime", "Start")}: ${formatDateTime(surgery.actualStartTime)}`,
+        `${t("business.invoicePdf.startTime", "Start")}: ${formatDateTime(surgery.actualStartTime)}`,
         margin,
         yPos,
       );
@@ -320,7 +311,7 @@ export async function generateInvoicePdf(
 
     if (surgery.actualEndTime) {
       doc.text(
-        `${t("invoice.pdf.endTime", "End")}: ${formatDateTime(surgery.actualEndTime)}`,
+        `${t("business.invoicePdf.endTime", "End")}: ${formatDateTime(surgery.actualEndTime)}`,
         margin,
         yPos,
       );
@@ -333,7 +324,7 @@ export async function generateInvoicePdf(
         surgery.actualEndTime,
       );
       doc.text(
-        `${t("invoice.pdf.duration", "Duration")}: ${duration}`,
+        `${t("business.invoicePdf.duration", "Duration")}: ${duration}`,
         margin,
         yPos,
       );
@@ -343,49 +334,54 @@ export async function generateInvoicePdf(
     yPos += 6;
 
     // --- Staff table ---
+    const pageHeight = doc.internal.pageSize.getHeight();
     if (staffMembers.length > 0) {
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(t("invoice.pdf.staff", "Staff"), margin, yPos);
+      doc.text(t("business.invoicePdf.staff", "Staff"), margin, yPos);
       yPos += 4;
 
       autoTable(doc, {
         startY: yPos,
         head: [
           [
-            t("invoice.pdf.staffName", "Name"),
-            t("invoice.pdf.staffRole", "Role"),
+            t("business.invoicePdf.staffName", "Name"),
+            t("business.invoicePdf.staffRole", "Role"),
           ],
         ],
-        body: staffMembers.map((s) => [s.name, getRoleLabel(s.role)]),
+        body: staffMembers.map((s) => [s.name || "-", getRoleLabel(s.role)]),
         theme: "grid",
         headStyles: { fillColor: [66, 66, 66] },
         margin: { left: margin, right: margin },
         styles: { fontSize: 9 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = (doc as any).lastAutoTable?.finalY ?? yPos + 10;
     }
 
     // --- Inventory table ---
     if (filteredInventory.length > 0) {
+      if (yPos + 40 > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(t("invoice.pdf.inventory", "Inventory"), margin, yPos);
+      doc.text(t("business.invoicePdf.inventory", "Inventory"), margin, yPos);
       yPos += 4;
 
       autoTable(doc, {
         startY: yPos,
         head: [
           [
-            t("invoice.pdf.itemName", "Item"),
-            t("invoice.pdf.itemQty", "Quantity"),
+            t("business.invoicePdf.itemName", "Item"),
+            t("business.invoicePdf.itemQty", "Quantity"),
           ],
         ],
         body: filteredInventory.map((entry) => {
           const name =
             itemNameMap.get(entry.itemId) ||
-            t("invoice.pdf.unknownItem", "Unknown item");
+            t("business.invoicePdf.unknownItem", "Unknown item");
           const qty = getEffectiveQty(entry);
           return [name, String(qty)];
         }),
@@ -398,7 +394,7 @@ export async function generateInvoicePdf(
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = (doc as any).lastAutoTable?.finalY ?? yPos + 10;
     }
 
     // --- Save ---
