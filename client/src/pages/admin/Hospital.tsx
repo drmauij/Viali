@@ -3807,7 +3807,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   // Providers query for mapping dialog
   const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/all/providers`],
-    enabled: !!hospitalId && mappingDialogOpen,
+    enabled: !!hospitalId && (mappingDialogOpen || calcomMappings.length > 0),
   });
 
   // Sync Cal.com state when data is fetched
@@ -4070,10 +4070,12 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                   <p className="text-sm text-muted-foreground">No provider mappings configured. Add a mapping to enable booking for specific providers.</p>
                 ) : (
                   <div className="space-y-2">
-                    {calcomMappings.map((mapping) => (
+                    {calcomMappings.map((mapping) => {
+                      const provider = providers.find(p => p.id === mapping.providerId);
+                      return (
                       <div key={mapping.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                         <div className="text-sm">
-                          <span className="font-medium">Provider: {mapping.providerId.substring(0, 8)}...</span>
+                          <span className="font-medium">{provider ? `${provider.firstName} ${provider.lastName}` : mapping.providerId.substring(0, 8) + '...'}</span>
                           <span className="mx-2">→</span>
                           <span>Event Type ID: {mapping.calcomEventTypeId}</span>
                         </div>
@@ -4086,7 +4088,8 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
