@@ -3391,6 +3391,16 @@ export default function PatientDetail() {
                       </div>
                     );
                   })()}
+                  {(() => {
+                    const selectedSurgery = surgeries?.find(s => s.id === selectedCaseId);
+                    if (!selectedSurgery?.anesthesiaNotes) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-primary/20">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{t('anesthesia.patientDetail.anesthesiaNotes', 'Anesthesia Notes (Surgeon)')}</p>
+                        <p className="text-sm whitespace-pre-wrap">{selectedSurgery.anesthesiaNotes}</p>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
