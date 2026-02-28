@@ -1597,6 +1597,128 @@ router.get("/api/billing/:hospitalId/billing-invoices", isAuthenticated, async (
   }
 });
 
+// Get historical monthly usage for a hospital
+router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    // Access check
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (!userHospitals.some((h: any) => h.id === hospitalId)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    // Find the earliest anesthesia record for this hospital
+    const [earliest] = await db
+      .select({ createdAt: anesthesiaRecords.createdAt })
+      .from(anesthesiaRecords)
+      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(eq(surgeries.hospitalId, hospitalId))
+      .orderBy(anesthesiaRecords.createdAt)
+      .limit(1);
+
+    if (!earliest) {
+      return res.json({ months: [] });
+    }
+
+    // Build list of completed months from earliest record month up to (but not including) current month
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const months: Array<{
+      month: string;
+      periodStart: Date;
+      periodEnd: Date;
+    }> = [];
+
+    let cursor = new Date(
+      earliest.createdAt!.getFullYear(),
+      earliest.createdAt!.getMonth(),
+      1
+    );
+
+    while (cursor < currentMonthStart) {
+      const periodStart = new Date(cursor);
+      const periodEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      const month = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+      months.push({ month, periodStart, periodEnd });
+      cursor = periodEnd;
+    }
+
+    if (months.length === 0) {
+      return res.json({ months: [] });
+    }
+
+    // Fetch all invoices for this hospital to cross-reference pricing
+    const invoices = await db
+      .select()
+      .from(billingInvoices)
+      .where(eq(billingInvoices.hospitalId, hospitalId));
+
+    const currentPricePerRecord = hospital.pricePerRecord
+      ? parseFloat(hospital.pricePerRecord)
+      : 6.00;
+
+    // Build result — count records for each month in parallel
+    const results = await Promise.all(
+      months.map(async ({ month, periodStart, periodEnd }) => {
+        const recordCount = await countAnesthesiaRecordsForHospital(
+          hospitalId,
+          periodStart,
+          periodEnd
+        );
+
+        // Find matching invoice (periodStart month match)
+        const matchingInvoice = invoices.find((inv) => {
+          const invStart = new Date(inv.periodStart);
+          return (
+            invStart.getFullYear() === periodStart.getFullYear() &&
+            invStart.getMonth() === periodStart.getMonth()
+          );
+        });
+
+        let pricePerRecord: number | null = null;
+        let totalCost: number | null = null;
+
+        if (matchingInvoice) {
+          const invoicePrice = parseFloat(matchingInvoice.basePrice || "0");
+          if (invoicePrice > 0 && recordCount > 0) {
+            pricePerRecord = invoicePrice;
+            totalCost = recordCount * pricePerRecord;
+          }
+        } else if (currentPricePerRecord > 0 && recordCount > 0) {
+          pricePerRecord = currentPricePerRecord;
+          totalCost = recordCount * pricePerRecord;
+        }
+
+        return {
+          month,
+          recordCount,
+          pricePerRecord,
+          totalCost,
+          hasInvoice: !!matchingInvoice,
+        };
+      })
+    );
+
+    // Return newest first, only months with records
+    const filtered = results
+      .filter((r) => r.recordCount > 0)
+      .reverse();
+
+    res.json({ months: filtered });
+  } catch (error) {
+    logger.error("Error fetching usage history:", error);
+    res.status(500).json({ message: "Failed to fetch usage history" });
+  }
+});
+
 // Manual trigger for generating a test invoice (admin only)
 router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requireAdminRoleCheck, async (req, res) => {
   try {
