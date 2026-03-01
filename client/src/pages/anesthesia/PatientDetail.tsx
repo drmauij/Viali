@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -46,8 +46,10 @@ import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnai
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
-import { DischargeBriefsSection } from "@/components/dischargeBriefs/DischargeBriefsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DischargeBriefCompactWizard } from "@/components/dischargeBriefs/DischargeBriefCompactWizard";
+import { DischargeBriefEditor } from "@/components/dischargeBriefs/DischargeBriefEditor";
 import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
 import { EpisodesTab } from "@/components/episodes/EpisodesTab";
@@ -133,6 +135,36 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+
+  // --- Compact wizard + brief editor/audit state ---
+  const [compactWizardOpen, setCompactWizardOpen] = useState(false);
+  const [compactWizardPresets, setCompactWizardPresets] = useState<{
+    briefType?: "surgery_discharge" | "anesthesia_discharge" | "anesthesia_overnight_discharge" | "prescription";
+    surgeryId?: string;
+    blocks?: Array<"anesthesia_record" | "surgery_notes" | "surgery_details" | "patient_notes" | "discharge_medications" | "follow_up_appointments">;
+    medicationSlotIds?: string[];
+  }>({});
+  const [editingBriefId, setEditingBriefId] = useState<string | null>(null);
+  const [auditBriefId, setAuditBriefId] = useState<string | null>(null);
+  const [AuditDialog, setAuditDialog] = useState<React.ComponentType<{
+    briefId: string;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }> | null>(null);
+
+  const openCompactWizard = (presets: typeof compactWizardPresets) => {
+    setCompactWizardPresets(presets);
+    setCompactWizardOpen(true);
+  };
+
+  const handleAuditBrief = (briefId: string) => {
+    setAuditBriefId(briefId);
+    if (!AuditDialog) {
+      import("@/components/dischargeBriefs/DischargeBriefAuditDialog").then((mod) => {
+        setAuditDialog(() => mod.DischargeBriefAuditDialog);
+      });
+    }
+  };
 
   // --- Non-state hooks that remain in PatientDetail ---
   const activeHospital = useActiveHospital();
@@ -2705,39 +2737,92 @@ export default function PatientDetail() {
                 {/* Surgery detail navigation - hidden for clinic users */}
                 {canViewSurgeryDetails && (
                   isSurgeryModule ? (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      {/* Surgery Pre-Op button hidden for now — not actively used yet */}
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2"
-                        onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
-                        data-testid={`button-surgery-doc-${surgery.id}`}
-                      >
-                        <FileText className="h-10 w-10 text-primary" />
-                        <span className="text-sm font-medium">{t('anesthesia.patientDetail.surgeryDocumentation')}</span>
-                      </Button>
+                    <div className="space-y-2 pt-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Surgery Pre-Op button hidden for now — not actively used yet */}
+                        <Button
+                          variant="outline"
+                          className="h-auto py-4 flex-col gap-2"
+                          onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
+                          data-testid={`button-surgery-doc-${surgery.id}`}
+                        >
+                          <FileText className="h-10 w-10 text-primary" />
+                          <span className="text-sm font-medium">{t('anesthesia.patientDetail.surgeryDocumentation')}</span>
+                        </Button>
+                      </div>
+                      {canWrite && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => openCompactWizard({
+                            briefType: "surgery_discharge",
+                            surgeryId: surgery.id,
+                            blocks: ["surgery_details", "surgery_notes"],
+                          })}
+                          data-testid={`button-generate-surgery-brief-${surgery.id}`}
+                        >
+                          <Sparkles className="h-4 w-4 mr-1.5" />
+                          {t('dischargeBriefs.compact.surgeryBrief', 'Surgery Discharge Brief')}
+                        </Button>
+                      )}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2"
-                        onClick={() => {
-                          setSelectedCaseId(surgery.id);
-                          setAssessmentData(prev => ({
-                            ...prev,
-                            allergies: patient.allergies || [],
-                          }));
-                          preOpOpenedViaUrl.current = false;
-                          setIsPreOpOpen(true);
-                        }}
-                        data-testid={`button-preop-${surgery.id}`}
-                      >
-                        <ClipboardList className="h-10 w-10 text-primary" />
-                        <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
-                      </Button>
-                      
-                      <AnesthesiaRecordButton surgeryId={surgery.id} />
+                    <div className="space-y-2 pt-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          variant="outline"
+                          className="h-auto py-4 flex-col gap-2"
+                          onClick={() => {
+                            setSelectedCaseId(surgery.id);
+                            setAssessmentData(prev => ({
+                              ...prev,
+                              allergies: patient.allergies || [],
+                            }));
+                            preOpOpenedViaUrl.current = false;
+                            setIsPreOpOpen(true);
+                          }}
+                          data-testid={`button-preop-${surgery.id}`}
+                        >
+                          <ClipboardList className="h-10 w-10 text-primary" />
+                          <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
+                        </Button>
+
+                        <AnesthesiaRecordButton surgeryId={surgery.id} />
+                      </div>
+                      {canWrite && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              data-testid={`button-generate-anesthesia-brief-${surgery.id}`}
+                            >
+                              <Sparkles className="h-4 w-4 mr-1.5" />
+                              {t('dischargeBriefs.compact.generateBrief', 'Generate Discharge Brief')}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="center" className="w-64">
+                            <DropdownMenuItem onClick={() => openCompactWizard({
+                              briefType: "anesthesia_discharge",
+                              surgeryId: surgery.id,
+                              blocks: ["anesthesia_record", "surgery_details"],
+                            })}>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              {t('dischargeBriefs.types.anesthesiaDischarge', 'Anesthesia Discharge')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openCompactWizard({
+                              briefType: "anesthesia_overnight_discharge",
+                              surgeryId: surgery.id,
+                              blocks: ["anesthesia_record", "surgery_details"],
+                            })}>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              {t('dischargeBriefs.types.anesthesiaOvernightDischarge', 'Anesthesia + Overnight')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   )
                 )}
@@ -2760,31 +2845,26 @@ export default function PatientDetail() {
 
         <TabsContent value="documents" className="mt-0">
           <div className="space-y-6">
-            {/* Documents + Discharge Briefs — side by side on large screens */}
+            {/* Documents + Briefs — unified in one section */}
             {patient && activeHospital && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PatientDocumentsSection
-                  patientId={patient.id}
-                  hospitalId={activeHospital.id}
-                  canWrite={canWrite}
-                  variant="card"
-                  onPreview={(url, fileName, mimeType) => {
-                    setPreviewDocument({
-                      id: 'preview',
-                      fileName,
-                      mimeType: mimeType || 'application/octet-stream',
-                      url,
-                    });
-                  }}
-                />
-                <DischargeBriefsSection
-                  patientId={patient.id}
-                  hospitalId={activeHospital.id}
-                  canWrite={canWrite}
-                  isAdmin={activeHospital?.role === "admin"}
-                  surgeries={surgeries}
-                />
-              </div>
+              <PatientDocumentsSection
+                patientId={patient.id}
+                hospitalId={activeHospital.id}
+                canWrite={canWrite}
+                variant="card"
+                isAdmin={activeHospital?.role === "admin"}
+                onPreview={(url, fileName, mimeType) => {
+                  setPreviewDocument({
+                    id: 'preview',
+                    fileName,
+                    mimeType: mimeType || 'application/octet-stream',
+                    url,
+                  });
+                }}
+                onEditBrief={(briefId) => setEditingBriefId(briefId)}
+                onAuditBrief={handleAuditBrief}
+                onGenerateBrief={() => openCompactWizard({})}
+              />
             )}
 
             {/* Note Attachments Section */}
@@ -2965,6 +3045,12 @@ export default function PatientDetail() {
             patientBirthday={patient?.birthday}
             canWrite={canWrite}
             surgeries={surgeries}
+            onGeneratePrescription={(slotId, surgeryId) => openCompactWizard({
+              briefType: "prescription",
+              surgeryId,
+              blocks: ["discharge_medications"],
+              medicationSlotIds: [slotId],
+            })}
           />
         </TabsContent>
 
@@ -6662,6 +6748,51 @@ export default function PatientDetail() {
         onClose={() => setViewInvoiceId(null)}
         onStatusChange={() => queryClient.invalidateQueries({ queryKey: [`/api/clinic/${activeHospital?.id}/invoices`] })}
       />
+
+      {/* Compact Brief Wizard */}
+      {compactWizardOpen && activeHospital && (
+        <DischargeBriefCompactWizard
+          open={compactWizardOpen}
+          onOpenChange={setCompactWizardOpen}
+          patientId={derivedPatientId || ""}
+          hospitalId={activeHospital.id}
+          surgeries={surgeries}
+          preselectedBriefType={compactWizardPresets.briefType}
+          preselectedSurgeryId={compactWizardPresets.surgeryId}
+          preselectedBlocks={compactWizardPresets.blocks}
+          preselectedMedicationSlotIds={compactWizardPresets.medicationSlotIds}
+          onCreated={(briefId) => setEditingBriefId(briefId)}
+        />
+      )}
+
+      {/* Brief Editor Dialog */}
+      <Dialog
+        open={!!editingBriefId}
+        onOpenChange={(open) => {
+          if (!open) setEditingBriefId(null);
+        }}
+      >
+        <DialogContent className="max-w-5xl h-[90vh] p-0 flex flex-col [&>button.absolute]:hidden">
+          {editingBriefId && (
+            <DischargeBriefEditor
+              briefId={editingBriefId}
+              onClose={() => setEditingBriefId(null)}
+              isAdmin={activeHospital?.role === "admin"}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Brief Audit Dialog */}
+      {AuditDialog && auditBriefId && (
+        <AuditDialog
+          briefId={auditBriefId}
+          open={!!auditBriefId}
+          onOpenChange={(open) => {
+            if (!open) setAuditBriefId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

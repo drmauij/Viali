@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, Trash2, Eye, ClipboardList, FolderPlus, Folder, FolderOpen, ChevronRight, MoreHorizontal, FolderInput } from "lucide-react";
+import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, Trash2, Eye, ClipboardList, FolderPlus, Folder, FolderOpen, ChevronRight, MoreHorizontal, FolderInput, Sparkles, Lock, Download } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,21 @@ type DocumentFolder = {
   createdAt: string;
 };
 
+export interface DischargeBrief {
+  id: string;
+  briefType: string;
+  language: string;
+  content: string | null;
+  isLocked: boolean;
+  signature: string | null;
+  signedBy: string | null;
+  signedAt: string | null;
+  pdfUrl: string | null;
+  createdAt: string;
+  creator: { firstName: string | null; lastName: string | null };
+  signer: { firstName: string | null; lastName: string | null } | null;
+}
+
 interface PatientDocumentsSectionProps {
   patientId: string;
   hospitalId: string;
@@ -51,6 +67,10 @@ interface PatientDocumentsSectionProps {
   variant?: "accordion" | "card";
   defaultExpanded?: boolean;
   onPreview?: (url: string, fileName: string, mimeType?: string) => void;
+  isAdmin?: boolean;
+  onEditBrief?: (briefId: string) => void;
+  onAuditBrief?: (briefId: string) => void;
+  onGenerateBrief?: () => void;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -72,6 +92,10 @@ export function PatientDocumentsSection({
   variant = "card",
   defaultExpanded = false,
   onPreview,
+  isAdmin = false,
+  onEditBrief,
+  onAuditBrief,
+  onGenerateBrief,
 }: PatientDocumentsSectionProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -97,6 +121,10 @@ export function PatientDocumentsSection({
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [uploadFolderId, setUploadFolderId] = useState<string | null>(null);
 
+  // Brief state
+  const [deleteBriefConfirm, setDeleteBriefConfirm] = useState<DischargeBrief | null>(null);
+  const [exportingBriefId, setExportingBriefId] = useState<string | null>(null);
+
   const { data: documents = [], isLoading } = useQuery<PatientDocument[]>({
     queryKey: [`/api/patients/${patientId}/documents`, patientId],
     enabled: !!patientId && !!hospitalId,
@@ -105,6 +133,11 @@ export function PatientDocumentsSection({
   const { data: folders = [] } = useQuery<DocumentFolder[]>({
     queryKey: [`/api/patients/${patientId}/document-folders`, patientId],
     enabled: !!patientId && !!hospitalId,
+  });
+
+  const { data: briefs = [] } = useQuery<DischargeBrief[]>({
+    queryKey: [`/api/patients/${patientId}/discharge-briefs`],
+    enabled: !!patientId,
   });
 
   // ========== UPLOAD MUTATION (supports multiple files) ==========
@@ -259,6 +292,35 @@ export function PatientDocumentsSection({
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
     },
   });
+
+  // ========== BRIEF MUTATIONS ==========
+
+  const deleteBriefMutation = useMutation({
+    mutationFn: async (briefId: string) => {
+      await apiRequest('DELETE', `/api/discharge-briefs/${briefId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/discharge-briefs`] });
+      setDeleteBriefConfirm(null);
+      toast({ description: t('dischargeBriefs.deleted', 'Brief deleted') });
+    },
+    onError: (error: Error) => {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handleExportBriefPdf = async (briefId: string) => {
+    setExportingBriefId(briefId);
+    try {
+      const res = await apiRequest('POST', `/api/discharge-briefs/${briefId}/export-pdf`);
+      const data = await res.json();
+      if (data.pdfUrl) window.open(data.pdfUrl, '_blank');
+    } catch (error: any) {
+      toast({ variant: 'destructive', description: error.message || 'Failed to export PDF' });
+    } finally {
+      setExportingBriefId(null);
+    }
+  };
 
   // ========== HANDLERS ==========
 
@@ -611,15 +673,132 @@ export function PatientDocumentsSection({
     );
   };
 
+  // ========== BRIEF CARD RENDERING ==========
+
+  const BRIEF_TYPE_LABELS: Record<string, string> = {
+    surgery_discharge: t('dischargeBriefs.types.surgeryDischarge', 'Surgery'),
+    anesthesia_discharge: t('dischargeBriefs.types.anesthesiaDischarge', 'Anesthesia'),
+    anesthesia_overnight_discharge: t('dischargeBriefs.types.anesthesiaOvernightDischarge', 'Anesthesia + Overnight'),
+    prescription: t('dischargeBriefs.types.prescription', 'Prescription'),
+  };
+
+  const LANG_LABELS: Record<string, string> = { de: 'DE', en: 'EN', fr: 'FR', it: 'IT' };
+
+  const renderBriefCard = (brief: DischargeBrief) => {
+    const creatorName = brief.creator
+      ? `${brief.creator.firstName || ''} ${brief.creator.lastName || ''}`.trim()
+      : '';
+    const isExporting = exportingBriefId === brief.id;
+
+    return (
+      <div
+        key={`brief-${brief.id}`}
+        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+        data-testid={`brief-card-${brief.id}`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700">
+                <Sparkles className="h-3 w-3 mr-1" />
+                AI Brief
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {BRIEF_TYPE_LABELS[brief.briefType] || brief.briefType}
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {LANG_LABELS[brief.language] || brief.language}
+              </Badge>
+              {brief.isLocked ? (
+                <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                  <Lock className="h-3 w-3 mr-1" />
+                  {t('dischargeBriefs.signed', 'Signed')}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-xs">
+                  {t('dischargeBriefs.draft', 'Draft')}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {creatorName && `${creatorName} · `}
+              {brief.createdAt && format(new Date(brief.createdAt), 'dd.MM.yyyy HH:mm')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {onEditBrief && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onEditBrief(brief.id)}
+              title={brief.isLocked ? t('common.view', 'View') : t('common.edit', 'Edit')}
+            >
+              {brief.isLocked ? <Eye className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+            </Button>
+          )}
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleExportBriefPdf(brief.id)}
+            disabled={isExporting}
+            title={t('dischargeBriefs.exportPdf', 'Export PDF')}
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          </Button>
+
+          {isAdmin && onAuditBrief && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAuditBrief(brief.id)}
+              title={t('dischargeBriefs.viewAudit', 'View Audit')}
+            >
+              <ClipboardList className="h-4 w-4" />
+            </Button>
+          )}
+
+          {canWrite && !brief.isLocked && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDeleteBriefConfirm(brief)}
+              className="text-destructive hover:text-destructive"
+              title={t('common.delete', 'Delete')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // ========== FOLDER-GROUPED RENDERING ==========
 
   const renderDocumentList = () => {
     const hasFolders = folders.length > 0;
+    const hasBriefs = briefs.length > 0;
+
+    // Briefs section (always compact list style, shown at the top)
+    const briefsSection = hasBriefs ? (
+      <div className="space-y-2">
+        {briefs.map(renderBriefCard)}
+      </div>
+    ) : null;
 
     if (!hasFolders) {
       return (
-        <div className={isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
-          {documents.map(renderDocumentCard)}
+        <div className="space-y-3">
+          {briefsSection}
+          {documents.length > 0 && (
+            <div className={isCompactView ? 'space-y-2' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'}>
+              {documents.map(renderDocumentCard)}
+            </div>
+          )}
         </div>
       );
     }
@@ -639,6 +818,8 @@ export function PatientDocumentsSection({
 
     return (
       <div className="space-y-3">
+        {briefsSection}
+
         {folders.map(folder => {
           const docs = folderDocs.get(folder.id) || [];
           const isOpen = openFolders.has(folder.id);
@@ -707,13 +888,14 @@ export function PatientDocumentsSection({
     );
   };
 
-  const hasDocuments = documents.length > 0;
+  const hasDocuments = documents.length > 0 || briefs.length > 0;
+  const totalItems = documents.length + briefs.length;
 
   const headerContent = (
     <div className="flex items-center justify-between w-full">
       <CardTitle className={`text-lg flex items-center gap-2 ${hasDocuments ? 'text-blue-600 dark:text-blue-400' : ''}`}>
         <FileText className="h-5 w-5" />
-        {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({documents.length})
+        {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({totalItems})
       </CardTitle>
       <div className="flex items-center gap-2">
         <Button
@@ -726,6 +908,17 @@ export function PatientDocumentsSection({
         </Button>
         {canWrite && (
           <>
+            {onGenerateBrief && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => { e.stopPropagation(); onGenerateBrief(); }}
+                data-testid="button-generate-brief"
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                {t('dischargeBriefs.compact.generateBrief', 'Generate Brief')}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -762,7 +955,7 @@ export function PatientDocumentsSection({
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : documents.length === 0 && folders.length === 0 ? (
+      ) : documents.length === 0 && folders.length === 0 && briefs.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>{t('anesthesia.patientDetail.noDocuments', 'No documents uploaded yet')}</p>
@@ -975,6 +1168,28 @@ export function PatientDocumentsSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Brief delete confirmation */}
+      <AlertDialog open={!!deleteBriefConfirm} onOpenChange={(open) => { if (!open) setDeleteBriefConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('common.confirmDelete', 'Confirm Delete')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('dischargeBriefs.deleteConfirm', 'Are you sure you want to delete this discharge brief? This action cannot be undone.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteBriefConfirm && deleteBriefMutation.mutate(deleteBriefConfirm.id)}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteBriefMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('common.delete', 'Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

@@ -1,0 +1,796 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Loader2,
+  Check,
+  X,
+  Sparkles,
+  FileText,
+  Link2,
+  LayoutList,
+  FileSearch,
+  ClipboardCheck,
+  CalendarDays,
+  ChevronRight,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { formatDate } from "@/lib/dateUtils";
+
+// ---------------------------------------------------------------------------
+// Types (shared with DischargeBriefWizard)
+// ---------------------------------------------------------------------------
+
+type BlockKey =
+  | "anesthesia_record"
+  | "surgery_notes"
+  | "surgery_details"
+  | "patient_notes"
+  | "discharge_medications"
+  | "follow_up_appointments";
+
+type BriefType =
+  | "surgery_discharge"
+  | "anesthesia_discharge"
+  | "anesthesia_overnight_discharge"
+  | "prescription";
+
+interface BlockInfo {
+  key: BlockKey;
+  available: boolean;
+  count?: number;
+  notes?: Array<{
+    id: string;
+    title: string;
+    createdAt: string;
+    surgeryId?: string | null;
+  }>;
+}
+
+interface TemplateInfo {
+  id: string;
+  name: string;
+  procedureType?: string | null;
+}
+
+interface DischargeBriefCompactWizardProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  patientId: string;
+  hospitalId: string;
+  surgeries?: Array<{
+    id: string;
+    plannedSurgery: string | null;
+    plannedDate: Date | string;
+    status: string;
+  }>;
+  preselectedBriefType?: BriefType;
+  preselectedSurgeryId?: string;
+  preselectedBlocks?: BlockKey[];
+  preselectedMedicationSlotIds?: string[];
+  onCreated?: (briefId: string) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const BLOCK_ICONS: Record<BlockKey, React.ElementType> = {
+  anesthesia_record: FileText,
+  surgery_notes: FileSearch,
+  surgery_details: ClipboardCheck,
+  patient_notes: LayoutList,
+  discharge_medications: FileText,
+  follow_up_appointments: CalendarDays,
+};
+
+const AUTO_BLOCKS: BlockKey[] = ["anesthesia_record", "surgery_details"];
+const OPTIONAL_BLOCKS: BlockKey[] = [
+  "surgery_notes",
+  "patient_notes",
+  "discharge_medications",
+  "follow_up_appointments",
+];
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function DischargeBriefCompactWizard({
+  open,
+  onOpenChange,
+  patientId,
+  hospitalId,
+  surgeries = [],
+  preselectedBriefType,
+  preselectedSurgeryId,
+  preselectedBlocks,
+  preselectedMedicationSlotIds,
+  onCreated,
+}: DischargeBriefCompactWizardProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // ---- state ----
+  const [selectedBlocks, setSelectedBlocks] = useState<BlockKey[]>([]);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [selectedMedicationSlotIds, setSelectedMedicationSlotIds] = useState<
+    string[]
+  >([]);
+  const [selectedAppointmentIds, setSelectedAppointmentIds] = useState<
+    string[]
+  >([]);
+  const [surgeryId, setSurgeryId] = useState<string | null>(null);
+  const [briefType, setBriefType] = useState<BriefType | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [language, setLanguage] = useState("de");
+  const [annotations, setAnnotations] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  // ---- reset / initialize on open ----
+  useEffect(() => {
+    if (open) {
+      setSurgeryId(preselectedSurgeryId ?? null);
+      setBriefType(preselectedBriefType ?? null);
+      setSelectedBlocks(preselectedBlocks ?? []);
+      setSelectedMedicationSlotIds(preselectedMedicationSlotIds ?? []);
+      setSelectedNoteIds([]);
+      setSelectedAppointmentIds([]);
+      setTemplateId(null);
+      setLanguage("de");
+      setAnnotations("");
+      setIsGenerating(false);
+      setCustomizeOpen(false);
+    }
+  }, [
+    open,
+    preselectedSurgeryId,
+    preselectedBriefType,
+    preselectedBlocks,
+    preselectedMedicationSlotIds,
+  ]);
+
+  // ---- data fetching ----
+  const blocksQueryKey = useMemo(
+    () =>
+      `/api/patients/${patientId}/discharge-brief-data${surgeryId ? `?surgeryId=${surgeryId}` : ""}`,
+    [patientId, surgeryId],
+  );
+
+  const { data: blocksData, isLoading: blocksLoading } = useQuery<BlockInfo[]>({
+    queryKey: [blocksQueryKey],
+    enabled: open && !!patientId,
+  });
+
+  const { data: templates } = useQuery<TemplateInfo[]>({
+    queryKey: [
+      `/api/discharge-brief-templates/${hospitalId}${briefType ? `?briefType=${briefType}` : ""}`,
+    ],
+    enabled: open && !!hospitalId && !!briefType,
+  });
+
+  const blocks: BlockInfo[] = blocksData ?? [];
+
+  // ---- Auto-select medication slots linked to selected surgery ----
+  useEffect(() => {
+    if (!surgeryId || !blocksData || preselectedMedicationSlotIds?.length)
+      return;
+    const medBlock = blocksData.find((b) => b.key === "discharge_medications");
+    if (!medBlock?.notes) return;
+    const matchingIds = medBlock.notes
+      .filter((n) => n.surgeryId === surgeryId)
+      .map((n) => n.id);
+    if (matchingIds.length > 0) {
+      setSelectedMedicationSlotIds(matchingIds);
+      setSelectedBlocks((prev) =>
+        prev.includes("discharge_medications")
+          ? prev
+          : [...prev, "discharge_medications"],
+      );
+    }
+  }, [surgeryId, blocksData, preselectedMedicationSlotIds]);
+
+  // ---- toggle helpers ----
+  const toggleBlock = useCallback(
+    (key: BlockKey) => {
+      if (briefType === "prescription" && key === "discharge_medications")
+        return;
+      setSelectedBlocks((prev) =>
+        prev.includes(key) ? prev.filter((b) => b !== key) : [...prev, key],
+      );
+    },
+    [briefType],
+  );
+
+  const toggleNoteId = useCallback((noteId: string) => {
+    setSelectedNoteIds((prev) =>
+      prev.includes(noteId)
+        ? prev.filter((id) => id !== noteId)
+        : [...prev, noteId],
+    );
+  }, []);
+
+  const toggleMedicationSlotId = useCallback((slotId: string) => {
+    setSelectedMedicationSlotIds((prev) =>
+      prev.includes(slotId)
+        ? prev.filter((id) => id !== slotId)
+        : [...prev, slotId],
+    );
+  }, []);
+
+  const toggleAppointmentId = useCallback((apptId: string) => {
+    setSelectedAppointmentIds((prev) =>
+      prev.includes(apptId)
+        ? prev.filter((id) => id !== apptId)
+        : [...prev, apptId],
+    );
+  }, []);
+
+  // ---- labels ----
+  const blockLabel = useCallback(
+    (key: BlockKey) => {
+      const labels: Record<BlockKey, string> = {
+        anesthesia_record: t(
+          "dischargeBriefs.blocks.anesthesiaRecord",
+          "Anesthesia Record",
+        ),
+        surgery_notes: t(
+          "dischargeBriefs.blocks.surgeryNotes",
+          "Surgery Notes",
+        ),
+        surgery_details: t(
+          "dischargeBriefs.blocks.surgeryDetails",
+          "Surgery Details",
+        ),
+        patient_notes: t(
+          "dischargeBriefs.blocks.patientNotes",
+          "Patient Notes",
+        ),
+        discharge_medications: t(
+          "dischargeBriefs.blocks.dischargeMedications",
+          "Discharge Medications",
+        ),
+        follow_up_appointments: t(
+          "dischargeBriefs.blocks.followUpAppointments",
+          "Follow-Up Appointments",
+        ),
+      };
+      return labels[key];
+    },
+    [t],
+  );
+
+  const briefTypeLabel = useCallback(
+    (bt: BriefType) => {
+      const labels: Record<BriefType, string> = {
+        surgery_discharge: t(
+          "dischargeBriefs.types.surgeryDischarge",
+          "Surgery Discharge",
+        ),
+        anesthesia_discharge: t(
+          "dischargeBriefs.types.anesthesiaDischarge",
+          "Anesthesia Discharge",
+        ),
+        anesthesia_overnight_discharge: t(
+          "dischargeBriefs.types.anesthesiaOvernightDischarge",
+          "Anesthesia + Overnight",
+        ),
+        prescription: t("dischargeBriefs.types.prescription", "Prescription"),
+      };
+      return labels[bt];
+    },
+    [t],
+  );
+
+  const surgeryLabel = useCallback(
+    (s: { plannedSurgery: string | null; plannedDate: Date | string }) => {
+      return `${s.plannedSurgery ?? t("common.untitled", "Untitled")} - ${formatDate(s.plannedDate)}`;
+    },
+    [t],
+  );
+
+  // ---- generate ----
+  const canGenerate = !!briefType && !!language && !isGenerating;
+
+  const handleGenerate = useCallback(async () => {
+    if (!canGenerate) return;
+    setIsGenerating(true);
+    try {
+      const finalBlocks = surgeryId
+        ? [...AUTO_BLOCKS, ...selectedBlocks]
+        : selectedBlocks;
+
+      const res = await apiRequest(
+        "POST",
+        `/api/patients/${patientId}/discharge-briefs/generate`,
+        {
+          blocks: finalBlocks,
+          briefType,
+          language,
+          templateId: templateId ?? null,
+          surgeryId: surgeryId ?? null,
+          annotations: annotations || null,
+          selectedNoteIds:
+            selectedBlocks.includes("patient_notes") &&
+            selectedNoteIds.length > 0
+              ? selectedNoteIds
+              : null,
+          selectedMedicationSlotIds:
+            selectedBlocks.includes("discharge_medications") &&
+            selectedMedicationSlotIds.length > 0
+              ? selectedMedicationSlotIds
+              : null,
+          selectedAppointmentIds:
+            selectedBlocks.includes("follow_up_appointments") &&
+            selectedAppointmentIds.length > 0
+              ? selectedAppointmentIds
+              : null,
+        },
+      );
+      const data = await res.json();
+      const briefId = data.id ?? data.briefId ?? null;
+      queryClient.invalidateQueries({
+        queryKey: [`/api/patients/${patientId}/discharge-briefs`],
+      });
+      toast({
+        title: t(
+          "dischargeBriefs.wizard.generateSuccess",
+          "Brief generated successfully",
+        ),
+      });
+      onOpenChange(false);
+      if (briefId) onCreated?.(briefId);
+    } catch (error: any) {
+      console.error("Failed to generate discharge brief:", error);
+      toast({
+        title: t("common.error", "Error"),
+        description:
+          error?.message ??
+          t(
+            "dischargeBriefs.wizard.generateError",
+            "Failed to generate the discharge brief. Please try again.",
+          ),
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [
+    canGenerate,
+    patientId,
+    selectedBlocks,
+    briefType,
+    language,
+    templateId,
+    surgeryId,
+    annotations,
+    selectedNoteIds,
+    selectedMedicationSlotIds,
+    selectedAppointmentIds,
+    queryClient,
+    toast,
+    t,
+    onOpenChange,
+    onCreated,
+  ]);
+
+  // ---- derived ----
+  const autoBlocks = surgeryId
+    ? blocks.filter((b) => AUTO_BLOCKS.includes(b.key))
+    : [];
+  const optionalBlocks = blocks.filter((b) => OPTIONAL_BLOCKS.includes(b.key));
+
+  // Blocks that have sub-items (notes, medication slots, appointments)
+  const customizableBlocks = optionalBlocks.filter(
+    (b) =>
+      b.notes &&
+      b.notes.length > 0 &&
+      (selectedBlocks.includes(b.key) ||
+        (briefType === "prescription" && b.key === "discharge_medications")),
+  );
+  const hasCustomizableContent = customizableBlocks.length > 0;
+
+  const dialogTitle = preselectedBriefType
+    ? t("dischargeBriefs.compact.generateType", "Generate {{type}}", {
+        type: briefTypeLabel(preselectedBriefType),
+      })
+    : t("dischargeBriefs.compact.generateBrief", "Generate Discharge Brief");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            {dialogTitle}
+          </DialogTitle>
+          <DialogDescription>
+            {t(
+              "dischargeBriefs.compact.description",
+              "Configure and generate an AI discharge brief.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          {/* ── Brief Type (hidden if pre-filled) ── */}
+          {!preselectedBriefType && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t("dischargeBriefs.wizard.stepBriefType", "Brief Type")}
+              </Label>
+              <RadioGroup
+                value={briefType ?? ""}
+                onValueChange={(v) => setBriefType(v as BriefType)}
+              >
+                {(
+                  [
+                    "surgery_discharge",
+                    "anesthesia_discharge",
+                    "anesthesia_overnight_discharge",
+                    "prescription",
+                  ] as BriefType[]
+                ).map((bt) => (
+                  <label
+                    key={bt}
+                    className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50"
+                  >
+                    <RadioGroupItem value={bt} />
+                    <span className="text-sm">{briefTypeLabel(bt)}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* ── Surgery (hidden if pre-filled) ── */}
+          {!preselectedSurgeryId && surgeries.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t("dischargeBriefs.wizard.stepSurgery", "Surgery")}
+                <span className="text-muted-foreground font-normal ml-1">
+                  ({t("common.optional", "optional")})
+                </span>
+              </Label>
+              <Select
+                value={surgeryId ?? "_none"}
+                onValueChange={(v) =>
+                  setSurgeryId(v === "_none" ? null : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={t(
+                      "dischargeBriefs.wizard.selectSurgery",
+                      "Select surgery...",
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">
+                    {t(
+                      "dischargeBriefs.wizard.noSurgery",
+                      "No surgery (standalone)",
+                    )}
+                  </SelectItem>
+                  {surgeries.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {surgeryLabel(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ── Included Data ── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              {t("dischargeBriefs.compact.includedData", "Included Data")}
+            </Label>
+
+            {blocksLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {/* Auto-included blocks */}
+                {autoBlocks.map((block) => {
+                  const Icon = BLOCK_ICONS[block.key] ?? FileText;
+                  return (
+                    <div
+                      key={block.key}
+                      className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2"
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 text-sm">
+                        {blockLabel(block.key)}
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className="bg-primary/10 text-primary border-0 text-xs"
+                      >
+                        <Check className="h-3 w-3 mr-0.5" />
+                        {t("dischargeBriefs.wizard.autoIncluded", "Auto")}
+                      </Badge>
+                    </div>
+                  );
+                })}
+
+                {/* Optional blocks */}
+                {optionalBlocks.map((block) => {
+                  const Icon = BLOCK_ICONS[block.key] ?? FileText;
+                  const isSelected = selectedBlocks.includes(block.key);
+                  const isRequired =
+                    briefType === "prescription" &&
+                    block.key === "discharge_medications";
+
+                  if (isRequired) {
+                    return (
+                      <div
+                        key={block.key}
+                        className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2"
+                      >
+                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="flex-1 text-sm">
+                          {blockLabel(block.key)}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="bg-primary/10 text-primary border-0 text-xs"
+                        >
+                          <Check className="h-3 w-3 mr-0.5" />
+                          {t("dischargeBriefs.wizard.required", "Required")}
+                        </Badge>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <label
+                      key={block.key}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleBlock(block.key)}
+                      />
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 text-sm">
+                        {blockLabel(block.key)}
+                      </span>
+                      {block.available ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs"
+                        >
+                          <Check className="h-3 w-3 mr-0.5" />
+                          {t("common.available", "Available")}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0 text-xs"
+                        >
+                          <X className="h-3 w-3 mr-0.5" />
+                          {t("common.unavailable", "N/A")}
+                        </Badge>
+                      )}
+                    </label>
+                  );
+                })}
+
+                {/* Customize expandable section */}
+                {hasCustomizableContent && (
+                  <Collapsible
+                    open={customizeOpen}
+                    onOpenChange={setCustomizeOpen}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-muted-foreground mt-1"
+                      >
+                        <ChevronRight
+                          className={`h-4 w-4 mr-1 transition-transform ${customizeOpen ? "rotate-90" : ""}`}
+                        />
+                        {t(
+                          "dischargeBriefs.compact.customize",
+                          "Customize selections...",
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pl-4 pt-1">
+                      {customizableBlocks.map((block) => (
+                        <div key={block.key} className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {blockLabel(block.key)}
+                          </p>
+                          {block.notes?.map((item) => (
+                            <label
+                              key={item.id}
+                              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={
+                                  block.key === "patient_notes"
+                                    ? selectedNoteIds.includes(item.id)
+                                    : block.key === "discharge_medications"
+                                      ? selectedMedicationSlotIds.includes(
+                                          item.id,
+                                        )
+                                      : selectedAppointmentIds.includes(
+                                          item.id,
+                                        )
+                                }
+                                onCheckedChange={() => {
+                                  if (block.key === "patient_notes")
+                                    toggleNoteId(item.id);
+                                  else if (
+                                    block.key === "discharge_medications"
+                                  )
+                                    toggleMedicationSlotId(item.id);
+                                  else toggleAppointmentId(item.id);
+                                }}
+                              />
+                              <span className="flex-1 truncate">
+                                {item.title}
+                              </span>
+                              {item.surgeryId === surgeryId && surgeryId && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-primary/10 text-primary border-0 text-xs shrink-0"
+                                >
+                                  <Link2 className="h-3 w-3 mr-0.5" />
+                                  {t(
+                                    "dischargeBriefs.wizard.linked",
+                                    "Linked",
+                                  )}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {formatDate(item.createdAt)}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Template (optional) ── */}
+          {briefType && templates && templates.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t("dischargeBriefs.wizard.stepTemplate", "Template")}
+                <span className="text-muted-foreground font-normal ml-1">
+                  ({t("common.optional", "optional")})
+                </span>
+              </Label>
+              <Select
+                value={templateId ?? "_none"}
+                onValueChange={(v) =>
+                  setTemplateId(v === "_none" ? null : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">
+                    {t(
+                      "dischargeBriefs.wizard.noTemplate",
+                      "No template",
+                    )}
+                  </SelectItem>
+                  {templates.map((tmpl) => (
+                    <SelectItem key={tmpl.id} value={tmpl.id}>
+                      {tmpl.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* ── Language ── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              {t("dischargeBriefs.wizard.stepLanguage", "Language")}
+            </Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="de">Deutsch (DE)</SelectItem>
+                <SelectItem value="en">English (EN)</SelectItem>
+                <SelectItem value="fr">Français (FR)</SelectItem>
+                <SelectItem value="it">Italiano (IT)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* ── Additional Notes ── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              {t(
+                "dischargeBriefs.wizard.additionalNotes",
+                "Additional Notes",
+              )}
+              <span className="text-muted-foreground font-normal ml-1">
+                ({t("common.optional", "optional")})
+              </span>
+            </Label>
+            <Textarea
+              value={annotations}
+              onChange={(e) => setAnnotations(e.target.value)}
+              placeholder={t(
+                "dischargeBriefs.wizard.annotationsPlaceholder",
+                "Any additional instructions for the AI...",
+              )}
+              rows={2}
+            />
+          </div>
+
+          {/* ── Generate Button ── */}
+          <Button
+            className="w-full"
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t("dischargeBriefs.wizard.generating", "Generating...")}
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                {t("dischargeBriefs.wizard.generateBrief", "Generate Brief")}
+              </>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil, Save, Download, Stethoscope } from "lucide-react";
+import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil, Save, Download, Stethoscope, Sparkles } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { formatDate, formatCurrency } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
@@ -37,6 +37,7 @@ interface DischargeMedicationsTabProps {
     status: string;
     surgeonId?: string | null;
   }>;
+  onGeneratePrescription?: (slotId: string, surgeryId?: string) => void;
 }
 
 interface MedicationItemEntry {
@@ -84,6 +85,7 @@ export function DischargeMedicationsTab({
   patientBirthday,
   canWrite = true,
   surgeries = [],
+  onGeneratePrescription,
 }: DischargeMedicationsTabProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -760,6 +762,17 @@ export function DischargeMedicationsTab({
                     )}
                     {t('dischargeMedications.createInvoice', 'Create Invoice Draft')}
                   </Button>
+                  {onGeneratePrescription && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onGeneratePrescription(slot.id, slot.surgeryId ?? undefined)}
+                      data-testid={`button-generate-prescription-${slot.id}`}
+                    >
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      {t('dischargeMedications.generatePrescription', 'Generate Prescription')}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
