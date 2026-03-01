@@ -1867,8 +1867,10 @@ export async function createExternalSurgeryRequestDocument(doc: InsertExternalSu
 }
 
 export async function getPendingTimeOffCount(hospitalId: string): Promise<number> {
+  // Count unique pending requests — use COALESCE(original_rule_id, id) to deduplicate
+  // expanded recurring entries (children share an originalRuleId with the parent rule)
   const result = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(distinct coalesce(${providerTimeOff.parentRuleId}, ${providerTimeOff.id}))::int` })
     .from(providerTimeOff)
     .innerJoin(userHospitalRoles, and(
       eq(providerTimeOff.providerId, userHospitalRoles.userId),

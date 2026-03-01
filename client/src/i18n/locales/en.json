@@ -5149,8 +5149,8 @@
       "other": "Other"
     },
     "staff": {
-      "title": "Staff Costs",
-      "subtitle": "Manage staff list, hourly rates, and view cost breakdowns",
+      "title": "Staff Management",
+      "subtitle": "Manage staff list, hourly rates, time off, and cost breakdowns",
       "addStaff": "Add Staff",
       "addStaffDesc": "Add a new staff member to this hospital",
       "editStaff": "Edit Staff",

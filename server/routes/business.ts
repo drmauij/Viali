@@ -1667,7 +1667,7 @@ router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, 
 // === Time Off Approval ===
 
 // GET /api/business/:hospitalId/time-off/pending-count — count of pending time-off requests
-router.get("/:hospitalId/time-off/pending-count", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+router.get("/api/business/:hospitalId/time-off/pending-count", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
   try {
     const { hospitalId } = req.params;
     const count = await storage.getPendingTimeOffCount(hospitalId);
@@ -1679,7 +1679,7 @@ router.get("/:hospitalId/time-off/pending-count", isAuthenticated, isBusinessMan
 });
 
 // GET /api/business/:hospitalId/time-off — list all time-off for the hospital
-router.get("/:hospitalId/time-off", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+router.get("/api/business/:hospitalId/time-off", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
   try {
     const { hospitalId } = req.params;
     const { startDate, endDate, expand } = req.query;
@@ -1723,7 +1723,7 @@ router.get("/:hospitalId/time-off", isAuthenticated, isBusinessManager, async (r
 });
 
 // PATCH /api/business/:hospitalId/time-off/:timeOffId/approve — approve or decline
-router.patch("/:hospitalId/time-off/:timeOffId/approve", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+router.patch("/api/business/:hospitalId/time-off/:timeOffId/approve", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
   try {
     const { hospitalId, timeOffId } = req.params;
     const { status } = req.body;

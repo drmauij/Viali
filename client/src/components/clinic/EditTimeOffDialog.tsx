@@ -17,7 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, parse } from "date-fns";
-import { AlertTriangle, Clock, Calendar, Trash2 } from "lucide-react";
+import { AlertTriangle, Clock, Calendar, Trash2, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { TIME_OFF_TYPE_OPTIONS } from "./ManageAvailabilityDialog";
 import {
   AlertDialog,
@@ -40,6 +41,7 @@ interface TimeOffData {
   endTime: string | null;
   reason: string | null;
   notes: string | null;
+  approvalStatus?: string;
 }
 
 interface EditTimeOffDialogProps {
@@ -165,12 +167,36 @@ export default function EditTimeOffDialog({
               <Clock className="h-5 w-5 text-orange-500" />
               {t('appointments.editTimeOff', 'Edit Off-Time')}
             </DialogTitle>
-            <DialogDescription>
-              {providerName && (
-                <span className="text-sm text-muted-foreground">
-                  {t('appointments.forProvider', 'For')}: <strong>{providerName}</strong>
-                </span>
-              )}
+            <DialogDescription asChild>
+              <div className="flex flex-col gap-1.5">
+                {providerName && (
+                  <span className="text-sm text-muted-foreground">
+                    {t('appointments.forProvider', 'For')}: <strong>{providerName}</strong>
+                  </span>
+                )}
+                {timeOff?.approvalStatus && (
+                  <div>
+                    {timeOff.approvalStatus === 'pending' && (
+                      <Badge variant="outline" className="border-orange-500 text-orange-500 gap-1">
+                        <HelpCircle className="h-3 w-3" />
+                        {t('appointments.pendingApproval', 'Pending approval')}
+                      </Badge>
+                    )}
+                    {timeOff.approvalStatus === 'approved' && (
+                      <Badge variant="outline" className="border-green-500 text-green-500 gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {t('appointments.approved', 'Approved')}
+                      </Badge>
+                    )}
+                    {timeOff.approvalStatus === 'declined' && (
+                      <Badge variant="outline" className="border-red-500 text-red-500 gap-1">
+                        <XCircle className="h-3 w-3" />
+                        {t('appointments.declined', 'Declined')}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 

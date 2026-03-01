@@ -5245,8 +5245,8 @@
       "other": "Sonstige"
     },
     "staff": {
-      "title": "Personalkosten",
-      "subtitle": "Personalverwaltung, Stundensätze und Kostenaufschlüsselung",
+      "title": "Personalverwaltung",
+      "subtitle": "Personal, Stundensätze, Abwesenheiten und Kostenaufschlüsselung",
       "addStaff": "Personal hinzufügen",
       "addStaffDesc": "Neuen Mitarbeiter zu diesem Krankenhaus hinzufügen",
       "editStaff": "Personal bearbeiten",

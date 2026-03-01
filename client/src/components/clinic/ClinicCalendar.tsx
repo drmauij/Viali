@@ -1197,10 +1197,14 @@ export default function ClinicCalendar({
     
     // Time off block display
     if (event.isTimeOffBlock) {
+      const isPending = event.status === 'time_off_pending';
+      const reasonIcon = event.timeOffReason ? (TIME_OFF_TYPE_ICONS[event.timeOffReason] || '🚫') : '🚫';
       return (
         <div className="flex flex-col h-full p-1" data-testid={`timeoff-block-${event.appointmentId}`}>
-          <div className="font-bold text-xs">
-            {event.title}
+          <div className="font-bold text-xs flex items-center gap-1">
+            <span>{reasonIcon}</span>
+            <span className="text-white">{event.serviceName || t('appointments.timeOff', 'Time Off')}</span>
+            {isPending && <span className="bg-white/30 text-white rounded px-1 text-[10px] font-medium">?</span>}
           </div>
         </div>
       );
