@@ -91,9 +91,9 @@ export async function calculateWorktimeBalance(
   thisMonthMinutes: number;
   totalOvertimeMinutes: number;
 }> {
-  // Get user's weekly target
+  // Get user's weekly target and initial overtime balance
   const [user] = await db
-    .select({ weeklyTargetHours: users.weeklyTargetHours })
+    .select({ weeklyTargetHours: users.weeklyTargetHours, overtimeBalanceMinutes: users.overtimeBalanceMinutes })
     .from(users)
     .where(eq(users.id, userId));
 
@@ -128,7 +128,7 @@ export async function calculateWorktimeBalance(
     weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + entryMinutes);
   }
 
-  let totalOvertimeMinutes = 0;
+  let totalOvertimeMinutes = user.overtimeBalanceMinutes ?? 0; // Start with imported balance
   for (const weekMinutes of weekMap.values()) {
     totalOvertimeMinutes += weekMinutes - weeklyTargetMinutes;
   }

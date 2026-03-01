@@ -76,6 +76,8 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
       roles: Array<{ role: string; unitId: string | null; unitName: string | null; unitType: string | null }>;
       staffType: string;
       hourlyRate: number | null;
+      weeklyTargetHours: number | null;
+      overtimeBalanceMinutes: number | null;
       canLogin: boolean;
       createdAt: Date | null;
     }>();
@@ -104,6 +106,8 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
           roles: [roleInfo],
           staffType: (u.user as any).staffType || 'internal',
           hourlyRate: (u.user as any).hourlyRate ? parseFloat((u.user as any).hourlyRate) : null,
+          weeklyTargetHours: (u.user as any).weeklyTargetHours ? parseFloat((u.user as any).weeklyTargetHours) : null,
+          overtimeBalanceMinutes: (u.user as any).overtimeBalanceMinutes ?? null,
           canLogin: (u.user as any).canLogin ?? true,
           createdAt: u.user.createdAt,
         });
@@ -200,27 +204,27 @@ router.post('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManage
 router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusinessManager, async (req, res) => {
   try {
     const { hospitalId, userId } = req.params;
-    const { firstName, lastName, email, role, unitId, hourlyRate, staffType } = req.body;
-    
+    const { firstName, lastName, email, role, unitId, hourlyRate, staffType, weeklyTargetHours, overtimeBalanceMinutes } = req.body;
+
     // Verify user belongs to this hospital
     const userHospitals = await storage.getUserHospitals(userId);
     const hospitalRole = userHospitals.find(h => h.id === hospitalId);
-    
+
     if (!hospitalRole) {
       return res.status(404).json({ message: "Staff member not found in this hospital" });
     }
-    
+
     const isAdminUser = hospitalRole.role === 'admin';
-    
+
     // Prevent changing to admin role
     if (role === 'admin') {
       return res.status(403).json({ message: "Cannot assign admin role from business dashboard" });
     }
-    
-    // Build user update object - hourlyRate and staffType can always be edited
+
+    // Build user update object - hourlyRate, staffType, weeklyTargetHours, overtimeBalanceMinutes can always be edited
     const userUpdates: any = {};
-    
-    // For admin users, only allow editing hourlyRate and staffType
+
+    // For admin users, only allow editing hourlyRate, staffType, and business-level fields
     if (isAdminUser) {
       if (hourlyRate !== undefined) userUpdates.hourlyRate = hourlyRate ? String(hourlyRate) : null;
       if (staffType !== undefined) userUpdates.staffType = staffType;
@@ -231,6 +235,13 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
       // Email is read-only, don't update it
       if (hourlyRate !== undefined) userUpdates.hourlyRate = hourlyRate ? String(hourlyRate) : null;
       if (staffType !== undefined) userUpdates.staffType = staffType;
+    }
+    // Business-level fields — editable for all users
+    if (weeklyTargetHours !== undefined) {
+      userUpdates.weeklyTargetHours = weeklyTargetHours === null || weeklyTargetHours === '' ? null : String(weeklyTargetHours);
+    }
+    if (overtimeBalanceMinutes !== undefined) {
+      userUpdates.overtimeBalanceMinutes = overtimeBalanceMinutes === null || overtimeBalanceMinutes === '' ? null : parseInt(overtimeBalanceMinutes);
     }
     
     // Update user if there are changes
@@ -295,6 +306,8 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
       unitId: updatedRole?.unitId,
       staffType: updatedUser.staffType,
       hourlyRate: updatedUser.hourlyRate ? parseFloat(updatedUser.hourlyRate) : null,
+      weeklyTargetHours: updatedUser.weeklyTargetHours ? parseFloat(updatedUser.weeklyTargetHours) : null,
+      overtimeBalanceMinutes: updatedUser.overtimeBalanceMinutes ?? null,
       canLogin: updatedUser.canLogin,
     });
   } catch (error) {

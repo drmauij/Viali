@@ -78,6 +78,8 @@ interface StaffMember {
   roles: RoleInfo[];
   staffType: "internal" | "external";
   hourlyRate: number | null;
+  weeklyTargetHours: number | null;
+  overtimeBalanceMinutes: number | null;
   canLogin: boolean;
   createdAt: string | null;
 }
@@ -218,6 +220,8 @@ export default function SimplifiedStaff() {
     unitId: '',
     hourlyRate: '',
     staffType: 'internal' as 'internal' | 'external',
+    weeklyTargetHours: '',
+    overtimeBalanceHours: '',
   });
   
   const [newRoleData, setNewRoleData] = useState({
@@ -285,6 +289,8 @@ export default function SimplifiedStaff() {
         unitId: data.unitId,
         hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : null,
         staffType: data.staffType,
+        weeklyTargetHours: data.weeklyTargetHours ? parseFloat(data.weeklyTargetHours) : null,
+        overtimeBalanceMinutes: data.overtimeBalanceHours ? Math.round(parseFloat(data.overtimeBalanceHours) * 60) : null,
       });
     },
     onSuccess: () => {
@@ -358,6 +364,8 @@ export default function SimplifiedStaff() {
       unitId: '',
       hourlyRate: '',
       staffType: 'internal',
+      weeklyTargetHours: '',
+      overtimeBalanceHours: '',
     });
   };
 
@@ -377,6 +385,8 @@ export default function SimplifiedStaff() {
       unitId: primaryRole?.unitId || '',
       hourlyRate: staff.hourlyRate?.toString() || '',
       staffType: staff.staffType,
+      weeklyTargetHours: staff.weeklyTargetHours?.toString() || '',
+      overtimeBalanceHours: staff.overtimeBalanceMinutes != null ? (staff.overtimeBalanceMinutes / 60).toString() : '',
     });
     setIsEditDialogOpen(true);
   };
@@ -838,6 +848,33 @@ export default function SimplifiedStaff() {
                     <SelectItem value="external">{t('business.staff.external')}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-weeklyTargetHours">{t('business.staff.weeklyTargetHours')}</Label>
+                <Input
+                  id="edit-weeklyTargetHours"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="168"
+                  value={formData.weeklyTargetHours}
+                  onChange={(e) => setFormData({ ...formData, weeklyTargetHours: e.target.value })}
+                  placeholder={t('business.staff.weeklyTargetHoursPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-overtimeBalance">{t('business.staff.overtimeBalance')}</Label>
+                <Input
+                  id="edit-overtimeBalance"
+                  type="number"
+                  step="0.25"
+                  value={formData.overtimeBalanceHours}
+                  onChange={(e) => setFormData({ ...formData, overtimeBalanceHours: e.target.value })}
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground">{t('business.staff.overtimeBalanceHint')}</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
