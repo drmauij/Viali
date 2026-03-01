@@ -1,7 +1,7 @@
 import { Router } from "express";
 import Stripe from "stripe";
 import { storage, db } from "../storage";
-import { hospitals, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs } from "@shared/schema";
+import { hospitals, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs, preOpAssessments } from "@shared/schema";
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 import { Resend } from "resend";
 import { jsPDF } from "jspdf";
@@ -74,6 +74,30 @@ async function countSurgeriesForHospital(
   return result?.count || 0;
 }
 
+async function countPreOpAssessmentsForHospital(
+  hospitalId: string,
+  startDate: Date,
+  endDate?: Date
+): Promise<number> {
+  const conditions = [
+    eq(surgeries.hospitalId, hospitalId),
+    gte(surgeries.plannedDate, startDate),
+    eq(surgeries.isArchived, false),
+    sql`${surgeries.status} != 'cancelled'`,
+  ];
+  if (endDate) {
+    conditions.push(lt(surgeries.plannedDate, endDate));
+  }
+
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(preOpAssessments)
+    .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+    .where(and(...conditions));
+
+  return result?.count || 0;
+}
+
 router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
@@ -103,7 +127,8 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthRecords = await countSurgeriesForHospital(hospitalId, startOfMonth);
-    
+    const currentMonthPreOpCount = await countPreOpAssessmentsForHospital(hospitalId, startOfMonth);
+
     // Flat base rate per record — all features included
     const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 6.00;
     const pricePerRecord = basePrice;
@@ -166,6 +191,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             : null,
           pricePerRecord,
           currentMonthRecords,
+          currentMonthPreOpCount,
           estimatedCost,
           billingRequired: false,
           trialEndsAt: null,
@@ -212,6 +238,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
         : null,
       pricePerRecord,
       currentMonthRecords,
+      currentMonthPreOpCount,
       estimatedCost,
       billingRequired,
       ...trialInfo,
@@ -1723,6 +1750,87 @@ router.get("/api/billing/:hospitalId/usage-history", isAuthenticated, async (req
   } catch (error) {
     logger.error("Error fetching usage history:", error);
     res.status(500).json({ message: "Failed to fetch usage history" });
+  }
+});
+
+// Get historical monthly pre-op assessment counts for a hospital
+router.get("/api/billing/:hospitalId/preop-usage-history", isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    // Access check
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (!userHospitals.some((h: any) => h.id === hospitalId)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Find the earliest surgery with a pre-op assessment for this hospital
+    const [earliest] = await db
+      .select({ plannedDate: surgeries.plannedDate })
+      .from(preOpAssessments)
+      .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        eq(surgeries.isArchived, false),
+        sql`${surgeries.status} != 'cancelled'`,
+      ))
+      .orderBy(surgeries.plannedDate)
+      .limit(1);
+
+    if (!earliest) {
+      return res.json({ months: [] });
+    }
+
+    // Build list of completed months from earliest up to (but not including) current month
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const months: Array<{
+      month: string;
+      periodStart: Date;
+      periodEnd: Date;
+    }> = [];
+
+    let cursor = new Date(
+      earliest.plannedDate.getFullYear(),
+      earliest.plannedDate.getMonth(),
+      1
+    );
+
+    while (cursor < currentMonthStart) {
+      const periodStart = new Date(cursor);
+      const periodEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      const month = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+      months.push({ month, periodStart, periodEnd });
+      cursor = periodEnd;
+    }
+
+    if (months.length === 0) {
+      return res.json({ months: [] });
+    }
+
+    // Count assessments for each month in parallel
+    const results = await Promise.all(
+      months.map(async ({ month, periodStart, periodEnd }) => {
+        const assessmentCount = await countPreOpAssessmentsForHospital(
+          hospitalId,
+          periodStart,
+          periodEnd
+        );
+        return { month, assessmentCount };
+      })
+    );
+
+    // Return newest first, only months with assessments
+    const filtered = results
+      .filter((r) => r.assessmentCount > 0)
+      .reverse();
+
+    res.json({ months: filtered });
+  } catch (error) {
+    logger.error("Error fetching pre-op usage history:", error);
+    res.status(500).json({ message: "Failed to fetch pre-op usage history" });
   }
 });
 

@@ -37,6 +37,7 @@ import {
   Calculator,
   Clock,
   ChevronDown,
+  ArrowLeftRight,
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -55,6 +56,7 @@ interface BillingStatus {
   } | null;
   pricePerRecord: number;
   currentMonthRecords: number;
+  currentMonthPreOpCount: number;
   estimatedCost: number;
   billingRequired: boolean;
   trialEndsAt: string | null;
@@ -109,6 +111,10 @@ interface UsageHistoryMonth {
 
 interface UsageHistoryData {
   months: UsageHistoryMonth[];
+}
+
+interface PreOpUsageHistoryData {
+  months: Array<{ month: string; assessmentCount: number }>;
 }
 
 interface DocumentAcceptance {
@@ -228,6 +234,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
+  const [usageFlipped, setUsageFlipped] = useState(false);
   const [expandedDocuments, setExpandedDocuments] = useState<Record<LegalDocumentType, boolean>>({
     terms: false,
     privacy: false,
@@ -275,6 +282,15 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     queryFn: async () => {
       const res = await fetch(`/api/billing/${hospitalId}/usage-history`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch usage history");
+      return res.json();
+    },
+  });
+
+  const { data: preopUsageHistory, isLoading: preopUsageLoading, isError: preopUsageError } = useQuery<PreOpUsageHistoryData>({
+    queryKey: ["/api/billing", hospitalId, "preop-usage-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing/${hospitalId}/preop-usage-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch pre-op usage history");
       return res.json();
     },
   });
@@ -830,107 +846,228 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Usage</CardTitle>
-            <CardDescription>Cases (Fälle) per month and cost</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="current">
-              <TabsList className="mb-4">
-                <TabsTrigger value="current">Current Month</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="current">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Plan</span>
-                    <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
-                      {billingStatus.licenseType === "free" ? "Free" :
-                       billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
-                       "Basic"}
-                    </Badge>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Cases this month</span>
-                    <span className="font-medium">{billingStatus.currentMonthRecords}</span>
-                  </div>
-                  {billingStatus.licenseType !== "free" && (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Price per case</span>
-                        <span className="font-medium">
-                          {formatCurrency(billingStatus.pricePerRecord ?? 0)}
-                        </span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Estimated cost</span>
-                        <span className="font-bold text-lg">
-                          {formatCurrency(billingStatus.estimatedCost ?? 0)}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="history">
-                {usageHistoryLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : usageHistoryError ? (
-                  <p className="text-center text-muted-foreground py-8 text-destructive">
-                    Failed to load usage history
-                  </p>
-                ) : !usageHistory?.months?.length ? (
-                  <p className="text-center text-muted-foreground py-8">No usage history yet</p>
-                ) : (
-                  <ScrollArea className="h-[250px]">
-                    <div className="space-y-1">
-                      <div className="grid grid-cols-4 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
-                        <span>Month</span>
-                        <span className="text-right">Cases</span>
-                        <span className="text-right">Price/Case</span>
-                        <span className="text-right">Total Cost</span>
-                      </div>
-                      {usageHistory.months.map((entry) => {
-                        const [year, month] = entry.month.split("-");
-                        const yearNum = parseInt(year, 10);
-                        const monthNum = parseInt(month, 10);
-                        const date = !isNaN(yearNum) && !isNaN(monthNum)
-                          ? new Date(yearNum, monthNum - 1, 1)
-                          : new Date();
-                        return (
-                          <div
-                            key={entry.month}
-                            className="grid grid-cols-4 gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded"
-                          >
-                            <span className="font-medium">{formatMonthYear(date)}</span>
-                            <span className="text-right">{entry.recordCount}</span>
-                            <span className="text-right text-muted-foreground">
-                              {entry.pricePerRecord != null
-                                ? formatCurrency(entry.pricePerRecord)
-                                : "—"}
-                            </span>
-                            <span className="text-right font-medium">
-                              {entry.totalCost != null
-                                ? formatCurrency(entry.totalCost)
-                                : "—"}
-                            </span>
-                          </div>
-                        );
-                      })}
+        <div style={{ perspective: "1000px" }}>
+          <div
+            className="relative transition-transform duration-500"
+            style={{
+              transformStyle: "preserve-3d",
+              transform: usageFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+            }}
+          >
+            {/* Front: Usage card */}
+            <div style={{ backfaceVisibility: "hidden" }}>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Usage</CardTitle>
+                      <CardDescription>Cases per month and cost</CardDescription>
                     </div>
-                  </ScrollArea>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setUsageFlipped(true)}
+                      title="Show Pre-Op Assessments"
+                    >
+                      <ArrowLeftRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="current">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="current">Current Month</TabsTrigger>
+                      <TabsTrigger value="history">History</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="current">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Plan</span>
+                          <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
+                            {billingStatus.licenseType === "free" ? "Free" :
+                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
+                             "Basic"}
+                          </Badge>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Cases this month</span>
+                          <span className="font-medium">{billingStatus.currentMonthRecords}</span>
+                        </div>
+                        {billingStatus.licenseType !== "free" && (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Price per case</span>
+                              <span className="font-medium">
+                                {formatCurrency(billingStatus.pricePerRecord ?? 0)}
+                              </span>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Estimated cost</span>
+                              <span className="font-bold text-lg">
+                                {formatCurrency(billingStatus.estimatedCost ?? 0)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="history">
+                      {usageHistoryLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : usageHistoryError ? (
+                        <p className="text-center text-muted-foreground py-8 text-destructive">
+                          Failed to load usage history
+                        </p>
+                      ) : !usageHistory?.months?.length ? (
+                        <p className="text-center text-muted-foreground py-8">No usage history yet</p>
+                      ) : (
+                        <ScrollArea className="h-[250px]">
+                          <div className="space-y-1">
+                            <div className="grid grid-cols-4 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
+                              <span>Month</span>
+                              <span className="text-right">Cases</span>
+                              <span className="text-right">Price/Case</span>
+                              <span className="text-right">Total Cost</span>
+                            </div>
+                            {usageHistory.months.map((entry) => {
+                              const [year, month] = entry.month.split("-");
+                              const yearNum = parseInt(year, 10);
+                              const monthNum = parseInt(month, 10);
+                              const date = !isNaN(yearNum) && !isNaN(monthNum)
+                                ? new Date(yearNum, monthNum - 1, 1)
+                                : new Date();
+                              return (
+                                <div
+                                  key={entry.month}
+                                  className="grid grid-cols-4 gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded"
+                                >
+                                  <span className="font-medium">{formatMonthYear(date)}</span>
+                                  <span className="text-right">{entry.recordCount}</span>
+                                  <span className="text-right text-muted-foreground">
+                                    {entry.pricePerRecord != null
+                                      ? formatCurrency(entry.pricePerRecord)
+                                      : "—"}
+                                  </span>
+                                  <span className="text-right font-medium">
+                                    {entry.totalCost != null
+                                      ? formatCurrency(entry.totalCost)
+                                      : "—"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Back: Pre-Op Assessments card */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+              }}
+            >
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Pre-Op Assessments</CardTitle>
+                      <CardDescription>Assessments per month</CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setUsageFlipped(false)}
+                      title="Show Usage"
+                    >
+                      <ArrowLeftRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="current">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="current">Current Month</TabsTrigger>
+                      <TabsTrigger value="history">History</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="current">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Plan</span>
+                          <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
+                            {billingStatus.licenseType === "free" ? "Free" :
+                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
+                             "Basic"}
+                          </Badge>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Assessments this month</span>
+                          <span className="font-medium">{billingStatus.currentMonthPreOpCount ?? 0}</span>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="history">
+                      {preopUsageLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : preopUsageError ? (
+                        <p className="text-center text-muted-foreground py-8 text-destructive">
+                          Failed to load pre-op usage history
+                        </p>
+                      ) : !preopUsageHistory?.months?.length ? (
+                        <p className="text-center text-muted-foreground py-8">No pre-op assessment history yet</p>
+                      ) : (
+                        <ScrollArea className="h-[250px]">
+                          <div className="space-y-1">
+                            <div className="grid grid-cols-2 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
+                              <span>Month</span>
+                              <span className="text-right">Assessments</span>
+                            </div>
+                            {preopUsageHistory.months.map((entry) => {
+                              const [year, month] = entry.month.split("-");
+                              const yearNum = parseInt(year, 10);
+                              const monthNum = parseInt(month, 10);
+                              const date = !isNaN(yearNum) && !isNaN(monthNum)
+                                ? new Date(yearNum, monthNum - 1, 1)
+                                : new Date();
+                              return (
+                                <div
+                                  key={entry.month}
+                                  className="grid grid-cols-2 gap-2 px-2 py-2 text-sm hover:bg-muted/50 rounded"
+                                >
+                                  <span className="font-medium">{formatMonthYear(date)}</span>
+                                  <span className="text-right">{entry.assessmentCount}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Card>
