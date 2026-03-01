@@ -825,6 +825,8 @@ export interface IStorage {
   getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderTimeOff[]>;
   getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
   getProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  getAllProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  approveProviderTimeOff(id: string, status: 'approved' | 'declined', approvedBy: string): Promise<ProviderTimeOff>;
   createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff>;
   updateProviderTimeOff(id: string, updates: Partial<ProviderTimeOff>): Promise<ProviderTimeOff>;
   deleteProviderTimeOff(id: string): Promise<void>;
@@ -1462,6 +1464,8 @@ export class DatabaseStorage implements IStorage {
   getProviderTimeOff = clinicStorage.getProviderTimeOff;
   getProviderTimeOffsForUnit = clinicStorage.getProviderTimeOffsForUnit;
   getProviderTimeOffsForHospital = clinicStorage.getProviderTimeOffsForHospital;
+  getAllProviderTimeOffsForHospital = clinicStorage.getAllProviderTimeOffsForHospital;
+  approveProviderTimeOff = clinicStorage.approveProviderTimeOff;
   createProviderTimeOff = clinicStorage.createProviderTimeOff;
   updateProviderTimeOff = clinicStorage.updateProviderTimeOff;
   deleteProviderTimeOff = clinicStorage.deleteProviderTimeOff;

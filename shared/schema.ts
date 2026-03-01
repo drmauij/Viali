@@ -4123,7 +4123,12 @@ export const providerTimeOff = pgTable("provider_time_off", {
   
   reason: varchar("reason"), // holiday, personal, training, etc.
   notes: text("notes"),
-  
+
+  // Approval workflow
+  approvalStatus: varchar("approval_status").default('pending').notNull(), // 'pending' | 'approved' | 'declined'
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+
   // Recurrence settings
   isRecurring: boolean("is_recurring").default(false).notNull(),
   recurrencePattern: varchar("recurrence_pattern"), // 'weekly', 'biweekly', 'monthly'

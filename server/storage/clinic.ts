@@ -306,19 +306,61 @@ export async function getProviderTimeOffsForHospital(hospitalId: string, startDa
     eq(providerTimeOff.hospitalId, hospitalId),
     isNull(providerTimeOff.unitId)
   ];
-  
+
   if (startDate) {
     conditions.push(gte(providerTimeOff.endDate, startDate));
   }
   if (endDate) {
     conditions.push(lte(providerTimeOff.startDate, endDate));
   }
-  
+
   return await db
     .select()
     .from(providerTimeOff)
     .where(and(...conditions))
     .orderBy(asc(providerTimeOff.startDate));
+}
+
+// Fetch ALL time-off for providers belonging to a hospital (across all units)
+export async function getAllProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+  // Get all provider IDs belonging to this hospital via userHospitalRoles
+  const hospitalProviders = await db
+    .select({ userId: userHospitalRoles.userId })
+    .from(userHospitalRoles)
+    .where(eq(userHospitalRoles.hospitalId, hospitalId));
+
+  const providerIds = hospitalProviders.map(p => p.userId);
+  if (providerIds.length === 0) return [];
+
+  let conditions: any[] = [
+    inArray(providerTimeOff.providerId, providerIds)
+  ];
+
+  if (startDate) {
+    conditions.push(gte(providerTimeOff.endDate, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(providerTimeOff.startDate, endDate));
+  }
+
+  return await db
+    .select()
+    .from(providerTimeOff)
+    .where(and(...conditions))
+    .orderBy(asc(providerTimeOff.startDate));
+}
+
+export async function approveProviderTimeOff(id: string, status: 'approved' | 'declined', approvedBy: string): Promise<ProviderTimeOff> {
+  const [updated] = await db
+    .update(providerTimeOff)
+    .set({
+      approvalStatus: status,
+      approvedBy,
+      approvedAt: new Date(),
+    })
+    .where(eq(providerTimeOff.id, id))
+    .returning();
+  return updated;
 }
 
 export async function updateProviderAvailabilityMode(hospitalId: string, userId: string, mode: 'always_available' | 'windows_required'): Promise<ClinicProvider> {

@@ -74,6 +74,7 @@ interface ProviderTimeOff {
   endTime: string | null;
   reason: string | null;
   notes: string | null;
+  approvalStatus?: string;
 }
 
 const ABSENCE_TYPE_ICONS: Record<string, string> = {

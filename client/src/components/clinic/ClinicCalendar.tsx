@@ -91,6 +91,7 @@ interface ProviderTimeOff {
   endTime: string | null;
   reason: string | null;
   notes: string | null;
+  approvalStatus?: string;
 }
 
 interface ProviderAvailabilityWindowData {

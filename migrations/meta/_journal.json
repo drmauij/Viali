@@ -1044,6 +1044,13 @@
       "when": 1772374424997,
       "tag": "0148_easy_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1772379742302,
+      "tag": "0149_dizzy_pandemic",
+      "breakpoints": true
     }
   ]
 }

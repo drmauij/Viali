@@ -5248,7 +5248,16 @@
       "roleAddError": "Failed to add role",
       "roleDeleteSuccess": "Role removed successfully",
       "roleDeleteError": "Failed to remove role",
-      "editRolesHint": "Use 'Manage Roles' button to add or remove role assignments"
+      "editRolesHint": "Use 'Manage Roles' button to add or remove role assignments",
+      "timeOff": "Time Off",
+      "staffCosts": "Staff Costs",
+      "timeOffUpdated": "Time off status updated",
+      "approveTimeOff": "Approve",
+      "declineTimeOff": "Decline",
+      "pending": "Pending",
+      "approved": "Approved",
+      "noTimeOffRequests": "No time-off requests this month",
+      "confirmDecline": "Decline this request? The provider will be notified by email."
     },
     "time": {
       "title": "Time Analytics",

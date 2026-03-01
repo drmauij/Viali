@@ -4,6 +4,7 @@ import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { ABSENCE_COLORS, ABSENCE_ICONS, ABSENCE_TYPE_LABEL_KEYS } from "@/lib/absenceConstants";
 import { ToggleRight, ToggleLeft } from "lucide-react";
 import SaalStaffPopover from "./SaalStaffPopover";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
@@ -35,6 +36,7 @@ interface ProviderTimeOff {
   endTime: string | null;
   reason: string | null;
   notes: string | null;
+  approvalStatus?: string;
 }
 
 interface AppointmentsMonthViewProps {
@@ -61,41 +63,6 @@ const STATUS_DOT_COLORS: Record<string, string> = {
   no_show: "bg-orange-500",
 };
 
-const ABSENCE_COLORS: Record<string, string> = {
-  vacation: "bg-purple-100 dark:bg-purple-900/50",
-  sick: "bg-red-100 dark:bg-red-900/50",
-  training: "bg-blue-100 dark:bg-blue-900/50",
-  parental: "bg-pink-100 dark:bg-pink-900/50",
-  homeoffice: "bg-teal-100 dark:bg-teal-900/50",
-  overtime: "bg-amber-100 dark:bg-amber-900/50",
-  blocked: "bg-orange-100 dark:bg-orange-900/50",
-  sabbatical: "bg-indigo-100 dark:bg-indigo-900/50",
-  default: "bg-gray-100 dark:bg-gray-800/50",
-};
-
-const ABSENCE_ICONS: Record<string, string> = {
-  vacation: "\u{1F3D6}\u{FE0F}",
-  sick: "\u{1F912}",
-  training: "\u{1F4DA}",
-  parental: "\u{1F476}",
-  homeoffice: "\u{1F3E0}",
-  overtime: "\u{23F1}\u{FE0F}",
-  blocked: "\u{1F6AB}",
-  sabbatical: "\u{2708}\u{FE0F}",
-  default: "\u{1F6AB}",
-};
-
-const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: string }> = {
-  vacation: { key: 'appointments.absence.vacation', fallback: 'Vacation' },
-  sick: { key: 'appointments.absence.sick', fallback: 'Sick Leave' },
-  training: { key: 'appointments.absence.training', fallback: 'Training' },
-  parental: { key: 'appointments.absence.parental', fallback: 'Parental Leave' },
-  homeoffice: { key: 'appointments.absence.homeoffice', fallback: 'Home Office' },
-  overtime: { key: 'appointments.absence.overtime', fallback: 'Overtime Reduction' },
-  blocked: { key: 'appointments.absence.blocked', fallback: 'Blocked / Other' },
-  sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
-  default: { key: 'appointments.absence.default', fallback: 'Absent' },
-};
 
 const MIN_COL_WIDTH = 58;
 const MAX_DOTS = 3;
@@ -235,7 +202,7 @@ export default function AppointmentsMonthView({
     });
   };
 
-  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null } | null => {
+  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
     const dayDate = day.format('YYYY-MM-DD');
 
     const absence = providerAbsences.find(a => {
@@ -254,7 +221,7 @@ export default function AppointmentsMonthView({
 
     if (timeOff) {
       const isPartial = !!(timeOff.startTime && timeOff.endTime);
-      return { type: timeOff.reason || 'default', notes: timeOff.notes, isPartial, startTime: timeOff.startTime, endTime: timeOff.endTime };
+      return { type: timeOff.reason || 'default', notes: timeOff.notes, isPartial, startTime: timeOff.startTime, endTime: timeOff.endTime, approvalStatus: timeOff.approvalStatus };
     }
 
     return null;
@@ -435,10 +402,20 @@ export default function AppointmentsMonthView({
 
                       {/* Cell content */}
                       {absence && !absence.isPartial ? (
-                        <div className="flex items-center justify-center h-full">
+                        <div className="flex items-center justify-center h-full relative">
                           <span className="text-xs leading-none" title={getAbsenceLabel(absence.type)}>
                             {ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}
                           </span>
+                          {absence.approvalStatus === 'pending' && (
+                            <span className="absolute bottom-0.5 left-1 text-[10px] leading-none" title={t('business.staff.pending')}>
+                              {'\u2753'}
+                            </span>
+                          )}
+                          {absence.approvalStatus === 'approved' && (
+                            <span className="absolute bottom-0.5 left-1 text-[10px] leading-none" title={t('business.staff.approved')}>
+                              {'\u2705'}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <>

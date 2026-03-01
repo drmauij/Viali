@@ -2,12 +2,13 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items } from "@shared/schema";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff } from "@shared/schema";
 import { eq, and, inArray, ne, desc, gte, lte, isNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
-import { sendSignedContractEmail } from "../resend";
+import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
+import { expandRecurringTimeOff } from "../utils/timeoff";
 import logger from "../logger";
 
 const router = Router();
@@ -1660,6 +1661,105 @@ router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, 
   } catch (error) {
     logger.error("Error fetching anesthesia nurse hours:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia nurse hours" });
+  }
+});
+
+// === Time Off Approval ===
+
+// GET /api/business/:hospitalId/time-off — list all time-off for the hospital
+router.get("/:hospitalId/time-off", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const { startDate, endDate, expand } = req.query;
+
+    const timeOffs = await storage.getAllProviderTimeOffsForHospital(
+      hospitalId,
+      startDate as string | undefined,
+      endDate as string | undefined
+    );
+
+    // Expand recurring time-off if requested
+    let result = timeOffs;
+    if (expand === 'true' && startDate && endDate) {
+      result = expandRecurringTimeOff(timeOffs, startDate as string, endDate as string);
+    }
+
+    // Join with users to include provider names
+    const providerIds = [...new Set(result.map(t => t.providerId))];
+    const providerUsers = providerIds.length > 0
+      ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
+          .from(users)
+          .where(inArray(users.id, providerIds))
+      : [];
+
+    const providerMap = new Map(providerUsers.map(u => [u.id, u]));
+
+    const enriched = result.map(t => ({
+      ...t,
+      providerName: (() => {
+        const u = providerMap.get(t.providerId);
+        return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'Unknown';
+      })(),
+      providerEmail: providerMap.get(t.providerId)?.email || null,
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    logger.error("Error fetching time-off for hospital:", error);
+    res.status(500).json({ message: "Failed to fetch time-off" });
+  }
+});
+
+// PATCH /api/business/:hospitalId/time-off/:timeOffId/approve — approve or decline
+router.patch("/:hospitalId/time-off/:timeOffId/approve", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, timeOffId } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['approved', 'declined'].includes(status)) {
+      return res.status(400).json({ message: "Status must be 'approved' or 'declined'" });
+    }
+
+    // Verify this time-off belongs to a provider of this hospital
+    const allTimeOffs = await storage.getAllProviderTimeOffsForHospital(hospitalId);
+    const timeOff = allTimeOffs.find(t => t.id === timeOffId);
+    if (!timeOff) {
+      return res.status(404).json({ message: "Time-off entry not found" });
+    }
+
+    const updated = await storage.approveProviderTimeOff(timeOffId, status, req.user.id);
+
+    if (status === 'declined') {
+      // Send email notification to the provider
+      const provider = await storage.getUser(timeOff.providerId);
+      const hospital = await storage.getHospital(hospitalId);
+      const declinedBy = req.user;
+
+      if (provider?.email && hospital) {
+        const providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
+        const declinedByName = `${declinedBy.firstName || ''} ${declinedBy.lastName || ''}`.trim();
+        const language = (hospital.defaultLanguage as 'de' | 'en') || 'de';
+
+        await sendTimeOffDeclinedEmail(
+          provider.email,
+          providerName,
+          hospital.name,
+          timeOff.startDate,
+          timeOff.endDate,
+          timeOff.reason || undefined,
+          declinedByName,
+          language
+        );
+      }
+
+      // Delete the declined time-off entry
+      await storage.deleteProviderTimeOff(timeOffId);
+    }
+
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error approving/declining time-off:", error);
+    res.status(500).json({ message: "Failed to update time-off status" });
   }
 });
 

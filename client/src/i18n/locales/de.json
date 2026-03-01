@@ -5344,7 +5344,16 @@
       "roleAddError": "Fehler beim Hinzufügen der Rolle",
       "roleDeleteSuccess": "Rolle erfolgreich entfernt",
       "roleDeleteError": "Fehler beim Entfernen der Rolle",
-      "editRolesHint": "Verwenden Sie die Schaltfläche 'Rollen verwalten', um Rollenzuweisungen hinzuzufügen oder zu entfernen"
+      "editRolesHint": "Verwenden Sie die Schaltfläche 'Rollen verwalten', um Rollenzuweisungen hinzuzufügen oder zu entfernen",
+      "timeOff": "Abwesenheiten",
+      "staffCosts": "Personalkosten",
+      "timeOffUpdated": "Abwesenheitsstatus aktualisiert",
+      "approveTimeOff": "Genehmigen",
+      "declineTimeOff": "Ablehnen",
+      "pending": "Ausstehend",
+      "approved": "Genehmigt",
+      "noTimeOffRequests": "Keine Abwesenheitsanträge diesen Monat",
+      "confirmDecline": "Antrag ablehnen? Der Mitarbeiter wird per E-Mail benachrichtigt."
     },
     "time": {
       "title": "Zeitanalyse",

@@ -700,6 +700,91 @@ export async function sendSignedContractEmail(
   }
 }
 
+export async function sendTimeOffDeclinedEmail(
+  toEmail: string,
+  providerName: string,
+  clinicName: string,
+  startDate: string,
+  endDate: string,
+  reason: string | undefined,
+  declinedByName: string,
+  language: 'de' | 'en' = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const dateRange = startDate === endDate ? startDate : `${startDate} – ${endDate}`;
+
+    const subject = isGerman
+      ? `Abwesenheitsantrag abgelehnt: ${dateRange}`
+      : `Time-Off Request Declined: ${dateRange}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? 'Abwesenheitsantrag abgelehnt' : 'Time-Off Request Declined'}</h1>
+              <p style="margin: 0;">${clinicName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Hallo' : 'Hello'} ${providerName},</p>
+              <p>${isGerman
+                ? `Ihr Abwesenheitsantrag bei ${clinicName} wurde abgelehnt.`
+                : `Your time-off request at ${clinicName} has been declined.`}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Zeitraum' : 'Period'}:</strong> ${dateRange}</p>
+                ${reason ? `<p><strong>${isGerman ? 'Grund' : 'Reason'}:</strong> ${reason}</p>` : ''}
+                <p><strong>${isGerman ? 'Abgelehnt von' : 'Declined by'}:</strong> ${declinedByName}</p>
+              </div>
+
+              <p>${isGerman
+                ? 'Bitte kontaktieren Sie Ihren Vorgesetzten für weitere Informationen.'
+                : 'Please contact your manager for more information.'}</p>
+              <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br>${clinicName}</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send time-off declined email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent time-off declined notification to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending time-off declined email:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendInvoiceEmail(
   toEmail: string,
   invoiceNumber: number,

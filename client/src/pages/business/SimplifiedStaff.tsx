@@ -42,6 +42,12 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import {
   Users,
   Clock,
   HelpCircle,
@@ -54,6 +60,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+import StaffTimeOffTab from "@/components/business/StaffTimeOffTab";
 
 interface RoleInfo {
   role: string;
@@ -495,6 +502,13 @@ export default function SimplifiedStaff() {
         </p>
       </div>
 
+      <Tabs defaultValue="costs">
+        <TabsList>
+          <TabsTrigger value="costs">{t('business.staff.staffCosts')}</TabsTrigger>
+          <TabsTrigger value="timeoff">{t('business.staff.timeOff')}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="costs" className="space-y-6 mt-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title={t('business.staff.totalStaff')}
@@ -998,6 +1012,12 @@ export default function SimplifiedStaff() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="timeoff" className="mt-4">
+          <StaffTimeOffTab hospitalId={activeHospital.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
