@@ -18,7 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import {
   Collapsible,
   CollapsibleContent,
@@ -36,12 +38,13 @@ import {
   ClipboardCheck,
   CalendarDays,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatDateForInput } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types (shared with DischargeBriefWizard)
@@ -154,6 +157,11 @@ export function DischargeBriefCompactWizard({
   const [annotations, setAnnotations] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddDate, setQuickAddDate] = useState("");
+  const [quickAddTime, setQuickAddTime] = useState("09:00");
+  const [quickAddNotes, setQuickAddNotes] = useState("");
+  const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
   // ---- reset / initialize on open ----
   useEffect(() => {
@@ -169,6 +177,11 @@ export function DischargeBriefCompactWizard({
       setAnnotations("");
       setIsGenerating(false);
       setCustomizeOpen(false);
+      setShowQuickAdd(false);
+      setQuickAddDate("");
+      setQuickAddTime("09:00");
+      setQuickAddNotes("");
+      setIsCreatingAppointment(false);
     }
   }, [
     open,
@@ -409,12 +422,13 @@ export function DischargeBriefCompactWizard({
   const optionalBlocks = blocks.filter((b) => OPTIONAL_BLOCKS.includes(b.key));
 
   // Blocks that have sub-items (notes, medication slots, appointments)
+  // Also include follow_up_appointments when selected even if empty (for quick-add)
   const customizableBlocks = optionalBlocks.filter(
     (b) =>
-      b.notes &&
-      b.notes.length > 0 &&
       (selectedBlocks.includes(b.key) ||
-        (briefType === "prescription" && b.key === "discharge_medications")),
+        (briefType === "prescription" && b.key === "discharge_medications")) &&
+      ((b.notes && b.notes.length > 0) ||
+        b.key === "follow_up_appointments"),
   );
   const hasCustomizableContent = customizableBlocks.length > 0;
 
@@ -426,7 +440,7 @@ export function DischargeBriefCompactWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
@@ -440,34 +454,40 @@ export function DischargeBriefCompactWizard({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-5">
           {/* ── Brief Type (hidden if pre-filled) ── */}
           {!preselectedBriefType && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 {t("dischargeBriefs.wizard.stepBriefType", "Brief Type")}
               </Label>
-              <RadioGroup
+              <Select
                 value={briefType ?? ""}
                 onValueChange={(v) => setBriefType(v as BriefType)}
               >
-                {(
-                  [
-                    "surgery_discharge",
-                    "anesthesia_discharge",
-                    "anesthesia_overnight_discharge",
-                    "prescription",
-                  ] as BriefType[]
-                ).map((bt) => (
-                  <label
-                    key={bt}
-                    className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50"
-                  >
-                    <RadioGroupItem value={bt} />
-                    <span className="text-sm">{briefTypeLabel(bt)}</span>
-                  </label>
-                ))}
-              </RadioGroup>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={t(
+                      "dischargeBriefs.wizard.stepBriefType",
+                      "Brief Type",
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    [
+                      "surgery_discharge",
+                      "anesthesia_discharge",
+                      "anesthesia_overnight_discharge",
+                      "prescription",
+                    ] as BriefType[]
+                  ).map((bt) => (
+                    <SelectItem key={bt} value={bt}>
+                      {briefTypeLabel(bt)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -687,6 +707,100 @@ export function DischargeBriefCompactWizard({
                               </span>
                             </label>
                           ))}
+
+                          {/* Quick-add appointment form */}
+                          {block.key === "follow_up_appointments" && (
+                            <>
+                              {showQuickAdd ? (
+                                <div className="rounded border bg-muted/30 p-2 space-y-2">
+                                  <div className="flex gap-2">
+                                    <DateInput
+                                      value={quickAddDate}
+                                      onChange={(v) => setQuickAddDate(v)}
+                                      className="h-8 text-xs"
+                                      min={formatDateForInput(new Date())}
+                                    />
+                                    <TimeInput
+                                      value={quickAddTime}
+                                      onChange={(v) => setQuickAddTime(v)}
+                                      className="h-8 text-xs w-24"
+                                    />
+                                  </div>
+                                  <Input
+                                    value={quickAddNotes}
+                                    onChange={(e) => setQuickAddNotes(e.target.value)}
+                                    placeholder={t("dischargeBriefs.wizard.appointmentDescPlaceholder", "e.g. Wound check, suture removal...")}
+                                    className="h-8 text-xs"
+                                  />
+                                  <div className="flex gap-1.5 justify-end">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        setShowQuickAdd(false);
+                                        setQuickAddDate("");
+                                        setQuickAddTime("09:00");
+                                        setQuickAddNotes("");
+                                      }}
+                                      disabled={isCreatingAppointment}
+                                    >
+                                      {t("common.cancel", "Cancel")}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      disabled={!quickAddDate || !quickAddTime || isCreatingAppointment}
+                                      onClick={async () => {
+                                        setIsCreatingAppointment(true);
+                                        try {
+                                          const res = await apiRequest("POST", `/api/patients/${patientId}/follow-up-appointments`, {
+                                            appointmentDate: quickAddDate,
+                                            startTime: quickAddTime,
+                                            notes: quickAddNotes || undefined,
+                                            surgeryId: surgeryId ?? undefined,
+                                          });
+                                          const created = await res.json();
+                                          setSelectedAppointmentIds((prev) => [...prev, created.id]);
+                                          queryClient.invalidateQueries({ queryKey: [blocksQueryKey] });
+                                          toast({ title: t("dischargeBriefs.wizard.appointmentCreated", "Appointment created") });
+                                          setShowQuickAdd(false);
+                                          setQuickAddDate("");
+                                          setQuickAddTime("09:00");
+                                          setQuickAddNotes("");
+                                        } catch (error: any) {
+                                          toast({
+                                            title: t("common.error", "Error"),
+                                            description: error?.message ?? "Failed to create appointment",
+                                            variant: "destructive",
+                                          });
+                                        } finally {
+                                          setIsCreatingAppointment(false);
+                                        }
+                                      }}
+                                    >
+                                      {isCreatingAppointment ? (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Plus className="h-3 w-3 mr-1" />
+                                      )}
+                                      {t("common.add", "Add")}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs w-full justify-start"
+                                  onClick={() => setShowQuickAdd(true)}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  {t("dischargeBriefs.wizard.addAppointment", "Add Appointment")}
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </div>
                       ))}
                     </CollapsibleContent>
@@ -771,7 +885,10 @@ export function DischargeBriefCompactWizard({
             />
           </div>
 
-          {/* ── Generate Button ── */}
+        </div>
+
+        {/* ── Generate Button (sticky footer) ── */}
+        <div className="pt-4 border-t">
           <Button
             className="w-full"
             onClick={handleGenerate}

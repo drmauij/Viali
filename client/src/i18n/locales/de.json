@@ -169,7 +169,9 @@
     "pickDate": "Datum auswählen",
     "creating": "Wird erstellt...",
     "pocInDevelopment": "POC / In Entwicklung",
-    "select": "Auswählen..."
+    "select": "Auswählen...",
+    "available": "Verfügbar",
+    "unavailable": "N/V"
   },
   "timeline": {
     "dragToReposition": "Ziehen zum Verschieben",
@@ -6933,6 +6935,13 @@
     "noAuditEntries": "Keine Audit-Einträge gefunden",
     "reason": "Begründung",
     "aiDataSent": "An KI gesendete Daten",
+    "compact": {
+      "generateType": "{{type}} generieren",
+      "generateBrief": "Austrittsbericht generieren",
+      "description": "KI-Austrittsbericht konfigurieren und generieren.",
+      "includedData": "Enthaltene Daten",
+      "customize": "Auswahl anpassen..."
+    },
     "wizard": {
       "title": "Austrittsbericht generieren",
       "generateSuccess": "Bericht erfolgreich generiert",
@@ -6977,7 +6986,12 @@
       "selectedMedSlots": "Ausgewählte Medikationsslots",
       "slotsSelected": "Slot(s) ausgewählt",
       "autoIncluded": "Automatisch enthalten",
-      "linked": "Verknüpft"
+      "linked": "Verknüpft",
+      "noSurgery": "Ohne Operation (eigenständig)",
+      "noTemplate": "Ohne Vorlage",
+      "required": "Erforderlich",
+      "generateBrief": "Bericht generieren",
+      "additionalNotes": "Zusätzliche Hinweise"
     },
     "blocks": {
       "anesthesiaRecord": "Anästhesieprotokoll",
@@ -6990,7 +7004,8 @@
     "types": {
       "surgeryDischarge": "Chirurgischer Austrittsbericht",
       "anesthesiaDischarge": "Anästhesie-Austrittsbericht",
-      "anesthesiaOvernightDischarge": "Anästhesie + Übernachtung"
+      "anesthesiaOvernightDischarge": "Anästhesie + Übernachtung",
+      "prescription": "Rezept"
     },
     "templates": {
       "title": "Austrittsbrief-Vorlagen",

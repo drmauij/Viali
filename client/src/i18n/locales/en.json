@@ -88,7 +88,9 @@
     "pickDate": "Pick a date",
     "creating": "Creating...",
     "pocInDevelopment": "POC / In Development",
-    "select": "Select..."
+    "select": "Select...",
+    "available": "Available",
+    "unavailable": "N/A"
   },
   "timeline": {
     "dragToReposition": "Drag to reposition",
@@ -6913,6 +6915,13 @@
     "noAuditEntries": "No audit entries found",
     "reason": "Reason",
     "aiDataSent": "AI data sent",
+    "compact": {
+      "generateType": "Generate {{type}}",
+      "generateBrief": "Generate Discharge Brief",
+      "description": "Configure and generate an AI discharge brief.",
+      "includedData": "Included Data",
+      "customize": "Customize selections..."
+    },
     "wizard": {
       "title": "Generate Discharge Brief",
       "generateSuccess": "Brief generated successfully",
@@ -6957,7 +6966,12 @@
       "selectedMedSlots": "Selected Medication Slots",
       "slotsSelected": "slot(s) selected",
       "autoIncluded": "Auto-included",
-      "linked": "Linked"
+      "linked": "Linked",
+      "noSurgery": "No surgery (standalone)",
+      "noTemplate": "No template",
+      "required": "Required",
+      "generateBrief": "Generate Brief",
+      "additionalNotes": "Additional Notes"
     },
     "blocks": {
       "anesthesiaRecord": "Anesthesia Record",
@@ -6970,7 +6984,8 @@
     "types": {
       "surgeryDischarge": "Surgery Discharge",
       "anesthesiaDischarge": "Anesthesia Discharge",
-      "anesthesiaOvernightDischarge": "Anesthesia + Overnight"
+      "anesthesiaOvernightDischarge": "Anesthesia + Overnight",
+      "prescription": "Prescription"
     },
     "templates": {
       "title": "Discharge Brief Templates",
