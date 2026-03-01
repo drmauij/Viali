@@ -1666,6 +1666,18 @@ router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, 
 
 // === Time Off Approval ===
 
+// GET /api/business/:hospitalId/time-off/pending-count — count of pending time-off requests
+router.get("/:hospitalId/time-off/pending-count", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const count = await storage.getPendingTimeOffCount(hospitalId);
+    res.json({ count });
+  } catch (error) {
+    logger.error("Error fetching pending time-off count:", error);
+    res.status(500).json({ message: "Failed to fetch pending time-off count" });
+  }
+});
+
 // GET /api/business/:hospitalId/time-off — list all time-off for the hospital
 router.get("/:hospitalId/time-off", isAuthenticated, isBusinessManager, async (req: any, res: Response) => {
   try {

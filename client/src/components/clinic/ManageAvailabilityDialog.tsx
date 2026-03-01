@@ -185,6 +185,9 @@ export function ManageAvailabilityDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`] });
+      // Also invalidate the calendar's unit-level time-off query and business module
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${hospitalId}/time-off`] });
       toast({ title: t('availability.timeOffCreated', 'Time off created') });
       setTimeOffDialogOpen(false);
     },
@@ -199,6 +202,8 @@ export function ManageAvailabilityDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${hospitalId}/time-off`] });
       toast({ title: t('availability.timeOffDeleted', 'Time off deleted') });
     },
   });

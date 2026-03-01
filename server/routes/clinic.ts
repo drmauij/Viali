@@ -1678,7 +1678,43 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
     });
     
     const timeOff = await storage.createProviderTimeOff(validatedData);
-    
+
+    // Notify managers/admins about the new time-off request
+    try {
+      const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+      const managers = hospitalUsers.filter(u => u.role === 'admin' || u.role === 'manager');
+      const provider = await storage.getUser(providerId);
+      const hospital = await storage.getHospital(hospitalId);
+
+      if (provider && hospital && managers.length > 0) {
+        const { sendTimeOffRequestEmail } = await import('../resend');
+        const providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
+        const language = (hospital.defaultLanguage as 'de' | 'en') || 'de';
+        const deepLinkUrl = `${process.env.APP_URL || 'https://app.viali.ch'}/business/staff`;
+
+        for (const manager of managers) {
+          if (manager.user.email) {
+            const managerName = `${manager.user.firstName || ''} ${manager.user.lastName || ''}`.trim();
+            await sendTimeOffRequestEmail(
+              manager.user.email,
+              managerName,
+              providerName,
+              hospital.name,
+              timeOff.startDate,
+              timeOff.endDate,
+              timeOff.reason || undefined,
+              timeOff.isRecurring || false,
+              deepLinkUrl,
+              language
+            );
+          }
+        }
+      }
+    } catch (emailError) {
+      logger.error("Error sending time-off request notifications:", emailError);
+      // Don't fail the request if email sending fails
+    }
+
     res.status(201).json(timeOff);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1701,7 +1737,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, re
     const scope = await getCalendarScope(unitId, hospitalId);
     
     // Fetch time offs from appropriate scope
-    const timeOffs = scope.effectiveUnitId 
+    const timeOffs = scope.effectiveUnitId
       ? await storage.getProviderTimeOffsForUnit(
           scope.effectiveUnitId,
           startDate as string | undefined,
@@ -1712,7 +1748,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, re
           startDate as string | undefined,
           endDate as string | undefined
         );
-    
+
     // If expand=true and we have date range, expand recurring time off
     if (expand === 'true' && startDate && endDate) {
       const expandedTimeOffs = expandRecurringTimeOff(
@@ -1722,7 +1758,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, re
       );
       return res.json(expandedTimeOffs);
     }
-    
+
     res.json(timeOffs);
   } catch (error) {
     logger.error("Error fetching time offs for unit:", error);

@@ -700,6 +700,94 @@ export async function sendSignedContractEmail(
   }
 }
 
+export async function sendTimeOffRequestEmail(
+  toEmail: string,
+  managerName: string,
+  providerName: string,
+  clinicName: string,
+  startDate: string,
+  endDate: string,
+  reason: string | undefined,
+  isRecurring: boolean,
+  deepLinkUrl: string,
+  language: 'de' | 'en' = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const dateRange = startDate === endDate ? startDate : `${startDate} – ${endDate}`;
+
+    const subject = isGerman
+      ? `Neuer Abwesenheitsantrag: ${providerName} (${dateRange})`
+      : `New Time-Off Request: ${providerName} (${dateRange})`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #f97316; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #f97316; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? 'Neuer Abwesenheitsantrag' : 'New Time-Off Request'}</h1>
+              <p style="margin: 0;">${clinicName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Hallo' : 'Hello'} ${managerName},</p>
+              <p>${isGerman
+                ? `${providerName} hat einen neuen Abwesenheitsantrag eingereicht:`
+                : `${providerName} has submitted a new time-off request:`}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Mitarbeiter' : 'Staff Member'}:</strong> ${providerName}</p>
+                <p><strong>${isGerman ? 'Zeitraum' : 'Period'}:</strong> ${dateRange}</p>
+                ${reason ? `<p><strong>${isGerman ? 'Grund' : 'Reason'}:</strong> ${reason}</p>` : ''}
+                ${isRecurring ? `<p><strong>${isGerman ? 'Typ' : 'Type'}:</strong> ${isGerman ? 'Wiederkehrend' : 'Recurring'}</p>` : ''}
+              </div>
+
+              <p style="text-align: center;">
+                <a href="${deepLinkUrl}" class="button">${isGerman ? 'Antrag prüfen' : 'Review Request'}</a>
+              </p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send time-off request email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent time-off request notification to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending time-off request email:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendTimeOffDeclinedEmail(
   toEmail: string,
   providerName: string,

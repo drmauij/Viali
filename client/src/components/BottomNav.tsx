@@ -52,6 +52,15 @@ export default function BottomNav() {
   const hasPendingChecklists = (pendingCountData?.total || 0) > 0;
   const hasOverdueChecklists = (pendingCountData?.overdue || 0) > 0;
 
+  // Fetch pending time-off count for business staff badge
+  const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
+  const { data: pendingTimeOffData } = useQuery<{ count: number }>({
+    queryKey: [`/api/business/${activeHospital?.id}/time-off/pending-count`],
+    enabled: !!activeHospital?.id && isManager,
+    refetchInterval: 30000,
+  });
+  const hasPendingTimeOff = (pendingTimeOffData?.count || 0) > 0;
+
   // Poll for import job status and update localStorage
   useEffect(() => {
     if (!activeHospital?.id) return;
@@ -267,6 +276,22 @@ export default function BottomNav() {
                   border: '2px solid var(--background)',
                 }}
                 data-testid="import-badge"
+              />
+            )}
+            {item.id === 'business-staff' && hasPendingTimeOff && (
+              <span
+                className="pending-timeoff-badge"
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-8px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#ef4444',
+                  borderRadius: '50%',
+                  border: '2px solid var(--background)',
+                }}
+                data-testid="pending-timeoff-badge"
               />
             )}
             {item.id === 'checklists' && hasOverdueChecklists && (

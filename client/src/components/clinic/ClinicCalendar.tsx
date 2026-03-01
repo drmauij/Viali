@@ -533,9 +533,10 @@ export default function ClinicCalendar({
     });
     if (hasAbsence) return true;
 
-    // Check time offs (handle multi-day ranges)
+    // Check time offs (handle multi-day ranges) — pending and approved both block
     const hasTimeOff = providerTimeOffs.some(timeOff => {
       if (timeOff.providerId !== providerId) return false;
+      if (timeOff.approvalStatus === 'declined') return false;
       
       // Parse start and end dates of the time off range
       const timeOffStart = new Date(timeOff.startDate);
@@ -807,22 +808,23 @@ export default function ClinicCalendar({
     // Only include time offs where providerId is in the filtered providers list
     const timeOffBlockEvents: CalendarEvent[] = [];
     providerTimeOffs
-      .filter((timeOff) => providerIdSet.has(timeOff.providerId))
+      .filter((timeOff) => providerIdSet.has(timeOff.providerId) && timeOff.approvalStatus !== 'declined')
       .forEach((timeOff) => {
+        const isPending = timeOff.approvalStatus === 'pending';
         const timeOffStart = new Date(timeOff.startDate);
         const timeOffEnd = new Date(timeOff.endDate);
-        
+
         // Create events for each day in the time off range that falls within dateRange
         const currentDate = new Date(Math.max(timeOffStart.getTime(), dateRange.start.getTime()));
         currentDate.setHours(0, 0, 0, 0);
-        
+
         const rangeEnd = new Date(Math.min(timeOffEnd.getTime(), dateRange.end.getTime()));
         rangeEnd.setHours(23, 59, 59, 999);
-        
+
         while (currentDate <= rangeEnd) {
           const dayStart = new Date(currentDate);
           const dayEnd = new Date(currentDate);
-          
+
           // If specific times are set, use them; otherwise use full day (8-18)
           if (timeOff.startTime && timeOff.endTime) {
             const [startH, startM] = timeOff.startTime.split(':').map(Number);
@@ -833,14 +835,15 @@ export default function ClinicCalendar({
             dayStart.setHours(8, 0, 0, 0);
             dayEnd.setHours(18, 0, 0, 0);
           }
-          
+
           const reasonKey = timeOff.reason || 'blocked';
           const icon = TIME_OFF_TYPE_ICONS[reasonKey] || ABSENCE_TYPE_ICONS[reasonKey] || '🚫';
           const reason = timeOff.notes || t('appointments.timeOff', 'Time Off');
+          const pendingLabel = isPending ? ` \u2753` : '';
 
           timeOffBlockEvents.push({
             id: `timeoff-${timeOff.id}-${formatDateForInput(currentDate)}`,
-            title: `${icon} ${reason}`,
+            title: `${icon} ${reason}${pendingLabel}`,
             start: dayStart,
             end: dayEnd,
             resource: timeOff.providerId,
@@ -848,14 +851,14 @@ export default function ClinicCalendar({
             patientId: '',
             patientName: '',
             serviceName: reason,
-            status: 'time_off',
+            status: isPending ? 'time_off_pending' : 'time_off',
             notes: timeOff.notes,
             isSurgeryBlock: false,
             isAbsenceBlock: false,
             isTimeOffBlock: true,
             timeOffReason: reasonKey,
           });
-          
+
           // Move to next day
           currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -1125,6 +1128,22 @@ export default function ClinicCalendar({
           borderRadius: '4px',
           opacity: 0.9,
           border: '1px solid',
+          display: 'block',
+          cursor: 'pointer',
+        },
+      };
+    }
+
+    // Pending time-off: orange dashed border, reduced opacity
+    if (event.status === 'time_off_pending') {
+      return {
+        style: {
+          backgroundColor: '#fed7aa',
+          borderColor: '#ea580c',
+          color: '#9a3412',
+          borderRadius: '4px',
+          opacity: 0.7,
+          border: '2px dashed',
           display: 'block',
           cursor: 'pointer',
         },

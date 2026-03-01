@@ -286,14 +286,21 @@ export async function deleteProviderTimeOff(id: string): Promise<void> {
 
 export async function getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
   let conditions: any[] = [eq(providerTimeOff.unitId, unitId)];
-  
-  if (startDate) {
-    conditions.push(gte(providerTimeOff.endDate, startDate));
+
+  // Always include recurring time-offs (expansion handles date filtering)
+  if (startDate || endDate) {
+    const dateConditions: any[] = [];
+    if (startDate && endDate) {
+      dateConditions.push(and(gte(providerTimeOff.endDate, startDate), lte(providerTimeOff.startDate, endDate)));
+    } else if (startDate) {
+      dateConditions.push(gte(providerTimeOff.endDate, startDate));
+    } else if (endDate) {
+      dateConditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    dateConditions.push(eq(providerTimeOff.isRecurring, true));
+    conditions.push(or(...dateConditions));
   }
-  if (endDate) {
-    conditions.push(lte(providerTimeOff.startDate, endDate));
-  }
-  
+
   return await db
     .select()
     .from(providerTimeOff)
@@ -307,11 +314,18 @@ export async function getProviderTimeOffsForHospital(hospitalId: string, startDa
     isNull(providerTimeOff.unitId)
   ];
 
-  if (startDate) {
-    conditions.push(gte(providerTimeOff.endDate, startDate));
-  }
-  if (endDate) {
-    conditions.push(lte(providerTimeOff.startDate, endDate));
+  // Always include recurring time-offs (expansion handles date filtering)
+  if (startDate || endDate) {
+    const dateConditions: any[] = [];
+    if (startDate && endDate) {
+      dateConditions.push(and(gte(providerTimeOff.endDate, startDate), lte(providerTimeOff.startDate, endDate)));
+    } else if (startDate) {
+      dateConditions.push(gte(providerTimeOff.endDate, startDate));
+    } else if (endDate) {
+      dateConditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    dateConditions.push(eq(providerTimeOff.isRecurring, true));
+    conditions.push(or(...dateConditions));
   }
 
   return await db
@@ -336,11 +350,18 @@ export async function getAllProviderTimeOffsForHospital(hospitalId: string, star
     inArray(providerTimeOff.providerId, providerIds)
   ];
 
-  if (startDate) {
-    conditions.push(gte(providerTimeOff.endDate, startDate));
-  }
-  if (endDate) {
-    conditions.push(lte(providerTimeOff.startDate, endDate));
+  // For date filtering, always include recurring time-offs (expansion handles date logic)
+  if (startDate || endDate) {
+    const dateConditions: any[] = [];
+    if (startDate && endDate) {
+      dateConditions.push(and(gte(providerTimeOff.endDate, startDate), lte(providerTimeOff.startDate, endDate)));
+    } else if (startDate) {
+      dateConditions.push(gte(providerTimeOff.endDate, startDate));
+    } else if (endDate) {
+      dateConditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    dateConditions.push(eq(providerTimeOff.isRecurring, true));
+    conditions.push(or(...dateConditions));
   }
 
   return await db
@@ -1843,6 +1864,18 @@ export async function createExternalSurgeryRequestDocument(doc: InsertExternalSu
     .values(doc)
     .returning();
   return created;
+}
+
+export async function getPendingTimeOffCount(hospitalId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(providerTimeOff)
+    .innerJoin(userHospitalRoles, and(
+      eq(providerTimeOff.providerId, userHospitalRoles.userId),
+      eq(userHospitalRoles.hospitalId, hospitalId)
+    ))
+    .where(eq(providerTimeOff.approvalStatus, 'pending'));
+  return result[0]?.count || 0;
 }
 
 export async function getPendingExternalSurgeryRequestsCount(hospitalId: string): Promise<number> {

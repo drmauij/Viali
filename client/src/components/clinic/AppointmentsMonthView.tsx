@@ -216,6 +216,7 @@ export default function AppointmentsMonthView({
 
     const timeOff = providerTimeOffs.find(to => {
       if (to.providerId !== providerId) return false;
+      if (to.approvalStatus === 'declined') return false;
       return dayDate >= to.startDate && dayDate <= to.endDate;
     });
 

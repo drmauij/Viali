@@ -794,7 +794,8 @@ export interface IStorage {
   getExternalSurgeryRequestDocuments(requestId: string): Promise<ExternalSurgeryRequestDocument[]>;
   createExternalSurgeryRequestDocument(doc: InsertExternalSurgeryRequestDocument): Promise<ExternalSurgeryRequestDocument>;
   getPendingExternalSurgeryRequestsCount(hospitalId: string): Promise<number>;
-  
+  getPendingTimeOffCount(hospitalId: string): Promise<number>;
+
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
   
   // Clinic Providers (now sourced from user_hospital_roles)
@@ -1526,6 +1527,7 @@ export class DatabaseStorage implements IStorage {
   getExternalSurgeryRequestDocuments = clinicStorage.getExternalSurgeryRequestDocuments;
   createExternalSurgeryRequestDocument = clinicStorage.createExternalSurgeryRequestDocument;
   getPendingExternalSurgeryRequestsCount = clinicStorage.getPendingExternalSurgeryRequestsCount;
+  getPendingTimeOffCount = clinicStorage.getPendingTimeOffCount;
 
   // ========== WORKTIME LOG OPERATIONS ==========
   getWorktimeLogs = worktimeStorage.getWorktimeLogs;

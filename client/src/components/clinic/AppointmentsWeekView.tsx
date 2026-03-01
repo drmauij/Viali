@@ -230,7 +230,7 @@ export default function AppointmentsWeekView({
     });
   };
 
-  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null } | null => {
+  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
     const dayDate = day.format('YYYY-MM-DD');
 
     const absence = providerAbsences.find(a => {
@@ -244,12 +244,13 @@ export default function AppointmentsWeekView({
 
     const timeOff = providerTimeOffs.find(t => {
       if (t.providerId !== providerId) return false;
+      if (t.approvalStatus === 'declined') return false;
       return dayDate >= t.startDate && dayDate <= t.endDate;
     });
 
     if (timeOff) {
       const isPartial = !!(timeOff.startTime && timeOff.endTime);
-      return { type: timeOff.reason || 'default', notes: timeOff.notes, isPartial, startTime: timeOff.startTime, endTime: timeOff.endTime };
+      return { type: timeOff.reason || 'default', notes: timeOff.notes, isPartial, startTime: timeOff.startTime, endTime: timeOff.endTime, approvalStatus: timeOff.approvalStatus };
     }
 
     return null;
@@ -339,12 +340,13 @@ export default function AppointmentsWeekView({
                     className={cn(
                       "flex-1 border-r p-1 cursor-pointer hover:bg-muted/30 transition-colors relative select-none",
                       isToday(day) && "bg-primary/5",
-                      absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
+                      absence && !absence.isPartial && absence.approvalStatus !== 'pending' && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
+                      absence && !absence.isPartial && absence.approvalStatus === 'pending' && "bg-orange-50 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700",
                       inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                     )}
                     style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH, touchAction: onDragSelectRange ? 'none' : undefined }}
                     onClick={() => {
-                      // Only fire click if there was no drag
+                      // Only fire click if there was no drag; full-day absences block
                       if (!dragState && (!absence || absence.isPartial)) {
                         handleCanvasClick(provider.id, day);
                       }
@@ -419,9 +421,13 @@ export default function AppointmentsWeekView({
                       )}
                     </div>
                     {absence && !absence.isPartial ? (
-                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                      <div className={cn(
+                        "flex items-center justify-center h-full text-muted-foreground text-sm",
+                        absence.approvalStatus === 'pending' && "opacity-60"
+                      )}>
                         <span className="mr-1">{ABSENCE_ICONS[absence.type] || ABSENCE_ICONS.default}</span>
                         <span>{getAbsenceLabel(absence.type)}</span>
+                        {absence.approvalStatus === 'pending' && <span className="ml-1">{'\u2753'}</span>}
                       </div>
                     ) : (() => {
                       // Build a merged list of appointments and partial time-off, sorted by start time

@@ -246,6 +246,13 @@ export default function SimplifiedStaff() {
     enabled: !!activeHospital?.id,
   });
 
+  const { data: pendingTimeOffData } = useQuery<{ count: number }>({
+    queryKey: [`/api/business/${activeHospital?.id}/time-off/pending-count`],
+    enabled: !!activeHospital?.id,
+    refetchInterval: 30000,
+  });
+  const pendingTimeOffCount = pendingTimeOffData?.count || 0;
+
   const { data: userRoles = [], isLoading: isLoadingRoles } = useQuery<RoleAssignment[]>({
     queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'],
     queryFn: async () => {
@@ -505,7 +512,14 @@ export default function SimplifiedStaff() {
       <Tabs defaultValue="costs">
         <TabsList>
           <TabsTrigger value="costs">{t('business.staff.staffCosts')}</TabsTrigger>
-          <TabsTrigger value="timeoff">{t('business.staff.timeOff')}</TabsTrigger>
+          <TabsTrigger value="timeoff">
+            {t('business.staff.timeOff')}
+            {pendingTimeOffCount > 0 && (
+              <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1.5 text-[10px]">
+                {pendingTimeOffCount}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="costs" className="space-y-6 mt-4">
