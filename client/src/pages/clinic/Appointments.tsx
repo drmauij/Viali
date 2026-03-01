@@ -204,69 +204,19 @@ export default function ClinicAppointments() {
     },
   });
 
-  // Check Cal.com configuration - only query if retell addon is active
-  const { data: calcomConfig, isLoading: calcomConfigLoading } = useQuery<{
-    isEnabled: boolean;
-    apiKey?: string;
-  }>({
-    queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
-    enabled: !!hospitalId && addons.retell,
-  });
-  // Cal.com is only enabled if both the config is set AND the retell addon is active
-  const calcomEnabled = addons.retell && calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
-
-  // Unified sync mutation - syncs both Timebutler and Cal.com in parallel
-  const syncCalendarsMutation = useMutation({
-    mutationFn: async () => {
-      const results: { timebutler?: any; calcom?: any; calcomError?: string } = {};
-      
-      // Run both syncs in parallel for better performance
-      const syncPromises: Promise<void>[] = [];
-      
-      // Timebutler/ICS sync
-      syncPromises.push(
-        apiRequest("POST", `/api/clinic/${hospitalId}/queue-ics-sync`)
-          .then(res => res.json())
-          .then(data => { results.timebutler = data; })
-      );
-      
-      // Cal.com sync if enabled (check fresh config)
-      if (calcomEnabled) {
-        syncPromises.push(
-          apiRequest("POST", `/api/clinic/${hospitalId}/calcom-sync`)
-            .then(res => res.json())
-            .then(data => { results.calcom = data; })
-            .catch(err => { 
-              results.calcomError = err.message || 'Cal.com sync failed';
-            })
-        );
-      }
-      
-      await Promise.all(syncPromises);
-      return results;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-config`] });
-      
-      if (data.calcomError) {
-        // Partial failure - Timebutler succeeded but Cal.com failed
-        toast({ 
-          title: t('appointments.syncPartial', 'Calendar sync partially complete'),
-          description: `${t('appointments.syncQueuedDesc', 'Absences will be synced in the background')}. Cal.com: ${data.calcomError}`,
-          variant: "destructive"
-        });
-      } else {
-        const calcomBlocks = data.calcom?.syncedBlocks || 0;
-        toast({ 
-          title: t('appointments.syncQueued', 'Calendar sync started'),
-          description: calcomEnabled 
-            ? t('appointments.syncQueuedDescBoth', `Absences syncing. ${calcomBlocks} blocks synced to Cal.com.`)
-            : t('appointments.syncQueuedDesc', 'Absences will be synced in the background')
-        });
-      }
+  // Sync absences from Timebutler/ICS feeds
+  const syncAbsencesMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/clinic/${hospitalId}/queue-ics-sync`)
+        .then(res => res.json()),
+    onSuccess: () => {
+      toast({
+        title: t('appointments.syncQueued', 'Absence sync started'),
+        description: t('appointments.syncQueuedDesc', 'Absences will be synced in the background')
+      });
     },
     onError: () => {
-      toast({ title: t('appointments.syncError', 'Failed to start calendar sync'), variant: "destructive" });
+      toast({ title: t('appointments.syncError', 'Failed to start absence sync'), variant: "destructive" });
     },
   });
 
@@ -382,15 +332,15 @@ export default function ClinicAppointments() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button 
+          <Button
             variant="outline"
             size="sm"
-            onClick={() => syncCalendarsMutation.mutate()}
-            disabled={syncCalendarsMutation.isPending || calcomConfigLoading}
-            data-testid="button-sync-calendars"
+            onClick={() => syncAbsencesMutation.mutate()}
+            disabled={syncAbsencesMutation.isPending}
+            data-testid="button-sync-absences"
           >
-            <RefreshCw className={`h-4 w-4 mr-1 ${syncCalendarsMutation.isPending || calcomConfigLoading ? 'animate-spin' : ''}`} />
-            {t('appointments.syncCalendars', 'Sync Calendars')}
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncAbsencesMutation.isPending ? 'animate-spin' : ''}`} />
+            {t('appointments.syncAbsences', 'Sync Absences')}
           </Button>
         </div>
       </div>
