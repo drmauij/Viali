@@ -7100,6 +7100,7 @@
     "kioskTitle": "Arbeitszeit Mitarbeiter",
     "searchStaff": "Mitarbeiter suchen...",
     "allUnits": "Alle Abteilungen",
-    "noStaffFound": "Keine Mitarbeiter gefunden"
+    "noStaffFound": "Keine Mitarbeiter gefunden",
+    "monthTotal": "Gesamt"
   }
 }

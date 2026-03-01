@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ChevronLeft, ChevronRight, Clock, Calendar, User, CheckCircle2, HelpCircle, XCircle, CalendarDays, List } from "lucide-react";
 import { cn } from "@/lib/utils";
+import StaffWorktimeDialog from "./StaffWorktimeDialog";
 
 interface TimeOffEntry {
   id: string;
@@ -60,6 +61,7 @@ export default function StaffTimeOffTab({ hospitalId }: StaffTimeOffTabProps) {
   });
   const [selectedEntry, setSelectedEntry] = useState<TimeOffEntry | null>(null);
   const [declineTarget, setDeclineTarget] = useState<TimeOffEntry | null>(null);
+  const [worktimeStaff, setWorktimeStaff] = useState<{ id: string; name: string } | null>(null);
 
   const monthStart = useMemo(() => {
     return `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`;
@@ -284,7 +286,10 @@ export default function StaffTimeOffTab({ hospitalId }: StaffTimeOffTabProps) {
             <tbody>
               {providers.map(([providerId, { name, entries }]) => (
                 <tr key={providerId} className="border-t border-border">
-                  <td className="sticky left-0 z-10 bg-background px-3 py-2 border-r border-border font-medium truncate max-w-[180px]">
+                  <td
+                    className="sticky left-0 z-10 bg-background px-3 py-2 border-r border-border font-medium truncate max-w-[180px] cursor-pointer hover:text-primary hover:underline"
+                    onClick={() => setWorktimeStaff({ id: providerId, name })}
+                  >
                     {name}
                   </td>
                   {weekdays.map((day, idx) => {
@@ -505,6 +510,17 @@ export default function StaffTimeOffTab({ hospitalId }: StaffTimeOffTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Staff worktime detail dialog */}
+      {worktimeStaff && (
+        <StaffWorktimeDialog
+          open={!!worktimeStaff}
+          onOpenChange={(open) => !open && setWorktimeStaff(null)}
+          hospitalId={hospitalId}
+          staffId={worktimeStaff.id}
+          staffName={worktimeStaff.name}
+        />
+      )}
     </div>
   );
 }

@@ -7080,6 +7080,7 @@
     "kioskTitle": "Staff Work Time",
     "searchStaff": "Search staff...",
     "allUnits": "All units",
-    "noStaffFound": "No staff found"
+    "noStaffFound": "No staff found",
+    "monthTotal": "Total"
   }
 }
