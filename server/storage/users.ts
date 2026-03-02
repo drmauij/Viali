@@ -206,7 +206,8 @@ export async function getKioskStaffList(hospitalId: string): Promise<{ id: strin
     .where(
       and(
         eq(userHospitalRoles.hospitalId, hospitalId),
-        isNull(users.archivedAt)
+        isNull(users.archivedAt),
+        eq(users.canLogin, true)
       )
     )
     .orderBy(asc(users.lastName), asc(users.firstName));
