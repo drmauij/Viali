@@ -265,6 +265,7 @@ export function usePatientState() {
 
   // Split-screen document preview state
   const [previewDocument, setPreviewDocument] = useState<PreviewDocument>(null);
+  const [previewImageSiblings, setPreviewImageSiblings] = useState<Array<{id: string, fileName: string, mimeType: string, url: string, documentFolderId?: string | null}>>([]);
 
   // Edit patient form
   const [editForm, setEditForm] = useState<EditForm>({
@@ -530,6 +531,7 @@ export function usePatientState() {
 
     // Split-screen document preview
     previewDocument, setPreviewDocument,
+    previewImageSiblings, setPreviewImageSiblings,
 
     // Edit patient form
     editForm, setEditForm,

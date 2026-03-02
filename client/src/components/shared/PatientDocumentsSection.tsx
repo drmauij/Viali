@@ -66,7 +66,7 @@ interface PatientDocumentsSectionProps {
   canWrite?: boolean;
   variant?: "accordion" | "card";
   defaultExpanded?: boolean;
-  onPreview?: (url: string, fileName: string, mimeType?: string) => void;
+  onPreview?: (url: string, fileName: string, mimeType?: string, siblingImages?: Array<{id: string, fileName: string, mimeType: string, url: string, documentFolderId?: string | null}>) => void;
   isAdmin?: boolean;
   onEditBrief?: (briefId: string) => void;
   onAuditBrief?: (briefId: string) => void;
@@ -441,7 +441,17 @@ export function PatientDocumentsSection({
   const handlePreviewDocument = async (doc: PatientDocument) => {
     if (onPreview) {
       const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
-      onPreview(fileUrl, doc.fileName, doc.mimeType);
+      // Compute sibling images in the same folder context
+      const siblingImages = documents
+        .filter(d => d.mimeType?.startsWith('image/') && d.documentFolderId === doc.documentFolderId)
+        .map(d => ({
+          id: d.id,
+          fileName: d.fileName,
+          mimeType: d.mimeType || 'image/jpeg',
+          url: `/api/patients/${patientId}/documents/${d.id}/file`,
+          documentFolderId: d.documentFolderId,
+        }));
+      onPreview(fileUrl, doc.fileName, doc.mimeType, siblingImages);
     } else {
       const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
       window.open(fileUrl, '_blank');

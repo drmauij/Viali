@@ -17,14 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import type { SurgeryWithAssistants } from "./patientDetail/usePatientQueries";
 import { PREOP_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
@@ -90,6 +90,7 @@ export default function PatientDetail() {
     questionnaireSearchTerm, setQuestionnaireSearchTerm,
     selectedUnassociatedQuestionnaire, setSelectedUnassociatedQuestionnaire,
     previewDocument, setPreviewDocument,
+    previewImageSiblings, setPreviewImageSiblings,
     editForm, setEditForm,
     isQuickContactOpen, setIsQuickContactOpen,
     quickContactForm, setQuickContactForm,
@@ -390,6 +391,42 @@ export default function PatientDetail() {
       setIsPreOpOpen(true);
     }
   }, [isPreOpRoute, preOpRouteParams?.surgeryId, patient, isPreOpOpen]);
+
+  // Image navigation in standalone document preview
+  const previewImageIndex = useMemo(() => {
+    if (!previewDocument || !previewDocument.url || previewImageSiblings.length <= 1) return -1;
+    return previewImageSiblings.findIndex(img => img.url === previewDocument.url);
+  }, [previewDocument, previewImageSiblings]);
+
+  const navigatePreviewImage = useCallback((direction: 'prev' | 'next') => {
+    if (previewImageIndex < 0 || previewImageSiblings.length <= 1) return;
+    const newIndex = direction === 'next'
+      ? (previewImageIndex + 1) % previewImageSiblings.length
+      : (previewImageIndex - 1 + previewImageSiblings.length) % previewImageSiblings.length;
+    const img = previewImageSiblings[newIndex];
+    setPreviewDocument({
+      id: img.id,
+      fileName: img.fileName,
+      mimeType: img.mimeType,
+      url: img.url,
+    });
+  }, [previewImageIndex, previewImageSiblings, setPreviewDocument]);
+
+  // Keyboard navigation for image preview
+  useEffect(() => {
+    if (!previewDocument || previewImageIndex < 0) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigatePreviewImage('prev');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigatePreviewImage('next');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewDocument, previewImageIndex, navigatePreviewImage]);
 
   // Check for openEdit query parameter and auto-open edit patient dialog
   useEffect(() => {
@@ -2853,13 +2890,14 @@ export default function PatientDetail() {
                 canWrite={canWrite}
                 variant="card"
                 isAdmin={activeHospital?.role === "admin"}
-                onPreview={(url, fileName, mimeType) => {
+                onPreview={(url, fileName, mimeType, siblingImages) => {
                   setPreviewDocument({
                     id: 'preview',
                     fileName,
                     mimeType: mimeType || 'application/octet-stream',
                     url,
                   });
+                  setPreviewImageSiblings(siblingImages || []);
                 }}
                 onEditBrief={(briefId) => setEditingBriefId(briefId)}
                 onAuditBrief={handleAuditBrief}
@@ -3640,13 +3678,14 @@ export default function PatientDetail() {
                     canWrite={!isPreOpReadOnly}
                     variant="accordion"
                     defaultExpanded={false}
-                    onPreview={(url, fileName, mimeType) => {
+                    onPreview={(url, fileName, mimeType, siblingImages) => {
                       setPreviewDocument({
                         id: 'preview',
                         fileName,
                         mimeType: mimeType || 'application/octet-stream',
                         url,
                       });
+                      setPreviewImageSiblings(siblingImages || []);
                     }}
                   />
                 )}
@@ -6697,6 +6736,11 @@ export default function PatientDetail() {
             <div className="flex items-center gap-2 min-w-0">
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="text-sm font-medium truncate">{previewDocument?.fileName}</span>
+              {previewImageIndex >= 0 && previewImageSiblings.length > 1 && (
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {previewImageIndex + 1} / {previewImageSiblings.length}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -6710,14 +6754,34 @@ export default function PatientDetail() {
               </Button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto p-4 bg-muted/30">
+          <div className="flex-1 overflow-auto p-4 bg-muted/30 relative">
             {previewDocument?.mimeType?.startsWith('image/') ? (
-              <img 
-                src={previewDocument.url}
-                alt={previewDocument.fileName}
-                className="w-full h-full object-contain"
-                data-testid="preview-image"
-              />
+              <>
+                <img
+                  src={previewDocument.url}
+                  alt={previewDocument.fileName}
+                  className="w-full h-full object-contain"
+                  data-testid="preview-image"
+                />
+                {previewImageSiblings.length > 1 && previewImageIndex >= 0 && (
+                  <>
+                    <button
+                      onClick={() => navigatePreviewImage('prev')}
+                      className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 transition-opacity"
+                      data-testid="preview-image-prev"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => navigatePreviewImage('next')}
+                      className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 transition-opacity"
+                      data-testid="preview-image-next"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </>
             ) : previewDocument?.mimeType === 'application/pdf' ? (
               <iframe
                 src={previewDocument.url}
