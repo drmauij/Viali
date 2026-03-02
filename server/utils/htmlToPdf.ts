@@ -21,12 +21,24 @@ interface DischargeBriefPdfOptions {
   signature?: string;
   signedBy?: string;
   signedAt?: Date | null;
+  dateFormat?: string | null;
+}
+
+/** Format a date string per hospital dateFormat setting (european dd.MM.yyyy or american MM/dd/yyyy). */
+function formatDateByHospital(dateStr: string, format?: string | null): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  if (format === "american") {
+    return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+  }
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
 }
 
 const BRIEF_TYPE_LABELS: Record<string, string> = {
   surgery_discharge: "Austrittsbrief – Chirurgie",
   anesthesia_discharge: "Austrittsbrief – Anästhesie",
   anesthesia_overnight_discharge: "Austrittsbrief – Anästhesie (Übernachtung)",
+  prescription: "Rezept",
 };
 
 // Layout constants (mm)
@@ -401,7 +413,8 @@ export async function renderDischargeBriefPdf(
   // Patient info line
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "normal");
-  const patientLine = `Patient: ${opts.patientName}  |  Geb.: ${opts.patientBirthday}`;
+  const formattedBirthday = formatDateByHospital(opts.patientBirthday, opts.dateFormat);
+  const patientLine = `Patient: ${opts.patientName}  |  Geb.: ${formattedBirthday}`;
   pdf.text(patientLine, MARGIN, state.y);
   state.y += 5;
 
@@ -451,8 +464,9 @@ export async function renderDischargeBriefPdf(
     if (opts.signedAt) {
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "italic");
+      const formattedSignedAt = formatDateByHospital(new Date(opts.signedAt).toISOString(), opts.dateFormat);
       pdf.text(
-        `Unterschrieben am ${new Date(opts.signedAt).toLocaleDateString("de-CH")}`,
+        `Unterschrieben am ${formattedSignedAt}`,
         MARGIN,
         state.y,
       );

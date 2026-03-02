@@ -208,7 +208,7 @@ export async function collectDischargeMedicationsData(
     if (slot.notes) lines.push(`Notes: ${slot.notes}`);
 
     for (const item of slot.items) {
-      const parts = [item.item?.name || "Unknown medication"];
+      const parts = [item.item?.name || item.customName || "Unknown medication"];
       if (item.quantity) parts.push(`Qty: ${item.quantity} ${item.unitType || ""}`);
       if (item.administrationRoute) parts.push(`Route: ${item.administrationRoute}`);
       if (item.frequency) parts.push(`Freq: ${item.frequency}`);
@@ -464,7 +464,9 @@ export async function getAvailableDataBlocks(
 
 // ========== USER MESSAGE SUFFIX (reinforces mandatory sections via recency bias) ==========
 
-export function buildUserMessageSuffix(selectedBlocks: string[]): string {
+export function buildUserMessageSuffix(selectedBlocks: string[], briefType?: string): string {
+  if (briefType === "prescription") return "";
+
   const blocks = new Set(selectedBlocks);
   const sections: string[] = [];
 
@@ -511,7 +513,7 @@ export function getSystemPrompt(
 
   // Build mandatory clinical summary instructions based on selected data blocks
   let mandatorySummaries = "";
-  if (selectedBlocks?.length) {
+  if (selectedBlocks?.length && briefType !== "prescription") {
     const blocks = new Set(selectedBlocks);
 
     if (blocks.has("anesthesia_record")) {
@@ -612,10 +614,10 @@ Structure the brief with the following sections:
       typePrompt = `You are a medical documentation assistant generating a Prescription document for a patient to take to a pharmacy.
 
 Structure the prescription with the following sections:
-1. **Patient Information** — Patient name, date of birth, date of prescription
+1. **Patient Information** — Use the actual patient name, date of birth, and prescription date provided in the data. Output these values directly — do NOT use placeholders.
 2. **Medications** — For each medication: name, dosage/strength, quantity to dispense, frequency, route of administration, duration of treatment, and any special instructions
-3. **Prescribing Doctor** — Doctor name and signature placeholder
 
+Do NOT include a prescribing doctor or signature section — this is handled separately by the system.
 Keep it clean and pharmacy-ready. Do not include narrative text — use a structured list format for medications.`;
       break;
 

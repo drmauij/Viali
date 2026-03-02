@@ -44,6 +44,17 @@ import {
   buildUserMessageSuffix,
 } from "../utils/dischargeBriefData";
 
+/** Format a date string (YYYY-MM-DD or ISO) per hospital dateFormat setting. */
+function formatDateByHospital(dateStr: string, format?: string | null): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  if (format === "american") {
+    return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+  }
+  // Default: european dd.MM.yyyy
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+}
+
 const MISTRAL_TEXT_BASE_URL = "https://api.mistral.ai/v1";
 
 function getMistralTextClient(): OpenAI {
@@ -154,8 +165,25 @@ router.post(
         return res.status(400).json({ message: "Hospital ID required" });
       }
 
-      // 1. Collect data from selected blocks
+      // 1. Fetch patient + hospital (needed for metadata injection + anonymization)
+      const patient = await getPatient(patientId);
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+      const hospital = await storage.getHospital(hospitalId);
+
+      // 2. Collect data from selected blocks
       const dataBlocks: (string | null)[] = [];
+
+      // For prescriptions, prepend patient metadata so the AI has actual values
+      if (briefType === "prescription") {
+        const patientFullName = `${patient.firstName} ${patient.surname}`;
+        const formattedBirthday = formatDateByHospital(patient.birthday, hospital?.dateFormat);
+        const formattedToday = formatDateByHospital(new Date().toISOString(), hospital?.dateFormat);
+        dataBlocks.push(
+          `## Patient Metadata\nPatient Name: ${patientFullName}\nDate of Birth: ${formattedBirthday}\nPrescription Date: ${formattedToday}`,
+        );
+      }
 
       for (const block of blocks) {
         switch (block) {
@@ -192,24 +220,18 @@ router.post(
         }
       }
 
-      // 2. Serialize to text
+      // 3. Serialize to text
       const serializedText = serializeBlocksToText(dataBlocks);
 
       if (!serializedText.trim()) {
         return res.status(400).json({ message: "No data available for the selected blocks" });
       }
 
-      // 3. Build known values for anonymization
-      const patient = await getPatient(patientId);
-      if (!patient) {
-        return res.status(404).json({ message: "Patient not found" });
-      }
-
-      const hospital = await storage.getHospital(hospitalId);
+      // 4. Build known values for anonymization
       const staffNames = await collectStaffNames(patientId, hospitalId, surgeryId);
       const knownValues = buildKnownValues(patient, hospital, staffNames);
 
-      // 4. Anonymize (known-values + regex + OpenMed ML)
+      // 5. Anonymize (known-values + regex + OpenMed ML)
       const { text: safeText, restore, summary } = await anonymizeWithOpenMed(serializedText, { knownValues });
 
       // 5. Get template content if selected
@@ -229,7 +251,7 @@ router.post(
       }
 
       // Reinforce mandatory clinical sections at the end of user message (recency bias)
-      const suffix = buildUserMessageSuffix(blocks);
+      const suffix = buildUserMessageSuffix(blocks, briefType);
       if (suffix) userMessage += suffix;
 
       // 7. Create the brief record first (to get ID for audit linking)
@@ -271,12 +293,27 @@ router.post(
         temperature: 0.3,
       });
 
-      const aiContent = response.choices[0]?.message?.content || "";
+      let aiContent = response.choices[0]?.message?.content || "";
+      // Strip markdown code fences the AI sometimes wraps around HTML
+      aiContent = aiContent.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
 
       // 10. Restore (de-anonymize)
-      const restoredContent = restore(aiContent);
+      let restoredContent = restore(aiContent);
 
-      // 11. Update brief with content
+      // 11. Final pass: replace any remaining unreplaced placeholders with actual patient data
+      const fallbacks: Record<string, string> = {
+        NAME: `${patient.firstName} ${patient.surname}`,
+        DATE: formatDateByHospital(new Date().toISOString(), hospital?.dateFormat),
+      };
+      if (patient.birthday) {
+        // Birthday is typically DATE_1
+        fallbacks.BIRTHDAY = formatDateByHospital(patient.birthday, hospital?.dateFormat);
+      }
+      restoredContent = restoredContent.replace(/\[([A-Z_]+)_\d+\]/g, (match, category) => {
+        return fallbacks[category] || match;
+      });
+
+      // 12. Update brief with content
       const updatedBrief = await updateDischargeBrief(brief.id, {
         content: restoredContent,
       });
@@ -469,6 +506,7 @@ router.post(
           ? (brief.signer.briefSignature || `${brief.signer.firstName || ""} ${brief.signer.lastName || ""}`.trim())
           : undefined,
         signedAt: brief.signedAt || undefined,
+        dateFormat: hospital?.dateFormat || null,
       });
 
       // Upload to S3
