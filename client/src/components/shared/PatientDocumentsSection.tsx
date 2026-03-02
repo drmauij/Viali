@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,6 +124,89 @@ export function PatientDocumentsSection({
   // Brief state
   const [deleteBriefConfirm, setDeleteBriefConfirm] = useState<DischargeBrief | null>(null);
   const [exportingBriefId, setExportingBriefId] = useState<string | null>(null);
+
+  // Drag-and-drop state
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
+  const folderDragCounterRef = useRef<Map<string, number>>(new Map());
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDraggingOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDraggingOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingOver(false);
+    setDragOverFolderId(null);
+    folderDragCounterRef.current.clear();
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0 && canWrite) {
+      setPendingFiles(files);
+      setIsUploadDialogOpen(true);
+    }
+  }, [canWrite]);
+
+  const handleFolderDragEnter = useCallback((e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const count = (folderDragCounterRef.current.get(folderId) || 0) + 1;
+    folderDragCounterRef.current.set(folderId, count);
+    if (e.dataTransfer.types.includes('Files')) {
+      setDragOverFolderId(folderId);
+    }
+  }, []);
+
+  const handleFolderDragLeave = useCallback((e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const count = (folderDragCounterRef.current.get(folderId) || 0) - 1;
+    folderDragCounterRef.current.set(folderId, count);
+    if (count <= 0) {
+      folderDragCounterRef.current.delete(folderId);
+      if (dragOverFolderId === folderId) {
+        setDragOverFolderId(null);
+      }
+    }
+  }, [dragOverFolderId]);
+
+  const handleFolderDrop = useCallback((e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingOver(false);
+    setDragOverFolderId(null);
+    folderDragCounterRef.current.clear();
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0 && canWrite) {
+      setPendingFiles(files);
+      setUploadFolderId(folderId);
+      setIsUploadDialogOpen(true);
+    }
+  }, [canWrite]);
 
   const { data: documents = [], isLoading } = useQuery<PatientDocument[]>({
     queryKey: [`/api/patients/${patientId}/documents`, patientId],
@@ -823,16 +906,29 @@ export function PatientDocumentsSection({
         {folders.map(folder => {
           const docs = folderDocs.get(folder.id) || [];
           const isOpen = openFolders.has(folder.id);
+          const isFolderDragTarget = dragOverFolderId === folder.id;
 
           return (
             <Collapsible key={folder.id} open={isOpen} onOpenChange={() => toggleFolder(folder.id)}>
-              <div className="flex items-center gap-2 group">
+              <div
+                className={`flex items-center gap-2 group rounded-md transition-colors ${isFolderDragTarget ? 'bg-blue-50 dark:bg-blue-950 ring-2 ring-blue-400 ring-inset' : ''}`}
+                onDragEnter={(e) => handleFolderDragEnter(e, folder.id)}
+                onDragLeave={(e) => handleFolderDragLeave(e, folder.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleFolderDrop(e, folder.id)}
+              >
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 px-2 flex items-center gap-2 flex-1 justify-start">
                     <ChevronRight className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                    {isOpen ? <FolderOpen className="h-4 w-4 text-blue-500" /> : <Folder className="h-4 w-4 text-blue-500" />}
+                    {isOpen ? <FolderOpen className={`h-4 w-4 ${isFolderDragTarget ? 'text-blue-600' : 'text-blue-500'}`} /> : <Folder className={`h-4 w-4 ${isFolderDragTarget ? 'text-blue-600' : 'text-blue-500'}`} />}
                     <span className="font-medium text-sm">{folder.name}</span>
                     <Badge variant="secondary" className="text-xs ml-1">{docs.length}</Badge>
+                    {isFolderDragTarget && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">
+                        <Upload className="h-3 w-3 inline mr-1" />
+                        {t('anesthesia.patientDetail.dropHere', 'Drop here')}
+                      </span>
+                    )}
                   </Button>
                 </CollapsibleTrigger>
                 {canWrite && (
@@ -951,29 +1047,48 @@ export function PatientDocumentsSection({
 
   const content = (
     <>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : documents.length === 0 && folders.length === 0 && briefs.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>{t('anesthesia.patientDetail.noDocuments', 'No documents uploaded yet')}</p>
-          {canWrite && (
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="button-upload-first"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}
-            </Button>
-          )}
-        </div>
-      ) : (
-        renderDocumentList()
-      )}
+      <div
+        className={`relative rounded-lg transition-all ${isDraggingOver && canWrite ? 'ring-2 ring-dashed ring-blue-400 bg-blue-50/50 dark:bg-blue-950/30' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDraggingOver && canWrite && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-50/80 dark:bg-blue-950/80 rounded-lg pointer-events-none">
+            <div className="flex flex-col items-center gap-2 text-blue-600 dark:text-blue-400">
+              <Upload className="h-8 w-8" />
+              <span className="text-sm font-medium">{t('anesthesia.patientDetail.dropFilesHere', 'Drop files to upload')}</span>
+            </div>
+          </div>
+        )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : documents.length === 0 && folders.length === 0 && briefs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>{t('anesthesia.patientDetail.noDocuments', 'No documents uploaded yet')}</p>
+            {canWrite && (
+              <p className="text-sm mt-1">{t('anesthesia.patientDetail.dragOrClick', 'Drag files here or click upload')}</p>
+            )}
+            {canWrite && (
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="button-upload-first"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}
+              </Button>
+            )}
+          </div>
+        ) : (
+          renderDocumentList()
+        )}
+      </div>
 
       <input
         type="file"
