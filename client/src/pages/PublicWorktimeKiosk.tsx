@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 import { format } from "date-fns";
-import { Search, Clock, ArrowLeft, Check, AlertCircle, Delete } from "lucide-react";
+import { Search, Clock, ArrowLeft, Check, AlertCircle, Delete, Play, Pause, Square, Timer } from "lucide-react";
 
 type KioskState = "loading" | "error" | "staff_grid" | "pin_entry" | "time_form" | "success";
 
@@ -23,8 +24,40 @@ interface StaffMember {
 
 const INACTIVITY_TIMEOUT_MS = 60_000; // 60 seconds
 
+function PauseCounter({ pauseStart }: { pauseStart: Date }) {
+  const { t } = useTranslation();
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Date.now() - pauseStart.getTime());
+    }, 1000);
+    setElapsed(Date.now() - pauseStart.getTime());
+    return () => clearInterval(id);
+  }, [pauseStart]);
+
+  const totalSec = Math.max(0, Math.floor(elapsed / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+
+  return (
+    <div className="text-sm text-muted-foreground mt-1">
+      {t("worktime.pauseDuration", "Pause")}: {m}:{s.toString().padStart(2, "0")}
+    </div>
+  );
+}
+
+function formatTimerDisplay(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function PublicWorktimeKiosk() {
   const { token } = useParams<{ token: string }>();
+  const { t, i18n } = useTranslation();
 
   const [state, setState] = useState<KioskState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -49,6 +82,84 @@ export default function PublicWorktimeKiosk() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Timer state — default to timer mode
+  const [timerMode, setTimerMode] = useState(true);
+  const [timerStatus, setTimerStatus] = useState<"idle" | "running" | "paused">("idle");
+  const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
+  const [timerPauseStart, setTimerPauseStart] = useState<Date | null>(null);
+  const [timerTotalPauseMs, setTimerTotalPauseMs] = useState(0);
+  const [timerElapsed, setTimerElapsed] = useState(0);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const resetTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setTimerStatus("idle");
+    setTimerStartTime(null);
+    setTimerPauseStart(null);
+    setTimerTotalPauseMs(0);
+    setTimerElapsed(0);
+  }, []);
+
+  const startTimerInterval = useCallback((startTime: Date, totalPauseMs: number) => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(() => {
+      setTimerElapsed(Date.now() - startTime.getTime() - totalPauseMs);
+    }, 1000);
+    setTimerElapsed(Date.now() - startTime.getTime() - totalPauseMs);
+  }, []);
+
+  const handleTimerStart = useCallback(() => {
+    const now = new Date();
+    setTimerStartTime(now);
+    setTimerTotalPauseMs(0);
+    setTimerPauseStart(null);
+    setTimerStatus("running");
+    startTimerInterval(now, 0);
+  }, [startTimerInterval]);
+
+  const handleTimerPause = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setTimerPauseStart(new Date());
+    setTimerStatus("paused");
+  }, []);
+
+  const handleTimerResume = useCallback(() => {
+    if (!timerPauseStart || !timerStartTime) return;
+    const additionalPause = Date.now() - timerPauseStart.getTime();
+    const newTotalPause = timerTotalPauseMs + additionalPause;
+    setTimerTotalPauseMs(newTotalPause);
+    setTimerPauseStart(null);
+    setTimerStatus("running");
+    startTimerInterval(timerStartTime, newTotalPause);
+  }, [timerPauseStart, timerStartTime, timerTotalPauseMs, startTimerInterval]);
+
+  const handleTimerStop = useCallback(() => {
+    const now = new Date();
+    if (!timerStartTime) return;
+
+    let finalPauseMs = timerTotalPauseMs;
+    if (timerPauseStart) {
+      finalPauseMs += now.getTime() - timerPauseStart.getTime();
+    }
+
+    setFormData({
+      workDate: format(timerStartTime, "yyyy-MM-dd"),
+      timeStart: format(timerStartTime, "HH:mm"),
+      timeEnd: format(now, "HH:mm"),
+      pauseMinutes: Math.round(finalPauseMs / 60000),
+      notes: "",
+    });
+
+    resetTimer();
+    setTimerMode(false);
+  }, [timerStartTime, timerTotalPauseMs, timerPauseStart, resetTimer]);
+
   // Inactivity timer
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -65,7 +176,9 @@ export default function PublicWorktimeKiosk() {
       pauseMinutes: 30,
       notes: "",
     });
-  }, []);
+    resetTimer();
+    setTimerMode(true);
+  }, [resetTimer]);
 
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
@@ -74,10 +187,11 @@ export default function PublicWorktimeKiosk() {
     }, INACTIVITY_TIMEOUT_MS);
   }, [resetToGrid]);
 
-  // Clear timer on unmount
+  // Clear timers on unmount
   useEffect(() => {
     return () => {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, []);
 
@@ -96,19 +210,23 @@ export default function PublicWorktimeKiosk() {
       const res = await fetch(`/api/public/kiosk/${token}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.message || "This kiosk link is no longer active");
+        setErrorMessage(data.message || t("worktime.kioskLinkInactive", "This kiosk link is no longer active"));
         setState("error");
         return;
       }
       const data = await res.json();
       setHospitalName(data.hospitalName);
       setStaffList(data.staff);
+      // Set language from hospital's regional settings
+      if (data.language && data.language !== i18n.language) {
+        i18n.changeLanguage(data.language);
+      }
       setState("staff_grid");
     } catch {
-      setErrorMessage("Could not connect to server");
+      setErrorMessage(t("common.connectionError", "Could not connect to server"));
       setState("error");
     }
-  }, [token]);
+  }, [token, i18n, t]);
 
   useEffect(() => {
     fetchKioskData();
@@ -127,7 +245,7 @@ export default function PublicWorktimeKiosk() {
       });
       if (!res.ok) {
         if (res.status === 404) {
-          setErrorMessage("This kiosk link is no longer active");
+          setErrorMessage(t("worktime.kioskLinkInactive", "This kiosk link is no longer active"));
           setState("error");
           return;
         }
@@ -151,7 +269,7 @@ export default function PublicWorktimeKiosk() {
     } finally {
       setPinVerifying(false);
     }
-  }, [selectedStaff, token, resetInactivityTimer]);
+  }, [selectedStaff, token, resetInactivityTimer, t]);
 
   // Auto-submit on 4th digit
   useEffect(() => {
@@ -180,12 +298,11 @@ export default function PublicWorktimeKiosk() {
 
       if (!res.ok) {
         if (res.status === 404) {
-          setErrorMessage("This kiosk link is no longer active");
+          setErrorMessage(t("worktime.kioskLinkInactive", "This kiosk link is no longer active"));
           setState("error");
           return;
         }
         if (res.status === 403) {
-          // PIN no longer valid (e.g. admin reset it)
           resetToGrid();
           return;
         }
@@ -193,10 +310,8 @@ export default function PublicWorktimeKiosk() {
       }
 
       setState("success");
-      // Auto-return to grid after 3 seconds
       setTimeout(() => {
         resetToGrid();
-        // Refresh staff list in case anything changed
         fetchKioskData();
       }, 3000);
     } finally {
@@ -257,10 +372,10 @@ export default function PublicWorktimeKiosk() {
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center space-y-4 max-w-md">
           <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
-          <h1 className="text-2xl font-bold text-foreground">Kiosk unavailable</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("worktime.kioskUnavailable", "Kiosk unavailable")}</h1>
           <p className="text-muted-foreground text-lg">{errorMessage}</p>
           <Button variant="outline" onClick={() => { setState("loading"); fetchKioskData(); }}>
-            Try again
+            {t("worktime.tryAgain", "Try again")}
           </Button>
         </div>
       </div>
@@ -275,11 +390,11 @@ export default function PublicWorktimeKiosk() {
           <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
             <Check className="h-10 w-10 text-green-500" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Entry saved!</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t("worktime.entrySavedTitle", "Entry saved!")}</h1>
           <p className="text-muted-foreground text-lg">
             {selectedStaff?.firstName} {selectedStaff?.lastName} — {formData.workDate}
           </p>
-          <p className="text-muted-foreground">Returning to staff list...</p>
+          <p className="text-muted-foreground">{t("worktime.returningToList", "Returning to staff list...")}</p>
         </div>
       </div>
     );
@@ -301,7 +416,7 @@ export default function PublicWorktimeKiosk() {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
-          <p className="text-xl text-muted-foreground">Enter your 4-digit PIN</p>
+          <p className="text-xl text-muted-foreground">{t("worktime.enterPin", "Enter your 4-digit PIN")}</p>
 
           {/* PIN dots */}
           <div className="flex gap-4">
@@ -318,7 +433,7 @@ export default function PublicWorktimeKiosk() {
           </div>
 
           {pinError && (
-            <p className="text-destructive text-sm font-medium">Wrong PIN — try again</p>
+            <p className="text-destructive text-sm font-medium">{t("worktime.wrongPin", "Wrong PIN — try again")}</p>
           )}
 
           {/* Number pad */}
@@ -376,75 +491,189 @@ export default function PublicWorktimeKiosk() {
         </div>
 
         <div className="flex-1 flex items-start justify-center p-6">
-          <form onSubmit={handleSubmit} className="w-full max-w-md space-y-5">
-            <div>
-              <Label className="text-sm font-medium">Date</Label>
-              <DateInput
-                value={formData.workDate}
-                onChange={(v) => { setFormData({ ...formData, workDate: v }); resetInactivityTimer(); }}
-                required
-              />
+          <div className="w-full max-w-md space-y-5">
+            {/* Mode toggle: Timer / Manual */}
+            <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+              <button
+                type="button"
+                className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1 ${
+                  timerMode
+                    ? "bg-background shadow-sm font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTimerMode(true)}
+              >
+                <Timer className="h-3.5 w-3.5" />
+                {t("worktime.timer", "Timer")}
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  !timerMode
+                    ? "bg-background shadow-sm font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => {
+                  if (timerStatus !== "idle") {
+                    if (!window.confirm(t("worktime.timerSwitchConfirm", "Timer is active. Switch to manual and discard timer?"))) return;
+                    resetTimer();
+                  }
+                  setTimerMode(false);
+                }}
+              >
+                {t("worktime.manual", "Manual")}
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium">Start</Label>
-                <TimeInput
-                  value={formData.timeStart}
-                  onChange={(v) => { setFormData({ ...formData, timeStart: v }); resetInactivityTimer(); }}
-                  required
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium">End</Label>
-                <TimeInput
-                  value={formData.timeEnd}
-                  onChange={(v) => { setFormData({ ...formData, timeEnd: v }); resetInactivityTimer(); }}
-                  required
-                />
-              </div>
-            </div>
+            {timerMode ? (
+              /* Timer UI */
+              <div className="border rounded-lg p-8 flex flex-col items-center gap-6">
+                <div className="text-center">
+                  <div className="text-5xl font-mono tabular-nums tracking-tight">
+                    {formatTimerDisplay(timerElapsed)}
+                    {timerStatus === "paused" && (
+                      <span className="text-lg text-muted-foreground ml-2">({t("worktime.paused", "paused")})</span>
+                    )}
+                  </div>
 
-            <div>
-              <Label className="text-sm font-medium">Pause (min)</Label>
-              <Input
-                type="number"
-                min="0"
-                value={formData.pauseMinutes}
-                onChange={(e) => { setFormData({ ...formData, pauseMinutes: parseInt(e.target.value) || 0 }); resetInactivityTimer(); }}
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Notes</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => { setFormData({ ...formData, notes: e.target.value }); resetInactivityTimer(); }}
-                placeholder="Optional notes..."
-                rows={2}
-                className="resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t">
-              <span className="text-sm text-muted-foreground">
-                Net: <strong className="text-foreground text-base">{netHours}h</strong>
-              </span>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={resetToGrid}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  ) : (
-                    <Clock className="h-4 w-4 mr-2" />
+                  {timerStatus === "running" && timerStartTime && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      {t("worktime.startedAt", "Started at")} {format(timerStartTime, "HH:mm")}
+                    </div>
                   )}
-                  Log Time
-                </Button>
+                  {timerStatus === "paused" && timerPauseStart && (
+                    <PauseCounter pauseStart={timerPauseStart} />
+                  )}
+                </div>
+
+                <div className="flex gap-3 w-full">
+                  {timerStatus === "idle" && (
+                    <Button
+                      type="button"
+                      className="flex-1 h-16 text-xl font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleTimerStart}
+                    >
+                      <Play className="h-6 w-6 mr-2" />
+                      {t("worktime.start", "Start")}
+                    </Button>
+                  )}
+
+                  {timerStatus === "running" && (
+                    <>
+                      <Button
+                        type="button"
+                        className="flex-1 h-16 text-xl font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                        onClick={handleTimerPause}
+                      >
+                        <Pause className="h-6 w-6 mr-2" />
+                        {t("worktime.pause", "Pause")}
+                      </Button>
+                      <Button
+                        type="button"
+                        className="flex-1 h-16 text-xl font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white"
+                        onClick={handleTimerStop}
+                      >
+                        <Square className="h-6 w-6 mr-2" />
+                        {t("worktime.stop", "Stop")}
+                      </Button>
+                    </>
+                  )}
+
+                  {timerStatus === "paused" && (
+                    <>
+                      <Button
+                        type="button"
+                        className="flex-1 h-16 text-xl font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                        onClick={handleTimerResume}
+                      >
+                        <Play className="h-6 w-6 mr-2" />
+                        {t("worktime.resume", "Resume")}
+                      </Button>
+                      <Button
+                        type="button"
+                        className="flex-1 h-16 text-xl font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white"
+                        onClick={handleTimerStop}
+                      >
+                        <Square className="h-6 w-6 mr-2" />
+                        {t("worktime.stop", "Stop")}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          </form>
+            ) : (
+              /* Manual form */
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <Label className="text-sm font-medium">{t("worktime.date", "Date")}</Label>
+                  <DateInput
+                    value={formData.workDate}
+                    onChange={(v) => { setFormData({ ...formData, workDate: v }); resetInactivityTimer(); }}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">{t("worktime.start", "Start")}</Label>
+                    <TimeInput
+                      value={formData.timeStart}
+                      onChange={(v) => { setFormData({ ...formData, timeStart: v }); resetInactivityTimer(); }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">{t("worktime.end", "End")}</Label>
+                    <TimeInput
+                      value={formData.timeEnd}
+                      onChange={(v) => { setFormData({ ...formData, timeEnd: v }); resetInactivityTimer(); }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">{t("worktime.pauseMin", "Pause (min)")}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.pauseMinutes}
+                    onChange={(e) => { setFormData({ ...formData, pauseMinutes: parseInt(e.target.value) || 0 }); resetInactivityTimer(); }}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">{t("worktime.notes", "Notes")}</Label>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => { setFormData({ ...formData, notes: e.target.value }); resetInactivityTimer(); }}
+                    placeholder={t("worktime.notesPlaceholder", "Optional notes...")}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">
+                    {t("worktime.netHours", "Net")}: <strong className="text-foreground text-base">{netHours}h</strong>
+                  </span>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={resetToGrid}>
+                      {t("worktime.cancel", "Cancel")}
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      ) : (
+                        <Clock className="h-4 w-4 mr-2" />
+                      )}
+                      {t("worktime.logTime", "Log Time")}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -459,7 +688,7 @@ export default function PublicWorktimeKiosk() {
           <Clock className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-lg font-semibold">{hospitalName}</h1>
-            <p className="text-sm text-muted-foreground">Tap your name to log work time</p>
+            <p className="text-sm text-muted-foreground">{t("worktime.tapToLog", "Tap your name to log work time")}</p>
           </div>
         </div>
       </div>
@@ -471,7 +700,7 @@ export default function PublicWorktimeKiosk() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
+            placeholder={t("worktime.searchStaff", "Search staff...")}
             className="pl-9"
           />
         </div>
@@ -481,7 +710,7 @@ export default function PublicWorktimeKiosk() {
       <div className="p-4 flex-1">
         {filteredStaff.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No staff found
+            {t("worktime.noStaffFound", "No staff found")}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -511,7 +740,7 @@ export default function PublicWorktimeKiosk() {
                     {staff.firstName} {staff.lastName}
                   </div>
                   {!staff.hasPinSet && (
-                    <span className="text-xs text-muted-foreground">No PIN set</span>
+                    <span className="text-xs text-muted-foreground">{t("worktime.noPinSet", "No PIN set")}</span>
                   )}
                 </CardContent>
               </Card>

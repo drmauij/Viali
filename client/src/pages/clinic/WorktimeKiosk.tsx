@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 import { format } from "date-fns";
-import { ArrowLeft, Search, Clock, User } from "lucide-react";
+import { ArrowLeft, Search, Clock, User, Play, Pause, Square, Timer } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface StaffUser {
@@ -40,6 +40,37 @@ interface StaffUser {
   };
 }
 
+function PauseCounter({ pauseStart }: { pauseStart: Date }) {
+  const { t } = useTranslation();
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Date.now() - pauseStart.getTime());
+    }, 1000);
+    setElapsed(Date.now() - pauseStart.getTime());
+    return () => clearInterval(id);
+  }, [pauseStart]);
+
+  const totalSec = Math.max(0, Math.floor(elapsed / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+
+  return (
+    <div className="text-sm text-muted-foreground mt-1">
+      {t("worktime.pauseDuration", "Pause")}: {m}:{s.toString().padStart(2, "0")}
+    </div>
+  );
+}
+
+function formatTimerDisplay(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function WorktimeKiosk() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -60,6 +91,90 @@ export default function WorktimeKiosk() {
     pauseMinutes: 30,
     notes: "",
   });
+
+  // Timer state — default to timer mode in kiosk
+  const [timerMode, setTimerMode] = useState(true);
+  const [timerStatus, setTimerStatus] = useState<"idle" | "running" | "paused">("idle");
+  const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
+  const [timerPauseStart, setTimerPauseStart] = useState<Date | null>(null);
+  const [timerTotalPauseMs, setTimerTotalPauseMs] = useState(0);
+  const [timerElapsed, setTimerElapsed] = useState(0);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const resetTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setTimerStatus("idle");
+    setTimerStartTime(null);
+    setTimerPauseStart(null);
+    setTimerTotalPauseMs(0);
+    setTimerElapsed(0);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, []);
+
+  const startTimerInterval = useCallback((startTime: Date, totalPauseMs: number) => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(() => {
+      setTimerElapsed(Date.now() - startTime.getTime() - totalPauseMs);
+    }, 1000);
+    setTimerElapsed(Date.now() - startTime.getTime() - totalPauseMs);
+  }, []);
+
+  const handleTimerStart = useCallback(() => {
+    const now = new Date();
+    setTimerStartTime(now);
+    setTimerTotalPauseMs(0);
+    setTimerPauseStart(null);
+    setTimerStatus("running");
+    startTimerInterval(now, 0);
+  }, [startTimerInterval]);
+
+  const handleTimerPause = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setTimerPauseStart(new Date());
+    setTimerStatus("paused");
+  }, []);
+
+  const handleTimerResume = useCallback(() => {
+    if (!timerPauseStart || !timerStartTime) return;
+    const additionalPause = Date.now() - timerPauseStart.getTime();
+    const newTotalPause = timerTotalPauseMs + additionalPause;
+    setTimerTotalPauseMs(newTotalPause);
+    setTimerPauseStart(null);
+    setTimerStatus("running");
+    startTimerInterval(timerStartTime, newTotalPause);
+  }, [timerPauseStart, timerStartTime, timerTotalPauseMs, startTimerInterval]);
+
+  const handleTimerStop = useCallback(() => {
+    const now = new Date();
+    if (!timerStartTime) return;
+
+    let finalPauseMs = timerTotalPauseMs;
+    if (timerPauseStart) {
+      finalPauseMs += now.getTime() - timerPauseStart.getTime();
+    }
+
+    setFormData({
+      workDate: format(timerStartTime, "yyyy-MM-dd"),
+      timeStart: format(timerStartTime, "HH:mm"),
+      timeEnd: format(now, "HH:mm"),
+      pauseMinutes: Math.round(finalPauseMs / 60000),
+      notes: "",
+    });
+
+    resetTimer();
+    setTimerMode(false);
+  }, [timerStartTime, timerTotalPauseMs, timerPauseStart, resetTimer]);
 
   const hospitalId = activeHospital?.id;
 
@@ -148,7 +263,20 @@ export default function WorktimeKiosk() {
       pauseMinutes: 30,
       notes: "",
     });
+    resetTimer();
+    setTimerMode(true);
     setEntryDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      if (timerStatus !== "idle") {
+        if (!window.confirm(t("worktime.timerSwitchConfirm", "Timer is active. Switch to manual and discard timer?"))) return;
+      }
+      resetTimer();
+      setTimerMode(true);
+    }
+    setEntryDialogOpen(open);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -265,7 +393,7 @@ export default function WorktimeKiosk() {
       </div>
 
       {/* Entry Dialog */}
-      <Dialog open={entryDialogOpen} onOpenChange={setEntryDialogOpen}>
+      <Dialog open={entryDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -274,64 +402,181 @@ export default function WorktimeKiosk() {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <Label className="text-sm">{t("worktime.date", "Date")}</Label>
-                <DateInput
-                  value={formData.workDate}
-                  onChange={(v) => setFormData({ ...formData, workDate: v })}
-                  required
-                />
+          {/* Mode toggle: Timer / Manual */}
+          <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+            <button
+              type="button"
+              className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1 ${
+                timerMode
+                  ? "bg-background shadow-sm font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => {
+                if (!timerMode && timerStatus === "idle") setTimerMode(true);
+                else if (!timerMode) setTimerMode(true);
+              }}
+            >
+              <Timer className="h-3.5 w-3.5" />
+              {t("worktime.timer", "Timer")}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                !timerMode
+                  ? "bg-background shadow-sm font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => {
+                if (timerStatus !== "idle") {
+                  if (!window.confirm(t("worktime.timerSwitchConfirm", "Timer is active. Switch to manual and discard timer?"))) return;
+                  resetTimer();
+                }
+                setTimerMode(false);
+              }}
+            >
+              {t("worktime.manual", "Manual")}
+            </button>
+          </div>
+
+          {timerMode ? (
+            /* Timer UI */
+            <div className="border rounded-lg p-6 flex flex-col items-center gap-4">
+              <div className="text-center">
+                <div className="text-4xl font-mono tabular-nums tracking-tight">
+                  {formatTimerDisplay(timerElapsed)}
+                  {timerStatus === "paused" && (
+                    <span className="text-lg text-muted-foreground ml-2">
+                      ({t("worktime.paused", "paused")})
+                    </span>
+                  )}
+                </div>
+
+                {timerStatus === "running" && timerStartTime && (
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {t("worktime.startedAt", "Started at")} {format(timerStartTime, "HH:mm")}
+                  </div>
+                )}
+                {timerStatus === "paused" && timerPauseStart && (
+                  <PauseCounter pauseStart={timerPauseStart} />
+                )}
               </div>
+
+              <div className="flex gap-3 w-full">
+                {timerStatus === "idle" && (
+                  <Button
+                    type="button"
+                    className="flex-1 h-14 text-lg font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleTimerStart}
+                  >
+                    <Play className="h-5 w-5 mr-2" />
+                    {t("worktime.start", "Start")}
+                  </Button>
+                )}
+
+                {timerStatus === "running" && (
+                  <>
+                    <Button
+                      type="button"
+                      className="flex-1 h-14 text-lg font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                      onClick={handleTimerPause}
+                    >
+                      <Pause className="h-5 w-5 mr-2" />
+                      {t("worktime.pause", "Pause")}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1 h-14 text-lg font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white"
+                      onClick={handleTimerStop}
+                    >
+                      <Square className="h-5 w-5 mr-2" />
+                      {t("worktime.stop", "Stop")}
+                    </Button>
+                  </>
+                )}
+
+                {timerStatus === "paused" && (
+                  <>
+                    <Button
+                      type="button"
+                      className="flex-1 h-14 text-lg font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleTimerResume}
+                    >
+                      <Play className="h-5 w-5 mr-2" />
+                      {t("worktime.resume", "Resume")}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1 h-14 text-lg font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white"
+                      onClick={handleTimerStop}
+                    >
+                      <Square className="h-5 w-5 mr-2" />
+                      {t("worktime.stop", "Stop")}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Manual form */
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-sm">{t("worktime.date", "Date")}</Label>
+                  <DateInput
+                    value={formData.workDate}
+                    onChange={(v) => setFormData({ ...formData, workDate: v })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">{t("worktime.start", "Start")}</Label>
+                  <TimeInput
+                    value={formData.timeStart}
+                    onChange={(v) => setFormData({ ...formData, timeStart: v })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">{t("worktime.end", "End")}</Label>
+                  <TimeInput
+                    value={formData.timeEnd}
+                    onChange={(v) => setFormData({ ...formData, timeEnd: v })}
+                    required
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label className="text-sm">{t("worktime.start", "Start")}</Label>
-                <TimeInput
-                  value={formData.timeStart}
-                  onChange={(v) => setFormData({ ...formData, timeStart: v })}
-                  required
+                <Label className="text-sm">{t("worktime.pauseMin", "Pause (min)")}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.pauseMinutes}
+                  onChange={(e) => setFormData({ ...formData, pauseMinutes: parseInt(e.target.value) || 0 })}
                 />
               </div>
+
               <div>
-                <Label className="text-sm">{t("worktime.end", "End")}</Label>
-                <TimeInput
-                  value={formData.timeEnd}
-                  onChange={(v) => setFormData({ ...formData, timeEnd: v })}
-                  required
+                <Label className="text-sm">{t("worktime.notes", "Notes")}</Label>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={t("worktime.notesPlaceholder", "Optional notes...")}
+                  rows={2}
+                  className="resize-none"
                 />
               </div>
-            </div>
 
-            <div>
-              <Label className="text-sm">{t("worktime.pause", "Pause (min)")}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={formData.pauseMinutes}
-                onChange={(e) => setFormData({ ...formData, pauseMinutes: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm">{t("worktime.notes", "Notes")}</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder={t("worktime.notesPlaceholder", "Optional notes...")}
-                rows={2}
-                className="resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-sm text-muted-foreground">
-                {t("worktime.netHours", "Net")}: <strong>{netHours}h</strong>
-              </span>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {t("worktime.logTime", "Log Time")}
-              </Button>
-            </div>
-          </form>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm text-muted-foreground">
+                  {t("worktime.netHours", "Net")}: <strong>{netHours}h</strong>
+                </span>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {t("worktime.logTime", "Log Time")}
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

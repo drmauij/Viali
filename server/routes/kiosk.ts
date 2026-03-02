@@ -105,6 +105,7 @@ router.get('/api/public/kiosk/:token', kioskFetchLimiter, async (req, res) => {
 
     res.json({
       hospitalName: hospital.name,
+      language: hospital.defaultLanguage || "de",
       staff: staffList,
     });
   } catch (error) {
