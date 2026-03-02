@@ -21,145 +21,189 @@ import { randomUUID } from "crypto";
 //           calcom_provider_mappings (unique constraint),
 //           daily_staff_pool.user_id (duplicate check),
 //           staff_merges (audit table, never rewritten)
+//
+// Hospital filter types:
+//   'direct'  — table has its own hospital_id column
+//   { via }   — 1-hop: fkColumn IN (SELECT id FROM parentTable WHERE hospital_id = ?)
+//   { via2 }  — 2-hop: fkColumn IN (SELECT id FROM midTable WHERE midFk IN (SELECT id FROM parentTable WHERE hospital_id = ?))
+//   null      — no hospital scoping (user-scoped / audit tables)
 // ============================================================
 
-const SIMPLE_FK_REFS: Array<[string, string]> = [
-  // Surgeries
-  ["surgeries", "surgeon_id"],
-  ["surgeries", "suspended_by"],
-  ["surgeries", "archived_by"],
-  ["surgery_notes", "author_id"],
-  ["surgeon_checklist_templates", "owner_user_id"],
+type HospitalFilter =
+  | 'direct'
+  | { via: string; parent: string }
+  | { via2: string; mid: string; midVia: string; parent: string }
+  | null;
 
-  // Anesthesia records
-  ["anesthesia_records", "provider_id"],
-  ["anesthesia_records", "closed_by"],
-  ["anesthesia_records", "locked_by"],
-  ["anesthesia_records", "unlocked_by"],
-  ["anesthesia_record_medications", "imported_by"],
-  ["anesthesia_medications", "administered_by"],
-  ["anesthesia_events", "created_by"],
-  ["anesthesia_positions", "created_by"],
+interface FkRef {
+  table: string;
+  column: string;
+  filter: HospitalFilter;
+}
 
-  // Medications
-  ["medication_couplings", "created_by"],
-  ["medication_sets", "created_by"],
+const via = (fk: string, parent: string): HospitalFilter => ({ via: fk, parent });
+const via2 = (fk: string, mid: string, midFk: string, parent: string): HospitalFilter => ({ via2: fk, mid, midVia: midFk, parent });
 
-  // Surgery staff
-  ["surgery_staff_entries", "user_id"],
-  ["surgery_staff_entries", "created_by"],
+const SIMPLE_FK_REFS: FkRef[] = [
+  // Surgeries — direct hospital_id
+  { table: "surgeries", column: "surgeon_id", filter: 'direct' },
+  { table: "surgeries", column: "suspended_by", filter: 'direct' },
+  { table: "surgeries", column: "archived_by", filter: 'direct' },
+  { table: "surgeon_checklist_templates", column: "owner_user_id", filter: 'direct' },
 
-  // Staff pool (daily_staff_pool.user_id handled separately)
-  ["staff_pool_rules", "user_id"],
-  ["staff_pool_rules", "created_by"],
-  ["daily_staff_pool", "created_by"],
-  ["planned_surgery_staff", "user_id"],
-  ["planned_surgery_staff", "created_by"],
-  ["daily_room_staff", "user_id"],
-  ["daily_room_staff", "created_by"],
+  // Surgery notes — via surgery_id → surgeries
+  { table: "surgery_notes", column: "author_id", filter: via("surgery_id", "surgeries") },
 
-  // Inventory
-  ["inventory_usage", "overridden_by"],
-  ["inventory_commits", "committed_by"],
-  ["inventory_commits", "rolled_back_by"],
+  // Anesthesia records — via surgery_id → surgeries
+  { table: "anesthesia_records", column: "provider_id", filter: via("surgery_id", "surgeries") },
+  { table: "anesthesia_records", column: "closed_by", filter: via("surgery_id", "surgeries") },
+  { table: "anesthesia_records", column: "locked_by", filter: via("surgery_id", "surgeries") },
+  { table: "anesthesia_records", column: "unlocked_by", filter: via("surgery_id", "surgeries") },
 
-  // Audit / Activities
-  ["activities", "user_id"],
-  ["audit_trail", "user_id"],
+  // Anesthesia sub-tables — via anesthesia_record_id → anesthesia_records → surgeries
+  { table: "anesthesia_record_medications", column: "imported_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "anesthesia_medications", column: "administered_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "anesthesia_events", column: "created_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "anesthesia_positions", column: "created_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
 
-  // Notes
-  ["notes", "user_id"],
-  ["patient_notes", "author_id"],
-  ["note_attachments", "uploaded_by"],
+  // Medications — direct hospital_id
+  { table: "medication_couplings", column: "created_by", filter: 'direct' },
+  { table: "medication_sets", column: "created_by", filter: 'direct' },
 
-  // Chat (participants handled separately)
-  ["chat_conversations", "creator_id"],
-  ["chat_messages", "sender_id"],
-  ["chat_mentions", "mentioned_user_id"],
-  ["chat_notifications", "user_id"],
+  // Surgery staff entries — via anesthesia_record_id → anesthesia_records → surgeries
+  { table: "surgery_staff_entries", column: "user_id", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "surgery_staff_entries", column: "created_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
 
-  // Orders & Logistics
-  ["orders", "created_by"],
-  ["order_lines", "received_by"],
-  ["order_attachments", "uploaded_by"],
-  ["price_sync_jobs", "triggered_by"],
+  // Staff pool — direct hospital_id (daily_staff_pool.user_id handled separately)
+  { table: "staff_pool_rules", column: "user_id", filter: 'direct' },
+  { table: "staff_pool_rules", column: "created_by", filter: 'direct' },
+  { table: "daily_staff_pool", column: "created_by", filter: 'direct' },
 
-  // Alerts & Checks
-  ["alerts", "acknowledged_by"],
-  ["controlled_checks", "user_id"],
-  ["import_jobs", "user_id"],
+  // Planned surgery staff — via surgery_id → surgeries
+  { table: "planned_surgery_staff", column: "user_id", filter: via("surgery_id", "surgeries") },
+  { table: "planned_surgery_staff", column: "created_by", filter: via("surgery_id", "surgeries") },
 
-  // Checklists
-  ["checklist_templates", "created_by"],
-  ["checklist_completions", "completed_by"],
-  ["checklist_dismissals", "dismissed_by"],
+  // Daily room staff — via daily_staff_pool_id → daily_staff_pool (which has hospital_id)
+  { table: "daily_room_staff", column: "user_id", filter: via("daily_staff_pool_id", "daily_staff_pool") },
+  { table: "daily_room_staff", column: "created_by", filter: via("daily_staff_pool_id", "daily_staff_pool") },
 
-  // Patients
-  ["patients", "created_by"],
-  ["patients", "archived_by"],
-  ["patient_documents", "uploaded_by"],
-  ["patient_episodes", "created_by"],
-  ["patient_episodes", "closed_by"],
-  ["patient_messages", "sent_by"],
-  ["patient_discharge_medications", "doctor_id"],
-  ["patient_discharge_medications", "created_by"],
+  // Inventory — via anesthesia_record_id → anesthesia_records → surgeries
+  { table: "inventory_usage", column: "overridden_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "inventory_commits", column: "committed_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
+  { table: "inventory_commits", column: "rolled_back_by", filter: via2("anesthesia_record_id", "anesthesia_records", "surgery_id", "surgeries") },
 
-  // Questionnaires
-  ["patient_questionnaire_links", "created_by"],
-  ["patient_questionnaire_links", "reviewed_by"],
-  ["patient_questionnaire_links", "email_sent_by"],
-  ["patient_questionnaire_links", "sms_sent_by"],
-  ["patient_questionnaire_reviews", "reviewed_by"],
+  // Audit — no hospital scoping (global audit trail, must not lose attribution)
+  { table: "activities", column: "user_id", filter: null },
+  { table: "audit_trail", column: "user_id", filter: null },
 
-  // Provider scheduling
-  ["provider_availability", "provider_id"],
-  ["provider_time_off", "provider_id"],
-  ["provider_time_off", "created_by"],
-  ["provider_availability_windows", "provider_id"],
-  ["provider_availability_windows", "created_by"],
-  ["provider_absences", "provider_id"],
+  // Notes — direct hospital_id
+  { table: "notes", column: "user_id", filter: 'direct' },
+  // Patient notes — via patient_id → patients
+  { table: "patient_notes", column: "author_id", filter: via("patient_id", "patients") },
+  // Note attachments — generic noteId, no reliable hospital path
+  { table: "note_attachments", column: "uploaded_by", filter: null },
 
-  // Clinic
-  ["clinic_invoices", "created_by"],
-  ["clinic_appointments", "provider_id"],
-  ["clinic_appointments", "internal_colleague_id"],
-  ["clinic_appointments", "created_by"],
+  // Chat — chat_conversations has hospital_id (participants handled separately)
+  { table: "chat_conversations", column: "creator_id", filter: 'direct' },
+  { table: "chat_messages", column: "sender_id", filter: via("conversation_id", "chat_conversations") },
+  { table: "chat_mentions", column: "mentioned_user_id", filter: via2("message_id", "chat_messages", "conversation_id", "chat_conversations") },
+  { table: "chat_notifications", column: "user_id", filter: via("conversation_id", "chat_conversations") },
 
-  // Worker / Worktime
-  ["worker_contracts", "manager_id"],
-  ["external_worklog_entries", "countersigned_by"],
-  ["worktime_logs", "user_id"],
-  ["worktime_logs", "entered_by_id"],
+  // Orders — direct hospital_id
+  { table: "orders", column: "created_by", filter: 'direct' },
+  { table: "order_lines", column: "received_by", filter: via("order_id", "orders") },
+  { table: "order_attachments", column: "uploaded_by", filter: via("order_id", "orders") },
+  { table: "price_sync_jobs", column: "triggered_by", filter: 'direct' },
 
-  // Terms / External
-  ["terms_acceptances", "signed_by_user_id"],
-  ["external_surgery_requests", "scheduled_by"],
+  // Alerts & Checks — direct hospital_id
+  { table: "alerts", column: "acknowledged_by", filter: 'direct' },
+  { table: "controlled_checks", column: "user_id", filter: 'direct' },
+  { table: "import_jobs", column: "user_id", filter: 'direct' },
 
-  // Personal (cascade-delete tables -- still need reassignment)
-  ["personal_todos", "user_id"],
-  ["user_message_templates", "user_id"],
+  // Checklists — direct hospital_id
+  { table: "checklist_templates", column: "created_by", filter: 'direct' },
+  { table: "checklist_completions", column: "completed_by", filter: 'direct' },
+  { table: "checklist_dismissals", column: "dismissed_by", filter: 'direct' },
 
-  // Sets
-  ["anesthesia_sets", "created_by"],
-  ["inventory_sets", "created_by"],
-  ["surgery_sets", "created_by"],
+  // Patients — direct hospital_id
+  { table: "patients", column: "created_by", filter: 'direct' },
+  { table: "patients", column: "archived_by", filter: 'direct' },
+  { table: "patient_documents", column: "uploaded_by", filter: 'direct' },
+  { table: "patient_episodes", column: "created_by", filter: 'direct' },
+  { table: "patient_episodes", column: "closed_by", filter: 'direct' },
+  { table: "patient_messages", column: "sent_by", filter: 'direct' },
+  { table: "patient_discharge_medications", column: "doctor_id", filter: 'direct' },
+  { table: "patient_discharge_medications", column: "created_by", filter: 'direct' },
 
-  // Item matching
-  ["item_hin_matches", "verified_by"],
+  // Questionnaires — direct hospital_id on links; reviews via response chain
+  { table: "patient_questionnaire_links", column: "created_by", filter: 'direct' },
+  { table: "patient_questionnaire_links", column: "reviewed_by", filter: 'direct' },
+  { table: "patient_questionnaire_links", column: "email_sent_by", filter: 'direct' },
+  { table: "patient_questionnaire_links", column: "sms_sent_by", filter: 'direct' },
+  { table: "patient_questionnaire_reviews", column: "reviewed_by", filter: null },
 
-  // Discharge
-  ["discharge_medication_templates", "created_by"],
-  ["discharge_brief_templates", "assigned_user_id"],
-  ["discharge_brief_templates", "created_by"],
-  ["discharge_briefs", "signed_by"],
-  ["discharge_briefs", "locked_by"],
-  ["discharge_briefs", "unlocked_by"],
-  ["discharge_briefs", "created_by"],
+  // Provider scheduling — direct hospital_id
+  { table: "provider_availability", column: "provider_id", filter: 'direct' },
+  { table: "provider_time_off", column: "provider_id", filter: 'direct' },
+  { table: "provider_time_off", column: "created_by", filter: 'direct' },
+  { table: "provider_availability_windows", column: "provider_id", filter: 'direct' },
+  { table: "provider_availability_windows", column: "created_by", filter: 'direct' },
+  { table: "provider_absences", column: "provider_id", filter: 'direct' },
+
+  // Clinic — direct hospital_id
+  { table: "clinic_invoices", column: "created_by", filter: 'direct' },
+  { table: "clinic_appointments", column: "provider_id", filter: 'direct' },
+  { table: "clinic_appointments", column: "internal_colleague_id", filter: 'direct' },
+  { table: "clinic_appointments", column: "created_by", filter: 'direct' },
+
+  // Worker / Worktime — direct hospital_id
+  { table: "worker_contracts", column: "manager_id", filter: 'direct' },
+  { table: "external_worklog_entries", column: "countersigned_by", filter: 'direct' },
+  { table: "worktime_logs", column: "user_id", filter: 'direct' },
+  { table: "worktime_logs", column: "entered_by_id", filter: 'direct' },
+
+  // Terms / External — direct hospital_id
+  { table: "terms_acceptances", column: "signed_by_user_id", filter: 'direct' },
+  { table: "external_surgery_requests", column: "scheduled_by", filter: 'direct' },
+
+  // Personal — direct hospital_id (personal_todos), user-scoped (user_message_templates)
+  { table: "personal_todos", column: "user_id", filter: 'direct' },
+  { table: "user_message_templates", column: "user_id", filter: null },
+
+  // Sets — direct hospital_id
+  { table: "anesthesia_sets", column: "created_by", filter: 'direct' },
+  { table: "inventory_sets", column: "created_by", filter: 'direct' },
+  { table: "surgery_sets", column: "created_by", filter: 'direct' },
+
+  // Item matching — direct hospital_id
+  { table: "item_hin_matches", column: "verified_by", filter: 'direct' },
+
+  // Discharge — direct hospital_id
+  { table: "discharge_medication_templates", column: "created_by", filter: 'direct' },
+  { table: "discharge_brief_templates", column: "assigned_user_id", filter: 'direct' },
+  { table: "discharge_brief_templates", column: "created_by", filter: 'direct' },
+  { table: "discharge_briefs", column: "signed_by", filter: 'direct' },
+  { table: "discharge_briefs", column: "locked_by", filter: 'direct' },
+  { table: "discharge_briefs", column: "unlocked_by", filter: 'direct' },
+  { table: "discharge_briefs", column: "created_by", filter: 'direct' },
 ];
 
 // ============================================================
 // Types
 // ============================================================
+
+// Build SQL hospital filter clause for a given FkRef
+function buildHospitalFilter(ref: FkRef, hospitalId: string) {
+  const f = ref.filter;
+  if (f === null) return sql``;
+  if (f === 'direct') return sql` AND "hospital_id" = ${hospitalId}`;
+  if ('via' in f) {
+    // 1-hop: fkColumn IN (SELECT id FROM parentTable WHERE hospital_id = ?)
+    return sql` AND ${sql.raw(`"${f.via}"`)} IN (SELECT id FROM ${sql.raw(`"${f.parent}"`)} WHERE "hospital_id" = ${hospitalId})`;
+  }
+  // 2-hop: fkColumn IN (SELECT id FROM midTable WHERE midFk IN (SELECT id FROM parentTable WHERE hospital_id = ?))
+  return sql` AND ${sql.raw(`"${f.via2}"`)} IN (SELECT id FROM ${sql.raw(`"${f.mid}"`)} WHERE ${sql.raw(`"${f.midVia}"`)} IN (SELECT id FROM ${sql.raw(`"${f.parent}"`)} WHERE "hospital_id" = ${hospitalId}))`;
+}
 
 export interface FieldChoice {
   field: string;
@@ -401,49 +445,59 @@ export async function previewStaffMerge(
     }
   }
 
-  // FK update counts (estimate from simple refs)
+  // FK update counts (estimate from simple refs, scoped to hospital)
   const fkUpdateCounts: Record<string, number> = {};
-  for (const [table, column] of SIMPLE_FK_REFS) {
+  for (const ref of SIMPLE_FK_REFS) {
+    const hospitalFilter = buildHospitalFilter(ref, hospitalId);
     const result = await db.execute(
-      sql`SELECT COUNT(*) as count FROM ${sql.raw(`"${table}"`)} WHERE ${sql.raw(`"${column}"`)} = ${secondaryUserId}`
+      sql`SELECT COUNT(*) as count FROM ${sql.raw(`"${ref.table}"`)} WHERE ${sql.raw(`"${ref.column}"`)} = ${secondaryUserId}${hospitalFilter}`
     );
     const count = Number((result.rows[0] as any)?.count ?? 0);
     if (count > 0) {
-      fkUpdateCounts[`${table}.${column}`] = count;
+      fkUpdateCounts[`${ref.table}.${ref.column}`] = count;
     }
   }
 
-  // Also count special tables
+  // Also count special tables (scoped to hospital)
   const [chatCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(chatParticipants)
-    .where(eq(chatParticipants.userId, secondaryUserId));
+    .where(sql`${chatParticipants.userId} = ${secondaryUserId} AND ${chatParticipants.conversationId} IN (SELECT id FROM "chat_conversations" WHERE "hospital_id" = ${hospitalId})`);
   if (Number(chatCount.count) > 0) fkUpdateCounts["chat_participants.user_id"] = Number(chatCount.count);
 
   const [calcomCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(calcomProviderMappings)
-    .where(eq(calcomProviderMappings.providerId, secondaryUserId));
+    .where(and(
+      eq(calcomProviderMappings.providerId, secondaryUserId),
+      eq(calcomProviderMappings.hospitalId, hospitalId),
+    ));
   if (Number(calcomCount.count) > 0) fkUpdateCounts["calcom_provider_mappings.provider_id"] = Number(calcomCount.count);
 
   const [dspCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(dailyStaffPool)
-    .where(eq(dailyStaffPool.userId, secondaryUserId));
+    .where(and(
+      eq(dailyStaffPool.userId, secondaryUserId),
+      eq(dailyStaffPool.hospitalId, hospitalId),
+    ));
   if (Number(dspCount.count) > 0) fkUpdateCounts["daily_staff_pool.user_id"] = Number(dspCount.count);
 
   const [roleCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(userHospitalRoles)
-    .where(eq(userHospitalRoles.userId, secondaryUserId));
+    .where(and(
+      eq(userHospitalRoles.userId, secondaryUserId),
+      eq(userHospitalRoles.hospitalId, hospitalId),
+    ));
   if (Number(roleCount.count) > 0) fkUpdateCounts["user_hospital_roles.user_id"] = Number(roleCount.count);
 
-  // Orphan matches (surgery_staff_entries where userId IS NULL, name similar)
+  // Orphan matches (surgery_staff_entries where userId IS NULL, name similar, scoped to hospital)
   const orphanMatches: MergePreview["orphanMatches"] = [];
   const orphans = await db
     .select()
     .from(surgeryStaffEntries)
-    .where(sql`${surgeryStaffEntries.userId} IS NULL`);
+    .where(sql`${surgeryStaffEntries.userId} IS NULL AND ${surgeryStaffEntries.anesthesiaRecordId} IN (SELECT id FROM "anesthesia_records" WHERE "surgery_id" IN (SELECT id FROM "surgeries" WHERE "hospital_id" = ${hospitalId}))`);
 
   const primaryName = `${primaryUser.firstName ?? ""} ${primaryUser.lastName ?? ""}`.trim();
   const secondaryName = `${secondaryUser.firstName ?? ""} ${secondaryUser.lastName ?? ""}`.trim();
@@ -639,16 +693,17 @@ export async function executeStaffMerge(
     // ---- 4. Update all FK references ----
     const fkUpdates: FkUpdateRecord[] = [];
 
-    // 4a. Simple FK updates
-    for (const [table, column] of SIMPLE_FK_REFS) {
+    // 4a. Simple FK updates (scoped to hospital)
+    for (const ref of SIMPLE_FK_REFS) {
+      const hospitalFilter = buildHospitalFilter(ref, hospitalId);
       const result = await tx.execute(
-        sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.raw(`"${column}"`)} = ${primaryUserId} WHERE ${sql.raw(`"${column}"`)} = ${secondaryUserId} RETURNING id`
+        sql`UPDATE ${sql.raw(`"${ref.table}"`)} SET ${sql.raw(`"${ref.column}"`)} = ${primaryUserId} WHERE ${sql.raw(`"${ref.column}"`)} = ${secondaryUserId}${hospitalFilter} RETURNING id`
       );
       const count = result.rows.length;
       if (count > 0) {
         fkUpdates.push({
-          table,
-          column,
+          table: ref.table,
+          column: ref.column,
           count,
           recordIds: result.rows.map((r: any) => r.id),
         });
@@ -659,7 +714,10 @@ export async function executeStaffMerge(
     const secondaryPoolEntries = await tx
       .select()
       .from(dailyStaffPool)
-      .where(eq(dailyStaffPool.userId, secondaryUserId));
+      .where(and(
+        eq(dailyStaffPool.userId, secondaryUserId),
+        eq(dailyStaffPool.hospitalId, hospitalId),
+      ));
 
     for (const entry of secondaryPoolEntries) {
       // Check if primary already has a pool entry for same hospital/date/role
@@ -710,11 +768,11 @@ export async function executeStaffMerge(
       }
     }
 
-    // 4c. chat_participants -- unique(conversation_id, user_id)
+    // 4c. chat_participants -- unique(conversation_id, user_id), scoped to hospital conversations
     const secondaryParticipations = await tx
       .select()
       .from(chatParticipants)
-      .where(eq(chatParticipants.userId, secondaryUserId));
+      .where(sql`${chatParticipants.userId} = ${secondaryUserId} AND ${chatParticipants.conversationId} IN (SELECT id FROM "chat_conversations" WHERE "hospital_id" = ${hospitalId})`);
 
     for (const part of secondaryParticipations) {
       const [existing] = await tx
@@ -748,11 +806,14 @@ export async function executeStaffMerge(
       });
     }
 
-    // 4d. calcom_provider_mappings -- unique(hospital_id, provider_id)
+    // 4d. calcom_provider_mappings -- unique(hospital_id, provider_id), scoped to hospital
     const secondaryCalcomMappings = await tx
       .select()
       .from(calcomProviderMappings)
-      .where(eq(calcomProviderMappings.providerId, secondaryUserId));
+      .where(and(
+        eq(calcomProviderMappings.providerId, secondaryUserId),
+        eq(calcomProviderMappings.hospitalId, hospitalId),
+      ));
 
     for (const mapping of secondaryCalcomMappings) {
       const [existing] = await tx
@@ -792,7 +853,7 @@ export async function executeStaffMerge(
     const orphans = await tx
       .select()
       .from(surgeryStaffEntries)
-      .where(sql`${surgeryStaffEntries.userId} IS NULL`);
+      .where(sql`${surgeryStaffEntries.userId} IS NULL AND ${surgeryStaffEntries.anesthesiaRecordId} IN (SELECT id FROM "anesthesia_records" WHERE "surgery_id" IN (SELECT id FROM "surgeries" WHERE "hospital_id" = ${hospitalId}))`);
 
     const primaryName = `${primaryUser.firstName ?? ""} ${primaryUser.lastName ?? ""}`.trim();
     const secondaryName = `${secondaryUser.firstName ?? ""} ${secondaryUser.lastName ?? ""}`.trim();
@@ -821,19 +882,43 @@ export async function executeStaffMerge(
       }
     }
 
-    // ---- 6. Archive secondary user ----
-    const mergeNote = `[Merged into ${primaryUser.firstName} ${primaryUser.lastName} (${primaryUserId}) on ${new Date().toISOString()}]`;
+    // ---- 6. Conditionally archive secondary user ----
+    // Only archive if they have no remaining roles in OTHER hospitals
+    const remainingRoles = await tx
+      .select()
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.userId, secondaryUserId),
+        sql`${userHospitalRoles.hospitalId} != ${hospitalId}`,
+      ));
+
+    const mergeNote = `[Merged into ${primaryUser.firstName} ${primaryUser.lastName} (${primaryUserId}) at hospital ${hospitalId} on ${new Date().toISOString()}]`;
     const existingNotes = secondaryUser.adminNotes || "";
-    await tx
-      .update(users)
-      .set({
-        archivedAt: new Date(),
-        adminNotes: existingNotes
-          ? `${existingNotes}\n${mergeNote}`
-          : mergeNote,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, secondaryUserId));
+
+    if (remainingRoles.length === 0) {
+      // No roles in other hospitals — archive the user
+      await tx
+        .update(users)
+        .set({
+          archivedAt: new Date(),
+          adminNotes: existingNotes
+            ? `${existingNotes}\n${mergeNote}`
+            : mergeNote,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, secondaryUserId));
+    } else {
+      // Still has roles elsewhere — only add merge note, don't archive
+      await tx
+        .update(users)
+        .set({
+          adminNotes: existingNotes
+            ? `${existingNotes}\n${mergeNote}`
+            : mergeNote,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, secondaryUserId));
+    }
 
     // ---- 7. Write staffMerges audit record ----
     const mergeId = randomUUID();
@@ -892,7 +977,7 @@ export async function undoStaffMerge(
     >;
 
     // Build set of known FK refs for validation
-    const knownRefs = new Set(SIMPLE_FK_REFS.map(([t, c]) => `${t}.${c}`));
+    const knownRefs = new Set(SIMPLE_FK_REFS.map(ref => `${ref.table}.${ref.column}`));
     // Also add the special-handling tables
     knownRefs.add("daily_staff_pool.user_id");
     knownRefs.add("chat_participants.user_id");
