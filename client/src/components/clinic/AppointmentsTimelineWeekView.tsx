@@ -260,12 +260,12 @@ export default function AppointmentsTimelineWeekView({
       .map((surgery) => {
         const start = new Date(surgery.plannedDate);
         
-        // Calculate end time: use actualEndTime if available, otherwise default to 2 hours
+        // Calculate end time: use actualEndTime if available, otherwise default to 3 hours
         let end: Date;
         if (surgery.actualEndTime) {
           end = new Date(surgery.actualEndTime);
         } else {
-          end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+          end = new Date(start.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours
         }
         
         const resourceId = getSurgeonResourceId(surgery);

@@ -489,9 +489,10 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       // 2. If only O1 exists: use O1 + planned duration (surgery started but not finished)
       // 3. Otherwise: use planned date + planned duration (or actualEndTime if available)
       let displayEnd: Date;
-      const plannedDurationMs = surgery.duration 
-        ? surgery.duration * 60 * 1000 
-        : 3 * 60 * 60 * 1000; // Default 3 hours
+      // Planned duration is stored as actualEndTime - plannedDate (set at surgery creation)
+      const plannedDurationMs = surgery.actualEndTime
+        ? new Date(surgery.actualEndTime).getTime() - plannedDate.getTime()
+        : 3 * 60 * 60 * 1000; // Default 3 hours only if no end time set
       
       if (o1Time && o2Time) {
         // Both O1 and O2 available - use actual surgery end

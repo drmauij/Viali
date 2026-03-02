@@ -728,7 +728,7 @@ export default function ClinicCalendar({
       const start = new Date(surgery.plannedDate);
       const end = surgery.actualEndTime
         ? new Date(surgery.actualEndTime)
-        : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+        : new Date(start.getTime() + 3 * 60 * 60 * 1000);
 
       const involvedIds = [
         surgery.surgeonId,
