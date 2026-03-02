@@ -27,10 +27,12 @@ type PacuPatient = {
   procedure: string;
   anesthesiaPresenceEndTime: number;
   postOpDestination: string | null;
-  status: 'transferring' | 'in_recovery' | 'discharged';
+  status: 'transferring' | 'in_recovery' | 'discharged' | 'pre_op';
   statusTimestamp: number;
   pacuBedId?: string | null;
   pacuBedName?: string | null;
+  plannedTime?: string | null;
+  admissionTime?: string | null;
 };
 
 interface SurgeryRoom {
@@ -132,6 +134,11 @@ function PacuPatientCard({
             <h3 className="font-semibold text-lg truncate" data-testid={`text-patient-name-${patient.surgeryId}`}>
               {patient.patientName}
             </h3>
+            {patient.status === 'pre_op' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 flex-shrink-0">
+                {t('anesthesia.pacu.preOp')}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground" data-testid={`text-dob-${patient.surgeryId}`}>
             {patient.dateOfBirth || ''} • {patient.age} {t('anesthesia.pacu.yearsOld', 'y/o')}
@@ -146,7 +153,15 @@ function PacuPatientCard({
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
               <span className="truncate">
-                {formatTime(patient.anesthesiaPresenceEndTime)} • {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
+                {patient.status === 'pre_op' ? (
+                  <>
+                    {t('anesthesia.pacu.plannedSurgery')}: {patient.plannedTime ? formatTime(new Date(patient.plannedTime).getTime()) : '–'}
+                  </>
+                ) : (
+                  <>
+                    {formatTime(patient.anesthesiaPresenceEndTime)} • {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -252,7 +267,7 @@ function getStoredViewMode(): ViewMode {
 export default function Pacu() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<'transferring' | 'in_recovery' | 'discharged'>('in_recovery');
+  const [activeTab, setActiveTab] = useState<'pre_op' | 'transferring' | 'in_recovery' | 'discharged'>('in_recovery');
   const [viewMode, setViewMode] = useState<ViewMode>(getStoredViewMode);
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
@@ -284,6 +299,7 @@ export default function Pacu() {
   );
 
   const counts = {
+    pre_op: pacuPatients.filter(p => p.status === 'pre_op').length,
     transferring: pacuPatients.filter(p => p.status === 'transferring').length,
     in_recovery: pacuPatients.filter(p => p.status === 'in_recovery').length,
     discharged: pacuPatients.filter(p => p.status === 'discharged').length,
@@ -323,7 +339,11 @@ export default function Pacu() {
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-3 md:w-full">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
+            <TabsTrigger value="pre_op" data-testid="tab-pre-op" className="whitespace-nowrap">
+              <Bed className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.pacu.tabPreparation')} ({counts.pre_op})
+            </TabsTrigger>
             <TabsTrigger value="transferring" data-testid="tab-transferring" className="whitespace-nowrap">
               <ArrowRight className="h-4 w-4 mr-1 hidden sm:inline-block" />
               {t('anesthesia.pacu.tabTransferring')} ({counts.transferring})
@@ -406,7 +426,11 @@ export default function Pacu() {
             <PacuPatientCard
               key={patient.surgeryId}
               patient={patient}
-              onNavigate={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+              onNavigate={() => setLocation(
+                patient.status === 'pre_op'
+                  ? `/anesthesia/cases/${patient.surgeryId}`
+                  : `/anesthesia/cases/${patient.surgeryId}/pacu`
+              )}
               formatTime={formatTime}
               getTimeInPacu={getTimeInPacu}
             />

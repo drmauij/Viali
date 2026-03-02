@@ -25,7 +25,7 @@ type PacuPatient = {
   procedure: string;
   anesthesiaPresenceEndTime: number;
   postOpDestination: string | null;
-  status: 'transferring' | 'in_recovery' | 'discharged';
+  status: 'transferring' | 'in_recovery' | 'discharged' | 'pre_op';
   statusTimestamp: number;
   pacuBedId?: string | null;
   pacuBedName?: string | null;

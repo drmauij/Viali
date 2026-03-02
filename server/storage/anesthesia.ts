@@ -862,10 +862,12 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
   procedure: string;
   anesthesiaPresenceEndTime: number;
   postOpDestination: string | null;
-  status: 'transferring' | 'in_recovery' | 'discharged';
+  status: 'transferring' | 'in_recovery' | 'discharged' | 'pre_op';
   statusTimestamp: number;
   pacuBedId: string | null;
   pacuBedName: string | null;
+  plannedTime: string | null;
+  admissionTime: string | null;
 }>> {
   const results = await db
     .select({
@@ -886,7 +888,7 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
     ))
     .orderBy(desc(anesthesiaRecords.updatedAt));
 
-  return results
+  const postOpPatients = results
     .map(row => {
       const timeMarkers = row.anesthesiaRecord.timeMarkers as any[] || [];
       
@@ -957,9 +959,90 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         statusTimestamp,
         pacuBedId: row.surgery.pacuBedId || null,
         pacuBedName: row.pacuBed?.name || null,
+        plannedTime: null,
+        admissionTime: null,
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  // Pre-op query: patients with PACU bed assigned but not yet in OR
+  const postOpSurgeryIds = new Set(postOpPatients.map(p => p.surgeryId));
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const preOpResults = await db
+    .select({
+      surgery: surgeries,
+      patient: patients,
+      pacuBed: surgeryRooms,
+      anesthesiaRecord: anesthesiaRecords,
+    })
+    .from(surgeries)
+    .innerJoin(patients, eq(surgeries.patientId, patients.id))
+    .leftJoin(surgeryRooms, eq(surgeries.pacuBedId, surgeryRooms.id))
+    .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
+    .where(and(
+      eq(surgeries.hospitalId, hospitalId),
+      isNotNull(surgeries.pacuBedId),
+      isNotNull(surgeries.patientId),
+      gte(surgeries.plannedDate, todayStart),
+      lte(surgeries.plannedDate, todayEnd),
+      isNull(surgeries.archivedAt),
+      eq(surgeries.isSuspended, false),
+    ))
+    .orderBy(asc(surgeries.plannedDate));
+
+  const preOpPatients = preOpResults
+    .filter(row => {
+      // Exclude surgeries already in post-op results
+      if (postOpSurgeryIds.has(row.surgery.id)) return false;
+      // Exclude if "E" (OR Entrance) marker has a time value
+      if (row.anesthesiaRecord) {
+        const timeMarkers = row.anesthesiaRecord.timeMarkers as any[] || [];
+        const eMarker = timeMarkers.find((m: any) => m.code === 'E');
+        if (eMarker && eMarker.time != null) {
+          const timeVal = typeof eMarker.time === 'number' ? eMarker.time :
+            typeof eMarker.time === 'string' ? (Number(eMarker.time) || new Date(eMarker.time).getTime()) : 0;
+          if (timeVal > 0) return false;
+        }
+      }
+      return true;
+    })
+    .map(row => {
+      let age = 0;
+      if (row.patient.birthday) {
+        const birthDate = new Date(row.patient.birthday);
+        if (!isNaN(birthDate.getTime())) {
+          age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        }
+      }
+
+      const plannedDate = row.surgery.plannedDate ? new Date(row.surgery.plannedDate) : null;
+
+      return {
+        anesthesiaRecordId: row.anesthesiaRecord?.id || '',
+        surgeryId: row.surgery.id,
+        patientId: row.patient.id,
+        patientName: `${row.patient.firstName} ${row.patient.surname}`,
+        dateOfBirth: row.patient.birthday || null,
+        sex: row.patient.sex || null,
+        age,
+        procedure: row.surgery.plannedSurgery || '',
+        anesthesiaPresenceEndTime: 0,
+        postOpDestination: null,
+        status: 'pre_op' as const,
+        statusTimestamp: plannedDate ? plannedDate.getTime() : Date.now(),
+        pacuBedId: row.surgery.pacuBedId || null,
+        pacuBedName: row.pacuBed?.name || null,
+        plannedTime: row.surgery.plannedDate ? new Date(row.surgery.plannedDate).toISOString() : null,
+        admissionTime: row.surgery.admissionTime ? new Date(row.surgery.admissionTime).toISOString() : null,
+      };
+    });
+
+  return [...postOpPatients, ...preOpPatients];
 }
 
 // ========== PRE-OP ASSESSMENTS ==========
