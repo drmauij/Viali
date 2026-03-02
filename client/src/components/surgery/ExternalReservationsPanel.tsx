@@ -23,7 +23,8 @@ import {
   Check,
   X,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -53,6 +54,7 @@ export interface ScheduleDialogProps {
 export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms: allRooms, initialDate, initialTime, initialRoomId }: ScheduleDialogProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const activeHospital = useActiveHospital();
   const isGerman = i18n.language === 'de';
   // Only show OR rooms, not PACU rooms
   const surgeryRooms = allRooms.filter(r => !r.type || r.type === 'OP');
@@ -61,6 +63,9 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
   const [plannedTime, setPlannedTime] = useState(initialTime ?? "08:00");
   const [surgeryRoomId, setSurgeryRoomId] = useState<string>(initialRoomId ?? "");
   const [sendConfirmation, setSendConfirmation] = useState(true);
+  // "email" = use the existing user who owns the email, "request" = create new from request name,
+  // or a specific user ID selected from the doctor dropdown
+  const [surgeonChoice, setSurgeonChoice] = useState<"email" | "request" | string>("email");
 
   useEffect(() => {
     setPlannedDate(initialDate ?? request.wishedDate);
@@ -68,13 +73,63 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
     setSurgeryRoomId(initialRoomId ?? "");
   }, [request.id, request.wishedDate, initialDate, initialTime, initialRoomId]);
 
+  // Check for surgeon name/email mismatch
+  const { data: surgeonMatch } = useQuery<{
+    matched: boolean;
+    emailUser: { id: string; firstName: string; lastName: string; email: string } | null;
+    nameMatch: { id: string; firstName: string; lastName: string } | null;
+    requestSurgeonName?: string;
+    willCreate: boolean;
+  }>({
+    queryKey: [`/api/external-surgery-requests/${request.id}/surgeon-match`],
+    enabled: open,
+  });
+
+  // Fetch hospital doctors for the "choose different surgeon" dropdown
+  const { data: hospitalUsers = [] } = useQuery<any[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/users`],
+    enabled: !!activeHospital?.id && open && surgeonMatch?.matched === false,
+  });
+
+  const hospitalDoctors = hospitalUsers.filter((u: any) => u.role === 'doctor');
+
+  const hasMismatch = surgeonMatch && !surgeonMatch.matched && surgeonMatch.emailUser;
+
+  // Default to name match if found, otherwise "create new"
+  useEffect(() => {
+    if (surgeonMatch && !surgeonMatch.matched) {
+      if (surgeonMatch.nameMatch) {
+        setSurgeonChoice(surgeonMatch.nameMatch.id);
+      } else {
+        setSurgeonChoice("request");
+      }
+    } else {
+      setSurgeonChoice("email");
+    }
+  }, [request.id, surgeonMatch?.matched, surgeonMatch?.nameMatch?.id]);
+
   const scheduleMutation = useMutation({
     mutationFn: async () => {
       const dateTime = new Date(`${plannedDate}T${plannedTime}`);
+      // Determine surgeonId override based on mismatch choice
+      let surgeonId: string | undefined;
+      let createNew = false;
+      if (hasMismatch) {
+        if (surgeonChoice === "email") {
+          surgeonId = surgeonMatch.emailUser!.id;
+        } else if (surgeonChoice === "request") {
+          createNew = true;
+        } else if (surgeonChoice) {
+          // A specific doctor was selected (name match or from dropdown)
+          surgeonId = surgeonChoice;
+        }
+      }
       return apiRequest('POST', `/api/external-surgery-requests/${request.id}/schedule`, {
         plannedDate: dateTime.toISOString(),
         surgeryRoomId: surgeryRoomId || null,
         sendConfirmation,
+        ...(surgeonId ? { surgeonId } : {}),
+        ...(createNew ? { createNewSurgeon: true } : {}),
       });
     },
     onSuccess: () => {
@@ -184,6 +239,97 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
             </div>
           </div>
 
+          {/* Surgeon name/email mismatch warning */}
+          {hasMismatch && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-lg space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  {isGerman
+                    ? `Die E-Mail ${request.surgeonEmail} gehört zu ${surgeonMatch.emailUser!.firstName} ${surgeonMatch.emailUser!.lastName}, aber die Anfrage kommt von ${surgeonMatch.requestSurgeonName}.`
+                    : `The email ${request.surgeonEmail} belongs to ${surgeonMatch.emailUser!.firstName} ${surgeonMatch.emailUser!.lastName}, but the request is from ${surgeonMatch.requestSurgeonName}.`
+                  }
+                </p>
+              </div>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300 pl-6">
+                {isGerman ? 'Chirurg zuweisen:' : 'Assign surgeon:'}
+              </p>
+              <div className="space-y-2 pl-6">
+                {/* Option 1: Name match (recommended if found) */}
+                {surgeonMatch.nameMatch && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="surgeon-choice"
+                      checked={surgeonChoice === surgeonMatch.nameMatch.id}
+                      onChange={() => setSurgeonChoice(surgeonMatch.nameMatch!.id)}
+                      className="accent-amber-600"
+                    />
+                    <span className="text-sm">
+                      {surgeonMatch.nameMatch.firstName} {surgeonMatch.nameMatch.lastName}
+                      <span className="text-emerald-600 dark:text-emerald-400 ml-1 text-xs font-medium">
+                        ({isGerman ? 'Namensübereinstimmung' : 'name match'})
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {/* Option 2: Email owner */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="surgeon-choice"
+                    checked={surgeonChoice === "email"}
+                    onChange={() => setSurgeonChoice("email")}
+                    className="accent-amber-600"
+                  />
+                  <span className="text-sm">
+                    {surgeonMatch.emailUser!.firstName} {surgeonMatch.emailUser!.lastName}
+                    <span className="text-muted-foreground ml-1 text-xs">({isGerman ? 'E-Mail-Inhaber' : 'email owner'})</span>
+                  </span>
+                </label>
+                {/* Option 3: Create new surgeon */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="surgeon-choice"
+                    checked={surgeonChoice === "request"}
+                    onChange={() => setSurgeonChoice("request")}
+                    className="accent-amber-600"
+                  />
+                  <span className="text-sm">
+                    {surgeonMatch.requestSurgeonName}
+                    <span className="text-muted-foreground ml-1 text-xs">({isGerman ? 'neuen Chirurgen erstellen' : 'create new surgeon'})</span>
+                  </span>
+                </label>
+                {/* Option 4: Pick from hospital doctors */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="surgeon-choice"
+                    checked={surgeonChoice !== "email" && surgeonChoice !== "request" && (!surgeonMatch.nameMatch || surgeonChoice !== surgeonMatch.nameMatch.id)}
+                    onChange={() => setSurgeonChoice("")}
+                    className="accent-amber-600"
+                  />
+                  <span className="text-sm">{isGerman ? 'Anderen Chirurgen wählen' : 'Choose a different surgeon'}</span>
+                </label>
+                {surgeonChoice !== "email" && surgeonChoice !== "request" && (!surgeonMatch.nameMatch || surgeonChoice !== surgeonMatch.nameMatch.id) && (
+                  <Select value={surgeonChoice} onValueChange={setSurgeonChoice}>
+                    <SelectTrigger className="ml-6">
+                      <SelectValue placeholder={isGerman ? 'Chirurg auswählen...' : 'Select surgeon...'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hospitalDoctors.map((doc: any) => (
+                        <SelectItem key={doc.userId || doc.id} value={doc.userId || doc.id}>
+                          {doc.firstName} {doc.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t('surgery.externalRequests.date')}</Label>
@@ -239,7 +385,7 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
           </Button>
           <Button data-testid="button-schedule-confirm"
             onClick={() => scheduleMutation.mutate()}
-            disabled={!plannedDate || (surgeryRooms.length > 0 && !surgeryRoomId) || scheduleMutation.isPending}
+            disabled={!plannedDate || (surgeryRooms.length > 0 && !surgeryRoomId) || scheduleMutation.isPending || !!(hasMismatch && surgeonChoice !== "email" && surgeonChoice !== "request" && !surgeonChoice)}
           >
             {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t('surgery.externalRequests.schedule')}

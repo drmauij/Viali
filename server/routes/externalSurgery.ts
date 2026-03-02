@@ -485,10 +485,81 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
   }
 });
 
+// Check if the request's surgeon email matches an existing user with a different name,
+// and try to find a name match among hospital doctors
+router.get('/api/external-surgery-requests/:id/surgeon-match', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const request = await storage.getExternalSurgeryRequest(id);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const existingUser = await storage.searchUserByEmail(request.surgeonEmail);
+    if (!existingUser) {
+      return res.json({ matched: true, emailUser: null, nameMatch: null, willCreate: true });
+    }
+
+    const reqFirst = request.surgeonFirstName.trim().toLowerCase();
+    const reqLast = request.surgeonLastName.trim().toLowerCase();
+    const existFirst = (existingUser.firstName ?? '').trim().toLowerCase();
+    const existLast = (existingUser.lastName ?? '').trim().toLowerCase();
+    const matched = reqFirst === existFirst && reqLast === existLast;
+
+    if (matched) {
+      return res.json({ matched: true, emailUser: null, nameMatch: null, willCreate: false });
+    }
+
+    // Name doesn't match email owner — search hospital doctors for a name match
+    const hospitalUsers = await storage.getHospitalUsers(request.hospitalId);
+    const doctors = hospitalUsers.filter(hu => hu.role === 'doctor');
+
+    // Find best fuzzy name match among existing doctors (excluding the email owner)
+    let bestMatch: { id: string; firstName: string; lastName: string; score: number } | null = null;
+    for (const doc of doctors) {
+      if (doc.userId === existingUser.id) continue;
+      const docFirst = (doc.user.firstName ?? '').trim().toLowerCase();
+      const docLast = (doc.user.lastName ?? '').trim().toLowerCase();
+      // Exact match on last name + first name starting match (handles abbreviations)
+      if (docLast === reqLast && (docFirst === reqFirst || docFirst.startsWith(reqFirst) || reqFirst.startsWith(docFirst))) {
+        bestMatch = { id: doc.userId, firstName: doc.user.firstName ?? '', lastName: doc.user.lastName ?? '', score: 1.0 };
+        break;
+      }
+      // Fuzzy: same last name, similar first name
+      if (docLast === reqLast) {
+        const score = 0.8;
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { id: doc.userId, firstName: doc.user.firstName ?? '', lastName: doc.user.lastName ?? '', score };
+        }
+      }
+    }
+
+    return res.json({
+      matched: false,
+      emailUser: {
+        id: existingUser.id,
+        firstName: existingUser.firstName,
+        lastName: existingUser.lastName,
+        email: existingUser.email,
+      },
+      nameMatch: bestMatch ? {
+        id: bestMatch.id,
+        firstName: bestMatch.firstName,
+        lastName: bestMatch.lastName,
+      } : null,
+      requestSurgeonName: `${request.surgeonFirstName} ${request.surgeonLastName}`,
+      willCreate: false,
+    });
+  } catch (error) {
+    logger.error("Error checking surgeon match:", error);
+    res.status(500).json({ message: "Failed to check surgeon match" });
+  }
+});
+
 router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation } = req.body;
+    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon } = req.body;
     const userId = req.user.id;
     
     const request = await storage.getExternalSurgeryRequest(id);
@@ -549,26 +620,21 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     // Create or find external surgeon
     let surgeonUserId: string | null = null;
     const surgeonFullName = `${request.surgeonFirstName} ${request.surgeonLastName}`;
-    
+
     // Find the surgery unit for this hospital (surgeons must be assigned to surgery unit with role 'doctor')
     const allUnits = await storage.getUnits(request.hospitalId);
     const surgeryUnit = allUnits.find(u => u.type === 'or');
     const surgeryUnitId = surgeryUnit?.id || unitId;
-    
-    // Look up by email first (email has a unique constraint, so it's the reliable key)
-    const existingSurgeon = await storage.searchUserByEmail(request.surgeonEmail);
 
-    if (existingSurgeon) {
-      surgeonUserId = existingSurgeon.id;
-      // Ensure they're assigned to this hospital's surgery unit as a doctor
+    // Helper to ensure a surgeon has the doctor role in the surgery unit
+    const ensureSurgeonRole = async (sId: string) => {
       const hospitalUsers = await storage.getHospitalUsers(request.hospitalId);
-      const hasRoleInSurgeryUnit = hospitalUsers.some(hu =>
-        hu.userId === existingSurgeon.id && hu.unitId === surgeryUnitId && hu.role === 'doctor'
+      const hasRole = hospitalUsers.some(hu =>
+        hu.userId === sId && hu.unitId === surgeryUnitId && hu.role === 'doctor'
       );
-      if (!hasRoleInSurgeryUnit) {
-        // Add them to surgery unit with doctor role
+      if (!hasRole) {
         await storage.createUserHospitalRole({
-          userId: existingSurgeon.id,
+          userId: sId,
           hospitalId: request.hospitalId,
           unitId: surgeryUnitId,
           role: 'doctor',
@@ -579,30 +645,49 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           calcomEventTypeId: null,
         });
       }
-    } else {
-      // Create new external surgeon user
+    };
+
+    if (overrideSurgeonId) {
+      // User explicitly chose a surgeon (e.g. after seeing a name/email mismatch warning)
+      const overrideUser = await storage.getUser(overrideSurgeonId);
+      if (!overrideUser) {
+        return res.status(400).json({ message: "Selected surgeon not found" });
+      }
+      surgeonUserId = overrideSurgeonId;
+      await ensureSurgeonRole(overrideSurgeonId);
+    } else if (createNewSurgeon) {
+      // User chose to create a new surgeon despite email belonging to someone else.
+      // Use a generated email since the original is taken.
       const newSurgeon = await storage.createUser({
-        email: request.surgeonEmail,
+        email: `${request.surgeonFirstName.toLowerCase()}.${request.surgeonLastName.toLowerCase()}.${randomUUID().slice(0, 6)}@external.local`,
         firstName: request.surgeonFirstName,
         lastName: request.surgeonLastName,
         phone: request.surgeonPhone,
         staffType: 'external',
-        canLogin: false, // External surgeons don't need app access by default
+        canLogin: false,
       });
       surgeonUserId = newSurgeon.id;
+      await ensureSurgeonRole(surgeonUserId);
+    } else {
+      // Look up by email first (email has a unique constraint, so it's the reliable key)
+      const existingSurgeon = await storage.searchUserByEmail(request.surgeonEmail);
 
-      // Add them to surgery unit with doctor role
-      await storage.createUserHospitalRole({
-        userId: newSurgeon.id,
-        hospitalId: request.hospitalId,
-        unitId: surgeryUnitId,
-        role: 'doctor',
-        isBookable: false,
-        isDefaultLogin: false,
-        availabilityMode: null,
-        calcomUserId: null,
-        calcomEventTypeId: null,
-      });
+      if (existingSurgeon) {
+        surgeonUserId = existingSurgeon.id;
+        await ensureSurgeonRole(surgeonUserId);
+      } else {
+        // Create new external surgeon user
+        const newSurgeon = await storage.createUser({
+          email: request.surgeonEmail,
+          firstName: request.surgeonFirstName,
+          lastName: request.surgeonLastName,
+          phone: request.surgeonPhone,
+          staffType: 'external',
+          canLogin: false,
+        });
+        surgeonUserId = newSurgeon.id;
+        await ensureSurgeonRole(surgeonUserId);
+      }
     }
     
     const surgery = await storage.createSurgery({
