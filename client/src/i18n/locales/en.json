@@ -4515,6 +4515,11 @@
       "textOnlyWarning": "Text only - no hourly rate for cost calculation"
     },
     "intraop": {
+      "surgeryTimes": "Surgery Times",
+      "surgeryStart": "Incision",
+      "surgeryEnd": "Closure",
+      "now": "Now",
+      "totalSurgeryTime": "Surgery Duration",
       "staff": "OR Team",
       "staffRoles": {
         "instrumentNurse": "Scrub Nurse",

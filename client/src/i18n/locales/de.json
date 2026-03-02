@@ -4596,6 +4596,11 @@
       "textOnlyWarning": "Nur Text – kein Stundensatz für Kostenberechnung"
     },
     "intraop": {
+      "surgeryTimes": "OP-Zeiten",
+      "surgeryStart": "Schnitt",
+      "surgeryEnd": "Naht",
+      "now": "Jetzt",
+      "totalSurgeryTime": "OP-Dauer",
       "staff": "OP-Team",
       "staffRoles": {
         "instrumentNurse": "Instrumentierung",

@@ -723,28 +723,25 @@ export default function SurgerySummaryDialog({
 
             {/* Anesthesia Record - Only shown in anesthesia module, requires patient */}
             {activeModule !== 'surgery' && surgery?.patientId && (
-              <Card 
-                className={!surgery?.noPreOpRequired ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
-                onClick={!surgery?.noPreOpRequired ? onOpenAnesthesia : undefined}
+              <Card
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={onOpenAnesthesia}
                 data-testid="card-open-anesthesia"
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${!surgery?.noPreOpRequired ? 'bg-red-100 dark:bg-red-900' : 'bg-muted'}`}>
-                        <Activity className={`h-5 w-5 ${!surgery?.noPreOpRequired ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+                      <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900">
+                        <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </div>
                       <div>
                         <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
                         <div className="text-sm text-muted-foreground">
-                          {!surgery?.noPreOpRequired
-                            ? t('anesthesia.surgerySummary.viewManage')
-                            : t('anesthesia.surgerySummary.noAnesthesiaPlanned')
-                          }
+                          {t('anesthesia.surgerySummary.viewManage')}
                         </div>
                       </div>
                     </div>
-                    {!surgery?.noPreOpRequired && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>

@@ -43,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import SignaturePad from "@/components/SignaturePad";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -51,13 +51,14 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { useSocket } from "@/contexts/SocketContext";
-import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill, Upload } from "lucide-react";
+import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill, Upload, Play, Square } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatTime } from "@/lib/dateUtils";
+import { TimeInput } from "@/components/ui/time-input";
 import {
   X,
   Gauge,
@@ -1148,6 +1149,33 @@ export default function Op() {
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
     debounceMs: 800,
+  });
+
+  // Local state for surgery times (optimistic updates so duration shows immediately)
+  const [localSurgeryStart, setLocalSurgeryStart] = useState<string | null>(null);
+  const [localSurgeryEnd, setLocalSurgeryEnd] = useState<string | null>(null);
+
+  // Sync local state from server data
+  useEffect(() => {
+    if (surgery?.actualStartTime) setLocalSurgeryStart(surgery.actualStartTime);
+    else setLocalSurgeryStart(null);
+  }, [surgery?.actualStartTime]);
+  useEffect(() => {
+    if (surgery?.actualEndTime) setLocalSurgeryEnd(surgery.actualEndTime);
+    else setLocalSurgeryEnd(null);
+  }, [surgery?.actualEndTime]);
+
+  // Mutation for saving surgery times (actualStartTime / actualEndTime)
+  const updateSurgeryTimeMutation = useMutation({
+    mutationFn: async (data: { actualStartTime?: string | null; actualEndTime?: string | null }) => {
+      // Optimistic local update
+      if ('actualStartTime' in data) setLocalSurgeryStart(data.actualStartTime ?? null);
+      if ('actualEndTime' in data) setLocalSurgeryEnd(data.actualEndTime ?? null);
+      return apiRequest('PATCH', `/api/anesthesia/surgeries/${surgeryId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
+    },
   });
 
   // Fetch items for inventory tracking - filtered by current unit
@@ -2412,6 +2440,101 @@ export default function Op() {
             <>
               {/* Intraoperative Tab */}
               <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-3 mt-0" data-testid="tab-content-intraop">
+                {/* Surgery Times O1/O2 */}
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      {t('surgery.intraop.surgeryTimes', 'OP-Zeiten')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* O1 - Surgery Start */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">O1 – {t('surgery.intraop.surgeryStart', 'Schnitt')}</Label>
+                        <div className="flex items-center gap-2">
+                          <TimeInput
+                            className="h-9 text-sm flex-1"
+                            data-testid="input-surgery-start-time"
+                            value={localSurgeryStart ? formatTime(localSurgeryStart) : ''}
+                            onChange={(time) => {
+                              if (!time) {
+                                updateSurgeryTimeMutation.mutate({ actualStartTime: null });
+                                return;
+                              }
+                              const [hours, minutes] = time.split(':').map(Number);
+                              const ref = surgery?.plannedDate ? new Date(surgery.plannedDate) : new Date();
+                              const date = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), hours, minutes, 0, 0);
+                              updateSurgeryTimeMutation.mutate({ actualStartTime: date.toISOString() });
+                            }}
+                          />
+                          <Button
+                            variant={localSurgeryStart ? "outline" : "default"}
+                            size="sm"
+                            className="shrink-0"
+                            data-testid="button-surgery-start-now"
+                            onClick={() => {
+                              updateSurgeryTimeMutation.mutate({ actualStartTime: new Date().toISOString() });
+                            }}
+                          >
+                            <Play className="h-3.5 w-3.5 mr-1" />
+                            {t('surgery.intraop.now', 'Jetzt')}
+                          </Button>
+                        </div>
+                      </div>
+                      {/* O2 - Surgery End */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">O2 – {t('surgery.intraop.surgeryEnd', 'Naht')}</Label>
+                        <div className="flex items-center gap-2">
+                          <TimeInput
+                            className="h-9 text-sm flex-1"
+                            data-testid="input-surgery-end-time"
+                            value={localSurgeryEnd ? formatTime(localSurgeryEnd) : ''}
+                            onChange={(time) => {
+                              if (!time) {
+                                updateSurgeryTimeMutation.mutate({ actualEndTime: null });
+                                return;
+                              }
+                              const [hours, minutes] = time.split(':').map(Number);
+                              const ref = surgery?.plannedDate ? new Date(surgery.plannedDate) : new Date();
+                              const date = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), hours, minutes, 0, 0);
+                              updateSurgeryTimeMutation.mutate({ actualEndTime: date.toISOString() });
+                            }}
+                          />
+                          <Button
+                            variant={localSurgeryEnd ? "outline" : "default"}
+                            size="sm"
+                            className="shrink-0"
+                            data-testid="button-surgery-end-now"
+                            onClick={() => {
+                              updateSurgeryTimeMutation.mutate({ actualEndTime: new Date().toISOString() });
+                            }}
+                          >
+                            <Square className="h-3.5 w-3.5 mr-1" />
+                            {t('surgery.intraop.now', 'Jetzt')}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Duration display */}
+                    {localSurgeryStart && localSurgeryEnd && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {t('surgery.intraop.totalSurgeryTime', 'OP-Dauer')}: {(() => {
+                            const ms = new Date(localSurgeryEnd).getTime() - new Date(localSurgeryStart).getTime();
+                            if (ms < 0) return '–';
+                            const hours = Math.floor(ms / (1000 * 60 * 60));
+                            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+                            return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                          })()}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader className="py-3">
                     <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
