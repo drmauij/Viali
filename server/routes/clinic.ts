@@ -1679,40 +1679,41 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
     
     const timeOff = await storage.createProviderTimeOff(validatedData);
 
-    // Notify managers/admins about the new time-off request
-    try {
-      const hospitalUsers = await storage.getHospitalUsers(hospitalId);
-      const managers = hospitalUsers.filter(u => u.role === 'admin' || u.role === 'manager');
-      const provider = await storage.getUser(providerId);
-      const hospital = await storage.getHospital(hospitalId);
+    // Only send email notifications for vacation and training (skip noisy ones like blocked, sick, etc.)
+    if (timeOff.reason === 'vacation' || timeOff.reason === 'training') {
+      try {
+        const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+        const managers = hospitalUsers.filter(u => u.role === 'admin' || u.role === 'manager');
+        const provider = await storage.getUser(providerId);
+        const hospital = await storage.getHospital(hospitalId);
 
-      if (provider && hospital && managers.length > 0) {
-        const { sendTimeOffRequestEmail } = await import('../resend');
-        const providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
-        const language = (hospital.defaultLanguage as 'de' | 'en') || 'de';
-        const deepLinkUrl = `${process.env.APP_URL || 'https://app.viali.ch'}/business/staff`;
+        if (provider && hospital && managers.length > 0) {
+          const { sendTimeOffRequestEmail } = await import('../resend');
+          const providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
+          const language = (hospital.defaultLanguage as 'de' | 'en') || 'de';
+          const deepLinkUrl = `${process.env.APP_URL || 'https://app.viali.ch'}/business/staff`;
 
-        for (const manager of managers) {
-          if (manager.user.email) {
-            const managerName = `${manager.user.firstName || ''} ${manager.user.lastName || ''}`.trim();
-            await sendTimeOffRequestEmail(
-              manager.user.email,
-              managerName,
-              providerName,
-              hospital.name,
-              timeOff.startDate,
-              timeOff.endDate,
-              timeOff.reason || undefined,
-              timeOff.isRecurring || false,
-              deepLinkUrl,
-              language
-            );
+          for (const manager of managers) {
+            if (manager.user.email) {
+              const managerName = `${manager.user.firstName || ''} ${manager.user.lastName || ''}`.trim();
+              await sendTimeOffRequestEmail(
+                manager.user.email,
+                managerName,
+                providerName,
+                hospital.name,
+                timeOff.startDate,
+                timeOff.endDate,
+                timeOff.reason || undefined,
+                timeOff.isRecurring || false,
+                deepLinkUrl,
+                language
+              );
+            }
           }
         }
+      } catch (emailError) {
+        logger.error("Error sending time-off request notifications:", emailError);
       }
-    } catch (emailError) {
-      logger.error("Error sending time-off request notifications:", emailError);
-      // Don't fail the request if email sending fails
     }
 
     res.status(201).json(timeOff);
