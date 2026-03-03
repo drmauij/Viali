@@ -112,7 +112,7 @@ export function DischargeMedicationsTab({
   const [frequencyCustomInput, setFrequencyCustomInput] = useState<Record<number, boolean>>({});
 
   const [printDialogSlot, setPrintDialogSlot] = useState<any>(null);
-  const [printColumns, setPrintColumns] = useState<number>(2);
+  const [printColumns, setPrintColumns] = useState<string>("2");
   const [printStartRow, setPrintStartRow] = useState<number>(1);
 
   const { data: dischargeMedications = [], isLoading } = useQuery<any[]>({
@@ -477,12 +477,105 @@ export function DischargeMedicationsTab({
     return [...surgeries].sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime());
   }, [surgeries]);
 
-  const printLabels = (slot: any, columns: number, startRow: number = 0) => {
+  const printLabels = (slot: any, columns: number | "label62", startRow: number = 0) => {
     const items = slot.items || [];
     if (items.length === 0) {
       toast({ title: t('dischargeMedications.noItemsToPrint', 'No medications to print labels for'), variant: "destructive" });
       return;
     }
+
+    const doctorName = slot.doctor ? `Dr. ${slot.doctor.firstName} ${slot.doctor.lastName}` : '';
+    const dateStr = formatDate(slot.createdAt);
+    const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
+
+    // 62mm label printer path — one medication per page
+    // Page matches Brother QL-720NW PPD "62X1" size: 175.68 × 282.46 pts ≈ 62mm × 99.6mm
+    if (columns === "label62") {
+      const labelW = 62;
+      const labelH = 99.6;
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [labelW, labelH] });
+      const margin = 3;
+      const maxTextW = labelW - 2 * margin;
+
+      items.forEach((medItem: any, idx: number) => {
+        if (idx > 0) doc.addPage([labelW, labelH], "portrait");
+
+        let py = margin + 4;
+
+        // Patient name
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0);
+        doc.text(fullPatientName, margin, py, { maxWidth: maxTextW });
+        py += 4.5;
+
+        // DOB
+        if (patientBirthday) {
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.text(`geb. ${patientBirthday}`, margin, py, { maxWidth: maxTextW });
+          py += 4;
+        }
+
+        // Separator
+        doc.setDrawColor(180);
+        doc.line(margin, py, labelW - margin, py);
+        py += 3.5;
+
+        // Medication name (bold, up to 2 lines)
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        const medName = medItem.item?.name || medItem.customName || medItem.itemId || '';
+        const nameLines = doc.splitTextToSize(medName, maxTextW);
+        doc.text(nameLines.slice(0, 2), margin, py);
+        py += nameLines.slice(0, 2).length * 4.5;
+
+        // Details: quantity, route, frequency
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        const detailParts: string[] = [];
+        if (medItem.quantity) detailParts.push(`${medItem.quantity} ${medItem.unitType === 'pills' ? 'Tbl.' : 'Pkg.'}`);
+        if (medItem.administrationRoute) detailParts.push(medItem.administrationRoute);
+        if (medItem.frequency) detailParts.push(medItem.frequency);
+        if (detailParts.length > 0) {
+          doc.text(detailParts.join('  |  '), margin, py, { maxWidth: maxTextW });
+          py += 4;
+        }
+
+        // Medication notes
+        if (medItem.notes) {
+          doc.setFontSize(7.5);
+          const noteLines = doc.splitTextToSize(medItem.notes, maxTextW);
+          doc.text(noteLines.slice(0, 3), margin, py);
+          py += noteLines.slice(0, 3).length * 3;
+        }
+
+        // Slot notes
+        if (slot.notes) {
+          doc.setFontSize(7.5);
+          doc.setFont("helvetica", "italic");
+          const slotNoteLines = doc.splitTextToSize(slot.notes, maxTextW);
+          doc.text(slotNoteLines.slice(0, 3), margin, py);
+          py += slotNoteLines.slice(0, 3).length * 3;
+          doc.setFont("helvetica", "normal");
+        }
+
+        // Footer: date (left) + doctor (right), after content with spacing
+        py += 4;
+        doc.setFontSize(7);
+        doc.setTextColor(100);
+        doc.text(dateStr, margin, py);
+        if (doctorName) {
+          doc.text(doctorName, labelW - margin, py, { align: "right" });
+        }
+        doc.setTextColor(0);
+      });
+
+      doc.save(`discharge-labels-62mm-${fullPatientName.replace(/\s+/g, '_')}-${dateStr}.pdf`);
+      return;
+    }
+
+    // A4 sticker-sheet path (2-col / 3-col)
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = 210;
     // 3-col: physical sticker sheet — 3×8 labels, 70×36mm each, no margins/gaps
@@ -492,9 +585,6 @@ export function DischargeMedicationsTab({
     const labelW = columns === 3 ? 70 : (pageW - 2 * marginX - gap) / 2;
     const labelH = columns === 3 ? 36 : 50;
     const rows = columns === 3 ? 8 : Math.floor((297 - 2 * marginY + gap) / (labelH + gap));
-    const doctorName = slot.doctor ? `Dr. ${slot.doctor.firstName} ${slot.doctor.lastName}` : '';
-    const dateStr = formatDate(slot.createdAt);
-    const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
 
     let labelIdx = startRow * columns;
 
@@ -735,7 +825,7 @@ export function DischargeMedicationsTab({
                     data-testid={`button-print-labels-${slot.id}`}
                     onClick={() => {
                       setPrintDialogSlot(slot);
-                      setPrintColumns(2);
+                      setPrintColumns("2");
                       setPrintStartRow(1);
                     }}
                   >
@@ -1387,12 +1477,14 @@ export function DischargeMedicationsTab({
             <div className="space-y-2">
               <Label>{t('dischargeMedications.columnLayout', 'Column Layout')}</Label>
               <Select
-                value={String(printColumns)}
+                value={printColumns}
                 onValueChange={(v) => {
-                  const cols = Number(v);
-                  setPrintColumns(cols);
-                  const maxRow = cols === 3 ? 8 : 5;
-                  if (printStartRow > maxRow) setPrintStartRow(maxRow);
+                  setPrintColumns(v);
+                  if (v !== "label62") {
+                    const cols = Number(v);
+                    const maxRow = cols === 3 ? 8 : 5;
+                    if (printStartRow > maxRow) setPrintStartRow(maxRow);
+                  }
                 }}
               >
                 <SelectTrigger data-testid="select-print-columns">
@@ -1401,19 +1493,21 @@ export function DischargeMedicationsTab({
                 <SelectContent>
                   <SelectItem value="2">{t('dischargeMedications.printLabels2col', '2 Columns (larger labels)')}</SelectItem>
                   <SelectItem value="3">{t('dischargeMedications.printLabels3col', '3 Columns (smaller labels)')}</SelectItem>
+                  <SelectItem value="label62">{t('dischargeMedications.printLabelsLabel62', 'Label Printer (62mm roll)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {printColumns !== "label62" && (
             <div className="space-y-2">
               <Label>{t('dischargeMedications.startingRow', 'Starting Row')}</Label>
               <Input
                 type="number"
                 min={1}
-                max={printColumns === 3 ? 8 : 5}
+                max={printColumns === "3" ? 8 : 5}
                 value={printStartRow}
                 onChange={(e) => {
                   const val = Number(e.target.value);
-                  const maxRow = printColumns === 3 ? 8 : 5;
+                  const maxRow = printColumns === "3" ? 8 : 5;
                   if (val >= 1 && val <= maxRow) setPrintStartRow(val);
                 }}
                 data-testid="input-print-start-row"
@@ -1422,6 +1516,7 @@ export function DischargeMedicationsTab({
                 {t('dischargeMedications.startingRowHint', 'Use row > 1 to skip already-used rows on a partially-used sheet.')}
               </p>
             </div>
+            )}
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setPrintDialogSlot(null)}>
@@ -1429,7 +1524,7 @@ export function DischargeMedicationsTab({
             </Button>
             <Button
               onClick={() => {
-                printLabels(printDialogSlot, printColumns, printStartRow - 1);
+                printLabels(printDialogSlot, printColumns === "label62" ? "label62" : Number(printColumns), printStartRow - 1);
                 setPrintDialogSlot(null);
               }}
               data-testid="button-print-labels-confirm"
