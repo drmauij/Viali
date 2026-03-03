@@ -13,6 +13,8 @@ import {
   patients,
   hospitals,
   users,
+  surgeries,
+  anesthesiaRecords,
 } from "@shared/schema";
 import { importTardocFromExcel, importTardocFromCsv } from "../scripts/importTardoc";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
@@ -435,6 +437,222 @@ router.delete('/api/clinic/:hospitalId/tardoc-templates/:id', isAuthenticated, r
   } catch (error: any) {
     logger.error("Error deleting TARDOC template:", error);
     res.status(500).json({ message: "Failed to delete TARDOC template" });
+  }
+});
+
+// ==================== SURGERY PREFILL & ELIGIBLE SURGERIES ====================
+
+// Pre-fill invoice data from a surgery
+router.get('/api/clinic/:hospitalId/tardoc-prefill/:surgeryId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, surgeryId } = req.params;
+
+    // Fetch surgery
+    const [surgery] = await db
+      .select()
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.id, surgeryId),
+        eq(surgeries.hospitalId, hospitalId)
+      ));
+
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const warnings: string[] = [];
+
+    // Fetch patient (if linked)
+    let patient: typeof patients.$inferSelect | null = null;
+    if (surgery.patientId) {
+      const [p] = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.id, surgery.patientId));
+      patient = p || null;
+    } else {
+      warnings.push("No patient linked to this surgery");
+    }
+
+    // Fetch hospital billing info
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId));
+
+    // Fetch surgeon
+    let surgeon: typeof users.$inferSelect | null = null;
+    if (surgery.surgeonId) {
+      const [s] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, surgery.surgeonId));
+      surgeon = s || null;
+    }
+
+    // Fetch anesthesia record
+    const [anesthesiaRecord] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.surgeryId, surgeryId));
+
+    // Fetch anesthesiologist (if anesthesia record exists)
+    let anesthesiologist: typeof users.$inferSelect | null = null;
+    if (anesthesiaRecord?.providerId) {
+      const [a] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, anesthesiaRecord.providerId));
+      anesthesiologist = a || null;
+    }
+
+    // Check for existing invoice
+    const [existingInvoice] = await db
+      .select({
+        id: tardocInvoices.id,
+        status: tardocInvoices.status,
+      })
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.surgeryId, surgeryId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    // Build warnings for missing critical data
+    if (patient) {
+      if (!patient.healthInsuranceNumber) warnings.push("Patient has no AHV number");
+      if (!patient.insurerGln) warnings.push("Patient has no insurer GLN");
+      if (!patient.insuranceNumber) warnings.push("Patient has no insurance number");
+    }
+
+    if (!hospital?.companyGln) warnings.push("Hospital has no GLN");
+    if (!hospital?.companyZsr) warnings.push("Hospital has no ZSR number");
+    if (!hospital?.defaultTpValue) warnings.push("Hospital has no default TP value");
+    if (!hospital?.companyBankIban) warnings.push("Hospital has no bank IBAN");
+
+    if (surgeon && !surgeon.gln) warnings.push("Surgeon has no GLN");
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (d: Date | null | undefined): string => {
+      if (!d) return "";
+      return d.toISOString().split("T")[0];
+    };
+
+    const caseDate = formatDate(surgery.plannedDate);
+    const caseDateEnd = formatDate(surgery.actualEndTime || surgery.plannedDate);
+
+    const surgeonName = surgeon
+      ? [surgeon.firstName, surgeon.lastName].filter(Boolean).join(" ")
+      : surgery.surgeon || "";
+
+    const anesthesiologistName = anesthesiologist
+      ? [anesthesiologist.firstName, anesthesiologist.lastName].filter(Boolean).join(" ")
+      : "";
+
+    res.json({
+      surgeryId: surgery.id,
+      patientId: surgery.patientId || null,
+      surgeryDescription: surgery.plannedSurgery || "",
+      chopCode: surgery.chopCode || "",
+      surgerySide: surgery.surgerySide || "",
+
+      patientSurname: patient?.surname || "",
+      patientFirstName: patient?.firstName || "",
+      patientBirthday: patient?.birthday || "",
+      patientSex: patient?.sex || "",
+      patientStreet: patient?.street || "",
+      patientPostalCode: patient?.postalCode || "",
+      patientCity: patient?.city || "",
+
+      ahvNumber: patient?.healthInsuranceNumber || "",
+      insurerGln: patient?.insurerGln || "",
+      insurerName: patient?.insuranceProvider || "",
+      insuranceNumber: patient?.insuranceNumber || "",
+
+      caseDate,
+      caseDateEnd,
+
+      billerGln: hospital?.companyGln || "",
+      billerZsr: hospital?.companyZsr || "",
+      tpValue: hospital?.defaultTpValue ? String(hospital.defaultTpValue) : "",
+
+      providerGln: surgeon?.gln || "",
+      providerZsr: surgeon?.zsrNumber || "",
+      surgeonName,
+
+      anesthesiaType: anesthesiaRecord?.anesthesiaType || "",
+      anesthesiaStartTime: anesthesiaRecord?.anesthesiaStartTime?.toISOString() || "",
+      anesthesiaEndTime: anesthesiaRecord?.anesthesiaEndTime?.toISOString() || "",
+      anesthesiologistGln: anesthesiologist?.gln || "",
+      anesthesiologistName,
+      physicalStatus: anesthesiaRecord?.physicalStatus || "",
+      emergencyCase: anesthesiaRecord?.emergencyCase || false,
+
+      treatmentType: "ambulatory",
+      treatmentCanton: "",
+
+      existingInvoice: existingInvoice || null,
+      warnings,
+    });
+  } catch (error: any) {
+    logger.error("Error fetching surgery prefill data:", error);
+    res.status(500).json({ message: "Failed to fetch surgery prefill data" });
+  }
+});
+
+// List surgeries eligible for invoicing
+router.get('/api/clinic/:hospitalId/tardoc-eligible-surgeries', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const search = ((req.query.q as string) || "").trim();
+
+    const conditions = [
+      eq(surgeries.hospitalId, hospitalId),
+      eq(surgeries.status, "completed"),
+      sql`${surgeries.patientId} IS NOT NULL`,
+      eq(surgeries.isArchived, false),
+    ];
+
+    if (search) {
+      conditions.push(
+        sql`(
+          ${patients.surname} ILIKE ${'%' + search + '%'}
+          OR ${patients.firstName} ILIKE ${'%' + search + '%'}
+          OR ${surgeries.plannedSurgery} ILIKE ${'%' + search + '%'}
+          OR ${surgeries.chopCode} ILIKE ${'%' + search + '%'}
+        )`
+      );
+    }
+
+    const results = await db
+      .select({
+        id: surgeries.id,
+        plannedDate: surgeries.plannedDate,
+        plannedSurgery: surgeries.plannedSurgery,
+        chopCode: surgeries.chopCode,
+        surgerySide: surgeries.surgerySide,
+        status: surgeries.status,
+        patientId: surgeries.patientId,
+        patientSurname: patients.surname,
+        patientFirstName: patients.firstName,
+        patientBirthday: patients.birthday,
+        surgeon: surgeries.surgeon,
+        hasInvoice: sql<boolean>`EXISTS (
+          SELECT 1 FROM tardoc_invoices ti
+          WHERE ti.surgery_id = ${surgeries.id}
+          AND ti.status != 'cancelled'
+        )`.as("has_invoice"),
+      })
+      .from(surgeries)
+      .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(...conditions))
+      .orderBy(desc(surgeries.plannedDate))
+      .limit(50);
+
+    res.json(results);
+  } catch (error: any) {
+    logger.error("Error listing eligible surgeries:", error);
+    res.status(500).json({ message: "Failed to list eligible surgeries" });
   }
 });
 
