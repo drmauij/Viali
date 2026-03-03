@@ -31,6 +31,7 @@ interface SurgerySummaryDialogProps {
   onOpenSurgeryDocumentation?: () => void;
   onOpenSurgeryPreOp?: () => void;
   onEditPatient?: () => void;
+  onOpenExternalRequest?: () => void;
   activeModule?: Module;
 }
 
@@ -44,6 +45,7 @@ export default function SurgerySummaryDialog({
   onOpenSurgeryDocumentation,
   onOpenSurgeryPreOp,
   onEditPatient,
+  onOpenExternalRequest,
   activeModule,
 }: SurgerySummaryDialogProps) {
   const { t, i18n } = useTranslation();
@@ -524,18 +526,18 @@ export default function SurgerySummaryDialog({
           </div>}
 
           {/* External Request Link */}
-          {surgery.externalSurgeryRequestId && (
-            <Link
-              href={`/${activeModule === 'surgery' ? 'surgery' : 'anesthesia'}/op?openRequests=true`}
-              onClick={() => onOpenChange(false)}
+          {surgery.externalSurgeryRequestId && onOpenExternalRequest && (
+            <button
+              onClick={() => {
+                onOpenChange(false);
+                onOpenExternalRequest();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+              data-testid="link-external-request"
             >
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
-                data-testid="link-external-request"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span className="font-medium">{t('anesthesia.surgerySummary.externalRequest', 'Externe Anfrage')}</span>
-              </div>
-            </Link>
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span className="font-medium">{t('anesthesia.surgerySummary.externalRequest', 'Externe Anfrage')}</span>
+            </button>
           )}
 
           {/* Action Cards */}

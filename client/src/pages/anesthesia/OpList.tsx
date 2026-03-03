@@ -589,6 +589,7 @@ export default function OpList() {
           onOpenSurgeryDocumentation={handleOpenSurgeryDocumentation}
           onOpenSurgeryPreOp={handleOpenSurgeryPreOp}
           onEditPatient={handleEditPatient}
+          onOpenExternalRequest={() => setRequestsPanelOpen(true)}
           activeModule={activeModule}
         />
       )}
