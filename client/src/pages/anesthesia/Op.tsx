@@ -2440,7 +2440,8 @@ export default function Op() {
             <>
               {/* Intraoperative Tab */}
               <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-3 mt-0" data-testid="tab-content-intraop">
-                {/* Surgery Times O1/O2 */}
+                {/* Surgery Times O1/O2 — only for LA surgeries (noPreOpRequired) */}
+                {surgery?.noPreOpRequired && (
                 <Card>
                   <CardHeader className="py-3">
                     <CardTitle className="flex items-center gap-2">
@@ -2534,6 +2535,7 @@ export default function Op() {
                     )}
                   </CardContent>
                 </Card>
+                )}
 
                 <Card>
                   <CardHeader className="py-3">
