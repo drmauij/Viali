@@ -51,6 +51,9 @@ export const users = pgTable("users", {
   briefSignature: text("brief_signature"), // Multi-line professional signature block for discharge briefs
   adminNotes: text("admin_notes"),
   kioskPinHash: varchar("kiosk_pin_hash"), // Hashed 4-digit PIN for public worktime kiosk
+  // TARDOC billing identifiers
+  gln: varchar("gln"), // 13-digit Global Location Number (provider identification)
+  zsrNumber: varchar("zsr_number"), // ZSR number for Swiss medical billing
   archivedAt: timestamp("archived_at"), // Soft delete - archived users are hidden from lists but preserved for audit
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -83,6 +86,12 @@ export const hospitals = pgTable("hospitals", {
   companyFax: varchar("company_fax"),
   companyEmail: varchar("company_email"),
   companyLogoUrl: varchar("company_logo_url"),
+  // TARDOC billing identifiers
+  companyGln: varchar("company_gln"), // 13-digit GLN for the facility
+  companyZsr: varchar("company_zsr"), // ZSR number for Swiss billing
+  defaultTpValue: decimal("default_tp_value", { precision: 6, scale: 4 }), // Default tax point value in CHF (e.g., 1.0000)
+  companyBankIban: varchar("company_bank_iban"), // IBAN for QR-bill on Tiers Garant invoices
+  companyBankName: varchar("company_bank_name"), // Bank name for payment details
   questionnaireToken: varchar("questionnaire_token").unique(),
   contractToken: varchar("contract_token").unique(), // Token for public contract form links
   externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
@@ -786,7 +795,8 @@ export const patients = pgTable("patients", {
   insuranceProvider: varchar("insurance_provider"),
   insuranceNumber: varchar("insurance_number"),
   healthInsuranceNumber: varchar("health_insurance_number"), // Swiss AHV/Versichertennummer
-  
+  insurerGln: varchar("insurer_gln"), // Insurance company GLN for TARDOC XML invoicing
+
   // Identity & Insurance Card Images
   idCardFrontUrl: varchar("id_card_front_url"),
   idCardBackUrl: varchar("id_card_back_url"),
@@ -5583,3 +5593,208 @@ export const insertStaffMergeSchema = createInsertSchema(staffMerges).omit({
 
 export type StaffMerge = typeof staffMerges.$inferSelect;
 export type InsertStaffMerge = z.infer<typeof insertStaffMergeSchema>;
+
+// ========== TARDOC INSURANCE INVOICING ==========
+// Swiss TARDOC tariff system for insurance billing (KVG/UVG/IVG/MVG)
+
+// TARDOC Catalog — TARDOC code reference data (modeled on chopProcedures)
+export const tardocCatalog = pgTable("tardoc_catalog", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull().unique(), // TARDOC code e.g., "00.0010"
+  descriptionDe: text("description_de").notNull(), // German description
+  descriptionFr: text("description_fr"), // French description
+  chapter: varchar("chapter"), // Main chapter/category code
+  chapterDescription: text("chapter_description"), // Chapter description
+  taxPoints: decimal("tax_points", { precision: 10, scale: 2 }), // Total tax points
+  medicalInterpretation: decimal("medical_interpretation", { precision: 10, scale: 2 }), // AL (Ärztliche Leistung) tax points
+  technicalInterpretation: decimal("technical_interpretation", { precision: 10, scale: 2 }), // TL (Technische Leistung) tax points
+  durationMinutes: integer("duration_minutes"), // Reference duration
+  sideCode: varchar("side_code"), // "N"=none, "L"=left, "R"=right, "B"=both
+  validFrom: date("valid_from"), // Validity start date
+  validTo: date("valid_to"), // Validity end date
+  version: varchar("version").default("1.3.2").notNull(), // TARDOC version
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_tardoc_catalog_code").on(table.code),
+  index("idx_tardoc_catalog_description").using("gin", sql`to_tsvector('german', ${table.descriptionDe})`),
+]);
+
+export const insertTardocCatalogSchema = createInsertSchema(tardocCatalog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TardocCatalogEntry = typeof tardocCatalog.$inferSelect;
+export type InsertTardocCatalogEntry = z.infer<typeof insertTardocCatalogSchema>;
+
+// TARDOC Service Mappings — Admin default mappings (clinic service → TARDOC codes)
+export const tardocServiceMappings = pgTable("tardoc_service_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  clinicServiceId: varchar("clinic_service_id").notNull().references(() => clinicServices.id, { onDelete: 'cascade' }),
+  tardocCode: varchar("tardoc_code").notNull(), // TARDOC code (not FK — catalog can be reimported)
+  taxPoints: decimal("tax_points", { precision: 10, scale: 2 }),
+  scalingFactor: decimal("scaling_factor", { precision: 5, scale: 2 }).default("1.00"),
+  sideCode: varchar("side_code"), // Override side code per mapping
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_tardoc_mappings_hospital").on(table.hospitalId),
+  index("idx_tardoc_mappings_service").on(table.clinicServiceId),
+  unique("uq_tardoc_mapping").on(table.hospitalId, table.clinicServiceId, table.tardocCode),
+]);
+
+export const insertTardocServiceMappingSchema = createInsertSchema(tardocServiceMappings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TardocServiceMapping = typeof tardocServiceMappings.$inferSelect;
+export type InsertTardocServiceMapping = z.infer<typeof insertTardocServiceMappingSchema>;
+
+// TARDOC Invoices — Insurance invoice header
+export const tardocInvoices = pgTable("tardoc_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  invoiceNumber: integer("invoice_number").notNull(), // Auto-increment per hospital
+  patientId: varchar("patient_id").references(() => patients.id),
+  surgeryId: varchar("surgery_id").references(() => surgeries.id), // Optional link to surgery
+
+  // Billing model
+  billingModel: varchar("billing_model", { enum: ["TG", "TP"] }).notNull(), // Tiers Garant / Tiers Payant
+  treatmentType: varchar("treatment_type").default("ambulatory"), // ambulatory / stationary
+  treatmentReason: varchar("treatment_reason").default("disease"), // disease / accident / maternity / prevention
+  lawType: varchar("law_type", { enum: ["KVG", "UVG", "IVG", "MVG", "VVG"] }).notNull(), // Swiss insurance law
+
+  // Case details
+  caseNumber: varchar("case_number"), // External case reference
+  caseDate: date("case_date"), // Case/treatment start date
+  caseDateEnd: date("case_date_end"), // Case/treatment end date
+  treatmentCanton: varchar("treatment_canton"), // Canton of treatment (e.g., "ZH")
+
+  // Provider identification
+  billerGln: varchar("biller_gln"), // Billing entity GLN (usually hospital)
+  billerZsr: varchar("biller_zsr"), // Billing entity ZSR
+  providerGln: varchar("provider_gln"), // Service provider GLN (hospital)
+  providerZsr: varchar("provider_zsr"), // Service provider ZSR
+  referringPhysicianGln: varchar("referring_physician_gln"), // Zuweiser GLN
+
+  // Insurance
+  insurerGln: varchar("insurer_gln"), // Insurance company GLN
+  insurerName: varchar("insurer_name"), // Insurance company name
+  insuranceNumber: varchar("insurance_number"), // Policy number
+  ahvNumber: varchar("ahv_number"), // AHV/OASI number (Swiss social security)
+
+  // Patient snapshot (frozen at invoice time)
+  patientSurname: varchar("patient_surname"),
+  patientFirstName: varchar("patient_first_name"),
+  patientBirthday: varchar("patient_birthday"), // YYYY-MM-DD
+  patientSex: varchar("patient_sex", { enum: ["M", "F", "O"] }),
+  patientStreet: varchar("patient_street"),
+  patientPostalCode: varchar("patient_postal_code"),
+  patientCity: varchar("patient_city"),
+
+  // Financials
+  tpValue: decimal("tp_value", { precision: 6, scale: 4 }), // Tax point value in CHF
+  subtotalTp: decimal("subtotal_tp", { precision: 10, scale: 2 }), // Total tax points
+  subtotalChf: decimal("subtotal_chf", { precision: 10, scale: 2 }), // Subtotal in CHF
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).default("0"),
+  totalChf: decimal("total_chf", { precision: 10, scale: 2 }), // Grand total in CHF
+
+  // Status tracking
+  status: varchar("status", {
+    enum: ["draft", "validated", "exported", "sent", "paid", "rejected", "cancelled"]
+  }).default("draft").notNull(),
+
+  // Export tracking
+  xmlExportedAt: timestamp("xml_exported_at"),
+  pdfExportedAt: timestamp("pdf_exported_at"),
+
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_tardoc_invoices_hospital").on(table.hospitalId),
+  index("idx_tardoc_invoices_patient").on(table.patientId),
+  index("idx_tardoc_invoices_status").on(table.status),
+  index("idx_tardoc_invoices_surgery").on(table.surgeryId),
+  index("idx_tardoc_invoices_date").on(table.createdAt),
+]);
+
+export const insertTardocInvoiceSchema = createInsertSchema(tardocInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  xmlExportedAt: true,
+  pdfExportedAt: true,
+});
+
+export type TardocInvoice = typeof tardocInvoices.$inferSelect;
+export type InsertTardocInvoice = z.infer<typeof insertTardocInvoiceSchema>;
+
+// TARDOC Invoice Items — Service lines
+export const tardocInvoiceItems = pgTable("tardoc_invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => tardocInvoices.id, { onDelete: 'cascade' }),
+  tardocCode: varchar("tardoc_code").notNull(), // TARDOC code
+  description: text("description").notNull(), // Service description (editable copy)
+  treatmentDate: date("treatment_date").notNull(), // Date of service
+  session: integer("session").default(1), // Session number
+  quantity: integer("quantity").notNull().default(1), // Number of units
+  taxPoints: decimal("tax_points", { precision: 10, scale: 2 }).notNull(), // Tax points per unit
+  tpValue: decimal("tp_value", { precision: 6, scale: 4 }).notNull(), // TP value used for this line
+  scalingFactor: decimal("scaling_factor", { precision: 5, scale: 2 }).default("1.00"), // Scaling factor
+  sideCode: varchar("side_code"), // "N"=none, "L"=left, "R"=right, "B"=both
+  providerGln: varchar("provider_gln"), // Performing doctor GLN (per line)
+  // Calculated amounts
+  amountAl: decimal("amount_al", { precision: 10, scale: 2 }), // AL (medical) amount
+  amountTl: decimal("amount_tl", { precision: 10, scale: 2 }), // TL (technical) amount
+  amountChf: decimal("amount_chf", { precision: 10, scale: 2 }).notNull(), // Total amount in CHF
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).default("0"),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).default("0"),
+  sortOrder: integer("sort_order").default(0),
+}, (table) => [
+  index("idx_tardoc_invoice_items_invoice").on(table.invoiceId),
+]);
+
+export const insertTardocInvoiceItemSchema = createInsertSchema(tardocInvoiceItems).omit({
+  id: true,
+});
+
+export type TardocInvoiceItem = typeof tardocInvoiceItems.$inferSelect;
+export type InsertTardocInvoiceItem = z.infer<typeof insertTardocInvoiceItemSchema>;
+
+// TARDOC Invoice Templates — reusable line item sets for common procedures
+export const tardocInvoiceTemplates = pgTable("tardoc_invoice_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  billingModel: varchar("billing_model", { enum: ["TG", "TP"] }),
+  lawType: varchar("law_type", { enum: ["KVG", "UVG", "IVG", "MVG", "VVG"] }),
+  treatmentType: varchar("treatment_type").default("ambulatory"),
+  treatmentReason: varchar("treatment_reason").default("disease"),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_tardoc_templates_hospital").on(table.hospitalId),
+]);
+
+export const tardocInvoiceTemplateItems = pgTable("tardoc_invoice_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => tardocInvoiceTemplates.id, { onDelete: 'cascade' }),
+  tardocCode: varchar("tardoc_code").notNull(),
+  description: varchar("description").notNull(),
+  taxPoints: decimal("tax_points", { precision: 10, scale: 2 }),
+  scalingFactor: decimal("scaling_factor", { precision: 5, scale: 2 }).default("1.00"),
+  sideCode: varchar("side_code"),
+  quantity: integer("quantity").default(1).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+}, (table) => [
+  index("idx_tardoc_template_items_template").on(table.templateId),
+]);
+
+// Types
+export type TardocInvoiceTemplate = typeof tardocInvoiceTemplates.$inferSelect;
+export type TardocInvoiceTemplateItem = typeof tardocInvoiceTemplateItems.$inferSelect;
