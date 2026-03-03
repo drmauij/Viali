@@ -162,14 +162,14 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogHeader className="shrink-0 bg-background border-b px-6 py-4">
           <DialogTitle>
             {t('surgery.externalRequests.scheduleSurgery')}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
           {/* Patient Info or Slot Reservation banner */}
           {request.isReservationOnly ? (
             <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 p-3 rounded-lg space-y-1">
@@ -380,7 +380,7 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 bg-background border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-schedule-cancel">
             {t('common.cancel')}
           </Button>
