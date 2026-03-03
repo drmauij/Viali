@@ -559,7 +559,7 @@ router.get('/api/external-surgery-requests/:id/surgeon-match', isAuthenticated, 
 router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon } = req.body;
+    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon, surgeryDurationMinutes } = req.body;
     const userId = req.user.id;
     
     const request = await storage.getExternalSurgeryRequest(id);
@@ -690,11 +690,18 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       }
     }
     
+    // Calculate actualEndTime from duration (used by calendar for block size)
+    const durationMin = surgeryDurationMinutes || request.surgeryDurationMinutes;
+    const plannedDateObj = new Date(plannedDate);
+    const actualEndTime = durationMin
+      ? new Date(plannedDateObj.getTime() + durationMin * 60 * 1000)
+      : undefined;
+
     const surgery = await storage.createSurgery({
       hospitalId: request.hospitalId,
       patientId: patientId || null,
       surgeryRoomId: surgeryRoomId || null,
-      plannedDate: new Date(plannedDate),
+      plannedDate: plannedDateObj,
       plannedSurgery: request.surgeryName || null,
       surgeon: surgeonFullName,
       surgeonId: surgeonUserId,
@@ -704,6 +711,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       patientPosition: request.patientPosition || null,
       leftArmPosition: request.leftArmPosition || null,
       rightArmPosition: request.rightArmPosition || null,
+      actualEndTime,
     });
     
     await storage.updateExternalSurgeryRequest(id, {

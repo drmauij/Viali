@@ -127,6 +127,7 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
       return apiRequest('POST', `/api/external-surgery-requests/${request.id}/schedule`, {
         plannedDate: dateTime.toISOString(),
         surgeryRoomId: surgeryRoomId || null,
+        surgeryDurationMinutes: request.surgeryDurationMinutes || null,
         sendConfirmation,
         ...(surgeonId ? { surgeonId } : {}),
         ...(createNew ? { createNewSurgeon: true } : {}),

@@ -1602,11 +1602,13 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               data-testid="calendar-main"
               dragFromOutsideItem={() => {
                 if (!draggedRequest) return undefined as unknown as CalendarEvent;
+                const now = new Date();
+                const durationMs = (draggedRequest.surgeryDurationMinutes || 60) * 60 * 1000;
                 return {
                   id: 'ext-req',
                   title: draggedRequest.surgeryName || 'Request',
-                  start: new Date(),
-                  end: new Date(),
+                  start: now,
+                  end: new Date(now.getTime() + durationMs),
                   surgeryId: 'ext-req',
                   patientId: null,
                   plannedSurgery: draggedRequest.surgeryName || '',
