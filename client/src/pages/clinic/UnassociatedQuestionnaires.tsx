@@ -1,21 +1,35 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Search, 
@@ -30,7 +44,8 @@ import {
   Copy,
   Check,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronsUpDown
 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -52,14 +67,16 @@ export default function UnassociatedQuestionnaires() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("with-matches");
   const [searchTerm, setSearchTerm] = useState("");
   const [associateDialogOpen, setAssociateDialogOpen] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<ResponseWithMatch | null>(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [isPatientPopoverOpen, setIsPatientPopoverOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
+  const [selectedSex, setSelectedSex] = useState("");
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -258,8 +275,52 @@ export default function UnassociatedQuestionnaires() {
 
   const handleCreatePatient = () => {
     if (!selectedResponse) return;
-    setLocation(`/clinic/patients?create=true&firstName=${encodeURIComponent(selectedResponse.patientFirstName || '')}&lastName=${encodeURIComponent(selectedResponse.patientLastName || '')}&birthday=${encodeURIComponent(selectedResponse.patientBirthday || '')}&email=${encodeURIComponent(selectedResponse.patientEmail || '')}`);
+    setSelectedSex("");
+    setConfirmCreateOpen(true);
   };
+
+  const createAndLinkMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedResponse || !selectedSex) throw new Error("Missing data");
+
+      const patientRes = await apiRequest('POST', '/api/patients', {
+        hospitalId,
+        firstName: (selectedResponse.patientFirstName || '').trim(),
+        surname: (selectedResponse.patientLastName || '').trim(),
+        birthday: selectedResponse.patientBirthday || '',
+        sex: selectedSex,
+        email: (selectedResponse.patientEmail || '').trim() || undefined,
+        phone: (selectedResponse.patientPhone || '').trim() || undefined,
+      });
+      const newPatient = await patientRes.json() as Patient;
+
+      await apiRequest('POST', `/api/questionnaire/responses/${selectedResponse.id}/associate`, {
+        patientId: newPatient.id,
+      });
+
+      return newPatient;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/unassociated', hospitalId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', hospitalId] });
+      toast({
+        title: t('questionnaire.unassociated.createAndLinkSuccess', 'Patient created and linked'),
+        description: t('questionnaire.unassociated.createAndLinkSuccessDesc', 'The patient has been created and the questionnaire linked successfully.'),
+      });
+      setConfirmCreateOpen(false);
+      setAssociateDialogOpen(false);
+      setSelectedResponse(null);
+      setSelectedPatient(null);
+      setPatientSearchTerm("");
+    },
+    onError: () => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('questionnaire.unassociated.createAndLinkError', 'Failed to create patient or link questionnaire.'),
+        variant: 'destructive',
+      });
+    },
+  });
 
   if (!hospitalId) {
     return (
@@ -552,44 +613,21 @@ export default function UnassociatedQuestionnaires() {
                 </CardContent>
               </Card>
 
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('questionnaire.unassociated.searchPatients', 'Search patients...')}
-                    value={patientSearchTerm}
-                    onChange={(e) => setPatientSearchTerm(e.target.value)}
-                    className="pl-10"
-                    data-testid="input-search-patients-associate"
-                  />
-                </div>
-
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredPatients.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                      {t('questionnaire.unassociated.noPatientsFound', 'No patients found')}
-                    </div>
-                  ) : (
-                    filteredPatients.slice(0, 10).map((patient) => (
-                      <div
-                        key={patient.id}
-                        className={`p-3 cursor-pointer hover:bg-accent border-b last:border-b-0 ${
-                          selectedPatient?.id === patient.id ? 'bg-primary/10' : ''
-                        }`}
-                        onClick={() => setSelectedPatient(patient)}
-                        data-testid={`patient-option-${patient.id}`}
-                      >
-                        <div className="font-medium">
-                          {patient.surname}, {patient.firstName}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatDate(patient.birthday)} • {patient.patientNumber}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <Card>
+                <CardContent className="pt-4 pb-4 space-y-2">
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleCreatePatient}
+                    data-testid="button-create-new-patient"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    {t('questionnaire.unassociated.createPatientAndLink', 'Create Patient & Link')}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('questionnaire.unassociated.createPatientAndLinkHint', 'Creates a new patient with the questionnaire data and links it automatically.')}
+                  </p>
+                </CardContent>
+              </Card>
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 border-t" />
@@ -597,15 +635,71 @@ export default function UnassociatedQuestionnaires() {
                 <div className="flex-1 border-t" />
               </div>
 
-              <Button 
-                variant="outline" 
-                className="w-full gap-2" 
-                onClick={handleCreatePatient}
-                data-testid="button-create-new-patient"
-              >
-                <UserPlus className="h-4 w-4" />
-                {t('questionnaire.unassociated.createNewPatient', 'Create New Patient')}
-              </Button>
+              <Card>
+                <CardContent className="pt-4 pb-4 space-y-2">
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('questionnaire.unassociated.linkExistingHint', 'Link to an existing patient instead')}
+                  </p>
+                  <Popover open={isPatientPopoverOpen} onOpenChange={setIsPatientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                        data-testid="input-search-patients-associate"
+                      >
+                        {selectedPatient ? (
+                          <span>{selectedPatient.surname}, {selectedPatient.firstName}</span>
+                        ) : (
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Search className="h-4 w-4" />
+                            {t('questionnaire.unassociated.searchPatients', 'Search patients...')}
+                          </span>
+                        )}
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder={t('questionnaire.unassociated.searchPatients', 'Search patients...')}
+                          value={patientSearchTerm}
+                          onValueChange={setPatientSearchTerm}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {t('questionnaire.unassociated.noPatientsFound', 'No patients found')}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {filteredPatients.slice(0, 10).map((patient) => (
+                              <CommandItem
+                                key={patient.id}
+                                value={`${patient.surname} ${patient.firstName} ${patient.patientNumber}`}
+                                onSelect={() => {
+                                  setSelectedPatient(patient);
+                                  setIsPatientPopoverOpen(false);
+                                  setPatientSearchTerm("");
+                                }}
+                                data-testid={`patient-option-${patient.id}`}
+                              >
+                                <div>
+                                  <div className="font-medium">{patient.surname}, {patient.firstName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatDate(patient.birthday)} &bull; {patient.patientNumber}
+                                  </div>
+                                </div>
+                                {selectedPatient?.id === patient.id && (
+                                  <Check className="ml-auto h-4 w-4" />
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -628,6 +722,95 @@ export default function UnassociatedQuestionnaires() {
                 <Link2 className="h-4 w-4 mr-2" />
               )}
               {t('questionnaire.unassociated.linkButton', 'Link to Patient')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmCreateOpen} onOpenChange={setConfirmCreateOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-confirm-create-patient">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              {t('questionnaire.unassociated.confirmCreateTitle', 'Create Patient & Link')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('questionnaire.unassociated.confirmCreateDesc', 'A new patient will be created with this data and the questionnaire will be automatically linked.')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedResponse && (
+            <div className="space-y-4">
+              <Card className="bg-muted/50">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.patients.firstname')}:</span>
+                      <p className="font-medium">{selectedResponse.patientFirstName || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.patients.surname')}:</span>
+                      <p className="font-medium">{selectedResponse.patientLastName || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.patients.dateOfBirth')}:</span>
+                      <p className="font-medium">{selectedResponse.patientBirthday ? formatDate(selectedResponse.patientBirthday) : '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Email:</span>
+                      <p className="font-medium">{selectedResponse.patientEmail || '-'}</p>
+                    </div>
+                    {selectedResponse.patientPhone && (
+                      <div>
+                        <span className="text-muted-foreground">{t('anesthesia.patients.phone', 'Phone')}:</span>
+                        <p className="font-medium">{selectedResponse.patientPhone}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  {t('anesthesia.patients.sex', 'Sex')} <span className="text-destructive">*</span>
+                </Label>
+                <RadioGroup value={selectedSex} onValueChange={setSelectedSex} className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="M" id="sex-m" />
+                    <Label htmlFor="sex-m" className="font-normal">{t('anesthesia.patients.male', 'Male')}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="F" id="sex-f" />
+                    <Label htmlFor="sex-f" className="font-normal">{t('anesthesia.patients.female', 'Female')}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="O" id="sex-o" />
+                    <Label htmlFor="sex-o" className="font-normal">{t('anesthesia.patients.other', 'Other')}</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmCreateOpen(false)}
+              data-testid="button-cancel-create"
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              onClick={() => createAndLinkMutation.mutate()}
+              disabled={!selectedSex || createAndLinkMutation.isPending}
+              data-testid="button-confirm-create-and-link"
+            >
+              {createAndLinkMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <UserPlus className="h-4 w-4 mr-2" />
+              )}
+              {t('questionnaire.unassociated.createAndLink', 'Create & Link')}
             </Button>
           </DialogFooter>
         </DialogContent>

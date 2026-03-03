@@ -5873,7 +5873,10 @@
       "tabWithMatches": "Suggested Matches",
       "tabNoMatches": "No Match Found",
       "matchedDescription": "These questionnaires have been automatically matched to existing patients. Review and confirm the associations.",
-      "unmatchedDescription": "These questionnaires could not be matched to any existing patient. You may need to create a new patient record first."
+      "unmatchedDescription": "These questionnaires could not be matched to any existing patient. You may need to create a new patient record first.",
+      "createPatientAndLink": "Create Patient & Link",
+      "createPatientAndLinkHint": "Creates a new patient with the questionnaire data and links it automatically.",
+      "linkExistingHint": "Link to an existing patient instead"
     },
     "review": {
       "title": "Questionnaire Reviews",

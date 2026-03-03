@@ -5974,7 +5974,10 @@
       "tabWithMatches": "Vorgeschlagene Treffer",
       "tabNoMatches": "Kein Treffer",
       "matchedDescription": "Diese Fragebögen wurden automatisch vorhandenen Patienten zugeordnet. Überprüfen und bestätigen Sie die Zuordnungen.",
-      "unmatchedDescription": "Diese Fragebögen konnten keinem bestehenden Patienten zugeordnet werden. Möglicherweise muss zuerst ein neuer Patientendatensatz erstellt werden."
+      "unmatchedDescription": "Diese Fragebögen konnten keinem bestehenden Patienten zugeordnet werden. Möglicherweise muss zuerst ein neuer Patientendatensatz erstellt werden.",
+      "createPatientAndLink": "Patient erstellen & verknüpfen",
+      "createPatientAndLinkHint": "Erstellt einen neuen Patienten mit den Fragebogendaten und verknüpft ihn automatisch.",
+      "linkExistingHint": "Stattdessen mit bestehendem Patienten verknüpfen"
     },
     "review": {
       "title": "Fragebogen-Überprüfungen",
