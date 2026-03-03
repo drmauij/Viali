@@ -31,7 +31,6 @@ interface SurgerySummaryDialogProps {
   onOpenSurgeryDocumentation?: () => void;
   onOpenSurgeryPreOp?: () => void;
   onEditPatient?: () => void;
-  onOpenExternalRequest?: () => void;
   activeModule?: Module;
 }
 
@@ -45,7 +44,6 @@ export default function SurgerySummaryDialog({
   onOpenSurgeryDocumentation,
   onOpenSurgeryPreOp,
   onEditPatient,
-  onOpenExternalRequest,
   activeModule,
 }: SurgerySummaryDialogProps) {
   const { t, i18n } = useTranslation();
@@ -60,6 +58,7 @@ export default function SurgerySummaryDialog({
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [extRequestExpanded, setExtRequestExpanded] = useState(false);
 
   // Reset phone reveal state when dialog opens
   useEffect(() => {
@@ -68,6 +67,7 @@ export default function SurgerySummaryDialog({
       setNotesExpanded(false);
       setNewNoteContent("");
       setShowArchiveConfirm(false);
+      setExtRequestExpanded(false);
     }
   }, [open]);
 
@@ -103,6 +103,11 @@ export default function SurgerySummaryDialog({
   const { data: patient } = useQuery<any>({
     queryKey: [`/api/patients/${surgery?.patientId}`],
     enabled: !!surgery?.patientId && open,
+  });
+
+  const { data: externalRequest } = useQuery<any>({
+    queryKey: [`/api/external-surgery-requests/${surgery?.externalSurgeryRequestId}`],
+    enabled: !!surgery?.externalSurgeryRequestId && open,
   });
 
   const { data: rooms = [] } = useQuery<any[]>({
@@ -525,19 +530,73 @@ export default function SurgerySummaryDialog({
             )}
           </div>}
 
-          {/* External Request Link */}
-          {surgery.externalSurgeryRequestId && onOpenExternalRequest && (
-            <button
-              onClick={() => {
-                onOpenChange(false);
-                onOpenExternalRequest();
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
-              data-testid="link-external-request"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span className="font-medium">{t('anesthesia.surgerySummary.externalRequest', 'Externe Anfrage')}</span>
-            </button>
+          {/* External Request Summary */}
+          {surgery.externalSurgeryRequestId && externalRequest && (
+            <div data-testid="section-external-request">
+              <button
+                onClick={() => setExtRequestExpanded(!extRequestExpanded)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors"
+                data-testid="button-toggle-external-request"
+              >
+                <div className="flex items-center gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                    {t('anesthesia.surgerySummary.externalRequest', 'Externe Anfrage')}
+                  </span>
+                </div>
+                {extRequestExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                )}
+              </button>
+              {extRequestExpanded && (
+                <div className="mt-1 px-3 py-2.5 rounded-b-lg border border-t-0 border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10 text-xs space-y-1.5">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqSurgeon', 'Surgeon')}:</span>{' '}
+                      <span className="font-medium">Dr. {externalRequest.surgeonLastName}, {externalRequest.surgeonFirstName}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqDate', 'Wished Date')}:</span>{' '}
+                      <span className="font-medium">
+                        {formatDate(externalRequest.wishedDate)}
+                        {externalRequest.wishedTimeFrom != null && externalRequest.wishedTimeTo != null && (
+                          <>, {String(Math.floor(externalRequest.wishedTimeFrom / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeFrom % 60).padStart(2, '0')} – {String(Math.floor(externalRequest.wishedTimeTo / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeTo % 60).padStart(2, '0')}</>
+                        )}
+                      </span>
+                    </div>
+                    {externalRequest.surgeonEmail && (
+                      <div>
+                        <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqEmail', 'Email')}:</span>{' '}
+                        <span className="font-medium">{externalRequest.surgeonEmail}</span>
+                      </div>
+                    )}
+                    {externalRequest.surgeonPhone && (
+                      <div>
+                        <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqPhone', 'Phone')}:</span>{' '}
+                        <span className="font-medium">{externalRequest.surgeonPhone}</span>
+                      </div>
+                    )}
+                  </div>
+                  {externalRequest.anesthesiaNotes && (
+                    <div className="pt-1 border-t border-amber-200/50 dark:border-amber-800/50">
+                      <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqAnesthesiaNotes', 'Anesthesia Notes')}:</span>{' '}
+                      <span className="font-medium">{externalRequest.anesthesiaNotes}</span>
+                    </div>
+                  )}
+                  {externalRequest.surgeryNotes && (
+                    <div className="pt-1 border-t border-amber-200/50 dark:border-amber-800/50">
+                      <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqSurgeryNotes', 'Surgery Notes')}:</span>{' '}
+                      <span className="font-medium">{externalRequest.surgeryNotes}</span>
+                    </div>
+                  )}
+                  <div className="pt-1 border-t border-amber-200/50 dark:border-amber-800/50 text-muted-foreground">
+                    {t('anesthesia.surgerySummary.extReqSubmitted', 'Submitted')}: {formatDateTime(externalRequest.createdAt)}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Action Cards */}
