@@ -24,6 +24,7 @@ import dischargeBriefsRouter from "./dischargeBriefs";
 import worktimeLogsRouter from "./worktimeLogs";
 import kioskRouter from "./kiosk";
 import cardReaderRouter from "./cardReader";
+import tardocRouter from "./tardoc";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -51,4 +52,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(worktimeLogsRouter);
   app.use(kioskRouter);
   app.use(cardReaderRouter);
+  app.use(tardocRouter);
 }

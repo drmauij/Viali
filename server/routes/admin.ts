@@ -21,6 +21,12 @@ const updateHospitalSchema = z.object({
   companyFax: z.string().optional(),
   companyEmail: z.string().email().optional().or(z.literal('')),
   companyLogoUrl: z.string().optional(),
+  // TARDOC billing identifiers
+  companyGln: z.string().optional(),
+  companyZsr: z.string().optional(),
+  defaultTpValue: z.string().optional(),
+  companyBankIban: z.string().optional(),
+  companyBankName: z.string().optional(),
   externalSurgeryNotificationEmail: z.string().email().optional().or(z.literal('')),
   questionnaireDisabled: z.boolean().optional(),
   preSurgeryReminderDisabled: z.boolean().optional(),
@@ -715,7 +721,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, phone, adminNotes, weeklyTargetHours, overtimeBalanceMinutes, hospitalId } = req.body;
+    const { firstName, lastName, phone, adminNotes, weeklyTargetHours, overtimeBalanceMinutes, hospitalId, gln, zsrNumber } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
@@ -755,6 +761,12 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
     }
     if (overtimeBalanceMinutes !== undefined) {
       updateData.overtimeBalanceMinutes = overtimeBalanceMinutes === null || overtimeBalanceMinutes === '' ? null : parseInt(overtimeBalanceMinutes);
+    }
+    if (gln !== undefined) {
+      updateData.gln = gln || null;
+    }
+    if (zsrNumber !== undefined) {
+      updateData.zsrNumber = zsrNumber || null;
     }
     await storage.updateUser(userId, updateData);
     res.json({ success: true });

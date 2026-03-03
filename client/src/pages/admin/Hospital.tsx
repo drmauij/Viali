@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -96,6 +96,11 @@ export default function Hospital() {
     companyPhone: "",
     companyEmail: "",
     companyLogoUrl: "",
+    companyGln: "",
+    companyZsr: "",
+    defaultTpValue: "",
+    companyBankIban: "",
+    companyBankName: "",
     runwayTargetDays: 14,
     runwayWarningDays: 7,
     runwayLookbackDays: 30,
@@ -726,6 +731,11 @@ export default function Hospital() {
         companyPhone: fullHospitalData.companyPhone || "",
         companyEmail: fullHospitalData.companyEmail || "",
         companyLogoUrl: fullHospitalData.companyLogoUrl || "",
+        companyGln: fullHospitalData.companyGln || "",
+        companyZsr: fullHospitalData.companyZsr || "",
+        defaultTpValue: fullHospitalData.defaultTpValue || "",
+        companyBankIban: fullHospitalData.companyBankIban || "",
+        companyBankName: fullHospitalData.companyBankName || "",
         runwayTargetDays: fullHospitalData.runwayTargetDays ?? 14,
         runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
@@ -1456,6 +1466,69 @@ export default function Hospital() {
                           />
                         </div>
                       </div>
+
+                      {/* TARDOC Billing Identifiers */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-sm font-medium mb-3">{t("admin.tardocBilling", "TARDOC / Insurance Billing")}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div>
+                            <Label htmlFor="company-gln-inline">GLN</Label>
+                            <Input
+                              id="company-gln-inline"
+                              value={hospitalForm.companyGln}
+                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyGln: e.target.value }))}
+                              placeholder="7601000000000"
+                              maxLength={13}
+                              data-testid="input-company-gln-inline"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">13-digit Global Location Number</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="company-zsr-inline">ZSR</Label>
+                            <Input
+                              id="company-zsr-inline"
+                              value={hospitalForm.companyZsr}
+                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyZsr: e.target.value }))}
+                              placeholder="Z123456"
+                              data-testid="input-company-zsr-inline"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-3">
+                          <div>
+                            <Label htmlFor="default-tp-value-inline">{t("admin.defaultTpValue", "Default TP Value")}</Label>
+                            <Input
+                              id="default-tp-value-inline"
+                              value={hospitalForm.defaultTpValue}
+                              onChange={(e) => setHospitalForm(prev => ({ ...prev, defaultTpValue: e.target.value }))}
+                              placeholder="1.0000"
+                              data-testid="input-default-tp-value-inline"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">CHF per tax point</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="bank-iban-inline">IBAN</Label>
+                            <Input
+                              id="bank-iban-inline"
+                              value={hospitalForm.companyBankIban}
+                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyBankIban: e.target.value }))}
+                              placeholder="CH93 0076 2011 6238 5295 7"
+                              data-testid="input-bank-iban-inline"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t("admin.ibanHint", "For QR-bill on Tiers Garant invoices")}</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="bank-name-inline">{t("admin.bankName", "Bank")}</Label>
+                            <Input
+                              id="bank-name-inline"
+                              value={hospitalForm.companyBankName}
+                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyBankName: e.target.value }))}
+                              placeholder="UBS Switzerland AG"
+                              data-testid="input-bank-name-inline"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1971,6 +2044,9 @@ export default function Hospital() {
 
           {/* CHOP Procedures Import */}
           <ChopIntegrationCard />
+
+          {/* TARDOC Catalog Import */}
+          <TardocIntegrationCard hospitalId={activeHospital?.id} />
 
           {/* Reset Lists Card */}
           <div className="bg-card border border-destructive/30 rounded-lg p-4">
@@ -4595,6 +4671,128 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// TARDOC Catalog Integration Card
+function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Check TARDOC import status
+  const { data: tardocStatus, isLoading: tardocStatusLoading, refetch: refetchTardocStatus } = useQuery<{
+    count: number;
+  }>({
+    queryKey: ['/api/admin/tardoc-status'],
+    retry: false,
+  });
+
+  // TARDOC import mutation (file upload)
+  const importTardocMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // Remove data:...;base64, prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-tardoc`, {
+        fileContent: base64,
+        fileName: file.name,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'TARDOC Import Successful',
+        description: data.message,
+      });
+      refetchTardocStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'TARDOC Import Failed',
+        description: error.message || 'Failed to import TARDOC catalog',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      importTardocMutation.mutate(file);
+    }
+    // Reset input so the same file can be selected again
+    e.target.value = '';
+  };
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">TARDOC 1.3.2 Catalog</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('admin.tardocDescription', 'Swiss tariff codes for insurance billing (Excel upload from ats-tms.ch)')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {tardocStatusLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (tardocStatus?.count ?? 0) > 0 ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600">
+                  {(tardocStatus?.count ?? 0).toLocaleString()} positions
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-yellow-600">
+                  {t('admin.tardocNotImported', 'Not imported')}
+                </span>
+              </>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importTardocMutation.isPending || !hospitalId}
+            size="sm"
+            data-testid="button-import-tardoc"
+          >
+            {importTardocMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t('admin.importing', 'Importing...')}
+              </>
+            ) : (tardocStatus?.count ?? 0) > 0 ? (
+              t('admin.updateCatalog', 'Update Catalog')
+            ) : (
+              t('admin.importTardoc', 'Import TARDOC')
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

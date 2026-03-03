@@ -402,7 +402,7 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null; weeklyTargetHours?: string | null } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null; weeklyTargetHours?: string | null; gln?: string | null; zsrNumber?: string | null } }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
         ...data,
         hospitalId: activeHospital?.id 
@@ -878,6 +878,8 @@ export default function Users() {
           phone: userForm.phone || null,
           adminNotes: editingUserDetails.adminNotes ?? null,
           weeklyTargetHours: editingUserDetails.weeklyTargetHours ?? null,
+          gln: editingUserDetails.gln ?? null,
+          zsrNumber: editingUserDetails.zsrNumber ?? null,
         },
       });
     } catch (error) {
@@ -1560,6 +1562,40 @@ export default function Users() {
                   placeholder={t("admin.phonePlaceholder")}
                   data-testid="input-edit-phone"
                 />
+              </div>
+
+              {/* GLN / ZSR (TARDOC billing) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="edit-gln">GLN</Label>
+                  <Input
+                    id="edit-gln"
+                    value={editingUserDetails?.gln || ""}
+                    onChange={(e) => {
+                      if (editingUserDetails) {
+                        setEditingUserDetails({ ...editingUserDetails, gln: e.target.value || null });
+                      }
+                    }}
+                    placeholder="7601000000000"
+                    maxLength={13}
+                    data-testid="input-edit-gln"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Provider GLN (13 digits)</p>
+                </div>
+                <div>
+                  <Label htmlFor="edit-zsr">ZSR</Label>
+                  <Input
+                    id="edit-zsr"
+                    value={editingUserDetails?.zsrNumber || ""}
+                    onChange={(e) => {
+                      if (editingUserDetails) {
+                        setEditingUserDetails({ ...editingUserDetails, zsrNumber: e.target.value || null });
+                      }
+                    }}
+                    placeholder="Z123456"
+                    data-testid="input-edit-zsr"
+                  />
+                </div>
               </div>
 
               {/* Admin Notes */}
