@@ -531,7 +531,7 @@ export default function SurgerySummaryDialog({
           </div>}
 
           {/* External Request Summary */}
-          {surgery.externalSurgeryRequestId && externalRequest && (
+          {activeModule === 'surgery' && surgery.externalSurgeryRequestId && externalRequest && (
             <div data-testid="section-external-request">
               <button
                 onClick={() => setExtRequestExpanded(!extRequestExpanded)}
@@ -563,6 +563,12 @@ export default function SurgerySummaryDialog({
                         {formatDate(externalRequest.wishedDate)}
                         {externalRequest.wishedTimeFrom != null && externalRequest.wishedTimeTo != null && (
                           <>, {String(Math.floor(externalRequest.wishedTimeFrom / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeFrom % 60).padStart(2, '0')} – {String(Math.floor(externalRequest.wishedTimeTo / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeTo % 60).padStart(2, '0')}</>
+                        )}
+                        {externalRequest.wishedTimeFrom != null && externalRequest.wishedTimeTo == null && (
+                          <>, ab {String(Math.floor(externalRequest.wishedTimeFrom / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeFrom % 60).padStart(2, '0')}</>
+                        )}
+                        {externalRequest.wishedTimeFrom == null && externalRequest.wishedTimeTo != null && (
+                          <>, bis {String(Math.floor(externalRequest.wishedTimeTo / 60)).padStart(2, '0')}:{String(externalRequest.wishedTimeTo % 60).padStart(2, '0')}</>
                         )}
                       </span>
                     </div>
