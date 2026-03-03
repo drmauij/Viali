@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request } from "express";
-import { storage } from "../../storage";
+import { storage, db } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
 import { sendSurgeryNoteMentionEmail } from "../../email";
 import { sendSurgerySummaryEmail } from "../../resend";
@@ -8,7 +8,9 @@ import {
   insertCaseSchema,
   insertSurgerySchema,
   insertSurgeryPreOpAssessmentSchema,
+  externalSurgeryRequests,
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess } from "../../utils";
 import logger from "../../logger";
@@ -221,7 +223,18 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
       }
     }
 
-    res.json({ ...surgery, surgeonPhone });
+    // Reverse lookup: find external surgery request linked to this surgery
+    let externalSurgeryRequestId: string | null = null;
+    const [extReq] = await db
+      .select({ id: externalSurgeryRequests.id })
+      .from(externalSurgeryRequests)
+      .where(eq(externalSurgeryRequests.surgeryId, id))
+      .limit(1);
+    if (extReq) {
+      externalSurgeryRequestId = extReq.id;
+    }
+
+    res.json({ ...surgery, surgeonPhone, externalSurgeryRequestId });
   } catch (error) {
     logger.error("Error fetching surgery:", error);
     res.status(500).json({ message: "Failed to fetch surgery" });

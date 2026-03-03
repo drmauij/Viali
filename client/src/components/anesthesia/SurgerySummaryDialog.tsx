@@ -523,10 +523,25 @@ export default function SurgerySummaryDialog({
             )}
           </div>}
 
+          {/* External Request Link */}
+          {surgery.externalSurgeryRequestId && (
+            <Link
+              href={`/${activeModule === 'surgery' ? 'surgery' : 'anesthesia'}/op?openRequests=true`}
+              onClick={() => onOpenChange(false)}
+            >
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                data-testid="link-external-request"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="font-medium">{t('anesthesia.surgerySummary.externalRequest', 'Externe Anfrage')}</span>
+              </div>
+            </Link>
+          )}
+
           {/* Action Cards */}
           <div className="space-y-3">
             {/* Surgery Data */}
-            <Card 
+            <Card
               className="cursor-pointer hover:bg-accent transition-colors"
               onClick={onEditSurgery}
               data-testid="card-edit-surgery"

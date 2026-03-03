@@ -293,13 +293,27 @@ export async function sendExternalSurgeryRequestNotification(
   surgeonName: string,
   wishedDate: string,
   deepLinkUrl: string,
-  language: 'de' | 'en' = 'en'
+  language: 'de' | 'en' = 'en',
+  wishedTimeFrom?: number | null,
+  wishedTimeTo?: number | null,
 ) {
   try {
     const { client, fromEmail } = getResendClient();
     logger.info('[Email] Sending external surgery request notification from:', fromEmail, 'to:', toEmail);
 
     const isGerman = language === 'de';
+
+    const formatMinutes = (m: number) =>
+      `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+    let wishedDateDisplay = wishedDate;
+    if (wishedTimeFrom != null && wishedTimeTo != null) {
+      wishedDateDisplay = `${wishedDate}, ${formatMinutes(wishedTimeFrom)} – ${formatMinutes(wishedTimeTo)}`;
+    } else if (wishedTimeFrom != null) {
+      wishedDateDisplay = `${wishedDate}, ${isGerman ? 'ab' : 'from'} ${formatMinutes(wishedTimeFrom)}`;
+    } else if (wishedTimeTo != null) {
+      wishedDateDisplay = `${wishedDate}, ${isGerman ? 'bis' : 'until'} ${formatMinutes(wishedTimeTo)}`;
+    }
 
     const subject = isGerman
       ? `Neue externe OP-Anfrage: ${patientName} – ${surgeryName}`
@@ -335,7 +349,7 @@ export async function sendExternalSurgeryRequestNotification(
                 <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
                 <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryName}</p>
                 <p><strong>${isGerman ? 'Chirurg' : 'Surgeon'}:</strong> ${surgeonName}</p>
-                <p><strong>${isGerman ? 'Gewünschtes Datum' : 'Requested Date'}:</strong> ${wishedDate}</p>
+                <p><strong>${isGerman ? 'Gewünschtes Datum' : 'Requested Date'}:</strong> ${wishedDateDisplay}</p>
               </div>
 
               <p style="text-align: center;">

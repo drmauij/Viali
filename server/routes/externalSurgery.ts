@@ -182,6 +182,8 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
           : `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
         const surgeonName = `Dr. ${parsed.data.surgeonLastName}, ${parsed.data.surgeonFirstName}`;
         const wishedDate = parsed.data.wishedDate || '';
+        const wishedTimeFrom = parsed.data.wishedTimeFrom;
+        const wishedTimeTo = parsed.data.wishedTimeTo;
 
         // If a dedicated notification email is configured, send to that address only
         if (result.hospital.externalSurgeryNotificationEmail) {
@@ -194,7 +196,9 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             surgeonName,
             wishedDate,
             deepLinkUrl,
-            (result.hospital.defaultLanguage as 'de' | 'en') || 'de'
+            (result.hospital.defaultLanguage as 'de' | 'en') || 'de',
+            wishedTimeFrom,
+            wishedTimeTo,
           ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to configured email', result.hospital.externalSurgeryNotificationEmail, err));
           logger.info(`[ExternalSurgery] Sent notification to configured email ${result.hospital.externalSurgeryNotificationEmail} for hospital ${result.hospital.name}`);
           return;
@@ -235,7 +239,9 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
             surgeonName,
             wishedDate,
             deepLinkUrl,
-            (result.hospital.defaultLanguage as 'de' | 'en') || 'de'
+            (result.hospital.defaultLanguage as 'de' | 'en') || 'de',
+            wishedTimeFrom,
+            wishedTimeTo,
           ).catch(err => logger.error('[ExternalSurgery] Failed to send notification to', admin.email, err));
         }
         logger.info(`[ExternalSurgery] Sent notifications to ${orAdmins.length} OR-admin(s) for hospital ${result.hospital.name}`);
