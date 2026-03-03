@@ -247,7 +247,8 @@ export default function Patients() {
         patient.firstName.toLowerCase().includes(query) ||
         patient.patientNumber.toLowerCase().includes(query) ||
         patient.birthday.includes(searchQuery) || // ISO format search
-        formattedBirthday.includes(query); // Display format search (DD/MM/YYYY)
+        formattedBirthday.includes(query) || // Display format search (DD/MM/YYYY)
+        (patient.phone && patient.phone.replace(/\s+/g, '').includes(query.replace(/\s+/g, ''))); // Phone search (ignores spaces)
     })
     .sort((a, b) => {
       const surnameCompare = a.surname.localeCompare(b.surname);
