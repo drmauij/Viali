@@ -61,6 +61,14 @@ export default function BottomNav() {
   });
   const hasPendingTimeOff = (pendingTimeOffData?.count || 0) > 0;
 
+  // Fetch unassociated questionnaire count for clinic questionnaires badge
+  const { data: unassociatedQuestionnaireData } = useQuery<{ count: number }>({
+    queryKey: ['/api/questionnaire/unassociated/count'],
+    enabled: activeModule === 'clinic' && !!addons.questionnaire,
+    refetchInterval: 30000,
+  });
+  const hasPendingQuestionnaires = (unassociatedQuestionnaireData?.count || 0) > 0;
+
   // Poll for import job status and update localStorage
   useEffect(() => {
     if (!activeHospital?.id) return;
@@ -305,6 +313,22 @@ export default function BottomNav() {
                   border: '2px solid var(--background)',
                 }}
                 data-testid="pending-checklists-badge"
+              />
+            )}
+            {item.id === 'clinic-questionnaires' && hasPendingQuestionnaires && (
+              <span
+                className="pending-questionnaires-badge"
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-8px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#ef4444',
+                  borderRadius: '50%',
+                  border: '2px solid var(--background)',
+                }}
+                data-testid="pending-questionnaires-badge"
               />
             )}
           </div>

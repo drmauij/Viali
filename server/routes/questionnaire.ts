@@ -409,6 +409,18 @@ router.get('/api/questionnaire/responses', isAuthenticated, requireStrictHospita
   }
 });
 
+// Get count of unassociated questionnaire responses (for badge)
+router.get('/api/questionnaire/unassociated/count', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = req.resolvedHospitalId;
+    const responses = await storage.getUnassociatedQuestionnaireResponsesForHospital(hospitalId);
+    res.json({ count: responses.length });
+  } catch (error) {
+    logger.error("Error fetching unassociated questionnaire count:", error);
+    res.status(500).json({ message: "Failed to fetch unassociated count" });
+  }
+});
+
 // Get unassociated questionnaire responses (where patientId is null)
 router.get('/api/questionnaire/unassociated', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
