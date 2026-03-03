@@ -1,0 +1,905 @@
+import { Router } from "express";
+import type { Request, Response } from "express";
+import { storage, db } from "../storage";
+import { isAuthenticated } from "../auth/google";
+import {
+  tardocCatalog,
+  tardocServiceMappings,
+  tardocInvoices,
+  tardocInvoiceItems,
+  tardocInvoiceTemplates,
+  tardocInvoiceTemplateItems,
+  clinicServices,
+  patients,
+  hospitals,
+  users,
+} from "@shared/schema";
+import { importTardocFromExcel, importTardocFromCsv } from "../scripts/importTardoc";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
+import { eq, and, or, sql, asc, desc, max, inArray } from "drizzle-orm";
+import { z } from "zod";
+import logger from "../logger";
+import { generateXmlForInvoice } from "../services/tardocXmlGenerator";
+import { generatePdfForInvoice } from "../services/tardocPdfGenerator";
+
+const router = Router();
+
+// ==================== TARDOC CATALOG ====================
+
+// Search TARDOC catalog (public-ish — requires auth only)
+router.get('/api/tardoc/search', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const search = (req.query.q as string || '').trim();
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
+    if (!search || search.length < 2) {
+      return res.json([]);
+    }
+
+    const results = await db
+      .select({
+        id: tardocCatalog.id,
+        code: tardocCatalog.code,
+        descriptionDe: tardocCatalog.descriptionDe,
+        descriptionFr: tardocCatalog.descriptionFr,
+        chapter: tardocCatalog.chapter,
+        chapterDescription: tardocCatalog.chapterDescription,
+        taxPoints: tardocCatalog.taxPoints,
+        medicalInterpretation: tardocCatalog.medicalInterpretation,
+        technicalInterpretation: tardocCatalog.technicalInterpretation,
+        durationMinutes: tardocCatalog.durationMinutes,
+        sideCode: tardocCatalog.sideCode,
+      })
+      .from(tardocCatalog)
+      .where(
+        or(
+          sql`${tardocCatalog.code} ILIKE ${search + '%'}`,
+          sql`${tardocCatalog.descriptionDe} ILIKE ${'%' + search + '%'}`,
+          sql`to_tsvector('german', ${tardocCatalog.descriptionDe}) @@ plainto_tsquery('german', ${search})`
+        )
+      )
+      .orderBy(
+        sql`CASE
+          WHEN ${tardocCatalog.code} ILIKE ${search + '%'} THEN 0
+          WHEN ${tardocCatalog.descriptionDe} ILIKE ${search + '%'} THEN 1
+          ELSE 2
+        END`,
+        asc(tardocCatalog.code)
+      )
+      .limit(limit);
+
+    res.json(results);
+  } catch (error: any) {
+    logger.error("Error searching TARDOC catalog:", error);
+    res.status(500).json({ message: "Failed to search TARDOC catalog" });
+  }
+});
+
+// Import TARDOC catalog (admin only, file upload)
+router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    // Check if user is admin of this hospital
+    const hospitalAccess = await storage.getUserHospitals(userId);
+    const isAdmin = hospitalAccess.some(h => h.id === req.params.hospitalId && h.role === 'admin');
+
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Expect base64 file content in body
+    const { fileContent, fileName } = req.body;
+    if (!fileContent) {
+      return res.status(400).json({ message: "File content is required" });
+    }
+
+    const buffer = Buffer.from(fileContent, 'base64');
+
+    // Count before import
+    const [countBefore] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
+    const existingCount = Number(countBefore?.count || 0);
+
+    let result;
+    if (fileName?.endsWith('.csv')) {
+      result = await importTardocFromCsv(buffer.toString('utf-8'));
+    } else {
+      result = await importTardocFromExcel(buffer);
+    }
+
+    logger.info(`[Admin] TARDOC import complete: ${result.imported} processed, ${result.skipped} skipped`);
+
+    // Count after import
+    const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
+    const finalCount = Number(countAfter?.count || 0);
+    const newRecords = finalCount - existingCount;
+
+    const message = existingCount > 0
+      ? `TARDOC catalog updated (${newRecords} new, ${existingCount} updated)`
+      : `Successfully imported ${result.imported} TARDOC positions`;
+
+    res.json({
+      success: true,
+      message,
+      imported: result.imported,
+      skipped: result.skipped,
+      newRecords,
+      updated: existingCount > 0 ? existingCount : 0,
+    });
+  } catch (error: any) {
+    logger.error("[Admin] TARDOC import error:", error);
+    res.status(500).json({
+      message: "Failed to import TARDOC catalog",
+      error: error.message,
+    });
+  }
+});
+
+// TARDOC catalog status
+router.get('/api/admin/tardoc-status', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
+    res.json({ count: Number(result?.count || 0) });
+  } catch (error: any) {
+    logger.error("Error getting TARDOC status:", error);
+    res.status(500).json({ message: "Failed to get TARDOC status" });
+  }
+});
+
+// ==================== TARDOC SERVICE MAPPINGS ====================
+
+// List mappings for a hospital
+router.get('/api/clinic/:hospitalId/tardoc-mappings', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const mappings = await db
+      .select({
+        id: tardocServiceMappings.id,
+        hospitalId: tardocServiceMappings.hospitalId,
+        clinicServiceId: tardocServiceMappings.clinicServiceId,
+        tardocCode: tardocServiceMappings.tardocCode,
+        taxPoints: tardocServiceMappings.taxPoints,
+        scalingFactor: tardocServiceMappings.scalingFactor,
+        sideCode: tardocServiceMappings.sideCode,
+        notes: tardocServiceMappings.notes,
+        serviceName: clinicServices.name,
+      })
+      .from(tardocServiceMappings)
+      .leftJoin(clinicServices, eq(tardocServiceMappings.clinicServiceId, clinicServices.id))
+      .where(eq(tardocServiceMappings.hospitalId, hospitalId));
+
+    res.json(mappings);
+  } catch (error: any) {
+    logger.error("Error listing TARDOC mappings:", error);
+    res.status(500).json({ message: "Failed to list TARDOC mappings" });
+  }
+});
+
+// Create a mapping
+router.post('/api/clinic/:hospitalId/tardoc-mappings', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const schema = z.object({
+      clinicServiceId: z.string(),
+      tardocCode: z.string(),
+      taxPoints: z.string().optional(),
+      scalingFactor: z.string().optional(),
+      sideCode: z.string().optional(),
+      notes: z.string().optional(),
+    });
+
+    const data = schema.parse(req.body);
+
+    const [mapping] = await db.insert(tardocServiceMappings).values({
+      hospitalId,
+      ...data,
+    }).returning();
+
+    res.status(201).json(mapping);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    // Unique constraint violation
+    if (error.code === '23505') {
+      return res.status(409).json({ message: "This TARDOC code is already mapped to this service" });
+    }
+    logger.error("Error creating TARDOC mapping:", error);
+    res.status(500).json({ message: "Failed to create TARDOC mapping" });
+  }
+});
+
+// Delete a mapping
+router.delete('/api/clinic/:hospitalId/tardoc-mappings/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, id } = req.params;
+
+    await db.delete(tardocServiceMappings).where(
+      and(
+        eq(tardocServiceMappings.id, id),
+        eq(tardocServiceMappings.hospitalId, hospitalId)
+      )
+    );
+
+    res.status(204).send();
+  } catch (error: any) {
+    logger.error("Error deleting TARDOC mapping:", error);
+    res.status(500).json({ message: "Failed to delete TARDOC mapping" });
+  }
+});
+
+// ==================== TARDOC INVOICE TEMPLATES ====================
+
+// List templates with items
+router.get('/api/clinic/:hospitalId/tardoc-templates', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const templates = await db
+      .select()
+      .from(tardocInvoiceTemplates)
+      .where(eq(tardocInvoiceTemplates.hospitalId, hospitalId))
+      .orderBy(desc(tardocInvoiceTemplates.isDefault), asc(tardocInvoiceTemplates.name));
+
+    if (templates.length === 0) {
+      return res.json([]);
+    }
+
+    // Batch-fetch all items for these templates (avoid N+1)
+    const templateIds = templates.map(t => t.id);
+    const allItems = await db
+      .select()
+      .from(tardocInvoiceTemplateItems)
+      .where(inArray(tardocInvoiceTemplateItems.templateId, templateIds))
+      .orderBy(asc(tardocInvoiceTemplateItems.sortOrder));
+
+    // Group items by templateId
+    const itemsByTemplate = new Map<string, typeof allItems>();
+    for (const item of allItems) {
+      const list = itemsByTemplate.get(item.templateId) || [];
+      list.push(item);
+      itemsByTemplate.set(item.templateId, list);
+    }
+
+    const result = templates.map(t => ({
+      ...t,
+      items: itemsByTemplate.get(t.id) || [],
+    }));
+
+    res.json(result);
+  } catch (error: any) {
+    logger.error("Error listing TARDOC templates:", error);
+    res.status(500).json({ message: "Failed to list TARDOC templates" });
+  }
+});
+
+const createTemplateSchema = z.object({
+  name: z.string().min(1),
+  billingModel: z.enum(["TG", "TP"]).optional(),
+  lawType: z.enum(["KVG", "UVG", "IVG", "MVG", "VVG"]).optional(),
+  treatmentType: z.string().optional(),
+  treatmentReason: z.string().optional(),
+  isDefault: z.boolean().optional(),
+  items: z.array(z.object({
+    tardocCode: z.string(),
+    description: z.string(),
+    taxPoints: z.string().optional(),
+    scalingFactor: z.string().optional(),
+    sideCode: z.string().optional(),
+    quantity: z.number().default(1),
+  })).default([]),
+});
+
+// Create template with items
+router.post('/api/clinic/:hospitalId/tardoc-templates', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const data = createTemplateSchema.parse(req.body);
+
+    const { items, ...templateData } = data;
+
+    // If setting as default, unset other defaults for this hospital
+    if (templateData.isDefault) {
+      await db
+        .update(tardocInvoiceTemplates)
+        .set({ isDefault: false })
+        .where(and(
+          eq(tardocInvoiceTemplates.hospitalId, hospitalId),
+          eq(tardocInvoiceTemplates.isDefault, true)
+        ));
+    }
+
+    const [template] = await db.insert(tardocInvoiceTemplates).values({
+      hospitalId,
+      ...templateData,
+    }).returning();
+
+    // Insert items with sortOrder
+    let insertedItems: (typeof tardocInvoiceTemplateItems.$inferSelect)[] = [];
+    if (items.length > 0) {
+      insertedItems = await db.insert(tardocInvoiceTemplateItems).values(
+        items.map((item, idx) => ({
+          templateId: template.id,
+          tardocCode: item.tardocCode,
+          description: item.description,
+          taxPoints: item.taxPoints,
+          scalingFactor: item.scalingFactor,
+          sideCode: item.sideCode,
+          quantity: item.quantity,
+          sortOrder: idx,
+        }))
+      ).returning();
+    }
+
+    res.status(201).json({ ...template, items: insertedItems });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error creating TARDOC template:", error);
+    res.status(500).json({ message: "Failed to create TARDOC template" });
+  }
+});
+
+// Update template
+router.patch('/api/clinic/:hospitalId/tardoc-templates/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, id } = req.params;
+
+    const [existing] = await db
+      .select()
+      .from(tardocInvoiceTemplates)
+      .where(and(
+        eq(tardocInvoiceTemplates.id, id),
+        eq(tardocInvoiceTemplates.hospitalId, hospitalId)
+      ));
+
+    if (!existing) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const { items, ...updateData } = req.body;
+
+    // If setting as default, unset other defaults for this hospital
+    if (updateData.isDefault) {
+      await db
+        .update(tardocInvoiceTemplates)
+        .set({ isDefault: false })
+        .where(and(
+          eq(tardocInvoiceTemplates.hospitalId, hospitalId),
+          eq(tardocInvoiceTemplates.isDefault, true)
+        ));
+    }
+
+    updateData.updatedAt = new Date();
+
+    const [updated] = await db
+      .update(tardocInvoiceTemplates)
+      .set(updateData)
+      .where(eq(tardocInvoiceTemplates.id, id))
+      .returning();
+
+    // If items provided, replace all existing items
+    let templateItems: (typeof tardocInvoiceTemplateItems.$inferSelect)[];
+    if (items && Array.isArray(items)) {
+      await db.delete(tardocInvoiceTemplateItems)
+        .where(eq(tardocInvoiceTemplateItems.templateId, id));
+
+      if (items.length > 0) {
+        templateItems = await db.insert(tardocInvoiceTemplateItems).values(
+          items.map((item: any, idx: number) => ({
+            templateId: id,
+            tardocCode: item.tardocCode,
+            description: item.description,
+            taxPoints: item.taxPoints,
+            scalingFactor: item.scalingFactor,
+            sideCode: item.sideCode,
+            quantity: item.quantity || 1,
+            sortOrder: idx,
+          }))
+        ).returning();
+      } else {
+        templateItems = [];
+      }
+    } else {
+      // Fetch existing items
+      templateItems = await db
+        .select()
+        .from(tardocInvoiceTemplateItems)
+        .where(eq(tardocInvoiceTemplateItems.templateId, id))
+        .orderBy(asc(tardocInvoiceTemplateItems.sortOrder));
+    }
+
+    res.json({ ...updated, items: templateItems });
+  } catch (error: any) {
+    logger.error("Error updating TARDOC template:", error);
+    res.status(500).json({ message: "Failed to update TARDOC template" });
+  }
+});
+
+// Delete template (items cascade-delete via FK)
+router.delete('/api/clinic/:hospitalId/tardoc-templates/:id', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, id } = req.params;
+
+    await db.delete(tardocInvoiceTemplates).where(
+      and(
+        eq(tardocInvoiceTemplates.id, id),
+        eq(tardocInvoiceTemplates.hospitalId, hospitalId)
+      )
+    );
+
+    res.status(204).send();
+  } catch (error: any) {
+    logger.error("Error deleting TARDOC template:", error);
+    res.status(500).json({ message: "Failed to delete TARDOC template" });
+  }
+});
+
+// ==================== TARDOC INVOICES ====================
+
+const createTardocInvoiceSchema = z.object({
+  patientId: z.string().optional(),
+  surgeryId: z.string().optional(),
+  billingModel: z.enum(["TG", "TP"]),
+  treatmentType: z.string().default("ambulatory"),
+  treatmentReason: z.string().default("disease"),
+  lawType: z.enum(["KVG", "UVG", "IVG", "MVG", "VVG"]),
+  caseNumber: z.string().optional(),
+  caseDate: z.string().optional(),
+  caseDateEnd: z.string().optional(),
+  treatmentCanton: z.string().optional(),
+  billerGln: z.string().optional(),
+  billerZsr: z.string().optional(),
+  providerGln: z.string().optional(),
+  providerZsr: z.string().optional(),
+  referringPhysicianGln: z.string().optional(),
+  insurerGln: z.string().optional(),
+  insurerName: z.string().optional(),
+  insuranceNumber: z.string().optional(),
+  ahvNumber: z.string().optional(),
+  patientSurname: z.string().optional(),
+  patientFirstName: z.string().optional(),
+  patientBirthday: z.string().optional(),
+  patientSex: z.enum(["M", "F", "O"]).optional(),
+  patientStreet: z.string().optional(),
+  patientPostalCode: z.string().optional(),
+  patientCity: z.string().optional(),
+  tpValue: z.string().optional(),
+  items: z.array(z.object({
+    tardocCode: z.string(),
+    description: z.string(),
+    treatmentDate: z.string(),
+    session: z.number().optional(),
+    quantity: z.number().default(1),
+    taxPoints: z.string(),
+    tpValue: z.string(),
+    scalingFactor: z.string().optional(),
+    sideCode: z.string().optional(),
+    providerGln: z.string().optional(),
+    amountAl: z.string().optional(),
+    amountTl: z.string().optional(),
+    amountChf: z.string(),
+    vatRate: z.string().optional(),
+    vatAmount: z.string().optional(),
+  })).min(1),
+});
+
+// List invoices
+router.get('/api/clinic/:hospitalId/tardoc-invoices', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const invoices = await db
+      .select()
+      .from(tardocInvoices)
+      .where(eq(tardocInvoices.hospitalId, hospitalId))
+      .orderBy(desc(tardocInvoices.createdAt));
+
+    res.json(invoices);
+  } catch (error: any) {
+    logger.error("Error listing TARDOC invoices:", error);
+    res.status(500).json({ message: "Failed to list TARDOC invoices" });
+  }
+});
+
+// Get single invoice with items
+router.get('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+
+    const [invoice] = await db
+      .select()
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.id, invoiceId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const items = await db
+      .select()
+      .from(tardocInvoiceItems)
+      .where(eq(tardocInvoiceItems.invoiceId, invoiceId))
+      .orderBy(asc(tardocInvoiceItems.sortOrder));
+
+    res.json({ ...invoice, items });
+  } catch (error: any) {
+    logger.error("Error getting TARDOC invoice:", error);
+    res.status(500).json({ message: "Failed to get TARDOC invoice" });
+  }
+});
+
+// Create invoice
+router.post('/api/clinic/:hospitalId/tardoc-invoices', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const data = createTardocInvoiceSchema.parse(req.body);
+
+    // Auto-increment invoice number per hospital
+    const [maxResult] = await db
+      .select({ maxNum: max(tardocInvoices.invoiceNumber) })
+      .from(tardocInvoices)
+      .where(eq(tardocInvoices.hospitalId, hospitalId));
+
+    const nextNumber = (maxResult?.maxNum || 0) + 1;
+
+    // Calculate totals from items
+    let subtotalTp = 0;
+    let subtotalChf = 0;
+    let vatAmount = 0;
+
+    for (const item of data.items) {
+      subtotalTp += parseFloat(item.taxPoints) * item.quantity * parseFloat(item.scalingFactor || '1');
+      subtotalChf += parseFloat(item.amountChf);
+      vatAmount += parseFloat(item.vatAmount || '0');
+    }
+
+    const totalChf = subtotalChf + vatAmount;
+
+    const { items, ...invoiceData } = data;
+
+    const [invoice] = await db.insert(tardocInvoices).values({
+      hospitalId,
+      invoiceNumber: nextNumber,
+      ...invoiceData,
+      subtotalTp: String(subtotalTp.toFixed(2)),
+      subtotalChf: String(subtotalChf.toFixed(2)),
+      vatAmount: String(vatAmount.toFixed(2)),
+      totalChf: String(totalChf.toFixed(2)),
+      createdBy: req.user.id,
+    }).returning();
+
+    // Insert items
+    if (items.length > 0) {
+      await db.insert(tardocInvoiceItems).values(
+        items.map((item, idx) => ({
+          invoiceId: invoice.id,
+          ...item,
+          sortOrder: idx,
+        }))
+      );
+    }
+
+    // Fetch back with items
+    const invoiceItems = await db
+      .select()
+      .from(tardocInvoiceItems)
+      .where(eq(tardocInvoiceItems.invoiceId, invoice.id))
+      .orderBy(asc(tardocInvoiceItems.sortOrder));
+
+    res.status(201).json({ ...invoice, items: invoiceItems });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error creating TARDOC invoice:", error);
+    res.status(500).json({ message: "Failed to create TARDOC invoice" });
+  }
+});
+
+// Update invoice
+router.patch('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+
+    // Verify invoice exists and belongs to this hospital
+    const [existing] = await db
+      .select()
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.id, invoiceId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    if (!existing) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (existing.status !== 'draft') {
+      return res.status(400).json({ message: "Only draft invoices can be edited" });
+    }
+
+    const { items, ...updateData } = req.body;
+
+    // If items are provided, recalculate totals
+    if (items && Array.isArray(items)) {
+      let subtotalTp = 0;
+      let subtotalChf = 0;
+      let vatAmount = 0;
+
+      for (const item of items) {
+        subtotalTp += parseFloat(item.taxPoints) * (item.quantity || 1) * parseFloat(item.scalingFactor || '1');
+        subtotalChf += parseFloat(item.amountChf);
+        vatAmount += parseFloat(item.vatAmount || '0');
+      }
+
+      updateData.subtotalTp = String(subtotalTp.toFixed(2));
+      updateData.subtotalChf = String(subtotalChf.toFixed(2));
+      updateData.vatAmount = String(vatAmount.toFixed(2));
+      updateData.totalChf = String((subtotalChf + vatAmount).toFixed(2));
+
+      // Replace items: delete existing and insert new
+      await db.delete(tardocInvoiceItems).where(eq(tardocInvoiceItems.invoiceId, invoiceId));
+      if (items.length > 0) {
+        await db.insert(tardocInvoiceItems).values(
+          items.map((item: any, idx: number) => ({
+            invoiceId,
+            tardocCode: item.tardocCode,
+            description: item.description,
+            treatmentDate: item.treatmentDate,
+            session: item.session,
+            quantity: item.quantity || 1,
+            taxPoints: item.taxPoints,
+            tpValue: item.tpValue,
+            scalingFactor: item.scalingFactor,
+            sideCode: item.sideCode,
+            providerGln: item.providerGln,
+            amountAl: item.amountAl,
+            amountTl: item.amountTl,
+            amountChf: item.amountChf,
+            vatRate: item.vatRate,
+            vatAmount: item.vatAmount,
+            sortOrder: idx,
+          }))
+        );
+      }
+    }
+
+    updateData.updatedAt = new Date();
+
+    const [updated] = await db
+      .update(tardocInvoices)
+      .set(updateData)
+      .where(eq(tardocInvoices.id, invoiceId))
+      .returning();
+
+    // Fetch items
+    const updatedItems = await db
+      .select()
+      .from(tardocInvoiceItems)
+      .where(eq(tardocInvoiceItems.invoiceId, invoiceId))
+      .orderBy(asc(tardocInvoiceItems.sortOrder));
+
+    res.json({ ...updated, items: updatedItems });
+  } catch (error: any) {
+    logger.error("Error updating TARDOC invoice:", error);
+    res.status(500).json({ message: "Failed to update TARDOC invoice" });
+  }
+});
+
+// Delete invoice
+router.delete('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+
+    const [existing] = await db
+      .select()
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.id, invoiceId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    if (!existing) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (existing.status !== 'draft') {
+      return res.status(400).json({ message: "Only draft invoices can be deleted" });
+    }
+
+    // Items cascade-delete via FK
+    await db.delete(tardocInvoices).where(eq(tardocInvoices.id, invoiceId));
+
+    res.status(204).send();
+  } catch (error: any) {
+    logger.error("Error deleting TARDOC invoice:", error);
+    res.status(500).json({ message: "Failed to delete TARDOC invoice" });
+  }
+});
+
+// Change invoice status
+router.patch('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/status', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    const { status } = z.object({
+      status: z.enum(["draft", "validated", "exported", "sent", "paid", "rejected", "cancelled"]),
+    }).parse(req.body);
+
+    const [existing] = await db
+      .select()
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.id, invoiceId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    if (!existing) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Status transition validation
+    const validTransitions: Record<string, string[]> = {
+      draft: ['validated', 'cancelled'],
+      validated: ['exported', 'draft', 'cancelled'],
+      exported: ['sent', 'validated', 'cancelled'],
+      sent: ['paid', 'rejected', 'cancelled'],
+      paid: [],
+      rejected: ['draft'],
+      cancelled: [],
+    };
+
+    const allowed = validTransitions[existing.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        message: `Cannot transition from "${existing.status}" to "${status}"`,
+      });
+    }
+
+    const [updated] = await db
+      .update(tardocInvoices)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(tardocInvoices.id, invoiceId))
+      .returning();
+
+    res.json(updated);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error updating TARDOC invoice status:", error);
+    res.status(500).json({ message: "Failed to update invoice status" });
+  }
+});
+
+// ==================== VALIDATION ====================
+
+router.post('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/validate', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+
+    const [invoice] = await db
+      .select()
+      .from(tardocInvoices)
+      .where(and(
+        eq(tardocInvoices.id, invoiceId),
+        eq(tardocInvoices.hospitalId, hospitalId)
+      ));
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const items = await db
+      .select()
+      .from(tardocInvoiceItems)
+      .where(eq(tardocInvoiceItems.invoiceId, invoiceId));
+
+    const errors: string[] = [];
+
+    // Required fields
+    if (!invoice.billerGln) errors.push("Biller GLN is required");
+    if (!invoice.providerGln) errors.push("Provider GLN is required");
+    if (!invoice.insurerGln) errors.push("Insurer GLN is required");
+    if (!invoice.patientSurname) errors.push("Patient surname is required");
+    if (!invoice.patientFirstName) errors.push("Patient first name is required");
+    if (!invoice.patientBirthday) errors.push("Patient birthday is required");
+    if (!invoice.caseDate) errors.push("Case date is required");
+    if (!invoice.tpValue) errors.push("Tax point value is required");
+    if (!invoice.lawType) errors.push("Law type is required");
+
+    // GLN format validation (13 digits)
+    const glnRegex = /^\d{13}$/;
+    if (invoice.billerGln && !glnRegex.test(invoice.billerGln)) {
+      errors.push("Biller GLN must be exactly 13 digits");
+    }
+    if (invoice.providerGln && !glnRegex.test(invoice.providerGln)) {
+      errors.push("Provider GLN must be exactly 13 digits");
+    }
+    if (invoice.insurerGln && !glnRegex.test(invoice.insurerGln)) {
+      errors.push("Insurer GLN must be exactly 13 digits");
+    }
+
+    // Service lines
+    if (items.length === 0) {
+      errors.push("At least one service line is required");
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.tardocCode) errors.push(`Line ${i + 1}: TARDOC code is required`);
+      if (!item.treatmentDate) errors.push(`Line ${i + 1}: Treatment date is required`);
+      if (!item.taxPoints) errors.push(`Line ${i + 1}: Tax points are required`);
+      if (!item.tpValue) errors.push(`Line ${i + 1}: TP value is required`);
+    }
+
+    // TG requires bank details
+    if (invoice.billingModel === 'TG') {
+      const [hospital] = await db
+        .select()
+        .from(hospitals)
+        .where(eq(hospitals.id, hospitalId));
+
+      if (!hospital?.companyBankIban) {
+        errors.push("Tiers Garant requires bank IBAN (set in hospital settings)");
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.json({ valid: false, errors });
+    }
+
+    // Mark as validated if currently draft
+    if (invoice.status === 'draft') {
+      await db
+        .update(tardocInvoices)
+        .set({ status: 'validated', updatedAt: new Date() })
+        .where(eq(tardocInvoices.id, invoiceId));
+    }
+
+    res.json({ valid: true, errors: [] });
+  } catch (error: any) {
+    logger.error("Error validating TARDOC invoice:", error);
+    res.status(500).json({ message: "Failed to validate invoice" });
+  }
+});
+
+// ==================== EXPORT ====================
+
+// Export XML
+router.get('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/xml', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    const xml = await generateXmlForInvoice(invoiceId, hospitalId);
+
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceId}.xml"`);
+    res.send(xml);
+  } catch (error: any) {
+    logger.error("Error generating TARDOC XML:", error);
+    res.status(500).json({ message: error.message || "Failed to generate XML" });
+  }
+});
+
+// Export PDF
+router.get('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/pdf', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    const pdfBuffer = await generatePdfForInvoice(invoiceId, hospitalId);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceId}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    logger.error("Error generating TARDOC PDF:", error);
+    res.status(500).json({ message: error.message || "Failed to generate PDF" });
+  }
+});
+
+export default router;
