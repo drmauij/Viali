@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Search, FileText, Trash2, Eye, Check, ChevronDown, Download, Loader2, AlertCircle, ArrowLeft, Send, BanknoteIcon, XCircle } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Eye, Check, ChevronDown, Download, Loader2, AlertCircle, ArrowLeft, Send, BanknoteIcon, XCircle, Settings2 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -35,6 +35,7 @@ import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import InvoiceForm from "./InvoiceForm";
 import TardocInvoiceForm from "./TardocInvoiceForm";
+import TardocTemplateManager from "./TardocTemplateManager";
 import { InvoiceDetailDialog } from "@/components/clinic/InvoiceDetailDialog";
 
 interface Invoice {
@@ -97,6 +98,7 @@ export default function ClinicInvoices() {
   const [createTardocDialogOpen, setCreateTardocDialogOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [selectedTardocInvoiceId, setSelectedTardocInvoiceId] = useState<string | null>(null);
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -320,7 +322,16 @@ export default function ClinicInvoices() {
         <h1 className="text-2xl font-bold" data-testid="page-title-clinic-invoices">
           {t('clinic.invoices.title')}
         </h1>
-        <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setTemplateManagerOpen(true)}
+            title="Manage Templates"
+          >
+            <Settings2 className="h-4 w-4" />
+          </Button>
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button data-testid="button-create-invoice">
               <Plus className="h-4 w-4 mr-2" />
@@ -339,6 +350,7 @@ export default function ClinicInvoices() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Filters */}
@@ -542,6 +554,13 @@ export default function ClinicInvoices() {
           onStatusChange={() => queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/tardoc-invoices`] })}
         />
       )}
+
+      {/* Template manager dialog */}
+      <TardocTemplateManager
+        hospitalId={hospitalId}
+        open={templateManagerOpen}
+        onClose={() => setTemplateManagerOpen(false)}
+      />
     </div>
   );
 }
