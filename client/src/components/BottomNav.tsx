@@ -137,9 +137,6 @@ export default function BottomNav() {
         items.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" });
       }
       items.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" });
-      if (canAccessPreOp) {
-        items.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" });
-      }
       items.push({ id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" });
       items.push({ id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" });
       items.push({ id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" });
