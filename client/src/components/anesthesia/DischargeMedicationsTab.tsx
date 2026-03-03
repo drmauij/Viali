@@ -111,6 +111,10 @@ export function DischargeMedicationsTab({
   const [routeCustomInput, setRouteCustomInput] = useState<Record<number, boolean>>({});
   const [frequencyCustomInput, setFrequencyCustomInput] = useState<Record<number, boolean>>({});
 
+  const [printDialogSlot, setPrintDialogSlot] = useState<any>(null);
+  const [printColumns, setPrintColumns] = useState<number>(2);
+  const [printStartRow, setPrintStartRow] = useState<number>(1);
+
   const { data: dischargeMedications = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/patients', patientId, 'discharge-medications', hospitalId],
     queryFn: async () => {
@@ -473,7 +477,7 @@ export function DischargeMedicationsTab({
     return [...surgeries].sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime());
   }, [surgeries]);
 
-  const printLabels = (slot: any, columns: number) => {
+  const printLabels = (slot: any, columns: number, startRow: number = 0) => {
     const items = slot.items || [];
     if (items.length === 0) {
       toast({ title: t('dischargeMedications.noItemsToPrint', 'No medications to print labels for'), variant: "destructive" });
@@ -492,7 +496,7 @@ export function DischargeMedicationsTab({
     const dateStr = formatDate(slot.createdAt);
     const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
 
-    let labelIdx = 0;
+    let labelIdx = startRow * columns;
 
     for (const medItem of items) {
       const col = labelIdx % columns;
@@ -552,6 +556,13 @@ export function DischargeMedicationsTab({
         doc.setFontSize(7);
         doc.text(medItem.notes, px, py, { maxWidth: maxTextW });
         py += 3;
+      }
+      if (slot.notes) {
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "italic");
+        doc.text(slot.notes, px, py, { maxWidth: maxTextW });
+        py += 3;
+        doc.setFont("helvetica", "normal");
       }
 
       doc.setFontSize(6.5);
@@ -718,36 +729,19 @@ export function DischargeMedicationsTab({
                 </div>
                 <Separator className="my-3" />
                 <div className="flex flex-wrap gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" data-testid={`button-print-labels-${slot.id}`}>
-                        <Printer className="h-4 w-4 mr-1" />
-                        {t('dischargeMedications.printLabels', 'Print Labels')}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2" align="start">
-                      <div className="flex flex-col gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start"
-                          onClick={() => printLabels(slot, 2)}
-                          data-testid={`button-print-labels-2col-${slot.id}`}
-                        >
-                          {t('dischargeMedications.printLabels2col', '2 Columns (larger labels)')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start"
-                          onClick={() => printLabels(slot, 3)}
-                          data-testid={`button-print-labels-3col-${slot.id}`}
-                        >
-                          {t('dischargeMedications.printLabels3col', '3 Columns (smaller labels)')}
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid={`button-print-labels-${slot.id}`}
+                    onClick={() => {
+                      setPrintDialogSlot(slot);
+                      setPrintColumns(2);
+                      setPrintStartRow(1);
+                    }}
+                  >
+                    <Printer className="h-4 w-4 mr-1" />
+                    {t('dischargeMedications.printLabels', 'Print Labels')}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1372,6 +1366,76 @@ export function DischargeMedicationsTab({
               ) : (
                 <><Save className="h-4 w-4 mr-2" />{t('common.save', 'Save')}</>
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print labels settings dialog */}
+      <Dialog open={!!printDialogSlot} onOpenChange={(open) => { if (!open) setPrintDialogSlot(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              <Printer className="h-5 w-5 inline mr-2" />
+              {t('dischargeMedications.printSettings', 'Print Label Settings')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('dischargeMedications.printSettingsDesc', 'Choose layout and starting position for the label sheet.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{t('dischargeMedications.columnLayout', 'Column Layout')}</Label>
+              <Select
+                value={String(printColumns)}
+                onValueChange={(v) => {
+                  const cols = Number(v);
+                  setPrintColumns(cols);
+                  const maxRow = cols === 3 ? 8 : 5;
+                  if (printStartRow > maxRow) setPrintStartRow(maxRow);
+                }}
+              >
+                <SelectTrigger data-testid="select-print-columns">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">{t('dischargeMedications.printLabels2col', '2 Columns (larger labels)')}</SelectItem>
+                  <SelectItem value="3">{t('dischargeMedications.printLabels3col', '3 Columns (smaller labels)')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('dischargeMedications.startingRow', 'Starting Row')}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={printColumns === 3 ? 8 : 5}
+                value={printStartRow}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  const maxRow = printColumns === 3 ? 8 : 5;
+                  if (val >= 1 && val <= maxRow) setPrintStartRow(val);
+                }}
+                data-testid="input-print-start-row"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('dischargeMedications.startingRowHint', 'Use row > 1 to skip already-used rows on a partially-used sheet.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setPrintDialogSlot(null)}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                printLabels(printDialogSlot, printColumns, printStartRow - 1);
+                setPrintDialogSlot(null);
+              }}
+              data-testid="button-print-labels-confirm"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {t('dischargeMedications.printLabels', 'Print Labels')}
             </Button>
           </div>
         </DialogContent>
