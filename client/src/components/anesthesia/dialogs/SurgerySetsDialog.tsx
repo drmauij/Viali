@@ -59,6 +59,7 @@ export function SurgerySetsDialog({
     }
   }, [open, recordId]);
 
+  const [applySearch, setApplySearch] = useState("");
   const [viewingSet, setViewingSet] = useState<SurgerySetData | null>(null);
   const [editingSet, setEditingSet] = useState<SurgerySetData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -156,6 +157,7 @@ export function SurgerySetsDialog({
     setFormIntraOpData({});
     setFormInventoryItems([]);
     setInventorySearch("");
+    setApplySearch("");
   };
 
   const startEditing = (set: SurgerySetData) => {
@@ -1163,7 +1165,19 @@ export function SurgerySetsDialog({
             )}
           </TabsList>
 
-          <TabsContent value="apply" className="flex-1 min-h-0 mt-3">
+          <TabsContent value="apply" className="flex-1 min-h-0 mt-3 flex flex-col gap-2">
+            {!viewingSet && sets.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder={t('surgery.sets.searchPlaceholder', 'Search sets...')}
+                  value={applySearch}
+                  onChange={(e) => setApplySearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                  data-testid="input-search-apply-sets"
+                />
+              </div>
+            )}
             <ScrollArea className="h-[55vh]">
               {viewingSet ? (
                 renderSetDetail(viewingSet)
@@ -1177,11 +1191,21 @@ export function SurgerySetsDialog({
                   <p className="text-sm text-muted-foreground">{t('surgery.sets.noSets')}</p>
                   <p className="text-xs text-muted-foreground">{t('surgery.sets.noSetsDescription')}</p>
                 </div>
-              ) : (
-                <div className="space-y-2 pr-3">
-                  {sets.map(set => renderSetCard(set, true))}
-                </div>
-              )}
+              ) : (() => {
+                const q = applySearch.toLowerCase().trim();
+                const filtered = q
+                  ? sets.filter(s => s.name.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q)))
+                  : sets;
+                return filtered.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">{t('surgery.sets.noSearchResults', 'No sets match your search')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 pr-3">
+                    {filtered.map(set => renderSetCard(set, true))}
+                  </div>
+                );
+              })()}
             </ScrollArea>
           </TabsContent>
 
