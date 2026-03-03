@@ -861,11 +861,15 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           // Already exists - no need to add again
           inventoryApplied++;
         } else {
-          // Create new usage entry
+          // Create new usage entry with overrideQty so it survives recalculation
           await storage.createInventoryUsage({
             anesthesiaRecordId,
             itemId: inv.itemId,
-            calculatedQty: String(inv.quantity),
+            calculatedQty: "0",
+            overrideQty: String(inv.quantity),
+            overrideReason: `Applied anesthesia set: ${set.name}`,
+            overriddenBy: userId,
+            overriddenAt: new Date(),
           });
           inventoryApplied++;
         }
