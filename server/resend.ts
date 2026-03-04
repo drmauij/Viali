@@ -1329,3 +1329,50 @@ export async function sendAppointmentRescheduleEmail(
     return { success: false, error };
   }
 }
+
+export async function sendAppointmentCancellationEmail(
+  toEmail: string,
+  patientFirstName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Terminabsage – ${clinicName}`
+      : `Appointment Cancelled – ${clinicName}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${clinicName}</h2>
+        <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
+        <p>${isGerman
+          ? `Ihr Termin am ${appointmentDate} um ${appointmentTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`
+          : `Your appointment on ${appointmentDate} at ${appointmentTime} at ${clinicName} has been cancelled. For questions, please contact us directly.`}</p>
+        <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send appointment cancellation email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent appointment cancellation email to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending appointment cancellation email:', error);
+    return { success: false, error };
+  }
+}

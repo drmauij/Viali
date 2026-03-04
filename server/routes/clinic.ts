@@ -1038,7 +1038,7 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthen
 async function sendAppointmentNotification(
   appointmentId: string,
   hospitalId: string,
-  type: 'confirmation' | 'reschedule'
+  type: 'confirmation' | 'reschedule' | 'cancellation'
 ) {
   try {
     const appointment = await storage.getClinicAppointment(appointmentId);
@@ -1072,13 +1072,21 @@ async function sendAppointmentNotification(
       const { isSmsConfiguredForHospital, sendSms } = await import('../sms');
       const smsAvailable = await isSmsConfiguredForHospital(hospitalId);
       if (smsAvailable) {
-        const smsText = type === 'confirmation'
-          ? (isGerman
-            ? `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
-            : `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed. For questions, please contact us directly.`)
-          : (isGerman
-            ? `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`
-            : `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}. For questions, please contact us directly.`);
+        const smsMessages: Record<string, { de: string; en: string }> = {
+          confirmation: {
+            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
+            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed. For questions, please contact us directly.`,
+          },
+          reschedule: {
+            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`,
+            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}. For questions, please contact us directly.`,
+          },
+          cancellation: {
+            de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
+            en: `Your appointment on ${formattedDate} at ${formattedTime} at ${clinicName} has been cancelled. For questions, please contact us directly.`,
+          },
+        };
+        const smsText = smsMessages[type][isGerman ? 'de' : 'en'];
 
         const result = await sendSms(patient.phone, smsText, hospitalId);
         if (result.success) {
@@ -1091,8 +1099,9 @@ async function sendAppointmentNotification(
 
     // Email fallback if SMS not sent
     if (!success && patient.email) {
-      const { sendAppointmentConfirmationEmail, sendAppointmentRescheduleEmail } = await import('../resend');
-      const emailFn = type === 'confirmation' ? sendAppointmentConfirmationEmail : sendAppointmentRescheduleEmail;
+      const { sendAppointmentConfirmationEmail, sendAppointmentRescheduleEmail, sendAppointmentCancellationEmail } = await import('../resend');
+      const emailFns = { confirmation: sendAppointmentConfirmationEmail, reschedule: sendAppointmentRescheduleEmail, cancellation: sendAppointmentCancellationEmail };
+      const emailFn = emailFns[type];
       const result = await emailFn(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
       if (result.success) {
         channel = 'email';
@@ -1103,10 +1112,14 @@ async function sendAppointmentNotification(
 
     // Log to patient_messages
     if (success && channel) {
-      const messageType = type === 'confirmation' ? 'appointment_confirmation' : 'appointment_reschedule';
-      const messageText = type === 'confirmation'
-        ? (isGerman ? `Terminbestätigung: ${formattedDate} um ${formattedTime}` : `Appointment confirmation: ${formattedDate} at ${formattedTime}`)
-        : (isGerman ? `Terminverschiebung: ${formattedDate} um ${formattedTime}` : `Appointment rescheduled: ${formattedDate} at ${formattedTime}`);
+      const messageTypes = { confirmation: 'appointment_confirmation', reschedule: 'appointment_reschedule', cancellation: 'appointment_cancellation' };
+      const messageType = messageTypes[type];
+      const messageTexts: Record<string, { de: string; en: string }> = {
+        confirmation: { de: `Terminbestätigung: ${formattedDate} um ${formattedTime}`, en: `Appointment confirmation: ${formattedDate} at ${formattedTime}` },
+        reschedule: { de: `Terminverschiebung: ${formattedDate} um ${formattedTime}`, en: `Appointment rescheduled: ${formattedDate} at ${formattedTime}` },
+        cancellation: { de: `Terminabsage: ${formattedDate} um ${formattedTime}`, en: `Appointment cancelled: ${formattedDate} at ${formattedTime}` },
+      };
+      const messageText = messageTexts[type][isGerman ? 'de' : 'en'];
 
       await storage.createPatientMessage({
         hospitalId,
@@ -1456,6 +1469,11 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
       return res.status(403).json({ message: "Access denied to this appointment" });
     }
     
+    // Send cancellation notification before deleting (need appointment data)
+    if (existing.patientId) {
+      sendAppointmentNotification(appointmentId, hospitalId, 'cancellation');
+    }
+
     // Delete from Cal.com if synced (async, don't block response)
     if (existing.calcomBookingUid) {
       (async () => {
