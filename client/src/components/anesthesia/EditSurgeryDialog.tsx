@@ -14,6 +14,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
@@ -31,6 +33,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const { toast } = useToast();
   const canWrite = useCanWrite();
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiveConfirmText, setArchiveConfirmText] = useState("");
+  const activeHospital = useActiveHospital();
+  const isAdmin = activeHospital?.role === "admin";
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
   const [activeTab, setActiveTab] = useState("details");
@@ -838,22 +843,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       {t('anesthesia.editSurgery.suspendButton', 'Absetzen')}
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    onClick={handleArchive}
-                    disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
-                    data-testid="button-archive-surgery"
-                    className="w-full sm:flex-1"
-                  >
-                    {archiveMutation.isPending ? (
-                      <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
-                    ) : (
-                      <>
-                        <Archive className="mr-2 h-4 w-4" />
-                        {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
-                      </>
-                    )}
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      onClick={handleArchive}
+                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      data-testid="button-archive-surgery"
+                      className="w-full sm:flex-1"
+                    >
+                      {archiveMutation.isPending ? (
+                        <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
+                      ) : (
+                        <>
+                          <Archive className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </>
               ) : (
                 <Button
@@ -872,20 +879,33 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       </Dialog>
 
       {/* Archive Confirmation Dialog */}
-      <AlertDialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
+      <AlertDialog open={showArchiveConfirm} onOpenChange={(open) => {
+        setShowArchiveConfirm(open);
+        if (!open) setArchiveConfirmText("");
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('anesthesia.editSurgery.confirmArchive', 'Archive Surgery?')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('anesthesia.editSurgery.confirmArchiveMessage', 'This surgery will be moved to the archive. All associated records will be preserved.')}
               <br /><br />
-              <strong>{t('anesthesia.editSurgery.confirmArchiveInfo', 'Archived surgeries can be restored if needed.')}</strong>
+              <strong>{t('anesthesia.editSurgery.typeArchiveToConfirm', 'Type ARCHIVE to confirm:')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <Input
+              value={archiveConfirmText}
+              onChange={(e) => setArchiveConfirmText(e.target.value)}
+              placeholder="ARCHIVE"
+              data-testid="input-archive-confirm"
+              autoComplete="off"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-archive">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmArchive}
+              disabled={archiveConfirmText !== "ARCHIVE"}
               data-testid="button-confirm-archive"
             >
               {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}

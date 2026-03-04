@@ -882,8 +882,9 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
     .leftJoin(surgeryRooms, eq(surgeries.pacuBedId, surgeryRooms.id))
     .where(and(
       eq(surgeries.hospitalId, hospitalId),
-      sql`(${anesthesiaRecords.timeMarkers} @> '[{"code": "X2"}]'::jsonb 
-          OR ${anesthesiaRecords.timeMarkers} @> '[{"code": "A2"}]'::jsonb 
+      eq(surgeries.isArchived, false),
+      sql`(${anesthesiaRecords.timeMarkers} @> '[{"code": "X2"}]'::jsonb
+          OR ${anesthesiaRecords.timeMarkers} @> '[{"code": "A2"}]'::jsonb
           OR ${anesthesiaRecords.timeMarkers} @> '[{"code": "P"}]'::jsonb)`
     ))
     .orderBy(desc(anesthesiaRecords.updatedAt));

@@ -357,10 +357,10 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-    
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+    const hasAdminAccess = hospitals.some(h => h.id === surgery.hospitalId && h.role === 'admin');
+
+    if (!hasAdminAccess) {
+      return res.status(403).json({ message: "Admin access required to archive surgeries" });
     }
 
     const archivedSurgery = await storage.archiveSurgery(id, userId);

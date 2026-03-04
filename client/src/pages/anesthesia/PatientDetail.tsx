@@ -181,6 +181,9 @@ export default function PatientDetail() {
   // Clinic users can edit patient data but cannot create/edit/archive surgeries or access surgery details
   const canManageSurgeries = canWrite && !isClinicModule;
   const canViewSurgeryDetails = !isClinicModule;
+  const isAdmin = activeHospital?.role === "admin";
+  const [archiveSurgeryConfirmText, setArchiveSurgeryConfirmText] = useState("");
+  const [archivePatientConfirmText, setArchivePatientConfirmText] = useState("");
 
   // Keep preOpSurgery query here so derivedPatientId can be computed before usePatientQueries
   const { data: preOpSurgery, isLoading: isLoadingPreOpSurgery } = useQuery<Surgery>({
@@ -1764,15 +1767,17 @@ export default function PatientDetail() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsArchiveDialogOpen(true)}
-                    data-testid="button-archive-patient"
-                    title={t('anesthesia.patientDetail.archivePatient', 'Archive Patient')}
-                  >
-                    <Archive className="h-4 w-4" />
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsArchiveDialogOpen(true)}
+                      data-testid="button-archive-patient"
+                      title={t('anesthesia.patientDetail.archivePatient', 'Archive Patient')}
+                    >
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               )}
             </CardTitle>
@@ -1858,20 +1863,36 @@ export default function PatientDetail() {
       />
 
       {/* Archive Surgery Confirmation Dialog */}
-      <AlertDialog open={!!archiveDialogSurgeryId} onOpenChange={(open) => !open && setArchiveDialogSurgeryId(null)}>
+      <AlertDialog open={!!archiveDialogSurgeryId} onOpenChange={(open) => {
+        if (!open) {
+          setArchiveDialogSurgeryId(null);
+          setArchiveSurgeryConfirmText("");
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery?')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('anesthesia.patientDetail.archiveSurgeryConfirmation', 'This surgery will be moved to the archive. All associated records will be preserved.')}
+              <br /><br />
+              <strong>{t('anesthesia.patientDetail.typeArchiveToConfirm', 'Type ARCHIVE to confirm:')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <Input
+              value={archiveSurgeryConfirmText}
+              onChange={(e) => setArchiveSurgeryConfirmText(e.target.value)}
+              placeholder="ARCHIVE"
+              data-testid="input-archive-surgery-confirm"
+              autoComplete="off"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-archive-surgery">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleArchiveCase}
               data-testid="button-confirm-archive-surgery"
-              disabled={archiveSurgeryMutation.isPending}
+              disabled={archiveSurgeryMutation.isPending || archiveSurgeryConfirmText !== "ARCHIVE"}
             >
               {archiveSurgeryMutation.isPending ? (
                 <>
@@ -2712,15 +2733,17 @@ export default function PatientDetail() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setArchiveDialogSurgeryId(surgery.id)}
-                          data-testid={`button-archive-surgery-${surgery.id}`}
-                          title={t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery')}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setArchiveDialogSurgeryId(surgery.id)}
+                            data-testid={`button-archive-surgery-${surgery.id}`}
+                            title={t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery')}
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
@@ -5883,7 +5906,10 @@ export default function PatientDetail() {
       </Dialog>
 
       {/* Archive Patient Confirmation Dialog */}
-      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={(open) => {
+        setIsArchiveDialogOpen(open);
+        if (!open) setArchivePatientConfirmText("");
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('anesthesia.patientDetail.archivePatient', 'Archive Patient')}</AlertDialogTitle>
@@ -5894,14 +5920,23 @@ export default function PatientDetail() {
               <br />
               {t('anesthesia.patientDetail.patientId')}: {patient.patientNumber}
               <br /><br />
-              {t('anesthesia.patientDetail.archiveInfo', 'Archived patients and their data are preserved and can be restored if needed.')}
+              <strong>{t('anesthesia.patientDetail.typeArchiveToConfirm', 'Type ARCHIVE to confirm:')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <Input
+              value={archivePatientConfirmText}
+              onChange={(e) => setArchivePatientConfirmText(e.target.value)}
+              placeholder="ARCHIVE"
+              data-testid="input-archive-patient-confirm"
+              autoComplete="off"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-archive">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => archivePatientMutation.mutate()}
-              disabled={archivePatientMutation.isPending}
+              disabled={archivePatientMutation.isPending || archivePatientConfirmText !== "ARCHIVE"}
               data-testid="button-confirm-archive-patient"
             >
               {archivePatientMutation.isPending ? (
