@@ -4355,7 +4355,8 @@
         "duration": "Duration",
         "notes": "Notes",
         "intraoperativeNotes": "Intraoperative Notes",
-        "empty": "This set has no configured items"
+        "empty": "This set has no configured items",
+        "item": "Item"
       }
     },
     "preop": {

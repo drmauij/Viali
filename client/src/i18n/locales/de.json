@@ -4436,7 +4436,8 @@
         "duration": "Dauer",
         "notes": "Notizen",
         "intraoperativeNotes": "Intraoperative Notizen",
-        "empty": "Dieses Set hat keine konfigurierten Elemente"
+        "empty": "Dieses Set hat keine konfigurierten Elemente",
+        "item": "Artikel"
       }
     },
     "preop": {
