@@ -1186,21 +1186,32 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
         });
       }
       
-      // Check if requested time falls within any available slot
+      // Merge available slots into continuous ranges, then check if requested time fits
       const [reqStartH, reqStartM] = requestedStartTime.split(':').map(Number);
       const [reqEndH, reqEndM] = requestedEndTime.split(':').map(Number);
       const reqStartMins = reqStartH * 60 + reqStartM;
       const reqEndMins = reqEndH * 60 + reqEndM;
-      
-      const isSlotAvailable = availableSlots.some(slot => {
-        const [slotStartH, slotStartM] = slot.startTime.split(':').map(Number);
-        const [slotEndH, slotEndM] = slot.endTime.split(':').map(Number);
-        const slotStartMins = slotStartH * 60 + slotStartM;
-        const slotEndMins = slotEndH * 60 + slotEndM;
-        
-        // Check if requested time fits within this available slot
-        return reqStartMins >= slotStartMins && reqEndMins <= slotEndMins;
-      });
+
+      // Convert slots to minute ranges, sort, and merge overlapping/adjacent ones
+      const slotRanges = availableSlots.map(slot => {
+        const [sh, sm] = slot.startTime.split(':').map(Number);
+        const [eh, em] = slot.endTime.split(':').map(Number);
+        return { start: sh * 60 + sm, end: eh * 60 + em };
+      }).sort((a, b) => a.start - b.start);
+
+      const mergedRanges: { start: number; end: number }[] = [];
+      for (const range of slotRanges) {
+        const last = mergedRanges[mergedRanges.length - 1];
+        if (last && range.start <= last.end) {
+          last.end = Math.max(last.end, range.end);
+        } else {
+          mergedRanges.push({ ...range });
+        }
+      }
+
+      const isSlotAvailable = mergedRanges.some(range =>
+        reqStartMins >= range.start && reqEndMins <= range.end
+      );
       
       if (!isSlotAvailable) {
         // Get the available hours for a helpful error message
