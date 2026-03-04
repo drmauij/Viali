@@ -5,6 +5,8 @@ import { db } from "../db";
 import { userMessageTemplates, users, userHospitalRoles, units, patientDocuments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
+import { requirePortalVerification } from "../auth/portalAuth";
+import { revokePortalSessionsByToken } from "../storage/portalOtp";
 import { requireWriteAccess, requireStrictHospitalAccess, getUserUnitForHospital } from "../utils";
 import { z } from "zod";
 import { nanoid } from "nanoid";
@@ -924,8 +926,13 @@ router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requ
     const hospitalId = req.resolvedHospitalId;
 
     const { linkId } = req.params;
+    // Revoke portal sessions before invalidating
+    const link = await storage.getQuestionnaireLink(linkId);
+    if (link?.token) {
+      await revokePortalSessionsByToken(link.token);
+    }
     await storage.invalidateQuestionnaireLink(linkId);
-    
+
     res.json({ message: "Link invalidated successfully" });
   } catch (error) {
     logger.error("Error invalidating link:", error);
@@ -1072,6 +1079,9 @@ function flattenIllnessLists(illnessLists: Record<string, any[]> | null | undefi
   }
   return result;
 }
+
+// Portal verification for patient-specific questionnaire routes
+router.use('/api/public/questionnaire/:token', requirePortalVerification("patient"));
 
 // Get questionnaire form configuration (public)
 router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async (req: Request, res: Response) => {
@@ -1990,6 +2000,9 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
 });
 
 // ========== PATIENT PORTAL (PUBLIC) ==========
+// Portal verification for patient portal routes
+router.use('/api/patient-portal/:token', requirePortalVerification("patient"));
+
 // Get patient portal data by questionnaire token
 // Returns limited surgery info for patient-facing portal
 const patientPortalLimiter = createRateLimiter({

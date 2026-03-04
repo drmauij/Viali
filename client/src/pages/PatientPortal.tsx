@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDateHeader, formatTime as formatTimeUtil, formatDate as formatDateUtil } from "@/lib/dateUtils";
+import PortalVerificationGate from "@/components/PortalVerificationGate";
 
 interface PortalData {
   token: string;
@@ -694,6 +695,15 @@ type Lang = 'de' | 'en' | 'it' | 'es' | 'fr';
 
 export default function PatientPortal() {
   const { token } = useParams<{ token: string }>();
+
+  return (
+    <PortalVerificationGate portalType="patient" token={token || ""}>
+      <PatientPortalContent token={token || ""} />
+    </PortalVerificationGate>
+  );
+}
+
+function PatientPortalContent({ token }: { token: string }) {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [lang, setLangState] = useState<Lang>(() => {

@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
@@ -12,6 +13,7 @@ import { db, pool } from "./db";
 import { storage } from "./storage";
 import { startWorker } from "./worker";
 import { backfillChecklistTemplateAssignments } from "./storage/checklists";
+import { cleanupExpiredPortalData } from "./storage/portalOtp";
 import logger from "./logger";
 
 // Initialize Sentry for backend error monitoring
@@ -109,6 +111,7 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use(cookieParser());
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -207,6 +210,13 @@ app.use((req, res, next) => {
       
       // Start background worker for processing jobs (bulk imports, price syncs)
       startWorker();
+
+      // Clean up expired portal verification codes and sessions every hour
+      setInterval(() => {
+        cleanupExpiredPortalData().catch((err) =>
+          logger.error("[PortalOTP] Cleanup failed:", err),
+        );
+      }, 60 * 60 * 1000);
     });
 
     // Handle server errors

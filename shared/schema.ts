@@ -5798,3 +5798,40 @@ export const tardocInvoiceTemplateItems = pgTable("tardoc_invoice_template_items
 // Types
 export type TardocInvoiceTemplate = typeof tardocInvoiceTemplates.$inferSelect;
 export type TardocInvoiceTemplateItem = typeof tardocInvoiceTemplateItems.$inferSelect;
+
+// Portal Verification — magic link + OTP codes for patient/worklog/surgeon portals
+export const portalTypeEnum = pgEnum("portal_type", ["patient", "worklog", "surgeon"]);
+
+export const portalVerificationCodes = pgTable("portal_verification_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portalType: portalTypeEnum("portal_type").notNull(),
+  portalToken: varchar("portal_token").notNull(),
+  verificationToken: varchar("verification_token").notNull().unique(),
+  codeHash: varchar("code_hash").notNull(),
+  deliveryMethod: varchar("delivery_method", { enum: ["email", "sms"] }).notNull(),
+  deliveredTo: varchar("delivered_to").notNull(),
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_portal_vc_portal").on(table.portalType, table.portalToken),
+  index("idx_portal_vc_verification_token").on(table.verificationToken),
+]);
+
+export type PortalVerificationCode = typeof portalVerificationCodes.$inferSelect;
+
+export const portalAccessSessions = pgTable("portal_access_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
+  portalType: portalTypeEnum("portal_type").notNull(),
+  portalToken: varchar("portal_token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verifiedAt: timestamp("verified_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_portal_sessions_token").on(table.sessionToken),
+  index("idx_portal_sessions_portal").on(table.portalType, table.portalToken),
+]);
+
+export type PortalAccessSession = typeof portalAccessSessions.$inferSelect;

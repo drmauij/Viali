@@ -2,6 +2,8 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
+import { requirePortalVerification } from "../auth/portalAuth";
+import { revokePortalSessionsByToken } from "../storage/portalOtp";
 import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms, surgeries, hospitals } from "@shared/schema";
 import { getActiveUnitIdFromRequest } from "../utils";
 import { eq, and, desc, gte, lte, inArray, ne, min, max, count, sql } from "drizzle-orm";
@@ -12,6 +14,9 @@ import { searchUserByEmail } from "../storage/users";
 import { materializeRulesForDate } from "../utils/staffPool";
 
 const router = Router();
+
+// Portal verification for all public worklog routes
+router.use('/api/worklog/:token', requirePortalVerification("worklog"));
 
 // Public route: Get worklog link info by token (no auth required)
 router.get('/api/worklog/:token', async (req, res) => {
@@ -548,6 +553,11 @@ router.post('/api/hospitals/:hospitalId/worklog/links/:linkId/send', isAuthentic
 router.delete('/api/hospitals/:hospitalId/worklog/links/:linkId', isAuthenticated, async (req: any, res) => {
   try {
     const { linkId } = req.params;
+    // Revoke portal sessions before deleting the link
+    const link = await storage.getExternalWorklogLink(linkId);
+    if (link?.token) {
+      await revokePortalSessionsByToken(link.token);
+    }
     await storage.deleteExternalWorklogLink(linkId);
     res.json({ success: true });
   } catch (error) {

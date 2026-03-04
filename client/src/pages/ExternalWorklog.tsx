@@ -26,6 +26,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import PlanningCalendar from "@/components/PlanningCalendar";
 import WorklogEntryDialog from "@/components/WorklogEntryDialog";
+import PortalVerificationGate from "@/components/PortalVerificationGate";
 
 interface WorklogEntry {
   id: string;
@@ -119,6 +120,15 @@ const roleLabels: Record<string, { en: string; de: string; rate: string }> = {
 
 export default function ExternalWorklog() {
   const { token } = useParams<{ token: string }>();
+
+  return (
+    <PortalVerificationGate portalType="worklog" token={token || ""}>
+      <ExternalWorklogContent token={token || ""} />
+    </PortalVerificationGate>
+  );
+}
+
+function ExternalWorklogContent({ token }: { token: string }) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [linkInfo, setLinkInfo] = useState<WorklogLinkInfo | null>(null);
