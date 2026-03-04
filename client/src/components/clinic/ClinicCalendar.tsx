@@ -1616,17 +1616,17 @@ export default function ClinicCalendar({
               {pendingReschedule?.appointmentDate ? formatDateUtil(pendingReschedule.appointmentDate) : ''} · {pendingReschedule?.startTime} – {pendingReschedule?.endTime}
             </p>
           </div>
-          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={handleCancelReschedule} className="w-full sm:w-auto">
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button variant="secondary" onClick={() => handleConfirmReschedule(false)} className="w-full sm:w-auto">
-              {t('appointments.rescheduleOnly', 'Reschedule Only')}
-            </Button>
-            <Button onClick={() => handleConfirmReschedule(true)} className="w-full sm:w-auto">
+          <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={() => handleConfirmReschedule(true)} className="w-full">
               {t('appointments.rescheduleAndNotify', 'Reschedule & Notify')}
             </Button>
-          </DialogFooter>
+            <Button variant="secondary" onClick={() => handleConfirmReschedule(false)} className="w-full">
+              {t('appointments.rescheduleOnly', 'Reschedule Only')}
+            </Button>
+            <Button variant="outline" onClick={handleCancelReschedule} className="w-full">
+              {t('common.cancel', 'Cancel')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
