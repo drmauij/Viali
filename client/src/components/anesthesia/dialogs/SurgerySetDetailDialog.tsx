@@ -327,17 +327,13 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
         <DialogTitle className="sr-only">{set.name}</DialogTitle>
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b shrink-0">
-          <div className="flex-1 min-w-0">
+        <div className="px-6 py-4 border-b shrink-0 pr-12 space-y-1">
+          <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold truncate">{set.name}</h2>
-            {set.description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{set.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={generatePdf}
               data-testid="button-download-set-pdf"
             >
@@ -345,6 +341,9 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
               PDF
             </Button>
           </div>
+          {set.description && (
+            <p className="text-sm text-muted-foreground">{set.description}</p>
+          )}
         </div>
 
         {/* Content */}
