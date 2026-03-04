@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, Download, Package, X, Layers } from "lucide-react";
+import { Check, Download, Package, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -343,14 +343,6 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
             >
               <Download className="h-4 w-4 mr-1.5" />
               PDF
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
