@@ -99,10 +99,12 @@ router.get(
       const hospitalId =
         req.headers["x-active-hospital-id"] as string;
       const surgeryId = req.query.surgeryId as string | undefined;
+      const hospital = await storage.getHospital(hospitalId);
       const blocks = await getAvailableDataBlocks(
         req.params.patientId,
         hospitalId,
         surgeryId,
+        hospital?.timezone || "Europe/Zurich",
       );
       res.json(blocks);
     } catch (error: any) {
@@ -171,6 +173,7 @@ router.post(
         return res.status(404).json({ message: "Patient not found" });
       }
       const hospital = await storage.getHospital(hospitalId);
+      const tz = hospital?.timezone || "Europe/Zurich";
 
       // 2. Collect data from selected blocks
       const dataBlocks: (string | null)[] = [];
@@ -189,22 +192,22 @@ router.post(
         switch (block) {
           case "anesthesia_record":
             if (surgeryId) {
-              dataBlocks.push(await collectAnesthesiaRecordData(surgeryId));
+              dataBlocks.push(await collectAnesthesiaRecordData(surgeryId, tz));
             }
             break;
           case "surgery_notes":
             if (surgeryId) {
-              dataBlocks.push(await collectSurgeryNotesData(surgeryId));
+              dataBlocks.push(await collectSurgeryNotesData(surgeryId, tz));
             }
             break;
           case "surgery_details":
             if (surgeryId) {
-              dataBlocks.push(await collectSurgeryData(surgeryId));
+              dataBlocks.push(await collectSurgeryData(surgeryId, tz));
             }
             break;
           case "patient_notes":
             dataBlocks.push(
-              await collectPatientNotesData(patientId, selectedNoteIds ?? undefined),
+              await collectPatientNotesData(patientId, selectedNoteIds ?? undefined, tz),
             );
             break;
           case "discharge_medications":
@@ -214,7 +217,7 @@ router.post(
             break;
           case "follow_up_appointments":
             dataBlocks.push(
-              await collectFollowUpAppointmentsData(patientId, hospitalId, selectedAppointmentIds ?? undefined),
+              await collectFollowUpAppointmentsData(patientId, hospitalId, selectedAppointmentIds ?? undefined, tz),
             );
             break;
         }
@@ -507,6 +510,7 @@ router.post(
           : undefined,
         signedAt: brief.signedAt || undefined,
         dateFormat: hospital?.dateFormat || null,
+        language: (hospital?.defaultLanguage as string) || 'de',
       });
 
       // Upload to S3

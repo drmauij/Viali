@@ -82,6 +82,7 @@ export interface CreateBusyBlockRequest {
   start: string;
   end?: string; // If not provided, uses event type duration
   title: string;
+  timezone?: string;
   metadata?: {
     sourceType: 'appointment' | 'surgery' | 'timeoff' | 'absence';
     sourceId: string;
@@ -196,7 +197,8 @@ export class CalcomClient {
     eventTypeId: number,
     start: string,
     end: string,
-    title: string
+    title: string,
+    timezone?: string,
   ): Promise<CalcomBooking> {
     return this.request<CalcomBooking>('/bookings', {
       method: 'POST',
@@ -206,7 +208,7 @@ export class CalcomClient {
         attendee: {
           name: 'System Block',
           email: 'system@clinic.local',
-          timeZone: 'Europe/Zurich',
+          timeZone: timezone || 'Europe/Zurich',
         },
         bookingFieldsResponses: {
           title: title,
@@ -231,7 +233,7 @@ export class CalcomClient {
         attendee: {
           name: request.title,
           email: 'system-block@clinic.local',
-          timeZone: 'Europe/Zurich',
+          timeZone: request.timezone || 'Europe/Zurich',
         },
         bookingFieldsResponses: {
           title: request.title,
@@ -314,7 +316,8 @@ export class CalcomClient {
     existingUid: string | null,
     start: string,
     title: string,
-    metadata: CreateBusyBlockRequest['metadata']
+    metadata: CreateBusyBlockRequest['metadata'],
+    timezone?: string,
   ): Promise<{ uid: string; action: 'created' | 'updated' | 'unchanged' }> {
     if (existingUid) {
       // Check if we need to update
@@ -341,19 +344,21 @@ export class CalcomClient {
             start,
             title,
             metadata,
+            timezone,
           });
           return { uid: created.uid, action: 'created' };
         }
         throw error;
       }
     }
-    
+
     // Create new busy block
     const created = await this.createBusyBlockWithMetadata({
       eventTypeId,
       start,
       title,
       metadata,
+      timezone,
     });
     
     return { uid: created.uid, action: 'created' };

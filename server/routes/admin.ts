@@ -559,7 +559,8 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
         existingUser.firstName || 'User',
         hospital?.name || 'a hospital',
         adminName,
-        loginUrl
+        loginUrl,
+        (hospital?.defaultLanguage as string) || 'de'
       );
       if (result.success) {
         logger.info('[Add Existing User] Notification email sent successfully');
@@ -635,7 +636,8 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
           existingUser.firstName || 'User',
           hospital?.name || 'a hospital',
           adminName,
-          loginUrl
+          loginUrl,
+          (hospital?.defaultLanguage as string) || 'de'
         );
         if (result.success) {
           logger.info('[User Creation] Hospital added notification sent successfully');
@@ -698,7 +700,8 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
           newUser.firstName!,
           hospital?.name || 'Your Hospital',
           password,
-          loginUrl
+          loginUrl,
+          (hospital?.defaultLanguage as string) || 'de'
         );
         if (result.success) {
           logger.info('[User Creation] Welcome email sent successfully:', result.data);

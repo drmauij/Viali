@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { FolderPlus, Folder, FileQuestion } from "lucide-react";
 import { CreateFolderDialog } from "./CreateFolderDialog";
@@ -28,6 +29,7 @@ export function EpisodeFolderList({
   episodeId,
   patientId,
 }: EpisodeFolderListProps) {
+  const { t } = useTranslation();
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   const sortedFolders = [...folders].sort(
@@ -46,7 +48,7 @@ export function EpisodeFolderList({
           }`}
         >
           <FileQuestion className="h-4 w-4 flex-shrink-0" />
-          Unassigned
+          {t('episodes.unassigned')}
         </button>
         {sortedFolders.map((folder) => (
           <button
@@ -72,7 +74,7 @@ export function EpisodeFolderList({
           onClick={() => setCreateFolderOpen(true)}
         >
           <FolderPlus className="h-4 w-4" />
-          New Folder
+          {t('episodes.newFolder')}
         </Button>
       )}
 

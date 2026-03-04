@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -48,6 +49,7 @@ export function MultiFileUploadDialog({
   open,
   onOpenChange,
 }: MultiFileUploadDialogProps) {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("other");
   const [selectedFolderId, setSelectedFolderId] = useState<string>(initialFolderId || "");
@@ -113,9 +115,9 @@ export function MultiFileUploadDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Files</DialogTitle>
+          <DialogTitle>{t('episodes.uploadFiles')}</DialogTitle>
           <DialogDescription>
-            Select multiple files to upload to this episode.
+            {t('episodes.uploadDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -138,7 +140,7 @@ export function MultiFileUploadDialog({
               disabled={isUploading}
             >
               <Upload className="h-4 w-4 mr-1" />
-              Select Files
+              {t('episodes.selectFiles')}
             </Button>
             <Button
               variant="outline"
@@ -157,7 +159,7 @@ export function MultiFileUploadDialog({
 
           {/* Category selector */}
           <div className="space-y-1">
-            <Label>Category</Label>
+            <Label>{t('episodes.category')}</Label>
             <Select value={category} onValueChange={setCategory} disabled={isUploading}>
               <SelectTrigger>
                 <SelectValue />
@@ -175,13 +177,13 @@ export function MultiFileUploadDialog({
           {/* Folder selector */}
           {folders.length > 0 && (
             <div className="space-y-1">
-              <Label>Folder</Label>
+              <Label>{t('episodes.folder')}</Label>
               <Select value={selectedFolderId} onValueChange={setSelectedFolderId} disabled={isUploading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
+                  <SelectValue placeholder={t('episodes.unassigned')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="">{t('episodes.unassigned')}</SelectItem>
                   {folders.map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>
                       {folder.name}
@@ -233,7 +235,7 @@ export function MultiFileUploadDialog({
 
         <DialogFooter>
           {allComplete ? (
-            <Button onClick={handleClose}>Done</Button>
+            <Button onClick={handleClose}>{t('episodes.done')}</Button>
           ) : (
             <Button
               onClick={handleUpload}
@@ -242,7 +244,7 @@ export function MultiFileUploadDialog({
               {isUploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Uploading...
+                  {t('episodes.uploading')}
                 </>
               ) : (
                 <>

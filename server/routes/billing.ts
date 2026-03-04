@@ -557,7 +557,8 @@ router.post("/api/billing/:hospitalId/charge-month", isAuthenticated, requireAdm
 
     const totalAmount = Math.round(recordCount * pricePerRecord * 100);
 
-    const monthName = startOfMonth.toLocaleString("default", { month: "long", year: "numeric" });
+    const tz = hospital.timezone || "Europe/Zurich";
+    const monthName = startOfMonth.toLocaleString("default", { month: "long", year: "numeric", timeZone: tz });
 
     const invoice = await stripe.invoices.create({
       customer: hospital.stripeCustomerId,
@@ -1211,7 +1212,8 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
     pdf.text(`${isGerman ? "Unterzeichnet von" : "Signed by"}: ${acceptance.signedByName}`, 15, y); y += 6;
     pdf.text(`E-Mail: ${acceptance.signedByEmail || "N/A"}`, 15, y); y += 6;
     const signedDate = new Date(signedAt);
-    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedDate.toLocaleDateString(isGerman ? "de-DE" : "en-US")} ${signedDate.toLocaleTimeString(isGerman ? "de-DE" : "en-US")}`, 15, y); y += 10;
+    const tz1 = hospital.timezone || "Europe/Zurich";
+    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedDate.toLocaleDateString(isGerman ? "de-DE" : "en-US", { timeZone: tz1 })} ${signedDate.toLocaleTimeString(isGerman ? "de-DE" : "en-US", { timeZone: tz1 })}`, 15, y); y += 10;
     
     // Add signature image if available
     if (acceptance.signatureImage) {
@@ -1506,7 +1508,8 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     pdf.text(`${isGerman ? "Klinik" : "Clinic"}: ${hospital.name}`, 15, y); y += 6;
     pdf.text(`${isGerman ? "Unterzeichnet von" : "Signed by"}: ${signerName}`, 15, y); y += 6;
     pdf.text(`E-Mail: ${user.email || "N/A"}`, 15, y); y += 6;
-    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedAt.toLocaleDateString(isGerman ? "de-DE" : "en-US")} ${signedAt.toLocaleTimeString(isGerman ? "de-DE" : "en-US")}`, 15, y); y += 10;
+    const tz2 = hospital.timezone || "Europe/Zurich";
+    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedAt.toLocaleDateString(isGerman ? "de-DE" : "en-US", { timeZone: tz2 })} ${signedAt.toLocaleTimeString(isGerman ? "de-DE" : "en-US", { timeZone: tz2 })}`, 15, y); y += 10;
     
     // Add signature image
     try {
@@ -1560,7 +1563,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
             <p><strong>Clinic:</strong> ${hospital.name}</p>
             <p><strong>Signed by:</strong> ${signerName}</p>
             <p><strong>Email:</strong> ${user.email || "N/A"}</p>
-            <p><strong>Date:</strong> ${signedAt.toLocaleDateString("de-DE")} ${signedAt.toLocaleTimeString("de-DE")}</p>
+            <p><strong>Date:</strong> ${signedAt.toLocaleDateString("de-DE", { timeZone: tz2 })} ${signedAt.toLocaleTimeString("de-DE", { timeZone: tz2 })}</p>
             <p><strong>Version:</strong> ${CURRENT_TERMS_VERSION}</p>
             <p>Please review, countersign, and reply to this email to send the countersigned document back to the customer.</p>
           `,
@@ -1906,7 +1909,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       collection_method: 'charge_automatically',
       auto_advance: true,
       currency: 'chf',
-      description: `Viali Usage - ${periodStart.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}`,
+      description: `Viali Usage - ${periodStart.toLocaleDateString('de-CH', { month: 'long', year: 'numeric', timeZone: hospital.timezone || "Europe/Zurich" })}`,
       metadata: {
         hospitalId,
         periodStart: periodStart.toISOString(),

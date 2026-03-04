@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms, surgeries } from "@shared/schema";
+import { externalWorklogLinks, externalWorklogEntries, units, workerContracts, dailyStaffPool, dailyRoomStaff, surgeryRooms, surgeries, hospitals } from "@shared/schema";
 import { getActiveUnitIdFromRequest } from "../utils";
 import { eq, and, desc, gte, lte, inArray, ne, min, max, count, sql } from "drizzle-orm";
 import { ObjectStorageService } from "../objectStorage";
@@ -721,6 +721,10 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
       return res.status(400).json({ message: "month query param required (format: YYYY-MM)" });
     }
 
+    // Get hospital timezone
+    const [hospital] = await db.select({ timezone: hospitals.timezone }).from(hospitals).where(eq(hospitals.id, link.hospitalId)).limit(1);
+    const tz = hospital?.timezone || "Europe/Zurich";
+
     // Look up user by email
     const user = await searchUserByEmail(link.email.toLowerCase());
     if (!user) {
@@ -787,7 +791,7 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
         const saalRows = await db
           .select({
             surgeryRoomId: surgeries.surgeryRoomId,
-            dateStr: sql<string>`DATE(${surgeries.plannedDate})`.as("date_str"),
+            dateStr: sql<string>`DATE(${surgeries.plannedDate} AT TIME ZONE ${tz})`.as("date_str"),
             firstStart: min(surgeries.plannedDate).as("first_start"),
             lastEnd: max(surgeries.actualEndTime).as("last_end"),
             missingEndCount: sql<number>`COUNT(*) FILTER (WHERE ${surgeries.actualEndTime} IS NULL)`.as("missing_end_count"),
@@ -804,7 +808,7 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
               inArray(surgeries.surgeryRoomId, uniqueRoomIds)
             )
           )
-          .groupBy(surgeries.surgeryRoomId, sql`DATE(${surgeries.plannedDate})`);
+          .groupBy(surgeries.surgeryRoomId, sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${tz})`);
 
         for (const row of saalRows) {
           const key = `${row.dateStr}|${row.surgeryRoomId}`;
@@ -816,11 +820,11 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
 
           if (firstStart) {
             const begin = new Date(firstStart.getTime() - 60 * 60 * 1000);
-            saalBegin = begin.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false });
+            saalBegin = begin.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
           }
           if (lastEnd && Number(row.missingEndCount) === 0) {
             const end = new Date(lastEnd.getTime() + 60 * 60 * 1000);
-            saalEnd = end.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false });
+            saalEnd = end.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
           }
 
           saalTimesMap.set(key, { saalBegin, saalEnd });

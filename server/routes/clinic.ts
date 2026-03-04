@@ -3116,6 +3116,10 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
       return res.status(404).send('Provider not found');
     }
     
+    // Fetch hospital timezone
+    const hospital = await storage.getHospital(hospitalId);
+    const tz = hospital?.timezone || 'Europe/Zurich';
+
     // Date range: from 7 days ago to 6 months ahead
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
@@ -3266,6 +3270,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
         start: startDt,
         end: endDt,
         description: apt.notes || '',
+        timezone: tz,
       }));
     }
     
@@ -3287,6 +3292,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
         start: bufferedStart,
         end: bufferedEnd,
         description: surgery.notes || '',
+        timezone: tz,
       }));
     }
 
@@ -3306,8 +3312,9 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
         if (isFirstDay && absence.isHalfDayStart) dayStart = '13:00';
         if (isLastDay && absence.isHalfDayEnd) dayEnd = '13:00';
 
-        const startDt = new Date(`${dateStr}T${dayStart}:00+01:00`);
-        const endDt = new Date(`${dateStr}T${dayEnd}:00+01:00`);
+        // Parse time in hospital timezone by using Intl to find the UTC equivalent
+        const startDt = parseDateInTimezone(dateStr, dayStart, tz);
+        const endDt = parseDateInTimezone(dateStr, dayEnd, tz);
 
         events.push(generateIcsEvent({
           uid: `absence-${absence.id}-${dateStr}@viali.app`,
@@ -3315,6 +3322,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
           start: startDt,
           end: endDt,
           description: absence.notes || '',
+          timezone: tz,
         }));
       }
     }
@@ -3323,8 +3331,8 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     for (const timeOff of expandedTimeOffs) {
       if (timeOff.startTime && timeOff.endTime) {
         // Partial day block
-        const startDt = new Date(`${timeOff.startDate}T${timeOff.startTime}:00+01:00`);
-        const endDt = new Date(`${timeOff.startDate}T${timeOff.endTime}:00+01:00`);
+        const startDt = parseDateInTimezone(timeOff.startDate, timeOff.startTime, tz);
+        const endDt = parseDateInTimezone(timeOff.startDate, timeOff.endTime, tz);
 
         events.push(generateIcsEvent({
           uid: `timeoff-${timeOff.id}-${timeOff.startDate}@viali.app`,
@@ -3332,6 +3340,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
           start: startDt,
           end: endDt,
           description: timeOff.notes || '',
+          timezone: tz,
         }));
       } else {
         // Full day block — iterate each day in range
@@ -3340,8 +3349,8 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
 
         for (let d = new Date(toStart); d <= toEnd; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
-          const startDt = new Date(`${dateStr}T07:00:00+01:00`);
-          const endDt = new Date(`${dateStr}T20:00:00+01:00`);
+          const startDt = parseDateInTimezone(dateStr, '07:00', tz);
+          const endDt = parseDateInTimezone(dateStr, '20:00', tz);
 
           events.push(generateIcsEvent({
             uid: `timeoff-${timeOff.id}-${dateStr}@viali.app`,
@@ -3349,32 +3358,15 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
             start: startDt,
             end: endDt,
             description: timeOff.notes || '',
+            timezone: tz,
           }));
         }
       }
     }
 
-    // VTIMEZONE component for Europe/Zurich (required for proper timezone handling)
-    const vtimezone = [
-      'BEGIN:VTIMEZONE',
-      'TZID:Europe/Zurich',
-      'BEGIN:DAYLIGHT',
-      'TZOFFSETFROM:+0100',
-      'TZOFFSETTO:+0200',
-      'TZNAME:CEST',
-      'DTSTART:19700329T020000',
-      'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
-      'END:DAYLIGHT',
-      'BEGIN:STANDARD',
-      'TZOFFSETFROM:+0200',
-      'TZOFFSETTO:+0100',
-      'TZNAME:CET',
-      'DTSTART:19701025T030000',
-      'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
-      'END:STANDARD',
-      'END:VTIMEZONE',
-    ].join('\r\n');
-    
+    // VTIMEZONE component (required for proper timezone handling)
+    const vtimezone = generateVTimezone(tz);
+
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
@@ -3382,7 +3374,7 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       `X-WR-CALNAME:${providerName} - Busy Times`,
-      'X-WR-TIMEZONE:Europe/Zurich',
+      `X-WR-TIMEZONE:${tz}`,
       vtimezone,
       ...events,
       'END:VCALENDAR'
@@ -3396,6 +3388,98 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     res.status(500).send('Error generating calendar feed');
   }
 });
+
+// Helper: parse a date string + time string (HH:MM) in a given timezone into a UTC Date
+function parseDateInTimezone(dateStr: string, time: string, timezone: string): Date {
+  // Create a date string and use Intl to figure out the offset
+  const naive = new Date(`${dateStr}T${time}:00`);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  // Get what UTC time corresponds to this local time by computing the offset
+  const utcFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  // Use a reference point to compute offset for this date
+  const refDate = new Date(`${dateStr}T12:00:00Z`);
+  const tzParts = formatter.formatToParts(refDate);
+  const utcParts = utcFormatter.formatToParts(refDate);
+  const getVal = (parts: Intl.DateTimeFormatPart[], type: string) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+  const tzHour = getVal(tzParts, 'hour');
+  const utcHour = getVal(utcParts, 'hour');
+  const offsetHours = tzHour - utcHour;
+
+  // Apply offset to get approximate UTC time
+  const [h, m] = time.split(':').map(Number);
+  const result = new Date(`${dateStr}T${String(h - offsetHours).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
+  return result;
+}
+
+// Helper: generate VTIMEZONE component for ICS
+// All EU timezones follow the same DST transition rules (last Sunday of March/October)
+function generateVTimezone(timezone: string): string {
+  // Compute standard and daylight offsets using Intl
+  const winter = new Date('2026-01-15T12:00:00Z'); // January = standard time
+  const summer = new Date('2026-07-15T12:00:00Z'); // July = daylight time
+
+  const getOffset = (date: Date): string => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'longOffset',
+    });
+    const parts = formatter.formatToParts(date);
+    const tzName = parts.find(p => p.type === 'timeZoneName')?.value || '+00:00';
+    // Extract offset like "GMT+01:00" -> "+0100"
+    const match = tzName.match(/GMT([+-]\d{2}):(\d{2})/);
+    if (match) return `${match[1]}${match[2]}`;
+    // If GMT with no offset, it's UTC
+    if (tzName === 'GMT') return '+0000';
+    return '+0000';
+  };
+
+  const standardOffset = getOffset(winter);
+  const daylightOffset = getOffset(summer);
+
+  // If no DST (standard === daylight), emit a minimal VTIMEZONE
+  if (standardOffset === daylightOffset) {
+    return [
+      'BEGIN:VTIMEZONE',
+      `TZID:${timezone}`,
+      'BEGIN:STANDARD',
+      `TZOFFSETFROM:${standardOffset}`,
+      `TZOFFSETTO:${standardOffset}`,
+      'DTSTART:19700101T000000',
+      'END:STANDARD',
+      'END:VTIMEZONE',
+    ].join('\r\n');
+  }
+
+  // EU DST rules: transition last Sunday of March (to daylight) and last Sunday of October (to standard)
+  return [
+    'BEGIN:VTIMEZONE',
+    `TZID:${timezone}`,
+    'BEGIN:DAYLIGHT',
+    `TZOFFSETFROM:${standardOffset}`,
+    `TZOFFSETTO:${daylightOffset}`,
+    'DTSTART:19700329T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    `TZOFFSETFROM:${daylightOffset}`,
+    `TZOFFSETTO:${standardOffset}`,
+    'DTSTART:19701025T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+  ].join('\r\n');
+}
 
 // Helper function to generate ICS event with proper timezone handling
 function generateIcsEvent(params: {

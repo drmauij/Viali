@@ -86,6 +86,7 @@ export async function collectStaffNames(
 
 export async function collectAnesthesiaRecordData(
   surgeryId: string,
+  timezone?: string,
 ): Promise<string | null> {
   const record = await getAnesthesiaRecord(surgeryId);
   if (!record) return null;
@@ -108,7 +109,7 @@ export async function collectAnesthesiaRecordData(
     if (markers.length > 0) {
       lines.push("\n### Time Markers");
       for (const m of markers) {
-        lines.push(`- ${(m as any).code} (${(m as any).label}): ${new Date((m as any).time).toLocaleTimeString("de-CH")}`);
+        lines.push(`- ${(m as any).code} (${(m as any).label}): ${new Date((m as any).time).toLocaleTimeString("de-CH", { timeZone: timezone || "Europe/Zurich" })}`);
       }
     }
   }
@@ -223,6 +224,7 @@ export async function collectDischargeMedicationsData(
 export async function collectPatientNotesData(
   patientId: string,
   selectedNoteIds?: string[],
+  timezone?: string,
 ): Promise<string | null> {
   const allNotes = await getPatientNotes(patientId);
   if (!allNotes || allNotes.length === 0) return null;
@@ -236,7 +238,7 @@ export async function collectPatientNotesData(
   const lines: string[] = ["## Patient Notes"];
   for (const note of notes) {
     const author = `${note.author?.firstName || ""} ${note.author?.lastName || ""}`.trim();
-    const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString("de-CH") : "";
+    const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" }) : "";
     lines.push(`\n### Note by ${author} (${date})`);
     lines.push(note.content || "");
   }
@@ -246,6 +248,7 @@ export async function collectPatientNotesData(
 
 export async function collectSurgeryNotesData(
   surgeryId: string,
+  timezone?: string,
 ): Promise<string | null> {
   const notes = await getSurgeryNotes(surgeryId);
   if (!notes || notes.length === 0) return null;
@@ -253,7 +256,7 @@ export async function collectSurgeryNotesData(
   const lines: string[] = ["## Surgery Notes"];
   for (const note of notes) {
     const author = `${note.author?.firstName || ""} ${note.author?.lastName || ""}`.trim();
-    const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString("de-CH") : "";
+    const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" }) : "";
     lines.push(`\n### Note by ${author} (${date})`);
     lines.push(note.content || "");
   }
@@ -265,6 +268,7 @@ export async function collectFollowUpAppointmentsData(
   patientId: string,
   hospitalId: string,
   selectedAppointmentIds?: string[],
+  timezone?: string,
 ): Promise<string | null> {
   const today = new Date().toISOString().split("T")[0];
   const allAppts = await getClinicAppointmentsByHospital(hospitalId, {
@@ -289,7 +293,7 @@ export async function collectFollowUpAppointmentsData(
     const providerName = appt.provider
       ? `${appt.provider.firstName || ""} ${appt.provider.lastName || ""}`.trim()
       : "Unknown";
-    const dateStr = new Date(appt.appointmentDate).toLocaleDateString("de-CH");
+    const dateStr = new Date(appt.appointmentDate).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" });
     lines.push(`\n### ${dateStr} at ${appt.startTime} — ${providerName}`);
     if (appt.notes) lines.push(`Notes: ${appt.notes}`);
     lines.push(`Duration: ${appt.durationMinutes} minutes`);
@@ -300,13 +304,14 @@ export async function collectFollowUpAppointmentsData(
 
 export async function collectSurgeryData(
   surgeryId: string,
+  timezone?: string,
 ): Promise<string | null> {
   const surgery = await getSurgery(surgeryId);
   if (!surgery) return null;
 
   const lines: string[] = ["## Surgery Details"];
   if (surgery.plannedSurgery) lines.push(`Procedure: ${surgery.plannedSurgery}`);
-  if (surgery.plannedDate) lines.push(`Date: ${new Date(surgery.plannedDate).toLocaleDateString("de-CH")}`);
+  if (surgery.plannedDate) lines.push(`Date: ${new Date(surgery.plannedDate).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" })}`);
   if (surgery.surgerySide) lines.push(`Side: ${surgery.surgerySide}`);
   if (surgery.chopCode) lines.push(`CHOP Code: ${surgery.chopCode}`);
   if (surgery.surgeon) lines.push(`Surgeon: ${surgery.surgeon}`);
@@ -374,6 +379,7 @@ export async function getAvailableDataBlocks(
   patientId: string,
   hospitalId: string,
   surgeryId?: string,
+  timezone?: string,
 ): Promise<DataBlockPreview[]> {
   const blocks: DataBlockPreview[] = [];
 
@@ -447,7 +453,7 @@ export async function getAvailableDataBlocks(
       const providerName = a.provider
         ? `${a.provider.firstName || ""} ${a.provider.lastName || ""}`.trim()
         : "";
-      const dateStr = new Date(a.appointmentDate).toLocaleDateString("de-CH");
+      const dateStr = new Date(a.appointmentDate).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" });
       const title = [dateStr, a.startTime, providerName, a.notes]
         .filter(Boolean)
         .join(" — ");

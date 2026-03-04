@@ -7054,7 +7054,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel">{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -7112,7 +7112,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel">{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -7236,7 +7236,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel">{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -7294,7 +7294,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel">{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

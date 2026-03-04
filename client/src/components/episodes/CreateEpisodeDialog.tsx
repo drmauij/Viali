@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ export function CreateEpisodeDialog({
   open,
   onOpenChange,
 }: CreateEpisodeDialogProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [referenceDate, setReferenceDate] = useState(
@@ -60,32 +62,32 @@ export function CreateEpisodeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Episode</DialogTitle>
+          <DialogTitle>{t('episodes.createEpisode')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="episode-title">Title *</Label>
+            <Label htmlFor="episode-title">{t('episodes.episodeTitleRequired')}</Label>
             <Input
               id="episode-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Episode title"
+              placeholder={t('episodes.episodeTitlePlaceholder')}
               required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="episode-description">Description</Label>
+            <Label htmlFor="episode-description">{t('episodes.description')}</Label>
             <Textarea
               id="episode-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
+              placeholder={t('episodes.descriptionPlaceholder')}
               rows={3}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="episode-start-date">Start Date</Label>
+              <Label htmlFor="episode-start-date">{t('episodes.startDate')}</Label>
               <Input
                 id="episode-start-date"
                 type="date"
@@ -94,7 +96,7 @@ export function CreateEpisodeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="episode-end-date">End Date</Label>
+              <Label htmlFor="episode-end-date">{t('episodes.endDate')}</Label>
               <Input
                 id="episode-end-date"
                 type="date"
@@ -109,13 +111,13 @@ export function CreateEpisodeDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={!title.trim() || createEpisode.isPending}
             >
-              {createEpisode.isPending ? "Creating..." : "Create Episode"}
+              {createEpisode.isPending ? t('episodes.creating') : t('episodes.createEpisode')}
             </Button>
           </DialogFooter>
         </form>

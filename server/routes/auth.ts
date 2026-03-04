@@ -194,11 +194,24 @@ router.post('/api/auth/forgot-password', async (req, res) => {
     const { sendPasswordResetEmail } = await import('../resend.js');
     const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
-    
+
+    // Get user's hospital language preference (default to 'de' for Swiss clinics)
+    let language = 'de';
+    try {
+      const userHospitals = await storage.getUserHospitals(foundUser.id);
+      if (userHospitals.length > 0) {
+        const hospital = await storage.getHospital(userHospitals[0].id);
+        language = (hospital?.defaultLanguage as string) || 'de';
+      }
+    } catch {
+      // Fall back to default 'de'
+    }
+
     await sendPasswordResetEmail(
       foundUser.email!,
       resetUrl,
-      foundUser.firstName || undefined
+      foundUser.firstName || undefined,
+      language
     );
 
     res.json({ message: "If an account with that email exists, a password reset link has been sent." });

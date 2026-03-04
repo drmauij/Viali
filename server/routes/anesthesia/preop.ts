@@ -545,7 +545,8 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         let age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-        const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+        const tzPreop = hospital?.timezone || 'Europe/Zurich';
+        const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: tzPreop });
         doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
         yPos += 5;
       }
@@ -565,7 +566,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      
+
       if (surgery.plannedSurgery) {
         const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
         surgeryLines.forEach((line: string) => {
@@ -578,7 +579,8 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         yPos += 5;
       }
       if (surgery.plannedDate) {
-        const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+        const tzPreop2 = hospital?.timezone || 'Europe/Zurich';
+        const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: tzPreop2 });
         doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
         yPos += 5;
       }
@@ -1362,7 +1364,8 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      const tzSingle = hospital?.timezone || 'Europe/Zurich';
+      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: tzSingle });
       doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
       yPos += 5;
     }
@@ -1382,7 +1385,7 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    
+
     if (surgery.plannedSurgery) {
       const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
       surgeryLines.forEach((line: string) => {
@@ -1395,7 +1398,7 @@ router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, requireSt
       yPos += 5;
     }
     if (surgery.plannedDate) {
-      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: hospital?.timezone || 'Europe/Zurich' });
       doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
       yPos += 5;
     }
@@ -2027,27 +2030,28 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      const tzThird = hospital?.timezone || 'Europe/Zurich';
+      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: tzThird });
       doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
       yPos += 5;
     }
-    
+
     if (patient?.sex) {
       const genderText = patient.sex === 'M' ? t.male : patient.sex === 'F' ? t.female : t.other;
       doc.text(`${t.gender}: ${genderText}`, 20, yPos);
       yPos += 5;
     }
-    
+
     yPos += 5;
-    
+
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(t.surgeryInfo, 20, yPos);
     yPos += 7;
-    
+
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    
+
     if (surgery.plannedSurgery) {
       const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
       surgeryLines.forEach((line: string) => {
@@ -2060,11 +2064,11 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       yPos += 5;
     }
     if (surgery.plannedDate) {
-      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE', { timeZone: hospital?.timezone || 'Europe/Zurich' });
       doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
       yPos += 5;
     }
-    
+
     yPos += 5;
     
     doc.setFontSize(12);

@@ -36,7 +36,7 @@ export interface CalcomSyncService {
   fullSync(hospitalId: string): Promise<{ appointments: SyncResult; surgeries: SyncResult }>;
 }
 
-async function getCalcomClientForHospital(hospitalId: string): Promise<{ client: CalcomClient; config: CalcomConfig } | null> {
+async function getCalcomClientForHospital(hospitalId: string): Promise<{ client: CalcomClient; config: CalcomConfig; timezone: string } | null> {
   const [config] = await db
     .select()
     .from(calcomConfig)
@@ -46,9 +46,15 @@ async function getCalcomClientForHospital(hospitalId: string): Promise<{ client:
     return null;
   }
 
+  // Fetch hospital timezone
+  const { hospitals } = await import("@shared/schema");
+  const [hospital] = await db.select({ timezone: hospitals.timezone }).from(hospitals).where(eq(hospitals.id, hospitalId));
+  const timezone = hospital?.timezone || 'Europe/Zurich';
+
   return {
     client: createCalcomClient(config.apiKey),
     config,
+    timezone,
   };
 }
 
@@ -70,14 +76,14 @@ async function getProviderMappings(hospitalId: string, providerId?: string): Pro
 
 export async function syncAppointmentsToCalcom(hospitalId: string, providerId?: string): Promise<SyncResult> {
   const result: SyncResult = { synced: 0, errors: [], details: [] };
-  
+
   const calcomSetup = await getCalcomClientForHospital(hospitalId);
   if (!calcomSetup) {
     result.errors.push("Cal.com is not configured or enabled for this hospital");
     return result;
   }
 
-  const { client, config } = calcomSetup;
+  const { client, config, timezone: hospitalTz } = calcomSetup;
 
   if (!config.syncBusyBlocks) {
     result.errors.push("Busy block sync is disabled in configuration");
@@ -149,7 +155,8 @@ export async function syncAppointmentsToCalcom(hospitalId: string, providerId?: 
           sourceId: apt.id,
           hospitalId,
           patientName,
-        }
+        },
+        hospitalTz,
       );
 
       if (syncResult.action !== 'unchanged' && syncResult.uid !== apt.calcomBookingUid) {
@@ -193,14 +200,14 @@ export async function syncAppointmentsToCalcom(hospitalId: string, providerId?: 
 
 export async function syncSurgeriesToCalcom(hospitalId: string, surgeonId?: string): Promise<SyncResult> {
   const result: SyncResult = { synced: 0, errors: [], details: [] };
-  
+
   const calcomSetup = await getCalcomClientForHospital(hospitalId);
   if (!calcomSetup) {
     result.errors.push("Cal.com is not configured or enabled for this hospital");
     return result;
   }
 
-  const { client, config } = calcomSetup;
+  const { client, config, timezone: hospitalTz } = calcomSetup;
 
   if (!config.syncBusyBlocks) {
     result.errors.push("Busy block sync is disabled in configuration");
@@ -270,7 +277,8 @@ export async function syncSurgeriesToCalcom(hospitalId: string, surgeonId?: stri
           sourceId: surgery.id,
           hospitalId,
           patientName,
-        }
+        },
+        hospitalTz,
       );
 
       if (syncResult.action !== 'unchanged' && syncResult.uid !== surgery.calcomBusyBlockUid) {
@@ -387,7 +395,8 @@ export async function syncSingleAppointment(appointmentId: string): Promise<{ su
         sourceId: apt.id,
         hospitalId: apt.hospitalId!,
         patientName,
-      }
+      },
+      calcomSetup.timezone,
     );
 
     if (syncResult.uid !== apt.calcomBookingUid || syncResult.action !== 'unchanged') {
@@ -483,13 +492,14 @@ export async function syncSingleSurgery(surgeryId: string): Promise<{ success: b
         sourceId: surgery.id,
         hospitalId: surgery.hospitalId!,
         patientName,
-      }
+      },
+      calcomSetup.timezone,
     );
 
     if (syncResult.uid !== surgery.calcomBusyBlockUid || syncResult.action !== 'unchanged') {
       await db
         .update(surgeries)
-        .set({ 
+        .set({
           calcomBusyBlockUid: syncResult.uid,
           calcomSyncedAt: new Date(),
         })
@@ -552,7 +562,8 @@ async function syncAssistantsForSurgery(
         assistant.calcomBusyBlockUid,
         startDateTime,
         title,
-        { sourceType: 'surgery', sourceId: surgery.id, hospitalId: surgery.hospitalId!, patientName }
+        { sourceType: 'surgery', sourceId: surgery.id, hospitalId: surgery.hospitalId!, patientName },
+        calcomSetup.timezone,
       );
 
       if (syncResult.uid !== assistant.calcomBusyBlockUid) {

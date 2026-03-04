@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle, FolderOpen } from "lucide-react";
 import { usePatientEpisodes } from "./useEpisodeQueries";
@@ -19,6 +20,7 @@ export function EpisodesTab({
   surgeries,
   notes,
 }: EpisodesTabProps) {
+  const { t } = useTranslation();
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
     null
   );
@@ -53,11 +55,11 @@ export function EpisodesTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Episodes</h3>
+        <h3 className="text-lg font-semibold">{t('episodes.title')}</h3>
         {canWrite && (
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <PlusCircle className="h-4 w-4 mr-1" />
-            New Episode
+            {t('episodes.newEpisode')}
           </Button>
         )}
       </div>
@@ -69,7 +71,7 @@ export function EpisodesTab({
       ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <FolderOpen className="h-10 w-10 mb-2" />
-          <p className="text-sm">No episodes yet</p>
+          <p className="text-sm">{t('episodes.noEpisodes')}</p>
           {canWrite && (
             <Button
               variant="link"
@@ -77,7 +79,7 @@ export function EpisodesTab({
               className="mt-2"
               onClick={() => setCreateOpen(true)}
             >
-              Create the first episode
+              {t('episodes.createFirstEpisode')}
             </Button>
           )}
         </div>

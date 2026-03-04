@@ -1094,21 +1094,26 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
       logger.info(`[Patient Messages] SMS sent successfully`);
     } else if (channel === 'email') {
       const hospital = await storage.getHospital(hospitalId);
+      const isGerman = (hospital?.defaultLanguage || 'de') === 'de';
       logger.info(`[Patient Messages] Sending email to ${recipient} for patient ${patientId}`);
       try {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
-        
+
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.viali.app',
           to: recipient,
-          subject: `Message from ${hospital?.name || 'Hospital'}`,
+          subject: isGerman
+            ? `Nachricht von ${hospital?.name || 'Spital'}`
+            : `Message from ${hospital?.name || 'Hospital'}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <p>${message.replace(/\n/g, '<br/>')}</p>
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
               <p style="color: #999; font-size: 12px; text-align: center;">
-                This is a message from ${hospital?.name || 'the hospital'}.
+                ${isGerman
+                  ? `Dies ist eine Nachricht von ${hospital?.name || 'dem Spital'}.`
+                  : `This is a message from ${hospital?.name || 'the hospital'}.`}
               </p>
             </div>
           `,

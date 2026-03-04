@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ export function CreateFolderDialog({
   open,
   onOpenChange,
 }: CreateFolderDialogProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const { createFolder } = useEpisodeMutations(patientId);
 
@@ -49,16 +51,16 @@ export function CreateFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Folder</DialogTitle>
+          <DialogTitle>{t('episodes.createFolder')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="folder-name">Folder Name *</Label>
+            <Label htmlFor="folder-name">{t('episodes.folderNameRequired')}</Label>
             <Input
               id="folder-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Folder name"
+              placeholder={t('episodes.folderNamePlaceholder')}
               required
             />
           </div>
@@ -68,13 +70,13 @@ export function CreateFolderDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={!name.trim() || createFolder.isPending}
             >
-              {createFolder.isPending ? "Creating..." : "Create Folder"}
+              {createFolder.isPending ? t('episodes.creatingFolder') : t('episodes.createFolder')}
             </Button>
           </DialogFooter>
         </form>

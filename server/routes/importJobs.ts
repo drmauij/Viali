@@ -158,12 +158,21 @@ router.post('/api/import-jobs/process-next', async (req, res) => {
     if (user?.email) {
       const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
       const previewUrl = `${baseUrl}/bulk-import/preview/${job.id}`;
+
+      // Get hospital language preference
+      let language = 'de';
+      if (job.hospitalId) {
+        const jobHospital = await storage.getHospital(job.hospitalId);
+        language = (jobHospital?.defaultLanguage as string) || 'de';
+      }
+
       const { sendBulkImportCompleteEmail } = await import('../resend');
       await sendBulkImportCompleteEmail(
         user.email,
         user.firstName || 'User',
         extractedItems.length,
-        previewUrl
+        previewUrl,
+        language
       );
       await storage.updateImportJob(job.id, { notificationSent: true });
       logger.info(`[Import Job Worker] Sent notification email to ${user.email}`);

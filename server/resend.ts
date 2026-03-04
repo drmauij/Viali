@@ -25,37 +25,40 @@ export async function sendWelcomeEmail(
   firstName: string,
   hospitalName: string,
   temporaryPassword: string,
-  loginUrl: string
+  loginUrl: string,
+  language: string = 'de'
 ) {
   try {
     const { client, fromEmail } = getResendClient();
     logger.info('[Email] Sending from:', fromEmail, 'to:', toEmail);
 
+    const isGerman = language === 'de';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to Viali - ${hospitalName}</h2>
-        <p>Hello ${firstName},</p>
-        <p>Your account has been created for the ${hospitalName} inventory management system.</p>
-        
+        <h2>${isGerman ? 'Willkommen bei Viali' : 'Welcome to Viali'} - ${hospitalName}</h2>
+        <p>${isGerman ? 'Guten Tag' : 'Hello'} ${firstName},</p>
+        <p>${isGerman ? `Ihr Konto wurde für das Spitalverwaltungssystem ${hospitalName} erstellt.` : `Your account has been created for the ${hospitalName} inventory management system.`}</p>
+
         <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Your Login Credentials</h3>
-          <p><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
-          <p><strong>Email:</strong> ${toEmail}</p>
-          <p><strong>Temporary Password:</strong> <code style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px;">${temporaryPassword}</code></p>
+          <h3 style="margin-top: 0;">${isGerman ? 'Ihre Anmeldedaten' : 'Your Login Credentials'}</h3>
+          <p><strong>${isGerman ? 'Anmelde-URL' : 'Login URL'}:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
+          <p><strong>${isGerman ? 'E-Mail' : 'Email'}:</strong> ${toEmail}</p>
+          <p><strong>${isGerman ? 'Temporäres Passwort' : 'Temporary Password'}:</strong> <code style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px;">${temporaryPassword}</code></p>
         </div>
-        
-        <p style="color: #d32f2f;"><strong>Important:</strong> You will be required to change your password on first login.</p>
-        
-        <p>If you have any questions, please contact your hospital administrator.</p>
-        
-        <p>Best regards,<br/>Viali Team</p>
+
+        <p style="color: #d32f2f;"><strong>${isGerman ? 'Wichtig' : 'Important'}:</strong> ${isGerman ? 'Sie müssen Ihr Passwort beim ersten Login ändern.' : 'You will be required to change your password on first login.'}</p>
+
+        <p>${isGerman ? 'Bei Fragen wenden Sie sich bitte an Ihren Spitaladministrator.' : 'If you have any questions, please contact your hospital administrator.'}</p>
+
+        <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br/>Viali Team</p>
       </div>
     `;
 
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: toEmail,
-      subject: `Welcome to Viali - ${hospitalName}`,
+      subject: isGerman ? `Willkommen bei Viali - ${hospitalName}` : `Welcome to Viali - ${hospitalName}`,
       html,
     });
 
@@ -72,13 +75,16 @@ export async function sendWelcomeEmail(
 }
 
 export async function sendPasswordResetEmail(
-  toEmail: string, 
-  resetUrl: string, 
-  userName?: string
+  toEmail: string,
+  resetUrl: string,
+  userName?: string,
+  language: string = 'de'
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    
+
+    const isGerman = language === 'de';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -95,22 +101,22 @@ export async function sendPasswordResetEmail(
         <body>
           <div class="container">
             <div class="header">
-              <h1>Viali - Password Reset</h1>
+              <h1>${isGerman ? 'Viali - Passwort zurücksetzen' : 'Viali - Password Reset'}</h1>
             </div>
             <div class="content">
-              <p>Hello${userName ? ' ' + userName : ''},</p>
-              <p>You requested to reset your password for your Viali account. Click the button below to create a new password:</p>
+              <p>${isGerman ? 'Guten Tag' : 'Hello'}${userName ? ' ' + userName : ''},</p>
+              <p>${isGerman ? 'Sie haben eine Passwortzurücksetzung für Ihr Viali-Konto angefordert. Klicken Sie auf die Schaltfläche unten, um ein neues Passwort zu erstellen:' : 'You requested to reset your password for your Viali account. Click the button below to create a new password:'}</p>
               <p style="text-align: center;">
-                <a href="${resetUrl}" class="button">Reset Password</a>
+                <a href="${resetUrl}" class="button">${isGerman ? 'Passwort zurücksetzen' : 'Reset Password'}</a>
               </p>
-              <p>Or copy and paste this link into your browser:</p>
+              <p>${isGerman ? 'Oder kopieren Sie diesen Link in Ihren Browser:' : 'Or copy and paste this link into your browser:'}</p>
               <p style="word-break: break-all; color: #2563eb;">${resetUrl}</p>
-              <p><strong>This link will expire in 1 hour.</strong></p>
-              <p>If you didn't request this password reset, you can safely ignore this email.</p>
+              <p><strong>${isGerman ? 'Dieser Link läuft in 1 Stunde ab.' : 'This link will expire in 1 hour.'}</strong></p>
+              <p>${isGerman ? 'Falls Sie diese Zurücksetzung nicht angefordert haben, können Sie diese E-Mail ignorieren.' : 'If you didn\'t request this password reset, you can safely ignore this email.'}</p>
             </div>
             <div class="footer">
-              <p>Viali Hospital Inventory Management System</p>
-              <p>This is an automated email, please do not reply.</p>
+              <p>${isGerman ? 'Viali Spitalverwaltungssystem' : 'Viali Hospital Inventory Management System'}</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail, bitte antworten Sie nicht.' : 'This is an automated email, please do not reply.'}</p>
             </div>
           </div>
         </body>
@@ -120,7 +126,7 @@ export async function sendPasswordResetEmail(
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: toEmail,
-      subject: 'Reset Your Password - Viali',
+      subject: isGerman ? 'Passwort zurücksetzen - Viali' : 'Reset Your Password - Viali',
       html,
     });
 
@@ -141,11 +147,14 @@ export async function sendHospitalAddedNotification(
   firstName: string,
   hospitalName: string,
   addedByName: string,
-  loginUrl: string
+  loginUrl: string,
+  language: string = 'de'
 ) {
   try {
     const { client, fromEmail } = getResendClient();
     logger.info('[Email] Sending hospital added notification from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
 
     const html = `
       <!DOCTYPE html>
@@ -164,28 +173,28 @@ export async function sendHospitalAddedNotification(
         <body>
           <div class="container">
             <div class="header">
-              <h1>You've Been Added to a New Hospital</h1>
+              <h1>${isGerman ? 'Zugang zu neuem Spital' : 'You\'ve Been Added to a New Hospital'}</h1>
             </div>
             <div class="content">
-              <p>Hello ${firstName},</p>
-              <p>Good news! You have been added to a new hospital in the Viali inventory management system.</p>
-              
+              <p>${isGerman ? 'Guten Tag' : 'Hello'} ${firstName},</p>
+              <p>${isGerman ? 'Sie wurden einem neuen Spital im Viali-System hinzugefügt.' : 'You have been added to a new hospital in the Viali inventory management system.'}</p>
+
               <div class="highlight">
-                <p><strong>Hospital:</strong> ${hospitalName}</p>
-                <p><strong>Added by:</strong> ${addedByName}</p>
+                <p><strong>${isGerman ? 'Spital' : 'Hospital'}:</strong> ${hospitalName}</p>
+                <p><strong>${isGerman ? 'Hinzugefügt von' : 'Added by'}:</strong> ${addedByName}</p>
               </div>
-              
-              <p>You can now access this hospital using your existing credentials. Simply log in and switch to the new hospital from your hospital selector.</p>
-              
+
+              <p>${isGerman ? 'Sie können jetzt mit Ihren bestehenden Zugangsdaten auf dieses Spital zugreifen. Melden Sie sich einfach an und wechseln Sie zum neuen Spital über die Spitalauswahl.' : 'You can now access this hospital using your existing credentials. Simply log in and switch to the new hospital from your hospital selector.'}</p>
+
               <p style="text-align: center;">
-                <a href="${loginUrl}" class="button">Go to Viali</a>
+                <a href="${loginUrl}" class="button">${isGerman ? 'Zu Viali' : 'Go to Viali'}</a>
               </p>
-              
-              <p>If you have any questions, please contact your hospital administrator.</p>
+
+              <p>${isGerman ? 'Bei Fragen wenden Sie sich bitte an Ihren Spitaladministrator.' : 'If you have any questions, please contact your hospital administrator.'}</p>
             </div>
             <div class="footer">
-              <p>Viali Hospital Inventory Management System</p>
-              <p>This is an automated email, please do not reply.</p>
+              <p>${isGerman ? 'Viali Spitalverwaltungssystem' : 'Viali Hospital Inventory Management System'}</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail, bitte antworten Sie nicht.' : 'This is an automated email, please do not reply.'}</p>
             </div>
           </div>
         </body>
@@ -195,7 +204,7 @@ export async function sendHospitalAddedNotification(
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: toEmail,
-      subject: `You've been added to ${hospitalName} - Viali`,
+      subject: isGerman ? `Zugang zu ${hospitalName} erhalten - Viali` : `You've been added to ${hospitalName} - Viali`,
       html,
     });
 
@@ -215,11 +224,14 @@ export async function sendBulkImportCompleteEmail(
   toEmail: string,
   userName: string,
   itemsExtracted: number,
-  previewUrl: string
+  previewUrl: string,
+  language: string = 'de'
 ) {
   try {
     const { client, fromEmail } = getResendClient();
-    
+
+    const isGerman = language === 'de';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -237,28 +249,28 @@ export async function sendBulkImportCompleteEmail(
         <body>
           <div class="container">
             <div class="header">
-              <h1>✅ Bulk Import Complete!</h1>
+              <h1>${isGerman ? 'Massenimport abgeschlossen!' : 'Bulk Import Complete!'}</h1>
             </div>
             <div class="content">
-              <p>Hello ${userName},</p>
-              <p>Great news! Your bulk import has finished processing.</p>
-              
+              <p>${isGerman ? 'Guten Tag' : 'Hello'} ${userName},</p>
+              <p>${isGerman ? 'Ihr Massenimport wurde erfolgreich verarbeitet.' : 'Your bulk import has finished processing.'}</p>
+
               <div class="stats">
-                <p><strong>Items Extracted:</strong> ${itemsExtracted}</p>
+                <p><strong>${isGerman ? 'Extrahierte Artikel' : 'Items Extracted'}:</strong> ${itemsExtracted}</p>
               </div>
-              
-              <p>Click the button below to review and import the items:</p>
+
+              <p>${isGerman ? 'Klicken Sie auf die Schaltfläche unten, um die Artikel zu überprüfen:' : 'Click the button below to review and import the items:'}</p>
               <p style="text-align: center;">
-                <a href="${previewUrl}" class="button">Review Import</a>
+                <a href="${previewUrl}" class="button">${isGerman ? 'Import überprüfen' : 'Review Import'}</a>
               </p>
-              <p>Or copy and paste this link into your browser:</p>
+              <p>${isGerman ? 'Oder kopieren Sie diesen Link in Ihren Browser:' : 'Or copy and paste this link into your browser:'}</p>
               <p style="word-break: break-all; color: #10b981;">${previewUrl}</p>
-              
-              <p>You can review the extracted items, make adjustments, and confirm the import.</p>
+
+              <p>${isGerman ? 'Sie können die extrahierten Artikel überprüfen, Anpassungen vornehmen und den Import bestätigen.' : 'You can review the extracted items, make adjustments, and confirm the import.'}</p>
             </div>
             <div class="footer">
-              <p>Viali Hospital Inventory Management System</p>
-              <p>This is an automated email, please do not reply.</p>
+              <p>${isGerman ? 'Viali Spitalverwaltungssystem' : 'Viali Hospital Inventory Management System'}</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail, bitte antworten Sie nicht.' : 'This is an automated email, please do not reply.'}</p>
             </div>
           </div>
         </body>
@@ -268,7 +280,7 @@ export async function sendBulkImportCompleteEmail(
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: toEmail,
-      subject: `Bulk Import Complete - ${itemsExtracted} Items Ready`,
+      subject: isGerman ? `Massenimport abgeschlossen - ${itemsExtracted} Artikel bereit` : `Bulk Import Complete - ${itemsExtracted} Items Ready`,
       html,
     });
 

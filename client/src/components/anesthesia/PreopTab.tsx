@@ -899,9 +899,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     <SelectValue placeholder={t("anesthesia.preop.select")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="No">No</SelectItem>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="Uncertain">Uncertain</SelectItem>
+                    <SelectItem value="No">{t("anesthesia.preop.no")}</SelectItem>
+                    <SelectItem value="Yes">{t("anesthesia.preop.yes")}</SelectItem>
+                    <SelectItem value="Uncertain">{t("anesthesia.preop.uncertain")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
