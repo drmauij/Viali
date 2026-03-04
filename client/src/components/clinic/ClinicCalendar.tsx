@@ -23,6 +23,7 @@ import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
 import SaalStaffPopover from "./SaalStaffPopover";
 import { TIME_OFF_TYPE_ICONS } from "./ManageAvailabilityDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -440,6 +441,17 @@ export default function ClinicCalendar({
 
   // State for the SaalStaffPopover
   const [saalPopoverState, setSaalPopoverState] = useState<{ providerId: string; providerName: string; dateStr: string } | null>(null);
+
+  // State for reschedule confirmation dialog
+  const [pendingReschedule, setPendingReschedule] = useState<{
+    appointmentId: string;
+    appointmentDate: string;
+    startTime: string;
+    endTime: string;
+    providerId?: string;
+    patientName?: string;
+    sendNotification?: boolean;
+  } | null>(null);
 
   const invalidateStaffPool = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}/range`] });
@@ -926,15 +938,17 @@ export default function ClinicCalendar({
   }, [currentView, resources.length]);
 
   const rescheduleAppointmentMutation = useMutation({
-    mutationFn: async ({ appointmentId, appointmentDate, startTime, endTime, providerId }: {
+    mutationFn: async ({ appointmentId, appointmentDate, startTime, endTime, providerId, sendNotification }: {
       appointmentId: string;
       appointmentDate: string;
       startTime: string;
       endTime: string;
       providerId?: string;
+      sendNotification?: boolean;
     }) => {
       const body: any = { appointmentDate, startTime, endTime };
       if (providerId) body.providerId = providerId;
+      if (sendNotification === false) body.sendNotification = false;
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${appointmentId}`, body);
     },
     onSuccess: () => {
@@ -984,14 +998,16 @@ export default function ClinicCalendar({
       }
     }
     
-    rescheduleAppointmentMutation.mutate({
+    const patientName = event.patientName || event.title || '';
+    setPendingReschedule({
       appointmentId,
       appointmentDate: formatDateForInput(start),
       startTime: formatTime(start),
       endTime: formatTime(end),
       providerId: newProviderId !== event.resource ? newProviderId : undefined,
+      patientName,
     });
-  }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
+  }, [isSlotBlocked, toast, t]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     // Don't allow resizing surgery, absence, time off, or availability window blocks
@@ -1018,13 +1034,39 @@ export default function ClinicCalendar({
       }
     }
     
-    rescheduleAppointmentMutation.mutate({
+    const patientName = event.patientName || event.title || '';
+    setPendingReschedule({
       appointmentId,
       appointmentDate: formatDateForInput(start),
       startTime: formatTime(start),
       endTime: formatTime(end),
+      patientName,
     });
-  }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
+  }, [isSlotBlocked, toast, t]);
+
+  const handleConfirmReschedule = useCallback((sendNotification: boolean) => {
+    if (!pendingReschedule) return;
+    rescheduleAppointmentMutation.mutate({
+      appointmentId: pendingReschedule.appointmentId,
+      appointmentDate: pendingReschedule.appointmentDate,
+      startTime: pendingReschedule.startTime,
+      endTime: pendingReschedule.endTime,
+      providerId: pendingReschedule.providerId,
+      sendNotification,
+    });
+    setPendingReschedule(null);
+  }, [pendingReschedule, rescheduleAppointmentMutation]);
+
+  const handleCancelReschedule = useCallback(() => {
+    setPendingReschedule(null);
+    // Refetch to revert the visual drag in the calendar
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
+      }
+    });
+  }, [hospitalId]);
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     if ((currentView === "day" || currentView === "week") && slotInfo.action === 'select') {
@@ -1554,6 +1596,39 @@ export default function ClinicCalendar({
         unitId={unitId}
         providerName={selectedTimeOffProviderName}
       />
+
+      {/* Reschedule confirmation dialog */}
+      <Dialog open={!!pendingReschedule} onOpenChange={(open) => { if (!open) handleCancelReschedule(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('appointments.rescheduleConfirm', 'Reschedule Appointment')}</DialogTitle>
+            <DialogDescription>
+              {pendingReschedule?.patientName && (
+                <span className="font-medium text-foreground">{pendingReschedule.patientName}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <p className="text-sm text-muted-foreground">
+              {t('appointments.rescheduleConfirmDesc', 'Move appointment to:')}
+            </p>
+            <p className="text-sm font-medium mt-1">
+              {pendingReschedule?.appointmentDate} · {pendingReschedule?.startTime} – {pendingReschedule?.endTime}
+            </p>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancelReschedule}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button variant="secondary" onClick={() => handleConfirmReschedule(false)}>
+              {t('appointments.rescheduleOnly', 'Reschedule Only')}
+            </Button>
+            <Button onClick={() => handleConfirmReschedule(true)}>
+              {t('appointments.rescheduleAndNotify', 'Reschedule & Notify')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

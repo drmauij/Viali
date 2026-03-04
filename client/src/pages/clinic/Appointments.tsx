@@ -40,7 +40,10 @@ import {
   Trash2,
   ToggleRight,
   ToggleLeft,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -651,6 +654,12 @@ function BookingDialog({
   );
   const [patientSearch, setPatientSearch] = useState("");
   const [notes, setNotes] = useState("");
+  const [showNewPatientForm, setShowNewPatientForm] = useState(false);
+  const [newPatientFirstName, setNewPatientFirstName] = useState("");
+  const [newPatientSurname, setNewPatientSurname] = useState("");
+  const [newPatientDOB, setNewPatientDOB] = useState("");
+  const [newPatientPhone, setNewPatientPhone] = useState("");
+  const [birthdayInput, setBirthdayInput] = useState("");
 
   // Update state when defaults change (from calendar slot selection)
   useMemo(() => {
@@ -673,6 +682,68 @@ function BookingDialog({
     enabled: !!hospitalId && patientSearch.length >= 2,
   });
 
+  const parseBirthday = (input: string): string | null => {
+    const trimmed = input.trim();
+    let day: string, month: string, year: string;
+
+    const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+    if (dotMatch) {
+      [, day, month, year] = dotMatch;
+    } else if (/^\d{8}$/.test(trimmed)) {
+      day = trimmed.substring(0, 2);
+      month = trimmed.substring(2, 4);
+      year = trimmed.substring(4, 8);
+    } else if (/^\d{6}$/.test(trimmed)) {
+      day = trimmed.substring(0, 2);
+      month = trimmed.substring(2, 4);
+      year = trimmed.substring(4, 6);
+    } else if (/^\d{4}$/.test(trimmed)) {
+      day = trimmed.substring(0, 1);
+      month = trimmed.substring(1, 2);
+      year = trimmed.substring(2, 4);
+    } else {
+      return null;
+    }
+
+    if (year.length === 2) {
+      const twoDigitYear = parseInt(year);
+      year = twoDigitYear > 30 ? `19${year}` : `20${year}`;
+    }
+
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+
+    if (dayNum < 1 || dayNum > 31) return null;
+    if (monthNum < 1 || monthNum > 12) return null;
+    if (yearNum < 1900 || yearNum > 2100) return null;
+
+    const testDate = new Date(yearNum, monthNum - 1, dayNum);
+    if (
+      testDate.getFullYear() !== yearNum ||
+      testDate.getMonth() !== monthNum - 1 ||
+      testDate.getDate() !== dayNum
+    ) {
+      return null;
+    }
+
+    day = day.padStart(2, '0');
+    month = month.padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleBirthdayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    setBirthdayInput(input);
+    const parsed = parseBirthday(input);
+    if (parsed) {
+      setNewPatientDOB(parsed);
+    } else if (input.trim() === "") {
+      setNewPatientDOB("");
+    }
+  };
+
   const { data: services = [] } = useQuery<ClinicService[]>({
     queryKey: [`/api/clinic/${hospitalId}/services?unitId=${unitId}`],
     enabled: !!hospitalId && !!unitId,
@@ -683,7 +754,7 @@ function BookingDialog({
       return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/appointments`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
@@ -698,6 +769,49 @@ function BookingDialog({
     },
   });
 
+  const createPatientMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/patients", data);
+      return response.json();
+    },
+    onSuccess: (newPatient) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', hospitalId] });
+      setSelectedPatientId(newPatient.id);
+      setPatientSearch(`${newPatient.firstName} ${newPatient.surname}`);
+      setShowNewPatientForm(false);
+      toast({
+        title: t('anesthesia.quickSchedule.patientCreated', 'Patient created'),
+        description: t('anesthesia.quickSchedule.patientCreatedDescription', 'Patient has been created and selected'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('anesthesia.quickSchedule.creationFailed', 'Failed to create patient'),
+        description: t('anesthesia.quickSchedule.creationFailedDescription', 'Could not create patient. Please try again.'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreatePatient = () => {
+    if (!newPatientFirstName.trim() || !newPatientSurname.trim() || !newPatientDOB) {
+      toast({
+        title: t('anesthesia.quickSchedule.missingInformation', 'Missing information'),
+        description: t('anesthesia.quickSchedule.missingPatientFields', 'Please fill in first name, surname, and date of birth'),
+        variant: "destructive",
+      });
+      return;
+    }
+    createPatientMutation.mutate({
+      hospitalId,
+      firstName: newPatientFirstName.trim(),
+      surname: newPatientSurname.trim(),
+      birthday: newPatientDOB,
+      sex: "M",
+      phone: newPatientPhone.trim() || undefined,
+    });
+  };
+
   const resetForm = () => {
     setSelectedPatientId("");
     setSelectedProviderId("");
@@ -706,6 +820,12 @@ function BookingDialog({
     setSelectedSlot("");
     setPatientSearch("");
     setNotes("");
+    setShowNewPatientForm(false);
+    setNewPatientFirstName("");
+    setNewPatientSurname("");
+    setNewPatientDOB("");
+    setNewPatientPhone("");
+    setBirthdayInput("");
   };
 
   const handleSubmit = () => {
@@ -739,34 +859,102 @@ function BookingDialog({
         <div className="space-y-4">
           <div>
             <Label>{t('appointments.searchPatient', 'Search Patient')} *</Label>
-            <Input
-              value={patientSearch}
-              onChange={(e) => setPatientSearch(e.target.value)}
-              placeholder={t('appointments.searchPatientPlaceholder', 'Type at least 2 characters...')}
-              data-testid="input-patient-search"
-            />
-            {patients.length > 0 && (
-              <div className="mt-1 border rounded-md max-h-32 overflow-y-auto">
-                {patients.map((patient) => (
-                  <button
-                    key={patient.id}
-                    onClick={() => {
-                      setSelectedPatientId(patient.id);
-                      setPatientSearch(`${patient.firstName} ${patient.surname}`);
+            {!showNewPatientForm ? (
+              <div>
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    value={patientSearch}
+                    onChange={(e) => {
+                      setPatientSearch(e.target.value);
+                      if (selectedPatientId) setSelectedPatientId("");
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 ${
-                      selectedPatientId === patient.id ? 'bg-primary/10' : ''
-                    }`}
-                    data-testid={`patient-option-${patient.id}`}
+                    placeholder={t('appointments.searchPatientPlaceholder', 'Type at least 2 characters...')}
+                    data-testid="input-patient-search"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowNewPatientForm(true)}
+                    title={t('anesthesia.quickSchedule.newPatient', 'New Patient')}
+                    data-testid="button-show-new-patient"
                   >
-                    {patient.firstName} {patient.surname}
-                    {patient.birthday && (
-                      <span className="text-muted-foreground ml-2 text-xs">
-                        ({format(new Date(patient.birthday), 'P', { locale: dateLocale })})
-                      </span>
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {patients.length > 0 && !selectedPatientId && (
+                  <div className="mt-1 border rounded-md max-h-32 overflow-y-auto">
+                    {patients.map((patient) => (
+                      <button
+                        key={patient.id}
+                        onClick={() => {
+                          setSelectedPatientId(patient.id);
+                          setPatientSearch(`${patient.firstName} ${patient.surname}`);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 ${
+                          selectedPatientId === patient.id ? 'bg-primary/10' : ''
+                        }`}
+                        data-testid={`patient-option-${patient.id}`}
+                      >
+                        {patient.firstName} {patient.surname}
+                        {patient.birthday && (
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            ({format(new Date(patient.birthday), 'P', { locale: dateLocale })})
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="border rounded-md p-4 space-y-3 mt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">{t('anesthesia.quickSchedule.newPatient', 'New Patient')}</h4>
+                  <Button variant="ghost" size="sm" onClick={() => setShowNewPatientForm(false)}
+                    data-testid="button-cancel-new-patient">
+                    {t('common.cancel', 'Cancel')}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="booking-new-patient-firstname">{t('anesthesia.quickSchedule.firstName', 'First Name')} *</Label>
+                    <Input id="booking-new-patient-firstname" value={newPatientFirstName}
+                      onChange={(e) => setNewPatientFirstName(e.target.value)}
+                      data-testid="input-new-patient-firstname" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="booking-new-patient-surname">{t('anesthesia.quickSchedule.surname', 'Surname')} *</Label>
+                    <Input id="booking-new-patient-surname" value={newPatientSurname}
+                      onChange={(e) => setNewPatientSurname(e.target.value)}
+                      data-testid="input-new-patient-surname" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="booking-new-patient-dob">{t('anesthesia.quickSchedule.dateOfBirth', 'Date of Birth')} *</Label>
+                    <Input id="booking-new-patient-dob" type="text"
+                      placeholder={t('anesthesia.quickSchedule.dobPlaceholder', 'dd.mm.yyyy')}
+                      value={birthdayInput} onChange={handleBirthdayChange}
+                      data-testid="input-new-patient-dob"
+                      className={birthdayInput && !newPatientDOB ? "border-destructive" : ""} />
+                    {birthdayInput && newPatientDOB && (
+                      <div className="text-xs text-muted-foreground">{format(new Date(newPatientDOB), 'P', { locale: dateLocale })}</div>
                     )}
-                  </button>
-                ))}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="booking-new-patient-phone">{t('anesthesia.quickSchedule.phone', 'Phone')}</Label>
+                    <PhoneInputWithCountry
+                      id="booking-new-patient-phone"
+                      placeholder={t('anesthesia.quickSchedule.phonePlaceholder', '+41...')}
+                      value={newPatientPhone}
+                      onChange={(value) => setNewPatientPhone(value)}
+                      data-testid="input-new-patient-phone" />
+                  </div>
+                </div>
+                <Button onClick={handleCreatePatient} disabled={createPatientMutation.isPending}
+                  className="w-full" data-testid="button-create-patient">
+                  {createPatientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t('anesthesia.quickSchedule.createPatient', 'Create Patient')}
+                </Button>
               </div>
             )}
           </div>

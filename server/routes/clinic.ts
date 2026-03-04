@@ -1032,6 +1032,100 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthen
 });
 
 // ========================================
+// Appointment notification helper
+// ========================================
+
+async function sendAppointmentNotification(
+  appointmentId: string,
+  hospitalId: string,
+  type: 'confirmation' | 'reschedule'
+) {
+  try {
+    const appointment = await storage.getClinicAppointment(appointmentId);
+    if (!appointment?.patientId) return;
+
+    const patient = await storage.getPatient(appointment.patientId);
+    if (!patient) return;
+
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) return;
+
+    const lang = (hospital.defaultLanguage as string) || 'de';
+    const isGerman = lang === 'de';
+    const tz = hospital.timezone || 'Europe/Zurich';
+    const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+
+    // Format date and time using hospital regional settings
+    const dateObj = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+    const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+    const formattedTime = appointment.startTime;
+
+    const clinicName = hospital.name;
+    const patientName = patient.firstName || '';
+
+    // Try SMS first, then email fallback
+    let channel: 'sms' | 'email' | null = null;
+    let recipient = '';
+    let success = false;
+
+    if (patient.phone) {
+      const { isSmsConfiguredForHospital, sendSms } = await import('../sms');
+      const smsAvailable = await isSmsConfiguredForHospital(hospitalId);
+      if (smsAvailable) {
+        const smsText = type === 'confirmation'
+          ? (isGerman
+            ? `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
+            : `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed. For questions, please contact us directly.`)
+          : (isGerman
+            ? `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`
+            : `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}. For questions, please contact us directly.`);
+
+        const result = await sendSms(patient.phone, smsText, hospitalId);
+        if (result.success) {
+          channel = 'sms';
+          recipient = patient.phone;
+          success = true;
+        }
+      }
+    }
+
+    // Email fallback if SMS not sent
+    if (!success && patient.email) {
+      const { sendAppointmentConfirmationEmail, sendAppointmentRescheduleEmail } = await import('../resend');
+      const emailFn = type === 'confirmation' ? sendAppointmentConfirmationEmail : sendAppointmentRescheduleEmail;
+      const result = await emailFn(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
+      if (result.success) {
+        channel = 'email';
+        recipient = patient.email;
+        success = true;
+      }
+    }
+
+    // Log to patient_messages
+    if (success && channel) {
+      const messageType = type === 'confirmation' ? 'appointment_confirmation' : 'appointment_reschedule';
+      const messageText = type === 'confirmation'
+        ? (isGerman ? `Terminbestätigung: ${formattedDate} um ${formattedTime}` : `Appointment confirmation: ${formattedDate} at ${formattedTime}`)
+        : (isGerman ? `Terminverschiebung: ${formattedDate} um ${formattedTime}` : `Appointment rescheduled: ${formattedDate} at ${formattedTime}`);
+
+      await storage.createPatientMessage({
+        hospitalId,
+        patientId: patient.id,
+        sentBy: null,
+        channel,
+        recipient,
+        message: messageText,
+        status: 'sent',
+        isAutomatic: true,
+        messageType,
+      });
+    }
+  } catch (err) {
+    logger.error(`Failed to send appointment ${type} notification for ${appointmentId}:`, err);
+  }
+}
+
+// ========================================
 // Clinic Appointments CRUD
 // ========================================
 
@@ -1243,7 +1337,12 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
         logger.error(`Failed to sync appointment ${appointment.id} to Cal.com:`, err);
       }
     })();
-    
+
+    // Async send confirmation notification (don't block response)
+    if (appointment.patientId) {
+      sendAppointmentNotification(appointment.id, hospitalId, 'confirmation');
+    }
+
     res.status(201).json(appointment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1262,6 +1361,7 @@ const updateAppointmentSchema = z.object({
   endTime: z.string().optional(),
   notes: z.string().nullable().optional(),
   serviceId: z.string().nullable().optional(),
+  providerId: z.string().optional(),
 });
 
 // Update appointment
@@ -1279,6 +1379,9 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
       return res.status(403).json({ message: "Access denied to this appointment" });
     }
     
+    // Capture before Zod parse strips unknown keys
+    const sendNotification = req.body.sendNotification;
+
     // Validate update payload with Zod schema
     const validatedData = updateAppointmentSchema.parse(req.body);
     
@@ -1301,7 +1404,16 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
     }
     
     const updated = await storage.updateClinicAppointment(appointmentId, updateData);
-    
+
+    // If time or date changed, send reschedule notification
+    const timeChanged = (validatedData.appointmentDate && validatedData.appointmentDate !== existing.appointmentDate)
+      || (validatedData.startTime && validatedData.startTime !== existing.startTime)
+      || (validatedData.endTime && validatedData.endTime !== existing.endTime);
+
+    if (timeChanged && updated.patientId && sendNotification !== false) {
+      sendAppointmentNotification(updated.id, hospitalId, 'reschedule');
+    }
+
     // Async sync to Cal.com (don't block response)
     (async () => {
       try {

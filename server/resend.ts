@@ -1235,3 +1235,97 @@ export async function sendPortalVerificationEmail(
     return { success: false, error };
   }
 }
+
+export async function sendAppointmentConfirmationEmail(
+  toEmail: string,
+  patientFirstName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Terminbestätigung – ${clinicName}`
+      : `Appointment Confirmation – ${clinicName}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${clinicName}</h2>
+        <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
+        <p>${isGerman
+          ? `Ihr Termin am ${appointmentDate} um ${appointmentTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
+          : `Your appointment on ${appointmentDate} at ${appointmentTime} has been confirmed. For questions, please contact us directly.`}</p>
+        <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send appointment confirmation email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent appointment confirmation to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending appointment confirmation email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAppointmentRescheduleEmail(
+  toEmail: string,
+  patientFirstName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Terminverschiebung – ${clinicName}`
+      : `Appointment Rescheduled – ${clinicName}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${clinicName}</h2>
+        <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
+        <p>${isGerman
+          ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`
+          : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}. For questions, please contact us directly.`}</p>
+        <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send appointment reschedule email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent appointment reschedule email to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending appointment reschedule email:', error);
+    return { success: false, error };
+  }
+}
