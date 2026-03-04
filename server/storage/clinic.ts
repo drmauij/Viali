@@ -867,6 +867,13 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
   const dateObj = new Date(date);
   const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
 
+  // Fetch hospital timezone for DATE() comparisons
+  let hospitalTz = 'Europe/Zurich';
+  if (hospitalId) {
+    const [h] = await db.select({ timezone: hospitals.timezone }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+    if (h?.timezone) hospitalTz = h.timezone;
+  }
+
   // Resolve calendar scope: if unit doesn't have its own calendar, use hospital-level (shared) data
   let effectiveUnitId: string | null = unitId;
   if (hospitalId) {
@@ -1010,7 +1017,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     .from(surgeries)
     .where(and(
       eq(surgeries.surgeonId, providerId),
-      sql`DATE(${surgeries.plannedDate}) = ${date}`,
+      sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${hospitalTz}) = ${date}`,
       sql`${surgeries.status} NOT IN ('cancelled')`
     ));
 
@@ -1026,7 +1033,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     .innerJoin(surgeries, eq(surgeryAssistants.surgeryId, surgeries.id))
     .where(and(
       eq(surgeryAssistants.userId, providerId),
-      sql`DATE(${surgeries.plannedDate}) = ${date}`,
+      sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${hospitalTz}) = ${date}`,
       sql`${surgeries.status} NOT IN ('cancelled')`
     ));
 
@@ -1131,6 +1138,10 @@ export async function getMultipleStaffAvailability(
     return {};
   }
 
+  // Fetch hospital timezone for DATE() comparisons
+  const [hospitalRow] = await db.select({ timezone: hospitals.timezone }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  const hospitalTz = hospitalRow?.timezone || 'Europe/Zurich';
+
   const WORKDAY_MINUTES = 480;
   const dayOfWeek = new Date(date + 'T00:00:00').getDay(); // 0=Sun, 6=Sat
 
@@ -1184,7 +1195,7 @@ export async function getMultipleStaffAvailability(
       .from(surgeries)
       .where(and(
         sql`${surgeries.surgeonId} IN ${staffIds}`,
-        sql`DATE(${surgeries.plannedDate}) = ${date}`,
+        sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${hospitalTz}) = ${date}`,
         sql`${surgeries.status} != 'cancelled'`,
         eq(surgeries.isSuspended, false)
       )),
@@ -1491,13 +1502,19 @@ export async function getSurgeriesForAutoQuestionnaire(hospitalId: string, daysA
       )
     )) : [];
 
+  // Only consider questionnaires submitted within the last 90 days as valid
+  const QUESTIONNAIRE_VALIDITY_DAYS = 90;
+  const validityDate = new Date();
+  validityDate.setDate(validityDate.getDate() - QUESTIONNAIRE_VALIDITY_DAYS);
+
   const completedLinks = patientIds.length > 0 ? await db
     .select({ patientId: patientQuestionnaireLinks.patientId })
     .from(patientQuestionnaireLinks)
     .where(and(
       eq(patientQuestionnaireLinks.hospitalId, hospitalId),
       inArray(patientQuestionnaireLinks.status, ['submitted', 'reviewed'] as any),
-      inArray(patientQuestionnaireLinks.patientId, patientIds)
+      inArray(patientQuestionnaireLinks.patientId, patientIds),
+      gte(patientQuestionnaireLinks.submittedAt, validityDate)
     )) : [];
 
   const sentSurgeryIds = new Set(sentLinks.filter(l => l.surgeryId).map(l => l.surgeryId));

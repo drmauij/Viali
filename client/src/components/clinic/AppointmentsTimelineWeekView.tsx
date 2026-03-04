@@ -13,6 +13,7 @@ import "moment/locale/de";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { getMomentTimeFormat } from "@/lib/dateUtils";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 interface TimelineGroup extends TimelineGroupBase {
@@ -541,7 +542,7 @@ export default function AppointmentsTimelineWeekView({
             unit="hour"
             labelFormat={(interval: any) => {
               const startTime = interval[0] || interval.startTime;
-              return moment(startTime.toDate ? startTime.toDate() : startTime).format('HH:mm');
+              return moment(startTime.toDate ? startTime.toDate() : startTime).format(getMomentTimeFormat());
             }}
             style={{ height: 40 }}
           />

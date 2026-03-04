@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft } from "lucide-react";
-import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getMomentTimeFormat } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -119,12 +119,16 @@ const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
 );
 
 const formats = {
-  timeGutterFormat: 'HH:mm',
+  timeGutterFormat: (date: Date) => moment(date).format(getMomentTimeFormat()),
   eventTimeRangeFormat: () => '',
-  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
-  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
+    const tf = getMomentTimeFormat();
+    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+  },
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
+    const tf = getMomentTimeFormat();
+    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+  },
   dayHeaderFormat: 'dddd DD/MM/YYYY',
   dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
@@ -319,9 +323,7 @@ export default function ClinicCalendar({
       if (savedFilter && savedFilter.length > 0) {
         const validIds = new Set(providers.map(p => p.id));
         const filteredIds = savedFilter.filter(id => validIds.has(id));
-        const allIds = new Set(providers.map(p => p.id));
-        filteredIds.forEach(id => allIds.has(id));
-        setSelectedProviderIds(allIds);
+        setSelectedProviderIds(new Set(filteredIds));
       } else {
         setSelectedProviderIds(new Set(providers.map(p => p.id)));
       }

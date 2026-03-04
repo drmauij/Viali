@@ -1,6 +1,7 @@
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 import type { PatientEpisode } from "./useEpisodeQueries";
 
 interface EpisodeCardProps {
@@ -9,6 +10,7 @@ interface EpisodeCardProps {
 }
 
 export function EpisodeCard({ episode, onClick }: EpisodeCardProps) {
+  const { t } = useTranslation();
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow"
@@ -25,9 +27,9 @@ export function EpisodeCard({ episode, onClick }: EpisodeCardProps) {
             </div>
             {(episode.referenceDate || episode.endDate) && (
               <p className="text-sm text-muted-foreground">
-                {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
+                {episode.referenceDate && formatDate(episode.referenceDate)}
                 {episode.referenceDate && episode.endDate && " — "}
-                {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
+                {episode.endDate && formatDate(episode.endDate)}
               </p>
             )}
           </div>
@@ -39,7 +41,7 @@ export function EpisodeCard({ episode, onClick }: EpisodeCardProps) {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-100"
             }
           >
-            {episode.status}
+            {episode.status === "open" ? t('episodes.active') : t('episodes.closed')}
           </Badge>
         </div>
         {episode.description && (

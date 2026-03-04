@@ -3,6 +3,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { LineChart, CustomChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, GraphicComponent } from 'echarts/components';
 import type { ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
+import { formatTime } from "@/lib/dateUtils";
 
 echarts.use([CanvasRenderer, LineChart, CustomChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, GraphicComponent]);
 
@@ -319,8 +320,7 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
       max: paddedMax,
       axisLabel: {
         formatter: (value: number) => {
-          const date = new Date(value);
-          return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+          return formatTime(new Date(value));
         },
         color: textColor,
         fontSize: 14,

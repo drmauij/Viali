@@ -10,6 +10,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 import { format } from "date-fns";
+import { formatTime } from "@/lib/dateUtils";
 import { Search, Clock, ArrowLeft, Check, AlertCircle, Delete, Play, Pause, Square, Timer } from "lucide-react";
 
 type KioskState = "loading" | "error" | "staff_grid" | "pin_entry" | "time_form" | "success";
@@ -150,8 +151,8 @@ export default function PublicWorktimeKiosk() {
 
     setFormData({
       workDate: format(timerStartTime, "yyyy-MM-dd"),
-      timeStart: format(timerStartTime, "HH:mm"),
-      timeEnd: format(now, "HH:mm"),
+      timeStart: formatTime(timerStartTime),
+      timeEnd: formatTime(now),
       pauseMinutes: Math.round(finalPauseMs / 60000),
       notes: "",
     });
@@ -538,7 +539,7 @@ export default function PublicWorktimeKiosk() {
 
                   {timerStatus === "running" && timerStartTime && (
                     <div className="text-sm text-muted-foreground mt-2">
-                      {t("worktime.startedAt", "Started at")} {format(timerStartTime, "HH:mm")}
+                      {t("worktime.startedAt", "Started at")} {formatTime(timerStartTime)}
                     </div>
                   )}
                   {timerStatus === "paused" && timerPauseStart && (

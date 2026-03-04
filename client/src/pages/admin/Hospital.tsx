@@ -20,7 +20,7 @@ import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as Lin
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatDateLong, formatCurrency, formatDateForInput } from "@/lib/dateUtils";
+import { formatDateLong, formatDateTime, formatCurrency, formatDateForInput } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
@@ -2435,7 +2435,7 @@ export default function Hospital() {
                     </p>
                     {catalogStatus.lastUpdated && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last updated: {new Date(catalogStatus.lastUpdated).toLocaleString()}
+                        Last updated: {formatDateTime(catalogStatus.lastUpdated)}
                       </p>
                     )}
                   </>
@@ -2555,7 +2555,7 @@ export default function Hospital() {
                         </p>
                         {catalog.lastSyncAt && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            Last sync: {new Date(catalog.lastSyncAt).toLocaleString()} - {catalog.lastSyncMessage || catalog.lastSyncStatus}
+                            Last sync: {formatDateTime(catalog.lastSyncAt)} - {catalog.lastSyncMessage || catalog.lastSyncStatus}
                           </p>
                         )}
                       </div>
@@ -2732,7 +2732,7 @@ export default function Hospital() {
                         <span className="capitalize text-muted-foreground">({job.status})</span>
                       </div>
                       <span className="text-muted-foreground">
-                        {new Date(job.createdAt).toLocaleString()}
+                        {formatDateTime(job.createdAt)}
                       </span>
                     </div>
                     {job.status === 'completed' && job.summary && (
@@ -4057,7 +4057,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 {syncStatus.calcom.status === 'completed' ? (
                   <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
                     <Check className="h-3 w-3" />
-                    {t("admin.lastSync", "Last sync")}: {new Date(syncStatus.calcom.lastSyncAt).toLocaleString()}
+                    {t("admin.lastSync", "Last sync")}: {formatDateTime(syncStatus.calcom.lastSyncAt)}
                   </span>
                 ) : syncStatus.calcom.status === 'processing' ? (
                   <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
@@ -4083,7 +4083,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             {!syncStatus?.calcom && calcomConfigData?.lastSyncAt && (
               <div className="text-sm text-muted-foreground">
                 <span>{t("admin.lastSync", "Last sync")}:</span>{" "}
-                <span>{new Date(calcomConfigData.lastSyncAt).toLocaleString()}</span>
+                <span>{formatDateTime(calcomConfigData.lastSyncAt)}</span>
                 {calcomConfigData.lastSyncError && (
                   <span className="ml-2 text-xs text-red-500">- {calcomConfigData.lastSyncError}</span>
                 )}
@@ -4507,7 +4507,7 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             {vonageConfigData?.lastTestedAt && (
               <div className="text-sm text-muted-foreground">
                 <span>Last test:</span>{" "}
-                <span>{new Date(vonageConfigData.lastTestedAt).toLocaleString()}</span>
+                <span>{formatDateTime(vonageConfigData.lastTestedAt)}</span>
                 {vonageConfigData.lastTestStatus === 'success' ? (
                   <span className="ml-2 text-green-500">✓ Success</span>
                 ) : vonageConfigData.lastTestStatus === 'failed' ? (

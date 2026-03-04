@@ -194,6 +194,7 @@ const translations = {
     uploadDocsDelete: "Löschen",
     uploadDocsNoFiles: "Noch keine Dokumente hochgeladen",
     uploadDocsLimitReached: "Maximale Anzahl an Dokumenten erreicht (20)",
+    updateQuestionnaire: "Informationen aktualisieren",
   },
   en: {
     title: "Patient Portal",
@@ -316,6 +317,7 @@ const translations = {
     uploadDocsDelete: "Delete",
     uploadDocsNoFiles: "No documents uploaded yet",
     uploadDocsLimitReached: "Maximum number of documents reached (20)",
+    updateQuestionnaire: "Update my information",
   },
   it: {
     title: "Portale Paziente",
@@ -438,6 +440,7 @@ const translations = {
     uploadDocsDelete: "Elimina",
     uploadDocsNoFiles: "Nessun documento caricato",
     uploadDocsLimitReached: "Numero massimo di documenti raggiunto (20)",
+    updateQuestionnaire: "Aggiorna le mie informazioni",
   },
   es: {
     title: "Portal del Paciente",
@@ -560,6 +563,7 @@ const translations = {
     uploadDocsDelete: "Eliminar",
     uploadDocsNoFiles: "Aún no se han subido documentos",
     uploadDocsLimitReached: "Número máximo de documentos alcanzado (20)",
+    updateQuestionnaire: "Actualizar mi información",
   },
   fr: {
     title: "Portail Patient",
@@ -682,6 +686,7 @@ const translations = {
     uploadDocsDelete: "Supprimer",
     uploadDocsNoFiles: "Aucun document téléchargé",
     uploadDocsLimitReached: "Nombre maximum de documents atteint (20)",
+    updateQuestionnaire: "Mettre à jour mes informations",
   }
 };
 
@@ -893,6 +898,21 @@ export default function PatientPortal() {
       refetchPortalDocs();
     } catch (err: any) {
       setUploadDocError(err.message || 'Failed to delete document');
+    }
+  };
+
+  const handleUpdateQuestionnaire = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/patient-portal/${token}/create-update-link`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to create update link');
+      }
+      const data = await res.json();
+      navigate(data.questionnaireUrl);
+    } catch (err: any) {
+      console.error('Failed to create update link:', err);
     }
   };
 
@@ -1606,6 +1626,18 @@ export default function PatientPortal() {
                         : t.fillQuestionnaire}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
+                  {step1Complete && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleUpdateQuestionnaire}
+                      className="w-full sm:w-auto mt-2"
+                      data-testid="button-update-questionnaire"
+                    >
+                      <PenLine className="h-4 w-4 mr-1" />
+                      {t.updateQuestionnaire}
+                    </Button>
+                  )}
 
                   {/* Document upload section (shown after questionnaire is completed) */}
                   {step1Complete && (

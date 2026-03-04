@@ -13,8 +13,8 @@ import { TimeInput } from "@/components/ui/time-input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
-import { subDays, format } from "date-fns";
-import { formatDate, formatDateForInput } from "@/lib/dateUtils";
+import { subDays } from "date-fns";
+import { formatDate, formatDateForInput, formatTime } from "@/lib/dateUtils";
 import { Pencil, Trash2, Plus, Clock, Key, Check, Play, Pause, Square, Timer } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -179,8 +179,8 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId, hasK
     // Populate form
     setFormData({
       workDate: formatDateForInput(timerStartTime),
-      timeStart: format(timerStartTime, "HH:mm"),
-      timeEnd: format(now, "HH:mm"),
+      timeStart: formatTime(timerStartTime),
+      timeEnd: formatTime(now),
       pauseMinutes: Math.round(finalPauseMs / 60000),
       notes: "",
     });
@@ -516,7 +516,7 @@ export default function WorktimeLogDialog({ open, onOpenChange, hospitalId, hasK
                   {/* Sub-info */}
                   {timerStatus === "running" && timerStartTime && (
                     <div className="text-sm text-muted-foreground mt-1">
-                      {t("worktime.startedAt", "Started at")} {format(timerStartTime, "HH:mm")}
+                      {t("worktime.startedAt", "Started at")} {formatTime(timerStartTime)}
                     </div>
                   )}
                   {timerStatus === "paused" && timerPauseStart && (

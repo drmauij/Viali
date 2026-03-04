@@ -1,7 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 import type { EpisodeDocument } from "./useEpisodeQueries";
 
 interface EpisodeFolderDocumentsProps {
@@ -22,6 +23,7 @@ export function EpisodeFolderDocuments({
   folderId,
   onPreview,
 }: EpisodeFolderDocumentsProps) {
+  const { t } = useTranslation();
   const filtered = documents.filter((doc) => {
     if (folderId === null) {
       return !doc.episodeFolderId;
@@ -33,7 +35,7 @@ export function EpisodeFolderDocuments({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <FileText className="h-10 w-10 mb-2" />
-        <p className="text-sm">No documents in this folder</p>
+        <p className="text-sm">{t('episodes.noDocuments')}</p>
       </div>
     );
   }
@@ -62,7 +64,7 @@ export function EpisodeFolderDocuments({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(doc.createdAt), "MMM d, yyyy")}
+                  {formatDate(doc.createdAt)}
                 </p>
               </div>
             </div>

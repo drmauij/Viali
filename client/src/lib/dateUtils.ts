@@ -198,14 +198,24 @@ export const formatDateLong = (date: string | Date | null | undefined): string =
 
 export const formatDateTimeLong = (date: string | Date | null | undefined): string => {
   if (!date) return "N/A";
-  
+
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateFnsFormat(dateObj, "PPp", { locale: getDateFnsLocale() });
+    const longDate = dateFnsFormat(dateObj, "PPP", { locale: getDateFnsLocale() });
+    const time = dateFnsFormat(dateObj, currentConfig.timeFormat, { locale: getDateFnsLocale() });
+    return `${longDate}, ${time}`;
   } catch (error) {
     console.error("Error formatting datetime long:", error);
     return "Invalid date";
   }
+};
+
+/**
+ * Get the current time format string for use in external formatters (e.g. moment.js).
+ * Returns "HH:mm" for 24h or "h:mm A" for 12h (moment.js format).
+ */
+export const getMomentTimeFormat = (): string => {
+  return currentConfig.timeFormat === "h:mm a" ? "h:mm A" : "HH:mm";
 };
 
 export const formatDateForInput = (date: string | Date | null | undefined): string => {

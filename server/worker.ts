@@ -15,6 +15,7 @@ const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
 const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
 const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every minute
 const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
+const QUESTIONNAIRE_VALIDITY_DAYS = 90; // Questionnaires older than 90 days are considered expired
 const PRE_SURGERY_REMINDER_HOURS_AHEAD = 24; // Send fasting reminders 24 hours before surgery
 const PRICE_SYNC_CHECK_INTERVAL_MS = 3600000; // Check price sync status every hour
 const PRICE_SYNC_MAX_AGE_HOURS = 24; // Auto-sync prices if last sync > 24 hours ago
@@ -140,13 +141,21 @@ async function processNextImportJob() {
       if (user?.email) {
         const baseUrl = process.env.VITE_PUBLIC_URL || 'http://localhost:5000';
         const previewUrl = `${baseUrl}/bulk-import/preview/${job.id}`;
-        
+
+        // Get hospital language preference
+        let language = 'de';
+        if (job.hospitalId) {
+          const hospital = await storage.getHospital(job.hospitalId);
+          language = (hospital?.defaultLanguage as string) || 'de';
+        }
+
         try {
           await sendBulkImportCompleteEmail(
             user.email,
             user.firstName || 'User',
             extractedItems.length,
-            previewUrl
+            previewUrl,
+            language
           );
 
           await storage.updateImportJob(job.id, { notificationSent: true });
@@ -961,7 +970,8 @@ async function sendQuestionnaireEmail(
   hospitalId: string,
   unitId: string | null,
   infoFlyers: InfoFlyerData[] = [],
-  isLASurgery: boolean = false
+  isLASurgery: boolean = false,
+  hasValidQuestionnaire: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const hospital = await storage.getHospital(hospitalId);
@@ -1017,12 +1027,13 @@ async function sendQuestionnaireEmail(
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     
-    // Branch email content based on surgery type
-    const emailSubject = isLASurgery
+    // Branch email content based on surgery type and questionnaire validity
+    const usePortalTemplate = isLASurgery || hasValidQuestionnaire;
+    const emailSubject = usePortalTemplate
       ? `Patient Portal / Patientenportal - ${hospital?.name || 'Hospital'}`
       : `Pre-Op Questionnaire / Präoperativer Fragebogen - ${hospital?.name || 'Hospital'}`;
 
-    const emailHtml = isLASurgery
+    const emailHtml = usePortalTemplate
       ? `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <!-- English Section -->
@@ -1131,7 +1142,8 @@ async function sendQuestionnaireSms(
   hospitalId: string,
   unitId: string | null,
   infoFlyers: InfoFlyerData[] = [],
-  isLASurgery: boolean = false
+  isLASurgery: boolean = false,
+  hasValidQuestionnaire: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!(await isSmsConfiguredForHospital(hospitalId))) {
@@ -1155,8 +1167,8 @@ async function sendQuestionnaireSms(
     // Build a short bilingual SMS message (SMS has character limits)
     // Standard SMS = 160 chars, concatenated can be longer but charged per segment
     let message: string;
-    if (isLASurgery) {
-      message = `${hospital?.name || 'Hospital'}: Ihr Patientenportal für Ihre geplante Operation ist bereit. Hier finden Sie alle wichtigen Informationen:\n${portalUrl}\n\nYour patient portal for your planned surgery is ready. Here you can find all important information:\n${portalUrl}`;
+    if (isLASurgery || hasValidQuestionnaire) {
+      message = `${hospital?.name || 'Hospital'}: Alle Informationen zu Ihrer geplanten Operation finden Sie in Ihrem Patientenportal / All information about your planned surgery can be found in your patient portal:\n${portalUrl}`;
     } else {
       message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
     }
@@ -1240,7 +1252,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   const results: Array<{
     surgeryId: string;
     patientName: string;
-    status: 'sent_email' | 'sent_sms' | 'skipped_no_contact' | 'skipped_already_sent' | 'skipped_has_questionnaire' | 'failed';
+    status: 'sent_email' | 'sent_sms' | 'sent_portal_email' | 'sent_portal_sms' | 'skipped_no_contact' | 'skipped_already_sent' | 'skipped_has_questionnaire' | 'failed';
     error?: string;
   }> = [];
 
@@ -1262,17 +1274,12 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       continue;
     }
     
-    // Skip if patient already has a filled/submitted questionnaire (via tablet or previous visit)
-    // LA surgeries don't have questionnaires, so skip this check for them
+    // Check if patient already has a valid (recent) questionnaire
+    // If so, send portal-only notification instead of full questionnaire
+    let hasValidQuestionnaire = false;
     if (!surgery.noPreOpRequired && surgery.hasExistingQuestionnaire) {
-      logger.info(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
-      processedPatientIds.add(surgery.patientId);
-      results.push({
-        surgeryId: surgery.surgeryId,
-        patientName,
-        status: 'skipped_has_questionnaire',
-      });
-      continue;
+      hasValidQuestionnaire = true;
+      logger.info(`[Worker] ${patientName} has valid questionnaire - will send portal-only notification`);
     }
     
     // Skip if already has questionnaire sent
@@ -1305,14 +1312,17 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       // Direct check: verify no existing link for this patient+hospital (catches race conditions
       // and links created manually where emailSent/smsSent flags might not be set)
       const existingLinks = await storage.getQuestionnaireLinksForPatient(surgery.patientId);
-      const hasActiveOrSubmittedLink = existingLinks.some(l =>
-        l.hospitalId === hospitalId && (
-          l.status === 'submitted' || l.status === 'reviewed' ||
-          (l.status === 'pending' && l.expiresAt && new Date(l.expiresAt) > new Date())
-        )
+      const validityDate = new Date();
+      validityDate.setDate(validityDate.getDate() - QUESTIONNAIRE_VALIDITY_DAYS);
+
+      // Active pending link means notification was already sent and not yet filled — skip entirely
+      const hasActivePendingLink = existingLinks.some(l =>
+        l.hospitalId === hospitalId &&
+        (l.status === 'pending' || l.status === 'started') &&
+        l.expiresAt && new Date(l.expiresAt) > new Date()
       );
-      if (hasActiveOrSubmittedLink) {
-        logger.info(`[Worker] Skipping ${patientName} - already has active or submitted questionnaire link`);
+      if (hasActivePendingLink) {
+        logger.info(`[Worker] Skipping ${patientName} - already has active pending questionnaire link`);
         processedPatientIds.add(surgery.patientId);
         results.push({
           surgeryId: surgery.surgeryId,
@@ -1320,6 +1330,17 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           status: 'skipped_already_sent',
         });
         continue;
+      }
+
+      // Submitted/reviewed links only count as valid if within 90 days
+      const hasRecentSubmittedLink = existingLinks.some(l =>
+        l.hospitalId === hospitalId &&
+        (l.status === 'submitted' || l.status === 'reviewed') &&
+        l.submittedAt && new Date(l.submittedAt) > validityDate
+      );
+      if (hasRecentSubmittedLink && !hasValidQuestionnaire) {
+        hasValidQuestionnaire = true;
+        logger.info(`[Worker] ${patientName} has recently submitted questionnaire link - will send portal-only notification`);
       }
 
       // Mark this patient as processed before sending (prevents duplicates from concurrent jobs)
@@ -1357,7 +1378,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           hospitalId,
           null,
           flyersWithUrls,
-          surgery.noPreOpRequired
+          surgery.noPreOpRequired,
+          hasValidQuestionnaire
         );
         
         if (emailResult.success) {
@@ -1383,7 +1405,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           hospitalId,
           null,
           flyersWithUrls,
-          surgery.noPreOpRequired
+          surgery.noPreOpRequired,
+          hasValidQuestionnaire
         );
         
         if (smsResult.success) {
@@ -1405,11 +1428,11 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         const hospital = await storage.getHospital(hospitalId);
         
         let messageText: string;
-        if (surgery.noPreOpRequired) {
+        if (surgery.noPreOpRequired || hasValidQuestionnaire) {
           if (usedMethod === 'email') {
             messageText = `[Automatisch / Automatic] Patientenportal / Patient Portal\n\nLiebe(r) ${patientName},\n\nIhr Patientenportal ist verfügbar. Hier finden Sie alle Informationen zu Ihrer geplanten Operation.\n\nDear ${patientName},\n\nYour patient portal is available with all information about your planned surgery.\n\n📋 ${portalUrl}`;
           } else {
-            messageText = `${hospital?.name || 'Hospital'}: Ihr Patientenportal für Ihre geplante Operation ist bereit. Hier finden Sie alle wichtigen Informationen:\n${portalUrl}\n\nYour patient portal for your planned surgery is ready. Here you can find all important information:\n${portalUrl}`;
+            messageText = `${hospital?.name || 'Hospital'}: Alle Informationen zu Ihrer geplanten Operation finden Sie in Ihrem Patientenportal / All information about your planned surgery can be found in your patient portal:\n${portalUrl}`;
           }
         } else {
           if (usedMethod === 'email') {
@@ -1437,11 +1460,19 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         }
         
         successCount++;
-        results.push({
-          surgeryId: surgery.surgeryId,
-          patientName,
-          status: usedMethod === 'email' ? 'sent_email' : 'sent_sms',
-        });
+        if (hasValidQuestionnaire) {
+          results.push({
+            surgeryId: surgery.surgeryId,
+            patientName,
+            status: usedMethod === 'email' ? 'sent_portal_email' : 'sent_portal_sms',
+          });
+        } else {
+          results.push({
+            surgeryId: surgery.surgeryId,
+            patientName,
+            status: usedMethod === 'email' ? 'sent_email' : 'sent_sms',
+          });
+        }
       } else {
         failedCount++;
         results.push({
@@ -1650,29 +1681,33 @@ async function scheduleAutoQuestionnaireJobs(): Promise<void> {
     const allHospitals = await db.select().from(hospitals);
     
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(6, 0, 0, 0); // Schedule for 6 AM each day
-    
+
     for (const hospital of allHospitals) {
+      // Compute "today 6 AM" in hospital timezone
+      const hospitalTz = hospital.timezone || 'Europe/Zurich';
+      const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: hospitalTz }));
+      const todayStart = new Date(nowInTz);
+      todayStart.setHours(6, 0, 0, 0);
+
       // Check if there's already a completed or pending job for today
       const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'auto_questionnaire_dispatch');
-      
+
       if (lastJob) {
         const lastJobDate = new Date(lastJob.scheduledFor);
         const isSameDay = lastJobDate.toDateString() === todayStart.toDateString();
-        
+
         // Skip if we already have a successful or pending job for today
         // Allow retry if the job failed
         if (isSameDay && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
           continue;
         }
       }
-      
-      // If no job exists for today and it's past 6 AM, schedule one for now
+
+      // If no job exists for today and it's past 6 AM (in hospital timezone), schedule one for now
       // Otherwise schedule for 6 AM tomorrow
       let scheduledFor: Date;
-      if (now.getHours() >= 6) {
-        scheduledFor = now; // Run immediately if past 6 AM
+      if (nowInTz.getHours() >= 6) {
+        scheduledFor = now; // Run immediately if past 6 AM in hospital timezone
       } else {
         scheduledFor = todayStart;
       }

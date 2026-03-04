@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 import {
   useEpisodeDetail,
   useEpisodeDocuments,
@@ -48,6 +50,7 @@ export function EpisodeDetailView({
   notes,
   canWrite,
 }: EpisodeDetailViewProps) {
+  const { t } = useTranslation();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [linkSurgeryOpen, setLinkSurgeryOpen] = useState(false);
   const [linkNoteOpen, setLinkNoteOpen] = useState(false);
@@ -85,7 +88,7 @@ export function EpisodeDetailView({
   if (!detail) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        Episode not found
+        {t('episodes.episodeNotFound')}
       </div>
     );
   }
@@ -136,25 +139,25 @@ export function EpisodeDetailView({
           {isEditing ? (
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label>Title</Label>
+                <Label>{t('episodes.episodeTitle')}</Label>
                 <Input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Episode title"
+                  placeholder={t('episodes.episodeTitlePlaceholder')}
                 />
               </div>
               <div className="space-y-1">
-                <Label>Description</Label>
+                <Label>{t('episodes.description')}</Label>
                 <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="Optional description"
+                  placeholder={t('episodes.descriptionPlaceholder')}
                   rows={2}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Start Date</Label>
+                  <Label>{t('episodes.startDate')}</Label>
                   <Input
                     type="date"
                     value={editStartDate}
@@ -162,7 +165,7 @@ export function EpisodeDetailView({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>End Date</Label>
+                  <Label>{t('episodes.endDate')}</Label>
                   <Input
                     type="date"
                     value={editEndDate}
@@ -181,10 +184,10 @@ export function EpisodeDetailView({
                   ) : (
                     <Check className="h-4 w-4 mr-1" />
                   )}
-                  Save
+                  {t('common.save')}
                 </Button>
                 <Button size="sm" variant="outline" onClick={cancelEdit}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -203,7 +206,7 @@ export function EpisodeDetailView({
                       : "bg-green-100 text-green-800"
                   }
                 >
-                  {episode.status}
+                  {isClosed ? t('episodes.closed') : t('episodes.active')}
                 </Badge>
               </div>
               {episode.description && (
@@ -213,9 +216,9 @@ export function EpisodeDetailView({
               )}
               {(episode.referenceDate || episode.endDate) && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {episode.referenceDate && format(new Date(episode.referenceDate), "MMM d, yyyy")}
+                  {episode.referenceDate && formatDate(episode.referenceDate)}
                   {episode.referenceDate && episode.endDate && " — "}
-                  {episode.endDate && format(new Date(episode.endDate), "MMM d, yyyy")}
+                  {episode.endDate && formatDate(episode.endDate)}
                 </p>
               )}
             </>
@@ -238,7 +241,7 @@ export function EpisodeDetailView({
                 onClick={() => reopenEpisode.mutate(episode.id)}
                 disabled={reopenEpisode.isPending}
               >
-                Reopen
+                {t('episodes.reopen')}
               </Button>
             ) : (
               <Button
@@ -247,7 +250,7 @@ export function EpisodeDetailView({
                 onClick={() => closeEpisode.mutate(episode.id)}
                 disabled={closeEpisode.isPending}
               >
-                Close
+                {t('common.close')}
               </Button>
             )}
           </div>
@@ -260,7 +263,7 @@ export function EpisodeDetailView({
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Documents
+              {t('episodes.documents')}
             </CardTitle>
             {canWrite && !isClosed && (
               <Button
@@ -269,7 +272,7 @@ export function EpisodeDetailView({
                 onClick={() => setUploadOpen(true)}
               >
                 <Upload className="h-4 w-4 mr-1" />
-                Upload
+                {t('episodes.upload')}
               </Button>
             )}
           </div>
@@ -304,7 +307,7 @@ export function EpisodeDetailView({
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Scissors className="h-4 w-4" />
-              Linked Surgeries
+              {t('episodes.linkedSurgeries')}
             </CardTitle>
             {canWrite && !isClosed && (
               <Button
@@ -313,7 +316,7 @@ export function EpisodeDetailView({
                 onClick={() => setLinkSurgeryOpen(true)}
               >
                 <Link2 className="h-4 w-4 mr-1" />
-                Link Surgery
+                {t('episodes.linkSurgery')}
               </Button>
             )}
           </div>
@@ -321,7 +324,7 @@ export function EpisodeDetailView({
         <CardContent>
           {linkedSurgeries.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No linked surgeries
+              {t('episodes.noLinkedSurgeries')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -332,14 +335,11 @@ export function EpisodeDetailView({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">
-                      {surgery.plannedSurgery || "Unnamed surgery"}
+                      {surgery.plannedSurgery || t('episodes.unnamed')}
                     </p>
                     {surgery.plannedDate && (
                       <p className="text-xs text-muted-foreground">
-                        {format(
-                          new Date(surgery.plannedDate),
-                          "MMM d, yyyy"
-                        )}
+                        {formatDate(surgery.plannedDate)}
                       </p>
                     )}
                   </div>
@@ -371,7 +371,7 @@ export function EpisodeDetailView({
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <StickyNote className="h-4 w-4" />
-              Linked Notes
+              {t('episodes.linkedNotes')}
             </CardTitle>
             {canWrite && !isClosed && (
               <Button
@@ -380,7 +380,7 @@ export function EpisodeDetailView({
                 onClick={() => setLinkNoteOpen(true)}
               >
                 <Link2 className="h-4 w-4 mr-1" />
-                Link Note
+                {t('episodes.linkNote')}
               </Button>
             )}
           </div>
@@ -388,7 +388,7 @@ export function EpisodeDetailView({
         <CardContent>
           {linkedNotes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No linked notes
+              {t('episodes.noLinkedNotes')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -401,7 +401,7 @@ export function EpisodeDetailView({
                     <p className="text-sm truncate">{note.content}</p>
                     {note.createdAt && (
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(note.createdAt), "MMM d, yyyy")}
+                        {formatDate(note.createdAt)}
                       </p>
                     )}
                   </div>

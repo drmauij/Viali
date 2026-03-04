@@ -1482,9 +1482,10 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
         const deepLinkUrl = `${baseUrl}/clinic/questionnaires`;
         const patientName = [submitted.patientFirstName, submitted.patientLastName].filter(Boolean).join(' ') || 'Unknown';
+        const tz = hospital.timezone || 'Europe/Zurich';
         const submittedAtStr = submitted.submittedAt
-          ? new Date(submitted.submittedAt).toLocaleString(hospital.defaultLanguage === 'de' ? 'de-CH' : 'en-US')
-          : new Date().toLocaleString('en-US');
+          ? new Date(submitted.submittedAt).toLocaleString(hospital.defaultLanguage === 'de' ? 'de-CH' : 'en-US', { timeZone: tz })
+          : new Date().toLocaleString('en-US', { timeZone: tz });
 
         // Query clinic nurse + admin users
         const clinicUsers = await db
@@ -2550,6 +2551,129 @@ async function validateLinkForPortal(token: string): Promise<{ valid: true; link
 
   return { valid: true, link };
 }
+
+// ========== UPDATE QUESTIONNAIRE (from patient portal) ==========
+const updateQuestionnaireLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 5,
+  keyPrefix: 'qupdate'
+});
+
+router.post('/api/patient-portal/:token/create-update-link', updateQuestionnaireLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    // Validate original link exists
+    const link = await storage.getQuestionnaireLinkByToken(token);
+    if (!link) {
+      return res.status(404).json({ message: "Link not found" });
+    }
+    if (!link.patientId) {
+      return res.status(400).json({ message: "No patient associated with this link" });
+    }
+    // Only allow update from submitted/reviewed questionnaires
+    if (link.status !== 'submitted' && link.status !== 'reviewed') {
+      return res.status(400).json({ message: "Questionnaire has not been submitted yet" });
+    }
+
+    // Find the most recent submitted response for this patient at this hospital
+    const patientLinks = await storage.getQuestionnaireLinksForPatient(link.patientId);
+    const submittedLinks = patientLinks
+      .filter(l => l.hospitalId === link.hospitalId && (l.status === 'submitted' || l.status === 'reviewed'))
+      .sort((a, b) => {
+        const aTime = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const bTime = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
+    let sourceResponse = null;
+    for (const sl of submittedLinks) {
+      const resp = await storage.getQuestionnaireResponseByLinkId(sl.id);
+      if (resp) {
+        sourceResponse = resp;
+        break;
+      }
+    }
+
+    if (!sourceResponse) {
+      return res.status(404).json({ message: "No submitted questionnaire response found" });
+    }
+
+    // Create a new questionnaire link
+    const newToken = nanoid(32);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 14); // 14-day expiry
+
+    const newLink = await storage.createQuestionnaireLink({
+      hospitalId: link.hospitalId,
+      patientId: link.patientId,
+      surgeryId: link.surgeryId,
+      token: newToken,
+      expiresAt,
+      status: 'started',
+      language: link.language || 'de',
+    });
+
+    // Create a new response pre-filled with all fields from source (except uploads)
+    await storage.createQuestionnaireResponse({
+      linkId: newLink.id,
+      patientFirstName: sourceResponse.patientFirstName,
+      patientLastName: sourceResponse.patientLastName,
+      patientBirthday: sourceResponse.patientBirthday,
+      patientEmail: sourceResponse.patientEmail,
+      patientPhone: sourceResponse.patientPhone,
+      allergies: sourceResponse.allergies,
+      allergiesNotes: sourceResponse.allergiesNotes,
+      medications: sourceResponse.medications,
+      medicationsNotes: sourceResponse.medicationsNotes,
+      conditions: sourceResponse.conditions,
+      smokingStatus: sourceResponse.smokingStatus,
+      smokingDetails: sourceResponse.smokingDetails,
+      alcoholStatus: sourceResponse.alcoholStatus,
+      alcoholDetails: sourceResponse.alcoholDetails,
+      height: sourceResponse.height,
+      weight: sourceResponse.weight,
+      referralSource: sourceResponse.referralSource,
+      referralSourceDetail: sourceResponse.referralSourceDetail,
+      previousSurgeries: sourceResponse.previousSurgeries,
+      previousAnesthesiaProblems: sourceResponse.previousAnesthesiaProblems,
+      pregnancyStatus: sourceResponse.pregnancyStatus,
+      breastfeeding: sourceResponse.breastfeeding,
+      womanHealthNotes: sourceResponse.womanHealthNotes,
+      dentalIssues: sourceResponse.dentalIssues,
+      dentalNotes: sourceResponse.dentalNotes,
+      ponvTransfusionIssues: sourceResponse.ponvTransfusionIssues,
+      ponvTransfusionNotes: sourceResponse.ponvTransfusionNotes,
+      drugUse: sourceResponse.drugUse,
+      drugUseDetails: sourceResponse.drugUseDetails,
+      noAllergies: sourceResponse.noAllergies,
+      noMedications: sourceResponse.noMedications,
+      noConditions: sourceResponse.noConditions,
+      noSmokingAlcohol: sourceResponse.noSmokingAlcohol,
+      noPreviousSurgeries: sourceResponse.noPreviousSurgeries,
+      noAnesthesiaProblems: sourceResponse.noAnesthesiaProblems,
+      noDentalIssues: sourceResponse.noDentalIssues,
+      noPonvIssues: sourceResponse.noPonvIssues,
+      noDrugUse: sourceResponse.noDrugUse,
+      outpatientCaregiverFirstName: sourceResponse.outpatientCaregiverFirstName,
+      outpatientCaregiverLastName: sourceResponse.outpatientCaregiverLastName,
+      outpatientCaregiverPhone: sourceResponse.outpatientCaregiverPhone,
+      additionalNotes: sourceResponse.additionalNotes,
+      questionsForDoctor: sourceResponse.questionsForDoctor,
+      smsConsent: sourceResponse.smsConsent,
+      currentStep: 0,
+      completedSteps: sourceResponse.completedSteps,
+    });
+
+    const questionnaireUrl = `/questionnaire/${newToken}`;
+    logger.info(`[Questionnaire] Created update link for patient ${link.patientId} (new token: ${newToken.substring(0, 10)}...)`);
+
+    res.json({ token: newToken, questionnaireUrl });
+  } catch (error) {
+    logger.error("Error creating questionnaire update link:", error);
+    res.status(500).json({ message: "Failed to create update link" });
+  }
+});
 
 const patientDocUploadLimiter = createRateLimiter({
   windowMs: 60 * 1000,

@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import i18next from "i18next";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 
 interface TimeMarker {
   code: string;
@@ -43,9 +43,7 @@ interface SurgeonSummaryData {
 function formatTimeFrom24h(timeMs: number): string {
   const date = new Date(timeMs);
   if (isNaN(date.getTime())) return i18next.t("anesthesia.pdf.invalidTime");
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
+  return formatTime(date);
 }
 
 function formatDateTime24h(date: string | Date | null | undefined): string {
@@ -53,12 +51,7 @@ function formatDateTime24h(date: string | Date | null | undefined): string {
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return i18next.t("anesthesia.pdf.invalidDate");
-    const day = dateObj.getDate().toString().padStart(2, '0');
-    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-    const year = dateObj.getFullYear();
-    const hours = dateObj.getHours().toString().padStart(2, '0');
-    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-    return `${day}.${month}.${year} ${hours}:${minutes}`;
+    return formatDateTime(dateObj);
   } catch {
     return i18next.t("anesthesia.pdf.invalidDate");
   }

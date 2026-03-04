@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { calculateWorkHours } from "@/lib/worktimeUtils";
 import { format } from "date-fns";
+import { formatTime } from "@/lib/dateUtils";
 import { ArrowLeft, Search, Clock, User, Play, Pause, Square, Timer } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -166,8 +167,8 @@ export default function WorktimeKiosk() {
 
     setFormData({
       workDate: format(timerStartTime, "yyyy-MM-dd"),
-      timeStart: format(timerStartTime, "HH:mm"),
-      timeEnd: format(now, "HH:mm"),
+      timeStart: formatTime(timerStartTime),
+      timeEnd: formatTime(now),
       pauseMinutes: Math.round(finalPauseMs / 60000),
       notes: "",
     });
@@ -453,7 +454,7 @@ export default function WorktimeKiosk() {
 
                 {timerStatus === "running" && timerStartTime && (
                   <div className="text-sm text-muted-foreground mt-1">
-                    {t("worktime.startedAt", "Started at")} {format(timerStartTime, "HH:mm")}
+                    {t("worktime.startedAt", "Started at")} {formatTime(timerStartTime)}
                   </div>
                 )}
                 {timerStatus === "paused" && timerPauseStart && (

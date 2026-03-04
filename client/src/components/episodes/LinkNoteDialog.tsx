@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEpisodeMutations } from "./useEpisodeMutations";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 
 interface Note {
   id: string;
@@ -33,6 +34,7 @@ export function LinkNoteDialog({
   onOpenChange,
   notes,
 }: LinkNoteDialogProps) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { linkNote } = useEpisodeMutations(patientId);
   const [linking, setLinking] = useState(false);
@@ -70,12 +72,12 @@ export function LinkNoteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Link Notes</DialogTitle>
+          <DialogTitle>{t('episodes.linkNotes')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {available.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              No available notes to link
+              {t('episodes.noAvailableNotes')}
             </p>
           ) : (
             available.map((note) => (
@@ -90,7 +92,7 @@ export function LinkNoteDialog({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{note.content}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(note.createdAt), "MMM d, yyyy")}
+                    {formatDate(note.createdAt)}
                   </p>
                 </div>
               </label>
@@ -103,15 +105,15 @@ export function LinkNoteDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleLink}
             disabled={selected.size === 0 || linking}
           >
             {linking
-              ? "Linking..."
-              : `Link ${selected.size > 0 ? `(${selected.size})` : ""}`}
+              ? t('episodes.linking')
+              : `${t('episodes.link')} ${selected.size > 0 ? `(${selected.size})` : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

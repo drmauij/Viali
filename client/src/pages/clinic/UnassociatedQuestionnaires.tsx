@@ -47,11 +47,9 @@ import {
   AlertCircle,
   ChevronsUpDown
 } from "lucide-react";
-import { format } from "date-fns";
-import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import type { Patient, PatientQuestionnaireResponse, PatientQuestionnaireLink } from "@shared/schema";
 
 interface UnassociatedResponse extends PatientQuestionnaireResponse {
@@ -64,7 +62,7 @@ interface ResponseWithMatch extends UnassociatedResponse {
 }
 
 export default function UnassociatedQuestionnaires() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("with-matches");
@@ -94,8 +92,6 @@ export default function UnassociatedQuestionnaires() {
   }, [user]);
 
   const hospitalId = activeHospital?.id;
-  const dateLocale = i18n.language === 'de' ? de : enUS;
-
   const { data: questionnaireTokenData } = useQuery<{ questionnaireToken: string | null }>({
     queryKey: [`/api/admin/${hospitalId}/questionnaire-token`],
     enabled: !!hospitalId,
@@ -378,7 +374,7 @@ export default function UnassociatedQuestionnaires() {
             <p className="text-xs text-muted-foreground mt-2">
               {t('questionnaire.unassociated.submittedAt', 'Submitted')}: {
                 response.submittedAt 
-                  ? format(new Date(response.submittedAt), 'PPp', { locale: dateLocale })
+                  ? formatDateTime(response.submittedAt)
                   : '-'
               }
             </p>

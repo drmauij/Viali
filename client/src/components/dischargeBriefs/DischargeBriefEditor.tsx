@@ -32,7 +32,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface DischargeBriefData {
   id: string;
@@ -259,7 +259,7 @@ export function DischargeBriefEditor({
         <Badge variant="secondary">{brief.briefType}</Badge>
         <Badge variant="outline">{brief.language.toUpperCase()}</Badge>
         <span className="text-sm text-muted-foreground">
-          {format(new Date(brief.createdAt), "dd MMM yyyy, HH:mm")}
+          {formatDateTime(brief.createdAt)}
         </span>
         {isSigned ? (
           <Badge className="bg-green-100 text-green-800 border-green-200">
@@ -446,7 +446,7 @@ export function DischargeBriefEditor({
           <span className="ml-auto text-xs text-muted-foreground">
             {t("dischargeBrief.signedByAt", "Signed by {{name}} on {{date}}", {
               name: `${brief.signer.firstName} ${brief.signer.lastName}`,
-              date: format(new Date(brief.signedAt!), "dd MMM yyyy, HH:mm"),
+              date: formatDateTime(brief.signedAt!),
             })}
           </span>
         )}

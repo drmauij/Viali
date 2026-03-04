@@ -4,6 +4,7 @@ import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { getMomentTimeFormat } from "@/lib/dateUtils";
 import type { LucideIcon } from "lucide-react";
 
 export interface PreOpStatusInfo {
@@ -638,7 +639,7 @@ export default function TimelineWeekView({
                   const roomName = getRoomName(surgery.surgeryRoomId);
                   const patientName = getPatientName(surgery.patientId);
                   const procedureName = surgery.plannedSurgery || 'Surgery';
-                  const startTime = moment(displayStart).format('HH:mm');
+                  const startTime = moment(displayStart).format(getMomentTimeFormat());
                   const pacuBedName = getPacuBedName(surgery.pacuBedId);
                   const preOpKey = getPreOpStatus ? getPreOpStatus(surgery.id).key : 'planned';
                   const qDot = getQuestionnaireDot(surgery.questionnaireStatus, preOpKey);

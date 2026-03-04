@@ -4,6 +4,7 @@ import * as echarts from "echarts";
 import { Search, GripVertical, Camera, Mic, Square, Loader2, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { formatTime } from "@/lib/dateUtils";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -342,20 +343,16 @@ export function StickyTimelineHeader({
     // Custom formatter that shows date at midnight crossings
     const formatAxisLabel = (value: number): string => {
       const date = new Date(value);
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      
+
       // At midnight (00:00), show just the date with prominent styling
-      if (hours === 0 && minutes === 0) {
+      if (date.getHours() === 0 && date.getMinutes() === 0) {
         const day = date.getDate();
         const month = date.getMonth() + 1;
         return `{date|${day}.${month}.}`;
       }
-      
-      // Regular time format
-      const hh = hours.toString().padStart(2, '0');
-      const mm = minutes.toString().padStart(2, '0');
-      return `${hh}:${mm}`;
+
+      // Regular time format using hospital's hour format setting
+      return formatTime(date);
     };
 
     return {
@@ -454,20 +451,16 @@ export function StickyTimelineHeader({
         // Custom formatter that shows date at midnight crossings
         const formatAxisLabel = (value: number): string => {
           const date = new Date(value);
-          const hours = date.getHours();
-          const minutes = date.getMinutes();
-          
+
           // At midnight (00:00), show just the date with prominent styling
-          if (hours === 0 && minutes === 0) {
+          if (date.getHours() === 0 && date.getMinutes() === 0) {
             const day = date.getDate();
             const month = date.getMonth() + 1;
             return `{date|${day}.${month}.}`;
           }
-          
-          // Regular time format
-          const hh = hours.toString().padStart(2, '0');
-          const mm = minutes.toString().padStart(2, '0');
-          return `${hh}:${mm}`;
+
+          // Regular time format using hospital's hour format setting
+          return formatTime(date);
         };
         
         chart.setOption({

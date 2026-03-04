@@ -33,6 +33,7 @@ import {
   useDeletePeripheralBlock,
 } from "@/lib/anesthesiaDocumentation";
 import type { AnesthesiaInstallation, InsertAnesthesiaInstallation } from "@shared/schema";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface SectionProps {
   anesthesiaRecordId: string;
@@ -2073,7 +2074,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
               </div>
               {patientInformedAt && (
                 <p className="text-xs text-muted-foreground mt-1 ml-5">
-                  {new Date(patientInformedAt).toLocaleString()}
+                  {formatDateTime(patientInformedAt)}
                 </p>
               )}
             </div>
@@ -2116,7 +2117,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
               </div>
               {letterSentAt && (
                 <p className="text-xs text-muted-foreground mt-1 ml-5">
-                  {new Date(letterSentAt).toLocaleString()}
+                  {formatDateTime(letterSentAt)}
                 </p>
               )}
             </div>
@@ -2159,7 +2160,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
               </div>
               {gpNotifiedAt && (
                 <p className="text-xs text-muted-foreground mt-1 ml-5">
-                  {new Date(gpNotifiedAt).toLocaleString()}
+                  {formatDateTime(gpNotifiedAt)}
                 </p>
               )}
             </div>

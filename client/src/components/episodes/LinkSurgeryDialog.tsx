@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEpisodeMutations } from "./useEpisodeMutations";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 
 interface Surgery {
   id: string;
@@ -34,6 +35,7 @@ export function LinkSurgeryDialog({
   onOpenChange,
   surgeries,
 }: LinkSurgeryDialogProps) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { linkSurgery } = useEpisodeMutations(patientId);
   const [linking, setLinking] = useState(false);
@@ -71,12 +73,12 @@ export function LinkSurgeryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Link Surgeries</DialogTitle>
+          <DialogTitle>{t('episodes.linkSurgeries')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {available.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              No available surgeries to link
+              {t('episodes.noAvailableSurgeries')}
             </p>
           ) : (
             available.map((surgery) => (
@@ -90,10 +92,10 @@ export function LinkSurgeryDialog({
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {surgery.plannedSurgery || "Unnamed surgery"}
+                    {surgery.plannedSurgery || t('episodes.unnamed')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(surgery.plannedDate), "MMM d, yyyy")} -{" "}
+                    {formatDate(surgery.plannedDate)} -{" "}
                     {surgery.status}
                   </p>
                 </div>
@@ -107,15 +109,15 @@ export function LinkSurgeryDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleLink}
             disabled={selected.size === 0 || linking}
           >
             {linking
-              ? "Linking..."
-              : `Link ${selected.size > 0 ? `(${selected.size})` : ""}`}
+              ? t('episodes.linking')
+              : `${t('episodes.link')} ${selected.size > 0 ? `(${selected.size})` : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

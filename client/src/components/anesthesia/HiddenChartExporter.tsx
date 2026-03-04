@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
+import { formatTime } from "@/lib/dateUtils";
 
 export interface HiddenChartExporterRef {
   exportChart: (snapshotData: any) => Promise<string | null>;
@@ -501,8 +502,7 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
           max: paddedMax,
           axisLabel: {
             formatter: (value: number) => {
-              const date = new Date(value);
-              return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+              return formatTime(new Date(value));
             },
             color: textColor,
             fontSize: 16,

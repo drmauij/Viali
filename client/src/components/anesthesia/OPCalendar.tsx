@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText } from "lucide-react";
-import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil } from "@/lib/dateUtils";
+import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getMomentTimeFormat } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -82,12 +82,16 @@ const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
 
 // Custom formats for European date/time display
 const formats = {
-  timeGutterFormat: 'HH:mm',
+  timeGutterFormat: (date: Date) => moment(date).format(getMomentTimeFormat()),
   eventTimeRangeFormat: () => '', // Hide time from events
-  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
-  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
+    const tf = getMomentTimeFormat();
+    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+  },
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
+    const tf = getMomentTimeFormat();
+    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+  },
   dayHeaderFormat: 'dddd DD/MM/YYYY',
   dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
@@ -1993,8 +1997,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             <DialogDescription>
               {roomBlockEvent && (() => {
                 const room = surgeryRooms.find((r: any) => r.id === roomBlockEvent.resource);
-                const start = moment(roomBlockEvent.start).format('HH:mm');
-                const end = moment(roomBlockEvent.end).format('HH:mm');
+                const tf = getMomentTimeFormat();
+                const start = moment(roomBlockEvent.start).format(tf);
+                const end = moment(roomBlockEvent.end).format(tf);
                 return `${room?.name || ''} · ${start} – ${end}`;
               })()}
             </DialogDescription>

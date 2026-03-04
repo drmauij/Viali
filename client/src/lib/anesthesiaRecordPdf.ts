@@ -8,7 +8,7 @@ import type {
   PreOpAssessment,
   ClinicalSnapshot,
 } from "@shared/schema";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 
 interface AnesthesiaEvent {
   id: string;
@@ -103,27 +103,17 @@ interface ExportData {
 function formatTimeFrom24h(timeMs: number): string {
   const date = new Date(timeMs);
   if (isNaN(date.getTime())) return i18next.t("anesthesia.pdf.invalidTime");
-  
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
+  return formatTime(date);
 }
 
 // Helper to format datetime to DD.MM.YYYY HH:MM (24-hour format, European style)
 function formatDateTime24h(date: string | Date | null | undefined): string {
   if (!date) return i18next.t("anesthesia.pdf.na");
-  
+
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return i18next.t("anesthesia.pdf.invalidDate");
-    
-    const day = dateObj.getDate().toString().padStart(2, '0');
-    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-    const year = dateObj.getFullYear();
-    const hours = dateObj.getHours().toString().padStart(2, '0');
-    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-    
-    return `${day}.${month}.${year} ${hours}:${minutes}`;
+    return formatDateTime(dateObj);
   } catch (error) {
     return i18next.t("anesthesia.pdf.invalidDate");
   }

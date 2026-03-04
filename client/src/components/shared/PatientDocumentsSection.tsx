@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/dateUtils";
 
 export type PatientDocument = {
   id: string;
@@ -816,7 +816,7 @@ export function PatientDocumentsSection({
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {creatorName && `${creatorName} · `}
-              {brief.createdAt && format(new Date(brief.createdAt), 'dd.MM.yyyy HH:mm')}
+              {brief.createdAt && formatDateTime(brief.createdAt)}
             </p>
           </div>
         </div>
