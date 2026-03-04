@@ -93,6 +93,10 @@ export default function AppointmentsMonthView({
   const dragStateRef = useRef(dragState);
   dragStateRef.current = dragState;
 
+  // Long-press refs for touch: delay drag activation so swipes aren't misinterpreted
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; providerId: string; dayIdx: number } | null>(null);
+
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
   moment.locale(momentLocale);
 
@@ -131,6 +135,13 @@ export default function AppointmentsMonthView({
   // Global mouseup/touchend to finalize or cancel drag
   useEffect(() => {
     const handleDragEnd = () => {
+      // Cancel any pending long-press timer
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      touchStartRef.current = null;
+
       const ds = dragStateRef.current;
       if (!ds) return;
       setDragState(null);
@@ -145,9 +156,25 @@ export default function AppointmentsMonthView({
       }
     };
     const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+
+      // If long-press is pending (timer running), check if finger moved too much
+      if (touchStartRef.current && !dragStateRef.current) {
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+          // It's a swipe — cancel long press, allow native scroll
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+          }
+          touchStartRef.current = null;
+        }
+        return; // Don't preventDefault — let browser scroll naturally
+      }
+
       if (!dragStateRef.current) return;
       e.preventDefault();
-      const touch = e.touches[0];
       const el = document.elementFromPoint(touch.clientX, touch.clientY);
       const cell = el?.closest('[data-provider-id][data-day-idx]') as HTMLElement | null;
       if (!cell) return;
@@ -166,6 +193,9 @@ export default function AppointmentsMonthView({
       window.removeEventListener('touchend', handleDragEnd);
       window.removeEventListener('touchcancel', handleDragEnd);
       window.removeEventListener('touchmove', handleTouchMove);
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
     };
   }, [onDragSelectRange, weekdays, handleDragEnter]);
 
@@ -328,7 +358,7 @@ export default function AppointmentsMonthView({
                         absence && !absence.isPartial && (ABSENCE_COLORS[absence.type] || ABSENCE_COLORS.default),
                         inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                       )}
-                      style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 58, touchAction: onDragSelectRange ? 'none' : undefined }}
+                      style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 58 }}
                       onClick={() => {
                         if (!dragState) {
                           onDayClick?.(day.toDate());
@@ -345,9 +375,16 @@ export default function AppointmentsMonthView({
                           handleDragEnter(provider.id, dayIdx);
                         }
                       }}
-                      onTouchStart={() => {
+                      onTouchStart={(e) => {
                         if (onDragSelectRange) {
-                          handleDragStart(provider.id, dayIdx);
+                          const touch = e.touches[0];
+                          touchStartRef.current = { x: touch.clientX, y: touch.clientY, providerId: provider.id, dayIdx };
+                          longPressTimerRef.current = setTimeout(() => {
+                            longPressTimerRef.current = null;
+                            if (touchStartRef.current) {
+                              handleDragStart(touchStartRef.current.providerId, touchStartRef.current.dayIdx);
+                            }
+                          }, 400);
                         }
                       }}
                       onContextMenu={(e) => e.preventDefault()}

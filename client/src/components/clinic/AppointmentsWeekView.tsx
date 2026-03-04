@@ -145,6 +145,10 @@ export default function AppointmentsWeekView({
   const dragStateRef = useRef(dragState);
   dragStateRef.current = dragState;
 
+  // Long-press refs for touch: delay drag activation so swipes aren't misinterpreted
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; providerId: string; dayIdx: number } | null>(null);
+
   const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
     setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
   }, []);
@@ -159,6 +163,13 @@ export default function AppointmentsWeekView({
   // Global mouseup/touchend to finalize or cancel drag
   useEffect(() => {
     const handleDragEnd = () => {
+      // Cancel any pending long-press timer
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      touchStartRef.current = null;
+
       const ds = dragStateRef.current;
       if (!ds) return;
       setDragState(null);
@@ -173,9 +184,25 @@ export default function AppointmentsWeekView({
       }
     };
     const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+
+      // If long-press is pending (timer running), check if finger moved too much
+      if (touchStartRef.current && !dragStateRef.current) {
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+          // It's a swipe — cancel long press, allow native scroll
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+          }
+          touchStartRef.current = null;
+        }
+        return; // Don't preventDefault — let browser scroll naturally
+      }
+
       if (!dragStateRef.current) return;
       e.preventDefault();
-      const touch = e.touches[0];
       const el = document.elementFromPoint(touch.clientX, touch.clientY);
       const cell = el?.closest('[data-provider-id][data-day-idx]') as HTMLElement | null;
       if (!cell) return;
@@ -194,6 +221,9 @@ export default function AppointmentsWeekView({
       window.removeEventListener('touchend', handleDragEnd);
       window.removeEventListener('touchcancel', handleDragEnd);
       window.removeEventListener('touchmove', handleTouchMove);
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
     };
   }, [onDragSelectRange, weekDays, handleDragEnter]);
 
@@ -344,7 +374,7 @@ export default function AppointmentsWeekView({
                       absence && !absence.isPartial && absence.approvalStatus === 'pending' && "bg-orange-50 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700",
                       inDragRange && "ring-2 ring-orange-400 bg-orange-100/50 dark:bg-orange-900/30"
                     )}
-                    style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH, touchAction: onDragSelectRange ? 'none' : undefined }}
+                    style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
                     onClick={() => {
                       // Only fire click if there was no drag; full-day absences block
                       if (!dragState && (!absence || absence.isPartial)) {
@@ -364,7 +394,14 @@ export default function AppointmentsWeekView({
                     }}
                     onTouchStart={(e) => {
                       if (onDragSelectRange) {
-                        handleDragStart(provider.id, dayIdx);
+                        const touch = e.touches[0];
+                        touchStartRef.current = { x: touch.clientX, y: touch.clientY, providerId: provider.id, dayIdx };
+                        longPressTimerRef.current = setTimeout(() => {
+                          longPressTimerRef.current = null;
+                          if (touchStartRef.current) {
+                            handleDragStart(touchStartRef.current.providerId, touchStartRef.current.dayIdx);
+                          }
+                        }, 400);
                       }
                     }}
                     onContextMenu={(e) => e.preventDefault()}
