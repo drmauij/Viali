@@ -22,6 +22,7 @@ interface Hospital {
   dateFormat?: string;
   hourFormat?: string;
   timezone?: string;
+  defaultLanguage?: string;
 }
 
 function subscribe(callback: () => void) {

@@ -24,7 +24,7 @@ export function SendSurgeonSummaryDialog({
   surgery,
   patient,
 }: SendSurgeonSummaryDialogProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const [email, setEmail] = useState("");
@@ -102,8 +102,10 @@ export function SendSurgeonSummaryDialog({
           anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
           anesthesiaEndTime: anesthesiaRecord.anesthesiaEndTime,
           timeMarkers: anesthesiaRecord.timeMarkers,
+          anesthesiaOverview: anesthesiaRecord.anesthesiaOverview,
         } : null,
         staffMembers: staffMembers,
+        language: activeHospital?.defaultLanguage || 'de',
       });
 
       const pdfBase64 = doc.output('datauristring').split(',')[1];
@@ -116,7 +118,7 @@ export function SendSurgeonSummaryDialog({
         patientName,
         procedureName: surgery.plannedSurgery,
         surgeryDate,
-        language: i18n.language?.startsWith('de') ? 'de' : 'en',
+        language: activeHospital?.defaultLanguage === 'en' ? 'en' : 'de',
       });
 
       setIsSent(true);
