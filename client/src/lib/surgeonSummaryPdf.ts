@@ -31,6 +31,7 @@ interface SurgeonSummaryData {
     actualStartTime?: string | Date | null;
     actualEndTime?: string | Date | null;
     status: string;
+    anesthesiaType?: string | null;
   };
   anesthesiaRecord?: {
     anesthesiaStartTime?: string | Date | null;
@@ -77,20 +78,34 @@ function formatDuration(startMs: number, endMs: number): string {
 
 function getAnesthesiaTypeLabels(
   overview: { general?: boolean; sedation?: boolean; regionalSpinal?: boolean; regionalEpidural?: boolean; regionalPeripheral?: boolean } | null | undefined,
+  surgeryAnesthesiaType: string | null | undefined,
   t: (key: string) => string,
 ): string {
-  if (!overview) return t("anesthesia.pdf.na");
-  const map: Record<string, string> = {
-    general: t("anesthesia.pdf.typeGeneral"),
-    sedation: t("anesthesia.pdf.typeSedation"),
-    regionalSpinal: t("anesthesia.pdf.typeRegionalSpinal"),
-    regionalEpidural: t("anesthesia.pdf.typeRegionalEpidural"),
-    regionalPeripheral: t("anesthesia.pdf.typeRegionalPeripheral"),
-  };
-  const active = Object.entries(overview)
-    .filter(([, v]) => v)
-    .map(([k]) => map[k] || k);
-  return active.length > 0 ? active.join(", ") : t("anesthesia.pdf.na");
+  if (overview) {
+    const map: Record<string, string> = {
+      general: t("anesthesia.pdf.typeGeneral"),
+      sedation: t("anesthesia.pdf.typeSedation"),
+      regionalSpinal: t("anesthesia.pdf.typeRegionalSpinal"),
+      regionalEpidural: t("anesthesia.pdf.typeRegionalEpidural"),
+      regionalPeripheral: t("anesthesia.pdf.typeRegionalPeripheral"),
+    };
+    const active = Object.entries(overview)
+      .filter(([, v]) => v)
+      .map(([k]) => map[k] || k);
+    if (active.length > 0) return active.join(", ");
+  }
+  if (surgeryAnesthesiaType) {
+    const typeMap: Record<string, string> = {
+      general: t("anesthesia.pdf.typeGeneral"),
+      sedation: t("anesthesia.pdf.typeSedation"),
+      spinal: t("anesthesia.pdf.typeRegionalSpinal"),
+      epidural: t("anesthesia.pdf.typeRegionalEpidural"),
+      regional: t("anesthesia.pdf.typeRegionalPeripheral"),
+      combined: t("anesthesia.pdf.typeGeneral") + " + Regional",
+    };
+    return typeMap[surgeryAnesthesiaType] || surgeryAnesthesiaType;
+  }
+  return t("anesthesia.pdf.na");
 }
 
 export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
@@ -168,6 +183,29 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   doc.setTextColor(0, 0, 0);
   yPos += 8;
 
+  // Derive actual start/end from time markers if surgery fields are empty
+  const markers = data.anesthesiaRecord?.timeMarkers || [];
+  const firstMarker = markers.find(m => m.code === "A1") || markers.find(m => m.code === "E") || markers[0];
+  const lastMarker = [...markers].reverse().find(m => m.code === "P") || [...markers].reverse().find(m => m.code === "A2") || markers[markers.length - 1];
+
+  let actualStartDisplay: string;
+  if (data.surgery.actualStartTime) {
+    actualStartDisplay = formatDateTime24h(data.surgery.actualStartTime);
+  } else if (firstMarker?.time) {
+    actualStartDisplay = formatTimeFrom24h(firstMarker.time);
+  } else {
+    actualStartDisplay = t("anesthesia.pdf.na");
+  }
+
+  let actualEndDisplay: string;
+  if (data.surgery.actualEndTime) {
+    actualEndDisplay = formatDateTime24h(data.surgery.actualEndTime);
+  } else if (lastMarker?.time) {
+    actualEndDisplay = formatTimeFrom24h(lastMarker.time);
+  } else {
+    actualEndDisplay = t("anesthesia.pdf.na");
+  }
+
   const surgeryRows: string[][] = [
     [t("anesthesia.pdf.procedure"), data.surgery.plannedSurgery || t("anesthesia.pdf.na")],
   ];
@@ -179,9 +217,8 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   surgeryRows.push(
     [t("anesthesia.pdf.surgeon"), data.surgery.surgeon || t("anesthesia.pdf.na")],
     [t("anesthesia.pdf.plannedDate"), formatDate(data.surgery.plannedDate)],
-    [t("anesthesia.pdf.actualStart"), data.surgery.actualStartTime ? formatDateTime24h(data.surgery.actualStartTime) : t("anesthesia.pdf.na")],
-    [t("anesthesia.pdf.actualEnd"), data.surgery.actualEndTime ? formatDateTime24h(data.surgery.actualEndTime) : t("anesthesia.pdf.na")],
-    [t("anesthesia.pdf.status"), data.surgery.status],
+    [t("anesthesia.pdf.actualStart"), actualStartDisplay],
+    [t("anesthesia.pdf.actualEnd"), actualEndDisplay],
   );
 
   autoTable(doc, {
@@ -209,7 +246,6 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   doc.setTextColor(0, 0, 0);
   yPos += 8;
 
-  const markers = data.anesthesiaRecord?.timeMarkers || [];
   const o1 = markers.find(m => m.code === "O1")?.time;
   const o2 = markers.find(m => m.code === "O2")?.time;
   const x1 = markers.find(m => m.code === "X1")?.time;
@@ -218,7 +254,7 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   const durationRows: string[][] = [
     [t("anesthesia.pdf.schnittNahtZeit"), o1 && o2 ? formatDuration(o1, o2) : "–"],
     [t("anesthesia.pdf.anesthesiaDuration"), x1 && a2 ? formatDuration(x1, a2) : "–"],
-    [t("anesthesia.pdf.anesthesiaType"), getAnesthesiaTypeLabels(data.anesthesiaRecord?.anesthesiaOverview, t)],
+    [t("anesthesia.pdf.anesthesiaType"), getAnesthesiaTypeLabels(data.anesthesiaRecord?.anesthesiaOverview, data.surgery.anesthesiaType, t)],
   ];
 
   autoTable(doc, {
@@ -228,8 +264,8 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 3 },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 50 },
-      1: { cellWidth: 120 },
+      0: { fontStyle: "bold", cellWidth: 70 },
+      1: { cellWidth: 100 },
     },
     margin: { left: 20, right: 20 },
   });

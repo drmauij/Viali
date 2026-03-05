@@ -97,6 +97,7 @@ export function SendSurgeonSummaryDialog({
           actualStartTime: surgery.actualStartTime,
           actualEndTime: surgery.actualEndTime,
           status: surgery.status,
+          anesthesiaType: surgery.anesthesiaType,
         },
         anesthesiaRecord: anesthesiaRecord ? {
           anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
