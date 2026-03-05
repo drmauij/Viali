@@ -4034,4 +4034,284 @@ router.delete('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, asy
   }
 });
 
+// ==========================================
+// ASPSMS SMS Integration
+// ==========================================
+
+// Get ASPSMS configuration for a hospital
+router.get('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const config = await storage.getHospitalAspsmsConfig(hospitalId);
+
+    if (!config) {
+      return res.json({
+        hospitalId,
+        isEnabled: false,
+        hasUserKey: false,
+        hasPassword: false,
+        originator: null,
+        lastTestedAt: null,
+        lastTestStatus: null,
+        lastTestError: null,
+      });
+    }
+
+    res.json({
+      hospitalId: config.hospitalId,
+      isEnabled: config.isEnabled,
+      hasUserKey: !!config.encryptedUserKey,
+      hasPassword: !!config.encryptedPassword,
+      originator: config.originator,
+      lastTestedAt: config.lastTestedAt,
+      lastTestStatus: config.lastTestStatus,
+      lastTestError: config.lastTestError,
+    });
+  } catch (error) {
+    logger.error("Error fetching ASPSMS config:", error);
+    res.status(500).json({ message: "Failed to fetch ASPSMS configuration" });
+  }
+});
+
+// Save ASPSMS configuration for a hospital
+router.put('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { userKey, password, originator, isEnabled } = req.body;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const existing = await storage.getHospitalAspsmsConfig(hospitalId);
+
+    const encryptedUserKey = userKey ? encryptCredential(userKey) : existing?.encryptedUserKey;
+    const encryptedPassword = password ? encryptCredential(password) : existing?.encryptedPassword;
+    // Originator is plain text (max 11 chars), not encrypted
+    const resolvedOriginator = originator !== undefined ? (originator || null) : (existing?.originator || null);
+
+    const config = await storage.upsertHospitalAspsmsConfig({
+      hospitalId,
+      encryptedUserKey,
+      encryptedPassword,
+      originator: resolvedOriginator,
+      isEnabled: isEnabled ?? existing?.isEnabled ?? true,
+    });
+
+    res.json({
+      hospitalId: config.hospitalId,
+      isEnabled: config.isEnabled,
+      hasUserKey: !!config.encryptedUserKey,
+      hasPassword: !!config.encryptedPassword,
+      originator: config.originator,
+      lastTestedAt: config.lastTestedAt,
+      lastTestStatus: config.lastTestStatus,
+      lastTestError: config.lastTestError,
+    });
+  } catch (error) {
+    logger.error("Error saving ASPSMS config:", error);
+    res.status(500).json({ message: "Failed to save ASPSMS configuration" });
+  }
+});
+
+// Test ASPSMS configuration
+router.post('/api/admin/:hospitalId/integrations/aspsms/test', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { testPhoneNumber } = req.body;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const config = await storage.getHospitalAspsmsConfig(hospitalId);
+    if (!config || !config.encryptedUserKey || !config.encryptedPassword) {
+      return res.status(400).json({ message: "ASPSMS credentials not fully configured" });
+    }
+
+    const userKey = decryptCredential(config.encryptedUserKey);
+    const password = decryptCredential(config.encryptedPassword);
+
+    if (!userKey || !password) {
+      await storage.updateHospitalAspsmsTestStatus(hospitalId, 'failed', 'Failed to decrypt credentials');
+      return res.status(500).json({ message: "Failed to decrypt credentials" });
+    }
+
+    const originator = config.originator || hospital.name?.replace(/[^a-zA-Z0-9]/g, '').substring(0, 11) || 'ViALI';
+
+    // Import normalizePhoneNumber to format the test number
+    const { normalizePhoneNumber } = await import('../sms');
+    const normalizedNumber = normalizePhoneNumber(testPhoneNumber || '');
+
+    if (!normalizedNumber) {
+      return res.status(400).json({ message: "Invalid phone number" });
+    }
+
+    // Send test SMS via ASPSMS JSON API
+    const response = await fetch('https://json.aspsms.com/SendSimpleTextSMS', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        UserName: userKey,
+        Password: password,
+        Originator: originator,
+        Recipients: [normalizedNumber],
+        MessageText: `Viali SMS test - ${hospital.name}. Your ASPSMS integration is working correctly!`,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.StatusCode === '1') {
+      await storage.updateHospitalAspsmsTestStatus(hospitalId, 'success');
+      res.json({ success: true, message: "Test SMS sent successfully" });
+    } else {
+      const errorMsg = `ASPSMS error ${result.StatusCode}: ${result.StatusInfo}`;
+      await storage.updateHospitalAspsmsTestStatus(hospitalId, 'failed', errorMsg);
+      res.status(400).json({ success: false, message: errorMsg });
+    }
+  } catch (error: any) {
+    logger.error("Error testing ASPSMS config:", error);
+    const errorMsg = error.message || 'Failed to test ASPSMS configuration';
+
+    try {
+      const { hospitalId } = req.params;
+      await storage.updateHospitalAspsmsTestStatus(hospitalId, 'failed', errorMsg);
+    } catch {}
+
+    res.status(500).json({ message: errorMsg });
+  }
+});
+
+// Delete ASPSMS configuration
+router.delete('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    await storage.upsertHospitalAspsmsConfig({
+      hospitalId,
+      encryptedUserKey: null,
+      encryptedPassword: null,
+      originator: null,
+      isEnabled: false,
+    });
+
+    res.json({ success: true, message: "ASPSMS configuration removed" });
+  } catch (error) {
+    logger.error("Error deleting ASPSMS config:", error);
+    res.status(500).json({ message: "Failed to delete ASPSMS configuration" });
+  }
+});
+
+// Check ASPSMS credits for a hospital
+router.get('/api/admin/:hospitalId/integrations/aspsms/credits', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const config = await storage.getHospitalAspsmsConfig(hospitalId);
+    if (!config || !config.encryptedUserKey || !config.encryptedPassword) {
+      return res.status(400).json({ message: "ASPSMS credentials not configured" });
+    }
+
+    const userKey = decryptCredential(config.encryptedUserKey);
+    const password = decryptCredential(config.encryptedPassword);
+
+    if (!userKey || !password) {
+      return res.status(500).json({ message: "Failed to decrypt credentials" });
+    }
+
+    const response = await fetch('https://json.aspsms.com/CheckCredits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        UserName: userKey,
+        Password: password,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.StatusCode === '1') {
+      res.json({ credits: result.Credits, statusInfo: result.StatusInfo });
+    } else {
+      res.status(400).json({ message: `ASPSMS error: ${result.StatusInfo}` });
+    }
+  } catch (error) {
+    logger.error("Error checking ASPSMS credits:", error);
+    res.status(500).json({ message: "Failed to check ASPSMS credits" });
+  }
+});
+
+// ==========================================
+// SMS Provider Selection
+// ==========================================
+
+// Set SMS provider preference for a hospital
+router.put('/api/admin/:hospitalId/integrations/sms-provider', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { provider } = req.body;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    if (!['auto', 'aspsms', 'vonage'].includes(provider)) {
+      return res.status(400).json({ message: "Invalid provider. Must be 'auto', 'aspsms', or 'vonage'" });
+    }
+
+    await storage.updateHospital(hospitalId, { smsProvider: provider });
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    logger.error("Error setting SMS provider:", error);
+    res.status(500).json({ message: "Failed to set SMS provider" });
+  }
+});
+
+// Get SMS provider preference for a hospital
+router.get('/api/admin/:hospitalId/integrations/sms-provider', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const fullHospital = await storage.getHospital(hospitalId);
+
+    res.json({ provider: fullHospital?.smsProvider || 'auto' });
+  } catch (error) {
+    logger.error("Error fetching SMS provider:", error);
+    res.status(500).json({ message: "Failed to fetch SMS provider" });
+  }
+});
+
 export default router;
