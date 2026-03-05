@@ -1155,7 +1155,18 @@
     "completedToday": "Heute abgeschlossen",
     "completedBy": "Abgeschlossen von",
     "completedAt": "Zeit",
-    "checkedItems": "Abgehakte Punkte"
+    "checkedItems": "Abgehakte Punkte",
+    "historyNoTemplates": "Keine Checklistenvorlagen gefunden",
+    "historyNoEntries": "Kein Verlauf",
+    "downloadPdf": "PDF herunterladen",
+    "skipped": "Übersprungen",
+    "person": "Person",
+    "dateTime": "Datum/Uhrzeit",
+    "commentReason": "Kommentar/Grund",
+    "pdfTitle": "Checklisten-Verlaufsbericht",
+    "pdfGenerated": "Erstellt",
+    "entries": "Einträge",
+    "status": "Status"
   },
   "controlled": {
     "title": "Betäubungsmittelprotokoll",

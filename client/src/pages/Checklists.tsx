@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -11,11 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ClipboardCheck, Clock, AlertCircle, FileSignature, X } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ClipboardCheck, Clock, AlertCircle, FileSignature, X, Download } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatShortDate, formatDateTimeLong } from "@/lib/dateUtils";
+import { generateChecklistHistoryPdf } from "@/lib/checklistHistoryPdf";
 import type { ChecklistTemplate, ChecklistCompletion, User } from "@shared/schema";
 
 interface PendingChecklist extends ChecklistTemplate {
@@ -24,9 +26,22 @@ interface PendingChecklist extends ChecklistTemplate {
   isOverdue: boolean;
 }
 
-interface ChecklistCompletionWithDetails extends ChecklistCompletion {
-  template: ChecklistTemplate;
-  completedByUser: User;
+interface ChecklistHistoryEntry {
+  id: string;
+  templateId: string;
+  date: string;
+  dueDate: string;
+  userName: string;
+  userId: string;
+  status: 'completed' | 'skipped';
+  signature?: string;
+  comment?: string;
+  reason?: string;
+}
+
+interface ChecklistHistoryResponse {
+  templates: ChecklistTemplate[];
+  history: ChecklistHistoryEntry[];
 }
 
 export default function Checklists() {
@@ -49,10 +64,23 @@ export default function Checklists() {
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
-  const { data: completionHistory = [], isLoading: isLoadingHistory } = useQuery<ChecklistCompletionWithDetails[]>({
+  const { data: historyResponse, isLoading: isLoadingHistory } = useQuery<ChecklistHistoryResponse>({
     queryKey: [`/api/checklists/history/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
+
+  const historyTemplates = historyResponse?.templates ?? [];
+  const historyEntries = historyResponse?.history ?? [];
+
+  const historyByTemplate = useMemo(() => {
+    const map = new Map<string, ChecklistHistoryEntry[]>();
+    for (const entry of historyEntries) {
+      const list = map.get(entry.templateId) || [];
+      list.push(entry);
+      map.set(entry.templateId, list);
+    }
+    return map;
+  }, [historyEntries]);
 
   const completeMutation = useMutation({
     mutationFn: async (data: { 
@@ -360,48 +388,110 @@ export default function Checklists() {
                 </Card>
               ))}
             </div>
-          ) : completionHistory.length === 0 ? (
+          ) : historyTemplates.length === 0 ? (
             <Card data-testid="card-no-history">
               <CardContent className="p-8 text-center text-muted-foreground">
                 <ClipboardCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p data-testid="text-no-history">{t("checklists.noHistory")}</p>
+                <p data-testid="text-no-history">{t("checklists.historyNoTemplates")}</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {completionHistory.map(completion => (
-                <Card key={completion.id} className="hover:shadow-md transition-shadow" data-testid={`card-history-${completion.id}`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2" data-testid={`text-template-${completion.id}`}>
-                          {completion.template.name}
-                        </CardTitle>
-                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                          <span data-testid={`text-completed-${completion.id}`}>
-                            {t("checklists.completedOn")}: {formatDateTimeLong(completion.completedAt)}
-                          </span>
-                          <span>•</span>
-                          <span data-testid={`text-completedby-${completion.id}`}>
-                            {completion.completedByUser.firstName} {completion.completedByUser.lastName}
-                          </span>
-                        </div>
+            <Accordion type="multiple" className="space-y-2">
+              {historyTemplates.map(template => {
+                const entries = historyByTemplate.get(template.id) || [];
+                return (
+                  <AccordionItem key={template.id} value={template.id} className="border rounded-lg px-4" data-testid={`accordion-${template.id}`}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex flex-1 items-center gap-3 mr-2">
+                        <span className="font-semibold text-left">{template.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {getRecurrencyLabel(template.recurrency)}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {entries.length} {t("checklists.entries")}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto h-8 w-8 p-0"
+                          disabled={entries.length === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            generateChecklistHistoryPdf({
+                              templateName: template.name,
+                              recurrency: template.recurrency,
+                              hospitalName: activeHospital?.name || '',
+                              entries: entries.map(en => ({
+                                date: new Date(en.date),
+                                userName: en.userName,
+                                status: en.status,
+                                comment: en.comment,
+                                reason: en.reason,
+                                signature: en.signature,
+                              })),
+                              t,
+                            });
+                          }}
+                          data-testid={`button-pdf-${template.id}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Badge variant="secondary" data-testid={`badge-completed-${completion.id}`}>
-                        {t("checklists.completed")}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  {completion.comment && (
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground" data-testid={`text-comment-${completion.id}`}>
-                        {completion.comment}
-                      </p>
-                    </CardContent>
-                  )}
-                </Card>
-              ))}
-            </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {entries.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">{t("checklists.historyNoEntries")}</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-2 pr-4">{t("checklists.dateTime")}</th>
+                                <th className="py-2 pr-4">{t("checklists.person")}</th>
+                                <th className="py-2 pr-4">{t("checklists.status")}</th>
+                                <th className="py-2 pr-4">{t("checklists.commentReason")}</th>
+                                <th className="py-2">{t("checklists.signature")}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {entries.map(entry => (
+                                <tr key={entry.id} className="border-b last:border-0">
+                                  <td className="py-2 pr-4 whitespace-nowrap">{formatDateTimeLong(entry.date)}</td>
+                                  <td className="py-2 pr-4">{entry.userName}</td>
+                                  <td className="py-2 pr-4">
+                                    {entry.status === 'completed' ? (
+                                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100">
+                                        {t("checklists.completed")}
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 hover:bg-amber-100">
+                                        {t("checklists.skipped")}
+                                      </Badge>
+                                    )}
+                                  </td>
+                                  <td className="py-2 pr-4 text-muted-foreground">
+                                    {entry.comment || entry.reason || '-'}
+                                  </td>
+                                  <td className="py-2">
+                                    {entry.signature ? (
+                                      <img
+                                        src={entry.signature.startsWith('data:') ? entry.signature : `data:image/png;base64,${entry.signature}`}
+                                        alt="Signature"
+                                        className="h-8 w-auto"
+                                      />
+                                    ) : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           )}
         </TabsContent>
       </Tabs>

@@ -386,27 +386,30 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
       }
     }
     
-    const allCompletions = await Promise.all(
-      userLocations.map(loc => 
-        storage.getChecklistCompletions(
+    const allResults = await Promise.all(
+      userLocations.map(loc =>
+        storage.getChecklistHistory(
           hospitalId,
           loc.unitId,
           templateId as string | undefined,
-          limit ? parseInt(limit as string) : undefined
+          limit ? parseInt(limit as string) : 500
         )
       )
     );
-    
-    const completionsMap = new Map();
-    allCompletions.flat().forEach(completion => {
-      completionsMap.set(completion.id, completion);
-    });
-    
-    const completions = Array.from(completionsMap.values()).sort((a, b) => 
-      new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime()
+
+    // Merge templates (deduplicate by id)
+    const templateMap = new Map<string, any>();
+    allResults.forEach(r => r.templates.forEach(t => templateMap.set(t.id, t)));
+    const templates = Array.from(templateMap.values());
+
+    // Merge history entries (deduplicate by id)
+    const historyMap = new Map<string, any>();
+    allResults.forEach(r => r.history.forEach(h => historyMap.set(h.id, h)));
+    const history = Array.from(historyMap.values()).sort((a: any, b: any) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-    
-    res.json(completions);
+
+    res.json({ templates, history });
   } catch (error) {
     logger.error("Error fetching checklist history:", error);
     res.status(500).json({ message: "Failed to fetch checklist history" });

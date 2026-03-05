@@ -1074,7 +1074,18 @@
     "completedToday": "Completed today",
     "completedBy": "Completed by",
     "completedAt": "Time",
-    "checkedItems": "Checked items"
+    "checkedItems": "Checked items",
+    "historyNoTemplates": "No checklist templates found",
+    "historyNoEntries": "No history",
+    "downloadPdf": "Download PDF",
+    "skipped": "Skipped",
+    "person": "Person",
+    "dateTime": "Date/Time",
+    "commentReason": "Comment/Reason",
+    "pdfTitle": "Checklist History Report",
+    "pdfGenerated": "Generated",
+    "entries": "entries",
+    "status": "Status"
   },
   "controlled": {
     "title": "Controlled Substances Log",

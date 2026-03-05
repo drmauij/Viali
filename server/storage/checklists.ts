@@ -480,6 +480,92 @@ export async function getPendingChecklistCount(hospitalId: string, unitId: strin
   return { total: allPending.length, overdue: allOverdue.length };
 }
 
+export async function getChecklistDismissals(hospitalId: string, unitId?: string, templateId?: string, limit: number = 500): Promise<(ChecklistDismissal & { template: ChecklistTemplate; dismissedByUser: User })[]> {
+  const conditions = [eq(checklistDismissals.hospitalId, hospitalId)];
+  if (unitId) conditions.push(eq(checklistDismissals.unitId, unitId));
+  if (templateId) conditions.push(eq(checklistDismissals.templateId, templateId));
+
+  const dismissals = await db
+    .select({
+      ...getTableColumns(checklistDismissals),
+      template: checklistTemplates,
+      dismissedByUser: users,
+    })
+    .from(checklistDismissals)
+    .leftJoin(checklistTemplates, eq(checklistDismissals.templateId, checklistTemplates.id))
+    .leftJoin(users, eq(checklistDismissals.dismissedBy, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(checklistDismissals.dismissedAt))
+    .limit(limit);
+
+  return dismissals as unknown as (ChecklistDismissal & { template: ChecklistTemplate; dismissedByUser: User })[];
+}
+
+export interface ChecklistHistoryEntry {
+  id: string;
+  templateId: string;
+  date: Date;
+  dueDate: Date;
+  userName: string;
+  userId: string;
+  status: 'completed' | 'skipped';
+  signature?: string;
+  comment?: string;
+  reason?: string;
+}
+
+export async function getChecklistHistory(hospitalId: string, unitId?: string, templateId?: string, limit: number = 500): Promise<{
+  templates: ChecklistTemplate[];
+  history: ChecklistHistoryEntry[];
+}> {
+  const templates = await db
+    .select()
+    .from(checklistTemplates)
+    .where(and(
+      eq(checklistTemplates.hospitalId, hospitalId),
+      eq(checklistTemplates.active, true),
+    ))
+    .orderBy(asc(checklistTemplates.name));
+
+  const [completions, dismissals] = await Promise.all([
+    getChecklistCompletions(hospitalId, unitId, templateId, limit),
+    getChecklistDismissals(hospitalId, unitId, templateId, limit),
+  ]);
+
+  const history: ChecklistHistoryEntry[] = [];
+
+  for (const c of completions) {
+    history.push({
+      id: c.id,
+      templateId: c.templateId,
+      date: c.completedAt!,
+      dueDate: c.dueDate,
+      userName: [c.completedByUser?.firstName, c.completedByUser?.lastName].filter(Boolean).join(' '),
+      userId: c.completedBy,
+      status: 'completed',
+      signature: c.signature,
+      comment: c.comment ?? undefined,
+    });
+  }
+
+  for (const d of dismissals) {
+    history.push({
+      id: d.id,
+      templateId: d.templateId,
+      date: d.dismissedAt!,
+      dueDate: d.dueDate,
+      userName: [d.dismissedByUser?.firstName, d.dismissedByUser?.lastName].filter(Boolean).join(' '),
+      userId: d.dismissedBy,
+      status: 'skipped',
+      reason: d.reason ?? undefined,
+    });
+  }
+
+  history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return { templates, history };
+}
+
 export async function backfillChecklistTemplateAssignments(): Promise<number> {
   const result = await db.execute(sql`
     INSERT INTO checklist_template_assignments (id, template_id, unit_id, role)

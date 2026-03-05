@@ -352,6 +352,8 @@ export interface IStorage {
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
   getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined>;
   getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<{ total: number; overdue: number }>;
+  getChecklistDismissals(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistDismissal & { template: ChecklistTemplate; dismissedByUser: User })[]>;
+  getChecklistHistory(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<{ templates: ChecklistTemplate[]; history: import("./storage/checklists").ChecklistHistoryEntry[] }>;
   
   // Import Jobs
   createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
@@ -1148,6 +1150,8 @@ export class DatabaseStorage implements IStorage {
   getChecklistCompletions = checklistStorage.getChecklistCompletions;
   getChecklistCompletion = checklistStorage.getChecklistCompletion;
   getPendingChecklistCount = checklistStorage.getPendingChecklistCount;
+  getChecklistDismissals = checklistStorage.getChecklistDismissals;
+  getChecklistHistory = checklistStorage.getChecklistHistory;
 
   // ========== IMPORT JOB OPERATIONS ==========
   createImportJob = importJobStorage.createImportJob;
