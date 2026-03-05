@@ -993,19 +993,20 @@ router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/accept', 
       return res.status(400).json({ message: `Request already ${actionRequest.status}` });
     }
 
-    // Apply the action based on type
-    if (actionRequest.type === 'cancellation') {
-      await storage.updateSurgery(actionRequest.surgeryId, { status: 'cancelled' });
-    } else if (actionRequest.type === 'suspension') {
-      await storage.updateSurgery(actionRequest.surgeryId, { isSuspended: true });
-    }
-    // For reschedule: just mark as accepted; frontend handles creating the new surgery
+    // Apply action + mark accepted atomically
+    await db.transaction(async () => {
+      if (actionRequest.type === 'cancellation') {
+        await storage.updateSurgery(actionRequest.surgeryId, { status: 'cancelled' });
+      } else if (actionRequest.type === 'suspension') {
+        await storage.updateSurgery(actionRequest.surgeryId, { isSuspended: true });
+      }
+      // For reschedule: just mark as accepted; frontend handles creating the new surgery
 
-    // Mark the request as accepted
-    await updateSurgeonActionRequest(reqId, {
-      status: 'accepted',
-      respondedBy: userId,
-      respondedAt: new Date(),
+      await updateSurgeonActionRequest(reqId, {
+        status: 'accepted',
+        respondedBy: userId,
+        respondedAt: new Date(),
+      });
     });
 
     res.json({ success: true });
