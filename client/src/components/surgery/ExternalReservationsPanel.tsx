@@ -43,7 +43,7 @@ export interface SurgeryRoom {
   type?: 'OP' | 'PACU';
 }
 
-export interface SurgeonActionRequest {
+export interface SurgeonActionRequestView {
   id: string;
   hospitalId: string;
   surgeryId: string;
@@ -457,6 +457,7 @@ export function ExternalReservationsPanel({
   const [refuseDialogOpen, setRefuseDialogOpen] = useState(false);
   const [refusingRequestId, setRefusingRequestId] = useState<string | null>(null);
   const [refuseNote, setRefuseNote] = useState('');
+  const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
   const hospitalId = activeHospital?.id;
 
@@ -467,7 +468,7 @@ export function ExternalReservationsPanel({
   });
 
   // --- Surgeon action requests (new) ---
-  const { data: actionRequests = [], isLoading: isLoadingActions } = useQuery<SurgeonActionRequest[]>({
+  const { data: actionRequests = [], isLoading: isLoadingActions } = useQuery<SurgeonActionRequestView[]>({
     queryKey: [`/api/hospitals/${hospitalId}/surgeon-action-requests?status=pending`],
     enabled: !!hospitalId && (mode === 'inline' || open),
   });
@@ -518,9 +519,11 @@ export function ExternalReservationsPanel({
   // --- Surgeon action request mutations ---
   const acceptActionMutation = useMutation({
     mutationFn: async (reqId: string) => {
+      setAcceptingRequestId(reqId);
       return apiRequest('POST', `/api/hospitals/${hospitalId}/surgeon-action-requests/${reqId}/accept`);
     },
     onSuccess: () => {
+      setAcceptingRequestId(null);
       toast({
         title: isGerman ? 'Anfrage akzeptiert' : 'Request accepted',
         description: isGerman ? 'Die Anfrage wurde erfolgreich bearbeitet.' : 'The request has been processed successfully.',
@@ -535,6 +538,7 @@ export function ExternalReservationsPanel({
       });
     },
     onError: (error: any) => {
+      setAcceptingRequestId(null);
       toast({
         title: t('common.error'),
         description: error.message,
@@ -604,13 +608,13 @@ export function ExternalReservationsPanel({
     return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
   };
 
-  const actionTypeLabels: Record<SurgeonActionRequest['type'], { de: string; en: string }> = {
+  const actionTypeLabels: Record<SurgeonActionRequestView['type'], { de: string; en: string }> = {
     cancellation: { de: 'Stornierung', en: 'Cancellation' },
     reschedule: { de: 'Umplanung', en: 'Reschedule' },
     suspension: { de: 'Aussetzung', en: 'Suspension' },
   };
 
-  const actionTypeBadgeClasses: Record<SurgeonActionRequest['type'], string> = {
+  const actionTypeBadgeClasses: Record<SurgeonActionRequestView['type'], string> = {
     cancellation: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-200 dark:border-red-800',
     reschedule: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800',
     suspension: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800',
@@ -752,9 +756,9 @@ export function ExternalReservationsPanel({
                   size="sm"
                   className="w-full"
                   onClick={() => acceptActionMutation.mutate(req.id)}
-                  disabled={acceptActionMutation.isPending}
+                  disabled={acceptingRequestId === req.id && acceptActionMutation.isPending}
                 >
-                  {acceptActionMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  {acceptingRequestId === req.id && acceptActionMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   <Check className="mr-1 h-4 w-4" />
                   {isGerman ? 'Akzeptieren' : 'Accept'}
                 </Button>
