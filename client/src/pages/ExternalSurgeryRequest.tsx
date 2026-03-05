@@ -435,6 +435,24 @@ export default function ExternalSurgeryRequest() {
           <Progress value={progress} className="h-2" />
         </div>
 
+        {hospitalData && !isSubmitted && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="text-sm text-blue-700 dark:text-blue-300">
+              {i18n.language === 'de'
+                ? 'Haben Sie bereits Anfragen gestellt?'
+                : 'Already submitted requests?'}
+              {' '}
+              <a
+                href={`/surgeon-portal/${token}`}
+                className="font-medium underline hover:no-underline"
+              >
+                {i18n.language === 'de' ? 'Ihre OPs ansehen →' : 'View your surgeries →'}
+              </a>
+            </span>
+          </div>
+        )}
+
         <Card>
           <CardContent className="pt-6">
             {currentStepId === 'surgeon' && (

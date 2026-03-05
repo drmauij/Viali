@@ -5826,6 +5826,7 @@ export const portalAccessSessions = pgTable("portal_access_sessions", {
   sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
   portalType: portalTypeEnum("portal_type").notNull(),
   portalToken: varchar("portal_token").notNull(),
+  surgeonEmail: varchar("surgeon_email"),  // only used for surgeon portal
   expiresAt: timestamp("expires_at").notNull(),
   verifiedAt: timestamp("verified_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -5835,3 +5836,37 @@ export const portalAccessSessions = pgTable("portal_access_sessions", {
 ]);
 
 export type PortalAccessSession = typeof portalAccessSessions.$inferSelect;
+
+export const surgeonActionRequestTypeEnum = pgEnum("surgeon_action_request_type", [
+  "cancellation", "reschedule", "suspension"
+]);
+
+export const surgeonActionRequestStatusEnum = pgEnum("surgeon_action_request_status", [
+  "pending", "accepted", "refused"
+]);
+
+export const surgeonActionRequests = pgTable("surgeon_action_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id),
+  surgeonEmail: varchar("surgeon_email").notNull(),
+  type: surgeonActionRequestTypeEnum("type").notNull(),
+  reason: text("reason").notNull(),
+  proposedDate: date("proposed_date"),
+  proposedTimeFrom: integer("proposed_time_from"),
+  proposedTimeTo: integer("proposed_time_to"),
+  status: surgeonActionRequestStatusEnum("status").notNull().default("pending"),
+  responseNote: text("response_note"),
+  respondedBy: varchar("responded_by").references(() => users.id),
+  respondedAt: timestamp("responded_at"),
+  confirmationEmailSent: boolean("confirmation_email_sent").default(false),
+  confirmationSmsSent: boolean("confirmation_sms_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgeon_action_requests_hospital_status").on(table.hospitalId, table.status),
+  index("idx_surgeon_action_requests_surgery").on(table.surgeryId),
+  index("idx_surgeon_action_requests_email").on(table.surgeonEmail),
+]);
+
+export type SurgeonActionRequest = typeof surgeonActionRequests.$inferSelect;

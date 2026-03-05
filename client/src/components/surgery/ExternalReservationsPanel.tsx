@@ -11,9 +11,10 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Calendar,
   Phone,
@@ -25,12 +26,14 @@ import {
   Loader2,
   ExternalLink,
   AlertTriangle,
+  User,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateLong, formatDate } from "@/lib/dateUtils";
+import { formatDateLong, formatDate, formatDateTime } from "@/lib/dateUtils";
 import { setDraggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import type { ExternalSurgeryRequest } from "@shared/schema";
 
@@ -39,6 +42,33 @@ export interface SurgeryRoom {
   name: string;
   type?: 'OP' | 'PACU';
 }
+
+export interface SurgeonActionRequestView {
+  id: string;
+  hospitalId: string;
+  surgeryId: string;
+  surgeonEmail: string;
+  type: 'cancellation' | 'reschedule' | 'suspension';
+  reason: string;
+  proposedDate: string | null;
+  proposedTimeFrom: number | null;
+  proposedTimeTo: number | null;
+  status: 'pending' | 'accepted' | 'refused';
+  responseNote: string | null;
+  respondedBy: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Joined surgery details
+  plannedDate: string;
+  plannedSurgery: string;
+  surgeonName: string;
+  patientFirstName: string;
+  patientLastName: string;
+  roomName: string;
+}
+
+type PanelTab = 'surgery-requests' | 'surgeon-requests';
 
 export interface ScheduleDialogProps {
   request: ExternalSurgeryRequest;
@@ -423,13 +453,44 @@ export function ExternalReservationsPanel({
   const [open, setOpen] = useState(defaultOpen);
   const [selectedRequest, setSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>('surgery-requests');
+  const [refuseDialogOpen, setRefuseDialogOpen] = useState(false);
+  const [refusingRequestId, setRefusingRequestId] = useState<string | null>(null);
+  const [refuseNote, setRefuseNote] = useState('');
+  const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
   const hospitalId = activeHospital?.id;
 
+  // --- External surgery requests (existing) ---
   const { data: requests = [], isLoading, refetch } = useQuery<ExternalSurgeryRequest[]>({
     queryKey: [`/api/hospitals/${hospitalId}/external-surgery-requests?status=pending`],
     enabled: !!hospitalId && (mode === 'inline' || open),
   });
+
+  // --- Surgeon action requests (new) ---
+  const { data: actionRequests = [], isLoading: isLoadingActions } = useQuery<SurgeonActionRequestView[]>({
+    queryKey: [`/api/hospitals/${hospitalId}/surgeon-action-requests?status=pending`],
+    enabled: !!hospitalId && (mode === 'inline' || open),
+  });
+
+  const { data: actionRequestCount } = useQuery<{ count: number }>({
+    queryKey: [`/api/hospitals/${hospitalId}/surgeon-action-requests/count`],
+    enabled: !!hospitalId,
+    refetchInterval: 60000,
+  });
+
+  // Auto-select tab: default to surgery requests if any, otherwise surgeon requests
+  const [tabInitialized, setTabInitialized] = useState(false);
+  useEffect(() => {
+    if (tabInitialized) return;
+    if (isLoading || isLoadingActions) return;
+    if (requests.length > 0) {
+      setActiveTab('surgery-requests');
+    } else if (actionRequests.length > 0) {
+      setActiveTab('surgeon-requests');
+    }
+    setTabInitialized(true);
+  }, [isLoading, isLoadingActions, requests.length, actionRequests.length, tabInitialized]);
 
   const { data: internalSurgeryRooms = [] } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms?hospitalId=${hospitalId}`],
@@ -455,6 +516,76 @@ export function ExternalReservationsPanel({
     },
   });
 
+  // --- Surgeon action request mutations ---
+  const acceptActionMutation = useMutation({
+    mutationFn: async (reqId: string) => {
+      setAcceptingRequestId(reqId);
+      return apiRequest('POST', `/api/hospitals/${hospitalId}/surgeon-action-requests/${reqId}/accept`);
+    },
+    onSuccess: () => {
+      setAcceptingRequestId(null);
+      toast({
+        title: isGerman ? 'Anfrage akzeptiert' : 'Request accepted',
+        description: isGerman ? 'Die Anfrage wurde erfolgreich bearbeitet.' : 'The request has been processed successfully.',
+      });
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('surgeon-action-requests')
+      });
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        (query.queryKey[0].includes('/api/surgeries') || query.queryKey[0].includes('/api/anesthesia/surgeries'))
+      });
+    },
+    onError: (error: any) => {
+      setAcceptingRequestId(null);
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const refuseActionMutation = useMutation({
+    mutationFn: async ({ reqId, responseNote }: { reqId: string; responseNote?: string }) => {
+      return apiRequest('POST', `/api/hospitals/${hospitalId}/surgeon-action-requests/${reqId}/refuse`, {
+        responseNote: responseNote || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: isGerman ? 'Anfrage abgelehnt' : 'Request refused',
+        description: isGerman ? 'Die Anfrage wurde abgelehnt.' : 'The request has been refused.',
+      });
+      setRefuseDialogOpen(false);
+      setRefusingRequestId(null);
+      setRefuseNote('');
+      queryClient.invalidateQueries({ predicate: (query) =>
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].includes('surgeon-action-requests')
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRefuse = (reqId: string) => {
+    setRefusingRequestId(reqId);
+    setRefuseNote('');
+    setRefuseDialogOpen(true);
+  };
+
+  const handleConfirmRefuse = () => {
+    if (!refusingRequestId) return;
+    refuseActionMutation.mutate({ reqId: refusingRequestId, responseNote: refuseNote || undefined });
+  };
+
   const handleSchedule = (request: ExternalSurgeryRequest) => {
     if (mode === 'inline' && onScheduleRequest) {
       onScheduleRequest(request);
@@ -472,6 +603,222 @@ export function ExternalReservationsPanel({
   const formatWishedDate = (dateStr: string) => {
     return formatDateLong(dateStr);
   };
+
+  const formatMinutesToTime = (minutes: number) => {
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  };
+
+  const actionTypeLabels: Record<SurgeonActionRequestView['type'], { de: string; en: string }> = {
+    cancellation: { de: 'Stornierung', en: 'Cancellation' },
+    reschedule: { de: 'Umplanung', en: 'Reschedule' },
+    suspension: { de: 'Aussetzung', en: 'Suspension' },
+  };
+
+  const actionTypeBadgeClasses: Record<SurgeonActionRequestView['type'], string> = {
+    cancellation: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-200 dark:border-red-800',
+    reschedule: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    suspension: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  };
+
+  // --- Tab bar component (reused in both modes) ---
+  const tabBar = (
+    <div className="flex border-b">
+      <button
+        className={cn(
+          "flex-1 px-3 py-2 text-sm font-medium text-center transition-colors relative",
+          activeTab === 'surgery-requests'
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+        onClick={() => setActiveTab('surgery-requests')}
+      >
+        {isGerman ? 'OP-Anfragen' : 'Surgery Requests'}
+        {requests.length > 0 && (
+          <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">
+            {requests.length}
+          </Badge>
+        )}
+      </button>
+      <button
+        className={cn(
+          "flex-1 px-3 py-2 text-sm font-medium text-center transition-colors relative",
+          activeTab === 'surgeon-requests'
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+        onClick={() => setActiveTab('surgeon-requests')}
+      >
+        {isGerman ? 'Chirurg-Anfragen' : 'Surgeon Requests'}
+        {actionRequests.length > 0 && (
+          <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">
+            {actionRequests.length}
+          </Badge>
+        )}
+      </button>
+    </div>
+  );
+
+  // --- Surgeon action request cards ---
+  const surgeonActionCardList = (
+    <div className={mode === 'inline' ? "space-y-3" : "mt-4 space-y-4"}>
+      {isLoadingActions ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : actionRequests.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <User className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>{isGerman ? 'Keine ausstehenden Chirurg-Anfragen' : 'No pending surgeon requests'}</p>
+        </div>
+      ) : (
+        actionRequests.map((req) => (
+          <Card key={req.id} className="shadow-sm overflow-hidden">
+            <CardContent className="pt-4 space-y-3">
+              {/* Type badge + patient name */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-lg">
+                    {req.patientLastName}, {req.patientFirstName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {req.plannedSurgery}
+                  </p>
+                </div>
+                <Badge variant="outline" className={cn("shrink-0", actionTypeBadgeClasses[req.type])}>
+                  {isGerman ? actionTypeLabels[req.type].de : actionTypeLabels[req.type].en}
+                </Badge>
+              </div>
+
+              <Separator />
+
+              {/* Surgery details */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{formatDateLong(req.plannedDate)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{req.roomName}</span>
+                </div>
+              </div>
+
+              {/* Surgeon info */}
+              <div className="bg-muted/50 rounded-lg p-2 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase">
+                  {isGerman ? 'Chirurg' : 'Surgeon'}
+                </p>
+                <p className="text-sm font-medium">{req.surgeonName}</p>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                  <Mail className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{req.surgeonEmail}</span>
+                </span>
+              </div>
+
+              {/* Reason */}
+              <div className="text-sm">
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                  {isGerman ? 'Begründung' : 'Reason'}
+                </p>
+                <p className="text-muted-foreground">{req.reason}</p>
+              </div>
+
+              {/* Proposed date/time for reschedule */}
+              {req.type === 'reschedule' && req.proposedDate && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 rounded-lg text-sm">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase mb-1">
+                    {isGerman ? 'Vorgeschlagener Termin' : 'Proposed date'}
+                  </p>
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{formatDateLong(req.proposedDate)}</span>
+                    {req.proposedTimeFrom != null && req.proposedTimeTo != null && (
+                      <>
+                        <Clock className="h-3.5 w-3.5 ml-1" />
+                        <span>
+                          {formatMinutesToTime(req.proposedTimeFrom)} – {formatMinutesToTime(req.proposedTimeTo)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamp */}
+              <p className="text-xs text-muted-foreground">
+                {isGerman ? 'Eingereicht: ' : 'Submitted: '}
+                {formatDateTime(req.createdAt)}
+              </p>
+
+              {/* Accept / Refuse buttons */}
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => acceptActionMutation.mutate(req.id)}
+                  disabled={acceptingRequestId === req.id && acceptActionMutation.isPending}
+                >
+                  {acceptingRequestId === req.id && acceptActionMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  <Check className="mr-1 h-4 w-4" />
+                  {isGerman ? 'Akzeptieren' : 'Accept'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => handleRefuse(req.id)}
+                  disabled={refuseActionMutation.isPending}
+                >
+                  <X className="mr-1 h-4 w-4" />
+                  {isGerman ? 'Ablehnen' : 'Refuse'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
+  // --- Refuse confirmation dialog ---
+  const refuseDialog = (
+    <Dialog open={refuseDialogOpen} onOpenChange={(o) => { setRefuseDialogOpen(o); if (!o) setRefusingRequestId(null); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{isGerman ? 'Anfrage ablehnen' : 'Refuse request'}</DialogTitle>
+          <DialogDescription>
+            {isGerman
+              ? 'Möchten Sie diese Anfrage ablehnen? Sie können optional eine Begründung angeben.'
+              : 'Do you want to refuse this request? You can optionally provide a reason.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-2">
+            <Label>{isGerman ? 'Begründung (optional)' : 'Note (optional)'}</Label>
+            <Textarea
+              value={refuseNote}
+              onChange={(e) => setRefuseNote(e.target.value)}
+              placeholder={isGerman ? 'Grund für die Ablehnung...' : 'Reason for refusal...'}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRefuseDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirmRefuse}
+            disabled={refuseActionMutation.isPending}
+          >
+            {refuseActionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isGerman ? 'Ablehnen' : 'Refuse'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const cardList = (
     <div className={mode === 'inline' ? "space-y-3" : "mt-6 space-y-4"}>
@@ -665,15 +1012,17 @@ export function ExternalReservationsPanel({
           <span className="font-semibold text-sm">
             {t('surgery.externalRequests.externalSurgeryRequests')}
           </span>
-          {requests.length > 0 && (
+          {(requests.length + actionRequests.length) > 0 && (
             <Badge variant="destructive" className="ml-auto">
-              {requests.length}
+              {requests.length + actionRequests.length}
             </Badge>
           )}
         </div>
+        {tabBar}
         <div className="flex-1 overflow-y-auto px-4 py-2">
-          {cardList}
+          {activeTab === 'surgery-requests' ? cardList : surgeonActionCardList}
         </div>
+        {refuseDialog}
       </div>
     );
   }
@@ -694,14 +1043,15 @@ export function ExternalReservationsPanel({
             <SheetTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               {t('surgery.externalRequests.externalSurgeryRequests')}
-              {requests.length > 0 && (
+              {(requests.length + actionRequests.length) > 0 && (
                 <Badge variant="destructive" className="ml-2">
-                  {requests.length}
+                  {requests.length + actionRequests.length}
                 </Badge>
               )}
             </SheetTitle>
           </SheetHeader>
-          {cardList}
+          {tabBar}
+          {activeTab === 'surgery-requests' ? cardList : surgeonActionCardList}
         </SheetContent>
       </Sheet>
 
@@ -714,6 +1064,8 @@ export function ExternalReservationsPanel({
           surgeryRooms={surgeryRooms}
         />
       )}
+
+      {refuseDialog}
     </>
   );
 }
@@ -728,11 +1080,19 @@ export function ExternalRequestsBadge() {
     refetchInterval: 60000,
   });
 
-  if (!countData?.count) return null;
+  const { data: actionCountData } = useQuery<{ count: number }>({
+    queryKey: [`/api/hospitals/${hospitalId}/surgeon-action-requests/count`],
+    enabled: !!hospitalId,
+    refetchInterval: 60000,
+  });
+
+  const totalCount = (countData?.count || 0) + (actionCountData?.count || 0);
+
+  if (!totalCount) return null;
 
   return (
     <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-      {countData.count > 9 ? '9+' : countData.count}
+      {totalCount > 9 ? '9+' : totalCount}
     </span>
   );
 }

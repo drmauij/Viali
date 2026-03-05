@@ -132,6 +132,24 @@ async function resolveContactInfo(
     };
   }
 
+  if (portalType === "surgeon") {
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.externalSurgeryToken, portalToken))
+      .limit(1);
+
+    if (!hospital) return empty;
+
+    return {
+      email: null,  // Surgeon provides their email in the request
+      phone: null,
+      language: hospital.defaultLanguage || "de",
+      hospitalName: hospital.name || "Viali",
+      valid: true,
+    };
+  }
+
   return empty;
 }
 
@@ -160,6 +178,7 @@ router.get(
           hasPhone: false,
           language: "de",
           hospitalName: "Viali",
+          requiresEmailInput: portalType === "surgeon",
         });
       }
 
@@ -168,6 +187,7 @@ router.get(
         hasPhone: !!info.phone,
         language: info.language,
         hospitalName: info.hospitalName,
+        requiresEmailInput: portalType === "surgeon",
       });
     } catch (error) {
       logger.error("[PortalOTP] Error fetching hint:", error);
@@ -210,8 +230,17 @@ router.post(
         return res.json({ sent: true });
       }
 
-      const deliverTo =
-        method === "email" ? info.email : info.phone;
+      // For surgeon portal, email comes from request body
+      let deliverTo: string | null;
+      if (portalType === "surgeon") {
+        const { email } = req.body as { email?: string; method?: string };
+        if (!email || !email.includes("@")) {
+          return res.json({ sent: true }); // Don't leak validation
+        }
+        deliverTo = email;
+      } else {
+        deliverTo = method === "email" ? info.email : info.phone;
+      }
       if (!deliverTo) {
         return res.json({ sent: true });
       }
@@ -284,15 +313,19 @@ router.get(
             ? `/patient/${code?.portalToken}`
             : code?.portalType === "worklog"
               ? `/worklog/${code?.portalToken}`
-              : "/";
+              : code?.portalType === "surgeon"
+                ? `/surgeon-portal/${code?.portalToken}`
+                : "/";
         return res.redirect(portalPath);
       }
 
       // Mark used + create session
       await markCodeUsed(code.id);
+      const surgeonEmail = code.portalType === "surgeon" ? code.deliveredTo : undefined;
       const sessionToken = await createPortalSession(
         code.portalType,
         code.portalToken,
+        surgeonEmail,
       );
 
       // Set cookie
@@ -312,7 +345,7 @@ router.get(
           ? `/patient/${code.portalToken}`
           : code.portalType === "worklog"
             ? `/worklog/${code.portalToken}`
-            : `/surgeon/${code.portalToken}`;
+            : `/surgeon-portal/${code.portalToken}`;
 
       return res.redirect(redirectPath);
     } catch (error) {
@@ -380,7 +413,8 @@ router.post(
 
       // Success — mark used + create session
       await markCodeUsed(verification.id);
-      const sessionToken = await createPortalSession(portalType, token);
+      const surgeonEmail = portalType === "surgeon" ? verification.deliveredTo : undefined;
+      const sessionToken = await createPortalSession(portalType, token, surgeonEmail);
 
       const isHttps = (process.env.NODE_ENV === "production") ||
         !!process.env.PRODUCTION_URL;

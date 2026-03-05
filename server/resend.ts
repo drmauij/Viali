@@ -1376,3 +1376,209 @@ export async function sendAppointmentCancellationEmail(
     return { success: false, error };
   }
 }
+
+export async function sendSurgeonActionRequestNotification(
+  toEmail: string,
+  hospitalName: string,
+  surgeonEmail: string,
+  requestType: 'cancellation' | 'reschedule' | 'suspension',
+  reason: string,
+  surgeryInfo: { patientName: string; surgeryName: string; plannedDate: string },
+  proposedDate?: string | null,
+  language: 'de' | 'en' = 'de',
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    logger.info('[Email] Sending surgeon action request notification from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+
+    const typeLabels: Record<typeof requestType, { de: string; en: string }> = {
+      cancellation: { de: 'Absage', en: 'Cancellation' },
+      reschedule: { de: 'Verschiebung', en: 'Reschedule' },
+      suspension: { de: 'Sistierung', en: 'Suspension' },
+    };
+
+    const typeLabel = isGerman ? typeLabels[requestType].de : typeLabels[requestType].en;
+
+    const subject = isGerman
+      ? `Neue Chirurg-Anfrage (${typeLabel}): ${surgeryInfo.patientName} – ${surgeryInfo.surgeryName}`
+      : `New Surgeon Request (${typeLabel}): ${surgeryInfo.patientName} – ${surgeryInfo.surgeryName}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? `Neue Chirurg-Anfrage: ${typeLabel}` : `New Surgeon Request: ${typeLabel}`}</h1>
+              <p style="margin: 0;">${hospitalName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag,' : 'Hello,'}</p>
+              <p>${isGerman
+                ? `Ein Chirurg hat eine ${typeLabel}-Anfrage über das Chirurgenportal eingereicht:`
+                : `A surgeon has submitted a ${typeLabel.toLowerCase()} request through the surgeon portal:`}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Anfragetyp' : 'Request Type'}:</strong> ${typeLabel}</p>
+                <p><strong>${isGerman ? 'Chirurg (E-Mail)' : 'Surgeon (Email)'}:</strong> ${surgeonEmail}</p>
+                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${surgeryInfo.patientName}</p>
+                <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryInfo.surgeryName}</p>
+                <p><strong>${isGerman ? 'Geplantes Datum' : 'Planned Date'}:</strong> ${surgeryInfo.plannedDate}</p>
+                <p><strong>${isGerman ? 'Begründung' : 'Reason'}:</strong> ${reason}</p>
+                ${proposedDate ? `<p><strong>${isGerman ? 'Vorgeschlagenes neues Datum' : 'Proposed New Date'}:</strong> ${proposedDate}</p>` : ''}
+              </div>
+
+              <p>${isGerman
+                ? 'Bitte prüfen und bearbeiten Sie diese Anfrage im Verwaltungsbereich.'
+                : 'Please review and process this request in the admin panel.'}</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send surgeon action request notification:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent surgeon action request notification to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending surgeon action request notification:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendSurgeonActionResponseEmail(
+  toEmail: string,
+  surgeonName: string,
+  hospitalName: string,
+  requestType: 'cancellation' | 'reschedule' | 'suspension',
+  response: 'accepted' | 'refused',
+  surgeryInfo: { patientName: string; surgeryName: string; plannedDate: string },
+  portalUrl: string,
+  responseNote?: string | null,
+  language: 'de' | 'en' = 'de',
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    logger.info('[Email] Sending surgeon action response email from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+    const isAccepted = response === 'accepted';
+
+    const typeLabels: Record<typeof requestType, { de: string; en: string }> = {
+      cancellation: { de: 'Absage', en: 'Cancellation' },
+      reschedule: { de: 'Verschiebung', en: 'Reschedule' },
+      suspension: { de: 'Sistierung', en: 'Suspension' },
+    };
+
+    const typeLabel = isGerman ? typeLabels[requestType].de : typeLabels[requestType].en;
+    const headerColor = isAccepted ? '#16a34a' : '#dc2626';
+
+    const subject = isGerman
+      ? `${typeLabel}-Anfrage ${isAccepted ? 'angenommen' : 'abgelehnt'}: ${surgeryInfo.patientName} – ${surgeryInfo.surgeryName}`
+      : `${typeLabel} Request ${isAccepted ? 'Accepted' : 'Refused'}: ${surgeryInfo.patientName} – ${surgeryInfo.surgeryName}`;
+
+    const headingText = isGerman
+      ? `${typeLabel}-Anfrage ${isAccepted ? 'angenommen' : 'abgelehnt'}`
+      : `${typeLabel} Request ${isAccepted ? 'Accepted' : 'Refused'}`;
+
+    const bodyMessage = isAccepted
+      ? (isGerman
+          ? `Ihre ${typeLabel}-Anfrage bei ${hospitalName} wurde angenommen.`
+          : `Your ${typeLabel.toLowerCase()} request at ${hospitalName} has been accepted.`)
+      : (isGerman
+          ? `Ihre ${typeLabel}-Anfrage bei ${hospitalName} wurde leider abgelehnt.`
+          : `Your ${typeLabel.toLowerCase()} request at ${hospitalName} has been refused.`);
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: ${headerColor}; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${headerColor}; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${headingText}</h1>
+              <p style="margin: 0;">${hospitalName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Sehr geehrte/r Dr.' : 'Dear Dr.'} ${surgeonName},</p>
+              <p>${bodyMessage}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Anfragetyp' : 'Request Type'}:</strong> ${typeLabel}</p>
+                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${surgeryInfo.patientName}</p>
+                <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryInfo.surgeryName}</p>
+                <p><strong>${isGerman ? 'Geplantes Datum' : 'Planned Date'}:</strong> ${surgeryInfo.plannedDate}</p>
+                ${responseNote ? `<p><strong>${isGerman ? 'Anmerkung' : 'Note'}:</strong> ${responseNote}</p>` : ''}
+              </div>
+
+              <p style="text-align: center;">
+                <a href="${portalUrl}" class="button">${isGerman ? 'Zum Chirurgenportal' : 'Go to Surgeon Portal'}</a>
+              </p>
+
+              <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br>${hospitalName}</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send surgeon action response email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent surgeon action response email to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending surgeon action response email:', error);
+    return { success: false, error };
+  }
+}

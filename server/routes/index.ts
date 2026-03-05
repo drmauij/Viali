@@ -26,6 +26,7 @@ import kioskRouter from "./kiosk";
 import cardReaderRouter from "./cardReader";
 import tardocRouter from "./tardoc";
 import portalOtpRouter from "./portalOtp";
+import surgeonPortalRouter from "./surgeonPortal";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -55,4 +56,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(cardReaderRouter);
   app.use(tardocRouter);
   app.use(portalOtpRouter);
+  app.use(surgeonPortalRouter);
 }
