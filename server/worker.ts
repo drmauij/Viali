@@ -139,7 +139,7 @@ async function processNextImportJob() {
 
       const user = await storage.getUser(job.userId);
       if (user?.email) {
-        const baseUrl = process.env.VITE_PUBLIC_URL || 'http://localhost:5000';
+        const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
         const previewUrl = `${baseUrl}/bulk-import/preview/${job.id}`;
 
         // Get hospital language preference
@@ -985,7 +985,7 @@ async function sendQuestionnaireEmail(
       helpPhone = hospital?.companyPhone || null;
     }
 
-    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${linkToken}`;
     
     // Build help contact section based on available phone
@@ -1161,7 +1161,7 @@ async function sendQuestionnaireSms(
       helpPhone = hospital?.companyPhone || null;
     }
 
-    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
     const portalUrl = `${baseUrl}/patient/${linkToken}`;
 
     // Build a short bilingual SMS message (SMS has character limits)
@@ -1423,7 +1423,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       
       if (sendSuccess) {
         // Save the automatic message to patient communication history
-        const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+        const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
         const portalUrl = `${baseUrl}/patient/${linkToken}`;
         const hospital = await storage.getHospital(hospitalId);
         
