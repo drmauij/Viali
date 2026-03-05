@@ -24,7 +24,7 @@ const updateHospitalSchema = z.object({
   // TARDOC billing identifiers
   companyGln: z.string().optional(),
   companyZsr: z.string().optional(),
-  defaultTpValue: z.string().optional(),
+  defaultTpValue: z.string().optional().transform(v => v === '' ? null : v),
   companyBankIban: z.string().optional(),
   companyBankName: z.string().optional(),
   externalSurgeryNotificationEmail: z.string().email().optional().or(z.literal('')),
