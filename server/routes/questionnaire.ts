@@ -2228,6 +2228,8 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     res.json({
       token,
       language: link.language || 'de',
+      hospitalId: link.hospitalId,
+      patientId: link.patientId,
       hospital: {
         name: hospital.name,
         address: hospital.address,

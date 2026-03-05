@@ -1,7 +1,8 @@
-import { Server as SocketIOServer, Socket } from "socket.io";
+import { Server as SocketIOServer, Socket, Namespace } from "socket.io";
 import { Server as HTTPServer } from "http";
 import type { SessionData } from "express-session";
 import logger from "./logger";
+import { findPortalSession } from "./storage/portalOtp";
 
 declare module "socket.io" {
   interface Socket {
@@ -177,6 +178,57 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
     });
   });
 
+  // Portal namespace for patient portal real-time communication
+  const portalNs = io.of('/portal');
+
+  portalNs.use(async (socket, next) => {
+    try {
+      // Extract portal_session cookie from handshake headers
+      const cookieHeader = socket.handshake.headers.cookie || '';
+      const cookies = Object.fromEntries(
+        cookieHeader.split(';').map(c => {
+          const [key, ...vals] = c.trim().split('=');
+          return [key, vals.join('=')];
+        })
+      );
+      const sessionToken = cookies['portal_session'];
+      const portalToken = socket.handshake.auth?.portalToken;
+
+      if (!sessionToken || !portalToken) {
+        return next(new Error('Unauthorized: missing credentials'));
+      }
+
+      const valid = await findPortalSession(sessionToken, 'patient', portalToken);
+      if (!valid) {
+        return next(new Error('Unauthorized: invalid session'));
+      }
+
+      // Store portalToken on socket for room joining
+      (socket as any).portalToken = portalToken;
+      next();
+    } catch (error) {
+      logger.error('[Socket.IO Portal] Auth error:', error);
+      next(new Error('Unauthorized'));
+    }
+  });
+
+  portalNs.on('connection', (socket) => {
+    const portalToken = (socket as any).portalToken;
+    logger.info(`[Socket.IO Portal] Patient connected: ${socket.id}`);
+
+    // Patient joins their chat room when they provide patient/hospital info
+    socket.on('patient-chat:join', (data: { hospitalId: string; patientId: string }) => {
+      if (!data.hospitalId || !data.patientId) return;
+      const room = `patient-chat:${data.hospitalId}:${data.patientId}`;
+      socket.join(room);
+      logger.info(`[Socket.IO Portal] ${socket.id} joined ${room}`);
+    });
+
+    socket.on('disconnect', (reason) => {
+      logger.info(`[Socket.IO Portal] Patient disconnected: ${socket.id} (${reason})`);
+    });
+  });
+
   logger.info('[Socket.IO] Server initialized');
   return io;
 }
@@ -325,4 +377,52 @@ export function notifyQuestionnaireSubmitted(userId: string, notification: any):
   });
 
   logger.info(`[Socket.IO] Sent questionnaire submission notification to user room user:${userId}`);
+}
+
+// ========== PATIENT CHAT ==========
+
+/**
+ * Broadcast a new message to the patient's portal namespace room
+ * (called when staff sends a message to a patient)
+ */
+export function broadcastPatientChatMessage(hospitalId: string, patientId: string, message: any): void {
+  if (!io) {
+    logger.warn('[Socket.IO] Server not initialized, cannot broadcast patient chat message');
+    return;
+  }
+
+  const room = `patient-chat:${hospitalId}:${patientId}`;
+  io.of('/portal').to(room).emit('patient-chat:new-message', {
+    message,
+    timestamp: Date.now()
+  });
+
+  logger.info(`[Socket.IO Portal] Broadcast message to ${room}`);
+}
+
+/**
+ * Notify all staff in a hospital that a patient sent a message
+ * (called when patient sends a message via portal)
+ */
+export function notifyStaffOfPatientMessage(hospitalId: string, patientId: string, message: any): void {
+  if (!io) {
+    logger.warn('[Socket.IO] Server not initialized, cannot notify staff');
+    return;
+  }
+
+  // Emit to all connected staff (they filter by hospitalId on frontend)
+  io.emit('patient-chat:new-message', {
+    hospitalId,
+    patientId,
+    message,
+    timestamp: Date.now()
+  });
+
+  io.emit('patient-chat:notification', {
+    hospitalId,
+    patientId,
+    timestamp: Date.now()
+  });
+
+  logger.info(`[Socket.IO] Notified staff of patient message for hospital ${hospitalId}`);
 }

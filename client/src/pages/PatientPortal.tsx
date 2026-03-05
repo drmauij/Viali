@@ -30,11 +30,13 @@ import {
   ArrowLeft,
   CalendarPlus,
   X,
-  Trash2
+  Trash2,
+  MessageSquare
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
 import { Checkbox } from "@/components/ui/checkbox";
+import PatientMessages from "@/components/portal/PatientMessages";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,6 +46,8 @@ import PortalVerificationGate from "@/components/PortalVerificationGate";
 interface PortalData {
   token: string;
   language: string;
+  hospitalId: string;
+  patientId: string;
   hospital: {
     name: string;
     address: string | null;
@@ -196,6 +200,13 @@ const translations = {
     uploadDocsNoFiles: "Noch keine Dokumente hochgeladen",
     uploadDocsLimitReached: "Maximale Anzahl an Dokumenten erreicht (20)",
     updateQuestionnaire: "Informationen aktualisieren",
+    messagesTitle: "Nachrichten",
+    typeMessage: "Nachricht schreiben...",
+    send: "Senden",
+    noMessages: "Keine Nachrichten",
+    noMessagesDesc: "Schreiben Sie uns eine Nachricht bei Fragen zu Ihrer Behandlung.",
+    today: "Heute",
+    yesterday: "Gestern",
   },
   en: {
     title: "Patient Portal",
@@ -319,6 +330,13 @@ const translations = {
     uploadDocsNoFiles: "No documents uploaded yet",
     uploadDocsLimitReached: "Maximum number of documents reached (20)",
     updateQuestionnaire: "Update my information",
+    messagesTitle: "Messages",
+    typeMessage: "Type a message...",
+    send: "Send",
+    noMessages: "No messages",
+    noMessagesDesc: "Send us a message if you have questions about your treatment.",
+    today: "Today",
+    yesterday: "Yesterday",
   },
   it: {
     title: "Portale Paziente",
@@ -442,6 +460,13 @@ const translations = {
     uploadDocsNoFiles: "Nessun documento caricato",
     uploadDocsLimitReached: "Numero massimo di documenti raggiunto (20)",
     updateQuestionnaire: "Aggiorna le mie informazioni",
+    messagesTitle: "Messaggi",
+    typeMessage: "Scrivi un messaggio...",
+    send: "Invia",
+    noMessages: "Nessun messaggio",
+    noMessagesDesc: "Scrivici un messaggio per domande sul Suo trattamento.",
+    today: "Oggi",
+    yesterday: "Ieri",
   },
   es: {
     title: "Portal del Paciente",
@@ -565,6 +590,13 @@ const translations = {
     uploadDocsNoFiles: "Aún no se han subido documentos",
     uploadDocsLimitReached: "Número máximo de documentos alcanzado (20)",
     updateQuestionnaire: "Actualizar mi información",
+    messagesTitle: "Mensajes",
+    typeMessage: "Escribe un mensaje...",
+    send: "Enviar",
+    noMessages: "Sin mensajes",
+    noMessagesDesc: "Envíenos un mensaje si tiene preguntas sobre su tratamiento.",
+    today: "Hoy",
+    yesterday: "Ayer",
   },
   fr: {
     title: "Portail Patient",
@@ -688,6 +720,13 @@ const translations = {
     uploadDocsNoFiles: "Aucun document téléchargé",
     uploadDocsLimitReached: "Nombre maximum de documents atteint (20)",
     updateQuestionnaire: "Mettre à jour mes informations",
+    messagesTitle: "Messages",
+    typeMessage: "Écrire un message...",
+    send: "Envoyer",
+    noMessages: "Aucun message",
+    noMessagesDesc: "Envoyez-nous un message si vous avez des questions sur votre traitement.",
+    today: "Aujourd'hui",
+    yesterday: "Hier",
   }
 };
 
@@ -2142,6 +2181,33 @@ function PatientPortalContent({ token }: { token: string }) {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Messages Section */}
+        <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 mt-6" data-testid="card-messages">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              {t.messagesTitle}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PatientMessages
+              token={token}
+              hospitalId={data.hospitalId}
+              patientId={data.patientId}
+              isDark={isDark}
+              translations={{
+                messagesTitle: t.messagesTitle,
+                typeMessage: t.typeMessage,
+                send: t.send,
+                noMessages: t.noMessages,
+                noMessagesDesc: t.noMessagesDesc,
+                today: t.today,
+                yesterday: t.yesterday,
+              }}
+            />
           </CardContent>
         </Card>
 

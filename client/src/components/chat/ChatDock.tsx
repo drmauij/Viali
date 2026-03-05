@@ -40,6 +40,8 @@ import {
   Pencil,
   Check
 } from "lucide-react";
+import PatientChatList, { type PatientConversation } from "./PatientChatList";
+import PatientChatThread from "./PatientChatThread";
 import html2canvas from "html2canvas";
 import { isToday, isYesterday } from "date-fns";
 import { formatDate, formatTime } from "@/lib/dateUtils";
@@ -182,7 +184,8 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [view, setView] = useState<ChatView>('list');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [listTab, setListTab] = useState<'messages' | 'todos'>('messages');
+  const [listTab, setListTab] = useState<'messages' | 'patient-chat' | 'todos'>('messages');
+  const [selectedPatientConv, setSelectedPatientConv] = useState<PatientConversation | null>(null);
   const [editingTodo, setEditingTodo] = useState<{ id: string; title: string; description?: string } | null>(null);
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
@@ -343,6 +346,17 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       return response.json();
     },
     enabled: !!activeHospital?.id && isOpen,
+  });
+
+  const { data: patientChatUnread = { count: 0 } } = useQuery<{ count: number }>({
+    queryKey: ['/api/patient-chat', activeHospital?.id, 'unread-count'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-chat/${activeHospital?.id}/unread-count`);
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && isOpen,
+    refetchInterval: 30000,
   });
 
   const createTodoMutation = useMutation({
@@ -1185,6 +1199,34 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     };
   }, [socket, isConnected, selectedConversation?.id, refetchMessages, activeHospital?.id, user, isOpen, toast]);
 
+  // Patient chat socket listeners
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const handlePatientMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patient-chat', activeHospital?.id, 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/patient-chat', activeHospital?.id, 'unread-count'] });
+    };
+
+    const handlePatientNotification = () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patient-chat', activeHospital?.id, 'unread-count'] });
+      // Play notification sound (reuse existing pattern)
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch {}
+    };
+
+    socket.on('patient-chat:new-message', handlePatientMessage);
+    socket.on('patient-chat:notification', handlePatientNotification);
+
+    return () => {
+      socket.off('patient-chat:new-message', handlePatientMessage);
+      socket.off('patient-chat:notification', handlePatientNotification);
+    };
+  }, [socket, isConnected, activeHospital?.id]);
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1500,7 +1542,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         style={{ touchAction: 'pan-y', pointerEvents: 'auto' }}
       >
         <div className="flex flex-col h-full">
-          {view === 'list' && (
+          {view === 'list' && !selectedPatientConv && (
             <>
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">Chat</h2>
@@ -1529,8 +1571,25 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </button>
                 <button
                   className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    listTab === 'todos' 
-                      ? 'text-primary border-b-2 border-primary' 
+                    listTab === 'patient-chat'
+                      ? 'text-primary border-b-2 border-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setListTab('patient-chat')}
+                  data-testid="tab-patient-chat"
+                >
+                  <Users className="w-4 h-4" />
+                  Patients
+                  {patientChatUnread.count > 0 && (
+                    <span className="bg-green-500 text-white text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px]">
+                      {patientChatUnread.count}
+                    </span>
+                  )}
+                </button>
+                <button
+                  className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                    listTab === 'todos'
+                      ? 'text-primary border-b-2 border-primary'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                   onClick={() => setListTab('todos')}
@@ -1609,6 +1668,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     )}
                   </ScrollArea>
                 </>
+              )}
+
+              {listTab === 'patient-chat' && activeHospital?.id && (
+                <PatientChatList
+                  hospitalId={activeHospital.id}
+                  onSelectConversation={(conv) => {
+                    setSelectedPatientConv(conv);
+                  }}
+                />
               )}
 
               {listTab === 'todos' && (
@@ -2023,6 +2091,18 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </Button>
               )}
             </>
+          )}
+
+          {selectedPatientConv && (
+            <PatientChatThread
+              hospitalId={selectedPatientConv.hospitalId}
+              patientId={selectedPatientConv.patientId}
+              patientName={selectedPatientConv.patientName}
+              patientSurname={selectedPatientConv.patientSurname}
+              onBack={() => setSelectedPatientConv(null)}
+              onClose={onClose}
+              onOpenPatientInline={onOpenPatientInline}
+            />
           )}
 
           {view === 'conversation' && selectedConversation && (

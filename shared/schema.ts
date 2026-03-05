@@ -4988,23 +4988,30 @@ export const insertExternalSurgeryRequestDocumentSchema = createInsertSchema(ext
 export type ExternalSurgeryRequestDocument = typeof externalSurgeryRequestDocuments.$inferSelect;
 export type InsertExternalSurgeryRequestDocument = z.infer<typeof insertExternalSurgeryRequestDocumentSchema>;
 
-// Patient Messages - custom messages sent to patients via SMS/email
+// Patient Messages - custom messages sent to patients via SMS/email/portal
 // messageType: 'manual' = user-sent, 'auto_questionnaire' = 14-day questionnaire, 'auto_reminder' = 24-hour pre-surgery reminder
+// direction: 'outbound' = staff->patient, 'inbound' = patient->staff
 export const patientMessages = pgTable("patient_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
-  sentBy: varchar("sent_by").references(() => users.id), // nullable for automatic messages
-  channel: varchar("channel", { length: 10 }).notNull(), // 'sms' or 'email'
-  recipient: varchar("recipient").notNull(), // phone number or email address
+  sentBy: varchar("sent_by").references(() => users.id), // nullable for automatic messages and inbound
+  channel: varchar("channel", { length: 10 }).notNull(), // 'sms', 'email', or 'portal'
+  recipient: varchar("recipient").notNull(), // phone number, email address, or 'portal' for portal messages
   message: text("message").notNull(),
   status: varchar("status", { length: 20 }).default("sent"), // 'sent', 'delivered', 'failed'
   isAutomatic: boolean("is_automatic").default(false), // true for system-generated messages
   messageType: varchar("message_type", { length: 30 }).default("manual"), // 'manual', 'auto_questionnaire', 'auto_reminder'
+  direction: varchar("direction", { length: 10 }).default("outbound").notNull(), // 'outbound' | 'inbound'
+  conversationId: varchar("conversation_id"), // deterministic: '{hospitalId}:{patientId}'
+  readByStaffAt: timestamp("read_by_staff_at"), // when staff first read an inbound message
+  readByPatientAt: timestamp("read_by_patient_at"), // when patient read an outbound message
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_messages_hospital").on(table.hospitalId),
   index("idx_patient_messages_patient").on(table.patientId),
+  index("idx_patient_messages_conversation").on(table.conversationId),
+  index("idx_patient_messages_direction").on(table.direction),
 ]);
 
 export const insertPatientMessageSchema = createInsertSchema(patientMessages).omit({
