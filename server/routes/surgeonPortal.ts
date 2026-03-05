@@ -1,14 +1,18 @@
 import { Router, type Request, type Response } from "express";
 import logger from "../logger";
+import { storage } from "../storage";
 import {
   findPortalSessionWithEmail,
   getSurgeriesForSurgeon,
   createSurgeonActionRequest,
-  getActionRequestsForSurgery,
+  getActionRequestsForSurgeries,
   getHospitalByExternalSurgeryToken,
 } from "../storage/surgeonPortal";
+import { sendSurgeonActionRequestNotification } from "../resend";
 
 const router = Router();
+
+const MAX_REASON_LENGTH = 2000;
 
 /**
  * Middleware: verify surgeon portal session and extract email.
@@ -61,14 +65,9 @@ router.get("/api/surgeon-portal/:token/surgeries", async (req: Request, res: Res
 
     const surgeries = await getSurgeriesForSurgeon(hospital.id, surgeonEmail, month);
 
-    // For each surgery, check for pending action requests from this surgeon
-    const pendingRequests: Record<string, any[]> = {};
-    for (const surgery of surgeries) {
-      const pending = await getActionRequestsForSurgery(surgery.id, surgeonEmail);
-      if (pending.length > 0) {
-        pendingRequests[surgery.id] = pending;
-      }
-    }
+    // Batch fetch pending action requests for all surgeries
+    const surgeryIds = surgeries.map((s) => s.id);
+    const pendingRequests = await getActionRequestsForSurgeries(surgeryIds, surgeonEmail);
 
     return res.json({
       hospitalName: hospital.name,
@@ -96,6 +95,10 @@ router.post("/api/surgeon-portal/:token/action-requests", async (req: Request, r
       return res.status(400).json({ message: "Missing required fields: surgeryId, type, reason" });
     }
 
+    if (typeof reason !== "string" || reason.length > MAX_REASON_LENGTH) {
+      return res.status(400).json({ message: `Reason must be a string of at most ${MAX_REASON_LENGTH} characters` });
+    }
+
     if (!["cancellation", "reschedule", "suspension"].includes(type)) {
       return res.status(400).json({ message: "Invalid request type" });
     }
@@ -105,14 +108,22 @@ router.post("/api/surgeon-portal/:token/action-requests", async (req: Request, r
       return res.status(404).json({ message: "Hospital not found" });
     }
 
+    // Verify the surgeon owns this surgery
+    const surgeries = await getSurgeriesForSurgeon(hospital.id, surgeonEmail);
+    const ownsSurgery = surgeries.some((s) => s.id === surgeryId);
+    if (!ownsSurgery) {
+      return res.status(403).json({ message: "You do not have access to this surgery" });
+    }
+
     // Check for duplicate pending request of same type for same surgery
-    const existing = await getActionRequestsForSurgery(surgeryId, surgeonEmail);
+    const existingMap = await getActionRequestsForSurgeries([surgeryId], surgeonEmail);
+    const existing = existingMap[surgeryId] || [];
     const duplicate = existing.find((r) => r.type === type);
     if (duplicate) {
       return res.status(409).json({ message: "A pending request of this type already exists for this surgery" });
     }
 
-    const request = await createSurgeonActionRequest({
+    const actionRequest = await createSurgeonActionRequest({
       hospitalId: hospital.id,
       surgeryId,
       surgeonEmail,
@@ -123,9 +134,41 @@ router.post("/api/surgeon-portal/:token/action-requests", async (req: Request, r
       proposedTimeTo: proposedTimeTo ?? null,
     });
 
-    // TODO: Send notification to clinic (Task 6)
+    // Send notification to clinic (fire-and-forget)
+    (async () => {
+      try {
+        const surgery = surgeries.find((s) => s.id === surgeryId);
+        const patientName = surgery
+          ? [surgery.patientLastName, surgery.patientFirstName].filter(Boolean).join(", ")
+          : "N/A";
+        const surgeryName = surgery?.plannedSurgery || "N/A";
+        const plannedDate = surgery?.plannedDate
+          ? new Date(surgery.plannedDate).toLocaleDateString(
+              hospital.defaultLanguage === "de" ? "de-CH" : "en-GB",
+            )
+          : "N/A";
+        const lang = (hospital.defaultLanguage as "de" | "en") || "de";
 
-    return res.status(201).json(request);
+        // Send to configured notification email, or skip if none set
+        const notifyEmail = hospital.externalSurgeryNotificationEmail;
+        if (notifyEmail) {
+          await sendSurgeonActionRequestNotification(
+            notifyEmail,
+            hospital.name,
+            surgeonEmail,
+            type as "cancellation" | "reschedule" | "suspension",
+            reason,
+            { patientName, surgeryName, plannedDate },
+            proposedDate || null,
+            lang,
+          );
+        }
+      } catch (err) {
+        logger.error("[SurgeonPortal] Error sending clinic notification:", err);
+      }
+    })();
+
+    return res.status(201).json(actionRequest);
   } catch (error) {
     logger.error("[SurgeonPortal] Error creating action request:", error);
     return res.status(500).json({ message: "Internal server error" });

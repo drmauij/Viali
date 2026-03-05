@@ -261,6 +261,40 @@ export async function getActionRequestsForSurgery(
   return results;
 }
 
+/**
+ * Get pending action requests for multiple surgeries by a specific surgeon email.
+ * Returns a map of surgeryId -> action requests.
+ */
+export async function getActionRequestsForSurgeries(
+  surgeryIds: string[],
+  surgeonEmail: string,
+): Promise<Record<string, SurgeonActionRequest[]>> {
+  if (surgeryIds.length === 0) return {};
+
+  const email = surgeonEmail.toLowerCase();
+
+  const results = await db
+    .select()
+    .from(surgeonActionRequests)
+    .where(
+      and(
+        sql`${surgeonActionRequests.surgeryId} IN (${sql.join(
+          surgeryIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+        sql`LOWER(${surgeonActionRequests.surgeonEmail}) = ${email}`,
+        eq(surgeonActionRequests.status, "pending"),
+      ),
+    );
+
+  const grouped: Record<string, SurgeonActionRequest[]> = {};
+  for (const r of results) {
+    if (!grouped[r.surgeryId]) grouped[r.surgeryId] = [];
+    grouped[r.surgeryId].push(r);
+  }
+  return grouped;
+}
+
 // ========== PORTAL SESSION ==========
 
 /**
@@ -303,12 +337,13 @@ export async function findPortalSessionWithEmail(
  */
 export async function getHospitalByExternalSurgeryToken(
   token: string,
-): Promise<{ id: string; name: string; defaultLanguage: string | null } | null> {
+): Promise<{ id: string; name: string; defaultLanguage: string | null; externalSurgeryNotificationEmail: string | null } | null> {
   const [hospital] = await db
     .select({
       id: hospitals.id,
       name: hospitals.name,
       defaultLanguage: hospitals.defaultLanguage,
+      externalSurgeryNotificationEmail: hospitals.externalSurgeryNotificationEmail,
     })
     .from(hospitals)
     .where(eq(hospitals.externalSurgeryToken, token))
