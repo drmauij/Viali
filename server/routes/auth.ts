@@ -1,12 +1,23 @@
 import { Router } from "express";
+import type { Request } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { users } from "@shared/schema";
+import type { InsertLoginAuditLog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z, ZodError } from "zod";
 import logger from "../logger";
 
 const router = Router();
+
+/** Extract IP + user-agent from request and log an auth event. Fire-and-forget. */
+function logAuthEvent(req: Request, event: Omit<InsertLoginAuditLog, 'ipAddress' | 'userAgent'>) {
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+  const userAgent = req.headers['user-agent'] || null;
+  storage.createLoginAuditLog({ ...event, ipAddress, userAgent }).catch(err => {
+    logger.error('[Auth] Failed to write login audit log:', err);
+  });
+}
 
 function validatePassword(pw: string): string | null {
   if (pw.length < 8) return "Password must be at least 8 characters";
@@ -44,7 +55,7 @@ router.post('/api/auth/signup', async (req, res) => {
     
     logger.info(`[Auth] Created and seeded new hospital for user ${user.id}`);
 
-    req.login({ 
+    req.login({
       id: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -56,7 +67,8 @@ router.post('/api/auth/signup', async (req, res) => {
         logger.error("Error logging in user:", err);
         return res.status(500).json({ message: "Account created but login failed" });
       }
-      res.status(201).json({ 
+      logAuthEvent(req, { userId: user.id, email: email, eventType: 'login_success', hospitalId: hospital.id });
+      res.status(201).json({
         message: "Account created successfully",
         user: {
           id: user.id,
@@ -83,19 +95,29 @@ router.post('/api/auth/login', async (req, res) => {
 
     const user = await storage.searchUserByEmail(email);
     if (!user || !user.passwordHash) {
+      logAuthEvent(req, { userId: user?.id ?? null, email, eventType: 'login_failed', failureReason: 'user_not_found' });
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
     const bcrypt = await import('bcrypt');
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      logAuthEvent(req, { userId: user.id, email, eventType: 'login_failed', failureReason: 'invalid_password' });
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Check if user is allowed to login
     if (user.canLogin === false) {
+      logAuthEvent(req, { userId: user.id, email, eventType: 'login_failed', failureReason: 'account_disabled' });
       return res.status(403).json({ message: "Your account is not enabled for app access. Please contact an administrator." });
     }
+
+    // Resolve hospital for audit log
+    let loginHospitalId: string | null = null;
+    try {
+      const hospitals = await storage.getUserHospitals(user.id);
+      if (hospitals.length > 0) loginHospitalId = hospitals[0].id;
+    } catch { /* best effort */ }
 
     req.login({
       id: user.id,
@@ -110,7 +132,8 @@ router.post('/api/auth/login', async (req, res) => {
         logger.error("[Auth] Error logging in user:", err);
         return res.status(500).json({ message: "Login failed" });
       }
-      res.json({ 
+      logAuthEvent(req, { userId: user.id, email, eventType: 'login_success', hospitalId: loginHospitalId });
+      res.json({
         message: "Login successful",
         mustChangePassword: user.mustChangePassword,
         user: {
@@ -157,6 +180,7 @@ router.post('/api/auth/change-password', isAuthenticated, async (req: any, res) 
 
     req.user.mustChangePassword = false;
 
+    logAuthEvent(req, { userId, email: user.email || 'unknown', eventType: 'password_change' });
     res.json({ message: "Password changed successfully" });
   } catch (error: any) {
     logger.error("Error changing password:", error);
@@ -214,6 +238,7 @@ router.post('/api/auth/forgot-password', async (req, res) => {
       language
     );
 
+    logAuthEvent(req, { userId: foundUser.id, email: foundUser.email || email, eventType: 'password_reset_request' });
     res.json({ message: "If an account with that email exists, a password reset link has been sent." });
   } catch (error: any) {
     logger.error("Error in forgot password:", error);
@@ -251,13 +276,14 @@ router.post('/api/auth/reset-password', async (req, res) => {
 
     await storage.updateUserPassword(foundUser.id, newPassword);
     await db.update(users)
-      .set({ 
-        resetToken: null, 
+      .set({
+        resetToken: null,
         resetTokenExpiry: null,
         mustChangePassword: false
       })
       .where(eq(users.id, foundUser.id));
 
+    logAuthEvent(req, { userId: foundUser.id, email: foundUser.email || 'unknown', eventType: 'password_reset_complete' });
     res.json({ message: "Password reset successfully" });
   } catch (error: any) {
     logger.error("Error resetting password:", error);

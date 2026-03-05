@@ -185,6 +185,8 @@ import {
   type InsertPatientEpisode,
   type EpisodeFolder,
   type InsertEpisodeFolder,
+  type LoginAuditLog,
+  type InsertLoginAuditLog,
 } from "@shared/schema";
 
 export { db } from "./db";
@@ -204,6 +206,7 @@ import * as clinicStorage from "./storage/clinic";
 import * as worktimeStorage from "./storage/worktime";
 import * as episodeStorage from "./storage/episodes";
 import * as patientDocumentFolderStorage from "./storage/patientDocumentFolders";
+import * as loginAuditStorage from "./storage/loginAudit";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -1023,6 +1026,10 @@ export interface IStorage {
   linkNoteToEpisode(noteId: string, episodeId: string): Promise<PatientNote>;
   unlinkNoteFromEpisode(noteId: string): Promise<PatientNote>;
   getEpisodeNotes(episodeId: string): Promise<any[]>;
+
+  // Login Audit Log operations
+  createLoginAuditLog(log: InsertLoginAuditLog): Promise<void>;
+  getLoginAuditLogs(hospitalId: string, filters?: { userId?: string; eventType?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }): Promise<{ logs: (LoginAuditLog & { userName?: string })[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1586,6 +1593,10 @@ export class DatabaseStorage implements IStorage {
   deletePatientDocumentFolder = patientDocumentFolderStorage.deletePatientDocumentFolder;
   reorderPatientDocumentFolders = patientDocumentFolderStorage.reorderPatientDocumentFolders;
   moveDocumentToPatientFolder = patientDocumentFolderStorage.moveDocumentToPatientFolder;
+
+  // ========== LOGIN AUDIT LOG OPERATIONS ==========
+  createLoginAuditLog = loginAuditStorage.createLoginAuditLog;
+  getLoginAuditLogs = loginAuditStorage.getLoginAuditLogs;
 }
 
 export const storage = new DatabaseStorage();

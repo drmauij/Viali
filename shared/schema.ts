@@ -5903,3 +5903,42 @@ export const surgeonActionRequests = pgTable("surgeon_action_requests", {
 ]);
 
 export type SurgeonActionRequest = typeof surgeonActionRequests.$inferSelect;
+
+// ========================================
+// Login Audit Log (Authentication event tracking for compliance)
+// ========================================
+
+export const loginEventTypeEnum = pgEnum("login_event_type", [
+  "login_success",
+  "login_failed",
+  "logout",
+  "password_change",
+  "password_reset_request",
+  "password_reset_complete",
+  "google_login_success",
+]);
+
+export const loginAuditLog = pgTable("login_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Null for failed attempts with unknown email
+  email: varchar("email").notNull(),
+  eventType: loginEventTypeEnum("event_type").notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  failureReason: text("failure_reason"),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_login_audit_user_created").on(table.userId, table.createdAt),
+  index("idx_login_audit_hospital_created").on(table.hospitalId, table.createdAt),
+  index("idx_login_audit_event_type").on(table.eventType),
+  index("idx_login_audit_email").on(table.email),
+]);
+
+export const insertLoginAuditLogSchema = createInsertSchema(loginAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LoginAuditLog = typeof loginAuditLog.$inferSelect;
+export type InsertLoginAuditLog = z.infer<typeof insertLoginAuditLogSchema>;

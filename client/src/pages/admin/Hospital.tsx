@@ -24,6 +24,7 @@ import { formatDateLong, formatDateTime, formatCurrency, formatDateForInput } fr
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
+import { LoginAuditLogTab } from "./LoginAuditLog";
 
 // Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
@@ -45,7 +46,7 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations" | "security">("settings");
   
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
@@ -1194,6 +1195,10 @@ export default function Hospital() {
             <TabsTrigger value="integrations" data-testid="tab-integrations" className="justify-start md:w-full">
               <Settings className="h-4 w-4 mr-2 shrink-0" />
               <span className="truncate">{t("admin.integrations", "Integrations")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" data-testid="tab-security" className="justify-start md:w-full">
+              <i className="fas fa-shield-halved mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.security", "Security")}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2838,6 +2843,14 @@ export default function Hospital() {
             </TabsContent>
           </Tabs>
         </div>
+        </TabsContent>
+
+        {/* Security Tab Content — Login Audit Log */}
+        <TabsContent value="security">
+          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold mb-4">{t("admin.loginHistory", "Login History")}</h3>
+            <LoginAuditLogTab hospitalId={activeHospital?.id} />
+          </div>
         </TabsContent>
           </div>{/* end tab content area */}
         </div>{/* end flex container */}

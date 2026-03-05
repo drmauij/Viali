@@ -1962,4 +1962,26 @@ router.post('/api/admin/:hospitalId/staff-merge/undo/:mergeId', isAuthenticated,
   }
 });
 
+// GET /api/admin/:hospitalId/login-audit-logs — Paginated login audit logs
+router.get('/api/admin/:hospitalId/login-audit-logs', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { userId, eventType, startDate, endDate, limit, offset } = req.query;
+
+    const filters: any = {};
+    if (userId) filters.userId = userId as string;
+    if (eventType) filters.eventType = eventType as string;
+    if (startDate) filters.startDate = new Date(startDate as string);
+    if (endDate) filters.endDate = new Date(endDate as string);
+    if (limit) filters.limit = parseInt(limit as string, 10);
+    if (offset) filters.offset = parseInt(offset as string, 10);
+
+    const result = await storage.getLoginAuditLogs(hospitalId, filters);
+    res.json(result);
+  } catch (error: any) {
+    logger.error("[Admin] Error fetching login audit logs:", error);
+    res.status(500).json({ message: "Failed to fetch login audit logs" });
+  }
+});
+
 export default router;

@@ -1,12 +1,22 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
-import type { Express, RequestHandler } from "express";
+import type { Express, Request, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "../storage";
+import type { InsertLoginAuditLog } from "@shared/schema";
 import { Pool } from "pg";
 import { seedHospitalData } from "../seed-hospital";
 import logger from "../logger";
+
+/** Extract IP + user-agent from request and log an auth event. Fire-and-forget. */
+function logAuthEvent(req: Request, event: Omit<InsertLoginAuditLog, 'ipAddress' | 'userAgent'>) {
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+  const userAgent = req.headers['user-agent'] || null;
+  storage.createLoginAuditLog({ ...event, ipAddress, userAgent }).catch(err => {
+    logger.error('[Auth] Failed to write login audit log:', err);
+  });
+}
 
 let sessionMiddleware: ReturnType<typeof session> | null = null;
 
@@ -152,8 +162,17 @@ export async function setupAuth(app: Express) {
       passport.authenticate("google", {
         failureRedirect: "/login",
       }),
-      (req, res) => {
-        // Successful authentication, redirect home
+      async (req, res) => {
+        // Log successful Google login
+        const user = req.user as any;
+        if (user?.id) {
+          let hospitalId: string | null = null;
+          try {
+            const hospitals = await storage.getUserHospitals(user.id);
+            if (hospitals.length > 0) hospitalId = hospitals[0].id;
+          } catch { /* best effort */ }
+          logAuthEvent(req, { userId: user.id, email: user.email || 'unknown', eventType: 'google_login_success', hospitalId });
+        }
         res.redirect("/");
       }
     );
@@ -183,6 +202,10 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
+    const user = req.user as any;
+    if (user?.id) {
+      logAuthEvent(req, { userId: user.id, email: user.email || 'unknown', eventType: 'logout' });
+    }
     req.logout((err) => {
       if (err) {
         logger.error('[Auth] Logout error:', err);
