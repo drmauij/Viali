@@ -99,6 +99,7 @@ const SESSION_DURATIONS: Record<PortalType, number> = {
 export async function createPortalSession(
   portalType: PortalType,
   portalToken: string,
+  surgeonEmail?: string,
 ): Promise<string> {
   const sessionToken = randomBytes(32).toString("hex"); // 64-char hex
 
@@ -106,6 +107,7 @@ export async function createPortalSession(
     sessionToken,
     portalType,
     portalToken,
+    surgeonEmail: surgeonEmail || null,
     expiresAt: new Date(Date.now() + SESSION_DURATIONS[portalType]),
   });
 
