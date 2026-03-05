@@ -5,7 +5,7 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Loader2, X } from "lucide-react";
+import { ArrowLeft, Send, Loader2, X, Check, CheckCheck } from "lucide-react";
 import { isToday, isYesterday, format } from "date-fns";
 
 interface ConversationMessage {
@@ -96,8 +96,17 @@ export default function PatientChatThread({
         }).catch(() => {});
       }
     };
+    const readHandler = (data: any) => {
+      if (data.hospitalId === hospitalId && data.patientId === patientId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/patient-chat', hospitalId, 'conversations', patientId, 'messages'] });
+      }
+    };
     socket.on('patient-chat:new-message', handler);
-    return () => { socket.off('patient-chat:new-message', handler); };
+    socket.on('patient-chat:messages-read', readHandler);
+    return () => {
+      socket.off('patient-chat:new-message', handler);
+      socket.off('patient-chat:messages-read', readHandler);
+    };
   }, [socket, hospitalId, patientId]);
 
   // Auto-scroll
@@ -229,6 +238,8 @@ export default function PatientChatThread({
 
                   if (isOutbound) {
                     // Staff message - right side, blue
+                    const isRead = !!msg.readByPatientAt;
+                    const isNotified = msg.status === 'notified';
                     return (
                       <div key={msg.id} className="flex justify-end mb-2">
                         <div className="max-w-[75%] bg-primary text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2 text-sm">
@@ -240,6 +251,15 @@ export default function PatientChatThread({
                             <span className="text-[10px] opacity-70">{formatMessageTime(msg.createdAt)}</span>
                             {msg.channel !== 'portal' && (
                               <span className="text-[10px] opacity-60 uppercase">{msg.channel}</span>
+                            )}
+                            {msg.messageType === 'manual' && (
+                              isRead ? (
+                                <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                              ) : isNotified ? (
+                                <CheckCheck className="w-3.5 h-3.5 opacity-60" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5 opacity-60" />
+                              )
                             )}
                           </div>
                         </div>

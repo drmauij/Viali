@@ -426,3 +426,12 @@ export function notifyStaffOfPatientMessage(hospitalId: string, patientId: strin
 
   logger.info(`[Socket.IO] Notified staff of patient message for hospital ${hospitalId}`);
 }
+
+export function notifyStaffOfPatientRead(hospitalId: string, patientId: string): void {
+  if (!io) return;
+  io.emit('patient-chat:messages-read', {
+    hospitalId,
+    patientId,
+    timestamp: Date.now()
+  });
+}

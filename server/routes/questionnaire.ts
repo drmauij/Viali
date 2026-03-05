@@ -2241,6 +2241,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       flyers: flyersWithUrls,
       questionnaireStatus,
       questionnaireUrl: `/questionnaire/${token}`,
+      patientChatEnabled: hospital.addonPatientChat ?? false,
     });
   } catch (error) {
     logger.error("Error fetching patient portal data:", error);

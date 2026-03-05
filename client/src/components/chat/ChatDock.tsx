@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import PatientChatList, { type PatientConversation } from "./PatientChatList";
 import PatientChatThread from "./PatientChatThread";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import html2canvas from "html2canvas";
 import { isToday, isYesterday } from "date-fns";
 import { formatDate, formatTime } from "@/lib/dateUtils";
@@ -181,6 +182,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
   const { toast } = useToast();
+  const { addons } = useHospitalAddons();
   const [view, setView] = useState<ChatView>('list');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -355,7 +357,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       if (!res.ok) return { count: 0 };
       return res.json();
     },
-    enabled: !!activeHospital?.id && isOpen,
+    enabled: !!activeHospital?.id && isOpen && addons.patientChat,
     refetchInterval: 30000,
   });
 
@@ -1569,6 +1571,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                   <MessageCircle className="w-4 h-4" />
                   Messages
                 </button>
+                {addons.patientChat && (
                 <button
                   className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                     listTab === 'patient-chat'
@@ -1586,6 +1589,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     </span>
                   )}
                 </button>
+                )}
                 <button
                   className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                     listTab === 'todos'
@@ -1675,6 +1679,19 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                   hospitalId={activeHospital.id}
                   onSelectConversation={(conv) => {
                     setSelectedPatientConv(conv);
+                  }}
+                  onStartNewChat={(patient) => {
+                    setSelectedPatientConv({
+                      patientId: patient.id,
+                      hospitalId: activeHospital.id,
+                      conversationId: `${activeHospital.id}:${patient.id}`,
+                      patientName: patient.firstName || '',
+                      patientSurname: patient.surname || '',
+                      lastMessage: '',
+                      lastMessageAt: '',
+                      lastMessageDirection: '',
+                      unreadCount: 0,
+                    });
                   }}
                 />
               )}

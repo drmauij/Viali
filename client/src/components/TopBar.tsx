@@ -11,6 +11,7 @@ import { MessageCircle } from "lucide-react";
 import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 
 interface Hospital {
   id: string;
@@ -34,6 +35,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { t } = useTranslation();
   const { user } = useAuth();
   const { setIsDrawerOpen } = useModule();
+  const { addons } = useHospitalAddons();
   const [, setLocation] = useLocation();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -117,7 +119,19 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     refetchInterval: 30000,
   });
 
+  const { data: patientChatUnread = { count: 0 } } = useQuery<{ count: number }>({
+    queryKey: ['/api/patient-chat', activeHospital?.id, 'unread-count'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-chat/${activeHospital?.id}/unread-count`);
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && addons.patientChat,
+    refetchInterval: 30000,
+  });
+
   const unreadCount = notifications.length;
+  const hasUnreadPatientMessages = addons.patientChat && patientChatUnread.count > 0;
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -255,12 +269,16 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           >
             <MessageCircle className="w-5 h-5 text-foreground" />
             {unreadCount > 0 && (
-              <span 
-                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center px-1"
+              <span
+                className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive rounded-full border-2 border-background"
                 data-testid="badge-unread-count"
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
+              />
+            )}
+            {hasUnreadPatientMessages && (
+              <span
+                className="absolute -top-0.5 -left-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background"
+                data-testid="badge-patient-unread"
+              />
             )}
                       </button>
 

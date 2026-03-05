@@ -10,6 +10,7 @@ export interface HospitalAddons {
   worktime: boolean;
   logistics: boolean;
   clinic: boolean;
+  patientChat: boolean;
 }
 
 interface AddonsResponse {
@@ -38,6 +39,7 @@ export function useHospitalAddons() {
       worktime: false,
       logistics: false,
       clinic: false,
+      patientChat: false,
     },
     questionnaireDisabled: data?.questionnaireDisabled ?? false,
     isLoading,

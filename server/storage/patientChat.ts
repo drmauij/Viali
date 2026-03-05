@@ -2,10 +2,13 @@ import { db } from "../db";
 import { eq, and, desc, isNull, sql, ne } from "drizzle-orm";
 import {
   patientMessages,
+  patientChatArchives,
   patients,
   users,
   type PatientMessage,
 } from "@shared/schema";
+
+import { getQuestionnaireLinksForPatient } from "./questionnaires";
 
 // ========== PATIENT CHAT OPERATIONS ==========
 
@@ -28,21 +31,23 @@ export interface PatientConversation {
 export async function getPatientConversations(hospitalId: string): Promise<PatientConversation[]> {
   const rows = await db.execute(sql`
     SELECT
-      pm.patient_id,
-      pm.hospital_id,
-      pm.conversation_id,
-      p.first_name AS patient_name,
-      p.surname AS patient_surname,
-      last_msg.message AS last_message,
-      last_msg.created_at AS last_message_at,
-      last_msg.direction AS last_message_direction,
-      COALESCE(unread.cnt, 0)::int AS unread_count
+      pm.patient_id AS "patientId",
+      pm.hospital_id AS "hospitalId",
+      pm.conversation_id AS "conversationId",
+      p.first_name AS "patientName",
+      p.surname AS "patientSurname",
+      last_msg.message AS "lastMessage",
+      last_msg.created_at AS "lastMessageAt",
+      last_msg.direction AS "lastMessageDirection",
+      COALESCE(unread.cnt, 0)::int AS "unreadCount"
     FROM (
       SELECT DISTINCT patient_id, hospital_id, conversation_id
       FROM patient_messages
       WHERE hospital_id = ${hospitalId}
         AND direction = 'inbound'
     ) pm
+    LEFT JOIN patient_chat_archives pca
+      ON pca.hospital_id = pm.hospital_id AND pca.patient_id = pm.patient_id
     JOIN patients p ON p.id = pm.patient_id
     JOIN LATERAL (
       SELECT message, created_at, direction
@@ -58,6 +63,7 @@ export async function getPatientConversations(hospitalId: string): Promise<Patie
         AND direction = 'inbound'
         AND read_by_staff_at IS NULL
     ) unread ON true
+    WHERE pca.id IS NULL
     ORDER BY last_msg.created_at DESC
   `);
 
@@ -221,4 +227,120 @@ export async function getUnreadPatientConversationCount(hospitalId: string): Pro
       AND read_by_staff_at IS NULL
   `);
   return (result.rows[0] as any)?.count ?? 0;
+}
+
+/**
+ * Check if patient already has OTHER unread outbound manual messages (notified or not).
+ * If yes, we skip sending another SMS — either a notification was already sent,
+ * or there's a pending message that will be included in the same notification batch.
+ * @param excludeMessageId - exclude this message from the check (the one we just created)
+ */
+export async function hasOtherUnreadOutboundMessages(hospitalId: string, patientId: string, excludeMessageId?: string): Promise<boolean> {
+  const result = await db.execute(sql`
+    SELECT COUNT(*)::int AS count
+    FROM patient_messages
+    WHERE hospital_id = ${hospitalId}
+      AND patient_id = ${patientId}
+      AND direction = 'outbound'
+      AND message_type = 'manual'
+      AND read_by_patient_at IS NULL
+      ${excludeMessageId ? sql`AND id != ${excludeMessageId}` : sql``}
+  `);
+  return ((result.rows[0] as any)?.count ?? 0) > 0;
+}
+
+/**
+ * Mark all pending outbound messages as 'notified' (SMS notification was sent).
+ */
+export async function markMessagesAsNotified(hospitalId: string, patientId: string): Promise<void> {
+  await db
+    .update(patientMessages)
+    .set({ status: "notified" })
+    .where(
+      and(
+        eq(patientMessages.hospitalId, hospitalId),
+        eq(patientMessages.patientId, patientId),
+        eq(patientMessages.direction, "outbound"),
+        eq(patientMessages.messageType, "manual"),
+        sql`${patientMessages.status} = 'sent'`,
+        isNull(patientMessages.readByPatientAt)
+      )
+    );
+}
+
+/**
+ * Get the patient's portal token for building the portal URL.
+ */
+export async function getPatientPortalToken(patientId: string): Promise<string | null> {
+  const links = await getQuestionnaireLinksForPatient(patientId);
+  // Find the most recent active (non-expired) link
+  const activeLink = links.find(l => l.status !== 'expired' && new Date(l.expiresAt) > new Date());
+  return activeLink?.token ?? null;
+}
+
+/**
+ * Get the patient's phone number.
+ */
+export async function getPatientPhone(patientId: string): Promise<string | null> {
+  const [patient] = await db
+    .select({ phone: patients.phone })
+    .from(patients)
+    .where(eq(patients.id, patientId));
+  return patient?.phone ?? null;
+}
+
+/**
+ * Archive a patient chat conversation (hide from staff chat list).
+ */
+export async function archivePatientChat(hospitalId: string, patientId: string, userId: string): Promise<void> {
+  // Upsert: delete existing then insert to reset timestamp
+  await db.delete(patientChatArchives).where(
+    and(
+      eq(patientChatArchives.hospitalId, hospitalId),
+      eq(patientChatArchives.patientId, patientId)
+    )
+  );
+  await db.insert(patientChatArchives).values({
+    hospitalId,
+    patientId,
+    archivedBy: userId,
+  });
+}
+
+/**
+ * Unarchive a patient chat conversation (show in staff chat list again).
+ */
+export async function unarchivePatientChat(hospitalId: string, patientId: string): Promise<void> {
+  await db.delete(patientChatArchives).where(
+    and(
+      eq(patientChatArchives.hospitalId, hospitalId),
+      eq(patientChatArchives.patientId, patientId)
+    )
+  );
+}
+
+/**
+ * Search patients by name for starting a new chat.
+ */
+export async function searchPatientsForChat(hospitalId: string, query: string): Promise<{ id: string; firstName: string | null; surname: string | null; birthday: string }[]> {
+  const rows = await db
+    .select({
+      id: patients.id,
+      firstName: patients.firstName,
+      surname: patients.surname,
+      birthday: patients.birthday,
+    })
+    .from(patients)
+    .where(
+      and(
+        eq(patients.hospitalId, hospitalId),
+        eq(patients.isArchived, false),
+        sql`(
+          LOWER(${patients.firstName}) LIKE ${`%${query.toLowerCase()}%`}
+          OR LOWER(${patients.surname}) LIKE ${`%${query.toLowerCase()}%`}
+        )`
+      )
+    )
+    .limit(10);
+  return rows;
 }

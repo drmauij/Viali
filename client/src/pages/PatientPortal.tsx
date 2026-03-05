@@ -75,6 +75,7 @@ interface PortalData {
   }>;
   questionnaireStatus: 'not_started' | 'in_progress' | 'completed';
   questionnaireUrl: string;
+  patientChatEnabled: boolean;
 }
 
 const translations = {
@@ -2185,6 +2186,7 @@ function PatientPortalContent({ token }: { token: string }) {
         </Card>
 
         {/* Messages Section */}
+        {data.patientChatEnabled && (
         <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 mt-6" data-testid="card-messages">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
@@ -2210,6 +2212,7 @@ function PatientPortalContent({ token }: { token: string }) {
             />
           </CardContent>
         </Card>
+        )}
 
         {/* Contact Card */}
         {data.hospital.phone && (

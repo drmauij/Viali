@@ -46,7 +46,7 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations" | "security">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations" | "security" | "experimental">("settings");
   
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
@@ -107,6 +107,7 @@ export default function Hospital() {
     runwayLookbackDays: 30,
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
+    addonPatientChat: false,
     currency: "CHF" as string,
     dateFormat: "european" as string,
     hourFormat: "24h" as string,
@@ -742,6 +743,7 @@ export default function Hospital() {
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
+        addonPatientChat: fullHospitalData.addonPatientChat ?? false,
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
         hourFormat: fullHospitalData.hourFormat || "24h",
@@ -1200,6 +1202,10 @@ export default function Hospital() {
               <i className="fas fa-shield-halved mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.security", "Security")}</span>
             </TabsTrigger>
+            <TabsTrigger value="experimental" data-testid="tab-experimental" className="justify-start md:w-full">
+              <i className="fas fa-flask mr-2 shrink-0"></i>
+              <span className="truncate">{t("admin.experimental", "Experimental")}</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab content area */}
@@ -1609,6 +1615,7 @@ export default function Hospital() {
                 </div>
               </div>
             </TabsContent>
+
           </Tabs>
         </div>
         </TabsContent>
@@ -2850,6 +2857,37 @@ export default function Hospital() {
           <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
             <h3 className="text-lg font-semibold mb-4">{t("admin.loginHistory", "Login History")}</h3>
             <LoginAuditLogTab hospitalId={activeHospital?.id} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="experimental">
+          <div className="bg-card border border-amber-500/30 rounded-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+              <i className="fas fa-flask text-amber-500"></i>
+              {t("admin.experimental", "Experimental")}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("admin.experimentalDescription", "Features under testing. Enable at your own discretion.")}
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">
+                    {t("admin.patientChat", "Patient Chat")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("admin.patientChatDescription", "2-way patient chat via the portal with SMS notifications.")}
+                  </p>
+                </div>
+                <Switch
+                  checked={hospitalForm.addonPatientChat}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, addonPatientChat: checked }));
+                    updateHospitalMutation.mutate({ ...hospitalForm, addonPatientChat: checked });
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </TabsContent>
           </div>{/* end tab content area */}

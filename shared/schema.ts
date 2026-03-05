@@ -112,6 +112,7 @@ export const hospitals = pgTable("hospitals", {
   addonWorktime: boolean("addon_worktime").default(false), // Work time logs (+5 CHF/month)
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
+  addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
   questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
   preSurgeryReminderDisabled: boolean("pre_surgery_reminder_disabled").default(false), // Manual override to disable pre-surgery SMS reminders
   smsProvider: varchar("sms_provider", { enum: ["auto", "aspsms", "vonage"] }).default("auto"),
@@ -5012,6 +5013,17 @@ export const patientMessages = pgTable("patient_messages", {
   index("idx_patient_messages_patient").on(table.patientId),
   index("idx_patient_messages_conversation").on(table.conversationId),
   index("idx_patient_messages_direction").on(table.direction),
+]);
+
+// Track archived patient chat conversations (staff can hide threads from the chat list)
+export const patientChatArchives = pgTable("patient_chat_archives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  archivedBy: varchar("archived_by").references(() => users.id),
+  archivedAt: timestamp("archived_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_chat_archives_lookup").on(table.hospitalId, table.patientId),
 ]);
 
 export const insertPatientMessageSchema = createInsertSchema(patientMessages).omit({

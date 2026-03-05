@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck } from "lucide-react";
 import { usePortalSocket } from "@/hooks/usePortalSocket";
 
 interface PatientMessage {
@@ -10,6 +10,7 @@ interface PatientMessage {
   channel: string;
   createdAt: string;
   readByPatientAt: string | null;
+  readByStaffAt: string | null;
 }
 
 interface PatientMessagesProps {
@@ -181,11 +182,20 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                      <p className={`text-[10px] mt-1 ${
+                      <div className={`flex items-center justify-end gap-1 mt-1 ${
                         msg.direction === 'inbound' ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500'
                       }`}>
-                        {formatMessageTime(msg.createdAt)}
-                      </p>
+                        <span className="text-[10px]">
+                          {formatMessageTime(msg.createdAt)}
+                        </span>
+                        {msg.direction === 'inbound' && (
+                          msg.readByStaffAt ? (
+                            <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 opacity-70" />
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
