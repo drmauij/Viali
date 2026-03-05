@@ -149,6 +149,8 @@ import {
   type InsertCalcomProviderMapping,
   type HospitalVonageConfig,
   type InsertHospitalVonageConfig,
+  type HospitalAspsmsConfig,
+  type InsertHospitalAspsmsConfig,
   type ExternalWorklogLink,
   type InsertExternalWorklogLink,
   type ExternalWorklogEntry,
@@ -859,7 +861,12 @@ export interface IStorage {
   getHospitalVonageConfig(hospitalId: string): Promise<HospitalVonageConfig | undefined>;
   upsertHospitalVonageConfig(config: InsertHospitalVonageConfig): Promise<HospitalVonageConfig>;
   updateHospitalVonageTestStatus(hospitalId: string, status: 'success' | 'failed', error?: string): Promise<void>;
-  
+
+  // Hospital ASPSMS Config
+  getHospitalAspsmsConfig(hospitalId: string): Promise<HospitalAspsmsConfig | undefined>;
+  upsertHospitalAspsmsConfig(config: InsertHospitalAspsmsConfig): Promise<HospitalAspsmsConfig>;
+  updateHospitalAspsmsTestStatus(hospitalId: string, status: 'success' | 'failed', error?: string): Promise<void>;
+
   // Clinic Appointments
   getClinicAppointments(unitId: string, filters?: {
     providerId?: string;
@@ -1492,6 +1499,9 @@ export class DatabaseStorage implements IStorage {
   getHospitalVonageConfig = clinicStorage.getHospitalVonageConfig;
   upsertHospitalVonageConfig = clinicStorage.upsertHospitalVonageConfig;
   updateHospitalVonageTestStatus = clinicStorage.updateHospitalVonageTestStatus;
+  getHospitalAspsmsConfig = clinicStorage.getHospitalAspsmsConfig;
+  upsertHospitalAspsmsConfig = clinicStorage.upsertHospitalAspsmsConfig;
+  updateHospitalAspsmsTestStatus = clinicStorage.updateHospitalAspsmsTestStatus;
   getClinicAppointments = clinicStorage.getClinicAppointments;
   getClinicAppointmentsByHospital = clinicStorage.getClinicAppointmentsByHospital;
   getClinicAppointment = clinicStorage.getClinicAppointment;
