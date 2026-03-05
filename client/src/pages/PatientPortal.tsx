@@ -37,6 +37,8 @@ import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
 import { Checkbox } from "@/components/ui/checkbox";
 import PatientMessages from "@/components/portal/PatientMessages";
+import type { PatientMessage } from "@/components/portal/PatientMessages";
+import ChatFab from "@/components/portal/ChatFab";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -821,6 +823,19 @@ function PatientPortalContent({ token }: { token: string }) {
     retry: false,
   });
 
+  // Lift messages query so unread count is available for ChatFab badge
+  const { data: chatMessages = [], isLoading: chatMessagesLoading } = useQuery<PatientMessage[]>({
+    queryKey: ['/api/patient-portal', token, 'messages'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/messages`);
+      if (!res.ok) throw new Error('Failed to fetch messages');
+      return res.json();
+    },
+    enabled: !!token && !!data?.patientChatEnabled,
+  });
+
+  const chatUnreadCount = chatMessages.filter(m => m.direction === 'outbound' && !m.readByPatientAt).length;
+
   const { data: consentInfo } = useQuery<{
     consentData: {
       general: boolean;
@@ -1566,7 +1581,8 @@ function PatientPortalContent({ token }: { token: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+      <div className="lg:flex lg:justify-center lg:gap-6 max-w-5xl mx-auto px-4 py-6">
+        <div className="max-w-lg w-full space-y-4">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -2185,35 +2201,6 @@ function PatientPortalContent({ token }: { token: string }) {
           </CardContent>
         </Card>
 
-        {/* Messages Section */}
-        {data.patientChatEnabled && (
-        <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 mt-6" data-testid="card-messages">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
-              <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              {t.messagesTitle}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PatientMessages
-              token={token}
-              hospitalId={data.hospitalId}
-              patientId={data.patientId}
-              isDark={isDark}
-              translations={{
-                messagesTitle: t.messagesTitle,
-                typeMessage: t.typeMessage,
-                send: t.send,
-                noMessages: t.noMessages,
-                noMessagesDesc: t.noMessagesDesc,
-                today: t.today,
-                yesterday: t.yesterday,
-              }}
-            />
-          </CardContent>
-        </Card>
-        )}
-
         {/* Contact Card */}
         {data.hospital.phone && (
           <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 mt-6" data-testid="card-contact">
@@ -2240,7 +2227,64 @@ function PatientPortalContent({ token }: { token: string }) {
         <div className="text-center text-sm text-muted-foreground dark:text-gray-500 pt-4 pb-8">
           &copy; {new Date().getFullYear()} {data.hospital.name}
         </div>
+        </div>{/* end left column */}
+
+        {/* Desktop chat panel — right column */}
+        {data.patientChatEnabled && (
+          <div className="hidden lg:block lg:w-[380px] lg:shrink-0 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)]">
+            <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-messages">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+                  <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  {t.messagesTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <PatientMessages
+                  token={token}
+                  hospitalId={data.hospitalId}
+                  patientId={data.patientId}
+                  isDark={isDark}
+                  messages={chatMessages}
+                  messagesLoading={chatMessagesLoading}
+                  className="h-[calc(100vh-10rem)] border-0 rounded-none"
+                  translations={{
+                    messagesTitle: t.messagesTitle,
+                    typeMessage: t.typeMessage,
+                    send: t.send,
+                    noMessages: t.noMessages,
+                    noMessagesDesc: t.noMessagesDesc,
+                    today: t.today,
+                    yesterday: t.yesterday,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
+      {/* Mobile chat FAB */}
+      {data.patientChatEnabled && (
+        <ChatFab
+          token={token}
+          hospitalId={data.hospitalId}
+          patientId={data.patientId}
+          isDark={isDark}
+          unreadCount={chatUnreadCount}
+          messages={chatMessages}
+          messagesLoading={chatMessagesLoading}
+          translations={{
+            messagesTitle: t.messagesTitle,
+            typeMessage: t.typeMessage,
+            send: t.send,
+            noMessages: t.noMessages,
+            noMessagesDesc: t.noMessagesDesc,
+            today: t.today,
+            yesterday: t.yesterday,
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2, Check, CheckCheck } from "lucide-react";
 import { usePortalSocket } from "@/hooks/usePortalSocket";
+import { cn } from "@/lib/utils";
 
-interface PatientMessage {
+export interface PatientMessage {
   id: string;
   message: string;
   direction: string;
@@ -18,6 +19,9 @@ interface PatientMessagesProps {
   hospitalId: string;
   patientId: string;
   isDark: boolean;
+  className?: string;
+  messages?: PatientMessage[];
+  messagesLoading?: boolean;
   translations: {
     messagesTitle: string;
     typeMessage: string;
@@ -45,10 +49,11 @@ function formatMessageDate(dateStr: string, t: PatientMessagesProps['translation
   return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-export default function PatientMessages({ token, hospitalId, patientId, isDark, translations: t }: PatientMessagesProps) {
+export default function PatientMessages({ token, hospitalId, patientId, isDark, className, messages: externalMessages, messagesLoading, translations: t }: PatientMessagesProps) {
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { socket, isConnected } = usePortalSocket({
@@ -58,14 +63,19 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
     enabled: !!hospitalId && !!patientId,
   });
 
-  const { data: messages = [], isLoading } = useQuery<PatientMessage[]>({
+  // Use external messages if provided, otherwise fetch internally
+  const { data: internalMessages = [], isLoading: internalLoading } = useQuery<PatientMessage[]>({
     queryKey: ['/api/patient-portal', token, 'messages'],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
+    enabled: !externalMessages,
   });
+
+  const messages = externalMessages ?? internalMessages;
+  const isLoading = messagesLoading ?? internalLoading;
 
   const sendMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -86,15 +96,49 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
     },
   });
 
-  // Mark messages as read
-  useEffect(() => {
-    if (messages.length > 0) {
-      const hasUnread = messages.some(m => m.direction === 'outbound' && !m.readByPatientAt);
-      if (hasUnread) {
-        fetch(`/api/patient-portal/${token}/messages/mark-read`, { method: 'POST' }).catch(() => {});
+  // Mark messages as read via IntersectionObserver — only when actually visible
+  const markReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const markVisibleAsRead = useCallback(() => {
+    if (markReadTimeoutRef.current) clearTimeout(markReadTimeoutRef.current);
+    markReadTimeoutRef.current = setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        fetch(`/api/patient-portal/${token}/messages/mark-read`, { method: 'POST' })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/patient-portal', token, 'messages'] });
+          })
+          .catch(() => {});
       }
-    }
-  }, [messages, token]);
+    }, 300);
+  }, [token, queryClient]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const hasUnread = messages.some(m => m.direction === 'outbound' && !m.readByPatientAt);
+    if (!hasUnread) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const anyVisible = entries.some(e => e.isIntersecting);
+        if (anyVisible) {
+          markVisibleAsRead();
+        }
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    // Observe unread outbound message elements
+    const unreadEls = container.querySelectorAll('[data-unread-outbound]');
+    unreadEls.forEach(el => observerRef.current?.observe(el));
+
+    return () => {
+      observerRef.current?.disconnect();
+      if (markReadTimeoutRef.current) clearTimeout(markReadTimeoutRef.current);
+    };
+  }, [messages, markVisibleAsRead]);
 
   // Listen for new messages via socket
   useEffect(() => {
@@ -146,9 +190,9 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
   }
 
   return (
-    <div className="flex flex-col h-[400px] bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className={cn("flex flex-col bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden", className)}>
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -173,6 +217,7 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
                   <div
                     key={msg.id}
                     className={`flex mb-2 ${msg.direction === 'inbound' ? 'justify-end' : 'justify-start'}`}
+                    {...(msg.direction === 'outbound' && !msg.readByPatientAt ? { 'data-unread-outbound': '' } : {})}
                   >
                     <div
                       className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
