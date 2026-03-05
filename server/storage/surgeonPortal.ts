@@ -107,19 +107,10 @@ export async function getSurgeriesForSurgeon(
       roomName: surgeryRooms.name,
       patientFirstName: patients.firstName,
       patientLastName: patients.surname,
-      // Duration from the linked external surgery request (if any)
-      surgeryDurationMinutes: externalSurgeryRequests.surgeryDurationMinutes,
     })
     .from(surgeries)
     .leftJoin(surgeryRooms, eq(surgeries.surgeryRoomId, surgeryRooms.id))
     .leftJoin(patients, eq(surgeries.patientId, patients.id))
-    .leftJoin(
-      externalSurgeryRequests,
-      and(
-        eq(externalSurgeryRequests.surgeryId, surgeries.id),
-        eq(externalSurgeryRequests.status, "scheduled"),
-      ),
-    )
     .where(and(...conditions));
 
   return results;
