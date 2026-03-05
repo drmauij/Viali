@@ -1086,7 +1086,7 @@ export function ExternalRequestsBadge() {
     refetchInterval: 60000,
   });
 
-  const totalCount = (countData?.count || 0) + (actionCountData?.count || 0);
+  const totalCount = Number(countData?.count || 0) + Number(actionCountData?.count || 0);
 
   if (!totalCount) return null;
 

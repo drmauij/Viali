@@ -226,7 +226,7 @@ export async function getPendingSurgeonActionRequestsCount(
   hospitalId: string,
 ): Promise<number> {
   const [result] = await db
-    .select({ count: sql<number>`COUNT(*)` })
+    .select({ count: sql<number>`COUNT(*)::int` })
     .from(surgeonActionRequests)
     .where(
       and(
