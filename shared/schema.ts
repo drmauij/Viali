@@ -114,6 +114,7 @@ export const hospitals = pgTable("hospitals", {
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
   preSurgeryReminderDisabled: boolean("pre_surgery_reminder_disabled").default(false), // Manual override to disable pre-surgery SMS reminders
+  smsProvider: varchar("sms_provider", { enum: ["auto", "aspsms", "vonage"] }).default("auto"),
   // Vision AI provider selection for image analysis (inventory items, monitor OCR)
   visionAiProvider: varchar("vision_ai_provider", { enum: ["openai", "pixtral"] }).default("openai"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -4510,6 +4511,38 @@ export const insertHospitalVonageConfigSchema = createInsertSchema(hospitalVonag
 
 export type HospitalVonageConfig = typeof hospitalVonageConfigs.$inferSelect;
 export type InsertHospitalVonageConfig = z.infer<typeof insertHospitalVonageConfigSchema>;
+
+// Hospital ASPSMS Config - Per-hospital ASPSMS credentials
+export const hospitalAspsmsConfigs = pgTable("hospital_aspsms_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }).unique(),
+
+  encryptedUserKey: varchar("encrypted_user_key"),
+  encryptedPassword: varchar("encrypted_password"),
+  originator: varchar("originator", { length: 11 }), // Sender name, max 11 alphanumeric chars
+
+  isEnabled: boolean("is_enabled").default(true),
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestStatus: varchar("last_test_status"), // 'success' | 'failed'
+  lastTestError: text("last_test_error"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_hospital_aspsms_configs_hospital").on(table.hospitalId),
+]);
+
+export const insertHospitalAspsmsConfigSchema = createInsertSchema(hospitalAspsmsConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastTestedAt: true,
+  lastTestStatus: true,
+  lastTestError: true,
+});
+
+export type HospitalAspsmsConfig = typeof hospitalAspsmsConfigs.$inferSelect;
+export type InsertHospitalAspsmsConfig = z.infer<typeof insertHospitalAspsmsConfigSchema>;
 
 // Temporary Worker Contracts - For external staff signing employment contracts
 export const workerContracts = pgTable("worker_contracts", {

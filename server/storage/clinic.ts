@@ -19,6 +19,7 @@ import {
   calcomConfig,
   calcomProviderMappings,
   hospitalVonageConfigs,
+  hospitalAspsmsConfigs,
   scheduledJobs,
   patientQuestionnaireLinks,
   externalWorklogLinks,
@@ -50,6 +51,8 @@ import {
   type InsertCalcomProviderMapping,
   type HospitalVonageConfig,
   type InsertHospitalVonageConfig,
+  type HospitalAspsmsConfig,
+  type InsertHospitalAspsmsConfig,
   type ScheduledJob,
   type InsertScheduledJob,
   type ExternalWorklogLink,
@@ -723,6 +726,44 @@ export async function updateHospitalVonageTestStatus(hospitalId: string, status:
       updatedAt: new Date(),
     })
     .where(eq(hospitalVonageConfigs.hospitalId, hospitalId));
+}
+
+export async function getHospitalAspsmsConfig(hospitalId: string): Promise<HospitalAspsmsConfig | undefined> {
+  const [config] = await db
+    .select()
+    .from(hospitalAspsmsConfigs)
+    .where(eq(hospitalAspsmsConfigs.hospitalId, hospitalId));
+  return config;
+}
+
+export async function upsertHospitalAspsmsConfig(config: InsertHospitalAspsmsConfig): Promise<HospitalAspsmsConfig> {
+  const [upserted] = await db
+    .insert(hospitalAspsmsConfigs)
+    .values(config)
+    .onConflictDoUpdate({
+      target: hospitalAspsmsConfigs.hospitalId,
+      set: {
+        encryptedUserKey: config.encryptedUserKey,
+        encryptedPassword: config.encryptedPassword,
+        originator: config.originator,
+        isEnabled: config.isEnabled,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return upserted;
+}
+
+export async function updateHospitalAspsmsTestStatus(hospitalId: string, status: 'success' | 'failed', error?: string): Promise<void> {
+  await db
+    .update(hospitalAspsmsConfigs)
+    .set({
+      lastTestedAt: new Date(),
+      lastTestStatus: status,
+      lastTestError: error || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(hospitalAspsmsConfigs.hospitalId, hospitalId));
 }
 
 const colleagueUser = alias(users, 'colleague_user');
