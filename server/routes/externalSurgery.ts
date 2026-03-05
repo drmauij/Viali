@@ -9,7 +9,13 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
-import { sendExternalSurgeryRequestNotification, sendExternalSurgeryDeclineNotification } from "../resend";
+import { sendExternalSurgeryRequestNotification, sendExternalSurgeryDeclineNotification, sendSurgeonActionResponseEmail } from "../resend";
+import {
+  getSurgeonActionRequests,
+  getSurgeonActionRequest,
+  updateSurgeonActionRequest,
+  getPendingSurgeonActionRequestsCount,
+} from "../storage/surgeonPortal";
 import { Resend } from "resend";
 import { db } from "../db";
 import { users, userHospitalRoles, units } from "@shared/schema";
@@ -919,6 +925,211 @@ router.delete('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticat
   } catch (error) {
     logger.error("Error deleting token:", error);
     res.status(500).json({ message: "Failed to delete token" });
+  }
+});
+
+// ========== SURGEON ACTION REQUESTS (admin) ==========
+
+router.get('/api/hospitals/:hospitalId/surgeon-action-requests', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const { status } = req.query;
+    const userId = req.user.id;
+
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const validStatuses = ['pending', 'accepted', 'refused'];
+    const statusFilter = status && validStatuses.includes(status as string)
+      ? (status as 'pending' | 'accepted' | 'refused')
+      : undefined;
+
+    const requests = await getSurgeonActionRequests(hospitalId, statusFilter);
+    res.json(requests);
+  } catch (error) {
+    logger.error("Error fetching surgeon action requests:", error);
+    res.status(500).json({ message: "Failed to fetch surgeon action requests" });
+  }
+});
+
+router.get('/api/hospitals/:hospitalId/surgeon-action-requests/count', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const count = await getPendingSurgeonActionRequestsCount(hospitalId);
+    res.json({ count });
+  } catch (error) {
+    logger.error("Error fetching surgeon action requests count:", error);
+    res.status(500).json({ message: "Failed to fetch count" });
+  }
+});
+
+router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/accept', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, reqId } = req.params;
+    const userId = req.user.id;
+
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const actionRequest = await getSurgeonActionRequest(reqId);
+    if (!actionRequest || actionRequest.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Action request not found" });
+    }
+    if (actionRequest.status !== 'pending') {
+      return res.status(400).json({ message: `Request already ${actionRequest.status}` });
+    }
+
+    // Apply the action based on type
+    if (actionRequest.type === 'cancellation') {
+      await storage.updateSurgery(actionRequest.surgeryId, { status: 'cancelled' });
+    } else if (actionRequest.type === 'suspension') {
+      await storage.updateSurgery(actionRequest.surgeryId, { isSuspended: true });
+    }
+    // For reschedule: just mark as accepted; frontend handles creating the new surgery
+
+    // Mark the request as accepted
+    await updateSurgeonActionRequest(reqId, {
+      status: 'accepted',
+      respondedBy: userId,
+      respondedAt: new Date(),
+    });
+
+    res.json({ success: true });
+
+    // Send confirmation email to surgeon (fire-and-forget)
+    (async () => {
+      try {
+        const hospital = await storage.getHospital(hospitalId);
+        if (!hospital) return;
+        const lang = (hospital.defaultLanguage as 'de' | 'en') || 'de';
+
+        const surgery = await storage.getSurgery(actionRequest.surgeryId);
+        let patientName = 'N/A';
+        if (surgery?.patientId) {
+          const patient = await storage.getPatient(surgery.patientId);
+          if (patient) {
+            patientName = [patient.surname, patient.firstName].filter(Boolean).join(', ');
+          }
+        }
+        const surgeryName = surgery?.plannedSurgery || 'N/A';
+        const plannedDate = surgery?.plannedDate
+          ? new Date(surgery.plannedDate).toLocaleDateString(lang === 'de' ? 'de-CH' : 'en-GB')
+          : 'N/A';
+
+        // Extract surgeon name from the surgery record or email
+        const surgeonName = surgery?.surgeon || actionRequest.surgeonEmail.split('@')[0];
+
+        const baseUrl = process.env.PRODUCTION_URL || process.env.APP_URL || "https://use.viali.app";
+        const portalUrl = `${baseUrl}/surgeon-portal/${hospital.externalSurgeryToken}`;
+
+        await sendSurgeonActionResponseEmail(
+          actionRequest.surgeonEmail,
+          surgeonName,
+          hospital.name,
+          actionRequest.type as 'cancellation' | 'reschedule' | 'suspension',
+          'accepted',
+          { patientName, surgeryName, plannedDate },
+          portalUrl,
+          null,
+          lang,
+        );
+      } catch (err) {
+        logger.error('[SurgeonActionRequest] Error sending accept notification:', err);
+      }
+    })();
+  } catch (error) {
+    logger.error("Error accepting surgeon action request:", error);
+    res.status(500).json({ message: "Failed to accept request" });
+  }
+});
+
+router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/refuse', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, reqId } = req.params;
+    const { responseNote } = req.body;
+    const userId = req.user.id;
+
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const actionRequest = await getSurgeonActionRequest(reqId);
+    if (!actionRequest || actionRequest.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Action request not found" });
+    }
+    if (actionRequest.status !== 'pending') {
+      return res.status(400).json({ message: `Request already ${actionRequest.status}` });
+    }
+
+    // Mark the request as refused
+    await updateSurgeonActionRequest(reqId, {
+      status: 'refused',
+      responseNote: responseNote || null,
+      respondedBy: userId,
+      respondedAt: new Date(),
+    });
+
+    res.json({ success: true });
+
+    // Send refusal email to surgeon (fire-and-forget)
+    (async () => {
+      try {
+        const hospital = await storage.getHospital(hospitalId);
+        if (!hospital) return;
+        const lang = (hospital.defaultLanguage as 'de' | 'en') || 'de';
+
+        const surgery = await storage.getSurgery(actionRequest.surgeryId);
+        let patientName = 'N/A';
+        if (surgery?.patientId) {
+          const patient = await storage.getPatient(surgery.patientId);
+          if (patient) {
+            patientName = [patient.surname, patient.firstName].filter(Boolean).join(', ');
+          }
+        }
+        const surgeryName = surgery?.plannedSurgery || 'N/A';
+        const plannedDate = surgery?.plannedDate
+          ? new Date(surgery.plannedDate).toLocaleDateString(lang === 'de' ? 'de-CH' : 'en-GB')
+          : 'N/A';
+
+        const surgeonName = surgery?.surgeon || actionRequest.surgeonEmail.split('@')[0];
+
+        const baseUrl = process.env.PRODUCTION_URL || process.env.APP_URL || "https://use.viali.app";
+        const portalUrl = `${baseUrl}/surgeon-portal/${hospital.externalSurgeryToken}`;
+
+        await sendSurgeonActionResponseEmail(
+          actionRequest.surgeonEmail,
+          surgeonName,
+          hospital.name,
+          actionRequest.type as 'cancellation' | 'reschedule' | 'suspension',
+          'refused',
+          { patientName, surgeryName, plannedDate },
+          portalUrl,
+          responseNote || null,
+          lang,
+        );
+      } catch (err) {
+        logger.error('[SurgeonActionRequest] Error sending refuse notification:', err);
+      }
+    })();
+  } catch (error) {
+    logger.error("Error refusing surgeon action request:", error);
+    res.status(500).json({ message: "Failed to refuse request" });
   }
 });
 
