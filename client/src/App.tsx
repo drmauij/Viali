@@ -70,6 +70,7 @@ const PatientQuestionnaire = React.lazy(() => import("@/pages/PatientQuestionnai
 const PatientPortal = React.lazy(() => import("@/pages/PatientPortal"));
 const PatientRedirect = React.lazy(() => import("@/pages/PatientRedirect"));
 const ExternalSurgeryRequest = React.lazy(() => import("@/pages/ExternalSurgeryRequest"));
+const SurgeonPortal = React.lazy(() => import("@/pages/SurgeonPortal"));
 const LogisticInventory = React.lazy(() => import("@/pages/logistic/LogisticInventory"));
 const LogisticOrders = React.lazy(() => import("@/pages/logistic/LogisticOrders"));
 const LogisticMatches = React.lazy(() => import("@/pages/logistic/LogisticMatches"));
@@ -163,6 +164,7 @@ function Router() {
           <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
           <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
+          <Route path="/surgeon-portal/:token" component={SurgeonPortal} />
           <Route path="/contract/:token" component={WorkerContractForm} />
           <Route path="/worklog/:token" component={ExternalWorklog} />
           <Route path="/kiosk/:token" component={PublicWorktimeKiosk} />
