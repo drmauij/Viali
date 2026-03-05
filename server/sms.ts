@@ -344,8 +344,8 @@ export async function sendSms(to: string, message: string, hospitalId?: string):
     if (!credentials) {
       return { success: false, error: 'ASPSMS credentials not available' };
     }
-    // Resolve originator (may come from hospital name if not set in credentials)
-    if (hospitalId && !credentials.originator) {
+    // Always resolve originator from hospital name when using default credentials
+    if (hospitalId && credentials.source === 'default') {
       credentials.originator = await resolveOriginator(hospitalId);
     }
     // ASPSMS expects E.164 format WITH the + prefix
