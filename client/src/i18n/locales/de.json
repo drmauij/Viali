@@ -2674,6 +2674,7 @@
       "typeRegionalSpinal": "Regionalanästhesie - Spinal",
       "typeRegionalEpidural": "Regionalanästhesie - Epidural",
       "typeRegionalPeripheral": "Regionalanästhesie - Peripher",
+      "typeLocalAnesthesia": "Lokalanästhesie",
       "roleSurgeon": "Operateur",
       "roleSurgicalAssistant": "Assistenz",
       "roleInstrumentNurse": "Instrumentierende",

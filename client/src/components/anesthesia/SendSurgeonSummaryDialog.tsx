@@ -48,6 +48,20 @@ export function SendSurgeonSummaryDialog({
     enabled: !!anesthesiaRecord?.id && open,
   });
 
+  // Fetch actual anesthesia technique data to derive anesthesia type
+  const { data: generalTechniqueData } = useQuery<any>({
+    queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/general-technique`],
+    enabled: !!anesthesiaRecord?.id && open,
+  });
+  const { data: neuraxialBlocksData = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/neuraxial-blocks`],
+    enabled: !!anesthesiaRecord?.id && open,
+  });
+  const { data: peripheralBlocksData = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/peripheral-blocks`],
+    enabled: !!anesthesiaRecord?.id && open,
+  });
+
   useEffect(() => {
     if (open) {
       setIsSent(false);
@@ -103,8 +117,15 @@ export function SendSurgeonSummaryDialog({
           anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
           anesthesiaEndTime: anesthesiaRecord.anesthesiaEndTime,
           timeMarkers: anesthesiaRecord.timeMarkers,
-          anesthesiaOverview: anesthesiaRecord.anesthesiaOverview,
+          anesthesiaOverview: {
+            general: !!(generalTechniqueData?.approach && generalTechniqueData.approach !== 'sedation') || !!generalTechniqueData?.rsi,
+            sedation: generalTechniqueData?.approach === 'sedation',
+            regionalSpinal: neuraxialBlocksData.some((b: any) => b.type === 'spinal'),
+            regionalEpidural: neuraxialBlocksData.some((b: any) => b.type === 'epidural'),
+            regionalPeripheral: peripheralBlocksData.length > 0,
+          },
         } : null,
+        noPreOpRequired: surgery.noPreOpRequired,
         staffMembers: staffMembers,
         language: activeHospital?.defaultLanguage || 'de',
       });

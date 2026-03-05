@@ -46,6 +46,7 @@ interface SurgeonSummaryData {
     } | null;
   } | null;
   staffMembers?: Array<StaffMember>;
+  noPreOpRequired?: boolean;
   language?: string;
 }
 
@@ -80,6 +81,8 @@ function getAnesthesiaTypeLabels(
   overview: { general?: boolean; sedation?: boolean; regionalSpinal?: boolean; regionalEpidural?: boolean; regionalPeripheral?: boolean } | null | undefined,
   surgeryAnesthesiaType: string | null | undefined,
   t: (key: string) => string,
+  noPreOpRequired?: boolean,
+  hasAnesthesiaRecord?: boolean,
 ): string {
   if (overview) {
     const map: Record<string, string> = {
@@ -104,6 +107,10 @@ function getAnesthesiaTypeLabels(
       combined: t("anesthesia.pdf.typeGeneral") + " + Regional",
     };
     return typeMap[surgeryAnesthesiaType] || surgeryAnesthesiaType;
+  }
+  // No anesthesia record or LA surgery (noPreOpRequired)
+  if (noPreOpRequired || !hasAnesthesiaRecord) {
+    return t("anesthesia.pdf.typeLocalAnesthesia");
   }
   return t("anesthesia.pdf.na");
 }
@@ -254,7 +261,7 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   const durationRows: string[][] = [
     [t("anesthesia.pdf.schnittNahtZeit"), o1 && o2 ? formatDuration(o1, o2) : "–"],
     [t("anesthesia.pdf.anesthesiaDuration"), x1 && a2 ? formatDuration(x1, a2) : "–"],
-    [t("anesthesia.pdf.anesthesiaType"), getAnesthesiaTypeLabels(data.anesthesiaRecord?.anesthesiaOverview, data.surgery.anesthesiaType, t)],
+    [t("anesthesia.pdf.anesthesiaType"), getAnesthesiaTypeLabels(data.anesthesiaRecord?.anesthesiaOverview, data.surgery.anesthesiaType, t, data.noPreOpRequired, !!data.anesthesiaRecord)],
   ];
 
   autoTable(doc, {

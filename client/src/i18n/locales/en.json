@@ -2593,6 +2593,7 @@
       "typeRegionalSpinal": "Regional - Spinal",
       "typeRegionalEpidural": "Regional - Epidural",
       "typeRegionalPeripheral": "Regional - Peripheral",
+      "typeLocalAnesthesia": "Local Anesthesia",
       "roleSurgeon": "Surgeon",
       "roleSurgicalAssistant": "Surgical Assistant",
       "roleInstrumentNurse": "Instrument Nurse",
