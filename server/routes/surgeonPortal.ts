@@ -42,13 +42,11 @@ async function requireSurgeonSession(req: Request, res: Response, next: any) {
   }
 }
 
-router.use("/api/surgeon-portal/:token", requireSurgeonSession);
-
 /**
  * GET /api/surgeon-portal/:token/surgeries?month=YYYY-MM
  * Returns surgeries for the authenticated surgeon at this hospital.
  */
-router.get("/api/surgeon-portal/:token/surgeries", async (req: Request, res: Response) => {
+router.get("/api/surgeon-portal/:token/surgeries", requireSurgeonSession, async (req: Request, res: Response) => {
   try {
     const surgeonEmail = (req as any).surgeonEmail;
     const { token } = req.params;
@@ -85,7 +83,7 @@ router.get("/api/surgeon-portal/:token/surgeries", async (req: Request, res: Res
  * Submit a cancellation/reschedule/suspension request.
  * Body: { surgeryId, type, reason, proposedDate?, proposedTimeFrom?, proposedTimeTo? }
  */
-router.post("/api/surgeon-portal/:token/action-requests", async (req: Request, res: Response) => {
+router.post("/api/surgeon-portal/:token/action-requests", requireSurgeonSession, async (req: Request, res: Response) => {
   try {
     const surgeonEmail = (req as any).surgeonEmail;
     const { token } = req.params;

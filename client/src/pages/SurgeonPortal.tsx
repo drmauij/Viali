@@ -26,6 +26,7 @@ import {
   RefreshCw,
   PauseCircle,
   Clock,
+  Plus,
 } from "lucide-react";
 import {
   startOfMonth,
@@ -91,6 +92,7 @@ const translations: Record<string, Record<string, string>> = {
     cancellationPending: "Absage angefragt",
     reschedulePending: "Verschiebung angefragt",
     suspensionPending: "Sistierung angefragt",
+    newRequest: "Neue OP-Anfrage stellen",
   },
   en: {
     // Gate
@@ -138,6 +140,7 @@ const translations: Record<string, Record<string, string>> = {
     cancellationPending: "Cancellation requested",
     reschedulePending: "Reschedule requested",
     suspensionPending: "Suspension requested",
+    newRequest: "Submit new surgery request",
   },
 };
 
@@ -689,6 +692,17 @@ function SurgeonPortalContent({ token }: { token: string }) {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Link to surgery request form */}
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <a
+          href={`/external-surgery/${token}`}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <Plus className="h-4 w-4" />
+          {t.newRequest}
+        </a>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
