@@ -252,6 +252,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
         worktime: true,
         logistics: true,
         clinic: true,
+        patientChat: hospital.addonPatientChat ?? false,
       },
       questionnaireDisabled: hospital.questionnaireDisabled ?? false,
     });
