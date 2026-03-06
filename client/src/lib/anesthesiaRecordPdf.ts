@@ -3022,21 +3022,43 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         }
       }
 
-      // Drainage
-      if (intraOpData.drainage) {
-        const drain = intraOpData.drainage;
-        const drainInfo: string[] = [];
-        if (drain.redonCH) drainInfo.push(`Redon CH${drain.redonCH}`);
-        if (drain.redonCount) drainInfo.push(`${i18next.t("anesthesia.pdf.nurseDoc.count", "Count")}: ${drain.redonCount}`);
-        if (drain.other) drainInfo.push(drain.other);
+      // Drainage (new dynamic format with backward compat)
+      const drainages = (intraOpData as any).drainages && (intraOpData as any).drainages.length > 0
+        ? (intraOpData as any).drainages
+        : intraOpData.drainage && (intraOpData.drainage.redonCH || intraOpData.drainage.other)
+          ? [{ id: '0', type: 'Redon', size: intraOpData.drainage.redonCH ?? '', position: intraOpData.drainage.other ?? '' }]
+          : [];
 
-        if (drainInfo.length > 0) {
-          doc.setFont("helvetica", "bold");
-          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.drainage", "Drainage")}: `, 25, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(drainInfo.join(", "), 55, yPos);
-          yPos += 6;
+      if (drainages.length > 0) {
+        yPos = checkPageBreak(doc, yPos, 10 + drainages.length * 5);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.drainage", "Drainage")}:`, 25, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        drainages.forEach((drain: any) => {
+          const typeName = drain.type === 'Other' && drain.typeOther ? drain.typeOther : drain.type;
+          const parts = [typeName, drain.size, drain.position].filter(Boolean);
+          doc.text(`• ${parts.join(' — ')}`, 28, yPos);
+          yPos += 4.5;
+        });
+        yPos += 2;
+      }
+
+      // X-Ray / Fluoroscopy
+      if ((intraOpData as any).xray?.used) {
+        yPos = checkPageBreak(doc, yPos, 15);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("surgery.intraop.xray", "X-Ray / Fluoroscopy")}:`, 25, yPos);
+        doc.setFont("helvetica", "normal");
+        const xrayParts: string[] = [];
+        const xray = (intraOpData as any).xray;
+        if (xray.imageCount) xrayParts.push(`${i18next.t("surgery.intraop.xrayImageCount", "Images")}: ${xray.imageCount}`);
+        if (xray.bodyRegion) xrayParts.push(xray.bodyRegion);
+        if (xray.notes) xrayParts.push(xray.notes);
+        if (xrayParts.length > 0) {
+          doc.text(xrayParts.join(", "), 75, yPos);
         }
+        yPos += 6;
       }
 
       // Intraoperative Notes

@@ -1290,6 +1290,21 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       redonCount?: number;        // Anzahl (count)
       other?: string;             // Free text for custom entries
     };
+    // Dynamic drainage entries (replaces static drainage fields)
+    drainages?: Array<{
+      id: string;
+      type: string;         // Redon, Jackson-Pratt, Blake, Penrose, T-Tube, Chest Tube, Silicone Drain, Other
+      typeOther?: string;    // free text when type === "Other"
+      size: string;          // e.g. "CH 10"
+      position: string;      // e.g. "right flank"
+    }>;
+    // Intraoperative X-Ray / Fluoroscopy
+    xray?: {
+      used: boolean;
+      imageCount?: number;
+      bodyRegion?: string;
+      notes?: string;
+    };
     intraoperativeNotes?: string; // Free-text intraoperative notes
     co2Pressure?: {
       pressure?: number;          // mmHg
@@ -2880,6 +2895,19 @@ export const updateIntraOpDataSchema = z.object({
     redonCH: z.string().optional().nullable(),
     redonCount: z.number().int().min(0).optional().nullable(),
     other: z.string().optional().nullable(),
+  }).optional(),
+  drainages: z.array(z.object({
+    id: z.string(),
+    type: z.string(),
+    typeOther: z.string().optional().nullable(),
+    size: z.string().optional().nullable(),
+    position: z.string().optional().nullable(),
+  })).optional(),
+  xray: z.object({
+    used: z.boolean(),
+    imageCount: z.number().int().min(0).optional().nullable(),
+    bodyRegion: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
   }).optional(),
   intraoperativeNotes: z.string().optional().nullable(),
   co2Pressure: z.object({

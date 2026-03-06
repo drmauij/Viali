@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -94,7 +95,8 @@ import {
   Camera,
   Image,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Trash2
 } from "lucide-react";
 
 export default function Op() {
@@ -1107,6 +1109,19 @@ export default function Op() {
       redon?: boolean;
     };
     drainage?: { type?: string; count?: number; redonCH?: string; redonCount?: number; other?: string; redon?: boolean };
+    drainages?: Array<{
+      id: string;
+      type: string;
+      typeOther?: string;
+      size: string;
+      position: string;
+    }>;
+    xray?: {
+      used: boolean;
+      imageCount?: number;
+      bodyRegion?: string;
+      notes?: string;
+    };
     co2Pressure?: {
       pressure?: number;
       notes?: string;
@@ -3612,99 +3627,228 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.drainage')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>{t('surgery.intraop.drainageOptions.redonCH')}</Label>
-                        <Input
-                          id="drainage-redon-ch"
-                          data-testid="input-drainage-redon-ch"
-                          placeholder="e.g., CH 10, CH 12..."
-                          value={intraOpData.drainage?.redonCH ?? ''}
-                          onChange={(e) => {
-                            const updated = {
-                              ...intraOpData,
-                              drainage: {
-                                ...intraOpData.drainage,
-                                redonCH: e.target.value
-                              }
-                            };
-                            setIntraOpData(updated);
-                          }}
-                          onBlur={(e) => {
-                            const updated = {
-                              ...intraOpData,
-                              drainage: {
-                                ...intraOpData.drainage,
-                                redonCH: e.target.value
-                              }
-                            };
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{t('surgery.intraop.drainageOptions.redonCount')}</Label>
-                        <Input
-                          id="drainage-redon-count"
-                          data-testid="input-drainage-redon-count"
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          value={intraOpData.drainage?.redonCount ?? ''}
-                          onChange={(e) => {
-                            const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                            const updated = {
-                              ...intraOpData,
-                              drainage: {
-                                ...intraOpData.drainage,
-                                redonCount: value
-                              }
-                            };
-                            setIntraOpData(updated);
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                            const updated = {
-                              ...intraOpData,
-                              drainage: {
-                                ...intraOpData.drainage,
-                                redonCount: value
-                              }
-                            };
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Input
-                        id="drainage-other"
-                        data-testid="input-drainage-other"
-                        placeholder={t('surgery.intraop.drainageOther')}
-                        value={intraOpData.drainage?.other ?? ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            drainage: {
-                              ...intraOpData.drainage,
-                              other: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
-                        }}
-                        onBlur={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            drainage: {
-                              ...intraOpData.drainage,
-                              other: e.target.value
-                            }
-                          };
-                          intraOpAutoSave.mutate(updated);
-                        }}
-                      />
-                    </div>
+                    {(() => {
+                      // Helper: get drainages array, migrating old format if needed
+                      const getDrainages = () => {
+                        if (intraOpData.drainages && intraOpData.drainages.length > 0) {
+                          return intraOpData.drainages;
+                        }
+                        if (intraOpData.drainage && (intraOpData.drainage.redonCH || intraOpData.drainage.other)) {
+                          return [{
+                            id: crypto.randomUUID(),
+                            type: 'Redon',
+                            size: intraOpData.drainage.redonCH ?? '',
+                            position: intraOpData.drainage.other ?? '',
+                          }];
+                        }
+                        return [];
+                      };
+                      const drainages = getDrainages();
+                      return (
+                        <>
+                          {drainages.map((drain, index) => (
+                            <div key={drain.id} className="flex items-start gap-2 p-2 border rounded-lg">
+                              <div className="flex-1 grid grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">{t('surgery.intraop.drainageType')}</Label>
+                                  <Select
+                                    value={drain.type}
+                                    onValueChange={(value) => {
+                                      const updated_drainages = [...drainages];
+                                      updated_drainages[index] = { ...updated_drainages[index], type: value, typeOther: value === 'Other' ? updated_drainages[index].typeOther : undefined };
+                                      const updated = { ...intraOpData, drainages: updated_drainages };
+                                      setIntraOpData(updated);
+                                      intraOpAutoSave.mutate(updated);
+                                    }}
+                                  >
+                                    <SelectTrigger data-testid={`select-drainage-type-${index}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {['Redon', 'Jackson-Pratt', 'Blake', 'Penrose', 'T-Tube', 'Chest Tube', 'Silicone Drain', 'Other'].map((opt) => (
+                                        <SelectItem key={opt} value={opt}>
+                                          {t(`surgery.intraop.drainageTypes.${opt === 'Jackson-Pratt' ? 'jacksonPratt' : opt === 'T-Tube' ? 'tTube' : opt === 'Chest Tube' ? 'chestTube' : opt === 'Silicone Drain' ? 'siliconeDrain' : opt.toLowerCase()}`)}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {drain.type === 'Other' && (
+                                    <Input
+                                      data-testid={`input-drainage-type-other-${index}`}
+                                      placeholder={t('surgery.intraop.drainageTypeOtherPlaceholder')}
+                                      value={drain.typeOther ?? ''}
+                                      onChange={(e) => {
+                                        const updated_drainages = [...drainages];
+                                        updated_drainages[index] = { ...updated_drainages[index], typeOther: e.target.value };
+                                        setIntraOpData({ ...intraOpData, drainages: updated_drainages });
+                                      }}
+                                      onBlur={() => {
+                                        intraOpAutoSave.mutate({ ...intraOpData, drainages });
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">{t('surgery.intraop.drainageSize')}</Label>
+                                  <Input
+                                    data-testid={`input-drainage-size-${index}`}
+                                    placeholder={t('surgery.intraop.drainageSizePlaceholder')}
+                                    value={drain.size ?? ''}
+                                    onChange={(e) => {
+                                      const updated_drainages = [...drainages];
+                                      updated_drainages[index] = { ...updated_drainages[index], size: e.target.value };
+                                      setIntraOpData({ ...intraOpData, drainages: updated_drainages });
+                                    }}
+                                    onBlur={() => {
+                                      intraOpAutoSave.mutate({ ...intraOpData, drainages });
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">{t('surgery.intraop.drainagePosition')}</Label>
+                                  <Input
+                                    data-testid={`input-drainage-position-${index}`}
+                                    placeholder={t('surgery.intraop.drainagePositionPlaceholder')}
+                                    value={drain.position ?? ''}
+                                    onChange={(e) => {
+                                      const updated_drainages = [...drainages];
+                                      updated_drainages[index] = { ...updated_drainages[index], position: e.target.value };
+                                      setIntraOpData({ ...intraOpData, drainages: updated_drainages });
+                                    }}
+                                    onBlur={() => {
+                                      intraOpAutoSave.mutate({ ...intraOpData, drainages });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="mt-5 text-destructive hover:text-destructive"
+                                data-testid={`button-remove-drainage-${index}`}
+                                onClick={() => {
+                                  const updated_drainages = drainages.filter((_, i) => i !== index);
+                                  const updated = { ...intraOpData, drainages: updated_drainages };
+                                  setIntraOpData(updated);
+                                  intraOpAutoSave.mutate(updated);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid="button-add-drainage"
+                            onClick={() => {
+                              const updated_drainages = [...drainages, {
+                                id: crypto.randomUUID(),
+                                type: 'Redon',
+                                size: '',
+                                position: '',
+                              }];
+                              const updated = { ...intraOpData, drainages: updated_drainages };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            {t('surgery.intraop.addDrainage')}
+                          </Button>
+                        </>
+                      );
+                    })()}
                   </CardContent>
+                </Card>
+
+                {/* X-Ray / Fluoroscopy Section */}
+                <Card>
+                  <CardHeader className="py-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>{t('surgery.intraop.xray')}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="xray-used" className="text-sm font-normal">
+                          {t('surgery.intraop.xrayUsed')}
+                        </Label>
+                        <Switch
+                          id="xray-used"
+                          data-testid="switch-xray-used"
+                          checked={intraOpData.xray?.used ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              xray: { ...intraOpData.xray, used: checked }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {intraOpData.xray?.used && (
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">{t('surgery.intraop.xrayImageCount')}</Label>
+                          <Input
+                            data-testid="input-xray-image-count"
+                            type="number"
+                            min="0"
+                            value={intraOpData.xray?.imageCount ?? ''}
+                            onChange={(e) => {
+                              const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                              const updated = {
+                                ...intraOpData,
+                                xray: { ...intraOpData.xray, used: true, imageCount: value }
+                              };
+                              setIntraOpData(updated);
+                            }}
+                            onBlur={() => {
+                              intraOpAutoSave.mutate(intraOpData);
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">{t('surgery.intraop.xrayBodyRegion')}</Label>
+                          <Input
+                            data-testid="input-xray-body-region"
+                            placeholder={t('surgery.intraop.xrayBodyRegionPlaceholder')}
+                            value={intraOpData.xray?.bodyRegion ?? ''}
+                            onChange={(e) => {
+                              const updated = {
+                                ...intraOpData,
+                                xray: { ...intraOpData.xray, used: true, bodyRegion: e.target.value }
+                              };
+                              setIntraOpData(updated);
+                            }}
+                            onBlur={() => {
+                              intraOpAutoSave.mutate(intraOpData);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">{t('surgery.intraop.xrayNotes')}</Label>
+                        <Input
+                          data-testid="input-xray-notes"
+                          placeholder={t('surgery.intraop.xrayNotesPlaceholder')}
+                          value={intraOpData.xray?.notes ?? ''}
+                          onChange={(e) => {
+                            const updated = {
+                              ...intraOpData,
+                              xray: { ...intraOpData.xray, used: true, notes: e.target.value }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={() => {
+                            intraOpAutoSave.mutate(intraOpData);
+                          }}
+                        />
+                      </div>
+                    </CardContent>
+                  )}
                 </Card>
 
                 {/* Intraoperative Notes Section */}

@@ -177,7 +177,17 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
       }
     }
 
-    if (intraOp.drainage) {
+    // Dynamic drainages (new format)
+    if (intraOp.drainages && intraOp.drainages.length > 0) {
+      const details: { label: string; value: string }[] = [];
+      intraOp.drainages.forEach((drain: any, i: number) => {
+        const typeName = drain.type === 'Other' && drain.typeOther ? drain.typeOther : drain.type;
+        const parts = [typeName, drain.size, drain.position].filter(Boolean);
+        details.push({ label: `#${i + 1}`, value: parts.join(' — ') });
+      });
+      sections.push({ title: t('surgery.intraop.drainage'), checkItems: [], details });
+    } else if (intraOp.drainage) {
+      // Legacy format fallback
       const dr = intraOp.drainage;
       const checkItems: { key: string; label: string }[] = [];
       const details: { label: string; value: string }[] = [];
@@ -185,6 +195,17 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
       if (dr.redonCount) details.push({ label: t('surgery.intraop.drainageOptions.redonCount'), value: String(dr.redonCount) });
       if (checkItems.length > 0 || details.length > 0) {
         sections.push({ title: t('surgery.intraop.drainage'), checkItems, details });
+      }
+    }
+
+    // X-Ray / Fluoroscopy
+    if (intraOp.xray?.used) {
+      const details: { label: string; value: string }[] = [];
+      if (intraOp.xray.imageCount != null) details.push({ label: t('surgery.intraop.xrayImageCount'), value: String(intraOp.xray.imageCount) });
+      if (intraOp.xray.bodyRegion) details.push({ label: t('surgery.intraop.xrayBodyRegion'), value: intraOp.xray.bodyRegion });
+      if (intraOp.xray.notes) details.push({ label: t('surgery.intraop.xrayNotes'), value: intraOp.xray.notes });
+      if (details.length > 0) {
+        sections.push({ title: t('surgery.intraop.xray'), checkItems: [], details });
       }
     }
 

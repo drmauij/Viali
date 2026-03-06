@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { SurgerySetDetailDialog } from "./SurgerySetDetailDialog";
 
 type SurgerySetData = {
@@ -80,6 +81,7 @@ export function SurgerySetsDialog({
     medications: false,
     dressing: false,
     drainage: false,
+    xray: false,
   });
 
   const { data: sets = [], isLoading: setsLoading } = useQuery<SurgerySetData[]>({
@@ -596,19 +598,180 @@ export function SurgerySetsDialog({
             {renderSectionHeader("drainage", t('surgery.intraop.drainage'))}
             {expandedSections.drainage && (
               <div className="pb-3 pl-2 space-y-2">
-                {renderIntraOpCheckbox("drainage", "redon", t('surgery.intraop.drainageOptions.redonCH'))}
+                {(formIntraOpData.drainages || []).map((drain: any, index: number) => (
+                  <div key={drain.id || index} className="flex items-start gap-1 p-1.5 border rounded">
+                    <div className="flex-1 grid grid-cols-3 gap-1">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">{t('surgery.intraop.drainageType')}</Label>
+                        <Select
+                          value={drain.type}
+                          onValueChange={(value) => {
+                            const drainages = [...(formIntraOpData.drainages || [])];
+                            drainages[index] = { ...drainages[index], type: value, typeOther: value === 'Other' ? drainages[index].typeOther : undefined };
+                            setFormIntraOpData(prev => ({ ...prev, drainages }));
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs" data-testid={`select-set-drainage-type-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['Redon', 'Jackson-Pratt', 'Blake', 'Penrose', 'T-Tube', 'Chest Tube', 'Silicone Drain', 'Other'].map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {t(`surgery.intraop.drainageTypes.${opt === 'Jackson-Pratt' ? 'jacksonPratt' : opt === 'T-Tube' ? 'tTube' : opt === 'Chest Tube' ? 'chestTube' : opt === 'Silicone Drain' ? 'siliconeDrain' : opt.toLowerCase()}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {drain.type === 'Other' && (
+                          <Input
+                            className="h-7 text-xs"
+                            placeholder={t('surgery.intraop.drainageTypeOtherPlaceholder')}
+                            value={drain.typeOther ?? ''}
+                            onChange={(e) => {
+                              const drainages = [...(formIntraOpData.drainages || [])];
+                              drainages[index] = { ...drainages[index], typeOther: e.target.value };
+                              setFormIntraOpData(prev => ({ ...prev, drainages }));
+                            }}
+                            data-testid={`input-set-drainage-type-other-${index}`}
+                          />
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">{t('surgery.intraop.drainageSize')}</Label>
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder={t('surgery.intraop.drainageSizePlaceholder')}
+                          value={drain.size ?? ''}
+                          onChange={(e) => {
+                            const drainages = [...(formIntraOpData.drainages || [])];
+                            drainages[index] = { ...drainages[index], size: e.target.value };
+                            setFormIntraOpData(prev => ({ ...prev, drainages }));
+                          }}
+                          data-testid={`input-set-drainage-size-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">{t('surgery.intraop.drainagePosition')}</Label>
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder={t('surgery.intraop.drainagePositionPlaceholder')}
+                          value={drain.position ?? ''}
+                          onChange={(e) => {
+                            const drainages = [...(formIntraOpData.drainages || [])];
+                            drainages[index] = { ...drainages[index], position: e.target.value };
+                            setFormIntraOpData(prev => ({ ...prev, drainages }));
+                          }}
+                          data-testid={`input-set-drainage-position-${index}`}
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 mt-4 text-destructive hover:text-destructive"
+                      data-testid={`button-set-remove-drainage-${index}`}
+                      onClick={() => {
+                        const drainages = (formIntraOpData.drainages || []).filter((_: any, i: number) => i !== index);
+                        setFormIntraOpData(prev => ({ ...prev, drainages }));
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  data-testid="button-set-add-drainage"
+                  onClick={() => {
+                    const drainages = [...(formIntraOpData.drainages || []), {
+                      id: crypto.randomUUID(),
+                      type: 'Redon',
+                      size: '',
+                      position: '',
+                    }];
+                    setFormIntraOpData(prev => ({ ...prev, drainages }));
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  {t('surgery.intraop.addDrainage')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="px-2">
+            {renderSectionHeader("xray", t('surgery.intraop.xray'))}
+            {expandedSections.xray && (
+              <div className="pb-3 pl-2 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.drainageOptions.redonCount')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    className="h-7 w-16 text-xs"
-                    value={formIntraOpData.drainage?.redonCount || ""}
-                    onChange={e => toggleIntraOpField("drainage", "redonCount", parseInt(e.target.value) || undefined)}
-                    data-testid="input-redon-count"
+                  <Switch
+                    id="set-xray-used"
+                    data-testid="switch-set-xray-used"
+                    checked={formIntraOpData.xray?.used ?? false}
+                    onCheckedChange={(checked) => {
+                      setFormIntraOpData(prev => ({
+                        ...prev,
+                        xray: { ...(prev.xray || {}), used: checked }
+                      }));
+                    }}
                   />
+                  <Label htmlFor="set-xray-used" className="text-xs cursor-pointer">
+                    {t('surgery.intraop.xrayUsed')}
+                  </Label>
                 </div>
+                {formIntraOpData.xray?.used && (
+                  <div className="space-y-2 pl-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.xrayImageCount')}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        className="h-7 w-20 text-xs"
+                        value={formIntraOpData.xray?.imageCount ?? ''}
+                        onChange={e => {
+                          const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                          setFormIntraOpData(prev => ({
+                            ...prev,
+                            xray: { ...(prev.xray || {}), used: true, imageCount: value }
+                          }));
+                        }}
+                        data-testid="input-set-xray-image-count"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.xrayBodyRegion')}</Label>
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder={t('surgery.intraop.xrayBodyRegionPlaceholder')}
+                        value={formIntraOpData.xray?.bodyRegion ?? ''}
+                        onChange={e => {
+                          setFormIntraOpData(prev => ({
+                            ...prev,
+                            xray: { ...(prev.xray || {}), used: true, bodyRegion: e.target.value }
+                          }));
+                        }}
+                        data-testid="input-set-xray-body-region"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">{t('surgery.intraop.xrayNotes')}</Label>
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder={t('surgery.intraop.xrayNotesPlaceholder')}
+                        value={formIntraOpData.xray?.notes ?? ''}
+                        onChange={e => {
+                          setFormIntraOpData(prev => ({
+                            ...prev,
+                            xray: { ...(prev.xray || {}), used: true, notes: e.target.value }
+                          }));
+                        }}
+                        data-testid="input-set-xray-notes"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
