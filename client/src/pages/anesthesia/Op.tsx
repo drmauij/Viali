@@ -4110,21 +4110,9 @@ export default function Op() {
                 </Card>
 
                 <Card>
-                  <CardHeader
-                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => toggleIntraOpSection('signatures')}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
-                        {!expandedIntraOpSections.signatures && hasIntraOpData('signatures') && (
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.signatures ? '' : '-rotate-90'}`} />
-                    </div>
+                  <CardHeader className="py-3">
+                    <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
                   </CardHeader>
-                  {expandedIntraOpSections.signatures && (
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureZudienung')}</Label>
@@ -4155,7 +4143,6 @@ export default function Op() {
                       </div>
                     </div>
                   </CardContent>
-                  )}
                 </Card>
 
                 {/* Intra-Op Signature Pad Dialogs */}
