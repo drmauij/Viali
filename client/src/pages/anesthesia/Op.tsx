@@ -1092,8 +1092,38 @@ export default function Op() {
       ointments?: string;
     };
     irrigation?: { nacl?: boolean; ringerSolution?: boolean; betadine?: boolean; hydrogenPeroxide?: boolean; other?: string };
-    infiltration?: { tumorSolution?: boolean; other?: string };
-    medications?: { medication?: string; other?: string };
+    infiltration?: {
+      tumorSolution?: boolean;
+      carrier?: string;
+      carrierVolume?: string;
+      epinephrine?: boolean;
+      epinephrineAmount?: string;
+      totalVolume?: string;
+      other?: string;
+    };
+    medications?: {
+      rapidocain1?: boolean;
+      ropivacainEpinephrine?: boolean;
+      ropivacain05?: boolean;
+      ropivacain075?: boolean;
+      ropivacain1?: boolean;
+      bupivacain?: boolean;
+      bupivacain025?: boolean;
+      bupivacain05?: boolean;
+      rapidocain1Volume?: string;
+      ropivacainEpinephrineVolume?: string;
+      ropivacain05Volume?: string;
+      ropivacain075Volume?: string;
+      ropivacain1Volume?: string;
+      bupivacainVolume?: string;
+      bupivacain025Volume?: string;
+      bupivacain05Volume?: string;
+      vancomycinImplant?: boolean;
+      contrast?: boolean;
+      ointments?: boolean;
+      other?: string;
+      [key: string]: boolean | string | undefined;
+    };
     dressing?: {
       elasticBandage?: boolean;
       abdominalBelt?: boolean;
@@ -1146,8 +1176,7 @@ export default function Op() {
     co2Pressure: false,
     tourniquet: false,
     irrigation: false,
-    infiltration: false,
-    medications: false,
+    infiltrationMedications: false,
     dressing: false,
     drainage: false,
     xray: false,
@@ -1178,10 +1207,9 @@ export default function Op() {
         return !!(intraOpData.tourniquet && Object.values(intraOpData.tourniquet).some(v => v));
       case 'irrigation':
         return !!(intraOpData.irrigation && Object.values(intraOpData.irrigation).some(v => v));
-      case 'infiltration':
-        return !!(intraOpData.infiltration && Object.values(intraOpData.infiltration).some(v => v));
-      case 'medications':
-        return !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v));
+      case 'infiltrationMedications':
+        return !!(intraOpData.infiltration && Object.values(intraOpData.infiltration).some(v => v)) ||
+               !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v));
       case 'dressing':
         return !!(intraOpData.dressing && Object.values(intraOpData.dressing).some(v => v));
       case 'drainage':
@@ -3585,145 +3613,246 @@ export default function Op() {
                   )}
                 </Card>
 
-                {/* Infiltration Section */}
+                {/* Infiltration & Medications Section */}
                 <Card>
                   <CardHeader
                     className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => toggleIntraOpSection('infiltration')}
+                    onClick={() => toggleIntraOpSection('infiltrationMedications')}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <CardTitle>{t('surgery.intraop.infiltration')}</CardTitle>
-                        {!expandedIntraOpSections.infiltration && hasIntraOpData('infiltration') && (
+                        <CardTitle>{t('surgery.intraop.infiltrationMedications')}</CardTitle>
+                        {!expandedIntraOpSections.infiltrationMedications && hasIntraOpData('infiltrationMedications') && (
                           <div className="h-2 w-2 rounded-full bg-primary" />
                         )}
                       </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.infiltration ? '' : '-rotate-90'}`} />
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.infiltrationMedications ? '' : '-rotate-90'}`} />
                     </div>
                   </CardHeader>
-                  {expandedIntraOpSections.infiltration && (
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="infiltration-tumor"
-                        data-testid="checkbox-infiltration-tumor"
-                        className="h-4 w-4"
-                        checked={intraOpData.infiltration?.tumorSolution ?? false}
-                        onCheckedChange={(checked) => {
-                          const updated = {
-                            ...intraOpData,
-                            infiltration: {
-                              ...intraOpData.infiltration,
-                              tumorSolution: checked === true
-                            }
-                          };
-                          setIntraOpData(updated);
-                          intraOpAutoSave.mutate(updated);
-                        }}
-                      />
-                      <Label htmlFor="infiltration-tumor" className="text-sm">{t('surgery.intraop.infiltrationOptions.tumorSolution')}</Label>
-                    </div>
-                    <div className="space-y-2">
-                      <Input
-                        id="infiltration-other"
-                        data-testid="input-infiltration-other"
-                        placeholder={t('surgery.intraop.infiltrationOther')}
-                        value={intraOpData.infiltration?.other ?? ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            infiltration: {
-                              ...intraOpData.infiltration,
-                              other: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
-                        }}
-                        onBlur={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            infiltration: {
-                              ...intraOpData.infiltration,
-                              other: e.target.value
-                            }
-                          };
-                          intraOpAutoSave.mutate(updated);
-                        }}
-                      />
-                    </div>
-                  </CardContent>
-                  )}
-                </Card>
+                  {expandedIntraOpSections.infiltrationMedications && (
+                  <CardContent className="space-y-4">
+                    {/* Tumescent / Infiltration Solution */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.tumescentSolution')}</h4>
 
-                {/* Medications Section */}
-                <Card>
-                  <CardHeader
-                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => toggleIntraOpSection('medications')}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CardTitle>{t('surgery.intraop.medications')}</CardTitle>
-                        {!expandedIntraOpSections.medications && hasIntraOpData('medications') && (
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                        )}
+                      {/* Carrier row */}
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.carrier')}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(['ringer', 'nacl'] as const).map((carrier) => (
+                            <div key={carrier} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`carrier-${carrier}`}
+                                data-testid={`checkbox-carrier-${carrier}`}
+                                className="h-4 w-4"
+                                checked={intraOpData.infiltration?.carrier === carrier}
+                                onCheckedChange={(checked) => {
+                                  const updated = {
+                                    ...intraOpData,
+                                    infiltration: {
+                                      ...intraOpData.infiltration,
+                                      carrier: checked ? carrier : undefined,
+                                      carrierVolume: checked ? intraOpData.infiltration?.carrierVolume : undefined,
+                                    }
+                                  };
+                                  setIntraOpData(updated);
+                                  intraOpAutoSave.mutate(updated);
+                                }}
+                              />
+                              <Label htmlFor={`carrier-${carrier}`} className="text-sm">{t(`surgery.intraop.carrierOptions.${carrier}`)}</Label>
+                              {intraOpData.infiltration?.carrier === carrier && (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    className="h-7 w-20 text-sm"
+                                    placeholder="0"
+                                    value={intraOpData.infiltration?.carrierVolume ?? ''}
+                                    onChange={(e) => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        infiltration: { ...intraOpData.infiltration, carrierVolume: e.target.value }
+                                      };
+                                      setIntraOpData(updated);
+                                    }}
+                                    onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                                  />
+                                  <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.medications ? '' : '-rotate-90'}`} />
-                    </div>
-                  </CardHeader>
-                  {expandedIntraOpSections.medications && (
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {["rapidocain1", "ropivacainEpinephrine", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain", "vancomycinImplant", "contrast", "ointments"].map((med) => (
-                        <div key={med} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`meds-${med}`} 
-                            data-testid={`checkbox-meds-${med}`}
+
+                      {/* Additives: LA + Epinephrine */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.additive')}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(["rapidocain1", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain025", "bupivacain05"] as const).map((med) => (
+                            <div key={med} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`meds-${med}`}
+                                data-testid={`checkbox-meds-${med}`}
+                                className="h-4 w-4"
+                                checked={(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true}
+                                onCheckedChange={(checked) => {
+                                  const updated = {
+                                    ...intraOpData,
+                                    medications: {
+                                      ...intraOpData.medications,
+                                      [med]: checked === true,
+                                      [`${med}Volume`]: checked ? (intraOpData.medications as any)?.[`${med}Volume`] : undefined,
+                                    }
+                                  };
+                                  setIntraOpData(updated);
+                                  intraOpAutoSave.mutate(updated);
+                                }}
+                              />
+                              <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                              {(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true && (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    className="h-7 w-20 text-sm"
+                                    placeholder="0"
+                                    value={(intraOpData.medications as any)?.[`${med}Volume`] ?? ''}
+                                    onChange={(e) => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        medications: { ...intraOpData.medications, [`${med}Volume`]: e.target.value }
+                                      };
+                                      setIntraOpData(updated);
+                                    }}
+                                    onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                                  />
+                                  <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="infiltration-epinephrine"
+                            data-testid="checkbox-infiltration-epinephrine"
                             className="h-4 w-4"
-                            checked={(intraOpData.medications as Record<string, boolean>)?.[med] ?? false}
+                            checked={intraOpData.infiltration?.epinephrine ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
                                 ...intraOpData,
-                                medications: {
-                                  ...intraOpData.medications,
-                                  [med]: checked === true
+                                infiltration: {
+                                  ...intraOpData.infiltration,
+                                  epinephrine: checked === true,
+                                  epinephrineAmount: checked ? intraOpData.infiltration?.epinephrineAmount : undefined,
                                 }
                               };
                               setIntraOpData(updated);
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                          <Label htmlFor="infiltration-epinephrine" className="text-sm">{t('surgery.intraop.epinephrine')}</Label>
+                          {intraOpData.infiltration?.epinephrine && (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                className="h-7 w-20 text-sm"
+                                placeholder="0"
+                                value={intraOpData.infiltration?.epinephrineAmount ?? ''}
+                                onChange={(e) => {
+                                  const updated = {
+                                    ...intraOpData,
+                                    infiltration: { ...intraOpData.infiltration, epinephrineAmount: e.target.value }
+                                  };
+                                  setIntraOpData(updated);
+                                }}
+                                onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                              />
+                              <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Total volume */}
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium">{t('surgery.intraop.totalVolume')}</Label>
+                        <Input
+                          className="h-7 w-24 text-sm"
+                          placeholder="0"
+                          value={intraOpData.infiltration?.totalVolume ?? ''}
+                          onChange={(e) => {
+                            const updated = {
+                              ...intraOpData,
+                              infiltration: { ...intraOpData.infiltration, totalVolume: e.target.value }
+                            };
+                            setIntraOpData(updated);
+                          }}
+                          onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                        />
+                        <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
+                      </div>
+
+                      {/* Other infiltration */}
+                      <Input
+                        id="infiltration-other"
+                        data-testid="input-infiltration-other"
+                        className="h-9 text-sm"
+                        placeholder={t('surgery.intraop.infiltrationOther')}
+                        value={intraOpData.infiltration?.other ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            infiltration: { ...intraOpData.infiltration, other: e.target.value }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      />
                     </div>
-                    <Input
-                      id="medications-other"
-                      data-testid="input-medications-other"
-                      className="h-9 text-sm"
-                      placeholder={t('surgery.intraop.medicationsOther')}
-                      value={intraOpData.medications?.other ?? ''}
-                      onChange={(e) => {
-                        const updated = {
-                          ...intraOpData,
-                          medications: {
-                            ...intraOpData.medications,
-                            other: e.target.value
-                          }
-                        };
-                        setIntraOpData(updated);
-                      }}
-                      onBlur={(e) => {
-                        const updated = {
-                          ...intraOpData,
-                          medications: {
-                            ...intraOpData.medications,
-                            other: e.target.value
-                          }
-                        };
-                        intraOpAutoSave.mutate(updated);
-                      }}
-                    />
+
+                    {/* Divider */}
+                    <hr className="border-border" />
+
+                    {/* Other Medications */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.otherMedications')}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {(["vancomycinImplant", "contrast", "ointments"] as const).map((med) => (
+                          <div key={med} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`meds-${med}`}
+                              data-testid={`checkbox-meds-${med}`}
+                              className="h-4 w-4"
+                              checked={(intraOpData.medications as Record<string, boolean | string | undefined>)?.[med] === true}
+                              onCheckedChange={(checked) => {
+                                const updated = {
+                                  ...intraOpData,
+                                  medications: {
+                                    ...intraOpData.medications,
+                                    [med]: checked === true
+                                  }
+                                };
+                                setIntraOpData(updated);
+                                intraOpAutoSave.mutate(updated);
+                              }}
+                            />
+                            <Label htmlFor={`meds-${med}`} className="text-sm">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                          </div>
+                        ))}
+                      </div>
+                      <Input
+                        id="medications-other"
+                        data-testid="input-medications-other"
+                        className="h-9 text-sm"
+                        placeholder={t('surgery.intraop.medicationsOther')}
+                        value={intraOpData.medications?.other ?? ''}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            medications: { ...intraOpData.medications, other: e.target.value }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      />
+                    </div>
                   </CardContent>
                   )}
                 </Card>

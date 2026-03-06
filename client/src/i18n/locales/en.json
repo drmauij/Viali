@@ -4604,6 +4604,18 @@
       },
       "irrigationOther": "Other irrigation...",
       "infiltration": "Infiltration",
+      "infiltrationMedications": "Infiltration & Medications",
+      "tumescentSolution": "Tumescent / Infiltration Solution",
+      "otherMedications": "Other Medications",
+      "carrier": "Carrier",
+      "carrierOptions": {
+        "ringer": "Ringer Solution",
+        "nacl": "NaCl 0.9%"
+      },
+      "additive": "Additive",
+      "epinephrine": "Epinephrine 1:1000 (1mg/ml)",
+      "totalVolume": "Total Volume",
+      "mlUnit": "ml",
       "infiltrationOptions": {
         "tumorSolution": "Tumor Essence Solution"
       },
@@ -4616,6 +4628,8 @@
         "ropivacain075": "Ropivacain 0.75%",
         "ropivacain1": "Ropivacain 1%",
         "bupivacain": "Bupivacain",
+        "bupivacain025": "Bupivacain 0.25%",
+        "bupivacain05": "Bupivacain 0.5%",
         "vancomycinImplant": "Vancomycin 500 mg for Implant Irrigation",
         "contrast": "Contrast Medium",
         "ointments": "Ointments"
