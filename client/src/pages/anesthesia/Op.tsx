@@ -1137,6 +1137,66 @@ export default function Op() {
     signatures?: { circulatingNurse?: string; instrumentNurse?: string };
   }>({});
 
+  // Collapsible section state for intraop cards
+  const [expandedIntraOpSections, setExpandedIntraOpSections] = useState<Record<string, boolean>>({
+    surgeryTimes: false,
+    positioning: false,
+    disinfection: false,
+    equipment: false,
+    co2Pressure: false,
+    tourniquet: false,
+    irrigation: false,
+    infiltration: false,
+    medications: false,
+    dressing: false,
+    drainage: false,
+    xray: false,
+    intraoperativeNotes: false,
+    signatures: true,
+  });
+
+  const toggleIntraOpSection = (section: string) => {
+    setExpandedIntraOpSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const hasIntraOpData = (section: string): boolean => {
+    switch (section) {
+      case 'surgeryTimes':
+        return !!localSurgeryStart || !!localSurgeryEnd;
+      case 'positioning':
+        return !!(intraOpData.positioning && Object.values(intraOpData.positioning).some(v => v));
+      case 'disinfection':
+        return !!(intraOpData.disinfection && Object.values(intraOpData.disinfection).some(v => v));
+      case 'equipment':
+        return !!(intraOpData.equipment && Object.values(intraOpData.equipment).some(v => {
+          if (typeof v === 'object' && v !== null) return Object.values(v).some(sv => sv);
+          return !!v;
+        }));
+      case 'co2Pressure':
+        return !!(intraOpData.co2Pressure?.pressure || intraOpData.co2Pressure?.notes);
+      case 'tourniquet':
+        return !!(intraOpData.tourniquet && Object.values(intraOpData.tourniquet).some(v => v));
+      case 'irrigation':
+        return !!(intraOpData.irrigation && Object.values(intraOpData.irrigation).some(v => v));
+      case 'infiltration':
+        return !!(intraOpData.infiltration && Object.values(intraOpData.infiltration).some(v => v));
+      case 'medications':
+        return !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v));
+      case 'dressing':
+        return !!(intraOpData.dressing && Object.values(intraOpData.dressing).some(v => v));
+      case 'drainage':
+        return !!(intraOpData.drainages && intraOpData.drainages.length > 0) || !!(intraOpData.drainage && (intraOpData.drainage.redonCH || intraOpData.drainage.other));
+      case 'xray':
+        return !!(intraOpData.xray?.used);
+      case 'intraoperativeNotes':
+        return !!intraOpData.intraoperativeNotes;
+      case 'signatures':
+        return !!(intraOpData.signatures?.circulatingNurse || intraOpData.signatures?.instrumentNurse);
+      default:
+        return false;
+    }
+  };
+
   // Auto-save mutation for Intra-Op data (debounced to reduce lag)
   const intraOpAutoSave = useDebouncedAutoSave({
     mutationFn: async (data: typeof intraOpData) => {
@@ -2458,12 +2518,24 @@ export default function Op() {
                 {/* Surgery Times O1/O2 — only for LA surgeries (noPreOpRequired) */}
                 {surgery?.noPreOpRequired && (
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {t('surgery.intraop.surgeryTimes', 'OP-Zeiten')}
-                    </CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('surgeryTimes')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          {t('surgery.intraop.surgeryTimes', 'OP-Zeiten')}
+                        </CardTitle>
+                        {!expandedIntraOpSections.surgeryTimes && hasIntraOpData('surgeryTimes') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.surgeryTimes ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.surgeryTimes && (
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4">
                       {/* O1 - Surgery Start */}
@@ -2549,13 +2621,26 @@ export default function Op() {
                       </div>
                     )}
                   </CardContent>
+                  )}
                 </Card>
                 )}
 
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('positioning')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
+                        {!expandedIntraOpSections.positioning && hasIntraOpData('positioning') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.positioning ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.positioning && (
                   <CardContent className="space-y-2">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
@@ -2618,12 +2703,25 @@ export default function Op() {
                       />
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.disinfection')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('disinfection')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.disinfection')}</CardTitle>
+                        {!expandedIntraOpSections.disinfection && hasIntraOpData('disinfection') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.disinfection ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.disinfection && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="flex items-center space-x-2">
@@ -2891,12 +2989,25 @@ export default function Op() {
                       />
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.equipment')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('equipment')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.equipment')}</CardTitle>
+                        {!expandedIntraOpSections.equipment && hasIntraOpData('equipment') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.equipment ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.equipment && (
                   <CardContent className="space-y-4">
                     {/* Coagulation Subsection */}
                     <div className="rounded-lg bg-muted/30 p-3 space-y-2">
@@ -3118,13 +3229,26 @@ export default function Op() {
                       />
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* CO2 / Laparoskopie Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>CO2 / Laparoskopie</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('co2Pressure')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>CO2 / Laparoskopie</CardTitle>
+                        {!expandedIntraOpSections.co2Pressure && hasIntraOpData('co2Pressure') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.co2Pressure ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.co2Pressure && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -3193,13 +3317,26 @@ export default function Op() {
                       </div>
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Blutsperre / Tourniquet Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>Blutsperre / Tourniquet</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('tourniquet')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>Blutsperre / Tourniquet</CardTitle>
+                        {!expandedIntraOpSections.tourniquet && hasIntraOpData('tourniquet') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.tourniquet ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.tourniquet && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -3354,13 +3491,26 @@ export default function Op() {
                       />
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Irrigation Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.irrigation')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('irrigation')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.irrigation')}</CardTitle>
+                        {!expandedIntraOpSections.irrigation && hasIntraOpData('irrigation') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.irrigation ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.irrigation && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex items-center space-x-2">
@@ -3432,13 +3582,26 @@ export default function Op() {
                       }}
                     />
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Infiltration Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.infiltration')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('infiltration')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.infiltration')}</CardTitle>
+                        {!expandedIntraOpSections.infiltration && hasIntraOpData('infiltration') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.infiltration ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.infiltration && (
                   <CardContent className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <Checkbox
@@ -3489,13 +3652,26 @@ export default function Op() {
                       />
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Medications Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.medications')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('medications')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.medications')}</CardTitle>
+                        {!expandedIntraOpSections.medications && hasIntraOpData('medications') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.medications ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.medications && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {["rapidocain1", "ropivacainEpinephrine", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain", "vancomycinImplant", "contrast", "ointments"].map((med) => (
@@ -3549,13 +3725,26 @@ export default function Op() {
                       }}
                     />
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Dressing Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.dressing')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('dressing')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.dressing')}</CardTitle>
+                        {!expandedIntraOpSections.dressing && hasIntraOpData('dressing') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.dressing ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.dressing && (
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
@@ -3619,13 +3808,26 @@ export default function Op() {
                       }}
                     />
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Drainage Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.drainage')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('drainage')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.drainage')}</CardTitle>
+                        {!expandedIntraOpSections.drainage && hasIntraOpData('drainage') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.drainage ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.drainage && (
                   <CardContent className="space-y-3">
                     {(() => {
                       // Helper: get drainages array, migrating old format if needed
@@ -3760,34 +3962,46 @@ export default function Op() {
                       );
                     })()}
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* X-Ray / Fluoroscopy Section */}
                 <Card>
-                  <CardHeader className="py-3">
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('xray')}
+                  >
                     <div className="flex items-center justify-between">
-                      <CardTitle>{t('surgery.intraop.xray')}</CardTitle>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="xray-used" className="text-sm font-normal">
-                          {t('surgery.intraop.xrayUsed')}
-                        </Label>
-                        <Switch
-                          id="xray-used"
-                          data-testid="switch-xray-used"
-                          checked={intraOpData.xray?.used ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              xray: { ...intraOpData.xray, used: checked }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
+                        <CardTitle>{t('surgery.intraop.xray')}</CardTitle>
+                        {!expandedIntraOpSections.xray && hasIntraOpData('xray') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div onClick={e => e.stopPropagation()} className="flex items-center gap-2">
+                          <Label htmlFor="xray-used" className="text-sm font-normal">
+                            {t('surgery.intraop.xrayUsed')}
+                          </Label>
+                          <Switch
+                            id="xray-used"
+                            data-testid="switch-xray-used"
+                            checked={intraOpData.xray?.used ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                xray: { ...intraOpData.xray, used: checked }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
+                        </div>
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.xray ? '' : '-rotate-90'}`} />
                       </div>
                     </div>
                   </CardHeader>
-                  {intraOpData.xray?.used && (
+                  {expandedIntraOpSections.xray && intraOpData.xray?.used && (
                     <CardContent className="space-y-3">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
@@ -3853,9 +4067,21 @@ export default function Op() {
 
                 {/* Intraoperative Notes Section */}
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>Intraoperative Notizen</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('intraoperativeNotes')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>Intraoperative Notizen</CardTitle>
+                        {!expandedIntraOpSections.intraoperativeNotes && hasIntraOpData('intraoperativeNotes') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.intraoperativeNotes ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.intraoperativeNotes && (
                   <CardContent>
                     <Textarea
                       id="intraoperative-notes"
@@ -3880,12 +4106,25 @@ export default function Op() {
                       }}
                     />
                   </CardContent>
+                  )}
                 </Card>
 
                 <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
+                  <CardHeader
+                    className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleIntraOpSection('signatures')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
+                        {!expandedIntraOpSections.signatures && hasIntraOpData('signatures') && (
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.signatures ? '' : '-rotate-90'}`} />
+                    </div>
                   </CardHeader>
+                  {expandedIntraOpSections.signatures && (
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureZudienung')}</Label>
@@ -3916,6 +4155,7 @@ export default function Op() {
                       </div>
                     </div>
                   </CardContent>
+                  )}
                 </Card>
 
                 {/* Intra-Op Signature Pad Dialogs */}
