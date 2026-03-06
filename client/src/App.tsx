@@ -161,8 +161,8 @@ function Router() {
         <Switch>
           {/* Public routes accessible regardless of auth */}
           <Route path="/patient/:token" component={PatientPortal} />
-          <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
           <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
+          <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
           <Route path="/surgeon-portal/:token" component={SurgeonPortal} />
           <Route path="/contract/:token" component={WorkerContractForm} />

@@ -230,9 +230,9 @@ export async function getUnreadPatientConversationCount(hospitalId: string): Pro
 }
 
 /**
- * Check if patient already has OTHER unread outbound manual messages (notified or not).
- * If yes, we skip sending another SMS — either a notification was already sent,
- * or there's a pending message that will be included in the same notification batch.
+ * Check if patient already has OTHER unread outbound manual messages that were already notified via SMS.
+ * Only messages with status 'notified' count — messages stuck at 'sent' (where SMS failed or was skipped)
+ * should NOT block future SMS notifications.
  * @param excludeMessageId - exclude this message from the check (the one we just created)
  */
 export async function hasOtherUnreadOutboundMessages(hospitalId: string, patientId: string, excludeMessageId?: string): Promise<boolean> {
@@ -244,6 +244,7 @@ export async function hasOtherUnreadOutboundMessages(hospitalId: string, patient
       AND direction = 'outbound'
       AND message_type = 'manual'
       AND read_by_patient_at IS NULL
+      AND status = 'notified'
       ${excludeMessageId ? sql`AND id != ${excludeMessageId}` : sql``}
   `);
   return ((result.rows[0] as any)?.count ?? 0) > 0;

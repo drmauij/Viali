@@ -81,20 +81,26 @@ patientChatRouter.post(
       // Broadcast to patient via portal namespace
       broadcastPatientChatMessage(hospitalId, patientId, created);
 
+      // Unarchive conversation if it was archived (staff sending a new message should resurface it)
+      await unarchivePatientChat(hospitalId, patientId);
+
       // Send SMS notification if patient hasn't been notified yet
       try {
         const alreadyNotified = await hasOtherUnreadOutboundMessages(hospitalId, patientId, created.id);
+        logger.info(`[PatientChat] SMS check for patient ${patientId}: alreadyNotified=${alreadyNotified}`);
         if (!alreadyNotified) {
           const [phone, portalToken] = await Promise.all([
             getPatientPhone(patientId),
             getPatientPortalToken(patientId),
           ]);
+          logger.info(`[PatientChat] SMS prerequisites: phone=${phone ? 'yes' : 'MISSING'}, portalToken=${portalToken ? 'yes' : 'MISSING'}`);
           if (phone && portalToken) {
             const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
             const portalUrl = `${baseUrl}/patient/${portalToken}`;
             const hospital = await storage.getHospital(hospitalId);
             const hospitalName = hospital?.name || 'Your hospital';
             const smsText = `${hospitalName}: You have a new message. View it here: ${portalUrl}`;
+            logger.info(`[PatientChat] Sending SMS to ${phone} via provider for hospital ${hospitalId}`);
             const result = await sendSms(phone, smsText, hospitalId);
             if (result.success) {
               await markMessagesAsNotified(hospitalId, patientId);

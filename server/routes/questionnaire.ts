@@ -1081,7 +1081,22 @@ function flattenIllnessLists(illnessLists: Record<string, any[]> | null | undefi
 }
 
 // Portal verification for patient-specific questionnaire routes
-router.use('/api/public/questionnaire/:token', requirePortalVerification("patient"));
+// Skip verification for hospital open questionnaires (no patient association)
+router.use('/api/public/questionnaire/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const link = await storage.getQuestionnaireLinkByToken(token);
+    if (link && !link.patientId) {
+      // Open hospital questionnaire — no portal verification needed
+      return next();
+    }
+    // Patient-linked questionnaire — require portal verification
+    return requirePortalVerification("patient")(req, res, next);
+  } catch (error) {
+    logger.error("[Questionnaire] Error checking link type:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 // Get questionnaire form configuration (public)
 router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async (req: Request, res: Response) => {

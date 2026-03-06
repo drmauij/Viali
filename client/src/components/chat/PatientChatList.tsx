@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
+import { formatDate } from "@/lib/dateUtils";
 
 interface PatientConversation {
   patientId: string;
@@ -124,7 +125,7 @@ export default function PatientChatList({ hospitalId, onSelectConversation, onSt
                     {patient.surname || ''} {patient.firstName || ''}
                   </div>
                   {patient.birthday && (
-                    <div className="text-xs text-muted-foreground">{patient.birthday}</div>
+                    <div className="text-xs text-muted-foreground">{formatDate(patient.birthday + 'T12:00:00')}</div>
                   )}
                 </div>
               </button>
