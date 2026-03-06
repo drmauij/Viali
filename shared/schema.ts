@@ -5431,6 +5431,9 @@ export const patientDischargeMedications = pgTable("patient_discharge_medication
   notes: text("notes"),
   signature: text("signature"),
   createdBy: varchar("created_by").references(() => users.id),
+  inventoryCommittedAt: timestamp("inventory_committed_at", { withTimezone: true }),
+  inventoryCommittedBy: varchar("inventory_committed_by").references(() => users.id),
+  inventorySignature: text("inventory_signature"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

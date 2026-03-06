@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil, Save, Download, Stethoscope, Sparkles } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
+import { ControlledItemsCommitDialog } from "@/components/anesthesia/ControlledItemsCommitDialog";
 import { formatDate, formatCurrency } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
 
@@ -111,6 +112,7 @@ export function DischargeMedicationsTab({
   const [routeCustomInput, setRouteCustomInput] = useState<Record<number, boolean>>({});
   const [frequencyCustomInput, setFrequencyCustomInput] = useState<Record<number, boolean>>({});
 
+  const [commitSlotId, setCommitSlotId] = useState<string | null>(null);
   const [printDialogSlot, setPrintDialogSlot] = useState<any>(null);
   const [printColumns, setPrintColumns] = useState<string>("2");
   const [printStartRow, setPrintStartRow] = useState<number>(1);
@@ -358,6 +360,21 @@ export function DischargeMedicationsTab({
   };
 
   const hasControlledItems = medicationItems.some(item => item.isControlled);
+
+  const commitMutation = useMutation({
+    mutationFn: async ({ slotId, signature: sig }: { slotId: string; signature: string | null }) => {
+      return apiRequest("POST", `/api/discharge-medications/${slotId}/commit`, { signature: sig });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'discharge-medications'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`] });
+      toast({ title: t('dischargeMedications.inventoryCommitted', 'Inventory committed') });
+      setCommitSlotId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error', 'Error'), description: error.message, variant: "destructive" });
+    },
+  });
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (slot: any) => {
@@ -818,7 +835,24 @@ export function DischargeMedicationsTab({
                   ))}
                 </div>
                 <Separator className="my-3" />
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                  {!slot.inventoryCommittedAt && slot.items?.some((mi: any) => mi.itemId) && canWrite && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommitSlotId(slot.id)}
+                      data-testid={`button-commit-inventory-${slot.id}`}
+                    >
+                      <Package className="h-4 w-4 mr-1" />
+                      {t('dischargeMedications.commitInventory', 'Commit to Inventory')}
+                    </Button>
+                  )}
+                  {slot.inventoryCommittedAt && (
+                    <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/20">
+                      <Package className="h-3 w-3 mr-1" />
+                      {t('dischargeMedications.inventoryCommittedBadge', 'Inventory committed')} — {formatDate(slot.inventoryCommittedAt)}
+                    </Badge>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -890,8 +924,8 @@ export function DischargeMedicationsTab({
             </DialogTitle>
             <DialogDescription>
               {isEditing
-                ? t('dischargeMedications.editDesc', 'Update medications. Inventory adjustments will be recalculated automatically.')
-                : t('dischargeMedications.createDesc', 'Select medications to give the patient at discharge. Inventory will be deducted automatically.')
+                ? t('dischargeMedications.editDesc', 'Update medications for this discharge slot.')
+                : t('dischargeMedications.createDesc', 'Select medications to give the patient at discharge. Use "Commit to Inventory" to deduct stock.')
               }
             </DialogDescription>
           </DialogHeader>
@@ -1402,7 +1436,7 @@ export function DischargeMedicationsTab({
           <AlertDialogHeader>
             <AlertDialogTitle>{t('dischargeMedications.deleteTitle', 'Delete Discharge Medications?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('dischargeMedications.deleteDesc', 'This will delete this medication entry and restore the deducted inventory quantities. This action cannot be undone.')}
+              {t('dischargeMedications.deleteDesc', 'This will delete this medication entry. If inventory was committed, the deducted quantities will be restored. This action cannot be undone.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1535,6 +1569,29 @@ export function DischargeMedicationsTab({
           </div>
         </DialogContent>
       </Dialog>
+      {/* Commit to inventory dialog */}
+      {commitSlotId && (() => {
+        const commitSlot = dischargeMedications?.find((s: any) => s.id === commitSlotId);
+        const commitItems = (commitSlot?.items || [])
+          .filter((mi: any) => mi.itemId)
+          .map((mi: any) => ({
+            itemId: mi.itemId,
+            itemName: mi.item?.name || mi.customName || mi.itemId,
+            quantity: mi.quantity || 1,
+            isControlled: !!mi.item?.controlled,
+          }));
+        return (
+          <ControlledItemsCommitDialog
+            isOpen={true}
+            onClose={() => setCommitSlotId(null)}
+            onCommit={(sig) => commitMutation.mutate({ slotId: commitSlotId, signature: sig })}
+            items={commitItems}
+            isCommitting={commitMutation.isPending}
+            patientName={patientName}
+            patientBirthday={patientBirthday}
+          />
+        );
+      })()}
     </div>
   );
 }

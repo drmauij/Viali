@@ -986,6 +986,7 @@ export interface IStorage {
   createPatientDischargeMedication(data: InsertPatientDischargeMedication, items: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
+  commitDischargeMedicationInventory(slotId: string, committedBy: string, signature: string | null): Promise<PatientDischargeMedication>;
 
   // Worktime Log operations
   getWorktimeLogs(hospitalId: string, filters?: { userId?: string; dateFrom?: string; dateTo?: string }): Promise<WorktimeLog[]>;
@@ -1392,6 +1393,7 @@ export class DatabaseStorage implements IStorage {
   createPatientDischargeMedication = anesthesiaStorage.createPatientDischargeMedication;
   updatePatientDischargeMedication = anesthesiaStorage.updatePatientDischargeMedication;
   deletePatientDischargeMedication = anesthesiaStorage.deletePatientDischargeMedication;
+  commitDischargeMedicationInventory = anesthesiaStorage.commitDischargeMedicationInventory;
 
   // ========== BATCH QUERY OPERATIONS ==========
   getItemsByIds = inventoryStorage.getItemsByIds;

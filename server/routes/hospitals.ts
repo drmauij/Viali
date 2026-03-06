@@ -378,6 +378,29 @@ router.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess
   }
 });
 
+router.post("/api/discharge-medications/:id/commit", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { signature } = req.body;
+
+    const existing = await storage.getPatientDischargeMedication(id);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.inventoryCommittedAt) return res.status(400).json({ error: "Already committed" });
+
+    // Check if any items are controlled — require signature if so
+    const hasControlled = existing.items?.some((mi: any) => mi.item?.controlled);
+    if (hasControlled && !signature) {
+      return res.status(400).json({ error: "Signature required for controlled substances" });
+    }
+
+    const updated = await storage.commitDischargeMedicationInventory(id, req.user.id, signature || null);
+    const fullSlot = await storage.getPatientDischargeMedication(updated.id);
+    res.json(fullSlot);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.delete("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     await storage.deletePatientDischargeMedication(req.params.id);
