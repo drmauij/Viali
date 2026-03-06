@@ -1424,7 +1424,7 @@ export function DischargeMedicationsTab({
               {activeMutation.isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving', 'Saving...')}</>
               ) : (
-                <><Package className="h-4 w-4 mr-2" />{isEditing ? t('dischargeMedications.update', 'Update Medications') : t('dischargeMedications.save', 'Save & Deduct Inventory')}</>
+                <><Package className="h-4 w-4 mr-2" />{isEditing ? t('dischargeMedications.update', 'Update Medications') : t('dischargeMedications.save', 'Save Medications')}</>
               )}
             </Button>
           </div>
