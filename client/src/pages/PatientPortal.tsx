@@ -767,6 +767,7 @@ function PatientPortalContent({ token }: { token: string }) {
   });
   const t = translations[lang];
 
+  const [chatSheetOpen, setChatSheetOpen] = useState(false);
   const [showConsentSigning, setShowConsentSigning] = useState(false);
   const [consentSignature, setConsentSignature] = useState<string | null>(null);
   const [idFrontImage, setIdFrontImage] = useState<string | null>(null);
@@ -1581,8 +1582,8 @@ function PatientPortalContent({ token }: { token: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
-      <div className="lg:flex lg:justify-center lg:gap-6 max-w-5xl mx-auto px-4 py-6">
-        <div className="max-w-lg w-full space-y-4">
+      <div className="max-w-lg mx-auto px-4 py-6">
+        <div className="w-full space-y-4">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -1628,8 +1629,22 @@ function PatientPortalContent({ token }: { token: string }) {
         </Card>
 
         {/* Journey Title */}
-        <div className="pt-2">
+        <div className="pt-2 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t.yourJourney}</h2>
+          {data.patientChatEnabled && (
+            <button
+              onClick={() => setChatSheetOpen(true)}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium shadow transition-colors"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {t.messagesTitle}
+              {chatUnreadCount > 0 && (
+                <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Step 1: Questionnaire (hidden for LA surgeries) */}
@@ -2229,42 +2244,9 @@ function PatientPortalContent({ token }: { token: string }) {
         </div>
         </div>{/* end left column */}
 
-        {/* Desktop chat panel — right column */}
-        {data.patientChatEnabled && (
-          <div className="hidden lg:block lg:w-[380px] lg:shrink-0 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)]">
-            <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-messages">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
-                  <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  {t.messagesTitle}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <PatientMessages
-                  token={token}
-                  hospitalId={data.hospitalId}
-                  patientId={data.patientId}
-                  isDark={isDark}
-                  messages={chatMessages}
-                  messagesLoading={chatMessagesLoading}
-                  className="h-[calc(100vh-10rem)] border-0 rounded-none"
-                  translations={{
-                    messagesTitle: t.messagesTitle,
-                    typeMessage: t.typeMessage,
-                    send: t.send,
-                    noMessages: t.noMessages,
-                    noMessagesDesc: t.noMessagesDesc,
-                    today: t.today,
-                    yesterday: t.yesterday,
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
 
-      {/* Mobile chat FAB */}
+      {/* Chat FAB */}
       {data.patientChatEnabled && (
         <ChatFab
           token={token}
@@ -2274,6 +2256,8 @@ function PatientPortalContent({ token }: { token: string }) {
           unreadCount={chatUnreadCount}
           messages={chatMessages}
           messagesLoading={chatMessagesLoading}
+          desktopOpen={chatSheetOpen}
+          onDesktopOpenChange={setChatSheetOpen}
           translations={{
             messagesTitle: t.messagesTitle,
             typeMessage: t.typeMessage,

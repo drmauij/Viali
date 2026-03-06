@@ -235,7 +235,7 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
                         </span>
                         {msg.direction === 'inbound' && (
                           msg.readByStaffAt ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                            <CheckCheck className="w-3.5 h-3.5 text-white" />
                           ) : (
                             <Check className="w-3.5 h-3.5 opacity-70" />
                           )

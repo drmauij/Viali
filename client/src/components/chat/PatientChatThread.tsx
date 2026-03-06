@@ -254,7 +254,7 @@ export default function PatientChatThread({
                             )}
                             {msg.messageType === 'manual' && (
                               isRead ? (
-                                <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                                <CheckCheck className="w-3.5 h-3.5 text-white" />
                               ) : isNotified ? (
                                 <CheckCheck className="w-3.5 h-3.5 opacity-60" />
                               ) : (
