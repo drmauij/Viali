@@ -54,17 +54,20 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
     ringerSolution: t('surgery.intraop.irrigationOptions.ringerSolution'),
   };
   const infiltrationLabels: Record<string, string> = {
-    _title: t('surgery.intraop.infiltration'),
+    _title: t('surgery.intraop.infiltrationMedications'),
     tumorSolution: t('surgery.intraop.infiltrationOptions.tumorSolution'),
+    epinephrine: t('surgery.intraop.epinephrine'),
   };
   const medicationLabels: Record<string, string> = {
-    _title: t('surgery.intraop.medications'),
+    _title: t('surgery.intraop.infiltrationMedications'),
     rapidocain1: t('surgery.intraop.medicationOptions.rapidocain1'),
     ropivacainEpinephrine: t('surgery.intraop.medicationOptions.ropivacainEpinephrine'),
     ropivacain05: t('surgery.intraop.medicationOptions.ropivacain05'),
     ropivacain075: t('surgery.intraop.medicationOptions.ropivacain075'),
     ropivacain1: t('surgery.intraop.medicationOptions.ropivacain1'),
     bupivacain: t('surgery.intraop.medicationOptions.bupivacain'),
+    bupivacain025: t('surgery.intraop.medicationOptions.bupivacain025'),
+    bupivacain05: t('surgery.intraop.medicationOptions.bupivacain05'),
     vancomycinImplant: t('surgery.intraop.medicationOptions.vancomycinImplant'),
     contrast: t('surgery.intraop.medicationOptions.contrast'),
     ointments: t('surgery.intraop.medicationOptions.ointments'),
@@ -138,19 +141,52 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
       }
     }
 
-    const rightColumnKeys = new Set(['medications', 'infiltration']);
-    const booleanSections: [string, Record<string, string>][] = [
-      ['irrigation', irrigationLabels],
-      ['infiltration', infiltrationLabels],
-      ['medications', medicationLabels],
-      ['dressing', dressingLabels],
-    ];
-    for (const [key, labels] of booleanSections) {
-      if (intraOp[key]) {
-        const items = getBooleanItems(intraOp[key], labels);
-        if (items.length > 0) {
-          sections.push({ title: labels._title, checkItems: items, details: [], column: rightColumnKeys.has(key) ? 'right' : undefined });
+    // Irrigation (standalone)
+    if (intraOp.irrigation) {
+      const items = getBooleanItems(intraOp.irrigation, irrigationLabels);
+      if (items.length > 0) {
+        sections.push({ title: irrigationLabels._title, checkItems: items, details: [] });
+      }
+    }
+
+    // Infiltration & Medications (merged into one section)
+    {
+      const checkItems: { key: string; label: string }[] = [];
+      const details: { label: string; value: string }[] = [];
+
+      if (intraOp.infiltration) {
+        const inf = intraOp.infiltration;
+        if (inf.carrier) details.push({ label: t('surgery.intraop.carrier'), value: t(`surgery.intraop.carrierOptions.${inf.carrier}`) + (inf.carrierVolume ? ` ${inf.carrierVolume} ${t('surgery.intraop.mlUnit')}` : '') });
+        // backward compat: old tumorSolution boolean
+        if (inf.tumorSolution) checkItems.push({ key: 'tumorSolution', label: infiltrationLabels.tumorSolution });
+        if (inf.epinephrine) checkItems.push({ key: 'epinephrine', label: t('surgery.intraop.epinephrine') + (inf.epinephrineAmount ? ` ${inf.epinephrineAmount} ${t('surgery.intraop.mlUnit')}` : '') });
+        if (inf.totalVolume) details.push({ label: t('surgery.intraop.totalVolume'), value: `${inf.totalVolume} ${t('surgery.intraop.mlUnit')}` });
+        if (inf.other) details.push({ label: t('surgery.intraop.infiltrationOther'), value: inf.other });
+      }
+
+      if (intraOp.medications) {
+        const meds = intraOp.medications;
+        // All medication booleans with optional volume
+        for (const [key, label] of Object.entries(medicationLabels)) {
+          if (key === '_title') continue;
+          if (meds[key] === true) {
+            const vol = meds[`${key}Volume`];
+            checkItems.push({ key, label: label + (vol ? ` ${vol} ${t('surgery.intraop.mlUnit')}` : '') });
+          }
         }
+        if (meds.other) details.push({ label: t('surgery.intraop.medicationsOther'), value: meds.other });
+      }
+
+      if (checkItems.length > 0 || details.length > 0) {
+        sections.push({ title: t('surgery.intraop.infiltrationMedications'), checkItems, details, column: 'right' });
+      }
+    }
+
+    // Dressing
+    if (intraOp.dressing) {
+      const items = getBooleanItems(intraOp.dressing, dressingLabels);
+      if (items.length > 0) {
+        sections.push({ title: dressingLabels._title, checkItems: items, details: [] });
       }
     }
 

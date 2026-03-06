@@ -2957,38 +2957,61 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         }
       }
 
-      // Infiltration
-      if (intraOpData.infiltration) {
-        const inf = intraOpData.infiltration;
-        const infList: string[] = [];
-        if (inf.tumorSolution) infList.push(i18next.t("anesthesia.pdf.nurseDoc.tumorSolution", "Tumor solution"));
-        if (inf.other) infList.push(inf.other);
+      // Infiltration & Medications (merged section)
+      if (intraOpData.infiltration || intraOpData.medications) {
+        const parts: string[] = [];
 
-        if (infList.length > 0) {
-          doc.setFont("helvetica", "bold");
-          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.infiltration", "Infiltration")}: `, 25, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(infList.join(", "), 60, yPos);
-          yPos += 6;
+        // Infiltration data
+        if (intraOpData.infiltration) {
+          const inf = intraOpData.infiltration;
+          if (inf.carrier) {
+            const carrierLabel = inf.carrier === 'ringer' ? 'Ringer' : 'NaCl 0.9%';
+            parts.push(carrierLabel + (inf.carrierVolume ? ` ${inf.carrierVolume} ml` : ''));
+          }
+          // backward compat: old tumorSolution
+          if (inf.tumorSolution) parts.push(i18next.t("anesthesia.pdf.nurseDoc.tumorSolution", "Tumor solution"));
+          if (inf.epinephrine) parts.push(i18next.t("surgery.intraop.epinephrine", "Epinephrine 1:1000 (1mg/ml)") + (inf.epinephrineAmount ? ` ${inf.epinephrineAmount} ml` : ''));
+          if (inf.totalVolume) parts.push(`${i18next.t("surgery.intraop.totalVolume", "Total Volume")}: ${inf.totalVolume} ml`);
+          if (inf.other) parts.push(inf.other);
         }
-      }
 
-      // Medications (intra-op)
-      if (intraOpData.medications) {
-        const meds = intraOpData.medications;
-        const medList: string[] = [];
-        if (meds.ropivacain) medList.push("Ropivacain");
-        if (meds.bupivacain) medList.push("Bupivacain");
-        if (meds.contrast) medList.push(i18next.t("anesthesia.pdf.nurseDoc.contrast", "Contrast"));
-        if (meds.ointments) medList.push(i18next.t("anesthesia.pdf.nurseDoc.ointments", "Ointments"));
-        if (meds.other) medList.push(meds.other);
+        // Medications data (LA + other meds)
+        if (intraOpData.medications) {
+          const meds = intraOpData.medications;
+          const medKeys: [string, string][] = [
+            ['rapidocain1', 'Rapidocain 1%'],
+            ['ropivacainEpinephrine', 'Ropivacain 1% + Epi'],
+            ['ropivacain05', 'Ropivacain 0.5%'],
+            ['ropivacain075', 'Ropivacain 0.75%'],
+            ['ropivacain1', 'Ropivacain 1%'],
+            ['bupivacain', 'Bupivacain'],
+            ['bupivacain025', 'Bupivacain 0.25%'],
+            ['bupivacain05', 'Bupivacain 0.5%'],
+            ['vancomycinImplant', i18next.t("surgery.intraop.medicationOptions.vancomycinImplant", "Vancomycin 500mg Implant")],
+            ['contrast', i18next.t("anesthesia.pdf.nurseDoc.contrast", "Contrast")],
+            ['ointments', i18next.t("anesthesia.pdf.nurseDoc.ointments", "Ointments")],
+          ];
+          for (const [key, label] of medKeys) {
+            if (meds[key]) {
+              const vol = meds[`${key}Volume`];
+              parts.push(label + (vol ? ` ${vol} ml` : ''));
+            }
+          }
+          // backward compat: old generic ropivacain field
+          if ((meds as any).ropivacain && !meds.ropivacain05 && !meds.ropivacain075 && !meds.ropivacain1) {
+            parts.push("Ropivacain");
+          }
+          if (meds.other) parts.push(meds.other);
+        }
 
-        if (medList.length > 0) {
+        if (parts.length > 0) {
+          yPos = checkPageBreak(doc, yPos, 15);
           doc.setFont("helvetica", "bold");
-          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.intraOpMeds", "Intra-Op Medications")}: `, 25, yPos);
+          doc.text(`${i18next.t("surgery.intraop.infiltrationMedications", "Infiltration & Medications")}: `, 25, yPos);
           doc.setFont("helvetica", "normal");
-          doc.text(medList.join(", "), 75, yPos);
-          yPos += 6;
+          const textLines = doc.splitTextToSize(parts.join(", "), 120);
+          doc.text(textLines, 75, yPos);
+          yPos += textLines.length * 5 + 2;
         }
       }
 

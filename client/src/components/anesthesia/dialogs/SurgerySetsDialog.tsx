@@ -77,8 +77,7 @@ export function SurgerySetsDialog({
     co2Pressure: false,
     tourniquet: false,
     irrigation: false,
-    infiltration: false,
-    medications: false,
+    infiltrationMedications: false,
     dressing: false,
     drainage: false,
     xray: false,
@@ -552,27 +551,44 @@ export function SurgerySetsDialog({
           </div>
 
           <div className="px-2">
-            {renderSectionHeader("infiltration", t('surgery.intraop.infiltration'))}
-            {expandedSections.infiltration && (
-              <div className="pb-3 pl-2 grid grid-cols-2 gap-2">
-                {renderIntraOpCheckbox("infiltration", "tumorSolution", t('surgery.intraop.infiltrationOptions.tumorSolution'))}
-              </div>
-            )}
-          </div>
-
-          <div className="px-2">
-            {renderSectionHeader("medications", t('surgery.intraop.medications'))}
-            {expandedSections.medications && (
-              <div className="pb-3 pl-2 grid grid-cols-2 gap-2">
-                {renderIntraOpCheckbox("medications", "rapidocain1", t('surgery.intraop.medicationOptions.rapidocain1'))}
-                {renderIntraOpCheckbox("medications", "ropivacainEpinephrine", t('surgery.intraop.medicationOptions.ropivacainEpinephrine'))}
-                {renderIntraOpCheckbox("medications", "ropivacain05", t('surgery.intraop.medicationOptions.ropivacain05'))}
-                {renderIntraOpCheckbox("medications", "ropivacain075", t('surgery.intraop.medicationOptions.ropivacain075'))}
-                {renderIntraOpCheckbox("medications", "ropivacain1", t('surgery.intraop.medicationOptions.ropivacain1'))}
-                {renderIntraOpCheckbox("medications", "bupivacain", t('surgery.intraop.medicationOptions.bupivacain'))}
-                {renderIntraOpCheckbox("medications", "vancomycinImplant", t('surgery.intraop.medicationOptions.vancomycinImplant'))}
-                {renderIntraOpCheckbox("medications", "contrast", t('surgery.intraop.medicationOptions.contrast'))}
-                {renderIntraOpCheckbox("medications", "ointments", t('surgery.intraop.medicationOptions.ointments'))}
+            {renderSectionHeader("infiltrationMedications", t('surgery.intraop.infiltrationMedications'))}
+            {expandedSections.infiltrationMedications && (
+              <div className="pb-3 pl-2 space-y-3">
+                <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.carrier')}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['ringer', 'nacl'] as const).map((carrier) => (
+                    <div className="flex items-center gap-2" key={`carrier-${carrier}`}>
+                      <Checkbox
+                        id={`set-carrier-${carrier}`}
+                        checked={formIntraOpData.infiltration?.carrier === carrier}
+                        onCheckedChange={(checked) => {
+                          toggleIntraOpField("infiltration", "carrier", checked ? carrier : undefined);
+                        }}
+                        data-testid={`checkbox-set-carrier-${carrier}`}
+                      />
+                      <Label htmlFor={`set-carrier-${carrier}`} className="text-sm cursor-pointer">
+                        {t(`surgery.intraop.carrierOptions.${carrier}`)}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.additive')}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {renderIntraOpCheckbox("medications", "rapidocain1", t('surgery.intraop.medicationOptions.rapidocain1'))}
+                  {renderIntraOpCheckbox("medications", "ropivacain05", t('surgery.intraop.medicationOptions.ropivacain05'))}
+                  {renderIntraOpCheckbox("medications", "ropivacain075", t('surgery.intraop.medicationOptions.ropivacain075'))}
+                  {renderIntraOpCheckbox("medications", "ropivacain1", t('surgery.intraop.medicationOptions.ropivacain1'))}
+                  {renderIntraOpCheckbox("medications", "bupivacain025", t('surgery.intraop.medicationOptions.bupivacain025'))}
+                  {renderIntraOpCheckbox("medications", "bupivacain05", t('surgery.intraop.medicationOptions.bupivacain05'))}
+                  {renderIntraOpCheckbox("infiltration", "epinephrine", t('surgery.intraop.epinephrine'))}
+                </div>
+                <hr className="border-border" />
+                <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.otherMedications')}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {renderIntraOpCheckbox("medications", "vancomycinImplant", t('surgery.intraop.medicationOptions.vancomycinImplant'))}
+                  {renderIntraOpCheckbox("medications", "contrast", t('surgery.intraop.medicationOptions.contrast'))}
+                  {renderIntraOpCheckbox("medications", "ointments", t('surgery.intraop.medicationOptions.ointments'))}
+                </div>
               </div>
             )}
           </div>
