@@ -1117,7 +1117,9 @@ export async function getPreOpAssessment(surgeryId: string): Promise<PreOpAssess
         eq(preOpAssessments.surgeryId, surgeryId),
         eq(surgeries.isArchived, false)
       )
-    );
+    )
+    .orderBy(desc(preOpAssessments.updatedAt))
+    .limit(1);
   return result?.assessment;
 }
 
@@ -1192,7 +1194,8 @@ export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[])
         cave: preOpAssessments.cave,
       })
       .from(preOpAssessments)
-      .where(inArray(preOpAssessments.surgeryId, surgeryIds)),
+      .where(inArray(preOpAssessments.surgeryId, surgeryIds))
+      .orderBy(asc(preOpAssessments.updatedAt)),
     db
       .select({
         surgeryId: surgeryPreOpAssessments.surgeryId,
@@ -1224,8 +1227,9 @@ export async function getPreOpAssessmentStatusBySurgeryIds(surgeryIds: string[])
       cave: r.cave,
     });
   }
-  // Surgery pre-ops don't have anesthesia summary fields
+  // Surgery pre-ops don't have anesthesia summary fields — only use if no anesthesia pre-op exists
   for (const r of surgeryResults) {
+    if (map.has(r.surgeryId)) continue; // Anesthesia pre-op takes priority (more complete data)
     map.set(r.surgeryId, {
       status: r.status,
       standBy: r.standBy,

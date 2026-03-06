@@ -392,6 +392,13 @@ export function usePatientMutations({
     },
     onSuccess: async (result: { response: any; shouldSendEmail: boolean; standByData: { standBy: boolean; standByReason: string } }) => {
       setTimeout(() => { isSavingRef.current = false; }, 500);
+      // Immediately set the created assessment as query data so existingAssessment
+      // is populated right away. This prevents a race condition where a subsequent
+      // save (auto-save or manual) could try to CREATE again before the invalidation
+      // refetch completes, hitting the unique constraint on surgery_id.
+      if (result.response?.id) {
+        queryClient.setQueryData([`/api/anesthesia/preop/surgery/${selectedCaseId}`], result.response);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${hospitalId}`] });
       toast({
