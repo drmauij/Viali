@@ -22,7 +22,9 @@ import {
 import { broadcastPatientChatMessage, notifyStaffOfPatientMessage, notifyStaffOfPatientRead } from "../socket";
 import { sendSms } from "../sms";
 import { storage } from "../storage";
+import { createQuestionnaireLink } from "../storage/questionnaires";
 import logger from "../logger";
+import { nanoid } from "nanoid";
 
 export const patientChatRouter = Router();
 
@@ -89,10 +91,35 @@ patientChatRouter.post(
         const alreadyNotified = await hasOtherUnreadOutboundMessages(hospitalId, patientId, created.id);
         logger.info(`[PatientChat] SMS check for patient ${patientId}: alreadyNotified=${alreadyNotified}`);
         if (!alreadyNotified) {
-          const [phone, portalToken] = await Promise.all([
+          const [phone, existingToken] = await Promise.all([
             getPatientPhone(patientId),
             getPatientPortalToken(patientId),
           ]);
+
+          // Auto-generate a portal link if none exists
+          let portalToken = existingToken;
+          if (!portalToken) {
+            try {
+              const token = nanoid(32);
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 30);
+              await createQuestionnaireLink({
+                token,
+                hospitalId,
+                patientId,
+                surgeryId: null,
+                createdBy: user.id,
+                expiresAt,
+                status: 'pending',
+                language: 'de',
+              });
+              portalToken = token;
+              logger.info(`[PatientChat] Auto-generated portal link for patient ${patientId}`);
+            } catch (linkError) {
+              logger.error(`[PatientChat] Failed to auto-generate portal link:`, linkError);
+            }
+          }
+
           logger.info(`[PatientChat] SMS prerequisites: phone=${phone ? 'yes' : 'MISSING'}, portalToken=${portalToken ? 'yes' : 'MISSING'}`);
           if (phone && portalToken) {
             const baseUrl = process.env.PRODUCTION_URL || 'http://localhost:5000';
