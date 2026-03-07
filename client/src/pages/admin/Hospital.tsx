@@ -5122,9 +5122,7 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
 function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Check TARDOC import status
   const { data: tardocStatus, isLoading: tardocStatusLoading, refetch: refetchTardocStatus } = useQuery<{
     count: number;
     version: string | null;
@@ -5133,23 +5131,9 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     retry: false,
   });
 
-  // TARDOC import mutation (file upload)
   const importTardocMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // Remove data:...;base64, prefix
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-tardoc`, {
-        fileContent: base64,
-        fileName: file.name,
-      });
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-tardoc-remote`, {});
       return response.json();
     },
     onSuccess: (data: any) => {
@@ -5168,15 +5152,6 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      importTardocMutation.mutate(file);
-    }
-    // Reset input so the same file can be selected again
-    e.target.value = '';
-  };
-
   return (
     <div className="border rounded-lg p-4">
       <div className="flex items-center justify-between">
@@ -5193,9 +5168,9 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 href="https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:underline text-xs"
               >
-                {t('admin.tardocDownloadSource', 'Download from oaat-otma.ch')}
+                oaat-otma.ch
               </a>
             </p>
           </div>
@@ -5222,15 +5197,8 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             )}
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => importTardocMutation.mutate()}
             disabled={importTardocMutation.isPending || !hospitalId}
             size="sm"
             data-testid="button-import-tardoc"
@@ -5254,9 +5222,7 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
 
 // Ambulante Pauschalen Integration Card
 function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
-  const { t } = useTranslation();
   const { toast } = useToast();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const { data: apStatus, isLoading: apStatusLoading, refetch: refetchApStatus } = useQuery<{
     count: number;
@@ -5267,20 +5233,8 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   });
 
   const importApMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-ambulante-pauschalen`, {
-        fileContent: base64,
-      });
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-ap-remote`, {});
       return response.json();
     },
     onSuccess: (data: any) => {
@@ -5296,12 +5250,6 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) importApMutation.mutate(file);
-    e.target.value = '';
-  };
-
   return (
     <div className="border rounded-lg p-4">
       <div className="flex items-center justify-between">
@@ -5313,8 +5261,8 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               Swiss flat-rate outpatient billing codes.{' '}
-              <a href="https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                Download from oaat-otma.ch
+              <a href="https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                oaat-otma.ch
               </a>
             </p>
           </div>
@@ -5339,15 +5287,8 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             )}
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => importApMutation.mutate()}
             disabled={importApMutation.isPending || !hospitalId}
             size="sm"
           >

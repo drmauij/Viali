@@ -147,6 +147,59 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
   }
 });
 
+// Import TARDOC catalog directly from oaat-otma.ch (admin only)
+router.post('/api/admin/:hospitalId/import-tardoc-remote', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const hospitalAccess = await storage.getUserHospitals(userId);
+    const isAdmin = hospitalAccess.some(h => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const version = req.body.version || '1.4c';
+    const url = `https://oaat-otma.ch/fileadmin/redaktion/dokumente/DE/Gesamt-Tarifsystem/Vertraege_und_Anhaenge/Anhang_A2_Katalog_des_TARDOC_${version}.xlsx`;
+
+    logger.info(`[Admin] Fetching TARDOC catalog from ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download TARDOC catalog: HTTP ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    logger.info(`[Admin] Downloaded ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
+
+    const [countBefore] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
+    const existingCount = Number(countBefore?.count || 0);
+
+    const result = await importTardocFromExcel(buffer, version);
+
+    const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
+    const finalCount = Number(countAfter?.count || 0);
+    const newRecords = finalCount - existingCount;
+
+    const message = existingCount > 0
+      ? `TARDOC catalog updated (${newRecords} new, ${existingCount} updated)`
+      : `Successfully imported ${result.imported} TARDOC positions`;
+
+    res.json({
+      success: true,
+      message,
+      imported: result.imported,
+      skipped: result.skipped,
+      newRecords,
+      version: result.version,
+    });
+  } catch (error: any) {
+    logger.error("[Admin] TARDOC remote import error:", error);
+    res.status(500).json({
+      message: "Failed to import TARDOC catalog from oaat-otma.ch",
+      error: error.message,
+    });
+  }
+});
+
 // TARDOC catalog status
 router.get('/api/admin/tardoc-status', isAuthenticated, async (req: any, res: Response) => {
   try {
@@ -253,6 +306,59 @@ router.post('/api/admin/:hospitalId/import-ambulante-pauschalen', isAuthenticate
     logger.error("[Admin] AP import error:", error);
     res.status(500).json({
       message: "Failed to import AP catalog",
+      error: error.message,
+    });
+  }
+});
+
+// Import AP catalog directly from oaat-otma.ch (admin only)
+router.post('/api/admin/:hospitalId/import-ap-remote', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const hospitalAccess = await storage.getUserHospitals(userId);
+    const isAdmin = hospitalAccess.some(h => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const version = req.body.version || '1.1c';
+    const url = `https://oaat-otma.ch/fileadmin/redaktion/dokumente/DE/Gesamt-Tarifsystem/Vertraege_und_Anhaenge/Anhang_A1_Katalog_der_Ambulanten_Pauschalen_v${version}.xlsx`;
+
+    logger.info(`[Admin] Fetching AP catalog from ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download AP catalog: HTTP ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    logger.info(`[Admin] Downloaded ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
+
+    const [countBefore] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
+    const existingCount = Number(countBefore?.count || 0);
+
+    const result = await importApFromExcel(buffer, version);
+
+    const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
+    const finalCount = Number(countAfter?.count || 0);
+    const newRecords = finalCount - existingCount;
+
+    const message = existingCount > 0
+      ? `AP catalog updated (${newRecords} new, ${existingCount} updated)`
+      : `Successfully imported ${result.imported} Ambulante Pauschalen`;
+
+    res.json({
+      success: true,
+      message,
+      imported: result.imported,
+      skipped: result.skipped,
+      newRecords,
+      version: result.version,
+    });
+  } catch (error: any) {
+    logger.error("[Admin] AP remote import error:", error);
+    res.status(500).json({
+      message: "Failed to import AP catalog from oaat-otma.ch",
       error: error.message,
     });
   }
