@@ -5699,13 +5699,6 @@ function ChopIntegrationCard() {
           <div className="flex items-center gap-2">
             {chopStatusLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-            ) : chopStatusError ? (
-              <>
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <span className="text-sm text-red-600">
-                  {t('admin.accessDenied', 'Admin access required')}
-                </span>
-              </>
             ) : chopStatus?.imported ? (
               <>
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
