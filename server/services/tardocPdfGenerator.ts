@@ -24,6 +24,7 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 
 interface PdfInvoiceData {
   invoiceNumber: number;
+  tariffSystem?: string | null;
   billingModel: string;
   lawType: string;
   treatmentType: string | null;
@@ -65,6 +66,8 @@ interface PdfInvoiceData {
     scalingFactor: string | null;
     sideCode: string | null;
     providerGln: string | null;
+    amountAl: string | null;
+    amountTl: string | null;
     amountChf: string;
   }>;
   hospital: {
@@ -181,21 +184,55 @@ export function generateTardocPdf(data: PdfInvoiceData): Buffer {
   pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
   y += 2;
 
-  const tableBody = data.items.map(item => [
-    formatDateShort(item.treatmentDate),
-    item.tardocCode,
-    item.description.length > 40 ? item.description.substring(0, 40) + '...' : item.description,
-    String(item.session || 1),
-    String(item.quantity),
-    item.taxPoints,
-    parseFloat(item.tpValue).toFixed(4),
-    item.scalingFactor || '1.00',
-    `${parseFloat(item.amountChf).toFixed(2)}`,
-  ]);
+  const isPauschale = data.tariffSystem === 'pauschale';
+
+  const tableBody = isPauschale
+    ? data.items.map(item => [
+        formatDateShort(item.treatmentDate),
+        item.tardocCode,
+        item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description,
+        String(item.quantity),
+        `${parseFloat(item.amountChf).toFixed(2)}`,
+      ])
+    : data.items.map(item => [
+        formatDateShort(item.treatmentDate),
+        item.tardocCode,
+        item.description.length > 40 ? item.description.substring(0, 40) + '...' : item.description,
+        String(item.session || 1),
+        String(item.quantity),
+        item.taxPoints,
+        parseFloat(item.tpValue).toFixed(4),
+        item.scalingFactor || '1.00',
+        `${parseFloat(item.amountChf).toFixed(2)}`,
+      ]);
+
+  const tableHead = isPauschale
+    ? [['Datum', 'Code', 'Bezeichnung', 'Anz.', 'Betrag']]
+    : [['Datum', 'Code', 'Bezeichnung', 'Sitz.', 'Anz.', 'TP', 'TPW', 'SF', 'Betrag']];
+
+  const columnStyles = isPauschale
+    ? {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 'auto' } as any,
+        3: { cellWidth: 12, halign: 'right' } as any,
+        4: { cellWidth: 25, halign: 'right' } as any,
+      }
+    : {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 'auto' } as any,
+        3: { cellWidth: 10, halign: 'right' } as any,
+        4: { cellWidth: 10, halign: 'right' } as any,
+        5: { cellWidth: 15, halign: 'right' } as any,
+        6: { cellWidth: 15, halign: 'right' } as any,
+        7: { cellWidth: 12, halign: 'right' } as any,
+        8: { cellWidth: 20, halign: 'right' } as any,
+      };
 
   pdf.autoTable({
     startY: y,
-    head: [['Datum', 'Code', 'Bezeichnung', 'Sitz.', 'Anz.', 'TP', 'TPW', 'SF', 'Betrag']],
+    head: tableHead,
     body: tableBody,
     margin: { left: MARGIN, right: MARGIN },
     styles: {
@@ -208,17 +245,7 @@ export function generateTardocPdf(data: PdfInvoiceData): Buffer {
       fontStyle: 'bold',
       fontSize: 7,
     },
-    columnStyles: {
-      0: { cellWidth: 18 }, // Date
-      1: { cellWidth: 18 }, // Code
-      2: { cellWidth: 'auto' }, // Description
-      3: { cellWidth: 10, halign: 'right' }, // Session
-      4: { cellWidth: 10, halign: 'right' }, // Qty
-      5: { cellWidth: 15, halign: 'right' }, // TP
-      6: { cellWidth: 15, halign: 'right' }, // TPW
-      7: { cellWidth: 12, halign: 'right' }, // SF
-      8: { cellWidth: 20, halign: 'right' }, // Amount
-    },
+    columnStyles,
     theme: 'grid',
     didDrawPage: () => {
       // Footer on each page
@@ -247,13 +274,29 @@ export function generateTardocPdf(data: PdfInvoiceData): Buffer {
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'normal');
 
-  pdf.text('Taxpunkte Total:', totalsX, y);
-  pdf.text(`${parseFloat(data.subtotalTp || '0').toFixed(2)} TP`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
-  y += 5;
+  if (!isPauschale) {
+    pdf.text('Taxpunkte Total:', totalsX, y);
+    pdf.text(`${parseFloat(data.subtotalTp || '0').toFixed(2)} TP`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
+    y += 5;
 
-  pdf.text('Taxpunktwert:', totalsX, y);
-  pdf.text(`CHF ${parseFloat(data.tpValue || '1').toFixed(4)}`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
-  y += 5;
+    pdf.text('Taxpunktwert:', totalsX, y);
+    pdf.text(`CHF ${parseFloat(data.tpValue || '1').toFixed(4)}`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
+    y += 5;
+
+    // AL/TL breakdown
+    const totalAl = data.items.reduce((sum, item) => sum + (parseFloat(item.amountAl || '0') || 0), 0);
+    const totalTl = data.items.reduce((sum, item) => sum + (parseFloat(item.amountTl || '0') || 0), 0);
+
+    if (totalAl > 0 || totalTl > 0) {
+      pdf.text('AL (Ärztliche Leistung):', totalsX, y);
+      pdf.text(`CHF ${totalAl.toFixed(2)}`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
+      y += 5;
+
+      pdf.text('TL (Technische Leistung):', totalsX, y);
+      pdf.text(`CHF ${totalTl.toFixed(2)}`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
+      y += 5;
+    }
+  }
 
   pdf.text('Subtotal:', totalsX, y);
   pdf.text(`CHF ${parseFloat(data.subtotalChf || '0').toFixed(2)}`, PAGE_WIDTH - MARGIN, y, { align: 'right' });
@@ -350,6 +393,7 @@ export async function generatePdfForInvoice(invoiceId: string, hospitalId: strin
 
   return generateTardocPdf({
     invoiceNumber: invoice.invoiceNumber,
+    tariffSystem: invoice.tariffSystem,
     billingModel: invoice.billingModel,
     lawType: invoice.lawType,
     treatmentType: invoice.treatmentType,
@@ -391,6 +435,8 @@ export async function generatePdfForInvoice(invoiceId: string, hospitalId: strin
       scalingFactor: i.scalingFactor,
       sideCode: i.sideCode,
       providerGln: i.providerGln,
+      amountAl: i.amountAl,
+      amountTl: i.amountTl,
       amountChf: i.amountChf,
     })),
     hospital: {

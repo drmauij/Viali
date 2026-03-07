@@ -5693,6 +5693,8 @@ export const tardocCatalog = pgTable("tardoc_catalog", {
   technicalInterpretation: decimal("technical_interpretation", { precision: 10, scale: 2 }), // TL (Technische Leistung) tax points
   durationMinutes: integer("duration_minutes"), // Reference duration
   sideCode: varchar("side_code"), // "N"=none, "L"=left, "R"=right, "B"=both
+  maxQuantityPerSession: integer("max_quantity_per_session"), // Max allowed quantity per session
+  maxQuantityPerCase: integer("max_quantity_per_case"), // Max allowed quantity per case
   validFrom: date("valid_from"), // Validity start date
   validTo: date("valid_to"), // Validity end date
   version: varchar("version").default("1.3.2").notNull(), // TARDOC version
@@ -5742,6 +5744,9 @@ export const tardocInvoices = pgTable("tardoc_invoices", {
   invoiceNumber: integer("invoice_number").notNull(), // Auto-increment per hospital
   patientId: varchar("patient_id").references(() => patients.id),
   surgeryId: varchar("surgery_id").references(() => surgeries.id), // Optional link to surgery
+
+  // Tariff system
+  tariffSystem: varchar("tariff_system").default("tardoc"), // "tardoc" or "pauschale"
 
   // Billing model
   billingModel: varchar("billing_model", { enum: ["TG", "TP"] }).notNull(), // Tiers Garant / Tiers Payant
@@ -5820,7 +5825,8 @@ export type InsertTardocInvoice = z.infer<typeof insertTardocInvoiceSchema>;
 export const tardocInvoiceItems = pgTable("tardoc_invoice_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceId: varchar("invoice_id").notNull().references(() => tardocInvoices.id, { onDelete: 'cascade' }),
-  tardocCode: varchar("tardoc_code").notNull(), // TARDOC code
+  tariffType: varchar("tariff_type").default("590"), // 590=TARDOC, 010=Ambulante Pauschale
+  tardocCode: varchar("tardoc_code").notNull(), // TARDOC or AP code
   description: text("description").notNull(), // Service description (editable copy)
   treatmentDate: date("treatment_date").notNull(), // Date of service
   session: integer("session").default(1), // Session number
@@ -5881,6 +5887,62 @@ export const tardocInvoiceTemplateItems = pgTable("tardoc_invoice_template_items
 // Types
 export type TardocInvoiceTemplate = typeof tardocInvoiceTemplates.$inferSelect;
 export type TardocInvoiceTemplateItem = typeof tardocInvoiceTemplateItems.$inferSelect;
+
+// Ambulante Pauschalen Catalog
+export const ambulantePauschalenCatalog = pgTable("ambulante_pauschalen_catalog", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull().unique(),
+  descriptionDe: text("description_de").notNull(),
+  descriptionFr: text("description_fr"),
+  category: varchar("category"),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Price in CHF
+  priceUnit: varchar("price_unit").default("flat"), // "flat" = fixed price
+  validFrom: date("valid_from"),
+  validTo: date("valid_to"),
+  version: varchar("version").default("1.1c"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ap_catalog_code").on(table.code),
+]);
+
+export type AmbulantePauschale = typeof ambulantePauschalenCatalog.$inferSelect;
+
+// TARDOC Cumulation/Exclusion Rules
+export const tardocCumulationRules = pgTable("tardoc_cumulation_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull(), // Source TARDOC code
+  relatedCode: varchar("related_code").notNull(), // Related TARDOC code
+  ruleType: varchar("rule_type").notNull(), // "exclusion", "cumulation", "limitation"
+  description: text("description"),
+  version: varchar("version"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_tardoc_cumulation_code").on(table.code),
+  index("idx_tardoc_cumulation_related").on(table.relatedCode),
+]);
+
+export type TardocCumulationRule = typeof tardocCumulationRules.$inferSelect;
+
+// TPW (Taxpunktwert) Rates — canton/insurer-specific tax point values
+export const tpwRates = pgTable("tpw_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull(),
+  canton: varchar("canton", { length: 2 }).notNull(),
+  insurerGln: varchar("insurer_gln", { length: 13 }),
+  lawType: varchar("law_type", { length: 10 }),
+  tpValueAl: decimal("tp_value_al", { precision: 6, scale: 4 }),
+  tpValueTl: decimal("tp_value_tl", { precision: 6, scale: 4 }),
+  tpValue: decimal("tp_value", { precision: 6, scale: 4 }).notNull(),
+  validFrom: date("valid_from").notNull(),
+  validTo: date("valid_to"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_tpw_rates_hospital").on(table.hospitalId),
+  index("idx_tpw_rates_lookup").on(table.hospitalId, table.canton, table.lawType, table.insurerGln),
+]);
+
+export type TpwRate = typeof tpwRates.$inferSelect;
 
 // Portal Verification — magic link + OTP codes for patient/worklog/surgeon portals
 export const portalTypeEnum = pgEnum("portal_type", ["patient", "worklog", "surgeon"]);

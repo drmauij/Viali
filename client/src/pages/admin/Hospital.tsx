@@ -2060,6 +2060,15 @@ export default function Hospital() {
           {/* TARDOC Catalog Import */}
           <TardocIntegrationCard hospitalId={activeHospital?.id} />
 
+          {/* Ambulante Pauschalen Catalog Import */}
+          <ApIntegrationCard hospitalId={activeHospital?.id} />
+
+          {/* TARDOC Cumulation Rules Import */}
+          <CumulationRulesCard hospitalId={activeHospital?.id} />
+
+          {/* TPW Rates Management */}
+          <TpwRatesCard hospitalId={activeHospital?.id} />
+
           {/* Reset Lists Card */}
           <div className="bg-card border border-destructive/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -5118,6 +5127,7 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   // Check TARDOC import status
   const { data: tardocStatus, isLoading: tardocStatusLoading, refetch: refetchTardocStatus } = useQuery<{
     count: number;
+    version: string | null;
   }>({
     queryKey: ['/api/admin/tardoc-status'],
     retry: false,
@@ -5173,9 +5183,20 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
         <div className="flex items-center gap-3">
           <Database className="h-5 w-5 text-muted-foreground" />
           <div>
-            <h3 className="font-medium">TARDOC 1.3.2 Catalog</h3>
+            <h3 className="font-medium">
+              TARDOC {tardocStatus?.version || '1.4c'} Catalog
+            </h3>
             <p className="text-sm text-muted-foreground">
-              {t('admin.tardocDescription', 'Swiss tariff codes for insurance billing (Excel upload from ats-tms.ch)')}
+              {t('admin.tardocDescription', 'Swiss tariff codes for insurance billing.')}
+              {' '}
+              <a
+                href="https://oaat-otma.ch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {t('admin.tardocDownloadSource', 'Download from oaat-otma.ch')}
+              </a>
             </p>
           </div>
         </div>
@@ -5227,6 +5248,459 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Ambulante Pauschalen Integration Card
+function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const { data: apStatus, isLoading: apStatusLoading, refetch: refetchApStatus } = useQuery<{
+    count: number;
+    version: string | null;
+  }>({
+    queryKey: ['/api/admin/ap-status'],
+    retry: false,
+  });
+
+  const importApMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-ambulante-pauschalen`, {
+        fileContent: base64,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: 'AP Import Successful', description: data.message });
+      refetchApStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'AP Import Failed',
+        description: error.message || 'Failed to import AP catalog',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) importApMutation.mutate(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">
+              Ambulante Pauschalen {apStatus?.version || '1.1c'} Catalog
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Swiss flat-rate outpatient billing codes.{' '}
+              <a href="https://oaat-otma.ch" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                Download from oaat-otma.ch
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {apStatusLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (apStatus?.count ?? 0) > 0 ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600">
+                  {(apStatus?.count ?? 0).toLocaleString()} positions
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-yellow-600">Not imported</span>
+              </>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importApMutation.isPending || !hospitalId}
+            size="sm"
+          >
+            {importApMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (apStatus?.count ?? 0) > 0 ? (
+              'Update Catalog'
+            ) : (
+              'Import AP Catalog'
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// TARDOC Cumulation/Exclusion Rules Import Card
+function CumulationRulesCard({ hospitalId }: { hospitalId?: string }) {
+  const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const { data: rulesStatus, isLoading, refetch } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/cumulation-rules-status'],
+    retry: false,
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const response = await apiRequest('POST', `/api/admin/${hospitalId}/import-cumulation-rules`, {
+        fileContent: base64,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: 'Rules Imported', description: data.message });
+      refetch();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Import Failed',
+        description: error.message || 'Failed to import rules',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) importMutation.mutate(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">TARDOC Cumulation / Exclusion Rules</h3>
+            <p className="text-sm text-muted-foreground">
+              Advisory warnings for conflicting TARDOC codes on invoices
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (rulesStatus?.count ?? 0) > 0 ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600">
+                  {(rulesStatus?.count ?? 0).toLocaleString()} rules
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">No rules loaded</span>
+              </>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importMutation.isPending || !hospitalId}
+            size="sm"
+            variant="outline"
+          >
+            {importMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (rulesStatus?.count ?? 0) > 0 ? (
+              'Update Rules'
+            ) : (
+              'Import Rules'
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// TPW Rates Management Card
+const SWISS_CANTONS = [
+  "AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR",
+  "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG",
+  "TI", "UR", "VD", "VS", "ZG", "ZH"
+];
+
+interface TpwRate {
+  id: string;
+  canton: string;
+  insurerGln: string | null;
+  lawType: string | null;
+  tpValueAl: string | null;
+  tpValueTl: string | null;
+  tpValue: string;
+  validFrom: string;
+  validTo: string | null;
+  notes: string | null;
+}
+
+function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const [isAdding, setIsAdding] = React.useState(false);
+  const [newRate, setNewRate] = React.useState({
+    canton: '', tpValue: '', validFrom: new Date().toISOString().split('T')[0],
+    validTo: '', insurerGln: '', lawType: '', notes: '',
+  });
+
+  const { data: rates = [], isLoading } = useQuery<TpwRate[]>({
+    queryKey: [`/api/clinic/${hospitalId}/tpw-rates`],
+    enabled: !!hospitalId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newRate) => {
+      const res = await apiRequest('POST', `/api/clinic/${hospitalId}/tpw-rates`, {
+        ...data,
+        insurerGln: data.insurerGln || null,
+        lawType: data.lawType || null,
+        validTo: data.validTo || null,
+        notes: data.notes || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/tpw-rates`] });
+      toast({ title: 'TPW rate added' });
+      setIsAdding(false);
+      setNewRate({ canton: '', tpValue: '', validFrom: new Date().toISOString().split('T')[0], validTo: '', insurerGln: '', lawType: '', notes: '' });
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('DELETE', `/api/clinic/${hospitalId}/tpw-rates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/tpw-rates`] });
+      toast({ title: 'TPW rate deleted' });
+    },
+  });
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">TPW Rates (Taxpunktwert)</h3>
+            <p className="text-sm text-muted-foreground">
+              Canton/insurer-specific tax point values for TARDOC billing
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{rates.length} rate{rates.length !== 1 ? 's' : ''}</span>
+          <Button size="sm" onClick={() => setIsAdding(!isAdding)} disabled={!hospitalId}>
+            <Plus className="h-4 w-4 mr-1" /> Add Rate
+          </Button>
+        </div>
+      </div>
+
+      {isAdding && (
+        <div className="border rounded p-3 mb-3 bg-muted/30 space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="text-xs font-medium">Canton *</label>
+              <select
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.canton}
+                onChange={e => setNewRate(r => ({ ...r, canton: e.target.value }))}
+              >
+                <option value="">Select...</option>
+                {SWISS_CANTONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium">TP Value (CHF) *</label>
+              <input
+                type="number"
+                step="0.0001"
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.tpValue}
+                onChange={e => setNewRate(r => ({ ...r, tpValue: e.target.value }))}
+                placeholder="e.g. 0.8300"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Valid From *</label>
+              <input
+                type="date"
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.validFrom}
+                onChange={e => setNewRate(r => ({ ...r, validFrom: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Valid To</label>
+              <input
+                type="date"
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.validTo}
+                onChange={e => setNewRate(r => ({ ...r, validTo: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs font-medium">Insurer GLN</label>
+              <input
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.insurerGln}
+                onChange={e => setNewRate(r => ({ ...r, insurerGln: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Law Type</label>
+              <select
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.lawType}
+                onChange={e => setNewRate(r => ({ ...r, lawType: e.target.value }))}
+              >
+                <option value="">Any</option>
+                <option value="KVG">KVG</option>
+                <option value="UVG">UVG</option>
+                <option value="IVG">IVG</option>
+                <option value="MVG">MVG</option>
+                <option value="VVG">VVG</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium">Notes</label>
+              <input
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={newRate.notes}
+                onChange={e => setNewRate(r => ({ ...r, notes: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" onClick={() => setIsAdding(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => createMutation.mutate(newRate)}
+              disabled={!newRate.canton || !newRate.tpValue || !newRate.validFrom || createMutation.isPending}
+            >
+              {createMutation.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </div>
+      ) : rates.length > 0 ? (
+        <div className="border rounded overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-3 py-1.5 font-medium">Canton</th>
+                <th className="text-left px-3 py-1.5 font-medium">TP Value</th>
+                <th className="text-left px-3 py-1.5 font-medium">Law</th>
+                <th className="text-left px-3 py-1.5 font-medium">Insurer</th>
+                <th className="text-left px-3 py-1.5 font-medium">Valid</th>
+                <th className="text-left px-3 py-1.5 font-medium">Notes</th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rates.map(rate => (
+                <tr key={rate.id} className="border-t">
+                  <td className="px-3 py-1.5 font-mono">{rate.canton}</td>
+                  <td className="px-3 py-1.5 font-mono">{rate.tpValue}</td>
+                  <td className="px-3 py-1.5">{rate.lawType || 'Any'}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs">{rate.insurerGln || '-'}</td>
+                  <td className="px-3 py-1.5 text-xs">
+                    {rate.validFrom}{rate.validTo ? ` → ${rate.validTo}` : ' →'}
+                  </td>
+                  <td className="px-3 py-1.5 text-xs text-muted-foreground">{rate.notes || '-'}</td>
+                  <td className="px-2 py-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-destructive"
+                      onClick={() => deleteMutation.mutate(rate.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No TPW rates configured. The hospital default TP value will be used for all invoices.
+        </p>
+      )}
     </div>
   );
 }

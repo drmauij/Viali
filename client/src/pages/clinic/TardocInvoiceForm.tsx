@@ -137,6 +137,7 @@ interface TardocInvoiceFormProps {
 const tardocInvoiceFormSchema = z.object({
   surgeryId: z.string().min(1, "Surgery is required"),
   patientId: z.string().optional(),
+  tariffSystem: z.string().default("tardoc"),
   billingModel: z.enum(["TG", "TP"]),
   treatmentType: z.string().default("ambulatory"),
   treatmentReason: z.string().default("disease"),
@@ -146,9 +147,10 @@ const tardocInvoiceFormSchema = z.object({
   caseDateEnd: z.string().optional(),
   treatmentCanton: z.string().optional(),
   referringPhysicianGln: z.string().optional(),
-  tpValue: z.string().min(1, "TP value is required"),
+  tpValue: z.string().default("1.0000"),
   items: z.array(z.object({
-    tardocCode: z.string().min(1, "TARDOC code is required"),
+    tariffType: z.string().default("590"),
+    tardocCode: z.string().min(1, "Code is required"),
     description: z.string().min(1, "Description is required"),
     treatmentDate: z.string().min(1, "Date is required"),
     session: z.coerce.number().default(1),
@@ -158,6 +160,10 @@ const tardocInvoiceFormSchema = z.object({
     scalingFactor: z.string().default("1.00"),
     sideCode: z.string().optional(),
     providerGln: z.string().optional(),
+    alTaxPoints: z.string().optional(),
+    tlTaxPoints: z.string().optional(),
+    amountAl: z.string().optional(),
+    amountTl: z.string().optional(),
     amountChf: z.string(),
   })).min(1, "At least one service line is required"),
 });
@@ -178,6 +184,18 @@ function calculateLineAmount(taxPoints: string, tpValue: string, quantity: numbe
   const sf = parseFloat(scalingFactor) || 1;
   const q = quantity || 1;
   return (tp * tpv * sf * q).toFixed(2);
+}
+
+function calculateAlTlAmounts(alTp: string | undefined, tlTp: string | undefined, tpValue: string, quantity: number, scalingFactor: string): { amountAl: string; amountTl: string } {
+  const tpv = parseFloat(tpValue) || 0;
+  const sf = parseFloat(scalingFactor) || 1;
+  const q = quantity || 1;
+  const al = parseFloat(alTp || '0') || 0;
+  const tl = parseFloat(tlTp || '0') || 0;
+  return {
+    amountAl: (al * tpv * sf * q).toFixed(2),
+    amountTl: (tl * tpv * sf * q).toFixed(2),
+  };
 }
 
 function formatSurgeryDate(dateStr: string | null): string {
@@ -202,6 +220,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
   const [selectedSurgery, setSelectedSurgery] = useState<EligibleSurgery | null>(null);
   const [prefillData, setPrefillData] = useState<PrefillData | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [tpwSource, setTpwSource] = useState<string | null>(null);
 
   // Form setup
   const today = new Date().toISOString().split('T')[0];
@@ -210,6 +229,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
     defaultValues: {
       surgeryId: "",
       patientId: "",
+      tariffSystem: "tardoc",
       billingModel: "TG",
       treatmentType: "ambulatory",
       treatmentReason: "disease",
@@ -230,6 +250,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
   });
 
   const watchedTpValue = useWatch({ control: form.control, name: "tpValue" });
+  const watchedTariffSystem = useWatch({ control: form.control, name: "tariffSystem" });
   const watchedItems = useWatch({ control: form.control, name: "items" });
 
   // ==================== Apply Prefill ====================
@@ -327,6 +348,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
         item.scalingFactor || "1.00"
       );
       return {
+        tariffType: "590",
         tardocCode: item.tardocCode,
         description: item.description,
         treatmentDate: caseDate,
@@ -337,6 +359,10 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
         scalingFactor: item.scalingFactor || "1.00",
         sideCode: item.sideCode || "",
         providerGln,
+        alTaxPoints: "0",
+        tlTaxPoints: "0",
+        amountAl: "0.00",
+        amountTl: "0.00",
         amountChf: amount,
       };
     });
@@ -360,17 +386,23 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
   const totals = useMemo(() => {
     let subtotalTp = 0;
     let subtotalChf = 0;
+    let totalAl = 0;
+    let totalTl = 0;
     for (const item of (watchedItems || [])) {
       const tp = parseFloat(item.taxPoints) || 0;
       const sf = parseFloat(item.scalingFactor) || 1;
       const q = item.quantity || 1;
       subtotalTp += tp * sf * q;
       subtotalChf += parseFloat(item.amountChf) || 0;
+      totalAl += parseFloat(item.amountAl || '0') || 0;
+      totalTl += parseFloat(item.amountTl || '0') || 0;
     }
     return {
       subtotalTp: subtotalTp.toFixed(2),
       subtotalChf: subtotalChf.toFixed(2),
       totalChf: subtotalChf.toFixed(2),
+      totalAl: totalAl.toFixed(2),
+      totalTl: totalTl.toFixed(2),
     };
   }, [watchedItems]);
 
@@ -380,10 +412,59 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
     const items = form.getValues("items");
     const item = items[index];
     if (item) {
-      const amount = calculateLineAmount(item.taxPoints, item.tpValue || watchedTpValue, item.quantity, item.scalingFactor);
+      const effectiveTpValue = item.tpValue || watchedTpValue;
+      const amount = calculateLineAmount(item.taxPoints, effectiveTpValue, item.quantity, item.scalingFactor);
       form.setValue(`items.${index}.amountChf`, amount);
+      // Calculate AL/TL split
+      const { amountAl, amountTl } = calculateAlTlAmounts(item.alTaxPoints, item.tlTaxPoints, effectiveTpValue, item.quantity, item.scalingFactor);
+      form.setValue(`items.${index}.amountAl`, amountAl);
+      form.setValue(`items.${index}.amountTl`, amountTl);
     }
   }, [form, watchedTpValue]);
+
+  // ==================== Cumulation/exclusion rule check ====================
+
+  const [ruleWarnings, setRuleWarnings] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (watchedTariffSystem === 'pauschale') {
+      setRuleWarnings([]);
+      return;
+    }
+
+    const codes = (watchedItems || []).map(i => i.tardocCode).filter(Boolean);
+    if (codes.length < 2) {
+      setRuleWarnings([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      fetch('/api/tardoc/check-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ codes }),
+      })
+        .then(r => r.ok ? r.json() : { warnings: [], limits: [] })
+        .then(data => {
+          const warns = [...(data.warnings || [])];
+          // Check quantity limits from response
+          for (const limit of (data.limits || [])) {
+            for (const item of (watchedItems || [])) {
+              if (item.tardocCode === limit.code) {
+                if (limit.maxPerSession && item.quantity > limit.maxPerSession) {
+                  warns.push(`Quantity: ${limit.code} — max ${limit.maxPerSession}/session, used ${item.quantity}`);
+                }
+              }
+            }
+          }
+          setRuleWarnings(warns);
+        })
+        .catch(() => {});
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [watchedItems, watchedTariffSystem]);
 
   // ==================== Create mutation ====================
 
@@ -657,6 +738,42 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
               <CardTitle className="text-base">Billing Setup</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Tariff System Toggle */}
+              <FormField
+                control={form.control}
+                name="tariffSystem"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tariff System</FormLabel>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={field.value === 'tardoc' ? 'default' : 'outline'}
+                        onClick={() => {
+                          field.onChange('tardoc');
+                          // Clear items when switching tariff system
+                          replace([]);
+                        }}
+                      >
+                        TARDOC
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={field.value === 'pauschale' ? 'default' : 'outline'}
+                        onClick={() => {
+                          field.onChange('pauschale');
+                          replace([]);
+                        }}
+                      >
+                        Ambulante Pauschale
+                      </Button>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               {/* Row 1: Billing model, law type, treatment, reason */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <FormField
@@ -778,7 +895,29 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Canton</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        // Auto-lookup TPW rate when canton changes
+                        const insurerGln = prefillData?.insurerGln || '';
+                        const lawType = form.getValues('lawType') || '';
+                        fetch(`/api/clinic/${hospitalId}/tpw-lookup?canton=${value}&insurerGln=${encodeURIComponent(insurerGln)}&lawType=${encodeURIComponent(lawType)}`, { credentials: 'include' })
+                          .then(r => r.ok ? r.json() : null)
+                          .then(data => {
+                            if (data?.tpValue && data.source !== 'hospital_default') {
+                              form.setValue('tpValue', data.tpValue);
+                              setTpwSource(data.source);
+                              // Recalculate all line items
+                              const items = form.getValues('items');
+                              items.forEach((_, idx) => {
+                                form.setValue(`items.${idx}.tpValue`, data.tpValue);
+                              });
+                              items.forEach((_, idx) => recalcLineAmount(idx));
+                            } else {
+                              setTpwSource(null);
+                            }
+                          })
+                          .catch(() => {});
+                      }} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select..." />
@@ -790,6 +929,9 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                           ))}
                         </SelectContent>
                       </Select>
+                      {tpwSource && (
+                        <p className="text-xs text-green-600 mt-1">TPW from {tpwSource} rate</p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -807,7 +949,8 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                 />
               </div>
 
-              {/* Row 3: TP value (editable) */}
+              {/* Row 3: TP value (editable) — only for TARDOC */}
+              {watchedTariffSystem !== 'pauschale' && (
               <div>
                 <FormField
                   control={form.control}
@@ -835,6 +978,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                   )}
                 />
               </div>
+              )}
 
               {/* Row 4: Read-only provider info */}
               <Separator />
@@ -909,16 +1053,21 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                     variant="outline"
                     size="sm"
                     onClick={() => append({
+                      tariffType: watchedTariffSystem === 'pauschale' ? '010' : '590',
                       tardocCode: "",
                       description: "",
                       treatmentDate: form.getValues("caseDate") || today,
                       session: 1,
                       quantity: 1,
-                      taxPoints: "",
-                      tpValue: watchedTpValue || "1.0000",
+                      taxPoints: watchedTariffSystem === 'pauschale' ? "0" : "",
+                      tpValue: watchedTariffSystem === 'pauschale' ? "1" : (watchedTpValue || "1.0000"),
                       scalingFactor: "1.00",
                       sideCode: "",
                       providerGln: prefillData?.providerGln || "",
+                      alTaxPoints: "0",
+                      tlTaxPoints: "0",
+                      amountAl: "0.00",
+                      amountTl: "0.00",
                       amountChf: "0.00",
                     })}
                   >
@@ -951,6 +1100,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                     canRemove={fields.length > 1}
                     onRecalc={() => recalcLineAmount(index)}
                     tpValue={watchedTpValue}
+                    tariffSystem={watchedTariffSystem || 'tardoc'}
                   />
                 ))}
               </div>
@@ -964,15 +1114,37 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
           </Card>
         )}
 
+        {/* ====== Rule Warnings ====== */}
+        {ruleWarnings.length > 0 && (
+          <div className="border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-3">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-1">Billing Warnings (advisory)</p>
+            {ruleWarnings.map((w, i) => (
+              <p key={i} className="text-xs text-yellow-700 dark:text-yellow-400">• {w}</p>
+            ))}
+          </div>
+        )}
+
         {/* ====== Section 5: Totals & Actions ====== */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between items-start">
               <div className="space-y-1 text-sm">
-                <div className="flex gap-8">
-                  <span className="text-muted-foreground">Total Tax Points:</span>
-                  <span className="font-medium">{totals.subtotalTp} TP</span>
-                </div>
+                {watchedTariffSystem !== 'pauschale' && (
+                  <>
+                    <div className="flex gap-8">
+                      <span className="text-muted-foreground">Total Tax Points:</span>
+                      <span className="font-medium">{totals.subtotalTp} TP</span>
+                    </div>
+                    <div className="flex gap-8">
+                      <span className="text-muted-foreground">AL (Medical):</span>
+                      <span className="font-medium">CHF {totals.totalAl}</span>
+                    </div>
+                    <div className="flex gap-8">
+                      <span className="text-muted-foreground">TL (Technical):</span>
+                      <span className="font-medium">CHF {totals.totalTl}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex gap-8">
                   <span className="text-muted-foreground">Subtotal CHF:</span>
                   <span className="font-medium">CHF {totals.subtotalChf}</span>
@@ -1017,6 +1189,7 @@ function TardocLineItem({
   canRemove,
   onRecalc,
   tpValue,
+  tariffSystem,
 }: {
   index: number;
   form: any;
@@ -1024,15 +1197,19 @@ function TardocLineItem({
   canRemove: boolean;
   onRecalc: () => void;
   tpValue: string;
+  tariffSystem: string;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const isPauschale = tariffSystem === 'pauschale';
 
-  const { data: searchResults = [] } = useQuery<TardocCode[]>({
-    queryKey: ['/api/tardoc/search', searchTerm],
+  const searchEndpoint = isPauschale ? '/api/ambulante-pauschalen/search' : '/api/tardoc/search';
+
+  const { data: searchResults = [] } = useQuery<any[]>({
+    queryKey: [searchEndpoint, searchTerm],
     queryFn: async () => {
       if (!searchTerm || searchTerm.length < 2) return [];
-      const res = await fetch(`/api/tardoc/search?q=${encodeURIComponent(searchTerm)}&limit=15`, {
+      const res = await fetch(`${searchEndpoint}?q=${encodeURIComponent(searchTerm)}&limit=15`, {
         credentials: 'include'
       });
       if (!res.ok) return [];
@@ -1041,21 +1218,40 @@ function TardocLineItem({
     enabled: searchTerm.length >= 2,
   });
 
-  const selectTardocCode = (code: TardocCode) => {
+  const selectCode = (code: any) => {
     form.setValue(`items.${index}.tardocCode`, code.code);
     form.setValue(`items.${index}.description`, code.descriptionDe);
-    form.setValue(`items.${index}.taxPoints`, code.taxPoints || "0");
-    form.setValue(`items.${index}.sideCode`, code.sideCode || "");
-    form.setValue(`items.${index}.tpValue`, tpValue || "1.0000");
+
+    if (isPauschale) {
+      // Ambulante Pauschale: flat price, no TP/TPW
+      form.setValue(`items.${index}.tariffType`, "010");
+      form.setValue(`items.${index}.taxPoints`, "0");
+      form.setValue(`items.${index}.tpValue`, "1");
+      form.setValue(`items.${index}.scalingFactor`, "1.00");
+      form.setValue(`items.${index}.amountChf`, code.basePrice || "0");
+      form.setValue(`items.${index}.alTaxPoints`, "0");
+      form.setValue(`items.${index}.tlTaxPoints`, "0");
+      form.setValue(`items.${index}.amountAl`, "0.00");
+      form.setValue(`items.${index}.amountTl`, "0.00");
+    } else {
+      // TARDOC: TP-based pricing
+      form.setValue(`items.${index}.tariffType`, "590");
+      form.setValue(`items.${index}.taxPoints`, code.taxPoints || "0");
+      form.setValue(`items.${index}.sideCode`, code.sideCode || "");
+      form.setValue(`items.${index}.tpValue`, tpValue || "1.0000");
+      form.setValue(`items.${index}.alTaxPoints`, code.medicalInterpretation || "0");
+      form.setValue(`items.${index}.tlTaxPoints`, code.technicalInterpretation || "0");
+    }
+
     setIsPopoverOpen(false);
     setTimeout(onRecalc, 0);
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start border rounded p-2 sm:p-1 sm:border-0">
-      {/* TARDOC Code with search */}
+      {/* Code with search */}
       <div className="sm:col-span-2">
-        <Label className="sm:hidden text-xs">TARDOC Code</Label>
+        <Label className="sm:hidden text-xs">{isPauschale ? 'AP Code' : 'TARDOC Code'}</Label>
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -1072,7 +1268,7 @@ function TardocLineItem({
           <PopoverContent className="w-[450px] p-0" align="start">
             <Command>
               <CommandInput
-                placeholder="Search TARDOC code or description..."
+                placeholder={isPauschale ? "Search AP code or description..." : "Search TARDOC code or description..."}
                 value={searchTerm}
                 onValueChange={setSearchTerm}
               />
@@ -1081,17 +1277,19 @@ function TardocLineItem({
                   {searchTerm.length < 2 ? "Type at least 2 characters..." : "No codes found"}
                 </CommandEmpty>
                 <CommandGroup>
-                  {searchResults.map((code) => (
+                  {searchResults.map((code: any) => (
                     <CommandItem
                       key={code.id}
                       value={`${code.code} ${code.descriptionDe}`}
-                      onSelect={() => selectTardocCode(code)}
+                      onSelect={() => selectCode(code)}
                     >
                       <div className="flex flex-col w-full">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="font-mono text-xs">{code.code}</Badge>
-                          {code.taxPoints && (
-                            <span className="text-xs text-muted-foreground">{code.taxPoints} TP</span>
+                          {isPauschale ? (
+                            code.basePrice && <span className="text-xs text-muted-foreground">CHF {code.basePrice}</span>
+                          ) : (
+                            code.taxPoints && <span className="text-xs text-muted-foreground">{code.taxPoints} TP</span>
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground truncate">{code.descriptionDe}</span>
@@ -1140,58 +1338,77 @@ function TardocLineItem({
         />
       </div>
 
-      {/* Tax Points */}
-      <div className="sm:col-span-1">
-        <Label className="sm:hidden text-xs">TP</Label>
-        <Input
-          {...form.register(`items.${index}.taxPoints`)}
-          className="h-8 text-xs"
-          placeholder="0.00"
-          onChange={(e) => {
-            form.setValue(`items.${index}.taxPoints`, e.target.value);
-            setTimeout(onRecalc, 0);
-          }}
-        />
-      </div>
+      {isPauschale ? (
+        <>
+          {/* Price (editable for Pauschale) */}
+          <div className="sm:col-span-3">
+            <Label className="sm:hidden text-xs">Price CHF</Label>
+            <Input
+              {...form.register(`items.${index}.amountChf`)}
+              className="h-8 text-xs font-medium"
+              placeholder="0.00"
+              onChange={(e) => {
+                form.setValue(`items.${index}.amountChf`, e.target.value);
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Tax Points */}
+          <div className="sm:col-span-1">
+            <Label className="sm:hidden text-xs">TP</Label>
+            <Input
+              {...form.register(`items.${index}.taxPoints`)}
+              className="h-8 text-xs"
+              placeholder="0.00"
+              onChange={(e) => {
+                form.setValue(`items.${index}.taxPoints`, e.target.value);
+                setTimeout(onRecalc, 0);
+              }}
+            />
+          </div>
 
-      {/* Scaling Factor */}
-      <div className="sm:col-span-1">
-        <Label className="sm:hidden text-xs">SF</Label>
-        <Input
-          {...form.register(`items.${index}.scalingFactor`)}
-          className="h-8 text-xs"
-          placeholder="1.00"
-          onChange={(e) => {
-            form.setValue(`items.${index}.scalingFactor`, e.target.value);
-            setTimeout(onRecalc, 0);
-          }}
-        />
-      </div>
+          {/* Scaling Factor */}
+          <div className="sm:col-span-1">
+            <Label className="sm:hidden text-xs">SF</Label>
+            <Input
+              {...form.register(`items.${index}.scalingFactor`)}
+              className="h-8 text-xs"
+              placeholder="1.00"
+              onChange={(e) => {
+                form.setValue(`items.${index}.scalingFactor`, e.target.value);
+                setTimeout(onRecalc, 0);
+              }}
+            />
+          </div>
 
-      {/* Side Code */}
-      <div className="sm:col-span-1">
-        <Label className="sm:hidden text-xs">Side</Label>
-        <select
-          {...form.register(`items.${index}.sideCode`)}
-          className="h-8 text-xs w-full border rounded px-1"
-        >
-          <option value="">-</option>
-          <option value="N">N</option>
-          <option value="L">L</option>
-          <option value="R">R</option>
-          <option value="B">B</option>
-        </select>
-      </div>
+          {/* Side Code */}
+          <div className="sm:col-span-1">
+            <Label className="sm:hidden text-xs">Side</Label>
+            <select
+              {...form.register(`items.${index}.sideCode`)}
+              className="h-8 text-xs w-full border rounded px-1"
+            >
+              <option value="">-</option>
+              <option value="N">N</option>
+              <option value="L">L</option>
+              <option value="R">R</option>
+              <option value="B">B</option>
+            </select>
+          </div>
 
-      {/* Amount (calculated) */}
-      <div className="sm:col-span-1">
-        <Label className="sm:hidden text-xs">Amount</Label>
-        <Input
-          value={form.watch(`items.${index}.amountChf`) || "0.00"}
-          className="h-8 text-xs bg-muted font-medium"
-          readOnly
-        />
-      </div>
+          {/* Amount (calculated) */}
+          <div className="sm:col-span-1">
+            <Label className="sm:hidden text-xs">Amount</Label>
+            <Input
+              value={form.watch(`items.${index}.amountChf`) || "0.00"}
+              className="h-8 text-xs bg-muted font-medium"
+              readOnly
+            />
+          </div>
+        </>
+      )}
 
       {/* Remove button */}
       <div className="sm:col-span-1 flex justify-end">

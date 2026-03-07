@@ -9,6 +9,9 @@ import {
   tardocInvoiceItems,
   tardocInvoiceTemplates,
   tardocInvoiceTemplateItems,
+  tpwRates,
+  ambulantePauschalenCatalog,
+  tardocCumulationRules,
   clinicServices,
   patients,
   hospitals,
@@ -16,7 +19,8 @@ import {
   surgeries,
   anesthesiaRecords,
 } from "@shared/schema";
-import { importTardocFromExcel, importTardocFromCsv } from "../scripts/importTardoc";
+import { importTardocFromExcel, importTardocFromCsv, importCumulationRulesFromExcel } from "../scripts/importTardoc";
+import { importApFromExcel } from "../scripts/importAmbulantePauschalen";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
 import { eq, and, or, sql, asc, desc, max, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -51,6 +55,8 @@ router.get('/api/tardoc/search', isAuthenticated, async (req: any, res: Response
         technicalInterpretation: tardocCatalog.technicalInterpretation,
         durationMinutes: tardocCatalog.durationMinutes,
         sideCode: tardocCatalog.sideCode,
+        maxQuantityPerSession: tardocCatalog.maxQuantityPerSession,
+        maxQuantityPerCase: tardocCatalog.maxQuantityPerCase,
       })
       .from(tardocCatalog)
       .where(
@@ -91,10 +97,13 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
     }
 
     // Expect base64 file content in body
-    const { fileContent, fileName } = req.body;
+    const { fileContent, fileName, version } = req.body;
     if (!fileContent) {
       return res.status(400).json({ message: "File content is required" });
     }
+
+    // Default to 1.4c if no version specified
+    const catalogVersion = version || '1.4c';
 
     const buffer = Buffer.from(fileContent, 'base64');
 
@@ -104,9 +113,9 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
 
     let result;
     if (fileName?.endsWith('.csv')) {
-      result = await importTardocFromCsv(buffer.toString('utf-8'));
+      result = await importTardocFromCsv(buffer.toString('utf-8'), catalogVersion);
     } else {
-      result = await importTardocFromExcel(buffer);
+      result = await importTardocFromExcel(buffer, catalogVersion);
     }
 
     logger.info(`[Admin] TARDOC import complete: ${result.imported} processed, ${result.skipped} skipped`);
@@ -127,6 +136,7 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
       skipped: result.skipped,
       newRecords,
       updated: existingCount > 0 ? existingCount : 0,
+      version: result.version,
     });
   } catch (error: any) {
     logger.error("[Admin] TARDOC import error:", error);
@@ -141,10 +151,169 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
 router.get('/api/admin/tardoc-status', isAuthenticated, async (req: any, res: Response) => {
   try {
     const [result] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
-    res.json({ count: Number(result?.count || 0) });
+    // Get the version from the latest imported entry
+    const [versionResult] = await db.select({ version: tardocCatalog.version })
+      .from(tardocCatalog)
+      .limit(1);
+    res.json({
+      count: Number(result?.count || 0),
+      version: versionResult?.version || null,
+    });
   } catch (error: any) {
     logger.error("Error getting TARDOC status:", error);
     res.status(500).json({ message: "Failed to get TARDOC status" });
+  }
+});
+
+// ==================== AMBULANTE PAUSCHALEN CATALOG ====================
+
+// Search AP catalog
+router.get('/api/ambulante-pauschalen/search', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const search = (req.query.q as string || '').trim();
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
+    if (!search || search.length < 2) {
+      return res.json([]);
+    }
+
+    const results = await db
+      .select({
+        id: ambulantePauschalenCatalog.id,
+        code: ambulantePauschalenCatalog.code,
+        descriptionDe: ambulantePauschalenCatalog.descriptionDe,
+        descriptionFr: ambulantePauschalenCatalog.descriptionFr,
+        category: ambulantePauschalenCatalog.category,
+        basePrice: ambulantePauschalenCatalog.basePrice,
+      })
+      .from(ambulantePauschalenCatalog)
+      .where(
+        or(
+          sql`${ambulantePauschalenCatalog.code} ILIKE ${search + '%'}`,
+          sql`${ambulantePauschalenCatalog.descriptionDe} ILIKE ${'%' + search + '%'}`,
+        )
+      )
+      .orderBy(
+        sql`CASE
+          WHEN ${ambulantePauschalenCatalog.code} ILIKE ${search + '%'} THEN 0
+          ELSE 1
+        END`,
+        asc(ambulantePauschalenCatalog.code)
+      )
+      .limit(limit);
+
+    res.json(results);
+  } catch (error: any) {
+    logger.error("Error searching AP catalog:", error);
+    res.status(500).json({ message: "Failed to search AP catalog" });
+  }
+});
+
+// Import AP catalog (admin only)
+router.post('/api/admin/:hospitalId/import-ambulante-pauschalen', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const hospitalAccess = await storage.getUserHospitals(userId);
+    const isAdmin = hospitalAccess.some(h => h.id === req.params.hospitalId && h.role === 'admin');
+
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { fileContent, version } = req.body;
+    if (!fileContent) {
+      return res.status(400).json({ message: "File content is required" });
+    }
+
+    const buffer = Buffer.from(fileContent, 'base64');
+    const catalogVersion = version || '1.1c';
+
+    const [countBefore] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
+    const existingCount = Number(countBefore?.count || 0);
+
+    const result = await importApFromExcel(buffer, catalogVersion);
+
+    const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
+    const finalCount = Number(countAfter?.count || 0);
+    const newRecords = finalCount - existingCount;
+
+    const message = existingCount > 0
+      ? `AP catalog updated (${newRecords} new, ${existingCount} updated)`
+      : `Successfully imported ${result.imported} Ambulante Pauschalen`;
+
+    res.json({
+      success: true,
+      message,
+      imported: result.imported,
+      skipped: result.skipped,
+      newRecords,
+      version: result.version,
+    });
+  } catch (error: any) {
+    logger.error("[Admin] AP import error:", error);
+    res.status(500).json({
+      message: "Failed to import AP catalog",
+      error: error.message,
+    });
+  }
+});
+
+// AP catalog status
+router.get('/api/admin/ap-status', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
+    const [versionResult] = await db.select({ version: ambulantePauschalenCatalog.version })
+      .from(ambulantePauschalenCatalog)
+      .limit(1);
+    res.json({
+      count: Number(result?.count || 0),
+      version: versionResult?.version || null,
+    });
+  } catch (error: any) {
+    logger.error("Error getting AP status:", error);
+    res.status(500).json({ message: "Failed to get AP status" });
+  }
+});
+
+// Import cumulation/exclusion rules (admin only)
+router.post('/api/admin/:hospitalId/import-cumulation-rules', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const hospitalAccess = await storage.getUserHospitals(userId);
+    const isAdmin = hospitalAccess.some(h => h.id === req.params.hospitalId && h.role === 'admin');
+
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { fileContent, version } = req.body;
+    if (!fileContent) {
+      return res.status(400).json({ message: "File content is required" });
+    }
+
+    const buffer = Buffer.from(fileContent, 'base64');
+    const result = await importCumulationRulesFromExcel(buffer, version || '1.4c');
+
+    res.json({
+      success: true,
+      message: `Imported ${result.imported} cumulation/exclusion rules`,
+      imported: result.imported,
+      skipped: result.skipped,
+    });
+  } catch (error: any) {
+    logger.error("[Admin] Cumulation rules import error:", error);
+    res.status(500).json({ message: "Failed to import rules", error: error.message });
+  }
+});
+
+// Cumulation rules status
+router.get('/api/admin/cumulation-rules-status', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(tardocCumulationRules);
+    res.json({ count: Number(result?.count || 0) });
+  } catch (error: any) {
+    logger.error("Error getting cumulation rules status:", error);
+    res.status(500).json({ message: "Failed to get rules status" });
   }
 });
 
@@ -672,6 +841,7 @@ router.get('/api/clinic/:hospitalId/tardoc-eligible-surgeries', isAuthenticated,
 const createTardocInvoiceSchema = z.object({
   patientId: z.string().optional(),
   surgeryId: z.string().optional(),
+  tariffSystem: z.string().default("tardoc"),
   billingModel: z.enum(["TG", "TP"]),
   treatmentType: z.string().default("ambulatory"),
   treatmentReason: z.string().default("disease"),
@@ -698,6 +868,7 @@ const createTardocInvoiceSchema = z.object({
   patientCity: z.string().optional(),
   tpValue: z.string().optional(),
   items: z.array(z.object({
+    tariffType: z.string().default("590"),
     tardocCode: z.string(),
     description: z.string(),
     treatmentDate: z.string(),
@@ -879,6 +1050,7 @@ router.patch('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId', isAuthenticat
         await db.insert(tardocInvoiceItems).values(
           items.map((item: any, idx: number) => ({
             invoiceId,
+            tariffType: item.tariffType || '590',
             tardocCode: item.tardocCode,
             description: item.description,
             treatmentDate: item.treatmentDate,
@@ -1080,8 +1252,51 @@ router.post('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/validate', isAut
       }
     }
 
+    // Advisory warnings (soft — cumulation/exclusion rules + quantity limits)
+    const warnings: string[] = [];
+
+    if (invoice.tariffSystem !== 'pauschale') {
+      const codes = items.map(i => i.tardocCode);
+      if (codes.length > 0) {
+        // Check cumulation/exclusion rules
+        const rules = await db.select().from(tardocCumulationRules)
+          .where(inArray(tardocCumulationRules.code, codes));
+
+        for (const rule of rules) {
+          if (codes.includes(rule.relatedCode)) {
+            const label = rule.ruleType === 'exclusion' ? 'Exclusion' : rule.ruleType === 'limitation' ? 'Limitation' : 'Cumulation';
+            warnings.push(`${label}: ${rule.code} + ${rule.relatedCode}${rule.description ? ` — ${rule.description}` : ''}`);
+          }
+        }
+
+        // Check quantity limits
+        const catalogEntries = await db.select({
+          code: tardocCatalog.code,
+          maxQuantityPerSession: tardocCatalog.maxQuantityPerSession,
+          maxQuantityPerCase: tardocCatalog.maxQuantityPerCase,
+        }).from(tardocCatalog)
+          .where(inArray(tardocCatalog.code, codes));
+
+        const catalogMap = new Map(catalogEntries.map(c => [c.code, c]));
+
+        for (const item of items) {
+          const cat = catalogMap.get(item.tardocCode);
+          if (cat?.maxQuantityPerSession && item.quantity > cat.maxQuantityPerSession) {
+            warnings.push(`Quantity limit: ${item.tardocCode} — max ${cat.maxQuantityPerSession}/session, used ${item.quantity}`);
+          }
+          if (cat?.maxQuantityPerCase) {
+            // Sum total quantity for this code across all items
+            const totalQty = items.filter(i => i.tardocCode === item.tardocCode).reduce((sum, i) => sum + i.quantity, 0);
+            if (totalQty > cat.maxQuantityPerCase) {
+              warnings.push(`Quantity limit: ${item.tardocCode} — max ${cat.maxQuantityPerCase}/case, total used ${totalQty}`);
+            }
+          }
+        }
+      }
+    }
+
     if (errors.length > 0) {
-      return res.json({ valid: false, errors });
+      return res.json({ valid: false, errors, warnings });
     }
 
     // Mark as validated if currently draft
@@ -1092,10 +1307,55 @@ router.post('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/validate', isAut
         .where(eq(tardocInvoices.id, invoiceId));
     }
 
-    res.json({ valid: true, errors: [] });
+    res.json({ valid: true, errors: [], warnings });
   } catch (error: any) {
     logger.error("Error validating TARDOC invoice:", error);
     res.status(500).json({ message: "Failed to validate invoice" });
+  }
+});
+
+// Check cumulation rules for a set of codes (real-time advisory)
+router.post('/api/tardoc/check-rules', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { codes } = req.body;
+    if (!codes || !Array.isArray(codes) || codes.length === 0) {
+      return res.json({ warnings: [] });
+    }
+
+    const warnings: string[] = [];
+
+    // Check cumulation/exclusion rules
+    const rules = await db.select().from(tardocCumulationRules)
+      .where(inArray(tardocCumulationRules.code, codes));
+
+    for (const rule of rules) {
+      if (codes.includes(rule.relatedCode)) {
+        const label = rule.ruleType === 'exclusion' ? 'Exclusion' : rule.ruleType === 'limitation' ? 'Limitation' : 'Cumulation';
+        warnings.push(`${label}: ${rule.code} + ${rule.relatedCode}${rule.description ? ` — ${rule.description}` : ''}`);
+      }
+    }
+
+    // Check quantity limits
+    const catalogEntries = await db.select({
+      code: tardocCatalog.code,
+      maxQuantityPerSession: tardocCatalog.maxQuantityPerSession,
+      maxQuantityPerCase: tardocCatalog.maxQuantityPerCase,
+    }).from(tardocCatalog)
+      .where(inArray(tardocCatalog.code, codes));
+
+    // Return limit info for frontend to validate against quantities
+    const limits = catalogEntries
+      .filter(c => c.maxQuantityPerSession || c.maxQuantityPerCase)
+      .map(c => ({
+        code: c.code,
+        maxPerSession: c.maxQuantityPerSession,
+        maxPerCase: c.maxQuantityPerCase,
+      }));
+
+    res.json({ warnings, limits });
+  } catch (error: any) {
+    logger.error("Error checking TARDOC rules:", error);
+    res.status(500).json({ message: "Failed to check rules" });
   }
 });
 
@@ -1128,6 +1388,172 @@ router.get('/api/clinic/:hospitalId/tardoc-invoices/:invoiceId/pdf', isAuthentic
   } catch (error: any) {
     logger.error("Error generating TARDOC PDF:", error);
     res.status(500).json({ message: error.message || "Failed to generate PDF" });
+  }
+});
+
+// ==================== TPW RATES ====================
+
+// List TPW rates for a hospital
+router.get('/api/clinic/:hospitalId/tpw-rates', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const rates = await db
+      .select()
+      .from(tpwRates)
+      .where(eq(tpwRates.hospitalId, hospitalId))
+      .orderBy(asc(tpwRates.canton), asc(tpwRates.validFrom));
+    res.json(rates);
+  } catch (error: any) {
+    logger.error("Error listing TPW rates:", error);
+    res.status(500).json({ message: "Failed to list TPW rates" });
+  }
+});
+
+// Create TPW rate
+router.post('/api/clinic/:hospitalId/tpw-rates', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const data = z.object({
+      canton: z.string().length(2),
+      insurerGln: z.string().nullable().optional(),
+      lawType: z.string().nullable().optional(),
+      tpValueAl: z.string().nullable().optional(),
+      tpValueTl: z.string().nullable().optional(),
+      tpValue: z.string(),
+      validFrom: z.string(),
+      validTo: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
+    }).parse(req.body);
+
+    const [rate] = await db.insert(tpwRates).values({
+      hospitalId,
+      ...data,
+    }).returning();
+
+    res.status(201).json(rate);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error creating TPW rate:", error);
+    res.status(500).json({ message: "Failed to create TPW rate" });
+  }
+});
+
+// Update TPW rate
+router.patch('/api/clinic/:hospitalId/tpw-rates/:rateId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, rateId } = req.params;
+
+    const [existing] = await db.select().from(tpwRates)
+      .where(and(eq(tpwRates.id, rateId), eq(tpwRates.hospitalId, hospitalId)));
+
+    if (!existing) {
+      return res.status(404).json({ message: "TPW rate not found" });
+    }
+
+    const [updated] = await db.update(tpwRates)
+      .set(req.body)
+      .where(eq(tpwRates.id, rateId))
+      .returning();
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error("Error updating TPW rate:", error);
+    res.status(500).json({ message: "Failed to update TPW rate" });
+  }
+});
+
+// Delete TPW rate
+router.delete('/api/clinic/:hospitalId/tpw-rates/:rateId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId, rateId } = req.params;
+
+    const [existing] = await db.select().from(tpwRates)
+      .where(and(eq(tpwRates.id, rateId), eq(tpwRates.hospitalId, hospitalId)));
+
+    if (!existing) {
+      return res.status(404).json({ message: "TPW rate not found" });
+    }
+
+    await db.delete(tpwRates).where(eq(tpwRates.id, rateId));
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("Error deleting TPW rate:", error);
+    res.status(500).json({ message: "Failed to delete TPW rate" });
+  }
+});
+
+// Lookup TPW rate with fallback chain
+router.get('/api/clinic/:hospitalId/tpw-lookup', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const canton = (req.query.canton as string || '').toUpperCase();
+    const insurerGln = req.query.insurerGln as string || null;
+    const lawType = req.query.lawType as string || null;
+    const dateStr = req.query.date as string || new Date().toISOString().split('T')[0];
+
+    if (!canton) {
+      return res.status(400).json({ message: "Canton is required" });
+    }
+
+    // Fallback chain: exact → canton+lawType → canton only → hospital default
+    const allRates = await db.select().from(tpwRates)
+      .where(and(
+        eq(tpwRates.hospitalId, hospitalId),
+        eq(tpwRates.canton, canton),
+        sql`${tpwRates.validFrom} <= ${dateStr}`,
+        or(
+          sql`${tpwRates.validTo} IS NULL`,
+          sql`${tpwRates.validTo} >= ${dateStr}`
+        )
+      ));
+
+    // 1. Exact match: canton + insurer + lawType
+    let match = allRates.find(r =>
+      r.insurerGln === insurerGln && r.lawType === lawType && insurerGln && lawType
+    );
+    let source = 'exact';
+
+    // 2. Canton + lawType
+    if (!match && lawType) {
+      match = allRates.find(r => r.lawType === lawType && !r.insurerGln);
+      source = 'canton+lawType';
+    }
+
+    // 3. Canton only
+    if (!match) {
+      match = allRates.find(r => !r.insurerGln && !r.lawType);
+      source = 'canton';
+    }
+
+    if (match) {
+      return res.json({
+        tpValue: match.tpValue,
+        tpValueAl: match.tpValueAl,
+        tpValueTl: match.tpValueTl,
+        source,
+        rateId: match.id,
+        notes: match.notes,
+      });
+    }
+
+    // 4. Hospital default
+    const [hospital] = await db.select({ defaultTpValue: hospitals.defaultTpValue })
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId));
+
+    res.json({
+      tpValue: hospital?.defaultTpValue || '1.0000',
+      tpValueAl: null,
+      tpValueTl: null,
+      source: 'hospital_default',
+      rateId: null,
+      notes: null,
+    });
+  } catch (error: any) {
+    logger.error("Error looking up TPW rate:", error);
+    res.status(500).json({ message: "Failed to look up TPW rate" });
   }
 });
 

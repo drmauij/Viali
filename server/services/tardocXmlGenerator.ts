@@ -55,12 +55,14 @@ interface InvoiceWithItems {
     scalingFactor: string | null;
     sideCode: string | null;
     providerGln: string | null;
+    tariffType: string | null;
     amountAl: string | null;
     amountTl: string | null;
     amountChf: string;
     vatRate: string | null;
     vatAmount: string | null;
   }>;
+  tariffSystem?: string | null;
   hospital?: {
     companyName: string | null;
     companyStreet: string | null;
@@ -113,10 +115,18 @@ export function generateTardocXml(invoice: InvoiceWithItems): string {
     const tpv = parseFloat(item.tpValue) || 1;
     const sf = parseFloat(item.scalingFactor || '1') || 1;
     const amount = parseFloat(item.amountChf) || 0;
+    const amountAl = parseFloat(item.amountAl || '0') || 0;
+    const amountTl = parseFloat(item.amountTl || '0') || 0;
     const provGln = item.providerGln || invoice.providerGln || '';
 
+    // AL/TL tax points (unit_mt = medical TP, unit_tt = technical TP)
+    const alTp = amountAl > 0 && tpv > 0 && sf > 0 ? (amountAl / (tpv * sf * item.quantity)).toFixed(2) : '0.00';
+    const tlTp = amountTl > 0 && tpv > 0 && sf > 0 ? (amountTl / (tpv * sf * item.quantity)).toFixed(2) : '0.00';
+
+    const tariffType = item.tariffType || '590';
+
     return `      <invoice:service_ex
-        tariff_type="590"
+        tariff_type="${tariffType}"
         code="${escapeXml(item.tardocCode)}"
         name="${escapeXml(item.description)}"
         session="${item.session || 1}"
@@ -127,6 +137,10 @@ export function generateTardocXml(invoice: InvoiceWithItems): string {
         unit="${tp.toFixed(2)}"
         unit_factor="${tpv.toFixed(4)}"
         external_factor="${sf.toFixed(2)}"
+        unit_mt="${alTp}"
+        unit_tt="${tlTp}"
+        amount_mt="${amountAl.toFixed(2)}"
+        amount_tt="${amountTl.toFixed(2)}"
         amount="${amount.toFixed(2)}"
         vat_rate="${parseFloat(item.vatRate || '0').toFixed(2)}"
         record_id="${recordId}"
