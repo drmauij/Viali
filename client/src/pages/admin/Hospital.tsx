@@ -5129,6 +5129,7 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   }>({
     queryKey: ['/api/admin/tardoc-status'],
     retry: false,
+    staleTime: 0,
   });
 
   const importTardocMutation = useMutation({
@@ -5230,6 +5231,7 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   }>({
     queryKey: ['/api/admin/ap-status'],
     retry: false,
+    staleTime: 0,
   });
 
   const importApMutation = useMutation({
@@ -5317,6 +5319,7 @@ function CumulationRulesCard({ hospitalId }: { hospitalId?: string }) {
   const { data: rulesStatus, isLoading, refetch } = useQuery<{ count: number }>({
     queryKey: ['/api/admin/cumulation-rules-status'],
     retry: false,
+    staleTime: 0,
   });
 
   const importMutation = useMutation({
@@ -5658,6 +5661,7 @@ function ChopIntegrationCard() {
   }>({
     queryKey: ['/api/admin/chop-status'],
     retry: false,
+    staleTime: 0,
   });
   
   // CHOP import mutation
