@@ -67,7 +67,6 @@ function parseTardocCsv(content: string): TardocRow[] {
  * Uses xlsx library for parsing .xlsx files.
  */
 async function parseTardocExcel(buffer: Buffer): Promise<TardocRow[]> {
-  // Dynamic import to avoid bundling issues
   const XLSX = await import('xlsx');
 
   const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -77,79 +76,91 @@ async function parseTardocExcel(buffer: Buffer): Promise<TardocRow[]> {
 
   console.log(`[TARDOC] Workbook has ${workbook.SheetNames.length} sheet(s): ${workbook.SheetNames.join(', ')}`);
 
-  // Try all sheets and pick the one with the most data rows
-  let bestSheetName = workbook.SheetNames[0];
-  let jsonData: Record<string, any>[] = [];
+  // The official TARDOC v1.4c Excel uses "Tarifpositionen" sheet with headers at row 4
+  // Use raw array mode and find the header row dynamically
+  const sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('tarifposition')) || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) throw new Error(`Sheet "${sheetName}" not found`);
 
-  for (const name of workbook.SheetNames) {
-    const s = workbook.Sheets[name];
-    if (!s) continue;
-    const data = XLSX.utils.sheet_to_json<Record<string, any>>(s);
-    console.log(`[TARDOC] Sheet "${name}": ${data.length} rows`);
-    if (data.length > jsonData.length) {
-      jsonData = data;
-      bestSheetName = name;
+  const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+  console.log(`[TARDOC] Using sheet "${sheetName}" with ${rawData.length} raw rows`);
+
+  // Find header row by looking for a row containing "L-Nummer" or "Code" or "Tarifposition"
+  let headerIdx = -1;
+  const headerKeywords = ['l-nummer', 'code', 'tarifposition', 'leistungscode'];
+  for (let i = 0; i < Math.min(20, rawData.length); i++) {
+    const row = rawData[i];
+    if (!row) continue;
+    const firstCell = String(row[0] || '').trim().toLowerCase();
+    if (headerKeywords.some(k => firstCell.includes(k))) {
+      headerIdx = i;
+      break;
     }
   }
 
-  console.log(`[TARDOC] Using sheet "${bestSheetName}" with ${jsonData.length} rows`);
-
-  if (jsonData.length === 0) {
-    throw new Error('All sheets are empty');
+  if (headerIdx === -1) {
+    console.log(`[TARDOC] Could not find header row, trying first 5 rows:`,
+      rawData.slice(0, 5).map((r, i) => `Row ${i}: ${JSON.stringify((r || []).slice(0, 3))}`).join('; '));
+    throw new Error('Could not find header row in TARDOC Excel (expected L-Nummer or similar in column A)');
   }
 
-  // Log first row to help debug column mapping
-  const firstRow = jsonData[0];
-  console.log(`[TARDOC] Columns found: ${Object.keys(firstRow || {}).join(', ')}`);
+  const rawHeaders = rawData[headerIdx] as any[] || [];
+  const headers = Array.from({ length: rawHeaders.length }, (_, i) => String(rawHeaders[i] ?? '').trim().replace(/\r?\n/g, ' '));
+  console.log(`[TARDOC] Header row ${headerIdx}: ${headers.join(' | ')}`);
+
+  // Build column index map
+  const colIdx = (names: string[]): number => {
+    for (const name of names) {
+      const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const iCode = colIdx(['L-Nummer', 'Code', 'Tarifposition']);
+  const iDesc = colIdx(['Bezeichnung']);
+  const iAl = colIdx(['AL (normiert)', 'AL']);
+  const iTl = colIdx(['IPL (normiert)', 'IPL', 'TL']);
+  const iChapter = colIdx(['Kapitel']);
+  const iDurationLies = colIdx(['Zeit LieS']);
+  const iDurationRaum = colIdx(['Zeit Raum']);
+  const iSparte = colIdx(['Sparte']);
+
+  console.log(`[TARDOC] Column indices: code=${iCode}, desc=${iDesc}, AL=${iAl}, TL=${iTl}, chapter=${iChapter}`);
+
+  if (iCode < 0 || iDesc < 0) {
+    throw new Error('Could not find required columns (code, description) in TARDOC Excel');
+  }
 
   const rows: TardocRow[] = [];
 
-  for (const row of jsonData) {
-    // Try common column names (German headers from TARDOC Excel)
-    const code = String(
-      row['Code'] || row['code'] || row['Leistungscode'] || row['Tarifposition'] || ''
-    ).trim();
+  for (let i = headerIdx + 1; i < rawData.length; i++) {
+    const row = rawData[i] as any[];
+    if (!row) continue;
 
-    const descriptionDe = String(
-      row['Bezeichnung'] || row['Bezeichnung DE'] || row['description_de'] ||
-      row['descriptionDe'] || row['Text'] || row['Leistungsbezeichnung'] || ''
-    ).trim();
+    const code = String(row[iCode] || '').trim();
+    const descriptionDe = String(row[iDesc] || '').trim().replace(/\r?\n/g, ' ');
 
     if (!code || !descriptionDe) continue;
+    // Skip rows that look like section headers (no dot in code)
+    if (!code.includes('.')) continue;
 
-    const descriptionFr = String(
-      row['Bezeichnung FR'] || row['description_fr'] || row['descriptionFr'] || ''
-    ).trim() || undefined;
-
-    const chapter = String(
-      row['Kapitel'] || row['Chapter'] || row['chapter'] || ''
-    ).trim() || undefined;
-
-    const chapterDescription = String(
-      row['Kapitelbezeichnung'] || row['Chapter Description'] || ''
-    ).trim() || undefined;
-
-    const taxPoints = parseFloat(row['Taxpunkte'] || row['TP'] || row['taxPoints'] || row['Tax Points'] || '');
-    const al = parseFloat(row['AL'] || row['Ärztliche Leistung'] || row['medicalInterpretation'] || '');
-    const tl = parseFloat(row['TL'] || row['Technische Leistung'] || row['technicalInterpretation'] || '');
-    const duration = parseInt(row['Dauer'] || row['Duration'] || row['durationMinutes'] || '');
-    const sideCode = String(row['Seitencode'] || row['Side'] || row['sideCode'] || '').trim() || undefined;
-    const maxQtySession = parseInt(row['Max. Sitzung'] || row['maxQuantityPerSession'] || row['Max Qty/Session'] || '');
-    const maxQtyCase = parseInt(row['Max. Fall'] || row['maxQuantityPerCase'] || row['Max Qty/Case'] || '');
+    const al = iAl >= 0 ? parseFloat(row[iAl]) : NaN;
+    const tl = iTl >= 0 ? parseFloat(row[iTl]) : NaN;
+    const taxPoints = (!isNaN(al) && !isNaN(tl)) ? al + tl : NaN;
+    const chapter = iChapter >= 0 ? String(row[iChapter] || '').trim() || undefined : undefined;
+    const durationLies = iDurationLies >= 0 ? parseInt(row[iDurationLies]) : NaN;
+    const durationRaum = iDurationRaum >= 0 ? parseInt(row[iDurationRaum]) : NaN;
+    const duration = !isNaN(durationLies) ? durationLies : (!isNaN(durationRaum) ? durationRaum : NaN);
 
     rows.push({
       code,
       descriptionDe,
-      descriptionFr,
       chapter,
-      chapterDescription,
-      taxPoints: isNaN(taxPoints) ? undefined : taxPoints,
-      medicalInterpretation: isNaN(al) ? undefined : al,
-      technicalInterpretation: isNaN(tl) ? undefined : tl,
+      taxPoints: isNaN(taxPoints) ? undefined : Math.round(taxPoints * 10000) / 10000,
+      medicalInterpretation: isNaN(al) ? undefined : Math.round(al * 10000) / 10000,
+      technicalInterpretation: isNaN(tl) ? undefined : Math.round(tl * 10000) / 10000,
       durationMinutes: isNaN(duration) ? undefined : duration,
-      sideCode,
-      maxQuantityPerSession: isNaN(maxQtySession) ? undefined : maxQtySession,
-      maxQuantityPerCase: isNaN(maxQtyCase) ? undefined : maxQtyCase,
     });
   }
 

@@ -1572,21 +1572,9 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
 // Get CHOP import status
 router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
   try {
-    const userId = req.user.id;
-    
-    // Check if user is admin of any hospital
-    const hospitals = await storage.getUserHospitals(userId);
-    logger.info('[Admin] CHOP status check - userId:', userId, 'hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
-    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
-    
-    if (!isAnyAdmin) {
-      logger.info('[Admin] CHOP status - not admin, roles found:', hospitals.map(h => h.role));
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
     const count = Number(countResult?.count || 0);
-    
+
     res.json({
       imported: count > 0,
       count
