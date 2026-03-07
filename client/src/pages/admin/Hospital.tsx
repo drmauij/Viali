@@ -5127,7 +5127,7 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     count: number;
     version: string | null;
   }>({
-    queryKey: ['/api/admin/tardoc-status'],
+    queryKey: ['/api/tardoc/catalog-status'],
     retry: false,
     staleTime: 0,
   });
@@ -5229,7 +5229,7 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     count: number;
     version: string | null;
   }>({
-    queryKey: ['/api/admin/ap-status'],
+    queryKey: ['/api/tardoc/ap-catalog-status'],
     retry: false,
     staleTime: 0,
   });
@@ -5317,7 +5317,7 @@ function CumulationRulesCard({ hospitalId }: { hospitalId?: string }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const { data: rulesStatus, isLoading, refetch } = useQuery<{ count: number }>({
-    queryKey: ['/api/admin/cumulation-rules-status'],
+    queryKey: ['/api/tardoc/cumulation-rules-status'],
     retry: false,
     staleTime: 0,
   });
@@ -5659,7 +5659,7 @@ function ChopIntegrationCard() {
     imported: boolean;
     count: number;
   }>({
-    queryKey: ['/api/admin/chop-status'],
+    queryKey: ['/api/tardoc/chop-status'],
     retry: false,
     staleTime: 0,
   });

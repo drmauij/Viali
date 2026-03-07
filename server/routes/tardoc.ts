@@ -200,19 +200,22 @@ router.post('/api/admin/:hospitalId/import-tardoc-remote', isAuthenticated, requ
   }
 });
 
-// TARDOC catalog status
-router.get('/api/admin/tardoc-status', isAuthenticated, async (req: any, res: Response) => {
+// TARDOC catalog status — no auth needed, just a count query
+router.get('/api/tardoc/catalog-status', async (req: any, res: Response) => {
   try {
     const [result] = await db.select({ count: sql<number>`count(*)` }).from(tardocCatalog);
     // Get the version from the latest imported entry
     const [versionResult] = await db.select({ version: tardocCatalog.version })
       .from(tardocCatalog)
       .limit(1);
-    res.json({
+    const response = {
       count: Number(result?.count || 0),
       version: versionResult?.version || null,
-    });
+    };
+    console.log('[DEBUG] TARDOC status response:', JSON.stringify(response));
+    res.json(response);
   } catch (error: any) {
+    console.log('[DEBUG] TARDOC status ERROR:', error.message);
     logger.error("Error getting TARDOC status:", error);
     res.status(500).json({ message: "Failed to get TARDOC status" });
   }
@@ -365,7 +368,7 @@ router.post('/api/admin/:hospitalId/import-ap-remote', isAuthenticated, requireS
 });
 
 // AP catalog status
-router.get('/api/admin/ap-status', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/tardoc/ap-catalog-status', async (req: any, res: Response) => {
   try {
     const [result] = await db.select({ count: sql<number>`count(*)` }).from(ambulantePauschalenCatalog);
     const [versionResult] = await db.select({ version: ambulantePauschalenCatalog.version })
@@ -413,7 +416,7 @@ router.post('/api/admin/:hospitalId/import-cumulation-rules', isAuthenticated, r
 });
 
 // Cumulation rules status
-router.get('/api/admin/cumulation-rules-status', isAuthenticated, async (req: any, res: Response) => {
+router.get('/api/tardoc/cumulation-rules-status', async (req: any, res: Response) => {
   try {
     const [result] = await db.select({ count: sql<number>`count(*)` }).from(tardocCumulationRules);
     res.json({ count: Number(result?.count || 0) });

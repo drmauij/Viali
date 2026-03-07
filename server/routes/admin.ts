@@ -1570,7 +1570,7 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
 });
 
 // Get CHOP import status
-router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
+router.get('/api/tardoc/chop-status', async (req: any, res) => {
   try {
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
     const count = Number(countResult?.count || 0);
