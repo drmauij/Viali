@@ -5190,7 +5190,7 @@ function TardocIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               {t('admin.tardocDescription', 'Swiss tariff codes for insurance billing.')}
               {' '}
               <a
-                href="https://oaat-otma.ch"
+                href="https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline"
@@ -5313,7 +5313,7 @@ function ApIntegrationCard({ hospitalId }: { hospitalId?: string }) {
             </h3>
             <p className="text-sm text-muted-foreground">
               Swiss flat-rate outpatient billing codes.{' '}
-              <a href="https://oaat-otma.ch" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a href="https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                 Download from oaat-otma.ch
               </a>
             </p>

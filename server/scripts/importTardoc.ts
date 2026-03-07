@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 // TARDOC catalog is distributed as Excel (.xlsx) from oaat-otma.ch
-// Download: https://oaat-otma.ch → Downloads → Anhang A2 Katalog des TARDOC
+// Download: https://oaat-otma.ch/gesamt-tarifsystem/vertraege-und-anhaenge → Anhang A2 Katalog des TARDOC
 // The import expects a file uploaded by the admin
 
 interface TardocRow {
