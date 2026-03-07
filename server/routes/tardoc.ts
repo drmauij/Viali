@@ -606,11 +606,22 @@ router.get('/api/clinic/:hospitalId/tardoc-eligible-surgeries', isAuthenticated,
     const { hospitalId } = req.params;
     const search = ((req.query.q as string) || "").trim();
 
+    // A surgery is "completed" when its anesthesia record has an O2 (Surgical Suture) time set
     const conditions = [
       eq(surgeries.hospitalId, hospitalId),
-      eq(surgeries.status, "completed"),
       sql`${surgeries.patientId} IS NOT NULL`,
       eq(surgeries.isArchived, false),
+      sql`EXISTS (
+        SELECT 1 FROM anesthesia_records ar
+        WHERE ar.surgery_id = ${surgeries.id}
+        AND ar.time_markers IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(ar.time_markers) elem
+          WHERE elem->>'code' = 'O2'
+          AND elem->>'time' IS NOT NULL
+          AND (elem->>'time')::bigint > 0
+        )
+      )`,
     ];
 
     if (search) {
