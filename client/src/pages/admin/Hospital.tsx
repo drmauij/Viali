@@ -5510,7 +5510,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
             <div>
               <label className="text-xs font-medium">Canton *</label>
               <select
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.canton}
                 onChange={e => setNewRate(r => ({ ...r, canton: e.target.value }))}
               >
@@ -5523,7 +5523,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
               <input
                 type="number"
                 step="0.0001"
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.tpValue}
                 onChange={e => setNewRate(r => ({ ...r, tpValue: e.target.value }))}
                 placeholder="e.g. 0.8300"
@@ -5533,7 +5533,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
               <label className="text-xs font-medium">Valid From *</label>
               <input
                 type="date"
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.validFrom}
                 onChange={e => setNewRate(r => ({ ...r, validFrom: e.target.value }))}
               />
@@ -5542,7 +5542,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
               <label className="text-xs font-medium">Valid To</label>
               <input
                 type="date"
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.validTo}
                 onChange={e => setNewRate(r => ({ ...r, validTo: e.target.value }))}
               />
@@ -5552,7 +5552,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
             <div>
               <label className="text-xs font-medium">Insurer GLN</label>
               <input
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.insurerGln}
                 onChange={e => setNewRate(r => ({ ...r, insurerGln: e.target.value }))}
                 placeholder="Optional"
@@ -5561,7 +5561,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
             <div>
               <label className="text-xs font-medium">Law Type</label>
               <select
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.lawType}
                 onChange={e => setNewRate(r => ({ ...r, lawType: e.target.value }))}
               >
@@ -5576,7 +5576,7 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
             <div>
               <label className="text-xs font-medium">Notes</label>
               <input
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                 value={newRate.notes}
                 onChange={e => setNewRate(r => ({ ...r, notes: e.target.value }))}
                 placeholder="Optional"
