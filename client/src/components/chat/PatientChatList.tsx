@@ -177,7 +177,7 @@ export default function PatientChatList({ hospitalId, onSelectConversation, onSt
             return (
               <div
                 key={conv.conversationId}
-                className="flex items-start gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border group"
+                className="flex items-start gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border group overflow-hidden"
               >
                 <button
                   className="flex items-start gap-3 flex-1 min-w-0 text-left"

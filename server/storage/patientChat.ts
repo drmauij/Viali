@@ -44,7 +44,6 @@ export async function getPatientConversations(hospitalId: string): Promise<Patie
       SELECT DISTINCT patient_id, hospital_id, conversation_id
       FROM patient_messages
       WHERE hospital_id = ${hospitalId}
-        AND direction = 'inbound'
     ) pm
     LEFT JOIN patient_chat_archives pca
       ON pca.hospital_id = pm.hospital_id AND pca.patient_id = pm.patient_id
