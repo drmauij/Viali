@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Save, X, Loader2, AlertTriangle, CalendarDays, User } from "lucide-react";
+import { Plus, Trash2, Save, X, Loader2, AlertTriangle, CalendarDays, User, Bookmark } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -221,6 +221,8 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
   const [prefillData, setPrefillData] = useState<PrefillData | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [tpwSource, setTpwSource] = useState<string | null>(null);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [saveTemplateName, setSaveTemplateName] = useState("");
 
   // Form setup
   const today = new Date().toISOString().split('T')[0];
@@ -533,6 +535,41 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
       }
     }
   };
+
+  // ==================== Save as template ====================
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const items = form.getValues("items");
+      const payload = {
+        name,
+        billingModel: form.getValues("billingModel"),
+        lawType: form.getValues("lawType"),
+        treatmentType: form.getValues("treatmentType"),
+        treatmentReason: form.getValues("treatmentReason"),
+        items: items.map((item, i) => ({
+          tardocCode: item.tardocCode,
+          description: item.description,
+          taxPoints: item.taxPoints,
+          scalingFactor: item.scalingFactor,
+          sideCode: item.sideCode,
+          quantity: item.quantity,
+          sortOrder: i,
+        })),
+      };
+      const res = await apiRequest('POST', `/api/clinic/${hospitalId}/tardoc-templates`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/tardoc-templates`] });
+      toast({ title: "Template saved", description: `"${saveTemplateName}" saved for future use` });
+      setSaveTemplateOpen(false);
+      setSaveTemplateName("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to save template", variant: "destructive" });
+    },
+  });
 
   // ==================== Render ====================
 
@@ -1073,6 +1110,67 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                   >
                     <Plus className="h-4 w-4 mr-1" /> Add Line
                   </Button>
+
+                  {/* Save current lines as template */}
+                  <Popover open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={fields.length === 0}
+                        title="Save current lines as template"
+                      >
+                        <Bookmark className="h-4 w-4 mr-1" /> Save as template
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72" align="end">
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium">Save as template</p>
+                        <p className="text-xs text-muted-foreground">
+                          Save the current {fields.length} service line{fields.length !== 1 ? "s" : ""} as a reusable template.
+                        </p>
+                        <Input
+                          placeholder="Template name"
+                          value={saveTemplateName}
+                          onChange={(e) => setSaveTemplateName(e.target.value)}
+                          className="h-8 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && saveTemplateName.trim()) {
+                              e.preventDefault();
+                              saveTemplateMutation.mutate(saveTemplateName.trim());
+                            }
+                          }}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSaveTemplateOpen(false);
+                              setSaveTemplateName("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!saveTemplateName.trim() || saveTemplateMutation.isPending}
+                            onClick={() => saveTemplateMutation.mutate(saveTemplateName.trim())}
+                          >
+                            {saveTemplateMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            ) : (
+                              <Save className="h-4 w-4 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </CardHeader>
@@ -1388,7 +1486,7 @@ function TardocLineItem({
             <Label className="sm:hidden text-xs">Side</Label>
             <select
               {...form.register(`items.${index}.sideCode`)}
-              className="h-8 text-xs w-full border rounded px-1"
+              className="h-8 text-xs w-full border border-input rounded px-1 bg-background text-foreground"
             >
               <option value="">-</option>
               <option value="N">N</option>
