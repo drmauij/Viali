@@ -3903,38 +3903,54 @@ router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStric
 
     const results: Record<string, any> = {};
 
-    // Try a broad set of endpoints to discover org/user info
-    const endpointsToTry = [
-      '/me',
-      '/calendars',
-      '/event-types',
-      '/event-types?mine=true',
-      '/bookings?status=upcoming&take=3',
-      '/schedules',
-      '/organizations/me',
-      '/organizations/me/members',
-    ];
-
-    for (const endpoint of endpointsToTry) {
+    // Helper to try an endpoint with a specific API version
+    const tryEndpoint = async (endpoint: string, version?: string) => {
       try {
-        const data = await (calcom as any).request(endpoint);
-        results[endpoint] = data;
+        const headers: Record<string, string> = {};
+        if (version) headers['cal-api-version'] = version;
+        const url = `https://api.cal.eu/v2${endpoint}`;
+        const response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            'cal-api-version': version || '2024-08-13',
+            'Authorization': `Bearer ${config!.apiKey}`,
+          },
+        });
+        const text = await response.text();
+        try {
+          const json = JSON.parse(text);
+          return { status: response.status, data: json.data || json };
+        } catch {
+          return { status: response.status, body: text.substring(0, 200) };
+        }
       } catch (err: any) {
-        results[endpoint] = { error: err.message?.substring(0, 200) };
+        return { error: err.message?.substring(0, 200) };
+      }
+    };
+
+    // Core endpoints with default API version
+    results['/me'] = await tryEndpoint('/me');
+    results['/calendars'] = 'skipped (already shown in parsedCalendars)';
+
+    // Try schedules with different API versions
+    const scheduleVersions = ['2024-04-15', '2024-06-11', '2024-06-14', '2024-08-13'];
+    for (const v of scheduleVersions) {
+      results[`/schedules (v${v})`] = await tryEndpoint('/schedules', v);
+    }
+
+    // Try to get the default schedule by ID (from /me response)
+    const meData = results['/me']?.data;
+    if (meData?.defaultScheduleId) {
+      for (const v of ['2024-04-15', '2024-06-11']) {
+        results[`/schedules/${meData.defaultScheduleId} (v${v})`] = await tryEndpoint(`/schedules/${meData.defaultScheduleId}`, v);
       }
     }
 
-    // Also try to get event type details for each mapped event type
+    // Try event-types with different versions
+    results['/event-types (v2024-04-15)'] = await tryEndpoint('/event-types', '2024-04-15');
+    results['/event-types (v2024-06-14)'] = await tryEndpoint('/event-types', '2024-06-14');
+
     const mappings = await storage.getCalcomProviderMappings(hospitalId);
-    for (const m of mappings) {
-      const etEndpoint = `/event-types/${m.calcomEventTypeId}`;
-      try {
-        const data = await (calcom as any).request(etEndpoint);
-        results[etEndpoint] = data;
-      } catch (err: any) {
-        results[etEndpoint] = { error: err.message?.substring(0, 200) };
-      }
-    }
 
     // Parsed connected calendars (compact)
     let parsedCalendars: any = null;
