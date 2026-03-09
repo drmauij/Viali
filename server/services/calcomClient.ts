@@ -478,21 +478,47 @@ export class CalcomClient {
   }
 
   /**
-   * Disconnect a calendar credential by its credential ID.
-   * Uses POST /calendars/disconnect with { credentialId } body.
+   * Disconnect an ICS feed calendar credential by its credential ID.
+   * Uses POST /calendars/ics-feed/disconnect with { id } body.
    */
   async disconnectCalendarCredential(credentialId: number): Promise<boolean> {
     try {
-      await this.request('/calendars/disconnect', {
+      await this.request('/calendars/ics-feed/disconnect', {
         method: 'POST',
-        body: JSON.stringify({ credentialId }),
+        body: JSON.stringify({ id: credentialId }),
       });
-      logger.info(`Disconnected calendar credential ${credentialId}`);
+      logger.info(`Disconnected ICS feed credential ${credentialId}`);
       return true;
     } catch (error: any) {
       logger.warn(`Failed to disconnect credential ${credentialId}: ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * Get or create a personal schedule (non-organization).
+   * Uses direct /schedules endpoints with the 2024-06-11 API version.
+   */
+  async getSchedules(): Promise<CalcomSchedule[]> {
+    return this.request<CalcomSchedule[]>('/schedules', {
+      headers: { 'cal-api-version': '2024-06-11' },
+    });
+  }
+
+  async createSchedule(schedule: CreateScheduleRequest): Promise<CalcomSchedule> {
+    return this.request<CalcomSchedule>('/schedules', {
+      method: 'POST',
+      headers: { 'cal-api-version': '2024-06-11' },
+      body: JSON.stringify(schedule),
+    });
+  }
+
+  async updateSchedule(scheduleId: number, schedule: UpdateScheduleRequest): Promise<CalcomSchedule> {
+    return this.request<CalcomSchedule>(`/schedules/${scheduleId}`, {
+      method: 'PATCH',
+      headers: { 'cal-api-version': '2024-06-11' },
+      body: JSON.stringify(schedule),
+    });
   }
 
   /**

@@ -101,19 +101,27 @@ export async function syncAvailabilityToCalcom(
       return { success: false, error: 'Availability sync disabled' };
     }
 
-    // Get org ID (auto-detect if missing)
+    // Detect account type (organization vs personal)
     let orgId = (config as any).orgId ? parseInt((config as any).orgId, 10) : null;
+    let isPersonalAccount = false;
     if (!orgId) {
-      const me = await client.getMe();
-      if (!me.organizationId) {
-        return { success: false, error: 'No organization found for Cal.com account' };
+      try {
+        const me = await client.getMe();
+        if (me.organizationId) {
+          orgId = me.organizationId;
+          await db
+            .update(calcomConfig)
+            .set({ orgId: String(orgId) } as any)
+            .where(eq(calcomConfig.hospitalId, hospitalId));
+        } else {
+          isPersonalAccount = true;
+          logger.info(`Cal.com account for hospital ${hospitalId} is personal (userId=${me.id}), using direct schedule endpoints`);
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to detect Cal.com account type: ${err.message}`);
+        // Assume personal account if /me fails
+        isPersonalAccount = true;
       }
-      orgId = me.organizationId;
-      // Cache orgId for future use
-      await db
-        .update(calcomConfig)
-        .set({ orgId: String(orgId) } as any)
-        .where(eq(calcomConfig.hospitalId, hospitalId));
     }
 
     // Get provider mapping
@@ -132,9 +140,10 @@ export async function syncAvailabilityToCalcom(
       return { success: false, error: 'No Cal.com mapping for provider' };
     }
 
+    // For org accounts, calcomUserId is required. For personal accounts, it's optional.
     const calcomUserId = mapping.calcomUserId ? parseInt(mapping.calcomUserId, 10) : null;
-    if (!calcomUserId) {
-      return { success: false, error: 'No Cal.com user ID configured for provider' };
+    if (!isPersonalAccount && !calcomUserId) {
+      return { success: false, error: 'No Cal.com user ID configured for provider (required for organization accounts)' };
     }
 
     // Read provider availability from DB
@@ -196,18 +205,29 @@ export async function syncAvailabilityToCalcom(
     let scheduleId: number;
 
     if (existingScheduleId) {
-      const updated = await client.updateOrgUserSchedule(
-        orgId,
-        calcomUserId,
-        existingScheduleId,
-        {
+      // Update existing schedule
+      if (isPersonalAccount) {
+        const updated = await client.updateSchedule(existingScheduleId, {
           availability,
           overrides,
           timeZone: hospitalTz,
           isDefault: true,
-        }
-      );
-      scheduleId = updated.id;
+        });
+        scheduleId = updated.id;
+      } else {
+        const updated = await client.updateOrgUserSchedule(
+          orgId!,
+          calcomUserId!,
+          existingScheduleId,
+          {
+            availability,
+            overrides,
+            timeZone: hospitalTz,
+            isDefault: true,
+          }
+        );
+        scheduleId = updated.id;
+      }
     } else {
       // Get provider name for schedule label
       const [provider] = await db
@@ -218,14 +238,26 @@ export async function syncAvailabilityToCalcom(
         ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
         : 'Provider';
 
-      const created = await client.createOrgUserSchedule(orgId, calcomUserId, {
-        name: `Viali - ${providerName}`,
-        timeZone: hospitalTz,
-        isDefault: true,
-        availability,
-        overrides,
-      });
-      scheduleId = created.id;
+      // Create new schedule
+      if (isPersonalAccount) {
+        const created = await client.createSchedule({
+          name: `Viali - ${providerName}`,
+          timeZone: hospitalTz,
+          isDefault: true,
+          availability,
+          overrides,
+        });
+        scheduleId = created.id;
+      } else {
+        const created = await client.createOrgUserSchedule(orgId!, calcomUserId!, {
+          name: `Viali - ${providerName}`,
+          timeZone: hospitalTz,
+          isDefault: true,
+          availability,
+          overrides,
+        });
+        scheduleId = created.id;
+      }
 
       // Store schedule ID in mapping
       await db

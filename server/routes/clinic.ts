@@ -3978,7 +3978,7 @@ router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStric
   }
 });
 
-// Debug: try to disconnect a specific ICS feed credential using multiple methods
+// Disconnect a specific ICS feed credential
 router.post('/api/clinic/:hospitalId/calcom-debug-disconnect', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
@@ -3990,70 +3990,18 @@ router.post('/api/clinic/:hospitalId/calcom-debug-disconnect', isAuthenticated, 
 
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
-    const results: any[] = [];
 
-    // Method 1: POST /calendars/disconnect { credentialId }
-    try {
-      await (calcom as any).request('/calendars/disconnect', {
-        method: 'POST',
-        body: JSON.stringify({ credentialId: Number(credentialId) }),
-      });
-      results.push({ method: 'POST /calendars/disconnect {credentialId}', success: true });
-    } catch (err: any) {
-      results.push({ method: 'POST /calendars/disconnect {credentialId}', error: err.message });
+    // Use the known working method: POST /calendars/ics-feed/disconnect { id }
+    const success = await calcom.disconnectCalendarCredential(Number(credentialId));
+    if (!success) {
+      return res.status(500).json({ success: false, message: `Failed to disconnect credential ${credentialId}` });
     }
 
-    // Method 2: POST /calendars/ics-feed/disconnect { id }
-    try {
-      await (calcom as any).request('/calendars/ics-feed/disconnect', {
-        method: 'POST',
-        body: JSON.stringify({ id: Number(credentialId) }),
-      });
-      results.push({ method: 'POST /calendars/ics-feed/disconnect {id}', success: true });
-    } catch (err: any) {
-      results.push({ method: 'POST /calendars/ics-feed/disconnect {id}', error: err.message });
-    }
+    // Check what's left after disconnect
+    const cals = await calcom.getConnectedCalendars();
+    const remaining = cals.map((c: any) => ({ credentialId: c.credentialId, type: c.integration?.type }));
 
-    // Method 3: POST /calendars/ics-feed/disconnect { credentialId }
-    try {
-      await (calcom as any).request('/calendars/ics-feed/disconnect', {
-        method: 'POST',
-        body: JSON.stringify({ credentialId: Number(credentialId) }),
-      });
-      results.push({ method: 'POST /calendars/ics-feed/disconnect {credentialId}', success: true });
-    } catch (err: any) {
-      results.push({ method: 'POST /calendars/ics-feed/disconnect {credentialId}', error: err.message });
-    }
-
-    // Method 4: DELETE /calendars/credentials with query params
-    try {
-      await (calcom as any).request(`/calendars/credentials?id=${credentialId}`, {
-        method: 'DELETE',
-      });
-      results.push({ method: 'DELETE /calendars/credentials?id=', success: true });
-    } catch (err: any) {
-      results.push({ method: 'DELETE /calendars/credentials?id=', error: err.message });
-    }
-
-    // Method 5: POST /calendars/ics-feed_calendar/disconnect { credentialId }
-    try {
-      await (calcom as any).request('/calendars/ics-feed_calendar/disconnect', {
-        method: 'POST',
-        body: JSON.stringify({ credentialId: Number(credentialId) }),
-      });
-      results.push({ method: 'POST /calendars/ics-feed_calendar/disconnect {credentialId}', success: true });
-    } catch (err: any) {
-      results.push({ method: 'POST /calendars/ics-feed_calendar/disconnect {credentialId}', error: err.message });
-    }
-
-    // Check what's left after attempts
-    let remaining: any = null;
-    try {
-      const cals = await calcom.getConnectedCalendars();
-      remaining = cals.map((c: any) => ({ credentialId: c.credentialId, type: c.integration?.type }));
-    } catch (_) {}
-
-    res.json({ targetCredentialId: credentialId, results, remainingCalendars: remaining });
+    res.json({ success: true, disconnected: credentialId, remainingCalendars: remaining });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
