@@ -205,41 +205,54 @@ export async function syncAvailabilityToCalcom(
       ? parseInt(mapping.calcomScheduleId, 10)
       : null;
 
-    let scheduleId: number;
+    let scheduleId: number = 0;
+
+    // Get provider name for schedule label
+    const [provider] = await db
+      .select({ firstName: users.firstName, lastName: users.lastName })
+      .from(users)
+      .where(eq(users.id, providerId));
+    const providerName = provider
+      ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
+      : 'Provider';
+
+    let needsCreate = !existingScheduleId;
 
     if (existingScheduleId) {
-      // Update this provider's existing schedule
-      if (isPersonalAccount) {
-        const updated = await client.updateSchedule(existingScheduleId, {
-          availability,
-          overrides,
-          timeZone: hospitalTz,
-        });
-        scheduleId = updated.id;
-      } else {
-        const updated = await client.updateOrgUserSchedule(
-          orgId!,
-          calcomUserId!,
-          existingScheduleId,
-          {
+      // Try to update existing schedule; if it was deleted (404), fall back to create
+      try {
+        if (isPersonalAccount) {
+          const updated = await client.updateSchedule(existingScheduleId, {
             availability,
             overrides,
             timeZone: hospitalTz,
-          }
-        );
-        scheduleId = updated.id;
+          });
+          scheduleId = updated.id;
+        } else {
+          const updated = await client.updateOrgUserSchedule(
+            orgId!,
+            calcomUserId!,
+            existingScheduleId,
+            {
+              availability,
+              overrides,
+              timeZone: hospitalTz,
+            }
+          );
+          scheduleId = updated.id;
+        }
+        logger.info(`Updated Cal.com schedule ${scheduleId} for provider ${providerId}`);
+      } catch (updateError: any) {
+        if (updateError.message?.includes('404') || updateError.message?.includes('does not exist')) {
+          logger.warn(`Cal.com schedule ${existingScheduleId} no longer exists, creating new one`);
+          needsCreate = true;
+        } else {
+          throw updateError;
+        }
       }
-      logger.info(`Updated Cal.com schedule ${scheduleId} for provider ${providerId}`);
-    } else {
-      // Get provider name for schedule label
-      const [provider] = await db
-        .select({ firstName: users.firstName, lastName: users.lastName })
-        .from(users)
-        .where(eq(users.id, providerId));
-      const providerName = provider
-        ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
-        : 'Provider';
+    }
 
+    if (needsCreate) {
       // Create a new schedule for this provider (not default — user assigns via Cal.com UI)
       if (isPersonalAccount) {
         const created = await client.createSchedule({
