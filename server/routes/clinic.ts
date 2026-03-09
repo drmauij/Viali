@@ -3887,6 +3887,93 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
 });
 
 // ==========================================
+// Cal.com Debug Endpoint (temporary)
+// ==========================================
+
+router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.apiKey) {
+      return res.status(400).json({ message: "Cal.com API key not configured" });
+    }
+
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+
+    // 1. Raw GET /calendars response
+    let calendarsRaw: any = null;
+    let calendarsError: string | null = null;
+    try {
+      calendarsRaw = await (calcom as any).request('/calendars');
+    } catch (err: any) {
+      calendarsError = err.message;
+    }
+
+    // 2. Get provider mappings and their schedules
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    const scheduleResults: any[] = [];
+
+    let orgId = config.orgId ? parseInt(config.orgId, 10) : null;
+    if (!orgId) {
+      try {
+        const me = await calcom.getMe();
+        orgId = me.organizationId || null;
+      } catch (_) {}
+    }
+
+    for (const m of mappings) {
+      const calcomUserId = m.calcomUserId ? parseInt(m.calcomUserId, 10) : null;
+      let schedules: any = null;
+      let scheduleError: string | null = null;
+      if (orgId && calcomUserId) {
+        try {
+          schedules = await calcom.getOrgUserSchedules(orgId, calcomUserId);
+        } catch (err: any) {
+          scheduleError = err.message;
+        }
+      }
+      scheduleResults.push({
+        providerId: m.providerId,
+        calcomUserId: m.calcomUserId,
+        calcomScheduleId: m.calcomScheduleId,
+        calcomEventTypeId: m.calcomEventTypeId,
+        lastSyncAt: m.lastSyncAt,
+        lastSyncError: m.lastSyncError,
+        schedules,
+        scheduleError,
+      });
+    }
+
+    // 3. Try disconnect dry-run: show what getConnectedCalendars returns parsed
+    let parsedCalendars: any = null;
+    let parsedError: string | null = null;
+    try {
+      parsedCalendars = await calcom.getConnectedCalendars();
+    } catch (err: any) {
+      parsedError = err.message;
+    }
+
+    res.json({
+      orgId,
+      storedConfig: {
+        icsFeedCredentialId: config.icsFeedCredentialId,
+        icsFeedSubscribedAt: config.icsFeedSubscribedAt,
+        feedToken: config.feedToken ? '***exists***' : null,
+        syncAvailability: (config as any).syncAvailability,
+      },
+      calendarsRaw,
+      calendarsError,
+      parsedCalendars,
+      parsedError,
+      providerSchedules: scheduleResults,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
 // Hospital Vonage SMS Configuration Routes
 // ==========================================
 
