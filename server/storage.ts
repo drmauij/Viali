@@ -823,6 +823,7 @@ export interface IStorage {
   
   // Provider Availability Windows (date-specific availability)
   // unitId can be null for hospital-level (shared calendar) windows
+  getProviderAvailabilityWindow(windowId: string): Promise<ProviderAvailabilityWindow | null>;
   getProviderAvailabilityWindows(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderAvailabilityWindow[]>;
   getProviderAvailabilityWindowsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
   getProviderAvailabilityWindowsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
@@ -1478,6 +1479,7 @@ export class DatabaseStorage implements IStorage {
   setProviderAvailability = clinicStorage.setProviderAvailability;
   updateProviderAvailability = clinicStorage.updateProviderAvailability;
   updateProviderAvailabilityMode = clinicStorage.updateProviderAvailabilityMode;
+  getProviderAvailabilityWindow = clinicStorage.getProviderAvailabilityWindow;
   getProviderAvailabilityWindows = clinicStorage.getProviderAvailabilityWindows;
   getProviderAvailabilityWindowsForUnit = clinicStorage.getProviderAvailabilityWindowsForUnit;
   getProviderAvailabilityWindowsForHospital = clinicStorage.getProviderAvailabilityWindowsForHospital;

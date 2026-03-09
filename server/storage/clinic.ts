@@ -421,6 +421,15 @@ export async function updateProviderAvailabilityMode(hospitalId: string, userId:
   return roleToClinicProvider(updated);
 }
 
+export async function getProviderAvailabilityWindow(windowId: string): Promise<ProviderAvailabilityWindow | null> {
+  const [row] = await db
+    .select()
+    .from(providerAvailabilityWindows)
+    .where(eq(providerAvailabilityWindows.id, windowId))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getProviderAvailabilityWindows(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderAvailabilityWindow[]> {
   let conditions: any[] = [eq(providerAvailabilityWindows.providerId, providerId)];
   

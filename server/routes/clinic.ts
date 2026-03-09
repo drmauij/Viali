@@ -20,6 +20,13 @@ import {
 import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
+import { syncAvailabilityToCalcom } from "../services/calcomSync";
+
+function fireAvailabilitySync(hospitalId: string, providerId: string) {
+  syncAvailabilityToCalcom(hospitalId, providerId).catch((err) => {
+    logger.error("Background availability sync failed:", err);
+  });
+}
 
 // Helper to get calendar scope based on unit's hasOwnCalendar setting
 // Returns { unitId: string | null, hospitalId: string }
@@ -1765,6 +1772,9 @@ router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
     );
     
     res.json(result);
+
+    // Fire-and-forget: sync availability to Cal.com
+    fireAvailabilitySync(hospitalId, providerId);
   } catch (error) {
     logger.error("Error setting provider availability:", error);
     res.status(500).json({ message: "Failed to set availability" });
@@ -2055,6 +2065,9 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
     });
     
     res.status(201).json(window);
+
+    // Fire-and-forget: sync availability to Cal.com
+    fireAvailabilitySync(hospitalId, providerId);
   } catch (error) {
     logger.error("Error creating availability window:", error);
     res.status(500).json({ message: "Failed to create availability window" });
@@ -2064,9 +2077,9 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
 // Update availability window
 router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const { windowId } = req.params;
+    const { hospitalId, windowId } = req.params;
     const { startTime, endTime, slotDurationMinutes, notes } = req.body;
-    
+
     const window = await storage.updateProviderAvailabilityWindow(windowId, {
       startTime,
       endTime,
@@ -2075,6 +2088,11 @@ router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthentic
     });
     
     res.json(window);
+
+    // Fire-and-forget: sync availability to Cal.com
+    if (window?.providerId) {
+      fireAvailabilitySync(hospitalId, window.providerId);
+    }
   } catch (error) {
     logger.error("Error updating availability window:", error);
     res.status(500).json({ message: "Failed to update availability window" });
@@ -2084,10 +2102,18 @@ router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthentic
 // Delete availability window
 router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
-    const { windowId } = req.params;
-    
+    const { hospitalId, windowId } = req.params;
+
+    // Read window before deleting to get providerId for sync
+    const windowToDelete = await storage.getProviderAvailabilityWindow(windowId);
+
     await storage.deleteProviderAvailabilityWindow(windowId);
-    
+
+    // Fire-and-forget: sync availability to Cal.com
+    if (windowToDelete?.providerId) {
+      fireAvailabilitySync(hospitalId, windowToDelete.providerId);
+    }
+
     res.status(204).send();
   } catch (error) {
     logger.error("Error deleting availability window:", error);
@@ -3689,6 +3715,21 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, requireStric
     
     // Test API key validity by getting the authenticated user
     const me = await calcom.getMe();
+
+    // Auto-detect and cache org ID
+    if (me.organizationId) {
+      try {
+        const { calcomConfig: calcomConfigTable } = await import("@shared/schema");
+        const { db } = await import("../db");
+        const { eq } = await import("drizzle-orm");
+        await db
+          .update(calcomConfigTable)
+          .set({ orgId: String(me.organizationId) } as any)
+          .where(eq(calcomConfigTable.hospitalId, hospitalId));
+      } catch (e) {
+        logger.warn("Could not cache Cal.com org ID:", (e as Error).message);
+      }
+    }
 
     // Try to get event types, but don't fail the test if this endpoint isn't available
     let eventTypes: any[] = [];
