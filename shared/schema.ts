@@ -46,6 +46,7 @@ export const users = pgTable("users", {
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly pay rate for cost calculations
   weeklyTargetHours: decimal("weekly_target_hours", { precision: 5, scale: 2 }), // Target work hours per week for overtime calculation
   overtimeBalanceMinutes: integer("overtime_balance_minutes"), // Initial overtime balance in minutes (from Timebutler migration)
+  annualVacationDays: integer("annual_vacation_days"), // Annual vacation entitlement in days
   preferences: jsonb("preferences"), // User preferences including clinic provider filter
   timebutlerIcsUrl: varchar("timebutler_ics_url"), // Personal Timebutler iCal export URL for syncing absences
   briefSignature: text("brief_signature"), // Multi-line professional signature block for discharge briefs

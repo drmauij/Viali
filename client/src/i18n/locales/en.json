@@ -5281,6 +5281,8 @@
       "weeklyTargetHoursPlaceholder": "e.g. 42",
       "overtimeBalance": "Overtime Balance (h)",
       "overtimeBalanceHint": "Starting balance imported from Timebutler",
+      "annualVacationDays": "Annual Vacation Days",
+      "annualVacationDaysPlaceholder": "e.g. 25",
       "noStaffFound": "No staff members found",
       "addFirstStaff": "Add First Staff Member",
       "createSuccess": "Staff member created successfully",

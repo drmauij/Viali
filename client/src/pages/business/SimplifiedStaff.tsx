@@ -87,6 +87,7 @@ interface StaffMember {
   hourlyRate: number | null;
   weeklyTargetHours: number | null;
   overtimeBalanceMinutes: number | null;
+  annualVacationDays: number | null;
   canLogin: boolean;
   createdAt: string | null;
 }
@@ -229,6 +230,7 @@ export default function SimplifiedStaff() {
     staffType: 'internal' as 'internal' | 'external',
     weeklyTargetHours: '',
     overtimeBalanceHours: '',
+    annualVacationDays: '',
   });
   
   const [newRoleData, setNewRoleData] = useState({
@@ -305,6 +307,7 @@ export default function SimplifiedStaff() {
         staffType: data.staffType,
         weeklyTargetHours: data.weeklyTargetHours ? parseFloat(data.weeklyTargetHours) : null,
         overtimeBalanceMinutes: data.overtimeBalanceHours ? Math.round(parseFloat(data.overtimeBalanceHours) * 60) : null,
+        annualVacationDays: data.annualVacationDays ? parseInt(data.annualVacationDays) : null,
       });
     },
     onSuccess: () => {
@@ -380,6 +383,7 @@ export default function SimplifiedStaff() {
       staffType: 'internal',
       weeklyTargetHours: '',
       overtimeBalanceHours: '',
+      annualVacationDays: '',
     });
   };
 
@@ -401,6 +405,7 @@ export default function SimplifiedStaff() {
       staffType: staff.staffType,
       weeklyTargetHours: staff.weeklyTargetHours?.toString() || '',
       overtimeBalanceHours: staff.overtimeBalanceMinutes != null ? (staff.overtimeBalanceMinutes / 60).toString() : '',
+      annualVacationDays: staff.annualVacationDays?.toString() || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -903,6 +908,21 @@ export default function SimplifiedStaff() {
                   placeholder="0"
                 />
                 <p className="text-xs text-muted-foreground">{t('business.staff.overtimeBalanceHint')}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-annualVacationDays">{t('business.staff.annualVacationDays')}</Label>
+                <Input
+                  id="edit-annualVacationDays"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="365"
+                  value={formData.annualVacationDays}
+                  onChange={(e) => setFormData({ ...formData, annualVacationDays: e.target.value })}
+                  placeholder={t('business.staff.annualVacationDaysPlaceholder')}
+                />
               </div>
             </div>
             <p className="text-sm text-muted-foreground">

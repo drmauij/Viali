@@ -205,7 +205,7 @@ router.post('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManage
 router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusinessManager, async (req, res) => {
   try {
     const { hospitalId, userId } = req.params;
-    const { firstName, lastName, email, role, unitId, hourlyRate, staffType, weeklyTargetHours, overtimeBalanceMinutes } = req.body;
+    const { firstName, lastName, email, role, unitId, hourlyRate, staffType, weeklyTargetHours, overtimeBalanceMinutes, annualVacationDays } = req.body;
 
     // Verify user belongs to this hospital
     const userHospitals = await storage.getUserHospitals(userId);
@@ -243,6 +243,9 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
     }
     if (overtimeBalanceMinutes !== undefined) {
       userUpdates.overtimeBalanceMinutes = overtimeBalanceMinutes === null || overtimeBalanceMinutes === '' ? null : parseInt(overtimeBalanceMinutes);
+    }
+    if (annualVacationDays !== undefined) {
+      userUpdates.annualVacationDays = annualVacationDays === null || annualVacationDays === '' ? null : parseInt(annualVacationDays);
     }
     
     // Update user if there are changes

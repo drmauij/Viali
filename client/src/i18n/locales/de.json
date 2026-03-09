@@ -5377,6 +5377,8 @@
       "weeklyTargetHoursPlaceholder": "z.B. 42",
       "overtimeBalance": "Überstunden-Saldo (h)",
       "overtimeBalanceHint": "Startsaldo aus Timebutler",
+      "annualVacationDays": "Urlaubstage pro Jahr",
+      "annualVacationDaysPlaceholder": "z.B. 25",
       "noStaffFound": "Keine Mitarbeiter gefunden",
       "addFirstStaff": "Ersten Mitarbeiter hinzufügen",
       "createSuccess": "Mitarbeiter erfolgreich erstellt",
