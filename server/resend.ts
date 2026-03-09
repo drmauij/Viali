@@ -1172,8 +1172,8 @@ export async function sendPortalVerificationEmail(
     const isGerman = language === 'de';
 
     const subject = isGerman
-      ? `${hospitalName} – Ihr Zugangscode: ${code}`
-      : `${hospitalName} – Your access code: ${code}`;
+      ? `${code} – Ihr Zugangscode für ${hospitalName}`
+      : `${code} – Your access code for ${hospitalName}`;
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1183,23 +1183,9 @@ export async function sendPortalVerificationEmail(
         <div style="padding: 30px; background-color: #f9fafb;">
           <p>${isGerman ? 'Guten Tag,' : 'Hello,'}</p>
           <p>${isGerman
-            ? 'Klicken Sie auf den folgenden Button, um auf Ihr Portal zuzugreifen:'
-            : 'Click the button below to access your portal:'}</p>
+            ? 'Ihr Zugangscode:'
+            : 'Your access code:'}</p>
 
-          <div style="text-align: center; margin: 24px 0;">
-            <a href="${magicLinkUrl}"
-               style="display: inline-block; background: #2563eb; color: white;
-                      padding: 14px 32px; text-decoration: none; border-radius: 8px;
-                      font-weight: 600; font-size: 16px;">
-              ${isGerman ? 'Portal öffnen' : 'Open Portal'}
-            </a>
-          </div>
-
-          <p style="color: #666; font-size: 14px;">
-            ${isGerman
-              ? 'Falls der Button nicht funktioniert, geben Sie diesen Code auf der Verifizierungsseite ein:'
-              : 'If the button doesn\'t work, enter this code on the verification page:'}
-          </p>
           <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px;
                       padding: 16px; text-align: center; margin: 16px 0;
                       font-size: 32px; font-weight: 700; letter-spacing: 8px; font-family: monospace;">
@@ -1209,6 +1195,21 @@ export async function sendPortalVerificationEmail(
           <p style="color: #999; font-size: 12px; text-align: center;">
             ${isGerman ? 'Gültig für 15 Minuten.' : 'Valid for 15 minutes.'}
           </p>
+
+          <p style="color: #666; font-size: 14px; margin-top: 24px;">
+            ${isGerman
+              ? 'Oder klicken Sie auf den folgenden Button, um direkt auf Ihr Portal zuzugreifen:'
+              : 'Or click the button below to access your portal directly:'}
+          </p>
+
+          <div style="text-align: center; margin: 16px 0;">
+            <a href="${magicLinkUrl}"
+               style="display: inline-block; background: #2563eb; color: white;
+                      padding: 14px 32px; text-decoration: none; border-radius: 8px;
+                      font-weight: 600; font-size: 16px;">
+              ${isGerman ? 'Portal öffnen' : 'Open Portal'}
+            </a>
+          </div>
         </div>
         <div style="padding: 16px; text-align: center; font-size: 12px; color: #999;">
           <p>Viali – ${isGerman ? 'Dies ist eine automatische Nachricht.' : 'This is an automated message.'}</p>

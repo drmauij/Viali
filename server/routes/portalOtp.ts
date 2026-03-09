@@ -67,6 +67,7 @@ interface PortalContactInfo {
   phone: string | null;
   language: string;
   hospitalName: string;
+  hospitalId: string | null;
   valid: boolean;
 }
 
@@ -79,6 +80,7 @@ async function resolveContactInfo(
     phone: null,
     language: "de",
     hospitalName: "",
+    hospitalId: null,
     valid: false,
   };
 
@@ -91,6 +93,7 @@ async function resolveContactInfo(
       phone: null,
       language: link.hospital?.defaultLanguage || "de",
       hospitalName: link.hospital?.name || "Viali",
+      hospitalId: link.hospitalId || null,
       valid: true,
     };
   }
@@ -128,6 +131,7 @@ async function resolveContactInfo(
       phone,
       language: hospital?.defaultLanguage || "de",
       hospitalName: hospital?.name || "Viali",
+      hospitalId: link.hospitalId,
       valid: true,
     };
   }
@@ -146,6 +150,7 @@ async function resolveContactInfo(
       phone: null,
       language: hospital.defaultLanguage || "de",
       hospitalName: hospital.name || "Viali",
+      hospitalId: hospital.id,
       valid: true,
     };
   }
@@ -275,12 +280,15 @@ router.post(
           info.hospitalName,
         );
       } else {
-        // SMS — bilingual short message
+        // SMS — code first so it's visible in notification preview
         const isGerman = info.language === "de";
         const smsMessage = isGerman
-          ? `${info.hospitalName}: ${magicLinkUrl} — oder Code: ${code} (15 Min gültig)`
-          : `${info.hospitalName}: ${magicLinkUrl} — or code: ${code} (valid 15 min)`;
-        await sendSms(deliverTo, smsMessage);
+          ? `${code} - Ihr Zugangscode fuer ${info.hospitalName} (15 Min gueltig)`
+          : `${code} - Your access code for ${info.hospitalName} (valid 15 min)`;
+        const smsResult = await sendSms(deliverTo, smsMessage, info.hospitalId || undefined);
+        if (!smsResult.success) {
+          logger.error(`[PortalOTP] SMS send failed: ${smsResult.error}`);
+        }
       }
 
       return res.json({ sent: true });
@@ -292,10 +300,86 @@ router.post(
 );
 
 /**
+ * Helper: resolve portal redirect path from a verification code record.
+ */
+function getPortalPath(portalType: string, portalToken: string): string {
+  if (portalType === "patient") return `/patient/${portalToken}`;
+  if (portalType === "worklog") return `/worklog/${portalToken}`;
+  if (portalType === "surgeon") return `/surgeon-portal/${portalToken}`;
+  return "/";
+}
+
+/**
  * GET /api/portal-auth/verify/:verificationToken
- * Magic link endpoint — verifies token, creates session, redirects.
+ * Magic link — serves an interstitial HTML page that auto-submits a POST form.
+ * This prevents link pre-fetchers (SMS apps, email scanners) from consuming the token,
+ * since they only perform GET/HEAD requests and don't execute JavaScript or submit forms.
  */
 router.get(
+  "/api/portal-auth/verify/:verificationToken",
+  async (req: Request, res: Response) => {
+    try {
+      const { verificationToken } = req.params;
+
+      // Quick check: if token is already used or expired, redirect to portal immediately
+      const code = await findByVerificationToken(verificationToken);
+      if (
+        !code ||
+        code.usedAt ||
+        new Date(code.expiresAt) < new Date()
+      ) {
+        const portalPath = code
+          ? getPortalPath(code.portalType, code.portalToken)
+          : "/";
+        return res.redirect(portalPath);
+      }
+
+      // Token is valid — serve interstitial page that auto-POSTs
+      const actionUrl = `/api/portal-auth/verify/${verificationToken}`;
+      return res.send(`<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verifying...</title>
+<style>
+  body { font-family: system-ui, sans-serif; display: flex; justify-content: center;
+         align-items: center; min-height: 100vh; margin: 0; background: #f9fafb; }
+  .card { text-align: center; padding: 40px; background: white; border-radius: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.1); max-width: 400px; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #2563eb;
+             border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  noscript .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 32px;
+                  border-radius: 8px; text-decoration: none; font-weight: 600; border: none;
+                  cursor: pointer; font-size: 16px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="spinner"></div>
+  <p>Verifying access...</p>
+  <noscript>
+    <p>Click below to verify:</p>
+    <form method="POST" action="${actionUrl}">
+      <button type="submit" class="btn">Verify Access</button>
+    </form>
+  </noscript>
+</div>
+<form id="f" method="POST" action="${actionUrl}" style="display:none"></form>
+<script>document.getElementById('f').submit();</script>
+</body></html>`);
+    } catch (error) {
+      logger.error("[PortalOTP] Error serving magic link page:", error);
+      return res.redirect("/");
+    }
+  },
+);
+
+/**
+ * POST /api/portal-auth/verify/:verificationToken
+ * Actual magic link verification — consumes token, creates session, redirects.
+ * Only triggered by the interstitial page's form submission (not by link pre-fetchers).
+ */
+router.post(
   "/api/portal-auth/verify/:verificationToken",
   async (req: Request, res: Response) => {
     try {
@@ -307,19 +391,13 @@ router.get(
         code.usedAt ||
         new Date(code.expiresAt) < new Date()
       ) {
-        // Invalid or expired — redirect to portal (gate will show again)
-        const portalPath =
-          code?.portalType === "patient"
-            ? `/patient/${code?.portalToken}`
-            : code?.portalType === "worklog"
-              ? `/worklog/${code?.portalToken}`
-              : code?.portalType === "surgeon"
-                ? `/surgeon-portal/${code?.portalToken}`
-                : "/";
+        const portalPath = code
+          ? getPortalPath(code.portalType, code.portalToken)
+          : "/";
         return res.redirect(portalPath);
       }
 
-      // Mark used + create session
+      // Mark magic link token as used + create session
       await markCodeUsed(code.id);
       const surgeonEmail = code.portalType === "surgeon" ? code.deliveredTo : undefined;
       const sessionToken = await createPortalSession(
@@ -335,19 +413,12 @@ router.get(
         httpOnly: true,
         secure: isHttps,
         sameSite: "lax",
-        maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days (DB expiry is the real bound)
+        maxAge: 90 * 24 * 60 * 60 * 1000,
         path: "/",
       });
 
       // Redirect to portal
-      const redirectPath =
-        code.portalType === "patient"
-          ? `/patient/${code.portalToken}`
-          : code.portalType === "worklog"
-            ? `/worklog/${code.portalToken}`
-            : `/surgeon-portal/${code.portalToken}`;
-
-      return res.redirect(redirectPath);
+      return res.redirect(getPortalPath(code.portalType, code.portalToken));
     } catch (error) {
       logger.error("[PortalOTP] Error verifying magic link:", error);
       return res.redirect("/");
