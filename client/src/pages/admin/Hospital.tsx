@@ -4073,6 +4073,39 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     },
   });
 
+  // Cal.com test schedule versions
+  const calcomScheduleTestMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", `/api/clinic/${hospitalId}/calcom-debug-schedules`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setCalcomDebugOutput(JSON.stringify(data, null, 2));
+    },
+    onError: (error: any) => {
+      setCalcomDebugOutput(`Error: ${error.message}`);
+    },
+  });
+
+  // Cal.com manual sync trigger
+  const calcomSyncMutation = useMutation({
+    mutationFn: async (providerId: string) => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-debug-sync`, { providerId });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setCalcomDebugOutput(JSON.stringify(data, null, 2));
+      if (data.success) {
+        toast({ title: "Sync success", description: `Schedule ${data.scheduleId} updated` });
+      } else {
+        toast({ title: "Sync failed", description: data.error, variant: "destructive" });
+      }
+    },
+    onError: (error: any) => {
+      setCalcomDebugOutput(`Error: ${error.message}`);
+    },
+  });
+
   // Subscribe ICS feeds to Cal.com mutation
   const subscribeFeedsMutation = useMutation({
     mutationFn: async (force: boolean = false) => {
@@ -4394,6 +4427,19 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                     )}
                     Debug Cal.com
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => calcomScheduleTestMutation.mutate()}
+                    disabled={calcomScheduleTestMutation.isPending}
+                  >
+                    {calcomScheduleTestMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <i className="fas fa-calendar mr-2"></i>
+                    )}
+                    Test Schedules API
+                  </Button>
                   {calcomDebugOutput && (
                     <Button
                       size="sm"
@@ -4405,6 +4451,27 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                     </Button>
                   )}
                 </div>
+                {/* Manual sync buttons per provider */}
+                {calcomMappings.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-xs text-muted-foreground self-center">Sync availability:</span>
+                    {calcomMappings.map((m) => {
+                      const provider = providers.find(p => p.id === m.providerId);
+                      return (
+                        <Button
+                          key={m.providerId}
+                          size="sm"
+                          variant="secondary"
+                          className="text-xs h-7"
+                          onClick={() => calcomSyncMutation.mutate(m.providerId)}
+                          disabled={calcomSyncMutation.isPending}
+                        >
+                          {provider ? `${provider.firstName} ${provider.lastName}` : m.providerId.substring(0, 8)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               {calcomDebugOutput && (
                 <div className="space-y-2">

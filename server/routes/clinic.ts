@@ -3978,6 +3978,86 @@ router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStric
   }
 });
 
+// Manual sync trigger that returns the actual result/error (not fire-and-forget)
+router.post('/api/clinic/:hospitalId/calcom-debug-sync', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { providerId } = req.body;
+
+    if (!providerId) {
+      return res.status(400).json({ message: "providerId required" });
+    }
+
+    const { syncAvailabilityToCalcom } = await import("../services/calcomSync");
+    const result = await syncAvailabilityToCalcom(hospitalId, providerId);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack?.substring(0, 500) });
+  }
+});
+
+// Test schedule API versions directly
+router.get('/api/clinic/:hospitalId/calcom-debug-schedules', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.apiKey) {
+      return res.status(400).json({ message: "Cal.com API key not configured" });
+    }
+
+    const results: Record<string, any> = {};
+    const versions = ['2024-04-15', '2024-06-11', '2024-06-14', '2024-08-13'];
+
+    for (const v of versions) {
+      try {
+        const response = await fetch(`https://api.cal.eu/v2/schedules`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'cal-api-version': v,
+            'Authorization': `Bearer ${config.apiKey}`,
+          },
+        });
+        const text = await response.text();
+        results[`GET /schedules (v${v})`] = {
+          status: response.status,
+          body: text.substring(0, 300),
+        };
+      } catch (err: any) {
+        results[`GET /schedules (v${v})`] = { error: err.message };
+      }
+    }
+
+    // Also try POST to create a test schedule (dry-run: just see if the endpoint exists)
+    try {
+      const response = await fetch(`https://api.cal.eu/v2/schedules`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'cal-api-version': '2024-06-11',
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          name: '__test_viali_delete_me',
+          timeZone: 'Europe/Zurich',
+          isDefault: false,
+          availability: [{ days: ['Monday'], startTime: '09:00', endTime: '10:00' }],
+        }),
+      });
+      const text = await response.text();
+      results['POST /schedules (v2024-06-11)'] = {
+        status: response.status,
+        body: text.substring(0, 500),
+      };
+    } catch (err: any) {
+      results['POST /schedules (v2024-06-11)'] = { error: err.message };
+    }
+
+    res.json(results);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Disconnect a specific ICS feed credential
 router.post('/api/clinic/:hospitalId/calcom-debug-disconnect', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
