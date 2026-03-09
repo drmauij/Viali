@@ -7,11 +7,13 @@ import {
   users,
   calcomProviderMappings,
   calcomConfig,
+  providerAvailability,
+  providerAvailabilityWindows,
   type CalcomProviderMapping,
   type CalcomConfig,
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
-import { createCalcomClient, type CalcomClient, type CalcomBooking } from "./calcomClient";
+import { createCalcomClient, type CalcomClient, type CalcomBooking, type CalcomScheduleAvailability, type CalcomScheduleOverride } from "./calcomClient";
 import { updateAssistantCalcomUid } from "../storage/anesthesia";
 import logger from "../logger";
 
@@ -72,6 +74,193 @@ async function getProviderMappings(hospitalId: string, providerId?: string): Pro
     .select()
     .from(calcomProviderMappings)
     .where(and(...conditions));
+}
+
+const DAY_NAMES: Record<number, string> = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+};
+
+export async function syncAvailabilityToCalcom(
+  hospitalId: string,
+  providerId: string
+): Promise<{ success: boolean; scheduleId?: number; error?: string }> {
+  try {
+    const calcomSetup = await getCalcomClientForHospital(hospitalId);
+    if (!calcomSetup) {
+      return { success: false, error: 'Cal.com not configured or enabled' };
+    }
+
+    const { client, config, timezone: hospitalTz } = calcomSetup;
+    if (!(config as any).syncAvailability) {
+      return { success: false, error: 'Availability sync disabled' };
+    }
+
+    // Get org ID (auto-detect if missing)
+    let orgId = (config as any).orgId ? parseInt((config as any).orgId, 10) : null;
+    if (!orgId) {
+      const me = await client.getMe();
+      if (!me.organizationId) {
+        return { success: false, error: 'No organization found for Cal.com account' };
+      }
+      orgId = me.organizationId;
+      // Cache orgId for future use
+      await db
+        .update(calcomConfig)
+        .set({ orgId: String(orgId) } as any)
+        .where(eq(calcomConfig.hospitalId, hospitalId));
+    }
+
+    // Get provider mapping
+    const [mapping] = await db
+      .select()
+      .from(calcomProviderMappings)
+      .where(
+        and(
+          eq(calcomProviderMappings.hospitalId, hospitalId),
+          eq(calcomProviderMappings.providerId, providerId),
+          eq(calcomProviderMappings.isEnabled, true)
+        )
+      );
+
+    if (!mapping) {
+      return { success: false, error: 'No Cal.com mapping for provider' };
+    }
+
+    const calcomUserId = mapping.calcomUserId ? parseInt(mapping.calcomUserId, 10) : null;
+    if (!calcomUserId) {
+      return { success: false, error: 'No Cal.com user ID configured for provider' };
+    }
+
+    // Read provider availability from DB
+    const availRows = await db
+      .select()
+      .from(providerAvailability)
+      .where(
+        and(
+          eq(providerAvailability.providerId, providerId),
+          eq(providerAvailability.isActive, true)
+        )
+      );
+
+    // Group time slots by startTime+endTime for compact Cal.com format
+    const slotGroups = new Map<string, string[]>();
+    for (const row of availRows) {
+      const key = `${row.startTime}-${row.endTime}`;
+      const dayName = DAY_NAMES[row.dayOfWeek];
+      if (!dayName) continue;
+      if (!slotGroups.has(key)) {
+        slotGroups.set(key, []);
+      }
+      slotGroups.get(key)!.push(dayName);
+    }
+
+    const availability: CalcomScheduleAvailability[] = [];
+    for (const [key, days] of slotGroups) {
+      const [startTime, endTime] = key.split('-');
+      availability.push({ days, startTime, endTime });
+    }
+
+    // Read date-specific windows as overrides (next 3 months)
+    const now = new Date();
+    const threeMonthsLater = new Date();
+    threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+
+    const windowRows = await db
+      .select()
+      .from(providerAvailabilityWindows)
+      .where(
+        and(
+          eq(providerAvailabilityWindows.providerId, providerId),
+          gte(providerAvailabilityWindows.date, now.toISOString().split('T')[0]),
+          lte(providerAvailabilityWindows.date, threeMonthsLater.toISOString().split('T')[0])
+        )
+      );
+
+    const overrides: CalcomScheduleOverride[] = windowRows.map((w) => ({
+      date: typeof w.date === 'string' ? w.date : new Date(w.date).toISOString().split('T')[0],
+      startTime: w.startTime,
+      endTime: w.endTime,
+    }));
+
+    // Create or update schedule in Cal.com
+    const existingScheduleId = mapping.calcomScheduleId
+      ? parseInt(mapping.calcomScheduleId, 10)
+      : null;
+
+    let scheduleId: number;
+
+    if (existingScheduleId) {
+      const updated = await client.updateOrgUserSchedule(
+        orgId,
+        calcomUserId,
+        existingScheduleId,
+        {
+          availability,
+          overrides,
+          timeZone: hospitalTz,
+        }
+      );
+      scheduleId = updated.id;
+    } else {
+      // Get provider name for schedule label
+      const [provider] = await db
+        .select({ firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .where(eq(users.id, providerId));
+      const providerName = provider
+        ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
+        : 'Provider';
+
+      const created = await client.createOrgUserSchedule(orgId, calcomUserId, {
+        name: `Viali - ${providerName}`,
+        timeZone: hospitalTz,
+        isDefault: false,
+        availability,
+        overrides,
+      });
+      scheduleId = created.id;
+
+      // Store schedule ID in mapping
+      await db
+        .update(calcomProviderMappings)
+        .set({ calcomScheduleId: String(scheduleId) })
+        .where(eq(calcomProviderMappings.id, mapping.id));
+    }
+
+    // Update sync timestamp
+    await db
+      .update(calcomProviderMappings)
+      .set({ lastSyncAt: new Date(), lastSyncError: null })
+      .where(eq(calcomProviderMappings.id, mapping.id));
+
+    logger.info(`Synced availability to Cal.com for provider ${providerId}, scheduleId=${scheduleId}`);
+    return { success: true, scheduleId };
+  } catch (error: any) {
+    logger.error(`Failed to sync availability to Cal.com for provider ${providerId}:`, error);
+
+    // Store error on mapping if possible
+    try {
+      await db
+        .update(calcomProviderMappings)
+        .set({ lastSyncError: error.message })
+        .where(
+          and(
+            eq(calcomProviderMappings.hospitalId, hospitalId),
+            eq(calcomProviderMappings.providerId, providerId)
+          )
+        );
+    } catch (_) {
+      // ignore
+    }
+
+    return { success: false, error: error.message };
+  }
 }
 
 export async function syncAppointmentsToCalcom(hospitalId: string, providerId?: string): Promise<SyncResult> {
@@ -602,11 +791,12 @@ export async function fullSync(hospitalId: string): Promise<{ appointments: Sync
   };
 }
 
-export const calcomSyncService: CalcomSyncService = {
+export const calcomSyncService: CalcomSyncService & { syncAvailabilityToCalcom: typeof syncAvailabilityToCalcom } = {
   syncAppointmentsToCalcom,
   syncSurgeriesToCalcom,
   syncSingleAppointment,
   syncSingleSurgery,
   deleteCalcomBlock,
   fullSync,
+  syncAvailabilityToCalcom,
 };
