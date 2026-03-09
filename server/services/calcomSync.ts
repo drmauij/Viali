@@ -220,7 +220,7 @@ export async function syncAvailabilityToCalcom(
       const created = await client.createOrgUserSchedule(orgId, calcomUserId, {
         name: `Viali - ${providerName}`,
         timeZone: hospitalTz,
-        isDefault: false,
+        isDefault: true,
         availability,
         overrides,
       });
