@@ -3901,73 +3901,124 @@ router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStric
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
 
-    // 1. Raw GET /calendars response
-    let calendarsRaw: any = null;
-    let calendarsError: string | null = null;
+    // 1. Get me info (for orgId)
+    let me: any = null;
     try {
-      calendarsRaw = await (calcom as any).request('/calendars');
-    } catch (err: any) {
-      calendarsError = err.message;
-    }
+      me = await calcom.getMe();
+    } catch (_) {}
 
-    // 2. Get provider mappings and their schedules
-    const mappings = await storage.getCalcomProviderMappings(hospitalId);
-    const scheduleResults: any[] = [];
+    // 2. Get event types (to find owner userIds)
+    let eventTypes: any = null;
+    try {
+      eventTypes = await (calcom as any).request('/event-types');
+    } catch (_) {}
 
-    let orgId = config.orgId ? parseInt(config.orgId, 10) : null;
-    if (!orgId) {
-      try {
-        const me = await calcom.getMe();
-        orgId = me.organizationId || null;
-      } catch (_) {}
-    }
-
-    for (const m of mappings) {
-      const calcomUserId = m.calcomUserId ? parseInt(m.calcomUserId, 10) : null;
-      let schedules: any = null;
-      let scheduleError: string | null = null;
-      if (orgId && calcomUserId) {
-        try {
-          schedules = await calcom.getOrgUserSchedules(orgId, calcomUserId);
-        } catch (err: any) {
-          scheduleError = err.message;
-        }
-      }
-      scheduleResults.push({
-        providerId: m.providerId,
-        calcomUserId: m.calcomUserId,
-        calcomScheduleId: m.calcomScheduleId,
-        calcomEventTypeId: m.calcomEventTypeId,
-        lastSyncAt: m.lastSyncAt,
-        lastSyncError: m.lastSyncError,
-        schedules,
-        scheduleError,
-      });
-    }
-
-    // 3. Try disconnect dry-run: show what getConnectedCalendars returns parsed
+    // 3. Parsed connected calendars
     let parsedCalendars: any = null;
-    let parsedError: string | null = null;
     try {
       parsedCalendars = await calcom.getConnectedCalendars();
-    } catch (err: any) {
-      parsedError = err.message;
-    }
+    } catch (_) {}
+
+    // 4. Provider mappings
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
 
     res.json({
-      orgId,
-      storedConfig: {
-        icsFeedCredentialId: config.icsFeedCredentialId,
-        icsFeedSubscribedAt: config.icsFeedSubscribedAt,
-        feedToken: config.feedToken ? '***exists***' : null,
-        syncAvailability: (config as any).syncAvailability,
-      },
-      calendarsRaw,
-      calendarsError,
-      parsedCalendars,
-      parsedError,
-      providerSchedules: scheduleResults,
+      me,
+      eventTypes,
+      parsedCalendars: parsedCalendars?.map((c: any) => ({
+        credentialId: c.credentialId,
+        integrationType: c.integration?.type,
+      })),
+      providerMappings: mappings.map(m => ({
+        providerId: m.providerId,
+        calcomEventTypeId: m.calcomEventTypeId,
+        calcomUserId: m.calcomUserId,
+        calcomScheduleId: m.calcomScheduleId,
+        lastSyncAt: m.lastSyncAt,
+        lastSyncError: m.lastSyncError,
+      })),
     });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug: try to disconnect a specific ICS feed credential using multiple methods
+router.post('/api/clinic/:hospitalId/calcom-debug-disconnect', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { credentialId } = req.body;
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.apiKey) {
+      return res.status(400).json({ message: "Cal.com API key not configured" });
+    }
+
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+    const results: any[] = [];
+
+    // Method 1: POST /calendars/disconnect { credentialId }
+    try {
+      await (calcom as any).request('/calendars/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ credentialId: Number(credentialId) }),
+      });
+      results.push({ method: 'POST /calendars/disconnect {credentialId}', success: true });
+    } catch (err: any) {
+      results.push({ method: 'POST /calendars/disconnect {credentialId}', error: err.message });
+    }
+
+    // Method 2: POST /calendars/ics-feed/disconnect { id }
+    try {
+      await (calcom as any).request('/calendars/ics-feed/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ id: Number(credentialId) }),
+      });
+      results.push({ method: 'POST /calendars/ics-feed/disconnect {id}', success: true });
+    } catch (err: any) {
+      results.push({ method: 'POST /calendars/ics-feed/disconnect {id}', error: err.message });
+    }
+
+    // Method 3: POST /calendars/ics-feed/disconnect { credentialId }
+    try {
+      await (calcom as any).request('/calendars/ics-feed/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ credentialId: Number(credentialId) }),
+      });
+      results.push({ method: 'POST /calendars/ics-feed/disconnect {credentialId}', success: true });
+    } catch (err: any) {
+      results.push({ method: 'POST /calendars/ics-feed/disconnect {credentialId}', error: err.message });
+    }
+
+    // Method 4: DELETE /calendars/credentials with query params
+    try {
+      await (calcom as any).request(`/calendars/credentials?id=${credentialId}`, {
+        method: 'DELETE',
+      });
+      results.push({ method: 'DELETE /calendars/credentials?id=', success: true });
+    } catch (err: any) {
+      results.push({ method: 'DELETE /calendars/credentials?id=', error: err.message });
+    }
+
+    // Method 5: POST /calendars/ics-feed_calendar/disconnect { credentialId }
+    try {
+      await (calcom as any).request('/calendars/ics-feed_calendar/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ credentialId: Number(credentialId) }),
+      });
+      results.push({ method: 'POST /calendars/ics-feed_calendar/disconnect {credentialId}', success: true });
+    } catch (err: any) {
+      results.push({ method: 'POST /calendars/ics-feed_calendar/disconnect {credentialId}', error: err.message });
+    }
+
+    // Check what's left after attempts
+    let remaining: any = null;
+    try {
+      const cals = await calcom.getConnectedCalendars();
+      remaining = cals.map((c: any) => ({ credentialId: c.credentialId, type: c.integration?.type }));
+    } catch (_) {}
+
+    res.json({ targetCredentialId: credentialId, results, remainingCalendars: remaining });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
