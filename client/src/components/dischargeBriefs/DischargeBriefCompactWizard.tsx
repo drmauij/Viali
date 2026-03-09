@@ -209,7 +209,7 @@ export function DischargeBriefCompactWizard({
     queryKey: [
       `/api/discharge-brief-templates/${hospitalId}${briefType ? `?briefType=${briefType}` : ""}`,
     ],
-    enabled: open && !!hospitalId && !!briefType,
+    enabled: open && !!hospitalId,
   });
 
   const blocks: BlockInfo[] = blocksData ?? [];
@@ -817,7 +817,7 @@ export function DischargeBriefCompactWizard({
           </div>
 
           {/* ── Template (optional) ── */}
-          {briefType && templates && templates.length > 0 && (
+          {templates && templates.length > 0 && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 {t("dischargeBriefs.wizard.stepTemplate", "Template")}
