@@ -403,30 +403,36 @@ export class CalcomClient {
   }
 
   /**
-   * Subscribe to an ICS calendar feed in Cal.com
-   * This allows Cal.com to read busy times from external calendars
+   * Subscribe to a single ICS calendar feed URL in Cal.com.
+   * Cal.com API expects { url: string } (singular), so call once per URL.
    */
-  async subscribeToIcsFeed(urls: string[]): Promise<{ id: number; type: string }> {
+  async subscribeToIcsFeed(url: string): Promise<{ id: number; type: string }> {
     return this.request<{ id: number; type: string }>('/calendars/ics-feed/save', {
       method: 'POST',
-      body: JSON.stringify({
-        urls,
-        readOnly: true,
-      }),
+      body: JSON.stringify({ url }),
     });
   }
 
   /**
-   * Check connected calendars
+   * Check connected calendars.
+   * Cal.com GET /calendars returns { connectedCalendars: [...], destinationCalendar: {...} }
+   * Each entry has: { credentialId, integration: { type, name }, calendars: [...] }
    */
-  async getConnectedCalendars(): Promise<Array<{ credentialId: number; integration: string; primary: boolean; externalId?: string }>> {
-    return this.request<Array<{ credentialId: number; integration: string; primary: boolean; externalId?: string }>>('/calendars');
+  async getConnectedCalendars(): Promise<Array<{
+    credentialId: number;
+    integration: { type: string; name: string };
+    calendars?: Array<{ externalId: string; name: string; isSelected: boolean; readOnly: boolean }>;
+  }>> {
+    const result = await this.request<{
+      connectedCalendars: Array<{
+        credentialId: number;
+        integration: { type: string; name: string };
+        calendars?: Array<{ externalId: string; name: string; isSelected: boolean; readOnly: boolean }>;
+      }>;
+    }>('/calendars');
+    return result.connectedCalendars || [];
   }
 
-  /**
-   * Disconnect an ICS feed calendar by its credential ID.
-   * Attempts the v2 selected-calendars delete approach.
-   */
   /**
    * Get all schedules for a user within an organization
    */
@@ -471,41 +477,40 @@ export class CalcomClient {
     );
   }
 
-  async disconnectIcsFeed(credentialId: number): Promise<boolean> {
+  /**
+   * Disconnect a calendar credential by its credential ID.
+   * Uses POST /calendars/disconnect with { credentialId } body.
+   */
+  async disconnectCalendarCredential(credentialId: number): Promise<boolean> {
     try {
-      // Try the direct credential disconnect approach (removes the ICS credential itself)
-      await this.request('/calendars/ics-feed/disconnect', {
+      await this.request('/calendars/disconnect', {
         method: 'POST',
-        body: JSON.stringify({ id: credentialId }),
+        body: JSON.stringify({ credentialId }),
       });
+      logger.info(`Disconnected calendar credential ${credentialId}`);
       return true;
     } catch (error: any) {
-      logger.warn(`Direct ICS disconnect failed for credential ${credentialId}, trying fallback: ${error.message}`);
-
-      // Fallback: get connected calendars and remove ICS entries via selected-calendars
-      try {
-        const calendars = await this.getConnectedCalendars();
-        const icsFeedCalendars = calendars.filter(
-          c => c.credentialId === credentialId || c.integration?.includes('ics')
-        );
-        for (const cal of icsFeedCalendars) {
-          try {
-            const params = new URLSearchParams({
-              integration: cal.integration,
-              externalId: cal.externalId || '',
-              credentialId: String(cal.credentialId),
-            });
-            await this.request(`/selected-calendars?${params.toString()}`, { method: 'DELETE' });
-          } catch (err: any) {
-            logger.warn(`Failed to delete selected calendar ${cal.externalId}: ${err.message}`);
-          }
-        }
-        return true;
-      } catch (fallbackError: any) {
-        logger.warn(`Fallback ICS disconnect also failed: ${(fallbackError as Error).message}`);
-        return false;
-      }
+      logger.warn(`Failed to disconnect credential ${credentialId}: ${error.message}`);
+      return false;
     }
+  }
+
+  /**
+   * Find and disconnect ALL ICS feed credentials.
+   * Scans connected calendars for ICS-type integrations and disconnects each.
+   */
+  async disconnectAllIcsFeeds(): Promise<number> {
+    const calendars = await this.getConnectedCalendars();
+    const icsCalendars = calendars.filter(
+      c => c.integration?.type?.includes('ics') || c.integration?.name?.toLowerCase()?.includes('ics')
+    );
+    logger.info(`Found ${icsCalendars.length} ICS feed credential(s) to disconnect (out of ${calendars.length} total connected calendars)`);
+    let disconnected = 0;
+    for (const cal of icsCalendars) {
+      const success = await this.disconnectCalendarCredential(cal.credentialId);
+      if (success) disconnected++;
+    }
+    return disconnected;
   }
 }
 

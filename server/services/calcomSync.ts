@@ -204,6 +204,7 @@ export async function syncAvailabilityToCalcom(
           availability,
           overrides,
           timeZone: hospitalTz,
+          isDefault: true,
         }
       );
       scheduleId = updated.id;
