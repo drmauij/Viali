@@ -3901,30 +3901,49 @@ router.get('/api/clinic/:hospitalId/calcom-debug', isAuthenticated, requireStric
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
 
-    // 1. Get me info (for orgId)
-    let me: any = null;
-    try {
-      me = await calcom.getMe();
-    } catch (_) {}
+    const results: Record<string, any> = {};
 
-    // 2. Get event types (to find owner userIds)
-    let eventTypes: any = null;
-    try {
-      eventTypes = await (calcom as any).request('/event-types');
-    } catch (_) {}
+    // Try a broad set of endpoints to discover org/user info
+    const endpointsToTry = [
+      '/me',
+      '/calendars',
+      '/event-types',
+      '/event-types?mine=true',
+      '/bookings?status=upcoming&take=3',
+      '/schedules',
+      '/organizations/me',
+      '/organizations/me/members',
+    ];
 
-    // 3. Parsed connected calendars
+    for (const endpoint of endpointsToTry) {
+      try {
+        const data = await (calcom as any).request(endpoint);
+        results[endpoint] = data;
+      } catch (err: any) {
+        results[endpoint] = { error: err.message?.substring(0, 200) };
+      }
+    }
+
+    // Also try to get event type details for each mapped event type
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    for (const m of mappings) {
+      const etEndpoint = `/event-types/${m.calcomEventTypeId}`;
+      try {
+        const data = await (calcom as any).request(etEndpoint);
+        results[etEndpoint] = data;
+      } catch (err: any) {
+        results[etEndpoint] = { error: err.message?.substring(0, 200) };
+      }
+    }
+
+    // Parsed connected calendars (compact)
     let parsedCalendars: any = null;
     try {
       parsedCalendars = await calcom.getConnectedCalendars();
     } catch (_) {}
 
-    // 4. Provider mappings
-    const mappings = await storage.getCalcomProviderMappings(hospitalId);
-
     res.json({
-      me,
-      eventTypes,
+      apiEndpoints: results,
       parsedCalendars: parsedCalendars?.map((c: any) => ({
         credentialId: c.credentialId,
         integrationType: c.integration?.type,
