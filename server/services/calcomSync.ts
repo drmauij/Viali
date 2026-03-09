@@ -198,31 +198,22 @@ export async function syncAvailabilityToCalcom(
       endTime: w.endTime,
     }));
 
-    // Determine which schedule to update:
-    // 1. If we already synced before, use the stored calcomScheduleId
-    // 2. For personal accounts, use the default schedule (from /me) to avoid duplicates
-    // 3. Otherwise, create a new schedule
-    let existingScheduleId = mapping.calcomScheduleId
+    // Each provider gets their own schedule in Cal.com.
+    // If we already synced this provider before, update their stored schedule.
+    // Otherwise, create a new schedule for this provider.
+    const existingScheduleId = mapping.calcomScheduleId
       ? parseInt(mapping.calcomScheduleId, 10)
       : null;
-
-    // For personal accounts: always update the default schedule instead of creating new ones.
-    // This prevents duplicate availability entries from multiple schedules.
-    if (!existingScheduleId && isPersonalAccount && defaultScheduleId) {
-      existingScheduleId = defaultScheduleId;
-      logger.info(`Personal account: using default schedule ${defaultScheduleId} instead of creating new`);
-    }
 
     let scheduleId: number;
 
     if (existingScheduleId) {
-      // Update existing schedule
+      // Update this provider's existing schedule
       if (isPersonalAccount) {
         const updated = await client.updateSchedule(existingScheduleId, {
           availability,
           overrides,
           timeZone: hospitalTz,
-          isDefault: true,
         });
         scheduleId = updated.id;
       } else {
@@ -234,11 +225,11 @@ export async function syncAvailabilityToCalcom(
             availability,
             overrides,
             timeZone: hospitalTz,
-            isDefault: true,
           }
         );
         scheduleId = updated.id;
       }
+      logger.info(`Updated Cal.com schedule ${scheduleId} for provider ${providerId}`);
     } else {
       // Get provider name for schedule label
       const [provider] = await db
@@ -249,12 +240,12 @@ export async function syncAvailabilityToCalcom(
         ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
         : 'Provider';
 
-      // Create new schedule
+      // Create a new schedule for this provider (not default — user assigns via Cal.com UI)
       if (isPersonalAccount) {
         const created = await client.createSchedule({
           name: `Viali - ${providerName}`,
           timeZone: hospitalTz,
-          isDefault: true,
+          isDefault: false,
           availability,
           overrides,
         });
@@ -263,18 +254,20 @@ export async function syncAvailabilityToCalcom(
         const created = await client.createOrgUserSchedule(orgId!, calcomUserId!, {
           name: `Viali - ${providerName}`,
           timeZone: hospitalTz,
-          isDefault: true,
+          isDefault: false,
           availability,
           overrides,
         });
         scheduleId = created.id;
       }
 
-      // Store schedule ID in mapping
+      // Store schedule ID in mapping for future updates
       await db
         .update(calcomProviderMappings)
         .set({ calcomScheduleId: String(scheduleId) })
         .where(eq(calcomProviderMappings.id, mapping.id));
+
+      logger.info(`Created Cal.com schedule ${scheduleId} ("Viali - ${providerName}") for provider ${providerId}`);
     }
 
     // Update sync timestamp
