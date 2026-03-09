@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   pgEnum,
@@ -4315,6 +4316,9 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   index("idx_clinic_appointments_date").on(table.appointmentDate),
   index("idx_clinic_appointments_status").on(table.status),
   index("idx_clinic_appointments_calcom").on(table.calcomBookingUid),
+  uniqueIndex("idx_clinic_appointments_calcom_uid_unique")
+    .on(table.calcomBookingUid)
+    .where(sql`calcom_booking_uid IS NOT NULL`),
 ]);
 
 // Timebutler Sync Configuration - Per hospital settings

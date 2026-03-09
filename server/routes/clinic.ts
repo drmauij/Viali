@@ -3174,7 +3174,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
       const durationMs = endDate.getTime() - startDate.getTime();
       const durationMinutes = Math.round(durationMs / (1000 * 60));
       
-      const [appointment] = await db
+      const result = await db
         .insert(appts)
         .values({
           hospitalId,
@@ -3191,10 +3191,17 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
           calcomSource: 'calcom',
           calcomSyncedAt: new Date(),
         })
+        .onConflictDoNothing({ target: appts.calcomBookingUid })
         .returning();
-      
+
+      if (result.length === 0) {
+        logger.info(`Duplicate Cal.com booking ${payload.uid} blocked by unique constraint`);
+        return res.json({ received: true, processed: false, reason: 'Appointment already exists for this booking' });
+      }
+
+      const appointment = result[0];
       logger.info(`Created appointment ${appointment.id} from Cal.com booking ${payload.uid}`);
-      
+
       res.json({ received: true, processed: true, appointmentId: appointment.id });
     } else if (triggerEvent === 'BOOKING_RESCHEDULED') {
       const { uid, startTime, endTime } = payload;
