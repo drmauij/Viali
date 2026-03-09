@@ -3139,8 +3139,21 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
       if (!patientId) {
         return res.json({ received: true, processed: false, reason: 'Could not create/find patient' });
       }
-      
+
       const { clinicAppointments: appts } = await import("@shared/schema");
+
+      // Dedup: skip if appointment with same Cal.com booking UID already exists
+      const [existingAppt] = await db
+        .select({ id: appts.id })
+        .from(appts)
+        .where(eq(appts.calcomBookingUid, payload.uid))
+        .limit(1);
+
+      if (existingAppt) {
+        logger.info(`Duplicate Cal.com webhook for booking ${payload.uid}, appointment ${existingAppt.id} already exists`);
+        return res.json({ received: true, processed: false, reason: 'Appointment already exists for this booking' });
+      }
+
       const { units: unitsTable } = await import("@shared/schema");
       
       const [clinicUnit] = await db
@@ -3172,7 +3185,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
           startTime: startTimeStr,
           endTime: endTimeStr,
           durationMinutes,
-          status: 'scheduled',
+          status: 'confirmed',
           notes: `Booked via Cal.com (RetellAI). Booking ID: ${payload.uid}`,
           calcomBookingUid: payload.uid,
           calcomSource: 'calcom',
