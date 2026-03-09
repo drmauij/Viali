@@ -169,7 +169,7 @@ export function filterAndSortItems(
   // Apply category filter (threshold-based) - skip for archived filter
   if (activeFilter !== "all" && activeFilter !== "archived") {
     filtered = filtered.filter(item => {
-      const currentQty = item.stockLevel?.qtyOnHand || 0;
+      const currentQty = getEffectiveQty(item);
       const minThreshold = item.minThreshold || 0;
       switch (activeFilter) {
         case "runningLow":
@@ -195,8 +195,8 @@ export function filterAndSortItems(
       case "usage":
         return Math.random() - 0.5;
       case "stock": {
-        const aStock = a.stockLevel?.qtyOnHand || 0;
-        const bStock = b.stockLevel?.qtyOnHand || 0;
+        const aStock = getEffectiveQty(a);
+        const bStock = getEffectiveQty(b);
         return aStock - bStock;
       }
       default:
@@ -307,7 +307,7 @@ export async function downloadInventoryPdf(params: DownloadInventoryPdfParams): 
   sortedItems.forEach(item => {
     const folder = item.folderId ? folderMap.get(item.folderId) : null;
     const folderName = folder?.name || "Uncategorized";
-    const stockQty = item.stockLevel?.qtyOnHand || 0;
+    const stockQty = getEffectiveQty(item);
 
     // Add folder header row when folder changes
     if (folderName !== currentFolder) {
