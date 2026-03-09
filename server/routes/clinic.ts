@@ -3840,10 +3840,26 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
 
-    // If re-subscribing, try to disconnect old ICS feeds first
-    if (config.icsFeedCredentialId && force) {
-      logger.info(`Re-subscribing ICS feeds for hospital ${hospitalId}, disconnecting old credential ${config.icsFeedCredentialId}`);
-      await calcom.disconnectIcsFeed(Number(config.icsFeedCredentialId));
+    // If re-subscribing, disconnect ALL ICS feeds (not just the stored credential)
+    // This handles orphaned feeds where the stored credentialId is stale
+    if (force) {
+      if (config.icsFeedCredentialId) {
+        logger.info(`Re-subscribing ICS feeds for hospital ${hospitalId}, disconnecting stored credential ${config.icsFeedCredentialId}`);
+        await calcom.disconnectIcsFeed(Number(config.icsFeedCredentialId));
+      }
+
+      // Also scan for any other ICS feeds that may have been left behind
+      try {
+        const connectedCalendars = await calcom.getConnectedCalendars();
+        const icsCalendars = connectedCalendars.filter(c => c.integration?.includes('ics'));
+        for (const cal of icsCalendars) {
+          try {
+            await calcom.disconnectIcsFeed(cal.credentialId);
+          } catch (_) { /* continue */ }
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to scan for orphaned ICS feeds: ${err.message}`);
+      }
     }
 
     // Get base URL - use production URL for Cal.com subscription

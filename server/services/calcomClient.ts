@@ -473,32 +473,38 @@ export class CalcomClient {
 
   async disconnectIcsFeed(credentialId: number): Promise<boolean> {
     try {
-      // Try to get connected calendars to find the ICS feed entries for this credential
-      const calendars = await this.getConnectedCalendars();
-      const icsFeedCalendars = calendars.filter(
-        c => c.credentialId === credentialId || c.integration?.includes('ics')
-      );
-
-      // Try deleting each matching selected calendar
-      for (const cal of icsFeedCalendars) {
-        try {
-          const params = new URLSearchParams({
-            integration: cal.integration,
-            externalId: cal.externalId || '',
-            credentialId: String(cal.credentialId),
-          });
-          await this.request(`/selected-calendars?${params.toString()}`, {
-            method: 'DELETE',
-          });
-        } catch (err: any) {
-          logger.warn(`Failed to delete selected calendar ${cal.externalId}: ${err.message}`);
-        }
-      }
-
+      // Try the direct credential disconnect approach (removes the ICS credential itself)
+      await this.request('/calendars/ics-feed/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ id: credentialId }),
+      });
       return true;
     } catch (error: any) {
-      logger.warn(`Failed to disconnect ICS feed credential ${credentialId}: ${error.message}`);
-      return false;
+      logger.warn(`Direct ICS disconnect failed for credential ${credentialId}, trying fallback: ${error.message}`);
+
+      // Fallback: get connected calendars and remove ICS entries via selected-calendars
+      try {
+        const calendars = await this.getConnectedCalendars();
+        const icsFeedCalendars = calendars.filter(
+          c => c.credentialId === credentialId || c.integration?.includes('ics')
+        );
+        for (const cal of icsFeedCalendars) {
+          try {
+            const params = new URLSearchParams({
+              integration: cal.integration,
+              externalId: cal.externalId || '',
+              credentialId: String(cal.credentialId),
+            });
+            await this.request(`/selected-calendars?${params.toString()}`, { method: 'DELETE' });
+          } catch (err: any) {
+            logger.warn(`Failed to delete selected calendar ${cal.externalId}: ${err.message}`);
+          }
+        }
+        return true;
+      } catch (fallbackError: any) {
+        logger.warn(`Fallback ICS disconnect also failed: ${(fallbackError as Error).message}`);
+        return false;
+      }
     }
   }
 }
