@@ -62,7 +62,9 @@ type BriefType =
   | "surgery_discharge"
   | "anesthesia_discharge"
   | "anesthesia_overnight_discharge"
-  | "prescription";
+  | "prescription"
+  | "surgery_report"
+  | "generic";
 
 interface BlockInfo {
   key: BlockKey;
@@ -317,6 +319,8 @@ export function DischargeBriefCompactWizard({
           "Anesthesia + Overnight",
         ),
         prescription: t("dischargeBriefs.types.prescription", "Prescription"),
+        surgery_report: t("dischargeBriefs.types.surgeryReport", "Surgery Report"),
+        generic: t("dischargeBriefs.types.generic", "Generic"),
       };
       return labels[bt];
     },
@@ -436,7 +440,7 @@ export function DischargeBriefCompactWizard({
     ? t("dischargeBriefs.compact.generateType", "Generate {{type}}", {
         type: briefTypeLabel(preselectedBriefType),
       })
-    : t("dischargeBriefs.compact.generateBrief", "Generate Discharge Brief");
+    : t("dischargeBriefs.compact.generateBrief", "Generate Brief");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -480,6 +484,8 @@ export function DischargeBriefCompactWizard({
                       "anesthesia_discharge",
                       "anesthesia_overnight_discharge",
                       "prescription",
+                      "surgery_report",
+                      "generic",
                     ] as BriefType[]
                   ).map((bt) => (
                     <SelectItem key={bt} value={bt}>

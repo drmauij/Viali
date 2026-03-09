@@ -38,12 +38,14 @@ import {
   ClipboardCheck,
   CalendarDays,
   Plus,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDate, formatDateForInput } from "@/lib/dateUtils";
+import { DischargeBriefTemplateManager } from "./DischargeBriefTemplateManager";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,6 +63,10 @@ interface DischargeBriefWizardProps {
     status: string;
   }>;
   onCreated?: (briefId: string) => void;
+  isAdmin?: boolean;
+  userId?: string;
+  userUnitIds?: string[];
+  units?: Array<{ id: string; name: string }>;
 }
 
 type BlockKey =
@@ -75,7 +81,9 @@ type BriefType =
   | "surgery_discharge"
   | "anesthesia_discharge"
   | "anesthesia_overnight_discharge"
-  | "prescription";
+  | "prescription"
+  | "surgery_report"
+  | "generic";
 
 interface BlockInfo {
   key: BlockKey;
@@ -112,6 +120,10 @@ export function DischargeBriefWizard({
   hospitalId,
   surgeries = [],
   onCreated,
+  isAdmin = false,
+  userId,
+  userUnitIds = [],
+  units: unitsList = [],
 }: DischargeBriefWizardProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -135,6 +147,7 @@ export function DischargeBriefWizard({
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedBriefId, setGeneratedBriefId] = useState<string | null>(null);
+  const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);
 
   // ---- reset on open/close ----
   useEffect(() => {
@@ -418,6 +431,14 @@ export function DischargeBriefWizard({
         prescription: t(
           "dischargeBriefs.types.prescription",
           "Prescription",
+        ),
+        surgery_report: t(
+          "dischargeBriefs.types.surgeryReport",
+          "Surgery Report",
+        ),
+        generic: t(
+          "dischargeBriefs.types.generic",
+          "Generic",
         ),
       };
       return labels[bt];
@@ -823,6 +844,8 @@ export function DischargeBriefWizard({
             "anesthesia_discharge",
             "anesthesia_overnight_discharge",
             "prescription",
+            "surgery_report",
+            "generic",
           ] as BriefType[]
         ).map((bt) => (
           <label
@@ -843,12 +866,22 @@ export function DischargeBriefWizard({
 
   const renderStepTemplate = () => (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {t(
-          "dischargeBriefs.wizard.templateDescription",
-          "Optionally select a reference template to guide the AI output.",
-        )}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "dischargeBriefs.wizard.templateDescription",
+            "Optionally select a reference template to guide the AI output.",
+          )}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setManageTemplatesOpen(true)}
+        >
+          <Settings className="h-4 w-4 mr-1" />
+          {t("dischargeBriefs.wizard.manageTemplates", "Manage")}
+        </Button>
+      </div>
 
       <div className="space-y-2">
         <Label>{t("dischargeBriefs.wizard.template", "Template")}</Label>
@@ -895,6 +928,38 @@ export function DischargeBriefWizard({
           </Select>
         )}
       </div>
+
+      {/* Manage Templates Dialog */}
+      <Dialog
+        open={manageTemplatesOpen}
+        onOpenChange={(open) => {
+          setManageTemplatesOpen(open);
+          if (!open) {
+            // Refetch templates when closing the manager
+            queryClient.invalidateQueries({
+              queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+            });
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {t("dischargeBriefs.templates.title", "Brief Templates")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("dischargeBriefs.templates.description", "Reference templates used to guide AI-generated briefs.")}
+            </DialogDescription>
+          </DialogHeader>
+          <DischargeBriefTemplateManager
+            hospitalId={hospitalId}
+            isAdmin={isAdmin}
+            userId={userId}
+            userUnitIds={userUnitIds}
+            units={unitsList}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -1125,7 +1190,7 @@ export function DischargeBriefWizard({
         <div className="border-b px-6 pt-5 pb-4">
           <DialogHeader className="mb-3">
             <DialogTitle>
-              {t("dischargeBriefs.wizard.title", "Generate Discharge Brief")}
+              {t("dischargeBriefs.wizard.title", "Generate Brief")}
             </DialogTitle>
             <DialogDescription>
               {stepMeta[step - 1]?.label}

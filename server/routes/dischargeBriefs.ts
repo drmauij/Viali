@@ -25,6 +25,7 @@ import {
   updateDischargeBriefTemplate,
   deleteDischargeBriefTemplate,
   getDischargeBriefAuditTrail,
+  getUserUnitIds,
 } from "../storage/dischargeBriefs";
 import { createAuditLog } from "../storage/anesthesia";
 import { getPatient } from "../storage/anesthesia";
@@ -133,15 +134,24 @@ router.get(
   },
 );
 
+const BRIEF_TYPE_VALUES = [
+  "surgery_discharge",
+  "anesthesia_discharge",
+  "anesthesia_overnight_discharge",
+  "prescription",
+  "surgery_report",
+  "generic",
+] as const;
+
+const briefTypeEnum = z.enum(BRIEF_TYPE_VALUES);
+
+const VISIBILITY_VALUES = ["personal", "unit", "hospital"] as const;
+const visibilityEnum = z.enum(VISIBILITY_VALUES);
+
 // Generate discharge brief (wizard submit)
 const generateSchema = z.object({
   blocks: z.array(z.string()).min(1),
-  briefType: z.enum([
-    "surgery_discharge",
-    "anesthesia_discharge",
-    "anesthesia_overnight_discharge",
-    "prescription",
-  ]),
+  briefType: briefTypeEnum,
   language: z.enum(["de", "en", "fr", "it"]).default("de"),
   templateId: z.string().nullable().optional(),
   surgeryId: z.string().nullable().optional(),
@@ -675,18 +685,21 @@ router.get(
     try {
       const briefType = req.query.briefType as string | undefined;
       const userId = req.user?.id;
+      const hospitalId = req.params.hospitalId;
 
       // Check if user is admin — if so, return all
       const role = req.headers["x-active-role"] as string;
       if (role === "admin") {
-        const templates = await getAllDischargeBriefTemplates(req.params.hospitalId);
+        const templates = await getAllDischargeBriefTemplates(hospitalId);
         return res.json(templates);
       }
 
+      const userUnitIds = userId ? await getUserUnitIds(userId, hospitalId) : [];
       const templates = await getDischargeBriefTemplates(
-        req.params.hospitalId,
+        hospitalId,
         briefType,
         userId,
+        userUnitIds,
       );
       res.json(templates);
     } catch (error: any) {
@@ -700,27 +713,31 @@ router.get(
 router.post(
   "/api/discharge-brief-templates",
   isAuthenticated,
-  requireHospitalAdmin,
+  requireHospitalAccess,
   async (req: any, res: Response) => {
     try {
       const schema = z.object({
         hospitalId: z.string(),
-        briefType: z.enum([
-          "surgery_discharge",
-          "anesthesia_discharge",
-          "anesthesia_overnight_discharge",
-          "prescription",
-        ]),
+        briefType: briefTypeEnum,
         name: z.string().min(1),
         description: z.string().optional(),
         templateContent: z.string().optional(),
         assignedUserId: z.string().nullable().optional(),
         procedureType: z.string().nullable().optional(),
+        visibility: visibilityEnum.optional().default("personal"),
+        sharedWithUnitId: z.string().nullable().optional(),
       });
       const parsed = schema.parse(req.body);
 
+      // Non-admin cannot create hospital-visibility templates
+      const role = req.headers["x-active-role"] as string;
+      if (parsed.visibility === "hospital" && role !== "admin") {
+        return res.status(403).json({ message: "Only admins can create hospital-wide templates" });
+      }
+
       const template = await createDischargeBriefTemplate({
         ...parsed,
+        assignedUserId: parsed.assignedUserId ?? req.user?.id,
         createdBy: req.user?.id,
       });
       res.json(template);
@@ -738,7 +755,7 @@ router.post(
 router.patch(
   "/api/discharge-brief-templates/:id",
   isAuthenticated,
-  requireHospitalAdmin,
+  requireHospitalAccess,
   async (req: any, res: Response) => {
     try {
       const template = await getDischargeBriefTemplateById(req.params.id);
@@ -746,22 +763,30 @@ router.patch(
         return res.status(404).json({ message: "Template not found" });
       }
 
+      const role = req.headers["x-active-role"] as string;
+      const userId = req.user?.id;
+
+      // Owner or admin can modify
+      if (role !== "admin" && template.assignedUserId !== userId) {
+        return res.status(403).json({ message: "You can only edit your own templates" });
+      }
+
       const schema = z.object({
         name: z.string().min(1).optional(),
         description: z.string().optional(),
         templateContent: z.string().optional(),
-        briefType: z
-          .enum([
-            "surgery_discharge",
-            "anesthesia_discharge",
-            "anesthesia_overnight_discharge",
-            "prescription",
-          ])
-          .optional(),
+        briefType: briefTypeEnum.optional(),
         assignedUserId: z.string().nullable().optional(),
         procedureType: z.string().nullable().optional(),
+        visibility: visibilityEnum.optional(),
+        sharedWithUnitId: z.string().nullable().optional(),
       });
       const parsed = schema.parse(req.body);
+
+      // Non-admin cannot set visibility to hospital
+      if (parsed.visibility === "hospital" && role !== "admin") {
+        return res.status(403).json({ message: "Only admins can set hospital-wide visibility" });
+      }
 
       const updated = await updateDischargeBriefTemplate(req.params.id, parsed);
       res.json(updated);
@@ -775,17 +800,26 @@ router.patch(
   },
 );
 
-// Delete template (soft)
+// Delete template
 router.delete(
   "/api/discharge-brief-templates/:id",
   isAuthenticated,
-  requireHospitalAdmin,
+  requireHospitalAccess,
   async (req: any, res: Response) => {
     try {
       const template = await getDischargeBriefTemplateById(req.params.id);
       if (!template) {
         return res.status(404).json({ message: "Template not found" });
       }
+
+      const role = req.headers["x-active-role"] as string;
+      const userId = req.user?.id;
+
+      // Owner or admin can delete
+      if (role !== "admin" && template.assignedUserId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own templates" });
+      }
+
       await deleteDischargeBriefTemplate(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -940,7 +974,7 @@ You must return a JSON object with exactly these fields:
 {
   "name": "A short descriptive template name (e.g. 'Rhinoplasty Discharge Brief', 'Standard Anesthesia Report'). Max 60 chars.",
   "description": "A one-sentence description of what this template covers and when to use it. Max 150 chars.",
-  "briefType": "One of: surgery_discharge, anesthesia_discharge, anesthesia_overnight_discharge. Pick based on the document content.",
+  "briefType": "One of: surgery_discharge, anesthesia_discharge, anesthesia_overnight_discharge, surgery_report, generic. Pick based on the document content.",
   "procedureType": "The medical procedure type if identifiable (e.g. 'Rhinoplasty', 'Abdominoplasty'), or null if generic.",
   "content": "The cleaned body content of the document as clean HTML — strip all hospital headers, addresses, letterheads, page numbers, footers, and signature blocks. Keep only the medical brief content. Use <h2>/<h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting."
 }

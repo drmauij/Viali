@@ -1,10 +1,11 @@
 import { db } from "../db";
-import { eq, and, desc, or, isNull } from "drizzle-orm";
+import { eq, and, desc, or, isNull, inArray } from "drizzle-orm";
 import {
   dischargeBriefs,
   dischargeBriefTemplates,
   auditTrail,
   users,
+  userHospitalRoles,
   type DischargeBrief,
   type InsertDischargeBrief,
   type DischargeBriefTemplate,
@@ -145,6 +146,7 @@ export async function getDischargeBriefTemplates(
   hospitalId: string,
   briefType?: string,
   userId?: string,
+  userUnitIds?: string[],
 ): Promise<DischargeBriefTemplate[]> {
   const conditions = [
     eq(dischargeBriefTemplates.hospitalId, hospitalId),
@@ -159,13 +161,32 @@ export async function getDischargeBriefTemplates(
     .where(and(...conditions))
     .orderBy(desc(dischargeBriefTemplates.createdAt));
 
-  // Filter by visibility: shared (assignedUserId IS NULL) or personal (assignedUserId = userId)
+  // Filter by visibility: hospital-wide, unit-level, or personal
   if (userId) {
-    return templates.filter(
-      (t) => t.assignedUserId === null || t.assignedUserId === userId,
-    );
+    return templates.filter((t) => {
+      if (t.visibility === "hospital") return true;
+      if (t.visibility === "unit" && t.sharedWithUnitId && userUnitIds?.includes(t.sharedWithUnitId)) return true;
+      if (t.visibility === "personal" && t.assignedUserId === userId) return true;
+      return false;
+    });
   }
   return templates;
+}
+
+export async function getUserUnitIds(
+  userId: string,
+  hospitalId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ unitId: userHospitalRoles.unitId })
+    .from(userHospitalRoles)
+    .where(
+      and(
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+      ),
+    );
+  return rows.map((r) => r.unitId).filter((id): id is string => id !== null);
 }
 
 export async function getAllDischargeBriefTemplates(

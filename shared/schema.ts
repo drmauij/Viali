@@ -5543,6 +5543,14 @@ export const dischargeBriefTypeEnum = pgEnum("discharge_brief_type", [
   "anesthesia_discharge",
   "anesthesia_overnight_discharge",
   "prescription",
+  "surgery_report",
+  "generic",
+]);
+
+export const templateVisibilityEnum = pgEnum("template_visibility", [
+  "personal",
+  "unit",
+  "hospital",
 ]);
 
 export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
@@ -5552,8 +5560,10 @@ export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
   name: varchar("name").notNull(),
   description: text("description"),
   templateContent: text("template_content"), // Reference document for AI
-  assignedUserId: varchar("assigned_user_id").references(() => users.id), // Null = shared with all; set = personal
+  assignedUserId: varchar("assigned_user_id").references(() => users.id), // Owner of the template
   procedureType: varchar("procedure_type"), // Free-text tag e.g. "Rhinoplasty"
+  visibility: templateVisibilityEnum("visibility").default("hospital").notNull(),
+  sharedWithUnitId: varchar("shared_with_unit_id").references(() => units.id),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -5561,6 +5571,8 @@ export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
   index("idx_discharge_brief_templates_hospital").on(table.hospitalId),
   index("idx_discharge_brief_templates_type").on(table.briefType),
   index("idx_discharge_brief_templates_assigned").on(table.assignedUserId),
+  index("idx_discharge_brief_templates_visibility").on(table.visibility),
+  index("idx_discharge_brief_templates_unit").on(table.sharedWithUnitId),
 ]);
 
 export const dischargeBriefs = pgTable("discharge_briefs", {

@@ -514,6 +514,8 @@ export function getSystemPrompt(
     anesthesia_discharge: "Anesthesia Discharge Brief",
     anesthesia_overnight_discharge: "Anesthesia Overnight Stay Discharge Brief",
     prescription: "Prescription",
+    surgery_report: "Surgery Report (OP-Bericht)",
+    generic: "Brief",
   };
   const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";
 
@@ -625,6 +627,24 @@ Structure the prescription with the following sections:
 
 Do NOT include a prescribing doctor or signature section — this is handled separately by the system.
 Keep it clean and pharmacy-ready. Do not include narrative text — use a structured list format for medications.`;
+      break;
+
+    case "surgery_report":
+      typePrompt = `You are a medical documentation assistant generating a Surgery Report (OP-Bericht).
+
+Structure the report with the following sections:
+1. **Indication** — Reason for surgical intervention, diagnosis, and clinical indication
+2. **Procedure / Technique** — Detailed operative technique including approach, instruments, and steps
+3. **Intraoperative Findings** — Surgical findings during the procedure
+4. **Complications** — Any intraoperative complications or "keine" if none
+5. **Post-Operative Instructions** — Immediate post-operative care plan, drains, dressings, activity restrictions
+6. **Follow-Up** — Follow-up plan (use exact dates from data if available)`;
+      break;
+
+    case "generic":
+      typePrompt = `You are a medical documentation assistant generating a clinical brief.
+
+Structure the brief based on the available data blocks. Use appropriate section headings that match the provided clinical data. Include all relevant information from the selected data sources in a logical, well-organized format.`;
       break;
 
     default:

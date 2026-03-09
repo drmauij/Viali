@@ -2386,7 +2386,11 @@ export default function Hospital() {
         <TabsContent value="templates">
         <div className="space-y-4">
           {activeHospital && (
-            <DischargeBriefTemplateManager hospitalId={activeHospital.id} />
+            <DischargeBriefTemplateManager
+              hospitalId={activeHospital.id}
+              isAdmin={true}
+              units={units.map((u) => ({ id: u.id, name: u.name }))}
+            />
           )}
         </div>
         </TabsContent>

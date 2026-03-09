@@ -39,6 +39,9 @@ interface DischargeBriefsSectionProps {
     plannedDate: Date | string;
     status: string;
   }>;
+  userId?: string;
+  userUnitIds?: string[];
+  units?: Array<{ id: string; name: string }>;
 }
 
 export function DischargeBriefsSection({
@@ -47,6 +50,9 @@ export function DischargeBriefsSection({
   canWrite = false,
   isAdmin = false,
   surgeries = [],
+  userId,
+  userUnitIds = [],
+  units: unitsList = [],
 }: DischargeBriefsSectionProps) {
   const { t } = useTranslation();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -157,6 +163,10 @@ export function DischargeBriefsSection({
           patientId={patientId}
           hospitalId={hospitalId}
           surgeries={surgeries}
+          isAdmin={isAdmin}
+          userId={userId}
+          userUnitIds={userUnitIds}
+          units={unitsList}
           onCreated={(briefId) => {
             setWizardOpen(false);
             setEditingBriefId(briefId);

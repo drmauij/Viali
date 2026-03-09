@@ -63,28 +63,53 @@ interface DischargeBriefTemplate {
   templateContent: string;
   procedureType: string | null;
   assignedUserId: string | null;
-  isActive: boolean;
+  visibility: "personal" | "unit" | "hospital";
+  sharedWithUnitId: string | null;
+  createdBy: string;
   createdAt: string;
+}
+
+interface UnitInfo {
+  id: string;
+  name: string;
 }
 
 interface DischargeBriefTemplateManagerProps {
   hospitalId: string;
+  isAdmin?: boolean;
+  userId?: string;
+  userUnitIds?: string[];
+  units?: UnitInfo[];
 }
 
 const BRIEF_TYPES = [
   { value: "surgery_discharge", label: "Surgery Discharge" },
   { value: "anesthesia_discharge", label: "Anesthesia Discharge" },
   { value: "anesthesia_overnight_discharge", label: "Anesthesia + Overnight" },
+  { value: "surgery_report", label: "Surgery Report" },
+  { value: "generic", label: "Generic" },
 ];
 
 const BRIEF_TYPE_LABELS: Record<string, string> = {
   surgery_discharge: "Surgery",
   anesthesia_discharge: "Anesthesia",
   anesthesia_overnight_discharge: "Anesthesia + Overnight",
+  surgery_report: "Surgery Report",
+  generic: "Generic",
+};
+
+const VISIBILITY_LABELS: Record<string, string> = {
+  personal: "Personal",
+  unit: "Unit",
+  hospital: "Hospital",
 };
 
 export function DischargeBriefTemplateManager({
   hospitalId,
+  isAdmin = false,
+  userId,
+  userUnitIds = [],
+  units: unitsList = [],
 }: DischargeBriefTemplateManagerProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -116,6 +141,8 @@ export function DischargeBriefTemplateManager({
     briefType: "surgery_discharge",
     procedureType: "",
     templateContent: "",
+    visibility: (isAdmin ? "hospital" : "personal") as "personal" | "unit" | "hospital",
+    sharedWithUnitId: null as string | null,
   });
 
   // Tiptap editor for template content
@@ -163,6 +190,8 @@ export function DischargeBriefTemplateManager({
         hospitalId,
         description: data.description || null,
         procedureType: data.procedureType || null,
+        visibility: data.visibility,
+        sharedWithUnitId: data.visibility === "unit" ? data.sharedWithUnitId : null,
       });
     },
     onSuccess: () => {
@@ -198,6 +227,8 @@ export function DischargeBriefTemplateManager({
         ...data,
         description: data.description || null,
         procedureType: data.procedureType || null,
+        visibility: data.visibility,
+        sharedWithUnitId: data.visibility === "unit" ? data.sharedWithUnitId : null,
       });
     },
     onSuccess: () => {
@@ -253,6 +284,8 @@ export function DischargeBriefTemplateManager({
       briefType: "surgery_discharge",
       procedureType: "",
       templateContent: "",
+      visibility: isAdmin ? "hospital" : "personal",
+      sharedWithUnitId: null,
     });
   };
 
@@ -270,6 +303,8 @@ export function DischargeBriefTemplateManager({
       briefType: template.briefType,
       procedureType: template.procedureType || "",
       templateContent: template.templateContent,
+      visibility: template.visibility || "hospital",
+      sharedWithUnitId: template.sharedWithUnitId || null,
     });
     setDialogOpen(true);
   };
@@ -434,7 +469,7 @@ export function DischargeBriefTemplateManager({
         <h2 className="text-lg font-semibold text-foreground">
           {t(
             "dischargeBriefs.templates.title",
-            "Discharge Brief Templates",
+            "Brief Templates",
           )}
         </h2>
         <div className="flex items-center gap-2">
@@ -481,50 +516,61 @@ export function DischargeBriefTemplateManager({
         </div>
       ) : (
         <div className="space-y-2">
-          {templates.map((tpl) => (
-            <div
-              key={tpl.id}
-              className="bg-card border border-border rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-foreground">{tpl.name}</h3>
-                    <Badge variant="outline" className="text-xs">
-                      {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
-                    </Badge>
-                    {tpl.procedureType && (
-                      <Badge variant="secondary" className="text-xs">
-                        {tpl.procedureType}
+          {templates.map((tpl) => {
+            const canModify = isAdmin || tpl.assignedUserId === userId;
+            return (
+              <div
+                key={tpl.id}
+                className="bg-card border border-border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{tpl.name}</h3>
+                      <Badge variant="outline" className="text-xs">
+                        {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
                       </Badge>
+                      <Badge
+                        variant={tpl.visibility === "hospital" ? "default" : tpl.visibility === "unit" ? "secondary" : "outline"}
+                        className="text-xs"
+                      >
+                        {VISIBILITY_LABELS[tpl.visibility] || tpl.visibility}
+                      </Badge>
+                      {tpl.procedureType && (
+                        <Badge variant="secondary" className="text-xs">
+                          {tpl.procedureType}
+                        </Badge>
+                      )}
+                    </div>
+                    {tpl.description && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {tpl.description}
+                      </p>
                     )}
                   </div>
-                  {tpl.description && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {tpl.description}
-                    </p>
+                  {canModify && (
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(tpl)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTemplate(tpl)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(tpl)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setDeleteTemplate(tpl)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -622,6 +668,64 @@ export function DischargeBriefTemplateManager({
                   )}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>
+                  {t("dischargeBriefs.templates.visibility", "Visibility")} *
+                </Label>
+                <Select
+                  value={form.visibility}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      visibility: v as "personal" | "unit" | "hospital",
+                      sharedWithUnitId: v === "unit" ? f.sharedWithUnitId : null,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">
+                      {t("dischargeBriefs.templates.visibilityPersonal", "Personal (only me)")}
+                    </SelectItem>
+                    <SelectItem value="unit">
+                      {t("dischargeBriefs.templates.visibilityUnit", "Unit (shared with unit)")}
+                    </SelectItem>
+                    {isAdmin && (
+                      <SelectItem value="hospital">
+                        {t("dischargeBriefs.templates.visibilityHospital", "Hospital (everyone)")}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.visibility === "unit" && unitsList.length > 0 && (
+                <div className="space-y-2">
+                  <Label>
+                    {t("dischargeBriefs.templates.sharedWithUnit", "Share with Unit")} *
+                  </Label>
+                  <Select
+                    value={form.sharedWithUnitId ?? ""}
+                    onValueChange={(v) =>
+                      setForm((f) => ({ ...f, sharedWithUnitId: v || null }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("dischargeBriefs.templates.selectUnit", "Select a unit")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitsList.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>
