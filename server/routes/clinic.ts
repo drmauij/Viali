@@ -3066,7 +3066,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
       return res.json({ received: true, processed: false, reason: 'Cal.com integration not enabled' });
     }
     
-    if (triggerEvent === 'BOOKING_CREATED') {
+    if (triggerEvent === 'BOOKING_CREATED' || triggerEvent === 'BOOKING_REQUESTED') {
       const { startTime, endTime, eventTypeId, attendees, metadata } = payload;
       
       const mappings = await storage.getCalcomProviderMappings(hospitalId);
