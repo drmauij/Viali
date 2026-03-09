@@ -403,13 +403,13 @@ export class CalcomClient {
   }
 
   /**
-   * Subscribe to a single ICS calendar feed URL in Cal.com.
-   * Cal.com API expects { url: string } (singular), so call once per URL.
+   * Subscribe to ICS calendar feed URLs in Cal.com.
+   * Cal.com API expects { urls: string[] } (array).
    */
-  async subscribeToIcsFeed(url: string): Promise<{ id: number; type: string }> {
+  async subscribeToIcsFeed(urls: string[]): Promise<{ id: number; type: string }> {
     return this.request<{ id: number; type: string }>('/calendars/ics-feed/save', {
       method: 'POST',
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ urls }),
     });
   }
 

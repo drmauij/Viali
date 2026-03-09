@@ -3853,31 +3853,27 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
     // Get base URL - use production URL for Cal.com subscription
     const baseUrl = process.env.APP_BASE_URL || 'https://use.viali.app';
 
-    // Generate feed URLs and subscribe each one individually
-    // Cal.com API expects { url: string } (singular), one credential per URL
-    const feedUrls: string[] = [];
-    const credentialIds: number[] = [];
+    // Generate feed URLs
+    const feedUrls = enabledMappings.map(m =>
+      `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`
+    );
 
-    for (const m of enabledMappings) {
-      const feedUrl = `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`;
-      feedUrls.push(feedUrl);
-      const result = await calcom.subscribeToIcsFeed(feedUrl);
-      credentialIds.push(result.id);
-      logger.info(`Subscribed ICS feed for provider ${m.providerId}: credential ${result.id}`);
-    }
+    // Subscribe all feeds at once (Cal.com expects { urls: string[] })
+    const result = await calcom.subscribeToIcsFeed(feedUrls);
+    logger.info(`Subscribed ${feedUrls.length} ICS feed(s): credential ${result.id}`);
 
-    // Store all credential IDs (comma-separated) to track for future cleanup
+    // Store the credential ID to prevent duplicate subscriptions
     await storage.upsertCalcomConfig({
       ...config,
       feedToken,
-      icsFeedCredentialId: credentialIds.join(','),
+      icsFeedCredentialId: String(result.id),
       icsFeedSubscribedAt: new Date(),
     });
 
     res.json({
       success: true,
       message: `Subscribed ${feedUrls.length} calendar feed(s) to Cal.com`,
-      credentialIds,
+      credentialId: result.id,
       feedUrls,
     });
   } catch (error: any) {
