@@ -4440,7 +4440,8 @@ export const calcomConfig = pgTable("calcom_config", {
   
   // API credentials
   apiKey: varchar("api_key"), // Cal.com API key
-  
+  orgId: varchar("org_id"), // Cal.com organization ID (auto-detected from /me endpoint)
+
   // Webhook secret for verifying incoming webhooks from Cal.com
   webhookSecret: varchar("webhook_secret"),
   
@@ -4455,7 +4456,8 @@ export const calcomConfig = pgTable("calcom_config", {
   isEnabled: boolean("is_enabled").default(false),
   syncBusyBlocks: boolean("sync_busy_blocks").default(true), // Push appointments as busy blocks
   syncTimebutlerAbsences: boolean("sync_timebutler_absences").default(true), // Push absences as busy blocks
-  
+  syncAvailability: boolean("sync_availability").default(true), // Push availability schedules
+
   // Status tracking
   lastSyncAt: timestamp("last_sync_at"),
   lastSyncError: text("last_sync_error"),
