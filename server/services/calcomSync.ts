@@ -12,7 +12,7 @@ import {
   type CalcomProviderMapping,
   type CalcomConfig,
 } from "@shared/schema";
-import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";
 import { createCalcomClient, type CalcomClient, type CalcomBooking, type CalcomScheduleAvailability, type CalcomScheduleOverride } from "./calcomClient";
 import { updateAssistantCalcomUid } from "../storage/anesthesia";
 import logger from "../logger";
@@ -147,14 +147,16 @@ export async function syncAvailabilityToCalcom(
       return { success: false, error: 'No Cal.com user ID configured for provider (required for organization accounts)' };
     }
 
-    // Read provider availability from DB
+    // Read provider availability from DB (hospital-level only, not unit-specific)
     const availRows = await db
       .select()
       .from(providerAvailability)
       .where(
         and(
           eq(providerAvailability.providerId, providerId),
-          eq(providerAvailability.isActive, true)
+          eq(providerAvailability.hospitalId, hospitalId),
+          eq(providerAvailability.isActive, true),
+          isNull(providerAvailability.unitId)
         )
       );
 
@@ -187,6 +189,8 @@ export async function syncAvailabilityToCalcom(
       .where(
         and(
           eq(providerAvailabilityWindows.providerId, providerId),
+          eq(providerAvailabilityWindows.hospitalId, hospitalId),
+          isNull(providerAvailabilityWindows.unitId),
           gte(providerAvailabilityWindows.date, now.toISOString().split('T')[0]),
           lte(providerAvailabilityWindows.date, threeMonthsLater.toISOString().split('T')[0])
         )
