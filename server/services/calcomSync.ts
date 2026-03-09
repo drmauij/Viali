@@ -101,9 +101,10 @@ export async function syncAvailabilityToCalcom(
       return { success: false, error: 'Availability sync disabled' };
     }
 
-    // Detect account type (organization vs personal)
+    // Detect account type (organization vs personal) and get default schedule ID
     let orgId = (config as any).orgId ? parseInt((config as any).orgId, 10) : null;
     let isPersonalAccount = false;
+    let defaultScheduleId: number | null = null;
     if (!orgId) {
       try {
         const me = await client.getMe();
@@ -115,11 +116,11 @@ export async function syncAvailabilityToCalcom(
             .where(eq(calcomConfig.hospitalId, hospitalId));
         } else {
           isPersonalAccount = true;
-          logger.info(`Cal.com account for hospital ${hospitalId} is personal (userId=${me.id}), using direct schedule endpoints`);
+          defaultScheduleId = (me as any).defaultScheduleId || null;
+          logger.info(`Cal.com personal account (userId=${me.id}, defaultScheduleId=${defaultScheduleId})`);
         }
       } catch (err: any) {
         logger.warn(`Failed to detect Cal.com account type: ${err.message}`);
-        // Assume personal account if /me fails
         isPersonalAccount = true;
       }
     }
@@ -197,10 +198,20 @@ export async function syncAvailabilityToCalcom(
       endTime: w.endTime,
     }));
 
-    // Create or update schedule in Cal.com
-    const existingScheduleId = mapping.calcomScheduleId
+    // Determine which schedule to update:
+    // 1. If we already synced before, use the stored calcomScheduleId
+    // 2. For personal accounts, use the default schedule (from /me) to avoid duplicates
+    // 3. Otherwise, create a new schedule
+    let existingScheduleId = mapping.calcomScheduleId
       ? parseInt(mapping.calcomScheduleId, 10)
       : null;
+
+    // For personal accounts: always update the default schedule instead of creating new ones.
+    // This prevents duplicate availability entries from multiple schedules.
+    if (!existingScheduleId && isPersonalAccount && defaultScheduleId) {
+      existingScheduleId = defaultScheduleId;
+      logger.info(`Personal account: using default schedule ${defaultScheduleId} instead of creating new`);
+    }
 
     let scheduleId: number;
 
