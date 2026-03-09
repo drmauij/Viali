@@ -4041,6 +4041,38 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     enabled: !!hospitalId && calcomEnabled && calcomMappings.length > 0,
   });
 
+  // Cal.com debug state
+  const [calcomDebugOutput, setCalcomDebugOutput] = useState<string | null>(null);
+
+  // Cal.com debug mutation
+  const calcomDebugMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", `/api/clinic/${hospitalId}/calcom-debug`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setCalcomDebugOutput(JSON.stringify(data, null, 2));
+    },
+    onError: (error: any) => {
+      setCalcomDebugOutput(`Error: ${error.message}`);
+    },
+  });
+
+  // Cal.com disconnect ICS feeds mutation
+  const calcomDisconnectMutation = useMutation({
+    mutationFn: async (credentialId: number) => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-debug-disconnect`, { credentialId });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setCalcomDebugOutput(JSON.stringify(data, null, 2));
+      toast({ title: "Disconnect attempted", description: "Check output for results" });
+    },
+    onError: (error: any) => {
+      setCalcomDebugOutput(`Error: ${error.message}`);
+    },
+  });
+
   // Subscribe ICS feeds to Cal.com mutation
   const subscribeFeedsMutation = useMutation({
     mutationFn: async (force: boolean = false) => {
@@ -4338,6 +4370,81 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 )}
               </div>
             )}
+
+            {/* Debug Section */}
+            <div className="border-t border-border pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-medium">Cal.com Debug</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Inspect connected calendars, credentials, and provider schedules
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => calcomDebugMutation.mutate()}
+                    disabled={calcomDebugMutation.isPending}
+                  >
+                    {calcomDebugMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <i className="fas fa-bug mr-2"></i>
+                    )}
+                    Debug Cal.com
+                  </Button>
+                  {calcomDebugOutput && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCalcomDebugOutput(null)}
+                    >
+                      <i className="fas fa-times mr-1"></i>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {calcomDebugOutput && (
+                <div className="space-y-2">
+                  <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-80 whitespace-pre-wrap">
+                    {calcomDebugOutput}
+                  </pre>
+                  {/* Quick disconnect buttons for ICS feeds */}
+                  {(() => {
+                    try {
+                      const parsed = JSON.parse(calcomDebugOutput);
+                      const icsCreds = parsed?.parsedCalendars?.filter((c: any) => c.integrationType?.includes('ics'));
+                      if (icsCreds?.length > 1) {
+                        return (
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3">
+                            <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                              {icsCreds.length} ICS feed credentials found (should be 1). Try disconnecting duplicates:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {icsCreds.map((c: any) => (
+                                <Button
+                                  key={c.credentialId}
+                                  size="sm"
+                                  variant="destructive"
+                                  className="text-xs h-7"
+                                  onClick={() => calcomDisconnectMutation.mutate(c.credentialId)}
+                                  disabled={calcomDisconnectMutation.isPending}
+                                >
+                                  Disconnect #{c.credentialId}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                    } catch (_) {}
+                    return null;
+                  })()}
+                </div>
+              )}
+            </div>
 
             {/* Instructions */}
             <div className="bg-muted/50 rounded-lg p-4 text-sm">
