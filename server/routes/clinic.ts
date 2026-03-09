@@ -3191,7 +3191,7 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
           calcomSource: 'calcom',
           calcomSyncedAt: new Date(),
         })
-        .onConflictDoNothing({ target: appts.calcomBookingUid })
+        .onConflictDoNothing()
         .returning();
 
       if (result.length === 0) {
