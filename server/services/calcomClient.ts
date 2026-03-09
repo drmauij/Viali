@@ -91,6 +91,44 @@ export interface CreateBusyBlockRequest {
   };
 }
 
+export interface CalcomScheduleAvailability {
+  days: string[]; // "Monday", "Tuesday", etc.
+  startTime: string; // "HH:MM"
+  endTime: string; // "HH:MM"
+}
+
+export interface CalcomScheduleOverride {
+  date: string; // "YYYY-MM-DD"
+  startTime: string; // "HH:MM"
+  endTime: string; // "HH:MM"
+}
+
+export interface CreateScheduleRequest {
+  name: string;
+  timeZone: string;
+  isDefault: boolean;
+  availability?: CalcomScheduleAvailability[];
+  overrides?: CalcomScheduleOverride[];
+}
+
+export interface UpdateScheduleRequest {
+  name?: string;
+  timeZone?: string;
+  availability?: CalcomScheduleAvailability[];
+  overrides?: CalcomScheduleOverride[];
+  isDefault?: boolean;
+}
+
+export interface CalcomSchedule {
+  id: number;
+  ownerId: number;
+  name: string;
+  timeZone: string;
+  availability: CalcomScheduleAvailability[];
+  isDefault: boolean;
+  overrides: CalcomScheduleOverride[];
+}
+
 export class CalcomClient {
   private apiKey: string;
 
@@ -134,7 +172,7 @@ export class CalcomClient {
   /**
    * Get the current authenticated user's profile (good for testing API key validity)
    */
-  async getMe(): Promise<{ id: number; username: string; email: string; name?: string }> {
+  async getMe(): Promise<{ id: number; username: string; email: string; name?: string; organizationId?: number }> {
     return this.request('/me');
   }
 
@@ -389,6 +427,50 @@ export class CalcomClient {
    * Disconnect an ICS feed calendar by its credential ID.
    * Attempts the v2 selected-calendars delete approach.
    */
+  /**
+   * Get all schedules for a user within an organization
+   */
+  async getOrgUserSchedules(orgId: number, userId: number): Promise<CalcomSchedule[]> {
+    return this.request<CalcomSchedule[]>(
+      `/organizations/${orgId}/users/${userId}/schedules`
+    );
+  }
+
+  /**
+   * Create a schedule for a user within an organization
+   */
+  async createOrgUserSchedule(
+    orgId: number,
+    userId: number,
+    schedule: CreateScheduleRequest
+  ): Promise<CalcomSchedule> {
+    return this.request<CalcomSchedule>(
+      `/organizations/${orgId}/users/${userId}/schedules`,
+      {
+        method: 'POST',
+        body: JSON.stringify(schedule),
+      }
+    );
+  }
+
+  /**
+   * Update a schedule for a user within an organization
+   */
+  async updateOrgUserSchedule(
+    orgId: number,
+    userId: number,
+    scheduleId: number,
+    schedule: UpdateScheduleRequest
+  ): Promise<CalcomSchedule> {
+    return this.request<CalcomSchedule>(
+      `/organizations/${orgId}/users/${userId}/schedules/${scheduleId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(schedule),
+      }
+    );
+  }
+
   async disconnectIcsFeed(credentialId: number): Promise<boolean> {
     try {
       // Try to get connected calendars to find the ICS feed entries for this credential
