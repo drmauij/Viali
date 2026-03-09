@@ -86,13 +86,25 @@ export function getExpiryColor(days: number | null): string {
 }
 
 /**
+ * Get the effective quantity for an item, respecting trackExactQuantity mode.
+ * When trackExactQuantity is true, the displayed quantity is currentUnits.
+ * Otherwise, it's stockLevel.qtyOnHand.
+ */
+export function getEffectiveQty(item: ItemWithStock): number {
+  if (item.trackExactQuantity) {
+    return item.currentUnits || 0;
+  }
+  return item.stockLevel?.qtyOnHand || 0;
+}
+
+/**
  * Derive a stock-status label and colour for an item.
  */
 export function getStockStatus(
   item: ItemWithStock,
   t: any,
 ): { color: string; status: string } {
-  const currentQty = item.stockLevel?.qtyOnHand || 0;
+  const currentQty = getEffectiveQty(item);
   const minThreshold = item.minThreshold || 0;
 
   // Red for stockout (zero stock)
@@ -211,13 +223,13 @@ export function getFilterCounts(items: ItemWithStock[]): {
     all: activeItems.length,
     // Running low: stock > 0 but at or below min threshold
     runningLow: activeItems.filter(item => {
-      const currentQty = item.stockLevel?.qtyOnHand || 0;
+      const currentQty = getEffectiveQty(item);
       const minThreshold = item.minThreshold || 0;
       return currentQty > 0 && currentQty <= minThreshold;
     }).length,
     // Stockout: zero stock
     stockout: activeItems.filter(item => {
-      const currentQty = item.stockLevel?.qtyOnHand || 0;
+      const currentQty = getEffectiveQty(item);
       return currentQty === 0;
     }).length,
     // Archived items count
