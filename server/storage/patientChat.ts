@@ -25,8 +25,11 @@ export interface PatientConversation {
 }
 
 /**
- * Get all patient conversations that have at least one inbound message.
- * Returns conversations sorted by last activity.
+ * Get patient conversations for the staff chat list.
+ * Only shows conversations that have at least one "real" message
+ * (manual outbound from staff, or inbound from patient).
+ * Archived conversations stay hidden unless a new real message
+ * arrived after the archive timestamp.
  */
 export async function getPatientConversations(hospitalId: string): Promise<PatientConversation[]> {
   const rows = await db.execute(sql`
@@ -62,7 +65,23 @@ export async function getPatientConversations(hospitalId: string): Promise<Patie
         AND direction = 'inbound'
         AND read_by_staff_at IS NULL
     ) unread ON true
-    WHERE pca.id IS NULL
+    WHERE
+      -- Must have at least one real (non-automatic) message
+      EXISTS (
+        SELECT 1 FROM patient_messages rm
+        WHERE rm.conversation_id = pm.conversation_id
+          AND (rm.direction = 'inbound' OR (rm.direction = 'outbound' AND rm.message_type = 'manual'))
+      )
+      -- Hide archived unless a new real message arrived after archive
+      AND (
+        pca.id IS NULL
+        OR EXISTS (
+          SELECT 1 FROM patient_messages am
+          WHERE am.conversation_id = pm.conversation_id
+            AND (am.direction = 'inbound' OR (am.direction = 'outbound' AND am.message_type = 'manual'))
+            AND am.created_at > pca.archived_at
+        )
+      )
     ORDER BY last_msg.created_at DESC
   `);
 
@@ -216,14 +235,27 @@ export async function markConversationReadByPatient(hospitalId: string, patientI
 
 /**
  * Count of conversations with unread inbound messages for a hospital.
+ * Only counts conversations that would appear in the staff chat list
+ * (excludes archived unless new real messages arrived after archiving).
  */
 export async function getUnreadPatientConversationCount(hospitalId: string): Promise<number> {
   const result = await db.execute(sql`
-    SELECT COUNT(DISTINCT conversation_id)::int AS count
-    FROM patient_messages
-    WHERE hospital_id = ${hospitalId}
-      AND direction = 'inbound'
-      AND read_by_staff_at IS NULL
+    SELECT COUNT(DISTINCT pm.conversation_id)::int AS count
+    FROM patient_messages pm
+    LEFT JOIN patient_chat_archives pca
+      ON pca.hospital_id = pm.hospital_id AND pca.patient_id = pm.patient_id
+    WHERE pm.hospital_id = ${hospitalId}
+      AND pm.direction = 'inbound'
+      AND pm.read_by_staff_at IS NULL
+      AND (
+        pca.id IS NULL
+        OR EXISTS (
+          SELECT 1 FROM patient_messages am
+          WHERE am.conversation_id = pm.conversation_id
+            AND (am.direction = 'inbound' OR (am.direction = 'outbound' AND am.message_type = 'manual'))
+            AND am.created_at > pca.archived_at
+        )
+      )
   `);
   return (result.rows[0] as any)?.count ?? 0;
 }
