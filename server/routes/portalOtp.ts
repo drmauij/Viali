@@ -386,6 +386,7 @@ router.post(
       const { verificationToken } = req.params;
 
       const code = await findByVerificationToken(verificationToken);
+      logger.info(`[DEBUG-AUTH] magic-link: code found=${!!code}, used=${!!code?.usedAt}, expired=${code ? new Date(code.expiresAt) < new Date() : 'N/A'}, deliveredTo=${code?.deliveredTo || 'N/A'}`);
       if (
         !code ||
         code.usedAt ||
@@ -394,6 +395,7 @@ router.post(
         const portalPath = code
           ? getPortalPath(code.portalType, code.portalToken)
           : "/";
+        logger.info(`[DEBUG-AUTH] magic-link: REJECTED, redirecting to ${portalPath}`);
         return res.redirect(portalPath);
       }
 
@@ -405,6 +407,7 @@ router.post(
         code.portalToken,
         surgeonEmail,
       );
+      logger.info(`[DEBUG-AUTH] magic-link SUCCESS: surgeonEmail=${surgeonEmail}, sessionToken=${sessionToken.slice(0,8)}..., portalToken=${code.portalToken.slice(0,8)}...`);
 
       // Set cookie
       const isHttps = (process.env.NODE_ENV === "production") ||
@@ -459,6 +462,7 @@ router.post(
         portalType,
         token,
       );
+      logger.info(`[DEBUG-AUTH] verify-code: portalType=${portalType}, token=${token.slice(0,8)}..., verification found=${!!verification}, deliveredTo=${verification?.deliveredTo || 'N/A'}, attempts=${verification?.attemptCount || 0}`);
       if (!verification) {
         return res
           .status(400)
@@ -479,6 +483,7 @@ router.post(
       const isValid = await bcrypt.compare(inputCode, verification.codeHash);
 
       if (!isValid) {
+        logger.info(`[DEBUG-AUTH] verify-code: bcrypt compare FAILED for deliveredTo=${verification.deliveredTo}`);
         return res.status(400).json({ message: "Invalid code" });
       }
 
@@ -486,6 +491,7 @@ router.post(
       await markCodeUsed(verification.id);
       const surgeonEmail = portalType === "surgeon" ? verification.deliveredTo : undefined;
       const sessionToken = await createPortalSession(portalType, token, surgeonEmail);
+      logger.info(`[DEBUG-AUTH] verify-code SUCCESS: surgeonEmail=${surgeonEmail}, sessionToken=${sessionToken.slice(0,8)}...`);
 
       const isHttps = (process.env.NODE_ENV === "production") ||
         !!process.env.PRODUCTION_URL;

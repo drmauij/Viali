@@ -27,14 +27,17 @@ async function requireSurgeonSession(req: Request, res: Response, next: any) {
     const sessionToken = req.cookies?.portal_session;
 
     if (!sessionToken) {
+      logger.info(`[DEBUG-AUTH] requireSurgeonSession: NO cookie, path=${req.path}`);
       return res.status(403).json({ requiresVerification: true, portalType: "surgeon" });
     }
 
     const session = await findPortalSessionWithEmail(sessionToken, "surgeon", token);
     if (!session.valid || !session.surgeonEmail) {
+      logger.info(`[DEBUG-AUTH] requireSurgeonSession: INVALID session, valid=${session.valid}, email=${session.surgeonEmail}, token=${token.slice(0,8)}..., cookie=${sessionToken.slice(0,8)}...`);
       return res.status(403).json({ requiresVerification: true, portalType: "surgeon" });
     }
 
+    logger.info(`[DEBUG-AUTH] requireSurgeonSession: OK, email=${session.surgeonEmail}`);
     (req as any).surgeonEmail = session.surgeonEmail;
     (req as any).portalToken = token;
     next();
@@ -60,10 +63,13 @@ router.get("/api/surgeon-portal/:token/surgeries", requireSurgeonSession, async 
 
     const hospital = await getHospitalByExternalSurgeryToken(token);
     if (!hospital) {
+      logger.info(`[DEBUG-AUTH] surgeries: hospital NOT FOUND for token=${token.slice(0,8)}...`);
       return res.status(404).json({ message: "Hospital not found" });
     }
 
+    logger.info(`[DEBUG-AUTH] surgeries: fetching for email=${surgeonEmail}, hospital=${hospital.id.slice(0,8)}..., month=${month}`);
     const surgeries = await getSurgeriesForSurgeon(hospital.id, surgeonEmail, month);
+    logger.info(`[DEBUG-AUTH] surgeries: found ${surgeries.length} for email=${surgeonEmail}`);
 
     // Batch fetch pending action requests for all surgeries
     const surgeryIds = surgeries.map((s) => s.id);
