@@ -17,6 +17,40 @@ import { createCalcomClient, type CalcomClient, type CalcomBooking, type CalcomS
 import { updateAssistantCalcomUid } from "../storage/anesthesia";
 import logger from "../logger";
 
+/**
+ * Convert a local date + time (e.g. "2026-03-11" + "10:00" in Europe/Zurich)
+ * to a UTC ISO string (e.g. "2026-03-11T09:00:00Z") as required by Cal.com API.
+ */
+function localTimeToUtcIso(dateStr: string, timeStr: string, timezone: string): string {
+  // Build a reference point at noon UTC on that date to compute TZ offset
+  const refDate = new Date(`${dateStr}T12:00:00Z`);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const utcFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const tzParts = formatter.formatToParts(refDate);
+  const utcParts = utcFormatter.formatToParts(refDate);
+  const getVal = (parts: Intl.DateTimeFormatPart[], type: string) =>
+    parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+  const offsetHours = getVal(tzParts, 'hour') - getVal(utcParts, 'hour');
+
+  const [h, m] = timeStr.split(':').map(Number);
+  const utcH = h - offsetHours;
+  // Handle day rollover
+  const utcDate = new Date(`${dateStr}T${String(utcH).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
+  return utcDate.toISOString();
+}
+
 export interface SyncResult {
   synced: number;
   errors: string[];
@@ -384,7 +418,7 @@ export async function syncAppointmentsToCalcom(hospitalId: string, providerId?: 
     }
 
     try {
-      const startDateTime = `${apt.appointmentDate}T${apt.startTime}:00`;
+      const startDateTime = localTimeToUtcIso(apt.appointmentDate, apt.startTime, hospitalTz);
       const patientName = [apt.patientFirstName, apt.patientSurname].filter(Boolean).join(' ') || 'Patient';
       const title = `Appointment: ${patientName}`;
 
@@ -624,7 +658,7 @@ export async function syncSingleAppointment(appointmentId: string): Promise<{ su
   }
 
   try {
-    const startDateTime = `${apt.appointmentDate}T${apt.startTime}:00`;
+    const startDateTime = localTimeToUtcIso(apt.appointmentDate, apt.startTime, calcomSetup.timezone);
     const patientName = [apt.patientFirstName, apt.patientSurname].filter(Boolean).join(' ') || 'Patient';
     const title = `Appointment: ${patientName}`;
 

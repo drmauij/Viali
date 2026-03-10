@@ -3604,11 +3604,11 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     // Generate ICS content
     const events: string[] = [];
     
-    // Add appointments
+    // Add appointments (times stored as local HH:MM, must convert via timezone)
     for (const apt of appointments) {
-      const startDt = new Date(`${apt.appointmentDate}T${apt.startTime || '09:00'}:00`);
-      const endDt = apt.endTime 
-        ? new Date(`${apt.appointmentDate}T${apt.endTime}:00`)
+      const startDt = parseDateInTimezone(apt.appointmentDate, apt.startTime || '09:00', tz);
+      const endDt = apt.endTime
+        ? parseDateInTimezone(apt.appointmentDate, apt.endTime, tz)
         : new Date(startDt.getTime() + 30 * 60000); // default 30 min
       
       events.push(generateIcsEvent({
