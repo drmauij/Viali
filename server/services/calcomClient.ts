@@ -522,6 +522,22 @@ export class CalcomClient {
   }
 
   /**
+   * Get the currently subscribed ICS feed URLs for a specific credential.
+   * Returns the externalIds (URLs) from the connected calendar entry, or null if not found.
+   */
+  async getIcsFeedUrls(credentialId: number): Promise<string[] | null> {
+    try {
+      const calendars = await this.getConnectedCalendars();
+      const icsCal = calendars.find(c => c.credentialId === credentialId);
+      if (!icsCal || !icsCal.calendars) return null;
+      return icsCal.calendars.map(c => c.externalId).sort();
+    } catch (error: any) {
+      logger.warn(`Failed to get ICS feed URLs for credential ${credentialId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Find and disconnect ALL ICS feed credentials.
    * Scans connected calendars for ICS-type integrations and disconnects each.
    */

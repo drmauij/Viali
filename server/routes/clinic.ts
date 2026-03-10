@@ -4007,36 +4007,55 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
       return res.status(400).json({ message: "No provider mappings configured" });
     }
 
-    // Check if already subscribed (prevent duplicates)
-    if (config.icsFeedCredentialId && !force) {
-      return res.json({
-        success: true,
-        alreadySubscribed: true,
-        message: `ICS feeds already subscribed to Cal.com (since ${config.icsFeedSubscribedAt?.toISOString() || 'unknown'}). Use force=true to re-subscribe.`,
-        credentialId: config.icsFeedCredentialId,
-      });
-    }
-
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
-
-    // Always disconnect ALL existing ICS feeds first to prevent duplicates
-    try {
-      const disconnected = await calcom.disconnectAllIcsFeeds();
-      if (disconnected > 0) {
-        logger.info(`Disconnected ${disconnected} existing ICS feed(s) for hospital ${hospitalId}`);
-      }
-    } catch (err: any) {
-      logger.warn(`Failed to clean up existing ICS feeds: ${err.message}`);
-    }
 
     // Get base URL - use production URL for Cal.com subscription
     const baseUrl = process.env.APP_BASE_URL || 'https://use.viali.app';
 
-    // Generate feed URLs
+    // Generate the desired feed URLs
     const feedUrls = enabledMappings.map(m =>
       `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`
-    );
+    ).sort();
+
+    // If credential already exists, check if URLs have actually changed
+    const existingCredentialId = config.icsFeedCredentialId ? Number(config.icsFeedCredentialId) : null;
+
+    if (existingCredentialId && !force) {
+      const currentUrls = await calcom.getIcsFeedUrls(existingCredentialId);
+
+      if (currentUrls) {
+        // Credential still exists in Cal.com — compare URLs
+        const urlsMatch = currentUrls.length === feedUrls.length &&
+          currentUrls.every((url, i) => url === feedUrls[i]);
+
+        if (urlsMatch) {
+          return res.json({
+            success: true,
+            alreadySubscribed: true,
+            message: `ICS feeds already subscribed with same URLs (since ${config.icsFeedSubscribedAt?.toISOString() || 'unknown'}). No changes needed.`,
+            credentialId: existingCredentialId,
+          });
+        }
+
+        logger.info(`ICS feed URLs changed for hospital ${hospitalId} — will re-subscribe`);
+      } else {
+        // Credential not found in Cal.com (deleted externally?), proceed to create new
+        logger.info(`Stored credential ${existingCredentialId} not found in Cal.com for hospital ${hospitalId} — will create new subscription`);
+      }
+    }
+
+    // If we have an existing credential, disconnect only that one (not all ICS feeds)
+    if (existingCredentialId) {
+      try {
+        const disconnected = await calcom.disconnectCalendarCredential(existingCredentialId);
+        if (disconnected) {
+          logger.info(`Disconnected existing ICS feed credential ${existingCredentialId} for hospital ${hospitalId}`);
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to disconnect existing credential ${existingCredentialId}: ${err.message}`);
+      }
+    }
 
     // Subscribe all feeds at once (Cal.com expects { urls: string[] })
     const result = await calcom.subscribeToIcsFeed(feedUrls);
@@ -4173,68 +4192,6 @@ router.post('/api/clinic/:hospitalId/calcom-debug-sync', isAuthenticated, requir
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message, stack: error.stack?.substring(0, 500) });
-  }
-});
-
-// Bulk-sync all future appointments for a provider (or all providers) to Cal.com
-router.post('/api/clinic/:hospitalId/calcom-sync-appointments', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
-  try {
-    const { hospitalId } = req.params;
-    const { providerId } = req.body; // optional — if omitted, syncs all providers
-
-    const { syncSingleAppointment } = await import("../services/calcomSync");
-    const { clinicAppointments, calcomProviderMappings } = await import("@shared/schema");
-
-    // Get enabled provider mappings
-    const mappings = await db
-      .select({ providerId: calcomProviderMappings.providerId })
-      .from(calcomProviderMappings)
-      .where(
-        and(
-          eq(calcomProviderMappings.hospitalId, hospitalId),
-          eq(calcomProviderMappings.isEnabled, true),
-          ...(providerId ? [eq(calcomProviderMappings.providerId, providerId)] : [])
-        )
-      );
-
-    if (mappings.length === 0) {
-      return res.status(400).json({ message: "No enabled provider mappings found" });
-    }
-
-    const providerIds = mappings.map(m => m.providerId);
-    const today = new Date().toISOString().split('T')[0];
-
-    // Get all future non-cancelled appointments for these providers
-    const appointments = await db
-      .select({ id: clinicAppointments.id, providerId: clinicAppointments.providerId })
-      .from(clinicAppointments)
-      .where(
-        and(
-          inArray(clinicAppointments.providerId, providerIds),
-          gte(clinicAppointments.appointmentDate, today),
-          sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
-        )
-      );
-
-    const results: Array<{ id: string; success: boolean; calcomUid?: string; error?: string }> = [];
-
-    for (const apt of appointments) {
-      const result = await syncSingleAppointment(apt.id);
-      results.push({ id: apt.id, ...result });
-    }
-
-    const synced = results.filter(r => r.success && r.calcomUid).length;
-    const failed = results.filter(r => !r.success).length;
-
-    res.json({
-      total: appointments.length,
-      synced,
-      failed,
-      details: results,
-    });
-  } catch (error: any) {
-    logger.error("Error bulk-syncing appointments to Cal.com:", error);
-    res.status(500).json({ error: error.message });
   }
 });
 

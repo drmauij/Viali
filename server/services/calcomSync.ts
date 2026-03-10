@@ -688,6 +688,11 @@ export async function syncSingleAppointment(appointmentId: string): Promise<{ su
 
     return { success: true, calcomUid: syncResult.uid };
   } catch (error: any) {
+    // Cal.com returns 400 when the slot is already blocked — treat as success
+    if (error.message?.includes('already has booking') || error.message?.includes('is not available')) {
+      logger.info(`Appointment ${appointmentId} slot already blocked in Cal.com, treating as success`);
+      return { success: true, calcomUid: apt.calcomBookingUid || undefined, error: 'Already blocked in Cal.com' };
+    }
     return { success: false, error: error.message };
   }
 }
@@ -788,6 +793,11 @@ export async function syncSingleSurgery(surgeryId: string): Promise<{ success: b
 
     return { success: true, calcomUid: syncResult.uid };
   } catch (error: any) {
+    // Cal.com returns 400 when the slot is already blocked — treat as success
+    if (error.message?.includes('already has booking') || error.message?.includes('is not available')) {
+      logger.info(`Surgery ${surgeryId} slot already blocked in Cal.com, treating as success`);
+      return { success: true, calcomUid: surgery.calcomBusyBlockUid || undefined, error: 'Already blocked in Cal.com' };
+    }
     return { success: false, error: error.message };
   }
 }
