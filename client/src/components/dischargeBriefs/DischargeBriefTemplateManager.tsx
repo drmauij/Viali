@@ -88,6 +88,7 @@ const BRIEF_TYPES = [
   { value: "anesthesia_discharge", label: "Anesthesia Discharge" },
   { value: "anesthesia_overnight_discharge", label: "Anesthesia + Overnight" },
   { value: "surgery_report", label: "Surgery Report" },
+  { value: "surgery_estimate", label: "Surgery Estimate" },
   { value: "generic", label: "Generic" },
 ];
 
@@ -96,6 +97,7 @@ const BRIEF_TYPE_LABELS: Record<string, string> = {
   anesthesia_discharge: "Anesthesia",
   anesthesia_overnight_discharge: "Anesthesia + Overnight",
   surgery_report: "Surgery Report",
+  surgery_estimate: "Surgery Estimate",
   generic: "Generic",
   _all: "All Types",
 };

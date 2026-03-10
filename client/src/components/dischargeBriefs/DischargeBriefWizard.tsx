@@ -83,6 +83,7 @@ type BriefType =
   | "anesthesia_overnight_discharge"
   | "prescription"
   | "surgery_report"
+  | "surgery_estimate"
   | "generic";
 
 interface BlockInfo {
@@ -96,6 +97,7 @@ interface TemplateInfo {
   id: string;
   name: string;
   procedureType?: string | null;
+  briefType?: string | null;
 }
 
 const TOTAL_STEPS = 6;
@@ -435,6 +437,10 @@ export function DischargeBriefWizard({
         surgery_report: t(
           "dischargeBriefs.types.surgeryReport",
           "Surgery Report",
+        ),
+        surgery_estimate: t(
+          "dischargeBriefs.types.surgeryEstimate",
+          "Surgery Estimate",
         ),
         generic: t(
           "dischargeBriefs.types.generic",
@@ -845,6 +851,7 @@ export function DischargeBriefWizard({
             "anesthesia_overnight_discharge",
             "prescription",
             "surgery_report",
+            "surgery_estimate",
             "generic",
           ] as BriefType[]
         ).map((bt) => (
@@ -916,6 +923,16 @@ export function DischargeBriefWizard({
                 <SelectItem key={tmpl.id} value={tmpl.id}>
                   <span className="flex items-center gap-2">
                     {tmpl.name}
+                    {!tmpl.briefType && (
+                      <Badge variant="outline" className="text-xs ml-1">
+                        {t("dischargeBriefs.templates.allTypes", "All Types")}
+                      </Badge>
+                    )}
+                    {tmpl.briefType && tmpl.briefType !== briefType && (
+                      <Badge variant="secondary" className="text-xs ml-1">
+                        {briefTypeLabel(tmpl.briefType as BriefType)}
+                      </Badge>
+                    )}
                     {tmpl.procedureType && (
                       <Badge variant="outline" className="text-xs ml-1">
                         {tmpl.procedureType}

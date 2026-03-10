@@ -140,6 +140,7 @@ const BRIEF_TYPE_VALUES = [
   "anesthesia_overnight_discharge",
   "prescription",
   "surgery_report",
+  "surgery_estimate",
   "generic",
 ] as const;
 
@@ -974,7 +975,7 @@ You must return a JSON object with exactly these fields:
 {
   "name": "A short descriptive template name (e.g. 'Rhinoplasty Discharge Brief', 'Standard Anesthesia Report'). Max 60 chars.",
   "description": "A one-sentence description of what this template covers and when to use it. Max 150 chars.",
-  "briefType": "One of: surgery_discharge, anesthesia_discharge, anesthesia_overnight_discharge, surgery_report, generic. Pick based on the document content.",
+  "briefType": "One of: surgery_discharge, anesthesia_discharge, anesthesia_overnight_discharge, surgery_report, surgery_estimate, generic. Pick based on the document content.",
   "procedureType": "The medical procedure type if identifiable (e.g. 'Rhinoplasty', 'Abdominoplasty'), or null if generic.",
   "content": "The cleaned body content of the document as clean HTML — strip all hospital headers, addresses, letterheads, page numbers, footers, and signature blocks. Keep only the medical brief content. Use <h2>/<h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting."
 }

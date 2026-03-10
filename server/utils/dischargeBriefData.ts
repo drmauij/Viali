@@ -515,6 +515,7 @@ export function getSystemPrompt(
     anesthesia_overnight_discharge: "Anesthesia Overnight Stay Discharge Brief",
     prescription: "Prescription",
     surgery_report: "Surgery Report (OP-Bericht)",
+    surgery_estimate: "Surgery Estimate (Kostenvoranschlag)",
     generic: "Brief",
   };
   const briefLabel = briefTypeLabels[briefType] || "Discharge Brief";

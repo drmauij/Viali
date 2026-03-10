@@ -5549,6 +5549,7 @@ export const dischargeBriefTypeEnum = pgEnum("discharge_brief_type", [
   "anesthesia_overnight_discharge",
   "prescription",
   "surgery_report",
+  "surgery_estimate",
   "generic",
 ]);
 

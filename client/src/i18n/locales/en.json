@@ -7110,6 +7110,7 @@
       "anesthesiaOvernightDischarge": "Anesthesia + Overnight",
       "prescription": "Prescription",
       "surgeryReport": "Surgery Report",
+      "surgeryEstimate": "Surgery Estimate",
       "generic": "Generic"
     },
     "templates": {

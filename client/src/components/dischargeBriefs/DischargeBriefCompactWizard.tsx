@@ -60,6 +60,7 @@ type BriefType =
   | "anesthesia_overnight_discharge"
   | "prescription"
   | "surgery_report"
+  | "surgery_estimate"
   | "generic";
 
 interface BlockInfo {
@@ -78,6 +79,7 @@ interface TemplateInfo {
   id: string;
   name: string;
   procedureType?: string | null;
+  briefType?: string | null;
 }
 
 interface DischargeBriefCompactWizardProps {
@@ -327,6 +329,7 @@ export function DischargeBriefCompactWizard({
         ),
         prescription: t("dischargeBriefs.types.prescription", "Prescription"),
         surgery_report: t("dischargeBriefs.types.surgeryReport", "Surgery Report"),
+        surgery_estimate: t("dischargeBriefs.types.surgeryEstimate", "Surgery Estimate"),
         generic: t("dischargeBriefs.types.generic", "Generic"),
       };
       return labels[bt];
@@ -481,6 +484,7 @@ export function DischargeBriefCompactWizard({
                       "anesthesia_overnight_discharge",
                       "prescription",
                       "surgery_report",
+                      "surgery_estimate",
                       "generic",
                     ] as BriefType[]
                   ).map((bt) => (
@@ -813,7 +817,19 @@ export function DischargeBriefCompactWizard({
                 </SelectItem>
                 {(templates ?? []).map((tmpl) => (
                   <SelectItem key={tmpl.id} value={tmpl.id}>
-                    {tmpl.name}
+                    <span className="flex items-center gap-2">
+                      {tmpl.name}
+                      {!tmpl.briefType && (
+                        <Badge variant="outline" className="text-xs">
+                          {t("dischargeBriefs.templates.allTypes", "All Types")}
+                        </Badge>
+                      )}
+                      {tmpl.briefType && tmpl.briefType !== briefType && (
+                        <Badge variant="secondary" className="text-xs">
+                          {briefTypeLabel(tmpl.briefType as BriefType)}
+                        </Badge>
+                      )}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

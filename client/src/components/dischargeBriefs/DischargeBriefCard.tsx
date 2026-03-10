@@ -55,6 +55,7 @@ const BRIEF_TYPE_LABELS: Record<string, string> = {
   surgery_discharge: "Surgery",
   anesthesia_discharge: "Anesthesia",
   anesthesia_overnight_discharge: "Anesthesia + Overnight",
+  surgery_estimate: "Surgery Estimate",
 };
 
 const LANG_LABELS: Record<string, string> = {
