@@ -253,13 +253,20 @@ export async function getProviderTimeOff(providerId: string, unitId: string | nu
     conditions.push(eq(providerTimeOff.unitId, unitId!));
   }
   
-  if (startDate) {
-    conditions.push(gte(providerTimeOff.endDate, startDate));
+  // Always include recurring time-offs (expansion handles date filtering)
+  if (startDate || endDate) {
+    const dateConditions: any[] = [];
+    if (startDate && endDate) {
+      dateConditions.push(and(gte(providerTimeOff.endDate, startDate), lte(providerTimeOff.startDate, endDate)));
+    } else if (startDate) {
+      dateConditions.push(gte(providerTimeOff.endDate, startDate));
+    } else if (endDate) {
+      dateConditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    dateConditions.push(eq(providerTimeOff.isRecurring, true));
+    conditions.push(or(...dateConditions));
   }
-  if (endDate) {
-    conditions.push(lte(providerTimeOff.startDate, endDate));
-  }
-  
+
   return await db
     .select()
     .from(providerTimeOff)

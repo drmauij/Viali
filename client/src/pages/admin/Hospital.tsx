@@ -4438,7 +4438,13 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
       if (data.alreadySubscribed) {
         toast({
           title: "Already subscribed",
-          description: "ICS feeds are already subscribed to Cal.com. Use re-subscribe if you need to update.",
+          description: "ICS feeds already up to date — toggle associations preserved.",
+        });
+      } else if (data.urlsChanged) {
+        toast({
+          title: "URLs updated",
+          description: "ICS feed URLs changed — new credential created. You may need to re-enable toggles in Cal.com.",
+          variant: "destructive",
         });
       } else {
         toast({

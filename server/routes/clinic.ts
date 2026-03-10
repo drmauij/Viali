@@ -3587,14 +3587,21 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
       );
 
     // Get time-offs (manually blocked slots) for this provider
+    // Include recurring time-offs even if their original dates are outside the range,
+    // because expandRecurringTimeOff will generate occurrences within the range
     const timeOffList = await db
       .select()
       .from(providerTimeOff)
       .where(
         and(
           eq(providerTimeOff.providerId, providerId),
-          gte(providerTimeOff.endDate, startDateStr),
-          lte(providerTimeOff.startDate, endDateStr)
+          or(
+            and(
+              gte(providerTimeOff.endDate, startDateStr),
+              lte(providerTimeOff.startDate, endDateStr)
+            ),
+            eq(providerTimeOff.isRecurring, true)
+          )
         )
       );
 
@@ -3675,39 +3682,27 @@ router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) =>
     }
 
     // Add time-offs (manually blocked slots)
+    // Both partial-day and full-day blocks must iterate each day in the date range
     for (const timeOff of expandedTimeOffs) {
-      if (timeOff.startTime && timeOff.endTime) {
-        // Partial day block
-        const startDt = parseDateInTimezone(timeOff.startDate, timeOff.startTime, tz);
-        const endDt = parseDateInTimezone(timeOff.startDate, timeOff.endTime, tz);
+      const dayStartTime = timeOff.startTime || '07:00';
+      const dayEndTime = timeOff.endTime || '20:00';
+
+      const toStart = new Date(timeOff.startDate + 'T00:00:00');
+      const toEnd = new Date(timeOff.endDate + 'T00:00:00');
+
+      for (let d = new Date(toStart); d <= toEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const startDt = parseDateInTimezone(dateStr, dayStartTime, tz);
+        const endDt = parseDateInTimezone(dateStr, dayEndTime, tz);
 
         events.push(generateIcsEvent({
-          uid: `timeoff-${timeOff.id}-${timeOff.startDate}@viali.app`,
+          uid: `timeoff-${timeOff.id}-${dateStr}@viali.app`,
           summary: `Blocked: ${timeOff.reason || 'Time off'}`,
           start: startDt,
           end: endDt,
           description: timeOff.notes || '',
           timezone: tz,
         }));
-      } else {
-        // Full day block — iterate each day in range
-        const toStart = new Date(timeOff.startDate + 'T00:00:00');
-        const toEnd = new Date(timeOff.endDate + 'T00:00:00');
-
-        for (let d = new Date(toStart); d <= toEnd; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split('T')[0];
-          const startDt = parseDateInTimezone(dateStr, '07:00', tz);
-          const endDt = parseDateInTimezone(dateStr, '20:00', tz);
-
-          events.push(generateIcsEvent({
-            uid: `timeoff-${timeOff.id}-${dateStr}@viali.app`,
-            summary: `Blocked: ${timeOff.reason || 'Time off'}`,
-            start: startDt,
-            end: endDt,
-            description: timeOff.notes || '',
-            timezone: tz,
-          }));
-        }
       }
     }
 
@@ -4021,7 +4016,7 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
     // If credential already exists, check if URLs have actually changed
     const existingCredentialId = config.icsFeedCredentialId ? Number(config.icsFeedCredentialId) : null;
 
-    if (existingCredentialId && !force) {
+    if (existingCredentialId) {
       const currentUrls = await calcom.getIcsFeedUrls(existingCredentialId);
 
       if (currentUrls) {
@@ -4030,38 +4025,53 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, r
           currentUrls.every((url, i) => url === feedUrls[i]);
 
         if (urlsMatch) {
+          // URLs match — no need to disconnect/recreate (preserves toggle associations)
           return res.json({
             success: true,
             alreadySubscribed: true,
-            message: `ICS feeds already subscribed with same URLs (since ${config.icsFeedSubscribedAt?.toISOString() || 'unknown'}). No changes needed.`,
+            message: `ICS feeds already subscribed with same URLs (since ${config.icsFeedSubscribedAt?.toISOString() || 'unknown'}). No changes needed — toggle associations preserved.`,
             credentialId: existingCredentialId,
           });
         }
 
-        logger.info(`ICS feed URLs changed for hospital ${hospitalId} — will re-subscribe`);
+        // URLs changed — create new subscription first, then disconnect old one
+        // This way, if save fails, we don't lose the existing credential
+        logger.info(`ICS feed URLs changed for hospital ${hospitalId} — creating new subscription before disconnecting old`);
+        const result = await calcom.subscribeToIcsFeed(feedUrls);
+        logger.info(`Subscribed ${feedUrls.length} ICS feed(s): new credential ${result.id}`);
+
+        // Now disconnect the old credential
+        try {
+          await calcom.disconnectCalendarCredential(existingCredentialId);
+          logger.info(`Disconnected old ICS feed credential ${existingCredentialId}`);
+        } catch (err: any) {
+          logger.warn(`Failed to disconnect old credential ${existingCredentialId}: ${err.message}`);
+        }
+
+        await storage.upsertCalcomConfig({
+          ...config,
+          feedToken,
+          icsFeedCredentialId: String(result.id),
+          icsFeedSubscribedAt: new Date(),
+        });
+
+        return res.json({
+          success: true,
+          message: `Updated ICS feed subscription (URLs changed). NOTE: You may need to re-enable the toggle associations in Cal.com since a new credential was created.`,
+          credentialId: result.id,
+          feedUrls,
+          urlsChanged: true,
+        });
       } else {
         // Credential not found in Cal.com (deleted externally?), proceed to create new
         logger.info(`Stored credential ${existingCredentialId} not found in Cal.com for hospital ${hospitalId} — will create new subscription`);
       }
     }
 
-    // If we have an existing credential, disconnect only that one (not all ICS feeds)
-    if (existingCredentialId) {
-      try {
-        const disconnected = await calcom.disconnectCalendarCredential(existingCredentialId);
-        if (disconnected) {
-          logger.info(`Disconnected existing ICS feed credential ${existingCredentialId} for hospital ${hospitalId}`);
-        }
-      } catch (err: any) {
-        logger.warn(`Failed to disconnect existing credential ${existingCredentialId}: ${err.message}`);
-      }
-    }
-
-    // Subscribe all feeds at once (Cal.com expects { urls: string[] })
+    // No existing credential (or it was deleted externally) — create fresh
     const result = await calcom.subscribeToIcsFeed(feedUrls);
     logger.info(`Subscribed ${feedUrls.length} ICS feed(s): credential ${result.id}`);
 
-    // Store the credential ID to prevent duplicate subscriptions
     await storage.upsertCalcomConfig({
       ...config,
       feedToken,
