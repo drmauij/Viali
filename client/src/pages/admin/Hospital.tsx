@@ -4409,7 +4409,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     },
   });
 
-  // Cal.com manual sync trigger
+  // Cal.com manual sync trigger (availability)
   const calcomSyncMutation = useMutation({
     mutationFn: async (providerId: string) => {
       const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-debug-sync`, { providerId });
@@ -4422,6 +4422,21 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
       } else {
         toast({ title: "Sync failed", description: data.error, variant: "destructive" });
       }
+    },
+    onError: (error: any) => {
+      setCalcomDebugOutput(`Error: ${error.message}`);
+    },
+  });
+
+  // Cal.com bulk appointment sync trigger
+  const calcomSyncAppointmentsMutation = useMutation({
+    mutationFn: async (providerId?: string) => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-sync-appointments`, providerId ? { providerId } : {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setCalcomDebugOutput(JSON.stringify(data, null, 2));
+      toast({ title: "Appointments synced", description: `${data.synced} synced, ${data.failed} failed (${data.total} total)` });
     },
     onError: (error: any) => {
       setCalcomDebugOutput(`Error: ${error.message}`);
@@ -4787,6 +4802,35 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                           className="text-xs h-7"
                           onClick={() => calcomSyncMutation.mutate(m.providerId)}
                           disabled={calcomSyncMutation.isPending}
+                        >
+                          {provider ? `${provider.firstName} ${provider.lastName}` : m.providerId.substring(0, 8)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+                {calcomMappings.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-xs text-muted-foreground self-center">Sync appointments:</span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="text-xs h-7"
+                      onClick={() => calcomSyncAppointmentsMutation.mutate(undefined)}
+                      disabled={calcomSyncAppointmentsMutation.isPending}
+                    >
+                      {calcomSyncAppointmentsMutation.isPending ? "Syncing..." : "All providers"}
+                    </Button>
+                    {calcomMappings.map((m) => {
+                      const provider = providers.find(p => p.id === m.providerId);
+                      return (
+                        <Button
+                          key={m.providerId}
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={() => calcomSyncAppointmentsMutation.mutate(m.providerId)}
+                          disabled={calcomSyncAppointmentsMutation.isPending}
                         >
                           {provider ? `${provider.firstName} ${provider.lastName}` : m.providerId.substring(0, 8)}
                         </Button>
