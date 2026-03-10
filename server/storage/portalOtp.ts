@@ -143,6 +143,14 @@ export async function revokePortalSessionsByToken(
     .where(eq(portalAccessSessions.portalToken, portalToken));
 }
 
+export async function revokePortalSessionBySessionToken(
+  sessionToken: string,
+): Promise<void> {
+  await db
+    .delete(portalAccessSessions)
+    .where(eq(portalAccessSessions.sessionToken, sessionToken));
+}
+
 // ========== CLEANUP ==========
 
 export async function cleanupExpiredPortalData(): Promise<void> {

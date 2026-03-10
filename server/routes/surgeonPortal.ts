@@ -8,6 +8,7 @@ import {
   getActionRequestsForSurgeries,
   getHospitalByExternalSurgeryToken,
 } from "../storage/surgeonPortal";
+import { revokePortalSessionBySessionToken } from "../storage/portalOtp";
 import { sendSurgeonActionRequestNotification } from "../resend";
 
 const router = Router();
@@ -169,6 +170,24 @@ router.post("/api/surgeon-portal/:token/action-requests", requireSurgeonSession,
     return res.status(201).json(actionRequest);
   } catch (error) {
     logger.error("[SurgeonPortal] Error creating action request:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/surgeon-portal/:token/logout
+ * Revoke the current session and clear the cookie.
+ */
+router.post("/api/surgeon-portal/:token/logout", async (req: Request, res: Response) => {
+  try {
+    const sessionToken = req.cookies?.portal_session;
+    if (sessionToken) {
+      await revokePortalSessionBySessionToken(sessionToken);
+    }
+    res.clearCookie("portal_session", { path: "/" });
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    logger.error("[SurgeonPortal] Logout error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

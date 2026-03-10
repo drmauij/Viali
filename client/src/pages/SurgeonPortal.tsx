@@ -27,6 +27,7 @@ import {
   PauseCircle,
   Clock,
   Plus,
+  LogOut,
 } from "lucide-react";
 import {
   startOfMonth,
@@ -93,6 +94,7 @@ const translations: Record<string, Record<string, string>> = {
     reschedulePending: "Verschiebung angefragt",
     suspensionPending: "Sistierung angefragt",
     newRequest: "Neue OP-Anfrage stellen",
+    logout: "Abmelden",
   },
   en: {
     // Gate
@@ -141,6 +143,7 @@ const translations: Record<string, Record<string, string>> = {
     reschedulePending: "Reschedule requested",
     suspensionPending: "Suspension requested",
     newRequest: "Submit new surgery request",
+    logout: "Logout",
   },
 };
 
@@ -677,19 +680,37 @@ function SurgeonPortalContent({ token }: { token: string }) {
             <h1 className="text-lg font-semibold">{t.title}</h1>
             {hospitalName && <p className="text-sm text-muted-foreground">{hospitalName}</p>}
           </div>
-          <div className="flex gap-1">
-            <Globe className="h-4 w-4 text-muted-foreground mt-1.5 mr-1" />
-            {["de", "en"].map((l) => (
-              <Button
-                key={l}
-                variant={l === lang ? "default" : "ghost"}
-                size="sm"
-                className="px-2 py-1 h-7 text-xs"
-                onClick={() => switchLang(l)}
-              >
-                {LANGUAGE_LABELS[l]}
-              </Button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <Globe className="h-4 w-4 text-muted-foreground mt-1.5 mr-1" />
+              {["de", "en"].map((l) => (
+                <Button
+                  key={l}
+                  variant={l === lang ? "default" : "ghost"}
+                  size="sm"
+                  className="px-2 py-1 h-7 text-xs"
+                  onClick={() => switchLang(l)}
+                >
+                  {LANGUAGE_LABELS[l]}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={async () => {
+                try {
+                  await fetch(`/api/surgeon-portal/${token}/logout`, { method: "POST" });
+                } catch {
+                  // proceed with reload regardless
+                }
+                window.location.reload();
+              }}
+              title={t.logout}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
