@@ -100,6 +100,8 @@ export const hospitals = pgTable("hospitals", {
   externalSurgeryNotificationEmail: varchar("external_surgery_notification_email"), // Email to notify on new external surgery requests (fallback: OR admins)
   kioskToken: varchar("kiosk_token").unique(), // Token for public worktime kiosk (PIN-authenticated)
   cardReaderToken: varchar("card_reader_token").unique(), // Token for insurance card reader bridge
+  bookingToken: varchar("booking_token").unique(), // Token for public patient booking page
+  bookingSettings: jsonb("booking_settings").$type<{ slotDurationMinutes?: number; maxAdvanceDays?: number; minAdvanceHours?: number }>(), // Booking page configuration
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)

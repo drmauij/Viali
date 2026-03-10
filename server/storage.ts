@@ -226,6 +226,8 @@ export interface IStorage {
   setHospitalKioskToken(hospitalId: string, token: string | null): Promise<Hospital>;
   getHospitalByCardReaderToken(token: string): Promise<Hospital | undefined>;
   setHospitalCardReaderToken(hospitalId: string, token: string | null): Promise<Hospital>;
+  getHospitalByBookingToken(token: string): Promise<Hospital | undefined>;
+  setHospitalBookingToken(hospitalId: string, token: string | null): Promise<Hospital>;
 
   // Folder operations
   getFolders(hospitalId: string, unitId: string): Promise<Folder[]>;
@@ -807,8 +809,11 @@ export interface IStorage {
   getPendingExternalSurgeryRequestsCount(hospitalId: string): Promise<number>;
   getPendingTimeOffCount(hospitalId: string): Promise<number>;
 
+  // Public booking helpers
+  findOrCreatePatientForBooking(hospitalId: string, data: { firstName: string; surname: string; email: string; phone?: string }): Promise<Patient>;
+
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
-  
+
   // Clinic Providers (now sourced from user_hospital_roles)
   getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
@@ -1085,6 +1090,8 @@ export class DatabaseStorage implements IStorage {
   setHospitalKioskToken = hospitalStorage.setHospitalKioskToken;
   getHospitalByCardReaderToken = hospitalStorage.getHospitalByCardReaderToken;
   setHospitalCardReaderToken = hospitalStorage.setHospitalCardReaderToken;
+  getHospitalByBookingToken = hospitalStorage.getHospitalByBookingToken;
+  setHospitalBookingToken = hospitalStorage.setHospitalBookingToken;
   getUnits = hospitalStorage.getUnits;
   getUnit = hospitalStorage.getUnit;
   createUnit = hospitalStorage.createUnit;
@@ -1491,6 +1498,7 @@ export class DatabaseStorage implements IStorage {
   reorderPersonalTodos = questionnaireStorage.reorderPersonalTodos;
 
   // ========== CLINIC OPERATIONS ==========
+  findOrCreatePatientForBooking = clinicStorage.findOrCreatePatientForBooking;
   getClinicProvidersByHospital = clinicStorage.getClinicProvidersByHospital;
   getBookableProvidersByHospital = clinicStorage.getBookableProvidersByHospital;
   getBookableProvidersByUnit = clinicStorage.getBookableProvidersByUnit;

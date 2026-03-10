@@ -92,6 +92,49 @@ function minutesToTime(minutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
+// ========== PUBLIC BOOKING HELPERS ==========
+
+export async function findOrCreatePatientForBooking(
+  hospitalId: string,
+  data: { firstName: string; surname: string; email: string; phone?: string }
+): Promise<Patient> {
+  // Try to find existing patient by email + hospital
+  const [existing] = await db
+    .select()
+    .from(patients)
+    .where(and(
+      eq(patients.hospitalId, hospitalId),
+      eq(patients.email, data.email),
+      isNull(patients.deletedAt)
+    ))
+    .limit(1);
+
+  if (existing) return existing;
+
+  // Generate patient number
+  const countResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(patients)
+    .where(eq(patients.hospitalId, hospitalId));
+  const patientCount = countResult[0]?.count || 0;
+
+  const [created] = await db
+    .insert(patients)
+    .values({
+      hospitalId,
+      firstName: data.firstName,
+      surname: data.surname,
+      email: data.email,
+      phone: data.phone || null,
+      patientNumber: `P-${String(patientCount + 1).padStart(5, '0')}`,
+      birthday: '0000-01-01',
+      sex: 'O' as const,
+    })
+    .returning();
+
+  return created;
+}
+
 // ========== CLINIC APPOINTMENT SCHEDULING ==========
 
 export async function getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]> {

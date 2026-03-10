@@ -1300,6 +1300,57 @@ router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, as
   }
 });
 
+// Booking token management
+router.get('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) return res.status(404).json({ message: "Hospital not found" });
+    res.json({ bookingToken: hospital.bookingToken || null, bookingSettings: hospital.bookingSettings || {} });
+  } catch (error) {
+    logger.error("Error fetching booking token:", error);
+    res.status(500).json({ message: "Failed to fetch booking token" });
+  }
+});
+
+router.post('/api/admin/:hospitalId/booking-token/generate', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { nanoid } = await import('nanoid');
+    const token = nanoid(24);
+    const hospital = await storage.setHospitalBookingToken(hospitalId, token);
+    res.json({ bookingToken: hospital.bookingToken });
+  } catch (error) {
+    logger.error("Error generating booking token:", error);
+    res.status(500).json({ message: "Failed to generate booking token" });
+  }
+});
+
+router.delete('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    await storage.setHospitalBookingToken(hospitalId, null);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error deleting booking token:", error);
+    res.status(500).json({ message: "Failed to delete booking token" });
+  }
+});
+
+router.put('/api/admin/:hospitalId/booking-settings', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { slotDurationMinutes, maxAdvanceDays, minAdvanceHours } = req.body;
+    const hospital = await storage.updateHospital(hospitalId, {
+      bookingSettings: { slotDurationMinutes, maxAdvanceDays, minAdvanceHours },
+    });
+    res.json({ bookingSettings: hospital.bookingSettings });
+  } catch (error) {
+    logger.error("Error updating booking settings:", error);
+    res.status(500).json({ message: "Failed to update booking settings" });
+  }
+});
+
 // Card reader token management
 router.get('/api/admin/:hospitalId/card-reader-token', isAuthenticated, isAdmin, async (req, res) => {
   try {

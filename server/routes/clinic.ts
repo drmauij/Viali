@@ -184,6 +184,244 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
 
 
 // ========================================
+// Public Booking Page API
+// ========================================
+
+// 3a: Get booking page data (hospital info + bookable providers)
+router.get('/api/public/booking/:bookingToken', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const providers = await storage.getBookableProvidersByHospital(hospital.id);
+
+    res.json({
+      hospital: {
+        name: hospital.name,
+        logoUrl: hospital.companyLogoUrl,
+        timezone: hospital.timezone,
+        language: hospital.defaultLanguage,
+      },
+      bookingSettings: hospital.bookingSettings || {},
+      providers: providers.map(p => ({
+        id: p.userId,
+        firstName: p.user.firstName,
+        lastName: p.user.lastName,
+        profileImageUrl: p.user.profileImageUrl,
+      })),
+    });
+  } catch (error) {
+    logger.error('Error fetching booking page data:', error);
+    res.status(500).json({ message: 'Failed to load booking page' });
+  }
+});
+
+// 3b: Get available slots for a provider on a specific date
+router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const { providerId } = req.params;
+    const date = req.query.date as string;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ message: 'Valid date parameter required (YYYY-MM-DD)' });
+    }
+
+    // Find the clinic unit for this provider
+    const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+    const roles = await db
+      .select()
+      .from(rolesTable)
+      .where(and(
+        eq(rolesTable.userId, providerId),
+        eq(rolesTable.hospitalId, hospital.id),
+        eq(rolesTable.isBookable, true)
+      ));
+
+    if (roles.length === 0) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    // Prefer a clinic unit, fall back to first bookable role's unit
+    let unitId = roles[0].unitId;
+    for (const role of roles) {
+      const unit = await storage.getUnit(role.unitId);
+      if (unit?.type === 'clinic') {
+        unitId = role.unitId;
+        break;
+      }
+    }
+
+    const settings = hospital.bookingSettings as { slotDurationMinutes?: number; maxAdvanceDays?: number; minAdvanceHours?: number } | null;
+    const slotDuration = settings?.slotDurationMinutes || 30;
+
+    const slots = await storage.getAvailableSlots(providerId, unitId, date, slotDuration, hospital.id);
+
+    res.json({
+      date,
+      providerId,
+      slots,
+    });
+  } catch (error) {
+    logger.error('Error fetching booking slots:', error);
+    res.status(500).json({ message: 'Failed to load available slots' });
+  }
+});
+
+// 3c: Create a booking
+const bookingSchema = z.object({
+  providerId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  firstName: z.string().min(1).max(100),
+  surname: z.string().min(1).max(100),
+  email: z.string().email().max(255),
+  phone: z.string().max(30).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const parsed = bookingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Invalid booking data', errors: parsed.error.errors });
+    }
+
+    const { providerId, date, startTime, endTime, firstName, surname, email, phone, notes } = parsed.data;
+
+    // Find the clinic unit for this provider
+    const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+    const roles = await db
+      .select()
+      .from(rolesTable)
+      .where(and(
+        eq(rolesTable.userId, providerId),
+        eq(rolesTable.hospitalId, hospital.id),
+        eq(rolesTable.isBookable, true)
+      ));
+
+    if (roles.length === 0) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    let unitId = roles[0].unitId;
+    for (const role of roles) {
+      const unit = await storage.getUnit(role.unitId);
+      if (unit?.type === 'clinic') {
+        unitId = role.unitId;
+        break;
+      }
+    }
+
+    const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
+    const slotDuration = settings?.slotDurationMinutes || 30;
+
+    // Re-check slot availability right before insert (race condition protection)
+    const availableSlots = await storage.getAvailableSlots(providerId, unitId, date, slotDuration, hospital.id);
+    const slotAvailable = availableSlots.some(s => s.startTime === startTime && s.endTime === endTime);
+    if (!slotAvailable) {
+      return res.status(409).json({ message: 'Dieser Termin ist leider nicht mehr verfügbar. Bitte wählen Sie einen anderen Zeitpunkt.', code: 'SLOT_TAKEN' });
+    }
+
+    // Find or create patient
+    const patient = await storage.findOrCreatePatientForBooking(hospital.id, {
+      firstName,
+      surname,
+      email,
+      phone,
+    });
+
+    // Create appointment with DB-level race protection via unique partial index
+    try {
+      const appointment = await storage.createClinicAppointment({
+        hospitalId: hospital.id,
+        unitId,
+        appointmentType: 'external',
+        patientId: patient.id,
+        providerId,
+        appointmentDate: date,
+        startTime,
+        endTime,
+        durationMinutes: slotDuration,
+        status: 'confirmed',
+        calcomSource: 'local',
+        notes: notes || null,
+      });
+
+      // Send confirmation email asynchronously
+      (async () => {
+        try {
+          const tz = hospital.timezone || 'Europe/Zurich';
+          const lang = (hospital.defaultLanguage as string) || 'de';
+          const isGerman = lang === 'de';
+          const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+          const dateObj = new Date(`${date}T${startTime}:00`);
+          const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+
+          // Generate cancel token
+          let cancelUrl = '';
+          try {
+            const crypto = await import('crypto');
+            const cancelToken = crypto.randomBytes(32).toString('hex');
+            const tokenExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+            await storage.createAppointmentActionToken({
+              token: cancelToken,
+              appointmentId: appointment.id,
+              hospitalId: hospital.id,
+              action: 'cancel',
+              expiresAt: tokenExpiresAt,
+            });
+            const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
+            cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+          } catch (tokenErr) {
+            logger.error('Failed to generate cancel token for booking:', tokenErr);
+          }
+
+          const { sendAppointmentConfirmationEmail } = await import('../resend');
+          await sendAppointmentConfirmationEmail(
+            email,
+            firstName,
+            hospital.name,
+            formattedDate,
+            startTime,
+            lang,
+            cancelUrl,
+          );
+        } catch (emailErr) {
+          logger.error('Failed to send booking confirmation email:', emailErr);
+        }
+      })();
+
+      res.json({ success: true, appointmentId: appointment.id });
+    } catch (dbError: any) {
+      // Unique index violation = double booking race condition
+      if (dbError?.code === '23505' && dbError?.constraint?.includes('no_double_book')) {
+        return res.status(409).json({ message: 'Dieser Termin ist leider nicht mehr verfügbar. Bitte wählen Sie einen anderen Zeitpunkt.', code: 'SLOT_TAKEN' });
+      }
+      throw dbError;
+    }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Invalid data', errors: error.errors });
+    }
+    logger.error('Error creating booking:', error);
+    res.status(500).json({ message: 'Failed to create booking' });
+  }
+});
+
+
+// ========================================
 // Clinic Services CRUD
 // ========================================
 

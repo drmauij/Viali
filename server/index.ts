@@ -88,6 +88,22 @@ app.use('/api/transcribe-voice', aiLimiter);
 app.use('/api/parse-drug-command', aiLimiter);
 app.use('/api/translate', aiLimiter);
 
+const bookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.' },
+});
+app.use('/api/public/booking', bookingLimiter);
+
+// Allow booking page to be embedded in iframes
+app.use('/book', (req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  next();
+});
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: Buffer

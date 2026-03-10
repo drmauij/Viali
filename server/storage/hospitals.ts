@@ -91,6 +91,23 @@ export async function setHospitalKioskToken(hospitalId: string, token: string | 
   return updated;
 }
 
+export async function getHospitalByBookingToken(token: string): Promise<Hospital | undefined> {
+  const [hospital] = await db
+    .select()
+    .from(hospitals)
+    .where(eq(hospitals.bookingToken, token));
+  return hospital;
+}
+
+export async function setHospitalBookingToken(hospitalId: string, token: string | null): Promise<Hospital> {
+  const [updated] = await db
+    .update(hospitals)
+    .set({ bookingToken: token, updatedAt: new Date() })
+    .where(eq(hospitals.id, hospitalId))
+    .returning();
+  return updated;
+}
+
 export async function getHospitalByCardReaderToken(token: string): Promise<Hospital | undefined> {
   const [hospital] = await db
     .select()
