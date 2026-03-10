@@ -400,7 +400,8 @@ export async function renderDischargeBriefPdf(
     logoDataUrl = await fetchImageAsDataUrl(opts.hospitalLogoUrl);
   }
 
-  // Brief type title
+  // Brief type title (add gap below header line)
+  state.y += 6;
   const lang = opts.language || 'de';
   const briefTypeLabel = BRIEF_TYPE_LABELS[opts.briefType]?.[lang]
     || BRIEF_TYPE_LABELS[opts.briefType]?.de

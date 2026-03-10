@@ -6861,6 +6861,9 @@ export default function PatientDetail() {
           preselectedBlocks={compactWizardPresets.blocks}
           preselectedMedicationSlotIds={compactWizardPresets.medicationSlotIds}
           onCreated={(briefId) => setEditingBriefId(briefId)}
+          isAdmin={isAdmin}
+          userId={user?.id}
+          userUnitIds={activeHospital?.unitId ? [activeHospital.unitId] : []}
         />
       )}
 

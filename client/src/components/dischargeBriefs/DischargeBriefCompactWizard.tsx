@@ -22,11 +22,6 @@ import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Loader2,
   Check,
   X,
@@ -37,14 +32,15 @@ import {
   FileSearch,
   ClipboardCheck,
   CalendarDays,
-  ChevronRight,
   Plus,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDate, formatDateForInput } from "@/lib/dateUtils";
+import { DischargeBriefTemplateManager } from "./DischargeBriefTemplateManager";
 
 // ---------------------------------------------------------------------------
 // Types (shared with DischargeBriefWizard)
@@ -100,6 +96,9 @@ interface DischargeBriefCompactWizardProps {
   preselectedBlocks?: BlockKey[];
   preselectedMedicationSlotIds?: string[];
   onCreated?: (briefId: string) => void;
+  isAdmin?: boolean;
+  userId?: string;
+  userUnitIds?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +137,9 @@ export function DischargeBriefCompactWizard({
   preselectedBlocks,
   preselectedMedicationSlotIds,
   onCreated,
+  isAdmin = false,
+  userId,
+  userUnitIds = [],
 }: DischargeBriefCompactWizardProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -158,7 +160,7 @@ export function DischargeBriefCompactWizard({
   const [language, setLanguage] = useState("de");
   const [annotations, setAnnotations] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddDate, setQuickAddDate] = useState("");
   const [quickAddTime, setQuickAddTime] = useState("09:00");
@@ -178,7 +180,7 @@ export function DischargeBriefCompactWizard({
       setLanguage("de");
       setAnnotations("");
       setIsGenerating(false);
-      setCustomizeOpen(false);
+      setTemplateManagerOpen(false);
       setShowQuickAdd(false);
       setQuickAddDate("");
       setQuickAddTime("09:00");
@@ -209,6 +211,11 @@ export function DischargeBriefCompactWizard({
     queryKey: [
       `/api/discharge-brief-templates/${hospitalId}${briefType ? `?briefType=${briefType}` : ""}`,
     ],
+    enabled: open && !!hospitalId,
+  });
+
+  const { data: units } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: [`/api/units/${hospitalId}`],
     enabled: open && !!hospitalId,
   });
 
@@ -425,17 +432,6 @@ export function DischargeBriefCompactWizard({
     : [];
   const optionalBlocks = blocks.filter((b) => OPTIONAL_BLOCKS.includes(b.key));
 
-  // Blocks that have sub-items (notes, medication slots, appointments)
-  // Also include follow_up_appointments when selected even if empty (for quick-add)
-  const customizableBlocks = optionalBlocks.filter(
-    (b) =>
-      (selectedBlocks.includes(b.key) ||
-        (briefType === "prescription" && b.key === "discharge_medications")) &&
-      ((b.notes && b.notes.length > 0) ||
-        b.key === "follow_up_appointments"),
-  );
-  const hasCustomizableContent = customizableBlocks.length > 0;
-
   const dialogTitle = preselectedBriefType
     ? t("dischargeBriefs.compact.generateType", "Generate {{type}}", {
         type: briefTypeLabel(preselectedBriefType),
@@ -572,100 +568,73 @@ export function DischargeBriefCompactWizard({
                   );
                 })}
 
-                {/* Optional blocks */}
+                {/* Optional blocks with inline sub-items */}
                 {optionalBlocks.map((block) => {
                   const Icon = BLOCK_ICONS[block.key] ?? FileText;
                   const isSelected = selectedBlocks.includes(block.key);
                   const isRequired =
                     briefType === "prescription" &&
                     block.key === "discharge_medications";
-
-                  if (isRequired) {
-                    return (
-                      <div
-                        key={block.key}
-                        className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2"
-                      >
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="flex-1 text-sm">
-                          {blockLabel(block.key)}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className="bg-primary/10 text-primary border-0 text-xs"
-                        >
-                          <Check className="h-3 w-3 mr-0.5" />
-                          {t("dischargeBriefs.wizard.required", "Required")}
-                        </Badge>
-                      </div>
-                    );
-                  }
+                  const showSubItems =
+                    (isSelected || isRequired) &&
+                    ((block.notes && block.notes.length > 0) ||
+                      block.key === "follow_up_appointments");
 
                   return (
-                    <label
-                      key={block.key}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
-                        isSelected
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleBlock(block.key)}
-                      />
-                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 text-sm">
-                        {blockLabel(block.key)}
-                      </span>
-                      {block.available ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs"
-                        >
-                          <Check className="h-3 w-3 mr-0.5" />
-                          {t("common.available", "Available")}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0 text-xs"
-                        >
-                          <X className="h-3 w-3 mr-0.5" />
-                          {t("common.unavailable", "N/A")}
-                        </Badge>
-                      )}
-                    </label>
-                  );
-                })}
-
-                {/* Customize expandable section */}
-                {hasCustomizableContent && (
-                  <Collapsible
-                    open={customizeOpen}
-                    onOpenChange={setCustomizeOpen}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start text-muted-foreground mt-1"
-                      >
-                        <ChevronRight
-                          className={`h-4 w-4 mr-1 transition-transform ${customizeOpen ? "rotate-90" : ""}`}
-                        />
-                        {t(
-                          "dischargeBriefs.compact.customize",
-                          "Customize selections...",
-                        )}
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pl-4 pt-1">
-                      {customizableBlocks.map((block) => (
-                        <div key={block.key} className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">
+                    <div key={block.key}>
+                      {isRequired ? (
+                        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 text-sm">
                             {blockLabel(block.key)}
-                          </p>
+                          </span>
+                          <Badge
+                            variant="secondary"
+                            className="bg-primary/10 text-primary border-0 text-xs"
+                          >
+                            <Check className="h-3 w-3 mr-0.5" />
+                            {t("dischargeBriefs.wizard.required", "Required")}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <label
+                          className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleBlock(block.key)}
+                          />
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 text-sm">
+                            {blockLabel(block.key)}
+                          </span>
+                          {block.available ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 text-xs"
+                            >
+                              <Check className="h-3 w-3 mr-0.5" />
+                              {t("common.available", "Available")}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="secondary"
+                              className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-0 text-xs"
+                            >
+                              <X className="h-3 w-3 mr-0.5" />
+                              {t("common.unavailable", "N/A")}
+                            </Badge>
+                          )}
+                        </label>
+                      )}
+
+                      {/* Inline sub-items when block is selected */}
+                      {showSubItems && (
+                        <div className="pl-4 pt-1 space-y-1">
                           {block.notes?.map((item) => (
                             <label
                               key={item.id}
@@ -676,19 +645,13 @@ export function DischargeBriefCompactWizard({
                                   block.key === "patient_notes"
                                     ? selectedNoteIds.includes(item.id)
                                     : block.key === "discharge_medications"
-                                      ? selectedMedicationSlotIds.includes(
-                                          item.id,
-                                        )
-                                      : selectedAppointmentIds.includes(
-                                          item.id,
-                                        )
+                                      ? selectedMedicationSlotIds.includes(item.id)
+                                      : selectedAppointmentIds.includes(item.id)
                                 }
                                 onCheckedChange={() => {
                                   if (block.key === "patient_notes")
                                     toggleNoteId(item.id);
-                                  else if (
-                                    block.key === "discharge_medications"
-                                  )
+                                  else if (block.key === "discharge_medications")
                                     toggleMedicationSlotId(item.id);
                                   else toggleAppointmentId(item.id);
                                 }}
@@ -702,10 +665,7 @@ export function DischargeBriefCompactWizard({
                                   className="bg-primary/10 text-primary border-0 text-xs shrink-0"
                                 >
                                   <Link2 className="h-3 w-3 mr-0.5" />
-                                  {t(
-                                    "dischargeBriefs.wizard.linked",
-                                    "Linked",
-                                  )}
+                                  {t("dischargeBriefs.wizard.linked", "Linked")}
                                 </Badge>
                               )}
                               <span className="text-xs text-muted-foreground shrink-0">
@@ -808,48 +768,57 @@ export function DischargeBriefCompactWizard({
                             </>
                           )}
                         </div>
-                      ))}
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* ── Template (optional) ── */}
-          {templates && templates.length > 0 && (
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">
                 {t("dischargeBriefs.wizard.stepTemplate", "Template")}
                 <span className="text-muted-foreground font-normal ml-1">
                   ({t("common.optional", "optional")})
                 </span>
               </Label>
-              <Select
-                value={templateId ?? "_none"}
-                onValueChange={(v) =>
-                  setTemplateId(v === "_none" ? null : v)
-                }
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setTemplateManagerOpen(true)}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">
-                    {t(
-                      "dischargeBriefs.wizard.noTemplate",
-                      "No template",
-                    )}
-                  </SelectItem>
-                  {templates.map((tmpl) => (
-                    <SelectItem key={tmpl.id} value={tmpl.id}>
-                      {tmpl.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Settings className="h-3.5 w-3.5 mr-1" />
+                {t("dischargeBriefs.wizard.manageTemplates", "Manage")}
+              </Button>
             </div>
-          )}
+            <Select
+              value={templateId ?? "_none"}
+              onValueChange={(v) =>
+                setTemplateId(v === "_none" ? null : v)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">
+                  {t(
+                    "dischargeBriefs.wizard.noTemplate",
+                    "No template",
+                  )}
+                </SelectItem>
+                {(templates ?? []).map((tmpl) => (
+                  <SelectItem key={tmpl.id} value={tmpl.id}>
+                    {tmpl.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* ── Language ── */}
           <div className="space-y-2">
@@ -914,6 +883,37 @@ export function DischargeBriefCompactWizard({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Manage Templates Dialog */}
+      <Dialog
+        open={templateManagerOpen}
+        onOpenChange={(open) => {
+          setTemplateManagerOpen(open);
+          if (!open) {
+            queryClient.invalidateQueries({
+              queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+            });
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {t("dischargeBriefs.templates.title", "Brief Templates")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("dischargeBriefs.templates.description", "Reference templates used to guide AI-generated briefs.")}
+            </DialogDescription>
+          </DialogHeader>
+          <DischargeBriefTemplateManager
+            hospitalId={hospitalId}
+            isAdmin={isAdmin}
+            userId={userId}
+            userUnitIds={userUnitIds}
+            units={units ?? []}
+          />
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -464,8 +464,8 @@ export function DischargeBriefTemplateManager({
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <>
-      <div className="flex justify-between items-center">
+    <div className="overflow-hidden space-y-3">
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <h2 className="text-lg font-semibold text-foreground">
           {t(
             "dischargeBriefs.templates.title",
@@ -523,10 +523,10 @@ export function DischargeBriefTemplateManager({
                 key={tpl.id}
                 className="bg-card border border-border rounded-lg p-4"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground">{tpl.name}</h3>
+                      <h3 className="font-semibold text-foreground break-words">{tpl.name}</h3>
                       <Badge variant="outline" className="text-xs">
                         {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
                       </Badge>
@@ -998,6 +998,6 @@ export function DischargeBriefTemplateManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }
