@@ -30,6 +30,7 @@ const updateHospitalSchema = z.object({
   externalSurgeryNotificationEmail: z.string().email().optional().or(z.literal('')),
   questionnaireDisabled: z.boolean().optional(),
   preSurgeryReminderDisabled: z.boolean().optional(),
+  appointmentReminderDisabled: z.boolean().optional(),
   addonPatientChat: z.boolean().optional(),
   currency: z.enum(["CHF", "EUR", "USD"]).optional(),
   dateFormat: z.enum(["european", "american"]).optional(),

@@ -117,6 +117,7 @@ export const hospitals = pgTable("hospitals", {
   addonPatientChat: boolean("addon_patient_chat").default(false), // 2-way patient chat via portal
   questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
   preSurgeryReminderDisabled: boolean("pre_surgery_reminder_disabled").default(false), // Manual override to disable pre-surgery SMS reminders
+  appointmentReminderDisabled: boolean("appointment_reminder_disabled").default(false), // Manual override to disable clinic appointment reminders
   smsProvider: varchar("sms_provider", { enum: ["auto", "aspsms", "vonage"] }).default("auto"),
   // Vision AI provider selection for image analysis (inventory items, monitor OCR)
   visionAiProvider: varchar("vision_ai_provider", { enum: ["openai", "pixtral"] }).default("openai"),
@@ -4398,7 +4399,7 @@ export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema
 export const scheduledJobs = pgTable("scheduled_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobType: varchar("job_type", { 
-    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing", "sync_calcom", "pre_surgery_reminder"]
+    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing", "sync_calcom", "pre_surgery_reminder", "appointment_reminder"]
   }).notNull(),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   
@@ -6099,3 +6100,27 @@ export const insertClinicClosureSchema = createInsertSchema(clinicClosures).omit
 
 export type ClinicClosure = typeof clinicClosures.$inferSelect;
 export type InsertClinicClosure = z.infer<typeof insertClinicClosureSchema>;
+
+// Appointment Action Tokens — token-based cancel/confirm links for patients (no login required)
+export const appointmentActionTokens = pgTable("appointment_action_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appointmentId: varchar("appointment_id").notNull().references(() => clinicAppointments.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  token: varchar("token").notNull().unique(),
+  action: varchar("action", { enum: ["cancel", "confirm"] }).notNull(),
+  used: boolean("used").default(false).notNull(),
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_appointment_action_tokens_token").on(table.token),
+  index("idx_appointment_action_tokens_appointment").on(table.appointmentId),
+]);
+
+export const insertAppointmentActionTokenSchema = createInsertSchema(appointmentActionTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AppointmentActionToken = typeof appointmentActionTokens.$inferSelect;
+export type InsertAppointmentActionToken = z.infer<typeof insertAppointmentActionTokenSchema>;

@@ -187,6 +187,8 @@ import {
   type InsertEpisodeFolder,
   type LoginAuditLog,
   type InsertLoginAuditLog,
+  type AppointmentActionToken,
+  type InsertAppointmentActionToken,
 } from "@shared/schema";
 
 export { db } from "./db";
@@ -936,7 +938,24 @@ export interface IStorage {
     reminderSent: boolean;
   }>>;
   markSurgeryReminderSent(surgeryId: string): Promise<void>;
-  
+
+  // Appointment reminder
+  getAppointmentsForReminder(hospitalId: string, date: string): Promise<Array<{
+    appointmentId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    patientPhone: string | null;
+    appointmentDate: string;
+    startTime: string;
+    unitId: string;
+  }>>;
+  markAppointmentReminderSent(appointmentId: string): Promise<void>;
+  createAppointmentActionToken(data: InsertAppointmentActionToken): Promise<AppointmentActionToken>;
+  getAppointmentActionToken(token: string): Promise<any>;
+  markAppointmentActionTokenUsed(token: string): Promise<void>;
+
   // Anesthesia Sets operations
   getAnesthesiaSets(hospitalId: string): Promise<AnesthesiaSet[]>;
   getAnesthesiaSet(id: string): Promise<AnesthesiaSet | null>;
@@ -1529,6 +1548,11 @@ export class DatabaseStorage implements IStorage {
   getSurgeriesForAutoQuestionnaire = clinicStorage.getSurgeriesForAutoQuestionnaire;
   getSurgeriesForPreSurgeryReminder = clinicStorage.getSurgeriesForPreSurgeryReminder;
   markSurgeryReminderSent = clinicStorage.markSurgeryReminderSent;
+  getAppointmentsForReminder = clinicStorage.getAppointmentsForReminder;
+  markAppointmentReminderSent = clinicStorage.markAppointmentReminderSent;
+  createAppointmentActionToken = clinicStorage.createAppointmentActionToken;
+  getAppointmentActionToken = clinicStorage.getAppointmentActionToken;
+  markAppointmentActionTokenUsed = clinicStorage.markAppointmentActionTokenUsed;
   getStaffAvailabilityForDate = clinicStorage.getStaffAvailabilityForDate;
   getMultipleStaffAvailability = clinicStorage.getMultipleStaffAvailability;
   getExternalWorklogLink = clinicStorage.getExternalWorklogLink;

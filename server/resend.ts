@@ -1243,7 +1243,8 @@ export async function sendAppointmentConfirmationEmail(
   clinicName: string,
   appointmentDate: string,
   appointmentTime: string,
-  language: string = 'de'
+  language: string = 'de',
+  cancelUrl: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1253,6 +1254,14 @@ export async function sendAppointmentConfirmationEmail(
       ? `Terminbestätigung – ${clinicName}`
       : `Appointment Confirmation – ${clinicName}`;
 
+    const cancelSection = cancelUrl ? `
+        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
+          ? 'Falls Sie den Termin nicht wahrnehmen können:'
+          : 'If you cannot make this appointment:'}</p>
+        <p style="text-align: center; margin: 12px 0;">
+          <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1260,6 +1269,7 @@ export async function sendAppointmentConfirmationEmail(
         <p>${isGerman
           ? `Ihr Termin am ${appointmentDate} um ${appointmentTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment on ${appointmentDate} at ${appointmentTime} has been confirmed. For questions, please contact us directly.`}</p>
+        ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
     `;
@@ -1290,7 +1300,8 @@ export async function sendAppointmentRescheduleEmail(
   clinicName: string,
   appointmentDate: string,
   appointmentTime: string,
-  language: string = 'de'
+  language: string = 'de',
+  cancelUrl: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1300,6 +1311,14 @@ export async function sendAppointmentRescheduleEmail(
       ? `Terminverschiebung – ${clinicName}`
       : `Appointment Rescheduled – ${clinicName}`;
 
+    const cancelSection = cancelUrl ? `
+        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
+          ? 'Falls Sie den neuen Termin nicht wahrnehmen können:'
+          : 'If you cannot make the new appointment:'}</p>
+        <p style="text-align: center; margin: 12px 0;">
+          <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1307,6 +1326,7 @@ export async function sendAppointmentRescheduleEmail(
         <p>${isGerman
           ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}. For questions, please contact us directly.`}</p>
+        ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
     `;
@@ -1580,6 +1600,115 @@ export async function sendSurgeonActionResponseEmail(
     return { success: true, data };
   } catch (error) {
     logger.error('Error sending surgeon action response email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAppointmentReminderEmail(
+  toEmail: string,
+  patientFirstName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  cancelUrl: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Terminerinnerung – ${clinicName}`
+      : `Appointment Reminder – ${clinicName}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${clinicName}</h2>
+        <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
+        <p>${isGerman
+          ? `Wir möchten Sie an Ihren Termin am <strong>${appointmentDate}</strong> um <strong>${appointmentTime}</strong> erinnern.`
+          : `This is a reminder for your appointment on <strong>${appointmentDate}</strong> at <strong>${appointmentTime}</strong>.`}</p>
+        <p>${isGerman
+          ? 'Falls Sie den Termin nicht wahrnehmen können, können Sie ihn hier absagen:'
+          : 'If you cannot make this appointment, you can cancel it here:'}</p>
+        <p style="text-align: center; margin: 24px 0;">
+          <a href="${cancelUrl}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            ${isGerman ? 'Termin absagen' : 'Cancel Appointment'}
+          </a>
+        </p>
+        <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send appointment reminder email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Successfully sent appointment reminder to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending appointment reminder email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAppointmentPatientCancelledAlertEmail(
+  toEmail: string,
+  patientName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Patient hat Termin abgesagt – ${appointmentDate} ${appointmentTime}`
+      : `Patient cancelled appointment – ${appointmentDate} ${appointmentTime}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">${isGerman ? 'Terminabsage durch Patient' : 'Appointment Cancelled by Patient'}</h2>
+        <p>${isGerman
+          ? `<strong>${patientName}</strong> hat folgenden Termin über den Absage-Link abgesagt:`
+          : `<strong>${patientName}</strong> has cancelled the following appointment via the cancellation link:`}</p>
+        <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${appointmentDate}</p>
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Uhrzeit' : 'Time'}:</strong> ${appointmentTime}</p>
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">${isGerman
+          ? 'Diese E-Mail wurde automatisch gesendet.'
+          : 'This email was sent automatically.'}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send patient-cancelled alert email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Sent patient-cancelled alert to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending patient-cancelled alert email:', error);
     return { success: false, error };
   }
 }

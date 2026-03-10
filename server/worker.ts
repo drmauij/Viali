@@ -2,7 +2,7 @@ import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
-import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs, inventorySnapshots, stockLevels } from '@shared/schema';
+import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs, inventorySnapshots, stockLevels, clinicAppointments } from '@shared/schema';
 import { eq, and, isNull, isNotNull, sql, or, inArray, desc, gte, lt } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
@@ -938,6 +938,8 @@ async function processNextScheduledJob(): Promise<boolean> {
         await processCalcomSync(job);
       } else if (job.jobType === 'pre_surgery_reminder') {
         await processPreSurgeryReminder(job);
+      } else if (job.jobType === 'appointment_reminder') {
+        await processAppointmentReminder(job);
       } else if (job.jobType === 'monthly_billing') {
         await processMonthlyBilling(job);
       }
@@ -2246,6 +2248,234 @@ async function sendPreSurgeryReminderEmail(
   }
 }
 
+// ========================================
+// Appointment Reminder Jobs
+// ========================================
+
+async function scheduleAppointmentReminderJobs() {
+  try {
+    const allHospitals = await db.select().from(hospitals);
+    const now = new Date();
+
+    for (const hospital of allHospitals) {
+      const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'appointment_reminder');
+
+      if (lastJob) {
+        const lastJobDate = new Date(lastJob.scheduledFor);
+        const hoursSinceLastJob = (now.getTime() - lastJobDate.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceLastJob < 1 && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
+          continue;
+        }
+      }
+
+      await storage.createScheduledJob({
+        jobType: 'appointment_reminder',
+        hospitalId: hospital.id,
+        scheduledFor: now,
+        status: 'pending',
+      });
+
+      logger.info(`[Worker] Scheduled appointment reminder job for hospital ${hospital.id}`);
+    }
+  } catch (error: any) {
+    logger.error('[Worker] Error scheduling appointment reminder jobs:', error);
+  }
+}
+
+/**
+ * Process appointment reminder job
+ * Sends SMS/email reminders to patients with clinic appointments scheduled for tomorrow
+ * Only runs between 5:30 PM and 6:30 PM in the hospital's timezone
+ */
+async function processAppointmentReminder(job: any): Promise<void> {
+  const hospitalId = job.hospitalId;
+  logger.info(`[Worker] Appointment reminder for hospital ${hospitalId}`);
+
+  const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  const hospital = hospitalData[0];
+  if (!hospital) return;
+
+  const tz = hospital.timezone || 'Europe/Zurich';
+
+  // Only send reminders between 5:30 PM and 6:30 PM in hospital timezone
+  const now = new Date();
+  const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  const currentHour = nowInTz.getHours();
+  const currentMinute = nowInTz.getMinutes();
+  const timeInMinutes = currentHour * 60 + currentMinute;
+  const reminderWindowStart = 17 * 60 + 30; // 5:30pm
+  const reminderWindowEnd = 18 * 60 + 30;   // 6:30pm
+
+  if (timeInMinutes < reminderWindowStart || timeInMinutes > reminderWindowEnd) {
+    logger.info(`[Worker] Skipping appointment reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} (${tz}) is outside window (17:30-18:30)`);
+    return;
+  }
+
+  if (hospital.appointmentReminderDisabled) {
+    logger.info(`[Worker] Skipping appointment reminder - disabled for hospital ${hospitalId}`);
+    return;
+  }
+
+  // Calculate tomorrow's date in the hospital's timezone
+  const tomorrowInTz = new Date(nowInTz);
+  tomorrowInTz.setDate(tomorrowInTz.getDate() + 1);
+  const tomorrowStr = tomorrowInTz.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const eligibleAppointments = await storage.getAppointmentsForReminder(hospitalId, tomorrowStr);
+  logger.info(`[Worker] Found ${eligibleAppointments.length} appointments for reminder tomorrow (${tomorrowStr})`);
+
+  let processedCount = 0;
+  let successCount = 0;
+  let failedCount = 0;
+  const results: Array<{
+    appointmentId: string;
+    patientName: string;
+    status: 'sent_sms' | 'sent_email' | 'skipped_no_contact' | 'skipped_already_reminded' | 'failed';
+    error?: string;
+  }> = [];
+
+  const lang = (hospital.defaultLanguage as string) || 'de';
+  const isGerman = lang === 'de';
+  const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+  const hospitalName = hospital.name;
+  const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
+
+  for (const appt of eligibleAppointments) {
+    processedCount++;
+    const patientName = `${appt.patientFirstName} ${appt.patientLastName}`.trim();
+
+    if (appt.patientEmail === null && appt.patientPhone === null) {
+      results.push({ appointmentId: appt.appointmentId, patientName, status: 'skipped_no_contact' });
+      continue;
+    }
+
+    try {
+      // Double-check reminderSent (race condition guard)
+      const freshAppt = await storage.getClinicAppointment(appt.appointmentId);
+      if (freshAppt?.reminderSent) {
+        results.push({ appointmentId: appt.appointmentId, patientName, status: 'skipped_already_reminded' });
+        continue;
+      }
+
+      // Mark as reminded BEFORE sending (optimistic lock)
+      await storage.markAppointmentReminderSent(appt.appointmentId);
+
+      // Generate cancel token
+      const cancelToken = randomUUID();
+      const tokenExpiresAt = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
+      // Adjust expiry to hospital timezone — the appointment time IS in the hospital TZ already
+      await storage.createAppointmentActionToken({
+        appointmentId: appt.appointmentId,
+        hospitalId,
+        token: cancelToken,
+        action: 'cancel',
+        used: false,
+        expiresAt: tokenExpiresAt,
+      });
+
+      const cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+
+      // Format appointment date for display using hospital timezone
+      const dateObj = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
+      const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' });
+      const formattedTime = appt.startTime;
+
+      let sendSuccess = false;
+      let usedMethod: 'sms' | 'email' = 'sms';
+      let sentMessageText = '';
+
+      // Try SMS first
+      if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
+        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Zum Absagen: ${cancelUrl}`;
+        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. To cancel: ${cancelUrl}`;
+        const smsMessage = isGerman ? smsDe : smsEn;
+
+        const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
+        if (smsResult.success) {
+          sendSuccess = true;
+          usedMethod = 'sms';
+          sentMessageText = smsMessage;
+          logger.info(`[Worker] Appointment reminder SMS sent to ${patientName}`);
+        }
+      }
+
+      // Email fallback
+      if (!sendSuccess && appt.patientEmail) {
+        const { sendAppointmentReminderEmail } = await import('./resend');
+        const emailResult = await sendAppointmentReminderEmail(
+          appt.patientEmail,
+          appt.patientFirstName,
+          hospitalName,
+          formattedDate,
+          formattedTime,
+          cancelUrl,
+          lang,
+        );
+        if (emailResult.success) {
+          sendSuccess = true;
+          usedMethod = 'email';
+          sentMessageText = `[Automatisch / Automatic] Terminerinnerung / Appointment Reminder\n\n${formattedDate} um ${formattedTime}`;
+          logger.info(`[Worker] Appointment reminder email sent to ${patientName}`);
+        }
+      }
+
+      if (sendSuccess) {
+        try {
+          await storage.createPatientMessage({
+            hospitalId,
+            patientId: appt.patientId,
+            sentBy: null,
+            channel: usedMethod,
+            recipient: usedMethod === 'sms' ? appt.patientPhone! : appt.patientEmail!,
+            message: sentMessageText,
+            status: 'sent',
+            isAutomatic: true,
+            messageType: 'appointment_reminder',
+          });
+        } catch (msgError) {
+          logger.error('[Worker] Failed to save appointment reminder message:', msgError);
+        }
+
+        successCount++;
+        results.push({
+          appointmentId: appt.appointmentId,
+          patientName,
+          status: usedMethod === 'sms' ? 'sent_sms' : 'sent_email',
+        });
+      } else {
+        failedCount++;
+        results.push({
+          appointmentId: appt.appointmentId,
+          patientName,
+          status: 'failed',
+          error: 'Failed to send via SMS or email',
+        });
+      }
+    } catch (error: any) {
+      logger.error(`[Worker] Error sending appointment reminder for ${appt.appointmentId}:`, error);
+      failedCount++;
+      results.push({
+        appointmentId: appt.appointmentId,
+        patientName,
+        status: 'failed',
+        error: error.message,
+      });
+    }
+  }
+
+  await storage.updateScheduledJob(job.id, {
+    status: 'completed',
+    completedAt: new Date(),
+    processedCount,
+    successCount,
+    failedCount,
+    results: results as any,
+  });
+
+  logger.info(`[Worker] Completed appointment reminders: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
+}
+
 /**
  * Schedule monthly billing jobs for hospitals
  * Runs on the 1st of each month to bill for previous month's usage
@@ -2670,6 +2900,7 @@ async function workerLoop() {
         await scheduleTimebutlerIcsSyncJobs();
         await scheduleCalcomSyncJobs();
         await schedulePreSurgeryReminderJobs();
+        await scheduleAppointmentReminderJobs();
         await scheduleMonthlyBillingJobs();
         lastScheduledJobCheck = Date.now();
       }

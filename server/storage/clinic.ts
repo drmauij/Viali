@@ -26,6 +26,7 @@ import {
   externalWorklogEntries,
   externalSurgeryRequests,
   externalSurgeryRequestDocuments,
+  appointmentActionTokens,
   type User,
   type Hospital,
   type Unit,
@@ -63,6 +64,8 @@ import {
   type InsertExternalSurgeryRequest,
   type ExternalSurgeryRequestDocument,
   type InsertExternalSurgeryRequestDocument,
+  type AppointmentActionToken,
+  type InsertAppointmentActionToken,
 } from "@shared/schema";
 
 function roleToClinicProvider(role: UserHospitalRole): ClinicProvider {
@@ -1956,4 +1959,111 @@ export async function getPendingExternalSurgeryRequestsCount(hospitalId: string)
       eq(externalSurgeryRequests.status, 'pending')
     ));
   return result[0]?.count || 0;
+}
+
+// ========================================
+// Appointment Reminder Functions
+// ========================================
+
+/**
+ * Get tomorrow's external appointments that need reminders.
+ * Returns appointments where reminderSent = false, status = 'scheduled', appointmentType = 'external',
+ * joined with patient phone/email.
+ */
+export async function getAppointmentsForReminder(hospitalId: string, date: string): Promise<Array<{
+  appointmentId: string;
+  patientId: string;
+  patientFirstName: string;
+  patientLastName: string;
+  patientEmail: string | null;
+  patientPhone: string | null;
+  appointmentDate: string;
+  startTime: string;
+  unitId: string;
+}>> {
+  const results = await db
+    .select({
+      appointmentId: clinicAppointments.id,
+      patientId: clinicAppointments.patientId,
+      patientFirstName: patients.firstName,
+      patientLastName: patients.surname,
+      patientEmail: patients.email,
+      patientPhone: patients.phone,
+      appointmentDate: clinicAppointments.appointmentDate,
+      startTime: clinicAppointments.startTime,
+      unitId: clinicAppointments.unitId,
+    })
+    .from(clinicAppointments)
+    .innerJoin(patients, eq(clinicAppointments.patientId, patients.id))
+    .where(and(
+      eq(clinicAppointments.hospitalId, hospitalId),
+      eq(clinicAppointments.appointmentDate, date),
+      eq(clinicAppointments.appointmentType, 'external'),
+      eq(clinicAppointments.status, 'scheduled'),
+      eq(clinicAppointments.reminderSent, false),
+    ));
+
+  return results.map(r => ({
+    appointmentId: r.appointmentId,
+    patientId: r.patientId!,
+    patientFirstName: r.patientFirstName || '',
+    patientLastName: r.patientLastName || '',
+    patientEmail: r.patientEmail,
+    patientPhone: r.patientPhone,
+    appointmentDate: r.appointmentDate,
+    startTime: r.startTime,
+    unitId: r.unitId,
+  }));
+}
+
+export async function markAppointmentReminderSent(appointmentId: string): Promise<void> {
+  await db
+    .update(clinicAppointments)
+    .set({
+      reminderSent: true,
+      reminderSentAt: new Date(),
+    })
+    .where(eq(clinicAppointments.id, appointmentId));
+}
+
+export async function createAppointmentActionToken(data: InsertAppointmentActionToken): Promise<AppointmentActionToken> {
+  const [created] = await db
+    .insert(appointmentActionTokens)
+    .values(data)
+    .returning();
+  return created;
+}
+
+export async function getAppointmentActionToken(token: string): Promise<(AppointmentActionToken & {
+  appointment?: ClinicAppointment & { patient?: typeof patients.$inferSelect };
+  hospital?: typeof hospitals.$inferSelect;
+}) | undefined> {
+  const [result] = await db
+    .select()
+    .from(appointmentActionTokens)
+    .leftJoin(clinicAppointments, eq(appointmentActionTokens.appointmentId, clinicAppointments.id))
+    .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
+    .leftJoin(hospitals, eq(appointmentActionTokens.hospitalId, hospitals.id))
+    .where(eq(appointmentActionTokens.token, token));
+
+  if (!result) return undefined;
+
+  return {
+    ...result.appointment_action_tokens,
+    appointment: result.clinic_appointments ? {
+      ...result.clinic_appointments,
+      patient: result.patients || undefined,
+    } : undefined,
+    hospital: result.hospitals || undefined,
+  };
+}
+
+export async function markAppointmentActionTokenUsed(token: string): Promise<void> {
+  await db
+    .update(appointmentActionTokens)
+    .set({
+      used: true,
+      usedAt: new Date(),
+    })
+    .where(eq(appointmentActionTokens.token, token));
 }

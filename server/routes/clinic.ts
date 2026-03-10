@@ -51,6 +51,139 @@ const router = Router();
 
 
 // ========================================
+// Public (unauthenticated) endpoints — appointment cancel by token
+// ========================================
+
+// Get appointment info for cancel confirmation page
+router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const tokenData = await storage.getAppointmentActionToken(token);
+
+    if (!tokenData) {
+      return res.status(404).json({ message: 'Token not found' });
+    }
+
+    if (tokenData.used) {
+      return res.status(410).json({ message: 'Token already used', alreadyUsed: true });
+    }
+
+    if (tokenData.expiresAt && new Date(tokenData.expiresAt) < new Date()) {
+      return res.status(410).json({ message: 'Token expired', expired: true });
+    }
+
+    const appointment = tokenData.appointment;
+    const hospital = tokenData.hospital;
+    if (!appointment || !hospital) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    const tz = hospital.timezone || 'Europe/Zurich';
+    const lang = (hospital.defaultLanguage as string) || 'de';
+    const isGerman = lang === 'de';
+    const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+    const dateObj = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+    const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    res.json({
+      appointmentDate: formattedDate,
+      appointmentTime: appointment.startTime,
+      clinicName: hospital.name,
+      patientName: appointment.patient?.firstName || '',
+      status: appointment.status,
+      language: lang,
+    });
+  } catch (error) {
+    logger.error('Error fetching cancel info:', error);
+    res.status(500).json({ message: 'Failed to fetch appointment info' });
+  }
+});
+
+// Cancel appointment by token (one-click cancel)
+router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'Token is required' });
+    }
+
+    const tokenData = await storage.getAppointmentActionToken(token);
+    if (!tokenData) {
+      return res.status(404).json({ message: 'Token not found' });
+    }
+
+    if (tokenData.used) {
+      return res.status(410).json({ message: 'Token already used', alreadyUsed: true });
+    }
+
+    if (tokenData.expiresAt && new Date(tokenData.expiresAt) < new Date()) {
+      return res.status(410).json({ message: 'Token expired', expired: true });
+    }
+
+    const appointment = tokenData.appointment;
+    const hospital = tokenData.hospital;
+    if (!appointment || !hospital) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
+      return res.status(409).json({ message: 'Appointment cannot be cancelled', status: appointment.status });
+    }
+
+    // Cancel the appointment
+    await storage.updateClinicAppointment(appointment.id, {
+      status: 'cancelled',
+      cancellationReason: 'Cancelled by patient',
+    });
+
+    // Mark token as used
+    await storage.markAppointmentActionTokenUsed(token);
+
+    // Format date for response using hospital timezone
+    const tz = hospital.timezone || 'Europe/Zurich';
+    const lang = (hospital.defaultLanguage as string) || 'de';
+    const isGerman = lang === 'de';
+    const dateLocale = isGerman ? 'de-CH' : 'en-GB';
+    const dateObj = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+    const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Send alert email to clinic staff about the patient cancellation
+    const patientName = appointment.patient
+      ? `${appointment.patient.firstName || ''} ${appointment.patient.surname || ''}`.trim()
+      : 'Patient';
+    const clinicEmail = hospital.companyEmail || hospital.externalSurgeryNotificationEmail;
+    if (clinicEmail) {
+      try {
+        const { sendAppointmentPatientCancelledAlertEmail } = await import('../resend');
+        await sendAppointmentPatientCancelledAlertEmail(
+          clinicEmail,
+          patientName,
+          hospital.name,
+          formattedDate,
+          appointment.startTime,
+          lang,
+        );
+      } catch (emailErr) {
+        logger.error('Failed to send patient-cancelled alert email to clinic:', emailErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      appointment: {
+        date: formattedDate,
+        time: appointment.startTime,
+        clinicName: hospital.name,
+      },
+    });
+  } catch (error) {
+    logger.error('Error cancelling appointment by token:', error);
+    res.status(500).json({ message: 'Failed to cancel appointment' });
+  }
+});
+
+
+// ========================================
 // Clinic Services CRUD
 // ========================================
 
@@ -1070,6 +1203,28 @@ async function sendAppointmentNotification(
     const clinicName = hospital.name;
     const patientName = patient.firstName || '';
 
+    // Generate cancel link for confirmation and reschedule messages (not cancellation)
+    let cancelUrl = '';
+    if (type !== 'cancellation' && appointment.appointmentType === 'external') {
+      try {
+        const { randomUUID } = await import('crypto');
+        const cancelToken = randomUUID();
+        const tokenExpiresAt = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+        await storage.createAppointmentActionToken({
+          appointmentId: appointment.id,
+          hospitalId,
+          token: cancelToken,
+          action: 'cancel',
+          used: false,
+          expiresAt: tokenExpiresAt,
+        });
+        const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
+        cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+      } catch (tokenErr) {
+        logger.error('Failed to generate cancel token for appointment notification:', tokenErr);
+      }
+    }
+
     // Try SMS first, then email fallback
     let channel: 'sms' | 'email' | null = null;
     let recipient = '';
@@ -1079,14 +1234,17 @@ async function sendAppointmentNotification(
       const { isSmsConfiguredForHospital, sendSms } = await import('../sms');
       const smsAvailable = await isSmsConfiguredForHospital(hospitalId);
       if (smsAvailable) {
+        const cancelSuffix = cancelUrl
+          ? (isGerman ? `\nZum Absagen: ${cancelUrl}` : `\nTo cancel: ${cancelUrl}`)
+          : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
-            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed. For questions, please contact us directly.`,
+            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed.${cancelSuffix || ' For questions, please contact us directly.'}`,
           },
           reschedule: {
-            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`,
-            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}. For questions, please contact us directly.`,
+            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}.${cancelSuffix || ' For questions, please contact us directly.'}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
@@ -1107,13 +1265,15 @@ async function sendAppointmentNotification(
     // Email fallback if SMS not sent
     if (!success && patient.email) {
       const { sendAppointmentConfirmationEmail, sendAppointmentRescheduleEmail, sendAppointmentCancellationEmail } = await import('../resend');
-      const emailFns = { confirmation: sendAppointmentConfirmationEmail, reschedule: sendAppointmentRescheduleEmail, cancellation: sendAppointmentCancellationEmail };
-      const emailFn = emailFns[type];
-      const result = await emailFn(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
-      if (result.success) {
-        channel = 'email';
-        recipient = patient.email;
-        success = true;
+      if (type === 'cancellation') {
+        const result = await sendAppointmentCancellationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
+        if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
+      } else {
+        // For confirmation and reschedule, use versions with cancel link
+        const emailFns = { confirmation: sendAppointmentConfirmationEmail, reschedule: sendAppointmentRescheduleEmail };
+        const emailFn = emailFns[type];
+        const result = await emailFn(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl);
+        if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       }
     }
 

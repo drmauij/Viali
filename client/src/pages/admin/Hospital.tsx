@@ -154,6 +154,7 @@ export default function Hospital() {
     runwayLookbackDays: 30,
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
+    appointmentReminderDisabled: false,
     addonPatientChat: false,
     currency: "CHF" as string,
     dateFormat: "european" as string,
@@ -790,6 +791,7 @@ export default function Hospital() {
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
+        appointmentReminderDisabled: fullHospitalData.appointmentReminderDisabled ?? false,
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
@@ -859,6 +861,28 @@ export default function Hospital() {
     onError: (error: any) => {
       // Revert local state on error
       setHospitalForm(prev => ({ ...prev, preSurgeryReminderDisabled: !prev.preSurgeryReminderDisabled }));
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
+    },
+  });
+
+  // Update appointment reminder disabled mutation (for quick toggle)
+  const updateAppointmentReminderDisabledMutation = useMutation({
+    mutationFn: async (disabled: boolean) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { appointmentReminderDisabled: disabled });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: t("common.success"),
+        description: hospitalForm.appointmentReminderDisabled
+          ? t("admin.appointmentReminderDisabled", "Appointment reminder disabled")
+          : t("admin.appointmentReminderEnabledSuccess", "Appointment reminder enabled")
+      });
+    },
+    onError: (error: any) => {
+      setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !prev.appointmentReminderDisabled }));
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
     },
   });
@@ -1939,6 +1963,34 @@ export default function Hospital() {
                 }}
                 disabled={updatePreSurgeryReminderDisabledMutation.isPending}
                 data-testid="switch-pre-surgery-reminder-enabled"
+              />
+            </div>
+          </div>
+
+          {/* Appointment Reminder Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <i className="fas fa-calendar-check text-blue-500"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {t("admin.appointmentReminderEnabled", "Appointment Reminder")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.appointmentReminderEnabledDescription", "When enabled, patients receive a reminder the evening before their clinic appointment with a cancel link")}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={!hospitalForm.appointmentReminderDisabled}
+                onCheckedChange={(checked) => {
+                  setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !checked }));
+                  updateAppointmentReminderDisabledMutation.mutate(!checked);
+                }}
+                disabled={updateAppointmentReminderDisabledMutation.isPending}
+                data-testid="switch-appointment-reminder-enabled"
               />
             </div>
           </div>
