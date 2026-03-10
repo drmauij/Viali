@@ -184,7 +184,14 @@ router.post("/api/surgeon-portal/:token/logout", async (req: Request, res: Respo
     if (sessionToken) {
       await revokePortalSessionBySessionToken(sessionToken);
     }
-    res.clearCookie("portal_session", { path: "/" });
+    const isHttps = (process.env.NODE_ENV === "production") ||
+      !!process.env.PRODUCTION_URL;
+    res.clearCookie("portal_session", {
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: "lax",
+      path: "/",
+    });
     return res.status(200).json({ ok: true });
   } catch (error) {
     logger.error("[SurgeonPortal] Logout error:", error);
