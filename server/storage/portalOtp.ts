@@ -42,17 +42,24 @@ export async function createVerificationCode(
 export async function findActiveVerificationCode(
   portalType: PortalType,
   portalToken: string,
+  deliveredTo?: string,
 ): Promise<PortalVerificationCode | null> {
+  const conditions = [
+    eq(portalVerificationCodes.portalType, portalType),
+    eq(portalVerificationCodes.portalToken, portalToken),
+    isNull(portalVerificationCodes.usedAt),
+  ];
+
+  // For surgeon portal, multiple users share the same portalToken (hospital-wide).
+  // Filter by deliveredTo to avoid one user's code shadowing another's.
+  if (deliveredTo) {
+    conditions.push(eq(portalVerificationCodes.deliveredTo, deliveredTo));
+  }
+
   const [code] = await db
     .select()
     .from(portalVerificationCodes)
-    .where(
-      and(
-        eq(portalVerificationCodes.portalType, portalType),
-        eq(portalVerificationCodes.portalToken, portalToken),
-        isNull(portalVerificationCodes.usedAt),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(desc(portalVerificationCodes.createdAt))
     .limit(1);
 

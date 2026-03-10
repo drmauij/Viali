@@ -251,7 +251,7 @@ function SurgeonPortalGate({ token, children }: SurgeonPortalGateProps) {
       const res = await fetch(`/api/portal-auth/surgeon/${token}/verify-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, email }),
       });
       if (res.ok) {
         setState("verified");

@@ -439,7 +439,7 @@ router.post(
     try {
       const portalType = req.params.portalType as PortalType;
       const { token } = req.params;
-      const { code: inputCode } = req.body as { code?: string };
+      const { code: inputCode, email } = req.body as { code?: string; email?: string };
 
       if (!["patient", "worklog", "surgeon"].includes(portalType)) {
         return res.status(400).json({ message: "Invalid portal type" });
@@ -458,9 +458,13 @@ router.post(
           .json({ message: "Too many attempts, please try again later" });
       }
 
+      // For surgeon portal, pass email to find the correct code
+      // (multiple surgeons share the same hospital token)
+      const deliveredTo = portalType === "surgeon" ? email : undefined;
       const verification = await findActiveVerificationCode(
         portalType,
         token,
+        deliveredTo,
       );
       logger.info(`[DEBUG-AUTH] verify-code: portalType=${portalType}, token=${token.slice(0,8)}..., verification found=${!!verification}, deliveredTo=${verification?.deliveredTo || 'N/A'}, attempts=${verification?.attemptCount || 0}`);
       if (!verification) {
