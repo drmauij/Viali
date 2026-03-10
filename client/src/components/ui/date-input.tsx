@@ -15,6 +15,8 @@ export interface DateInputProps {
   min?: string;
   /** ISO date string for maximum selectable date */
   max?: string;
+  /** Custom function to disable specific dates */
+  disabledDate?: (date: Date) => boolean;
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
@@ -32,6 +34,7 @@ export function DateInput({
   onChange,
   min,
   max,
+  disabledDate,
   placeholder = "Pick date",
   disabled,
   className,
@@ -81,6 +84,7 @@ export function DateInput({
               maxEnd.setHours(23, 59, 59, 999);
               if (date > maxEnd) return true;
             }
+            if (disabledDate?.(date)) return true;
             return false;
           }}
           defaultMonth={selectedDate}

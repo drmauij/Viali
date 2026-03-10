@@ -434,6 +434,20 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
   const [proposedTimeTo, setProposedTimeTo] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [closures, setClosures] = useState<{ startDate: string; endDate: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (open && type === "reschedule" && token) {
+      fetch(`/public/external-surgery/${token}/closures`)
+        .then(res => res.ok ? res.json() : [])
+        .then(setClosures)
+        .catch(() => setClosures([]));
+    }
+  }, [open, type, token]);
+
+  const proposedDateClosure = proposedDate
+    ? closures.find(c => proposedDate >= c.startDate && proposedDate <= c.endDate)
+    : null;
 
   const titleMap = {
     cancellation: t.requestCancellation,
@@ -527,6 +541,15 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
                   value={proposedDate}
                   onChange={(e) => setProposedDate(e.target.value)}
                 />
+                {proposedDateClosure && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-3 w-3 inline mr-1" />
+                    {lang === "de"
+                      ? `Die Klinik ist an diesem Datum geschlossen (${proposedDateClosure.name}). Bitte wählen Sie ein anderes Datum.`
+                      : `The clinic is closed on this date (${proposedDateClosure.name}). Please select a different date.`
+                    }
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -560,7 +583,7 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             {t.cancel}
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !reason.trim()}>
+          <Button onClick={handleSubmit} disabled={submitting || !reason.trim() || !!proposedDateClosure}>
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {t.submit}
           </Button>

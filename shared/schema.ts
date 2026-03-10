@@ -6073,3 +6073,29 @@ export const insertLoginAuditLogSchema = createInsertSchema(loginAuditLog).omit(
 
 export type LoginAuditLog = typeof loginAuditLog.$inferSelect;
 export type InsertLoginAuditLog = z.infer<typeof insertLoginAuditLogSchema>;
+
+// ========================================
+// Clinic Closures (Hospital-level holidays / closure periods)
+// ========================================
+
+export const clinicClosures = pgTable("clinic_closures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  name: varchar("name").notNull(),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_closures_hospital").on(table.hospitalId),
+  index("idx_clinic_closures_dates").on(table.startDate, table.endDate),
+]);
+
+export const insertClinicClosureSchema = createInsertSchema(clinicClosures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ClinicClosure = typeof clinicClosures.$inferSelect;
+export type InsertClinicClosure = z.infer<typeof insertClinicClosureSchema>;

@@ -156,6 +156,27 @@ export default function ExternalSurgeryRequest() {
     enabled: !!token,
   });
 
+  // Fetch clinic closures for date picker
+  const { data: closures = [] } = useQuery<{ startDate: string; endDate: string; name: string }[]>({
+    queryKey: ['external-surgery-closures', token],
+    queryFn: async () => {
+      const res = await fetch(`/public/external-surgery/${token}/closures`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!token,
+  });
+
+  const isDateClosed = useCallback((date: Date) => {
+    const dateStr = formatDateForInput(date);
+    return closures.some(c => dateStr >= c.startDate && dateStr <= c.endDate);
+  }, [closures]);
+
+  const getClosureNameForDate = useCallback((dateStr: string) => {
+    const closure = closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate);
+    return closure?.name || null;
+  }, [closures]);
+
   // CHOP procedure search query
   const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
     id: string;
@@ -284,12 +305,15 @@ export default function ExternalSurgeryRequest() {
       case 'surgeon':
         return formData.surgeonFirstName && formData.surgeonLastName &&
                formData.surgeonEmail && formData.surgeonPhone;
-      case 'surgery':
+      case 'surgery': {
+        // Block if selected date is in a closure
+        const dateIsValid = formData.wishedDate && !getClosureNameForDate(formData.wishedDate);
         // In reservation mode, surgery name is optional
         if (isReservationOnly) {
-          return formData.surgeryDurationMinutes > 0 && formData.wishedDate;
+          return formData.surgeryDurationMinutes > 0 && dateIsValid;
         }
-        return formData.surgeryName && formData.surgeryDurationMinutes > 0 && formData.wishedDate;
+        return formData.surgeryName && formData.surgeryDurationMinutes > 0 && dateIsValid;
+      }
       case 'patient':
         return formData.patientFirstName && formData.patientLastName &&
                formData.patientBirthday && formData.patientPhone &&
@@ -790,8 +814,15 @@ export default function ExternalSurgeryRequest() {
                       value={formData.wishedDate}
                       onChange={(v) => updateField('wishedDate', v)}
                       min={formatDateForInput(new Date())}
+                      disabledDate={isDateClosed}
                       data-testid="input-wished-date"
                     />
+                    {formData.wishedDate && getClosureNameForDate(formData.wishedDate) && (
+                      <p className="text-sm text-destructive mt-1">
+                        <AlertTriangle className="h-3 w-3 inline mr-1" />
+                        {t('surgery.externalRequest.clinicClosedWarning', 'The clinic is closed on this date ({{name}}). Please select a different date.', { name: getClosureNameForDate(formData.wishedDate) })}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="surgeryDuration">

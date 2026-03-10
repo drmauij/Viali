@@ -46,7 +46,7 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations" | "security" | "experimental">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "data" | "links" | "units" | "rooms" | "checklists" | "templates" | "suppliers" | "integrations" | "tardoc" | "security" | "experimental">("settings");
   
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
@@ -54,6 +54,53 @@ export default function Hospital() {
   const [roomFormName, setRoomFormName] = useState('');
   const [roomFormType, setRoomFormType] = useState<'OP' | 'PACU'>('OP');
   
+
+  // Closures management state
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [editingClosure, setEditingClosure] = useState<any | null>(null);
+  const [closureForm, setClosureForm] = useState({ name: '', startDate: '', endDate: '', notes: '' });
+  const [deleteClosureId, setDeleteClosureId] = useState<string | null>(null);
+
+  const { data: closures = [], isLoading: closuresLoading } = useQuery<any[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/closures`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const closureMutation = useMutation({
+    mutationFn: async (data: { name: string; startDate: string; endDate: string; notes?: string }) => {
+      if (editingClosure) {
+        const res = await apiRequest("PATCH", `/api/hospitals/${activeHospital!.id}/closures/${editingClosure.id}`, data);
+        return res.json();
+      }
+      const res = await apiRequest("POST", `/api/hospitals/${activeHospital!.id}/closures`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${activeHospital?.id}/closures`] });
+      setClosureDialogOpen(false);
+      setEditingClosure(null);
+      setClosureForm({ name: '', startDate: '', endDate: '', notes: '' });
+      toast({ title: editingClosure ? t("admin.closureUpdated", "Closure updated") : t("admin.closureCreated", "Closure created") });
+    },
+    onError: () => {
+      toast({ title: t("admin.closureSaveFailed", "Failed to save closure"), variant: "destructive" });
+    },
+  });
+
+  const deleteClosureMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/hospitals/${activeHospital!.id}/closures/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${activeHospital?.id}/closures`] });
+      setDeleteClosureId(null);
+      toast({ title: t("admin.closureDeleted", "Closure deleted") });
+    },
+    onError: () => {
+      toast({ title: t("admin.closureDeleteFailed", "Failed to delete closure"), variant: "destructive" });
+    },
+  });
 
   // Supplier catalog states
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -1198,6 +1245,10 @@ export default function Hospital() {
               <Settings className="h-4 w-4 mr-2 shrink-0" />
               <span className="truncate">{t("admin.integrations", "Integrations")}</span>
             </TabsTrigger>
+            <TabsTrigger value="tardoc" data-testid="tab-tardoc" className="justify-start md:w-full">
+              <i className="fas fa-file-invoice mr-2 shrink-0"></i>
+              <span className="truncate">TARDOC</span>
+            </TabsTrigger>
             <TabsTrigger value="security" data-testid="tab-security" className="justify-start md:w-full">
               <i className="fas fa-shield-halved mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.security", "Security")}</span>
@@ -1220,6 +1271,10 @@ export default function Hospital() {
                 <i className="fas fa-building mr-2"></i>
                 {t("admin.generalSettings", "General Settings")}
               </TabsTrigger>
+              <TabsTrigger value="closures">
+                <i className="fas fa-calendar-xmark mr-2"></i>
+                {t("admin.closures", "Closures")}
+              </TabsTrigger>
               <TabsTrigger value="general">
                 <i className="fas fa-globe mr-2"></i>
                 {t("admin.regionalPreferences", "Regional Preferences")}
@@ -1229,6 +1284,105 @@ export default function Hospital() {
                 {t("admin.stockRunwayAlerts", "Stock Runway Alerts")}
               </TabsTrigger>
             </TabsList>
+
+            {/* Closures Sub-Tab */}
+            <TabsContent value="closures" className="mt-4">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">{t("admin.closures", "Closures")}</h3>
+                    <p className="text-sm text-muted-foreground">{t("admin.closuresDescription", "Define dates when the clinic is closed (holidays, breaks). Surgeries cannot be booked on these dates.")}</p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setEditingClosure(null);
+                      setClosureForm({ name: '', startDate: '', endDate: '', notes: '' });
+                      setClosureDialogOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    {t("admin.addClosure", "Add Closure")}
+                  </Button>
+                </div>
+
+                {closuresLoading ? (
+                  <div className="text-center py-8">
+                    <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
+                  </div>
+                ) : closures.length === 0 ? (
+                  <div className="border border-dashed border-border rounded-lg p-8 text-center">
+                    <i className="fas fa-calendar-xmark text-4xl text-muted-foreground mb-4"></i>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noClosures", "No closures configured")}</h3>
+                    <p className="text-muted-foreground mb-4">{t("admin.noClosuresMessage", "The clinic is open every day. Add closures for holidays or breaks.")}</p>
+                    <Button
+                      onClick={() => {
+                        setEditingClosure(null);
+                        setClosureForm({ name: '', startDate: '', endDate: '', notes: '' });
+                        setClosureDialogOpen(true);
+                      }}
+                      size="sm"
+                    >
+                      <i className="fas fa-plus mr-2"></i>
+                      {t("admin.addClosure", "Add Closure")}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {closures.map((closure: any) => {
+                      const isPast = new Date(closure.endDate) < new Date(new Date().toISOString().split('T')[0]);
+                      return (
+                        <div key={closure.id} className={`border border-border rounded-lg p-4 ${isPast ? 'opacity-50' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <i className={`fas fa-calendar-xmark ${isPast ? 'text-muted-foreground' : 'text-amber-500'}`}></i>
+                              <div>
+                                <div className="font-medium text-foreground">{closure.name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatDateLong(closure.startDate)}
+                                  {closure.startDate !== closure.endDate && ` — ${formatDateLong(closure.endDate)}`}
+                                </div>
+                                {closure.notes && (
+                                  <div className="text-sm text-muted-foreground mt-1">{closure.notes}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isPast && (
+                                <span className="text-xs text-muted-foreground mr-2">{t("admin.past", "Past")}</span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingClosure(closure);
+                                  setClosureForm({
+                                    name: closure.name,
+                                    startDate: closure.startDate,
+                                    endDate: closure.endDate,
+                                    notes: closure.notes || '',
+                                  });
+                                  setClosureDialogOpen(true);
+                                }}
+                              >
+                                <i className="fas fa-pen text-xs"></i>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteClosureId(closure.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
             {/* General Settings Sub-Tab */}
             <TabsContent value="general" className="mt-4">
@@ -2054,20 +2208,6 @@ export default function Hospital() {
             </div>
           </div>
 
-          {/* CHOP Procedures Import */}
-          <ChopIntegrationCard />
-
-          {/* TARDOC Catalog Import */}
-          <TardocIntegrationCard hospitalId={activeHospital?.id} />
-
-          {/* Ambulante Pauschalen Catalog Import */}
-          <ApIntegrationCard hospitalId={activeHospital?.id} />
-
-          {/* TARDOC Cumulation Rules Import */}
-          <CumulationRulesCard hospitalId={activeHospital?.id} />
-
-          {/* TPW Rates Management */}
-          <TpwRatesCard hospitalId={activeHospital?.id} />
 
           {/* Reset Lists Card */}
           <div className="bg-card border border-destructive/30 rounded-lg p-4">
@@ -2279,6 +2419,7 @@ export default function Hospital() {
           )}
         </div>
         </TabsContent>
+
 
         {/* Checklists Tab Content */}
         <TabsContent value="checklists">
@@ -2865,6 +3006,41 @@ export default function Hospital() {
         </div>
         </TabsContent>
 
+        {/* TARDOC Tab Content */}
+        <TabsContent value="tardoc">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">TARDOC</h2>
+              <p className="text-sm text-muted-foreground">{t("admin.tardocTabDescription", "Swiss tariff catalogs, procedure codes, and billing configuration.")}</p>
+            </div>
+
+            {/* TARDOC Billing Identifiers */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h3 className="font-medium mb-3">{t("admin.tardocBillingIds", "Billing Identifiers")}</h3>
+              <p className="text-sm text-muted-foreground mb-3">{t("admin.tardocBillingIdsDesc", "GLN, ZSR, and bank details are configured in Settings → Company.")}</p>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab("settings")}>
+                <i className="fas fa-arrow-right mr-2"></i>
+                {t("admin.goToCompanySettings", "Go to Company Settings")}
+              </Button>
+            </div>
+
+            {/* TARDOC Catalog Import */}
+            <TardocIntegrationCard hospitalId={activeHospital?.id} />
+
+            {/* CHOP Procedures Import */}
+            <ChopIntegrationCard />
+
+            {/* Ambulante Pauschalen Catalog Import */}
+            <ApIntegrationCard hospitalId={activeHospital?.id} />
+
+            {/* TARDOC Cumulation Rules Import */}
+            <CumulationRulesCard hospitalId={activeHospital?.id} />
+
+            {/* TPW Rates Management */}
+            <TpwRatesCard hospitalId={activeHospital?.id} />
+          </div>
+        </TabsContent>
+
         {/* Security Tab Content — Login Audit Log */}
         <TabsContent value="security">
           <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
@@ -2906,6 +3082,100 @@ export default function Hospital() {
           </div>{/* end tab content area */}
         </div>{/* end flex container */}
       </Tabs>
+
+      {/* Closure Dialog */}
+      <Dialog open={closureDialogOpen} onOpenChange={(open) => {
+        setClosureDialogOpen(open);
+        if (!open) { setEditingClosure(null); setClosureForm({ name: '', startDate: '', endDate: '', notes: '' }); }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingClosure ? t("admin.editClosure", "Edit Closure") : t("admin.addClosure", "Add Closure")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{t("common.name", "Name")} *</Label>
+              <Input
+                value={closureForm.name}
+                onChange={(e) => setClosureForm({ ...closureForm, name: e.target.value })}
+                placeholder={t("admin.closureNamePlaceholder", "e.g. Christmas Holiday, Summer Break")}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{t("admin.startDate", "Start Date")} *</Label>
+                <Input
+                  type="date"
+                  value={closureForm.startDate}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setClosureForm({
+                      ...closureForm,
+                      startDate: newStart,
+                      endDate: closureForm.endDate && closureForm.endDate < newStart ? newStart : closureForm.endDate,
+                    });
+                  }}
+                />
+              </div>
+              <div>
+                <Label>{t("admin.endDate", "End Date")} *</Label>
+                <Input
+                  type="date"
+                  value={closureForm.endDate}
+                  onChange={(e) => setClosureForm({ ...closureForm, endDate: e.target.value })}
+                  min={closureForm.startDate || undefined}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>{t("common.notes", "Notes")}</Label>
+              <Input
+                value={closureForm.notes}
+                onChange={(e) => setClosureForm({ ...closureForm, notes: e.target.value })}
+                placeholder={t("admin.closureNotesPlaceholder", "Optional notes about this closure")}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setClosureDialogOpen(false)}>
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button
+                onClick={() => closureMutation.mutate({
+                  name: closureForm.name,
+                  startDate: closureForm.startDate,
+                  endDate: closureForm.endDate,
+                  notes: closureForm.notes || undefined,
+                })}
+                disabled={!closureForm.name || !closureForm.startDate || !closureForm.endDate || closureMutation.isPending}
+              >
+                {closureMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {editingClosure ? t("common.save", "Save") : t("common.create", "Create")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Closure Confirmation */}
+      <AlertDialog open={!!deleteClosureId} onOpenChange={(open) => { if (!open) setDeleteClosureId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.deleteClosure", "Delete Closure")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin.deleteClosureConfirm", "Are you sure you want to delete this closure? Surgeries may then be booked on these dates.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteClosureId && deleteClosureMutation.mutate(deleteClosureId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("common.delete", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Supplier Dialog */}
       <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>

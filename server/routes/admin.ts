@@ -1973,4 +1973,112 @@ router.get('/api/admin/:hospitalId/login-audit-logs', isAuthenticated, isAdmin, 
   }
 });
 
+// ========================================
+// Clinic Closures
+// ========================================
+
+import {
+  getClinicClosures,
+  getClinicClosuresInRange,
+  createClinicClosure,
+  updateClinicClosure,
+  deleteClinicClosure,
+  getClinicClosure,
+} from "../storage/clinicClosures";
+
+router.get('/api/hospitals/:hospitalId/closures', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const { from, to } = req.query;
+
+    let closures;
+    if (from && to) {
+      closures = await getClinicClosuresInRange(hospitalId, from as string, to as string);
+    } else {
+      closures = await getClinicClosures(hospitalId);
+    }
+
+    res.json(closures);
+  } catch (error: any) {
+    logger.error("[Admin] Error fetching clinic closures:", error);
+    res.status(500).json({ message: "Failed to fetch clinic closures" });
+  }
+});
+
+router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const { name, startDate, endDate, notes } = req.body;
+
+    if (!name || !startDate || !endDate) {
+      return res.status(400).json({ message: "Name, start date, and end date are required" });
+    }
+
+    if (startDate > endDate) {
+      return res.status(400).json({ message: "End date must be on or after start date" });
+    }
+
+    const closure = await createClinicClosure({
+      hospitalId,
+      name,
+      startDate,
+      endDate,
+      notes: notes || null,
+      createdBy: req.user.id,
+    });
+
+    res.json(closure);
+  } catch (error: any) {
+    logger.error("[Admin] Error creating clinic closure:", error);
+    res.status(500).json({ message: "Failed to create clinic closure" });
+  }
+});
+
+router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+  try {
+    const { id, hospitalId } = req.params;
+    const { name, startDate, endDate, notes } = req.body;
+
+    const existing = await getClinicClosure(id);
+    if (!existing || existing.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Closure not found" });
+    }
+
+    const finalStart = startDate ?? existing.startDate;
+    const finalEnd = endDate ?? existing.endDate;
+    if (finalStart > finalEnd) {
+      return res.status(400).json({ message: "End date must be on or after start date" });
+    }
+
+    const closure = await updateClinicClosure(id, {
+      ...(name !== undefined && { name }),
+      ...(startDate !== undefined && { startDate }),
+      ...(endDate !== undefined && { endDate }),
+      ...(notes !== undefined && { notes }),
+    });
+
+    res.json(closure);
+  } catch (error: any) {
+    logger.error("[Admin] Error updating clinic closure:", error);
+    res.status(500).json({ message: "Failed to update clinic closure" });
+  }
+});
+
+router.delete('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+  try {
+    const { id, hospitalId } = req.params;
+
+    const existing = await getClinicClosure(id);
+    if (!existing || existing.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Closure not found" });
+    }
+
+    await deleteClinicClosure(id);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("[Admin] Error deleting clinic closure:", error);
+    res.status(500).json({ message: "Failed to delete clinic closure" });
+  }
+});
+
 export default router;

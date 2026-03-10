@@ -15,12 +15,19 @@ export interface PreOpStatusInfo {
   label: string;
 }
 
+export interface ClinicClosureInfo {
+  startDate: string;
+  endDate: string;
+  name: string;
+}
+
 interface TimelineWeekViewProps {
   surgeryRooms: any[];
   allRooms?: any[];
   surgeries: any[];
   patients?: any[];
   selectedDate: Date;
+  closures?: ClinicClosureInfo[];
   onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
   onCanvasClick?: (groupId: string, time: Date) => void;
@@ -61,6 +68,7 @@ export default function TimelineWeekView({
   surgeries,
   patients = [],
   selectedDate,
+  closures = [],
   onEventClick,
   onCanvasClick,
   onSlotSelect,
@@ -95,6 +103,12 @@ export default function TimelineWeekView({
     };
     return config[status] || null;
   }, [t]);
+
+  // Check if a day falls within any closure
+  const getClosureForDay = useCallback((day: moment.Moment): ClinicClosureInfo | null => {
+    const dateStr = day.format('YYYY-MM-DD');
+    return closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate) || null;
+  }, [closures]);
 
   // Calculate week days (Monday to Friday - excluding weekends)
   const weekDays = useMemo(() => {
@@ -537,20 +551,27 @@ export default function TimelineWeekView({
 
         </div>
         {/* Day columns headers */}
-        {weekDays.map((day, idx) => (
-          <div
-            key={idx}
-            className={cn(
-              "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
-              isToday(day) && "bg-primary/10 text-primary"
-            )}
-            style={{ minWidth: MIN_COL_WIDTH }}
-            onClick={() => onDayClick?.(day.toDate())}
-            data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
-          >
-            {formatDayHeader(day)}
-          </div>
-        ))}
+        {weekDays.map((day, idx) => {
+          const dayClosure = getClosureForDay(day);
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
+                isToday(day) && "bg-primary/10 text-primary",
+                dayClosure && "bg-amber-100 dark:bg-amber-900/30"
+              )}
+              style={{ minWidth: MIN_COL_WIDTH }}
+              onClick={() => onDayClick?.(day.toDate())}
+              data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
+            >
+              {formatDayHeader(day)}
+              {dayClosure && (
+                <div className="text-[10px] text-amber-700 dark:text-amber-400 font-normal truncate">{dayClosure.name}</div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Scrollable content */}
@@ -572,17 +593,30 @@ export default function TimelineWeekView({
           {/* Day columns */}
           {weekDays.map((day, dayIdx) => {
             const daySurgeries = getSurgeriesForDay(day);
-            
+            const dayClosure = getClosureForDay(day);
+
             return (
               <div
                 key={dayIdx}
                 className={cn(
                   "flex-1 border-r relative",
-                  isToday(day) && "bg-primary/5"
+                  isToday(day) && "bg-primary/5",
+                  dayClosure && "bg-amber-50/60 dark:bg-amber-900/10"
                 )}
                 style={{ minWidth: MIN_COL_WIDTH }}
                 data-testid={`day-column-${day.format('YYYY-MM-DD')}`}
               >
+                {/* Closure overlay */}
+                {dayClosure && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                    <div className="bg-amber-100/80 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-center">
+                      <i className="fas fa-calendar-xmark text-amber-600 dark:text-amber-400 text-lg mb-1"></i>
+                      <div className="text-xs font-medium text-amber-700 dark:text-amber-400">{t("opCalendar.clinicClosed", "Clinic Closed")}</div>
+                      <div className="text-[10px] text-amber-600 dark:text-amber-500">{dayClosure.name}</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 15-minute slot grid */}
                 {Array.from({ length: TOTAL_SLOTS }, (_, slotIdx) => {
                   const isHourBoundary = slotIdx % SLOTS_PER_HOUR === 0;
@@ -590,21 +624,21 @@ export default function TimelineWeekView({
                     <div
                       key={slotIdx}
                       className={cn(
-                        "cursor-pointer select-none",
+                        dayClosure ? "cursor-not-allowed select-none" : "cursor-pointer select-none",
                         isHourBoundary ? "border-b border-border" : "border-b border-border/20"
                       )}
                       style={{ height: SLOT_HEIGHT }}
                       onMouseDown={(e) => {
-                        if (isTouchDeviceRef.current) return;
+                        if (isTouchDeviceRef.current || dayClosure) return;
                         e.preventDefault();
                         handleMouseDown(dayIdx, slotIdx);
                       }}
                       onMouseEnter={() => {
-                        if (isTouchDeviceRef.current) return;
+                        if (isTouchDeviceRef.current || dayClosure) return;
                         handleMouseEnter(dayIdx, slotIdx);
                       }}
                       onMouseUp={() => {
-                        if (isTouchDeviceRef.current) return;
+                        if (isTouchDeviceRef.current || dayClosure) return;
                         handleMouseUp();
                       }}
                       data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${slotIdx}`}

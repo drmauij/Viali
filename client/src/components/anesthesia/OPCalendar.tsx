@@ -376,6 +376,21 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     refetchInterval: 30000, // Poll every 30 seconds for updates
   });
 
+  // Fetch clinic closures for the visible date range
+  const { data: closures = [] } = useQuery<{ startDate: string; endDate: string; name: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/closures`, dateRange.start.toISOString(), dateRange.end.toISOString()],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        from: dateRange.start.toISOString().split('T')[0],
+        to: dateRange.end.toISOString().split('T')[0],
+      });
+      const response = await fetch(`/api/hospitals/${activeHospital?.id}/closures?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch closures');
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
   // Fetch patients for surgeries
   const patientIds = useMemo(() =>
     Array.from(new Set(surgeries.map((s: any) => s.patientId).filter(Boolean))),
@@ -974,6 +989,15 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       return;
     }
     if (!canPlanSurgery) return;
+
+    // Block slot selection on closed dates
+    const slotDateStr = slotInfo.start.toISOString().split('T')[0];
+    const isClosed = closures.some(c => slotDateStr >= c.startDate && slotDateStr <= c.endDate);
+    if (isClosed) {
+      toast({ title: t("opCalendar.clinicClosedToast", "The clinic is closed on this date"), variant: "destructive" });
+      return;
+    }
+
     // Only open quick create for actual time range selections, not when clicking/dragging events
     // SlotInfo.action can be 'select', 'click', or 'doubleClick'
     // We only want to open quick create on 'select' (drag selection) in day/week views
@@ -985,7 +1009,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       });
       setQuickCreateOpen(true);
     }
-  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection]);
+  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection, closures, toast, t]);
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
@@ -1503,6 +1527,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               surgeries={surgeries}
               patients={allPatients}
               selectedDate={selectedDate}
+              closures={closures}
               onEventClick={(surgeryId) => {
                 const surgery = surgeries.find(s => s.id === surgeryId);
                 if (surgery && onEventClick) {

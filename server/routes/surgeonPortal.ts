@@ -10,6 +10,7 @@ import {
 } from "../storage/surgeonPortal";
 import { revokePortalSessionBySessionToken } from "../storage/portalOtp";
 import { sendSurgeonActionRequestNotification } from "../resend";
+import { isDateInClosure } from "../storage/clinicClosures";
 
 const router = Router();
 
@@ -120,6 +121,17 @@ router.post("/api/surgeon-portal/:token/action-requests", requireSurgeonSession,
     const duplicate = existing.find((r) => r.type === type);
     if (duplicate) {
       return res.status(409).json({ message: "A pending request of this type already exists for this surgery" });
+    }
+
+    // For reschedule requests, check if proposed date falls on a clinic closure
+    if (type === "reschedule" && proposedDate) {
+      const isClosed = await isDateInClosure(hospital.id, proposedDate);
+      if (isClosed) {
+        return res.status(400).json({
+          message: "The clinic is closed on the proposed date. Please select a different date.",
+          code: "CLINIC_CLOSED",
+        });
+      }
     }
 
     const actionRequest = await createSurgeonActionRequest({

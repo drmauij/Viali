@@ -21,6 +21,7 @@ import { db } from "../db";
 import { users, userHospitalRoles, units } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import logger from "../logger";
+import { getClinicClosuresInRange, isDateInClosure } from "../storage/clinicClosures";
 
 const router = Router();
 
@@ -152,21 +153,57 @@ router.get('/public/external-surgery/:token', fetchLimiter, async (req: Request,
   }
 });
 
-router.post('/public/external-surgery/:token', submitLimiter, async (req: Request, res: Response) => {
+router.get('/public/external-surgery/:token/closures', fetchLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    
+
     const result = await storage.getExternalSurgeryRequestByHospitalToken(token);
-    
     if (!result) {
       return res.status(404).json({ message: "Invalid link" });
     }
-    
+
+    const today = new Date().toISOString().split('T')[0];
+    const oneYearOut = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const closures = await getClinicClosuresInRange(result.hospital.id, today, oneYearOut);
+
+    res.json(closures.map(c => ({
+      startDate: c.startDate,
+      endDate: c.endDate,
+      name: c.name,
+    })));
+  } catch (error) {
+    logger.error("Error fetching public closures:", error);
+    res.status(500).json({ message: "Failed to load closures" });
+  }
+});
+
+router.post('/public/external-surgery/:token', submitLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    const result = await storage.getExternalSurgeryRequestByHospitalToken(token);
+
+    if (!result) {
+      return res.status(404).json({ message: "Invalid link" });
+    }
+
     const parsed = externalSurgeryRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
     }
-    
+
+    // Check if wished date falls on a clinic closure
+    if (parsed.data.wishedDate) {
+      const isClosed = await isDateInClosure(result.hospital.id, parsed.data.wishedDate);
+      if (isClosed) {
+        return res.status(400).json({
+          message: "The clinic is closed on the requested date. Please select a different date.",
+          code: "CLINIC_CLOSED",
+        });
+      }
+    }
+
     const request = await storage.createExternalSurgeryRequest({
       hospitalId: result.hospital.id,
       ...parsed.data,
