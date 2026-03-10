@@ -405,6 +405,7 @@ interface Surgery {
   roomName: string | null;
   patientFirstName: string | null;
   patientLastName: string | null;
+  durationMinutes: number | null;
 }
 
 interface ActionRequest {
@@ -516,7 +517,7 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
           <div className="text-sm p-3 bg-muted rounded-lg space-y-1">
             <p><strong>{t.patient}:</strong> {surgery.patientFirstName && surgery.patientLastName ? `${surgery.patientLastName} ${surgery.patientFirstName}` : t.slotReservation}</p>
             {surgery.plannedSurgery && <p><strong>{t.surgery}:</strong> {surgery.plannedSurgery}</p>}
-            <p><strong>{t.time}:</strong> {format(new Date(surgery.plannedDate), "dd.MM.yyyy HH:mm")}</p>
+            <p><strong>{t.time}:</strong> {format(new Date(surgery.plannedDate), "dd.MM.yyyy HH:mm")}{surgery.durationMinutes != null && ` (${surgery.durationMinutes} min)`}</p>
             {surgery.roomName && <p><strong>{t.room}:</strong> {surgery.roomName}</p>}
           </div>
 
@@ -854,6 +855,9 @@ function SurgeonPortalContent({ token }: { token: string }) {
                                 <span className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
                                   {format(new Date(surgery.plannedDate), "HH:mm")}
+                                  {surgery.durationMinutes != null && (
+                                    <span className="text-muted-foreground">({surgery.durationMinutes} min)</span>
+                                  )}
                                 </span>
                                 {surgery.roomName && <span>{surgery.roomName}</span>}
                               </div>
