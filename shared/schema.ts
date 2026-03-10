@@ -5561,7 +5561,7 @@ export const templateVisibilityEnum = pgEnum("template_visibility", [
 export const dischargeBriefTemplates = pgTable("discharge_brief_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  briefType: dischargeBriefTypeEnum("brief_type").notNull(),
+  briefType: dischargeBriefTypeEnum("brief_type"), // Nullable = universal template (appears for all brief types)
   name: varchar("name").notNull(),
   description: text("description"),
   templateContent: text("template_content"), // Reference document for AI

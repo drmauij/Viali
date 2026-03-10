@@ -83,6 +83,7 @@ interface DischargeBriefTemplateManagerProps {
 }
 
 const BRIEF_TYPES = [
+  { value: "_all", label: "All Brief Types" },
   { value: "surgery_discharge", label: "Surgery Discharge" },
   { value: "anesthesia_discharge", label: "Anesthesia Discharge" },
   { value: "anesthesia_overnight_discharge", label: "Anesthesia + Overnight" },
@@ -96,6 +97,7 @@ const BRIEF_TYPE_LABELS: Record<string, string> = {
   anesthesia_overnight_discharge: "Anesthesia + Overnight",
   surgery_report: "Surgery Report",
   generic: "Generic",
+  _all: "All Types",
 };
 
 const VISIBILITY_LABELS: Record<string, string> = {
@@ -188,6 +190,7 @@ export function DischargeBriefTemplateManager({
       await apiRequest("POST", "/api/discharge-brief-templates", {
         ...data,
         hospitalId,
+        briefType: data.briefType === "_all" ? null : data.briefType,
         description: data.description || null,
         procedureType: data.procedureType || null,
         visibility: data.visibility,
@@ -225,6 +228,7 @@ export function DischargeBriefTemplateManager({
     }) => {
       await apiRequest("PATCH", `/api/discharge-brief-templates/${id}`, {
         ...data,
+        briefType: data.briefType === "_all" ? null : data.briefType,
         description: data.description || null,
         procedureType: data.procedureType || null,
         visibility: data.visibility,
@@ -300,7 +304,7 @@ export function DischargeBriefTemplateManager({
     setForm({
       name: template.name,
       description: template.description || "",
-      briefType: template.briefType,
+      briefType: template.briefType ?? "_all",
       procedureType: template.procedureType || "",
       templateContent: template.templateContent,
       visibility: template.visibility || "hospital",
@@ -528,7 +532,7 @@ export function DischargeBriefTemplateManager({
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-foreground break-words">{tpl.name}</h3>
                       <Badge variant="outline" className="text-xs">
-                        {BRIEF_TYPE_LABELS[tpl.briefType] || tpl.briefType}
+                        {BRIEF_TYPE_LABELS[tpl.briefType ?? "_all"] || tpl.briefType || "All Types"}
                       </Badge>
                       <Badge
                         variant={tpl.visibility === "hospital" ? "default" : tpl.visibility === "unit" ? "secondary" : "outline"}

@@ -152,7 +152,13 @@ export async function getDischargeBriefTemplates(
     eq(dischargeBriefTemplates.hospitalId, hospitalId),
   ];
   if (briefType) {
-    conditions.push(eq(dischargeBriefTemplates.briefType, briefType as any));
+    // Include templates matching the selected type OR universal templates (null briefType)
+    conditions.push(
+      or(
+        eq(dischargeBriefTemplates.briefType, briefType as any),
+        isNull(dischargeBriefTemplates.briefType),
+      )!,
+    );
   }
 
   const templates = await db

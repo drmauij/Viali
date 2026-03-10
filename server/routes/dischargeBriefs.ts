@@ -687,10 +687,10 @@ router.get(
       const userId = req.user?.id;
       const hospitalId = req.params.hospitalId;
 
-      // Check if user is admin — if so, return all
+      // Admin: skip visibility filter but still filter by briefType
       const role = req.headers["x-active-role"] as string;
       if (role === "admin") {
-        const templates = await getAllDischargeBriefTemplates(hospitalId);
+        const templates = await getDischargeBriefTemplates(hospitalId, briefType);
         return res.json(templates);
       }
 
@@ -718,7 +718,7 @@ router.post(
     try {
       const schema = z.object({
         hospitalId: z.string(),
-        briefType: briefTypeEnum,
+        briefType: briefTypeEnum.nullable().optional(),
         name: z.string().min(1),
         description: z.string().optional(),
         templateContent: z.string().optional(),
@@ -775,7 +775,7 @@ router.patch(
         name: z.string().min(1).optional(),
         description: z.string().optional(),
         templateContent: z.string().optional(),
-        briefType: briefTypeEnum.optional(),
+        briefType: briefTypeEnum.nullable().optional(),
         assignedUserId: z.string().nullable().optional(),
         procedureType: z.string().nullable().optional(),
         visibility: visibilityEnum.optional(),
