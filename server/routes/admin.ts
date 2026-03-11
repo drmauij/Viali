@@ -2057,7 +2057,7 @@ router.get('/api/hospitals/:hospitalId/closures', isAuthenticated, async (req: a
   }
 });
 
-router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requireResourceAdmin("hospitalId"), async (req: any, res: Response) => {
   try {
     const { hospitalId } = req.params;
     const { name, startDate, endDate, notes } = req.body;
@@ -2086,7 +2086,7 @@ router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requireResou
   }
 });
 
-router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin("hospitalId"), async (req: any, res: Response) => {
   try {
     const { id, hospitalId } = req.params;
     const { name, startDate, endDate, notes } = req.body;
@@ -2116,7 +2116,7 @@ router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, require
   }
 });
 
-router.delete('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin, async (req: any, res: Response) => {
+router.delete('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requireResourceAdmin("hospitalId"), async (req: any, res: Response) => {
   try {
     const { id, hospitalId } = req.params;
 
