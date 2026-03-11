@@ -92,21 +92,67 @@ export default function BookAppointment() {
         if (preselected) {
           setSelectedProvider(preselected);
           setStep("datetime");
+          setSeekingAvailableMonth(true);
         } else if (d.providers.length === 1) {
           setSelectedProvider(d.providers[0]);
           setStep("datetime");
+          setSeekingAvailableMonth(true);
         }
       })
       .catch(() => setError("network"))
       .finally(() => setLoading(false));
   }, [token]);
 
+  // ─── Clinic closures ─────────────────────────────────────────
+  const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/public/booking/${token}/closures`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const closures: { startDate: string; endDate: string; name: string }[] = await res.json();
+        const dates = new Set<string>();
+        for (const c of closures) {
+          const start = new Date(c.startDate + "T00:00:00");
+          const end = new Date(c.endDate + "T00:00:00");
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.add(formatDateISO(d));
+          }
+        }
+        setClosedDates(dates);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  // ─── Date constraints ─────────────────────────────────────────
+
+  const dateConstraints = useMemo(() => {
+    if (!data) return { fromDate: new Date(), toDate: undefined as Date | undefined };
+    const now = new Date();
+    const minHours = data.bookingSettings.minAdvanceHours || 0;
+    const fromDate = new Date(now.getTime() + minHours * 60 * 60 * 1000);
+    fromDate.setHours(0, 0, 0, 0);
+    if (fromDate < now) fromDate.setDate(fromDate.getDate());
+
+    let toDate: Date | undefined;
+    const maxDays = data.bookingSettings.maxAdvanceDays;
+    if (maxDays) {
+      toDate = new Date();
+      toDate.setDate(toDate.getDate() + maxDays);
+    }
+    return { fromDate, toDate };
+  }, [data]);
+
   // ─── Available dates for calendar highlighting ──────────────
   const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
+  const [availableDatesLoading, setAvailableDatesLoading] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState<Date>(new Date());
+  const [seekingAvailableMonth, setSeekingAvailableMonth] = useState(false);
 
   useEffect(() => {
     if (!selectedProvider || !token) return;
+    setAvailableDatesLoading(true);
     const y = visibleMonth.getFullYear();
     const m = String(visibleMonth.getMonth() + 1).padStart(2, "0");
     fetch(`/api/public/booking/${token}/providers/${selectedProvider.id}/available-dates?month=${y}-${m}`)
@@ -115,8 +161,41 @@ export default function BookAppointment() {
         const d = await res.json();
         setAvailableDates(new Set(d.dates || []));
       })
-      .catch(() => setAvailableDates(new Set()));
+      .catch(() => setAvailableDates(new Set()))
+      .finally(() => setAvailableDatesLoading(false));
   }, [selectedProvider, token, visibleMonth]);
+
+  // ─── Auto-jump to next month with available slots ────────────
+  useEffect(() => {
+    if (availableDatesLoading || !seekingAvailableMonth) return;
+    if (availableDates.size > 0) {
+      setSeekingAvailableMonth(false);
+      return;
+    }
+    // Empty month — advance to next, but respect maxAdvanceDays limit
+    const maxDate = dateConstraints.toDate;
+    const next = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+    if (maxDate && next > maxDate) {
+      setSeekingAvailableMonth(false);
+      return;
+    }
+    // Safety: don't seek more than 12 months ahead
+    const now = new Date();
+    const monthsAhead = (next.getFullYear() - now.getFullYear()) * 12 + (next.getMonth() - now.getMonth());
+    if (monthsAhead > 12) {
+      setSeekingAvailableMonth(false);
+      return;
+    }
+    setVisibleMonth(next);
+  }, [availableDates, availableDatesLoading, seekingAvailableMonth, visibleMonth, dateConstraints.toDate]);
+
+  // ─── Clear selectedDate if it becomes unavailable ───────────
+  useEffect(() => {
+    if (availableDatesLoading || !selectedDate) return;
+    if (!availableDates.has(formatDateISO(selectedDate))) {
+      setSelectedDate(undefined);
+    }
+  }, [availableDates, availableDatesLoading, selectedDate]);
 
   // ─── Load slots when date changes ─────────────────────────────
 
@@ -138,25 +217,6 @@ export default function BookAppointment() {
       .finally(() => setSlotsLoading(false));
   }, [selectedProvider, selectedDate, token]);
 
-  // ─── Date constraints ─────────────────────────────────────────
-
-  const dateConstraints = useMemo(() => {
-    if (!data) return { fromDate: new Date(), toDate: undefined as Date | undefined };
-    const now = new Date();
-    const minHours = data.bookingSettings.minAdvanceHours || 0;
-    const fromDate = new Date(now.getTime() + minHours * 60 * 60 * 1000);
-    fromDate.setHours(0, 0, 0, 0);
-    if (fromDate < now) fromDate.setDate(fromDate.getDate());
-
-    let toDate: Date | undefined;
-    const maxDays = data.bookingSettings.maxAdvanceDays;
-    if (maxDays) {
-      toDate = new Date();
-      toDate.setDate(toDate.getDate() + maxDays);
-    }
-    return { fromDate, toDate };
-  }, [data]);
-
   // ─── Handlers ─────────────────────────────────────────────────
 
   const handleProviderSelect = useCallback((provider: Provider) => {
@@ -165,6 +225,7 @@ export default function BookAppointment() {
     setSelectedDate(undefined);
     setSlots([]);
     setSelectedSlot(null);
+    setSeekingAvailableMonth(true);
   }, []);
 
   const handleSlotSelect = useCallback((slot: Slot) => {
@@ -466,6 +527,10 @@ export default function BookAppointment() {
                     if (date < today) return true;
                     if (dateConstraints.fromDate && date < dateConstraints.fromDate) return true;
                     if (dateConstraints.toDate && date > dateConstraints.toDate) return true;
+                    if (closedDates.has(formatDateISO(date))) return true;
+                    if (!availableDatesLoading) {
+                      return !availableDates.has(formatDateISO(date));
+                    }
                     return false;
                   }}
                   className={cn(

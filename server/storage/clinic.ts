@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or } from "drizzle-orm";
+import { getClinicClosuresInRange } from "./clinicClosures";
 import { alias } from "drizzle-orm/pg-core";
 import {
   users,
@@ -1248,10 +1249,27 @@ export async function getAvailableDatesForMonth(
   const firstDay = new Date(year, monthNum - 1, 1);
   const lastDay = new Date(year, monthNum, 0);
 
+  // Fetch clinic closures for this month
+  const firstDayStr = formatDateLocal(firstDay);
+  const lastDayStr = formatDateLocal(lastDay);
+  const closures = await getClinicClosuresInRange(hospitalId, firstDayStr, lastDayStr);
+
+  // Build a set of closed dates for fast lookup
+  const closedDates = new Set<string>();
+  for (const closure of closures) {
+    const start = new Date(closure.startDate + 'T00:00:00');
+    const end = new Date(closure.endDate + 'T00:00:00');
+    for (let cd = new Date(start); cd <= end; cd.setDate(cd.getDate() + 1)) {
+      closedDates.add(formatDateLocal(cd));
+    }
+  }
+
   // Check each day of the month using the full slot calculator
   const availableDates: string[] = [];
   for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
     const dateStr = formatDateLocal(d);
+    // Skip closure dates
+    if (closedDates.has(dateStr)) continue;
     const slots = await getAvailableSlots(providerId, unitId, dateStr, durationMinutes, hospitalId);
     if (slots.length > 0) {
       availableDates.push(dateStr);

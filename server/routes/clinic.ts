@@ -269,7 +269,32 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/available-da
   }
 });
 
-// 3b: Get available slots for a provider on a specific date
+// 3b: Get clinic closures for the booking page
+router.get('/api/public/booking/:bookingToken/closures', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const oneYearOut = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const { getClinicClosuresInRange } = await import("../storage/clinicClosures");
+    const closures = await getClinicClosuresInRange(hospital.id, today, oneYearOut);
+
+    res.json(closures.map(c => ({
+      startDate: c.startDate,
+      endDate: c.endDate,
+      name: c.name,
+    })));
+  } catch (error) {
+    logger.error('Error fetching booking closures:', error);
+    res.status(500).json({ message: 'Failed to load closures' });
+  }
+});
+
+// 3c: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
