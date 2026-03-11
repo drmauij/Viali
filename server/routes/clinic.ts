@@ -1594,7 +1594,7 @@ async function sendAppointmentNotification(
         // For confirmation and reschedule, use versions with cancel link
         const result = type === 'reschedule'
           ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl, providerName)
-          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl);
+          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl, providerName);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       }
     }

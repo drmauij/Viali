@@ -1244,7 +1244,8 @@ export async function sendAppointmentConfirmationEmail(
   appointmentDate: string,
   appointmentTime: string,
   language: string = 'de',
-  cancelUrl: string = ''
+  cancelUrl: string = '',
+  providerName: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1267,8 +1268,8 @@ export async function sendAppointmentConfirmationEmail(
         <h2>${clinicName}</h2>
         <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
         <p>${isGerman
-          ? `Ihr Termin am ${appointmentDate} um ${appointmentTime} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
-          : `Your appointment on ${appointmentDate} at ${appointmentTime} has been confirmed. For questions, please contact us directly.`}</p>
+          ? `Ihr Termin am ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
+          : `Your appointment on ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. For questions, please contact us directly.`}</p>
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
