@@ -56,6 +56,7 @@ import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/Man
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
 import QuickCreateSurgeryDialog from "@/components/anesthesia/QuickCreateSurgeryDialog";
 import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
+import { useLocation } from "wouter";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -78,6 +79,7 @@ export default function ClinicAppointments() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { addons } = useHospitalAddons();
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -432,25 +434,19 @@ export default function ClinicAppointments() {
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               {t('appointments.details', 'Appointment Details')}
-              {selectedAppointment && !editMode && (selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
-                <Button variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={enterEditMode}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
             </DialogTitle>
           </DialogHeader>
 
           {selectedAppointment && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  {selectedAppointment.appointmentType === 'internal'
-                    ? <Users className="h-5 w-5 text-primary" />
-                    : <User className="h-5 w-5 text-primary" />}
-                </div>
-                <div>
-                  {selectedAppointment.appointmentType === 'internal' ? (
-                    <>
+            <div className="space-y-3">
+              {/* Patient / Colleague Card */}
+              {selectedAppointment.appointmentType === 'internal' ? (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
                       <h4 className="font-medium" data-testid="text-patient-name">
                         {selectedAppointment.colleague
                           ? `${selectedAppointment.colleague.firstName} ${selectedAppointment.colleague.lastName}`
@@ -461,9 +457,29 @@ export default function ClinicAppointments() {
                           {selectedAppointment.internalSubject}
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="rounded-lg border bg-muted/30 p-3 cursor-pointer transition-colors hover:bg-muted/60"
+                  onClick={() => {
+                    if (selectedAppointment.patient?.id) {
+                      const patientId = selectedAppointment.patient.id;
+                      const moduleBase = activeHospital?.unitType === 'or' ? '/surgery'
+                        : activeHospital?.unitType === 'anesthesia' ? '/anesthesia'
+                        : '/clinic';
+                      setDetailDialogOpen(false);
+                      setEditMode(false);
+                      setTimeout(() => setLocation(`${moduleBase}/patients/${patientId}`), 150);
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
                       <h4 className="font-medium" data-testid="text-patient-name">
                         {selectedAppointment.patient
                           ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.surname}`
@@ -481,97 +497,109 @@ export default function ClinicAppointments() {
                           {selectedAppointment.patient.email}
                         </p>
                       )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">{t('appointments.date', 'Date')}</p>
-                  {editMode ? (
-                    <DateInput
-                      value={editDate}
-                      onChange={(val) => setEditDate(val)}
-                    />
-                  ) : (
-                    <p className="font-medium" data-testid="text-appointment-date">
-                      {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-muted-foreground">{t('appointments.time', 'Time')}</p>
-                  {editMode ? (
-                    <div className="flex items-center gap-1">
-                      <TimeInput
-                        value={editStartTime}
-                        onChange={(val) => setEditStartTime(val)}
-                        className="w-20"
-                      />
-                      <span>-</span>
-                      <TimeInput
-                        value={editEndTime}
-                        onChange={(val) => setEditEndTime(val)}
-                        className="w-20"
-                      />
                     </div>
-                  ) : (
-                    <p className="font-medium" data-testid="text-appointment-time">
-                      {selectedAppointment.startTime} - {selectedAppointment.endTime}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-muted-foreground">{t('appointments.provider', 'Provider')}</p>
-                  {editMode ? (
-                    <Select value={editProviderId} onValueChange={setEditProviderId}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {providers.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.firstName} {p.lastName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="font-medium">
-                      {selectedAppointment.provider
-                        ? `${selectedAppointment.provider.firstName} ${selectedAppointment.provider.lastName}`
-                        : '-'}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-muted-foreground">
-                    {selectedAppointment.appointmentType === 'internal'
-                      ? t('appointments.subject', 'Subject')
-                      : t('appointments.service', 'Service')}
-                  </p>
-                  <p className="font-medium">
-                    {selectedAppointment.appointmentType === 'internal'
-                      ? (selectedAppointment.internalSubject || '-')
-                      : (selectedAppointment.service?.name || '-')}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-muted-foreground text-sm mb-1">{t('appointments.statusLabel', 'Status')}</p>
-                <Badge className={`${STATUS_COLORS[selectedAppointment.status]?.bg} ${STATUS_COLORS[selectedAppointment.status]?.text}`}>
-                  {getStatusLabel(selectedAppointment.status)}
-                </Badge>
-              </div>
-
-              {selectedAppointment.notes && (
-                <div>
-                  <p className="text-muted-foreground text-sm mb-1">{t('appointments.notes', 'Notes')}</p>
-                  <p className="text-sm bg-muted/50 p-2 rounded">{selectedAppointment.notes}</p>
+                  </div>
                 </div>
               )}
+
+              {/* Appointment Details Card */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">{t('appointments.details', 'Appointment Details')}</p>
+                  {!editMode && (selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={enterEditMode}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">{t('appointments.date', 'Date')}</p>
+                    {editMode ? (
+                      <DateInput
+                        value={editDate}
+                        onChange={(val) => setEditDate(val)}
+                      />
+                    ) : (
+                      <p className="font-medium" data-testid="text-appointment-date">
+                        {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">{t('appointments.time', 'Time')}</p>
+                    {editMode ? (
+                      <div className="flex items-center gap-1">
+                        <TimeInput
+                          value={editStartTime}
+                          onChange={(val) => setEditStartTime(val)}
+                          className="w-20"
+                        />
+                        <span>-</span>
+                        <TimeInput
+                          value={editEndTime}
+                          onChange={(val) => setEditEndTime(val)}
+                          className="w-20"
+                        />
+                      </div>
+                    ) : (
+                      <p className="font-medium" data-testid="text-appointment-time">
+                        {selectedAppointment.startTime} - {selectedAppointment.endTime}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">{t('appointments.provider', 'Provider')}</p>
+                    {editMode ? (
+                      <Select value={editProviderId} onValueChange={setEditProviderId}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providers.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.firstName} {p.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">
+                        {selectedAppointment.provider
+                          ? `${selectedAppointment.provider.firstName} ${selectedAppointment.provider.lastName}`
+                          : '-'}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      {selectedAppointment.appointmentType === 'internal'
+                        ? t('appointments.subject', 'Subject')
+                        : t('appointments.service', 'Service')}
+                    </p>
+                    <p className="font-medium">
+                      {selectedAppointment.appointmentType === 'internal'
+                        ? (selectedAppointment.internalSubject || '-')
+                        : (selectedAppointment.service?.name || '-')}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">{t('appointments.statusLabel', 'Status')}</p>
+                  <Badge className={`${STATUS_COLORS[selectedAppointment.status]?.bg} ${STATUS_COLORS[selectedAppointment.status]?.text}`}>
+                    {getStatusLabel(selectedAppointment.status)}
+                  </Badge>
+                </div>
+
+                {selectedAppointment.notes && (
+                  <div>
+                    <p className="text-muted-foreground text-sm mb-1">{t('appointments.notes', 'Notes')}</p>
+                    <p className="text-sm bg-muted/50 p-2 rounded">{selectedAppointment.notes}</p>
+                  </div>
+                )}
+              </div>
 
               <DialogFooter className="flex-col gap-2 sm:flex-row">
                 {editMode ? (

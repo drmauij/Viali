@@ -1,4 +1,4 @@
-import { useRoute, useLocation, Link } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1614,12 +1614,10 @@ export default function PatientDetail() {
     }
     return (
       <div className="container mx-auto p-4 pb-20 overflow-x-hidden">
-        <Link href="/anesthesia/patients">
-          <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
+        <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back" onClick={() => window.history.back()}>
             <ArrowLeft className="h-4 w-4" />
-            {t('anesthesia.patientDetail.backToPatients')}
-          </Button>
-        </Link>
+            {t('common.back', 'Back')}
+        </Button>
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
@@ -1650,23 +1648,19 @@ export default function PatientDetail() {
     }
     return (
       <div className="container mx-auto p-4 pb-20 overflow-x-hidden">
-        <Link href="/anesthesia/patients">
-          <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
+        <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back" onClick={() => window.history.back()}>
             <ArrowLeft className="h-4 w-4" />
-            {t('anesthesia.patientDetail.backToPatients')}
-          </Button>
-        </Link>
+            {t('common.back', 'Back')}
+        </Button>
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
               <AlertCircle className="h-8 w-8 text-destructive" data-testid="icon-error" />
               <p className="text-foreground font-semibold" data-testid="text-error">{t('anesthesia.patientDetail.patientNotFound')}</p>
               <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.patientNotFoundDesc')}</p>
-              <Link href="/anesthesia/patients">
-                <Button className="mt-4" data-testid="button-back-to-patients">
-                  {t('anesthesia.patientDetail.backToPatients')}
-                </Button>
-              </Link>
+              <Button className="mt-4" data-testid="button-back-to-patients" onClick={() => window.history.back()}>
+                  {t('common.back', 'Back')}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1701,12 +1695,10 @@ export default function PatientDetail() {
       )}
 
       <div className="mb-6">
-        <Link href="/anesthesia/patients">
-          <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
+        <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back" onClick={() => window.history.back()}>
             <ArrowLeft className="h-4 w-4" />
-            {t('anesthesia.patientDetail.backToPatients')}
-          </Button>
-        </Link>
+            {t('common.back', 'Back')}
+        </Button>
 
         <Card ref={patientCardRef} data-testid="card-patient-details">
           <CardHeader>
