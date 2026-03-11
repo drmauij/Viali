@@ -901,7 +901,8 @@ export interface IStorage {
   
   // Available Slots Calculator
   getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string): Promise<{ startTime: string; endTime: string }[]>;
-  
+  getAvailableDatesForMonth(providerId: string, unitId: string, hospitalId: string, month: string): Promise<string[]>;
+
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;
   
@@ -1547,6 +1548,7 @@ export class DatabaseStorage implements IStorage {
   updateClinicAppointment = clinicStorage.updateClinicAppointment;
   deleteClinicAppointment = clinicStorage.deleteClinicAppointment;
   getAvailableSlots = clinicStorage.getAvailableSlots;
+  getAvailableDatesForMonth = clinicStorage.getAvailableDatesForMonth;
   getClinicServices = clinicStorage.getClinicServices;
   getNextScheduledJob = clinicStorage.getNextScheduledJob;
   createScheduledJob = clinicStorage.createScheduledJob;

@@ -66,6 +66,7 @@ export default function BookAppointment() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [slotTaken, setSlotTaken] = useState(false);
@@ -97,6 +98,23 @@ export default function BookAppointment() {
       .catch(() => setError("network"))
       .finally(() => setLoading(false));
   }, [token]);
+
+  // ─── Available dates for calendar highlighting ──────────────
+  const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
+  const [visibleMonth, setVisibleMonth] = useState<Date>(new Date());
+
+  useEffect(() => {
+    if (!selectedProvider || !token) return;
+    const y = visibleMonth.getFullYear();
+    const m = String(visibleMonth.getMonth() + 1).padStart(2, "0");
+    fetch(`/api/public/booking/${token}/providers/${selectedProvider.id}/available-dates?month=${y}-${m}`)
+      .then(async (res) => {
+        if (!res.ok) { setAvailableDates(new Set()); return; }
+        const d = await res.json();
+        setAvailableDates(new Set(d.dates || []));
+      })
+      .catch(() => setAvailableDates(new Set()));
+  }, [selectedProvider, token, visibleMonth]);
 
   // ─── Load slots when date changes ─────────────────────────────
 
@@ -266,52 +284,7 @@ export default function BookAppointment() {
 
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
-      {/* Header */}
-      <header className="text-center mb-8 animate-fade-in">
-        <div className="flex items-center justify-center gap-3 mb-3">
-          {data.hospital.logoUrl && (
-            <img
-              src={data.hospital.logoUrl}
-              alt={data.hospital.name}
-              className="h-10 w-auto object-contain"
-            />
-          )}
-          <h1 className={cn(
-            "text-xl font-semibold tracking-tight",
-            isDark ? "text-white" : "text-gray-900"
-          )}>
-            {data.hospital.name}
-          </h1>
-        </div>
-
-        {/* Theme toggle */}
-        <button
-          onClick={() => setIsDark(!isDark)}
-          className={cn(
-            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300",
-            isDark
-              ? "bg-white/10 text-white/60 hover:bg-white/15 hover:text-white/80"
-              : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-          )}
-        >
-          {isDark ? (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="5" />
-                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-              </svg>
-              Hell
-            </>
-          ) : (
-            <>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-              </svg>
-              Dunkel
-            </>
-          )}
-        </button>
-      </header>
+      {/* Step indicator only in header area */}
 
       {/* Step indicator */}
       <StepIndicator
@@ -325,52 +298,57 @@ export default function BookAppointment() {
 
         {/* ── Step 1: Provider Selection ── */}
         {step === "provider" && (
-          <div>
-            <h2 className={cn(
-              "text-lg font-semibold mb-1 text-center",
-              isDark ? "text-white" : "text-gray-900"
-            )}>
-              Arzt wählen
-            </h2>
-            <p className={cn(
-              "text-sm mb-6 text-center",
-              isDark ? "text-white/50" : "text-gray-400"
-            )}>
-              Wählen Sie Ihren behandelnden Arzt
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-0 md:gap-6 items-start">
+            {/* Clinic info left column */}
+            <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
 
-            <div className="grid gap-3 max-w-md mx-auto">
-              {data.providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  onClick={() => handleProviderSelect(provider)}
-                  className={cn(
-                    "group flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200",
-                    isDark
-                      ? "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
-                      : "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
-                  )}
-                >
-                  <ProviderAvatar provider={provider} isDark={isDark} />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "font-medium truncate",
-                      isDark ? "text-white" : "text-gray-900"
-                    )}>
-                      {provider.firstName} {provider.lastName}
-                    </p>
-                  </div>
-                  <svg
+            <div>
+              <h2 className={cn(
+                "text-lg font-semibold mb-1",
+                isDark ? "text-white" : "text-gray-900"
+              )}>
+                Arzt wählen
+              </h2>
+              <p className={cn(
+                "text-sm mb-6",
+                isDark ? "text-white/50" : "text-gray-400"
+              )}>
+                Wählen Sie Ihren behandelnden Arzt
+              </p>
+
+              <div className="grid gap-3">
+                {data.providers.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => handleProviderSelect(provider)}
                     className={cn(
-                      "w-5 h-5 transition-transform duration-200 group-hover:translate-x-1",
-                      isDark ? "text-white/30" : "text-gray-300"
+                      "group flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200",
+                      isDark
+                        ? "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+                        : "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
                     )}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
                   >
-                    <path d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              ))}
+                    <ProviderAvatar provider={provider} isDark={isDark} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "font-medium truncate",
+                        isDark ? "text-white" : "text-gray-900"
+                      )}>
+                        {provider.firstName} {provider.lastName}
+                      </p>
+                    </div>
+                    <svg
+                      className={cn(
+                        "w-5 h-5 transition-transform duration-200 group-hover:translate-x-1",
+                        isDark ? "text-white/30" : "text-gray-300"
+                      )}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                    >
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -393,31 +371,67 @@ export default function BookAppointment() {
               </button>
             )}
 
-            {/* Selected provider compact */}
-            <div className={cn(
-              "flex items-center gap-3 p-3 rounded-xl mb-6",
-              isDark ? "bg-white/5 border border-white/10" : "bg-gray-50 border border-gray-100"
-            )}>
-              <ProviderAvatar provider={selectedProvider} isDark={isDark} size="sm" />
-              <span className={cn(
-                "text-sm font-medium",
-                isDark ? "text-white/80" : "text-gray-700"
+            <div className="grid grid-cols-1 md:grid-cols-[200px_auto_1fr] gap-0 md:gap-6 items-start">
+              {/* Clinic + provider info panel (Cal.com style left column) */}
+              <div className={cn(
+                "mb-4 md:mb-0 md:border-r md:pr-6",
+                isDark ? "border-white/10" : "border-gray-100"
               )}>
-                {selectedProvider.firstName} {selectedProvider.lastName}
-              </span>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
+                <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+                <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-2 mt-4 md:mt-5">
+                  <ProviderAvatar provider={selectedProvider} isDark={isDark} />
+                  <p className={cn(
+                    "text-sm font-semibold",
+                    isDark ? "text-white/80" : "text-gray-900"
+                  )}>
+                    {selectedProvider.firstName} {selectedProvider.lastName}
+                  </p>
+                </div>
+              </div>
               {/* Calendar */}
               <div className={cn(
-                "rounded-2xl p-1 mx-auto lg:mx-0 shrink-0",
+                "rounded-2xl p-1 mx-auto md:mx-0 shrink-0",
                 isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-100 shadow-sm"
               )}>
                 <Calendar
                   mode="single"
                   selected={selectedDate}
                   onSelect={(d) => d && setSelectedDate(d)}
+                  month={visibleMonth}
+                  onMonthChange={setVisibleMonth}
                   locale={de}
+                  classNames={{
+                    nav_button: cn(
+                      "inline-flex items-center justify-center rounded-md border h-7 w-7 p-0 transition-colors",
+                      isDark
+                        ? "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    ),
+                    day_today: cn(
+                      "font-bold underline underline-offset-4 decoration-2",
+                      isDark ? "text-white decoration-blue-400" : "text-gray-900 decoration-gray-400"
+                    ),
+                    day_selected: cn(
+                      "hover:!opacity-100",
+                      isDark
+                        ? "!bg-blue-500 !text-white"
+                        : "!bg-gray-900 !text-white hover:!bg-gray-800"
+                    ),
+                    cell: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                  }}
+                  modifiers={{
+                    hasSlots: (date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (date < today) return false;
+                      if (dateConstraints.fromDate && date < dateConstraints.fromDate) return false;
+                      if (dateConstraints.toDate && date > dateConstraints.toDate) return false;
+                      return availableDates.has(formatDateISO(date));
+                    },
+                  }}
+                  modifiersClassNames={{
+                    hasSlots: "day-has-slots",
+                  }}
                   disabled={(date) => {
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
@@ -427,7 +441,9 @@ export default function BookAppointment() {
                     return false;
                   }}
                   className={cn(
-                    isDark && "[&_.rdp-day]:text-white [&_.rdp-head_cell]:text-white/50 [&_.rdp-caption_label]:text-white [&_.rdp-nav_button]:text-white/60 [&_.rdp-nav_button]:border-white/20 [&_.rdp-day_today]:bg-white/10 [&_.rdp-day_selected]:bg-blue-500 [&_.rdp-day_selected]:text-white [&_.rdp-day_disabled]:text-white/20 [&_.rdp-day_outside]:text-white/15"
+                    isDark
+                      ? "[&_.rdp-day]:text-white/25 [&_.rdp-head_cell]:text-white/50 [&_.rdp-caption_month]:text-white [&_.rdp-caption_year]:text-white/50 [&_.rdp-day_disabled]:text-white/15 [&_.rdp-day_outside]:text-white/10 [&_.day-has-slots]:text-white [&_.day-has-slots]:font-semibold"
+                      : "[&_.rdp-day]:text-gray-300 [&_.rdp-day_disabled]:text-gray-200 [&_.rdp-day_outside]:text-gray-200 [&_.day-has-slots]:text-gray-900 [&_.day-has-slots]:font-semibold [&_.day-has-slots]:hover:bg-gray-100 [&_.rdp-day_selected.day-has-slots]:text-white"
                   )}
                 />
               </div>
@@ -467,7 +483,7 @@ export default function BookAppointment() {
                     )}>
                       Verfügbare Zeiten — {formattedSelectedDate}
                     </p>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2">
                       {slots.map((slot) => (
                         <button
                           key={slot.startTime}
@@ -568,7 +584,9 @@ export default function BookAppointment() {
                     placeholder="Max"
                     className={cn(
                       "rounded-xl h-11",
-                      isDark && "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                      isDark
+                        ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                     )}
                     required
                   />
@@ -587,7 +605,9 @@ export default function BookAppointment() {
                     placeholder="Muster"
                     className={cn(
                       "rounded-xl h-11",
-                      isDark && "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                      isDark
+                        ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                     )}
                     required
                   />
@@ -609,7 +629,9 @@ export default function BookAppointment() {
                   placeholder="max.muster@email.ch"
                   className={cn(
                     "rounded-xl h-11",
-                    isDark && "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                    isDark
+                      ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                   )}
                   required
                 />
@@ -630,7 +652,9 @@ export default function BookAppointment() {
                   placeholder="+41 79 123 45 67"
                   className={cn(
                     "rounded-xl h-11",
-                    isDark && "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                    isDark
+                      ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
+                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                   )}
                 />
               </div>
@@ -653,14 +677,33 @@ export default function BookAppointment() {
                     "flex w-full rounded-xl border px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none",
                     isDark
                       ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                      : "border-input bg-background placeholder:text-muted-foreground"
+                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                   )}
                 />
               </div>
 
+              {/* Privacy consent */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className={cn(
+                    "mt-0.5 h-4 w-4 rounded border shrink-0 accent-gray-900",
+                    isDark ? "border-white/20" : "border-gray-300"
+                  )}
+                />
+                <span className={cn(
+                  "text-xs leading-relaxed",
+                  isDark ? "text-white/50" : "text-gray-500"
+                )}>
+                  Ich stimme der Verarbeitung meiner personenbezogenen Daten zum Zweck der Terminbuchung zu. Meine Daten werden vertraulich behandelt und nicht an Dritte weitergegeben. *
+                </span>
+              </label>
+
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim()}
+                disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !privacyAccepted}
                 className={cn(
                   "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                   isDark
@@ -752,6 +795,57 @@ export default function BookAppointment() {
 
 // ─── Sub-components ────────────────────────────────────────────────
 
+function ClinicInfoPanel({ data, isDark, onToggleTheme }: { data: BookingData; isDark: boolean; onToggleTheme: () => void }) {
+  return (
+    <div className={cn(
+      "mb-4 md:mb-0",
+    )}>
+      <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-3">
+        {data.hospital.logoUrl && (
+          <img
+            src={data.hospital.logoUrl}
+            alt={data.hospital.name}
+            className="h-8 w-auto object-contain"
+          />
+        )}
+        <h1 className={cn(
+          "text-sm font-semibold",
+          isDark ? "text-white" : "text-gray-900"
+        )}>
+          {data.hospital.name}
+        </h1>
+      </div>
+      {/* Theme toggle — small, tucked under clinic info */}
+      <button
+        onClick={onToggleTheme}
+        className={cn(
+          "mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-300",
+          isDark
+            ? "bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/70"
+            : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
+        )}
+      >
+        {isDark ? (
+          <>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="5" />
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+            Hell
+          </>
+        ) : (
+          <>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+            Dunkel
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; isDark: boolean; isEmbed: boolean }) {
   return (
     <div className={cn(
@@ -762,7 +856,7 @@ function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; i
       isEmbed && "!min-h-0"
     )}>
       <div className={cn(
-        "max-w-2xl mx-auto px-4 py-8",
+        "max-w-4xl mx-auto px-4 py-8",
         isEmbed && "py-4"
       )}>
         {children}

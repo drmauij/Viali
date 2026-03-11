@@ -1,11 +1,25 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import { DayPicker, useDayPicker, type CaptionLabelProps } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
+
+function CaptionLabelStyled(props: CaptionLabelProps) {
+  const { locale } = useDayPicker();
+  const { displayMonth } = props;
+  const month = displayMonth.toLocaleDateString(locale?.code || "de-CH", { month: "long" });
+  const year = displayMonth.getFullYear();
+  return (
+    <span className="rdp-caption_label text-base" aria-live="polite" role="presentation">
+      <span className="rdp-caption_month font-semibold text-gray-900">{month.charAt(0).toUpperCase() + month.slice(1)}</span>
+      {" "}
+      <span className="rdp-caption_year font-normal text-gray-400">{year}</span>
+    </span>
+  );
+}
 
 function Calendar({
   className,
@@ -21,7 +35,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-base",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -52,12 +66,14 @@ function Calendar({
         ...classNames,
       }}
       components={{
+        CaptionLabel: CaptionLabelStyled,
         IconLeft: ({ className, ...props }) => (
           <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
         ),
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("h-4 w-4", className)} {...props} />
         ),
+        ...props.components,
       }}
       {...props}
     />

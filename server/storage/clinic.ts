@@ -1163,8 +1163,10 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     const result: { startTime: string; endTime: string }[] = [];
     const startMinutes = timeToMinutes(rangeStart);
     const endMinutes = timeToMinutes(rangeEnd);
+    // Step interval must be at least as large as slot duration to avoid overlapping slots
+    const step = Math.max(slotDuration, durationMinutes);
 
-    for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += slotDuration) {
+    for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += step) {
       const slotStart = minutesToTime(mins);
       const slotEnd = minutesToTime(mins + durationMinutes);
 
@@ -1221,6 +1223,172 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     );
 
   return uniqueSlots;
+}
+
+/**
+ * Lightweight check: returns dates in a month range that likely have available slots.
+ * Uses weekly schedule + windows, minus full-day time-off and absences.
+ * Does NOT check individual slot conflicts (surgeries, existing appointments) — those
+ * are handled when the user clicks a specific date.
+ */
+export async function getAvailableDatesForMonth(
+  providerId: string,
+  unitId: string,
+  hospitalId: string,
+  month: string // YYYY-MM format
+): Promise<string[]> {
+  // Parse month to get date range
+  const [yearStr, monthStr] = month.split('-');
+  const year = parseInt(yearStr, 10);
+  const monthNum = parseInt(monthStr, 10);
+  const firstDay = new Date(year, monthNum - 1, 1);
+  const lastDay = new Date(year, monthNum, 0);
+  const startDate = `${year}-${monthStr}-01`;
+  const endDate = `${year}-${monthStr}-${String(lastDay.getDate()).padStart(2, '0')}`;
+
+  // Resolve calendar scope
+  let effectiveUnitId: string | null = unitId;
+  const [unit] = await db.select({ hasOwnCalendar: units.hasOwnCalendar }).from(units).where(eq(units.id, unitId)).limit(1);
+  if (unit && !unit.hasOwnCalendar) {
+    effectiveUnitId = null;
+  }
+
+  // Look up availability mode
+  let availabilityMode = 'always_available';
+  const roleResult = await db
+    .select({ availabilityMode: userHospitalRoles.availabilityMode })
+    .from(userHospitalRoles)
+    .where(and(
+      eq(userHospitalRoles.userId, providerId),
+      eq(userHospitalRoles.hospitalId, hospitalId)
+    ))
+    .limit(1);
+  if (roleResult.length > 0 && roleResult[0].availabilityMode) {
+    availabilityMode = roleResult[0].availabilityMode;
+  }
+
+  const useWeeklySchedule = availabilityMode === 'always_available';
+
+  // Fetch weekly schedule for ALL days of week at once
+  const weeklyConditions = [
+    eq(providerAvailability.providerId, providerId),
+    eq(providerAvailability.isActive, true),
+  ];
+  if (effectiveUnitId === null) {
+    weeklyConditions.push(eq(providerAvailability.hospitalId, hospitalId));
+    weeklyConditions.push(isNull(providerAvailability.unitId));
+  } else {
+    weeklyConditions.push(eq(providerAvailability.unitId, effectiveUnitId));
+  }
+  let weeklySchedule = await db
+    .select({ dayOfWeek: providerAvailability.dayOfWeek })
+    .from(providerAvailability)
+    .where(and(...weeklyConditions));
+
+  // Fallback to hospital-level if unit-level is empty
+  if (effectiveUnitId !== null && weeklySchedule.length === 0) {
+    weeklySchedule = await db
+      .select({ dayOfWeek: providerAvailability.dayOfWeek })
+      .from(providerAvailability)
+      .where(and(
+        eq(providerAvailability.providerId, providerId),
+        eq(providerAvailability.isActive, true),
+        eq(providerAvailability.hospitalId, hospitalId),
+        isNull(providerAvailability.unitId),
+      ));
+  }
+
+  const activeDaysOfWeek = new Set(weeklySchedule.map(w => w.dayOfWeek));
+
+  // Fetch availability windows for the month range
+  const windowConditions = [
+    eq(providerAvailabilityWindows.providerId, providerId),
+    gte(providerAvailabilityWindows.date, startDate),
+    lte(providerAvailabilityWindows.date, endDate),
+  ];
+  if (effectiveUnitId === null) {
+    windowConditions.push(eq(providerAvailabilityWindows.hospitalId, hospitalId));
+    windowConditions.push(isNull(providerAvailabilityWindows.unitId));
+  } else {
+    windowConditions.push(
+      or(
+        eq(providerAvailabilityWindows.unitId, effectiveUnitId),
+        and(
+          eq(providerAvailabilityWindows.hospitalId, hospitalId),
+          isNull(providerAvailabilityWindows.unitId)
+        )!
+      )!
+    );
+  }
+  const windows = await db
+    .select({ date: providerAvailabilityWindows.date })
+    .from(providerAvailabilityWindows)
+    .where(and(...windowConditions));
+  const windowDates = new Set(windows.map(w => w.date));
+
+  // Fetch full-day time-off overlapping this month
+  const timeOffList = await db
+    .select({ startDate: providerTimeOff.startDate, endDate: providerTimeOff.endDate, startTime: providerTimeOff.startTime, endTime: providerTimeOff.endTime })
+    .from(providerTimeOff)
+    .where(and(
+      eq(providerTimeOff.providerId, providerId),
+      lte(providerTimeOff.startDate, endDate),
+      gte(providerTimeOff.endDate, startDate),
+    ));
+
+  // Fetch absences overlapping this month
+  const absenceList = await db
+    .select({ startDate: providerAbsences.startDate, endDate: providerAbsences.endDate })
+    .from(providerAbsences)
+    .where(and(
+      eq(providerAbsences.providerId, providerId),
+      lte(providerAbsences.startDate, endDate),
+      gte(providerAbsences.endDate, startDate),
+    ));
+
+  // Build set of blocked dates (full-day time-off or absences)
+  const blockedDates = new Set<string>();
+  for (const t of timeOffList) {
+    if (!t.startTime && !t.endTime) {
+      // Full day off — expand range
+      const s = new Date(Math.max(new Date(t.startDate).getTime(), firstDay.getTime()));
+      const e = new Date(Math.min(new Date(t.endDate).getTime(), lastDay.getTime()));
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        blockedDates.add(formatDateLocal(d));
+      }
+    }
+  }
+  for (const a of absenceList) {
+    const s = new Date(Math.max(new Date(a.startDate).getTime(), firstDay.getTime()));
+    const e = new Date(Math.min(new Date(a.endDate).getTime(), lastDay.getTime()));
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      blockedDates.add(formatDateLocal(d));
+    }
+  }
+
+  // Iterate each day of the month
+  const availableDates: string[] = [];
+  for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+    const dateStr = formatDateLocal(d);
+    if (blockedDates.has(dateStr)) continue;
+
+    const dayOfWeek = d.getDay();
+    const hasWeekly = useWeeklySchedule && activeDaysOfWeek.has(dayOfWeek);
+    const hasWindow = windowDates.has(dateStr);
+
+    if (hasWeekly || hasWindow) {
+      availableDates.push(dateStr);
+    }
+  }
+
+  return availableDates;
+}
+
+function formatDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export async function getStaffAvailabilityForDate(

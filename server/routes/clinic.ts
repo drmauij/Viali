@@ -218,6 +218,52 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
   }
 });
 
+// 3b-pre: Get available dates for a provider in a given month (lightweight hint for calendar)
+router.get('/api/public/booking/:bookingToken/providers/:providerId/available-dates', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const { providerId } = req.params;
+    const month = req.query.month as string;
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: 'Valid month parameter required (YYYY-MM)' });
+    }
+
+    // Find the clinic unit for this provider (same logic as slots endpoint)
+    const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+    const roles = await db
+      .select()
+      .from(rolesTable)
+      .where(and(
+        eq(rolesTable.userId, providerId),
+        eq(rolesTable.hospitalId, hospital.id),
+        eq(rolesTable.isBookable, true)
+      ));
+
+    if (roles.length === 0) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    let unitId = roles[0].unitId;
+    for (const role of roles) {
+      const unit = await storage.getUnit(role.unitId);
+      if (unit?.type === 'clinic') {
+        unitId = role.unitId;
+        break;
+      }
+    }
+
+    const dates = await storage.getAvailableDatesForMonth(providerId, unitId, hospital.id, month);
+    res.json({ month, providerId, dates });
+  } catch (error) {
+    logger.error('Error fetching available dates:', error);
+    res.status(500).json({ message: 'Failed to load available dates' });
+  }
+});
+
 // 3b: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {
