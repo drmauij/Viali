@@ -875,6 +875,18 @@ function ClinicInfoPanel({ data, isDark, onToggleTheme }: { data: BookingData; i
 }
 
 function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; isDark: boolean; isEmbed: boolean }) {
+  // Override the global app theme so body bg-background matches the booking page theme
+  useEffect(() => {
+    const prev = document.documentElement.getAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    document.body.style.background = isDark ? "#0c0c14" : "#f9fafb";
+    return () => {
+      if (prev) document.documentElement.setAttribute("data-theme", prev);
+      else document.documentElement.removeAttribute("data-theme");
+      document.body.style.background = "";
+    };
+  }, [isDark]);
+
   return (
     <div className={cn(
       "min-h-screen transition-colors duration-500",

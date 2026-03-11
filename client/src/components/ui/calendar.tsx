@@ -14,9 +14,9 @@ function CaptionLabelStyled(props: CaptionLabelProps) {
   const year = displayMonth.getFullYear();
   return (
     <span className="rdp-caption_label text-base" aria-live="polite" role="presentation">
-      <span className="rdp-caption_month font-semibold text-gray-900">{month.charAt(0).toUpperCase() + month.slice(1)}</span>
+      <span className="rdp-caption_month font-semibold text-foreground">{month.charAt(0).toUpperCase() + month.slice(1)}</span>
       {" "}
-      <span className="rdp-caption_year font-normal text-gray-400">{year}</span>
+      <span className="rdp-caption_year font-normal text-muted-foreground">{year}</span>
     </span>
   );
 }
