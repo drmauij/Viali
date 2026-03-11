@@ -88,14 +88,15 @@ app.use('/api/transcribe-voice', aiLimiter);
 app.use('/api/parse-drug-command', aiLimiter);
 app.use('/api/translate', aiLimiter);
 
-const bookingLimiter = rateLimit({
+// Only rate-limit the actual booking POST (prevent spam submissions), not the read endpoints
+const bookingSubmitLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 150,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.' },
+  message: { message: 'Zu viele Buchungsanfragen. Bitte versuchen Sie es später erneut.' },
 });
-app.use('/api/public/booking', bookingLimiter);
+app.use('/api/public/booking/:token/book', bookingSubmitLimiter);
 
 // Allow booking page to be embedded in iframes
 app.use('/book', (req, res, next) => {
