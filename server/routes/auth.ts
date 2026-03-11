@@ -408,9 +408,11 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       availabilityMode: "always_available",
       calcomUserId: null,
       calcomEventTypeId: null,
+      bookingServiceName: null,
+      bookingLocation: null,
     });
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: "Hospital created successfully",
       hospital,
     });

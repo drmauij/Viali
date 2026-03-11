@@ -1205,6 +1205,13 @@
       "when": 1773175267735,
       "tag": "0171_gifted_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1773213905554,
+      "tag": "0172_heavy_invisible_woman",
+      "breakpoints": true
     }
   ]
 }

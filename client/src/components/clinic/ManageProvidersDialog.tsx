@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { 
-  Search, 
-  User, 
-  Stethoscope, 
-  Syringe, 
+import {
+  Search,
+  User,
+  Stethoscope,
+  Syringe,
   Users,
   UserPlus,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -34,6 +34,8 @@ interface ClinicProvider {
   unitId: string;
   userId: string;
   isBookable: boolean;
+  bookingServiceName: string | null;
+  bookingLocation: string | null;
   user: {
     id: string;
     firstName: string | null;
@@ -67,6 +69,7 @@ export default function ManageProvidersDialog({
   
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+  const [bookingFields, setBookingFields] = useState<Record<string, { serviceName: string; location: string }>>({});
   
   const { data: hospitalUsers = [], isLoading: usersLoading } = useQuery<HospitalUser[]>({
     queryKey: [`/api/hospitals/${hospitalId}/users-by-module`],
@@ -82,8 +85,19 @@ export default function ManageProvidersDialog({
     if (open) {
       setPendingChanges({});
       setSearchQuery('');
+      // Initialize booking fields from existing data
+      const fields: Record<string, { serviceName: string; location: string }> = {};
+      clinicProviders.forEach(cp => {
+        if (cp.bookingServiceName || cp.bookingLocation) {
+          fields[cp.userId] = {
+            serviceName: cp.bookingServiceName || '',
+            location: cp.bookingLocation || '',
+          };
+        }
+      });
+      setBookingFields(fields);
     }
-  }, [open]);
+  }, [open, clinicProviders]);
 
   const currentProviderMap = useMemo(() => {
     const map = new Map<string, boolean>();
@@ -124,9 +138,11 @@ export default function ManageProvidersDialog({
   }, [sortedUsers, searchQuery]);
 
   const toggleProviderMutation = useMutation({
-    mutationFn: async ({ userId, isBookable }: { userId: string; isBookable: boolean }) => {
+    mutationFn: async ({ userId, isBookable, bookingServiceName, bookingLocation }: { userId: string; isBookable: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
       return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${userId}`, {
-        isBookable
+        isBookable,
+        bookingServiceName,
+        bookingLocation,
       });
     },
     onSuccess: () => {
@@ -159,15 +175,29 @@ export default function ManageProvidersDialog({
   };
 
   const handleSave = async () => {
-    const changes = Object.entries(pendingChanges);
-    if (changes.length === 0) {
+    // Collect users that have either bookable toggle changes or booking field changes
+    const allUserIds = new Set([
+      ...Object.keys(pendingChanges),
+      ...Object.keys(bookingFields),
+    ]);
+
+    if (allUserIds.size === 0) {
       onOpenChange(false);
       return;
     }
 
     try {
-      for (const [userId, isBookable] of changes) {
-        await toggleProviderMutation.mutateAsync({ userId, isBookable });
+      for (const userId of allUserIds) {
+        const isBookable = userId in pendingChanges
+          ? pendingChanges[userId]
+          : (currentProviderMap.get(userId) ?? false);
+        const fields = bookingFields[userId];
+        await toggleProviderMutation.mutateAsync({
+          userId,
+          isBookable,
+          bookingServiceName: fields?.serviceName,
+          bookingLocation: fields?.location,
+        });
       }
       
       toast({
@@ -186,7 +216,7 @@ export default function ManageProvidersDialog({
     onOpenChange(false);
   };
 
-  const hasChanges = Object.keys(pendingChanges).length > 0;
+  const hasChanges = Object.keys(pendingChanges).length > 0 || Object.keys(bookingFields).length > 0;
   const isLoading = usersLoading || providersLoading;
   const isSaving = toggleProviderMutation.isPending;
 
@@ -234,34 +264,67 @@ export default function ManageProvidersDialog({
                 const isSelected = isUserBookable(user.id);
                 const hasChange = user.id in pendingChanges;
                 
+                const userBookingFields = bookingFields[user.id] || { serviceName: '', location: '' };
+
                 return (
-                  <div
-                    key={user.id}
-                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors ${
-                      isSelected ? 'bg-primary/10' : ''
-                    } ${hasChange ? 'ring-2 ring-primary/30' : ''}`}
-                    onClick={() => toggleSelection(user.id)}
-                    data-testid={`provider-row-${user.id}`}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSelection(user.id)}
-                      data-testid={`checkbox-provider-${user.id}`}
-                    />
-                    <RoleIcon className={`h-4 w-4 ${roleConfig.colorClass}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {user.lastName || ''} {user.firstName || ''}
-                      </div>
-                      {user.email && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {user.email}
+                  <div key={user.id} className="space-y-0">
+                    <div
+                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors ${
+                        isSelected ? 'bg-primary/10' : ''
+                      } ${hasChange ? 'ring-2 ring-primary/30' : ''}`}
+                      onClick={() => toggleSelection(user.id)}
+                      data-testid={`provider-row-${user.id}`}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelection(user.id)}
+                        data-testid={`checkbox-provider-${user.id}`}
+                      />
+                      <RoleIcon className={`h-4 w-4 ${roleConfig.colorClass}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">
+                          {user.lastName || ''} {user.firstName || ''}
                         </div>
-                      )}
+                        {user.email && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {user.email}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {user.role}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground capitalize">
-                      {user.role}
-                    </span>
+                    {isSelected && (
+                      <div className="ml-9 pl-2 pb-2 space-y-1.5">
+                        <Input
+                          placeholder="Service (e.g. Plastische Chirurgie Beratung)"
+                          value={userBookingFields.serviceName}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setBookingFields(prev => ({
+                              ...prev,
+                              [user.id]: { ...prev[user.id] || { serviceName: '', location: '' }, serviceName: e.target.value }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-7 text-xs"
+                        />
+                        <Input
+                          placeholder="Location (e.g. Gaissbergstr. 45, Stuttgart)"
+                          value={userBookingFields.location}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setBookingFields(prev => ({
+                              ...prev,
+                              [user.id]: { ...prev[user.id] || { serviceName: '', location: '' }, location: e.target.value }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}

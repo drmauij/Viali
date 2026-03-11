@@ -14,6 +14,8 @@ type Provider = {
   firstName: string;
   lastName: string;
   profileImageUrl: string | null;
+  bookingServiceName: string | null;
+  bookingLocation: string | null;
 };
 
 type BookingData = {
@@ -380,12 +382,34 @@ export default function BookAppointment() {
                 <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
                 <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-2 mt-4 md:mt-5">
                   <ProviderAvatar provider={selectedProvider} isDark={isDark} />
-                  <p className={cn(
-                    "text-sm font-semibold",
-                    isDark ? "text-white/80" : "text-gray-900"
-                  )}>
-                    {selectedProvider.firstName} {selectedProvider.lastName}
-                  </p>
+                  <div>
+                    <p className={cn(
+                      "text-sm font-semibold",
+                      isDark ? "text-white/80" : "text-gray-900"
+                    )}>
+                      {selectedProvider.firstName} {selectedProvider.lastName}
+                    </p>
+                    {selectedProvider.bookingServiceName && (
+                      <p className={cn(
+                        "text-xs mt-1",
+                        isDark ? "text-white/50" : "text-gray-500"
+                      )}>
+                        {selectedProvider.bookingServiceName}
+                      </p>
+                    )}
+                    {selectedProvider.bookingLocation && (
+                      <p className={cn(
+                        "flex items-center gap-1 text-xs mt-1",
+                        isDark ? "text-white/40" : "text-gray-400"
+                      )}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        {selectedProvider.bookingLocation}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               {/* Calendar */}

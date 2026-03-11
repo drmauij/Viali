@@ -465,6 +465,8 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
       availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
+      bookingServiceName: null,
+      bookingLocation: null,
     });
     res.status(201).json(userRole);
   } catch (error) {
@@ -542,6 +544,8 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
+      bookingServiceName: null,
+      bookingLocation: null,
     });
 
     const hospital = await storage.getHospital(hospitalId);
@@ -618,6 +622,8 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         availabilityMode: 'always_available',
         calcomUserId: null,
         calcomEventTypeId: null,
+        bookingServiceName: null,
+        bookingLocation: null,
       });
 
       const hospital = await storage.getHospital(hospitalId);
@@ -680,6 +686,8 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
+      bookingServiceName: null,
+      bookingLocation: null,
     });
 
     const hospital = await storage.getHospital(hospitalId);

@@ -6275,6 +6275,32 @@ function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: string | und
     enabled: !!hospitalId && isAdmin && !!tokenData?.bookingToken,
   });
 
+  // Fetch all clinic providers to allow toggling visibility
+  const { data: allProviders } = useQuery<any[]>({
+    queryKey: [`/api/clinic/${hospitalId}/clinic-providers`],
+    enabled: !!hospitalId && isAdmin && !!tokenData?.bookingToken,
+  });
+
+  // Mutation to update provider booking settings
+  const updateProviderMutation = useMutation({
+    mutationFn: async ({ userId, isBookable, bookingServiceName, bookingLocation }: { userId: string; isBookable: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
+      return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${userId}`, {
+        isBookable,
+        bookingServiceName,
+        bookingLocation,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return typeof k === 'string' && (k.includes('/clinic-providers') || k.includes('/bookable-providers'));
+      }});
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update provider', variant: 'destructive' });
+    },
+  });
+
   useEffect(() => {
     if (tokenData?.bookingSettings) {
       const s = tokenData.bookingSettings;
@@ -6430,44 +6456,96 @@ function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: string | und
               </div>
             )}
 
-            {/* Per-provider direct links */}
-            {bookableProviders && bookableProviders.length > 0 && (
+            {/* Per-provider settings and direct links */}
+            {allProviders && allProviders.length > 0 && (
               <div>
                 <button
                   onClick={() => setShowProviderLinks(!showProviderLinks)}
                   className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 >
-                  {showProviderLinks ? "▾" : "▸"} Direct links per provider ({bookableProviders.length})
+                  {showProviderLinks ? "▾" : "▸"} Direct links per provider ({bookableProviders?.length || 0})
                 </button>
                 {showProviderLinks && (
-                  <div className="mt-2 space-y-2">
-                    {bookableProviders.map((p: any) => {
+                  <div className="mt-2 space-y-3">
+                    {allProviders.map((p: any) => {
                       const providerUrl = `${bookingUrl}?provider=${p.userId}`;
                       const isCopied = copiedProviderId === p.userId;
+                      const isBookable = p.isBookable ?? false;
                       return (
-                        <div key={p.userId} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                          <span className="text-sm font-medium min-w-[140px] truncate">
-                            {p.user?.firstName} {p.user?.lastName}
-                          </span>
-                          <Input
-                            value={providerUrl}
-                            readOnly
-                            className="flex-1 bg-background text-xs font-mono h-8"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 shrink-0"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(providerUrl);
-                                setCopiedProviderId(p.userId);
-                                setTimeout(() => setCopiedProviderId(null), 2000);
-                              } catch { /* ignore */ }
-                            }}
-                          >
-                            {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                          </Button>
+                        <div key={p.userId} className={`p-3 rounded-lg border ${isBookable ? 'bg-muted/50 border-border' : 'bg-transparent border-dashed border-muted'}`}>
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={isBookable}
+                              onCheckedChange={(checked) => {
+                                updateProviderMutation.mutate({
+                                  userId: p.userId,
+                                  isBookable: !!checked,
+                                  bookingServiceName: p.bookingServiceName || undefined,
+                                  bookingLocation: p.bookingLocation || undefined,
+                                });
+                              }}
+                            />
+                            <span className={`text-sm font-medium flex-1 truncate ${!isBookable ? 'text-muted-foreground' : ''}`}>
+                              {p.user?.firstName} {p.user?.lastName}
+                            </span>
+                            {isBookable && (
+                              <>
+                                <Input
+                                  value={providerUrl}
+                                  readOnly
+                                  className="max-w-[220px] bg-background text-xs font-mono h-7"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 shrink-0"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(providerUrl);
+                                      setCopiedProviderId(p.userId);
+                                      setTimeout(() => setCopiedProviderId(null), 2000);
+                                    } catch { /* ignore */ }
+                                  }}
+                                >
+                                  {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {isBookable && (
+                            <div className="mt-2 ml-8 grid grid-cols-2 gap-2">
+                              <Input
+                                placeholder="Service (e.g. Plastische Chirurgie Beratung)"
+                                defaultValue={p.bookingServiceName || ''}
+                                className="h-7 text-xs"
+                                onBlur={(e) => {
+                                  if (e.target.value !== (p.bookingServiceName || '')) {
+                                    updateProviderMutation.mutate({
+                                      userId: p.userId,
+                                      isBookable: true,
+                                      bookingServiceName: e.target.value,
+                                      bookingLocation: p.bookingLocation || undefined,
+                                    });
+                                  }
+                                }}
+                              />
+                              <Input
+                                placeholder="Location (e.g. Gaissbergstr. 45)"
+                                defaultValue={p.bookingLocation || ''}
+                                className="h-7 text-xs"
+                                onBlur={(e) => {
+                                  if (e.target.value !== (p.bookingLocation || '')) {
+                                    updateProviderMutation.mutate({
+                                      userId: p.userId,
+                                      isBookable: true,
+                                      bookingServiceName: p.bookingServiceName || undefined,
+                                      bookingLocation: e.target.value,
+                                    });
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}

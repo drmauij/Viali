@@ -1,0 +1,2 @@
+ALTER TABLE "user_hospital_roles" ADD COLUMN IF NOT EXISTS "booking_service_name" varchar;--> statement-breakpoint
+ALTER TABLE "user_hospital_roles" ADD COLUMN IF NOT EXISTS "booking_location" varchar;

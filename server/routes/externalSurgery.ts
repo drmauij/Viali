@@ -692,6 +692,8 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           availabilityMode: null,
           calcomUserId: null,
           calcomEventTypeId: null,
+          bookingServiceName: null,
+          bookingLocation: null,
         });
       }
     };

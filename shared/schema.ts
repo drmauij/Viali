@@ -166,6 +166,8 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   availabilityMode: varchar("availability_mode", { 
     enum: ["always_available", "windows_required"] 
   }).default("always_available"),
+  bookingServiceName: varchar("booking_service_name"), // e.g. "Plastische Chirurgie Beratung"
+  bookingLocation: varchar("booking_location"), // e.g. "Gaissbergstrasse 45, Stuttgart"
   calcomUserId: integer("calcom_user_id"), // Cal.com user ID for bi-directional sync
   calcomEventTypeId: integer("calcom_event_type_id"), // Cal.com event type ID for creating bookings
   createdAt: timestamp("created_at").defaultNow(),
@@ -4115,6 +4117,8 @@ export interface ClinicProvider {
   userId: string;
   isBookable: boolean;
   availabilityMode: "always_available" | "windows_required";
+  bookingServiceName: string | null;
+  bookingLocation: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }

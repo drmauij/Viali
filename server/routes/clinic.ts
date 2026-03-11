@@ -210,6 +210,8 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         firstName: p.user.firstName,
         lastName: p.user.lastName,
         profileImageUrl: p.user.profileImageUrl,
+        bookingServiceName: p.bookingServiceName,
+        bookingLocation: p.bookingLocation,
       })),
     });
   } catch (error) {
@@ -2075,19 +2077,24 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
 router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
-    const { isBookable } = req.body;
-    
+    const { isBookable, bookingServiceName, bookingLocation } = req.body;
+
     if (typeof isBookable !== 'boolean') {
       return res.status(400).json({ message: "isBookable must be a boolean" });
     }
-    
+
     // Import userHospitalRoles to update directly
     const { userHospitalRoles } = await import("@shared/schema");
-    
+
+    // Build update set — always update isBookable, optionally update service/location
+    const updateSet: Record<string, any> = { isBookable };
+    if (bookingServiceName !== undefined) updateSet.bookingServiceName = bookingServiceName || null;
+    if (bookingLocation !== undefined) updateSet.bookingLocation = bookingLocation || null;
+
     // Update all roles for this user in this hospital
     await db
       .update(userHospitalRoles)
-      .set({ isBookable })
+      .set(updateSet)
       .where(
         and(
           eq(userHospitalRoles.hospitalId, hospitalId),

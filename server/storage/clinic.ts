@@ -76,6 +76,8 @@ function roleToClinicProvider(role: UserHospitalRole): ClinicProvider {
     userId: role.userId,
     isBookable: role.isBookable ?? false,
     availabilityMode: (role.availabilityMode as 'always_available' | 'windows_required') ?? 'always_available',
+    bookingServiceName: role.bookingServiceName ?? null,
+    bookingLocation: role.bookingLocation ?? null,
     createdAt: role.createdAt ?? null,
     updatedAt: null,
   };

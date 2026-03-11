@@ -198,6 +198,8 @@ export async function seedHospitalData(
       availabilityMode: "always_available",
       calcomUserId: null,
       calcomEventTypeId: null,
+      bookingServiceName: null,
+      bookingLocation: null,
     });
   }
 
