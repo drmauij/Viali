@@ -20,13 +20,9 @@ import {
 import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
-import { syncAvailabilityToCalcom } from "../services/calcomSync";
+// Cal.com integration is legacy — booking is now native via /book
 
-function fireAvailabilitySync(hospitalId: string, providerId: string) {
-  syncAvailabilityToCalcom(hospitalId, providerId).catch((err) => {
-    logger.error("Background availability sync failed:", err);
-  });
-}
+// Cal.com sync removed — booking is now handled natively via /book
 
 // Helper to get calendar scope based on unit's hasOwnCalendar setting
 // Returns { unitId: string | null, hospitalId: string }
@@ -2261,9 +2257,6 @@ router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
     );
     
     res.json(result);
-
-    // Fire-and-forget: sync availability to Cal.com
-    fireAvailabilitySync(hospitalId, providerId);
   } catch (error) {
     logger.error("Error setting provider availability:", error);
     res.status(500).json({ message: "Failed to set availability" });
@@ -2555,9 +2548,6 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
     });
     
     res.status(201).json(window);
-
-    // Fire-and-forget: sync availability to Cal.com
-    fireAvailabilitySync(hospitalId, providerId);
   } catch (error) {
     logger.error("Error creating availability window:", error);
     res.status(500).json({ message: "Failed to create availability window" });
@@ -2579,11 +2569,6 @@ router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthentic
     });
     
     res.json(window);
-
-    // Fire-and-forget: sync availability to Cal.com
-    if (window?.providerId) {
-      fireAvailabilitySync(hospitalId, window.providerId);
-    }
   } catch (error) {
     logger.error("Error updating availability window:", error);
     res.status(500).json({ message: "Failed to update availability window" });
@@ -2595,16 +2580,7 @@ router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthen
   try {
     const { hospitalId, windowId } = req.params;
 
-    // Read window before deleting to get providerId for sync
-    const windowToDelete = await storage.getProviderAvailabilityWindow(windowId);
-
     await storage.deleteProviderAvailabilityWindow(windowId);
-
-    // Fire-and-forget: sync availability to Cal.com
-    if (windowToDelete?.providerId) {
-      fireAvailabilitySync(hospitalId, windowToDelete.providerId);
-    }
-
     res.status(204).send();
   } catch (error) {
     logger.error("Error deleting availability window:", error);

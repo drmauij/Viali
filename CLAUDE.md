@@ -35,6 +35,10 @@ When the user says "check db for deploy", run this full checklist:
 4. Confirm the Drizzle journal (`migrations/meta/_journal.json`) includes the latest migration entry
 5. Report result: safe to deploy, or list what needs fixing
 
+## Cal.com integration (LEGACY)
+
+Cal.com is **no longer used** for booking — all appointment booking is now handled natively in Viali via `/book`. Do NOT call `syncAvailabilityToCalcom` or any Cal.com sync functions from new code. The Cal.com service files and DB tables (`calcom_config`, `calcom_provider_mappings`) still exist but are legacy/inactive.
+
 ## Communication
 
 Use simple, everyday language.
