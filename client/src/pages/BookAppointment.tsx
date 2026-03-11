@@ -80,7 +80,7 @@ export default function BookAppointment() {
     fetch(`/api/public/booking/${token}`)
       .then(async (res) => {
         if (!res.ok) {
-          setError("not_found");
+          setError(res.status === 429 ? "rate_limit" : "not_found");
           return;
         }
         const d: BookingData = await res.json();
@@ -271,11 +271,15 @@ export default function BookAppointment() {
             <p className="text-lg font-medium mb-1">
               {error === "network"
                 ? "Verbindungsfehler"
+                : error === "rate_limit"
+                ? "Zu viele Anfragen"
                 : "Seite nicht gefunden"}
             </p>
             <p className="text-sm opacity-70">
               {error === "network"
                 ? "Bitte prüfen Sie Ihre Internetverbindung."
+                : error === "rate_limit"
+                ? "Bitte versuchen Sie es in einigen Minuten erneut."
                 : "Dieser Buchungslink ist ungültig oder nicht mehr aktiv."}
             </p>
           </div>

@@ -90,7 +90,7 @@ app.use('/api/translate', aiLimiter);
 
 const bookingLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 150,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.' },
