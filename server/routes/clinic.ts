@@ -258,7 +258,10 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/available-da
       }
     }
 
-    const dates = await storage.getAvailableDatesForMonth(providerId, unitId, hospital.id, month);
+    const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
+    const slotDuration = settings?.slotDurationMinutes || 30;
+
+    const dates = await storage.getAvailableDatesForMonth(providerId, unitId, hospital.id, month, slotDuration);
     res.json({ month, providerId, dates });
   } catch (error) {
     logger.error('Error fetching available dates:', error);

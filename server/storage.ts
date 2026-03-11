@@ -901,7 +901,7 @@ export interface IStorage {
   
   // Available Slots Calculator
   getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string): Promise<{ startTime: string; endTime: string }[]>;
-  getAvailableDatesForMonth(providerId: string, unitId: string, hospitalId: string, month: string): Promise<string[]>;
+  getAvailableDatesForMonth(providerId: string, unitId: string, hospitalId: string, month: string, durationMinutes?: number): Promise<string[]>;
 
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;
