@@ -656,7 +656,7 @@ router.post(
         startTime: parsed.startTime,
         endTime,
         durationMinutes: 30,
-        status: "scheduled",
+        status: "confirmed",
         notes: parsed.notes || null,
         createdBy: userId,
       });

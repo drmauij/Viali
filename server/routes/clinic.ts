@@ -1826,6 +1826,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       unitId,
       durationMinutes,
       createdBy: userId,
+      status: 'confirmed',
     });
     
     const appointment = await storage.createClinicAppointment(validatedData);

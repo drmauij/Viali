@@ -2080,7 +2080,7 @@ export async function getPendingExternalSurgeryRequestsCount(hospitalId: string)
 
 /**
  * Get tomorrow's external appointments that need reminders.
- * Returns appointments where reminderSent = false, status = 'scheduled', appointmentType = 'external',
+ * Returns appointments where reminderSent = false, status in ('scheduled', 'confirmed'), appointmentType = 'external',
  * joined with patient phone/email.
  */
 export async function getAppointmentsForReminder(hospitalId: string, date: string): Promise<Array<{
@@ -2112,7 +2112,7 @@ export async function getAppointmentsForReminder(hospitalId: string, date: strin
       eq(clinicAppointments.hospitalId, hospitalId),
       eq(clinicAppointments.appointmentDate, date),
       eq(clinicAppointments.appointmentType, 'external'),
-      eq(clinicAppointments.status, 'scheduled'),
+      inArray(clinicAppointments.status, ['scheduled', 'confirmed']),
       eq(clinicAppointments.reminderSent, false),
     ));
 
