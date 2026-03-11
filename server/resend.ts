@@ -1301,7 +1301,8 @@ export async function sendAppointmentRescheduleEmail(
   appointmentDate: string,
   appointmentTime: string,
   language: string = 'de',
-  cancelUrl: string = ''
+  cancelUrl: string = '',
+  providerName: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1324,8 +1325,8 @@ export async function sendAppointmentRescheduleEmail(
         <h2>${clinicName}</h2>
         <p>${isGerman ? 'Guten Tag' : 'Dear'} ${patientFirstName},</p>
         <p>${isGerman
-          ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}. Bei Fragen kontaktieren Sie uns bitte direkt.`
-          : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}. For questions, please contact us directly.`}</p>
+          ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''}. Bei Fragen kontaktieren Sie uns bitte direkt.`
+          : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''}. For questions, please contact us directly.`}</p>
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>

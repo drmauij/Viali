@@ -1504,6 +1504,14 @@ async function sendAppointmentNotification(
     const hospital = await storage.getHospital(hospitalId);
     if (!hospital) return;
 
+    let providerName = '';
+    if (appointment.providerId) {
+      const provider = await storage.getUser(appointment.providerId);
+      if (provider) {
+        providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
+      }
+    }
+
     const lang = (hospital.defaultLanguage as string) || 'de';
     const isGerman = lang === 'de';
     const tz = hospital.timezone || 'Europe/Zurich';
@@ -1553,12 +1561,12 @@ async function sendAppointmentNotification(
           : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime} wurde bestätigt.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime} has been confirmed.${cancelSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${cancelSuffix || ' For questions, please contact us directly.'}`,
           },
           reschedule: {
-            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}.${cancelSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${cancelSuffix || ' For questions, please contact us directly.'}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
@@ -1584,9 +1592,9 @@ async function sendAppointmentNotification(
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       } else {
         // For confirmation and reschedule, use versions with cancel link
-        const emailFns = { confirmation: sendAppointmentConfirmationEmail, reschedule: sendAppointmentRescheduleEmail };
-        const emailFn = emailFns[type];
-        const result = await emailFn(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl);
+        const result = type === 'reschedule'
+          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl, providerName)
+          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       }
     }
@@ -1899,12 +1907,13 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
     
     const updated = await storage.updateClinicAppointment(appointmentId, updateData);
 
-    // If time or date changed, send reschedule notification
+    // If time, date, or provider changed, send reschedule notification
     const timeChanged = (validatedData.appointmentDate && validatedData.appointmentDate !== existing.appointmentDate)
       || (validatedData.startTime && validatedData.startTime !== existing.startTime)
       || (validatedData.endTime && validatedData.endTime !== existing.endTime);
+    const providerChanged = validatedData.providerId && validatedData.providerId !== existing.providerId;
 
-    if (timeChanged && updated.patientId && sendNotification !== false) {
+    if ((timeChanged || providerChanged) && updated.patientId && sendNotification !== false) {
       sendAppointmentNotification(updated.id, hospitalId, 'reschedule');
     }
 
