@@ -232,6 +232,15 @@ export function ManageAvailabilityDialog({
     },
   });
 
+  const updateWindowMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      return apiRequest("PUT", `/api/clinic/${hospitalId}/availability-windows/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability-windows`] });
+    },
+  });
+
   const updateAvailabilitySlot = (slotId: string, field: string, value: any) => {
     setEditAvailability(prev => 
       prev.map(a => (a.id === slotId ? { ...a, [field]: value } : a))
@@ -512,25 +521,31 @@ export function ManageAvailabilityDialog({
                             <div className="font-medium text-green-800 dark:text-green-300">
                               {format(parseISO(window.date), 'EEEE, PP', { locale: dateLocale })}
                             </div>
-                            <div className="text-muted-foreground flex items-center gap-2">
-                              <span>{window.startTime} - {window.endTime}</span>
-                              {window.isPublic === false && (
-                                <Badge variant="outline" className="text-xs">
-                                  {t('availability.privateOnly', 'Staff only')}
-                                </Badge>
-                              )}
-                              {window.notes && <span>({window.notes})</span>}
+                            <div className="text-muted-foreground">
+                              {window.startTime} - {window.endTime}
+                              {window.notes && <span className="ml-2">({window.notes})</span>}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteWindowMutation.mutate(window.id)}
-                            disabled={deleteWindowMutation.isPending}
-                            data-testid={`button-delete-window-dialog-${window.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5" title={t('availability.showOnPublicCalendar', 'Show on public calendar')}>
+                              <span className="text-xs text-muted-foreground">{t('availability.public', 'Public')}</span>
+                              <Switch
+                                checked={window.isPublic !== false}
+                                onCheckedChange={(checked) => updateWindowMutation.mutate({ id: window.id, data: { isPublic: checked } })}
+                                disabled={updateWindowMutation.isPending}
+                                data-testid={`switch-window-public-${window.id}`}
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteWindowMutation.mutate(window.id)}
+                              disabled={deleteWindowMutation.isPending}
+                              data-testid={`button-delete-window-dialog-${window.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
