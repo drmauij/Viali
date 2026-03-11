@@ -42,6 +42,7 @@ import {
   ToggleLeft,
   UserPlus,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { format, parseISO } from "date-fns";
@@ -91,6 +92,11 @@ export default function ClinicAppointments() {
   const [timeOffDefaults, setTimeOffDefaults] = useState<{
     providerId: string; startDate: string; endDate: string;
   } | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editProviderId, setEditProviderId] = useState('');
 
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
@@ -181,6 +187,49 @@ export default function ClinicAppointments() {
       toast({ title: t('appointments.deleteError', 'Failed to delete appointment'), variant: "destructive" });
     },
   });
+
+  const rescheduleAppointmentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { appointmentDate?: string; startTime?: string; endTime?: string; providerId?: string } }) => {
+      return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
+        }
+      });
+      toast({ title: t('appointments.rescheduled', 'Appointment rescheduled') });
+      setEditMode(false);
+      setDetailDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: t('appointments.rescheduleError', 'Failed to reschedule appointment'), variant: "destructive" });
+    },
+  });
+
+  const enterEditMode = () => {
+    if (!selectedAppointment) return;
+    setEditDate(selectedAppointment.appointmentDate);
+    setEditStartTime(selectedAppointment.startTime);
+    setEditEndTime(selectedAppointment.endTime);
+    setEditProviderId(selectedAppointment.providerId || '');
+    setEditMode(true);
+  };
+
+  const handleSaveReschedule = () => {
+    if (!selectedAppointment) return;
+    const changes: Record<string, string> = {};
+    if (editDate !== selectedAppointment.appointmentDate) changes.appointmentDate = editDate;
+    if (editStartTime !== selectedAppointment.startTime) changes.startTime = editStartTime;
+    if (editEndTime !== selectedAppointment.endTime) changes.endTime = editEndTime;
+    if (editProviderId !== (selectedAppointment.providerId || '')) changes.providerId = editProviderId;
+    if (Object.keys(changes).length === 0) {
+      setEditMode(false);
+      return;
+    }
+    rescheduleAppointmentMutation.mutate({ id: selectedAppointment.id, data: changes });
+  };
 
   const createOffTimeMutation = useMutation({
     mutationFn: async (data: { providerId: string; date: string; startTime: string; endTime: string }) => {
@@ -377,12 +426,17 @@ export default function ClinicAppointments() {
         />
       </div>
 
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+      <Dialog open={detailDialogOpen} onOpenChange={(open) => { setDetailDialogOpen(open); if (!open) setEditMode(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               {t('appointments.details', 'Appointment Details')}
+              {selectedAppointment && !editMode && (selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
+                <Button variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={enterEditMode}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -435,23 +489,61 @@ export default function ClinicAppointments() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">{t('appointments.date', 'Date')}</p>
-                  <p className="font-medium" data-testid="text-appointment-date">
-                    {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
-                  </p>
+                  {editMode ? (
+                    <DateInput
+                      value={editDate}
+                      onChange={(val) => setEditDate(val)}
+                    />
+                  ) : (
+                    <p className="font-medium" data-testid="text-appointment-date">
+                      {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">{t('appointments.time', 'Time')}</p>
-                  <p className="font-medium" data-testid="text-appointment-time">
-                    {selectedAppointment.startTime} - {selectedAppointment.endTime}
-                  </p>
+                  {editMode ? (
+                    <div className="flex items-center gap-1">
+                      <TimeInput
+                        value={editStartTime}
+                        onChange={(val) => setEditStartTime(val)}
+                        className="w-20"
+                      />
+                      <span>-</span>
+                      <TimeInput
+                        value={editEndTime}
+                        onChange={(val) => setEditEndTime(val)}
+                        className="w-20"
+                      />
+                    </div>
+                  ) : (
+                    <p className="font-medium" data-testid="text-appointment-time">
+                      {selectedAppointment.startTime} - {selectedAppointment.endTime}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">{t('appointments.provider', 'Provider')}</p>
-                  <p className="font-medium">
-                    {selectedAppointment.provider 
-                      ? `${selectedAppointment.provider.firstName} ${selectedAppointment.provider.lastName}`
-                      : '-'}
-                  </p>
+                  {editMode ? (
+                    <Select value={editProviderId} onValueChange={setEditProviderId}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {providers.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.firstName} {p.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium">
+                      {selectedAppointment.provider
+                        ? `${selectedAppointment.provider.firstName} ${selectedAppointment.provider.lastName}`
+                        : '-'}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">
@@ -482,67 +574,90 @@ export default function ClinicAppointments() {
               )}
 
               <DialogFooter className="flex-col gap-2 sm:flex-row">
-                {selectedAppointment.status === 'scheduled' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'confirmed' })}
-                    disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                    data-testid="button-confirm-appointment"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    {t('appointments.confirm', 'Confirm')}
-                  </Button>
-                )}
-                {(selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
+                {editMode ? (
                   <>
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
-                      onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'in_progress' })}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-start-appointment"
+                      onClick={() => setEditMode(false)}
+                      disabled={rescheduleAppointmentMutation.isPending}
                     >
-                      {t('appointments.start', 'Start')}
+                      {t('common.cancel', 'Cancel')}
                     </Button>
                     <Button
-                      variant="destructive"
                       size="sm"
-                      onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'cancelled' })}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-cancel-appointment"
+                      onClick={handleSaveReschedule}
+                      disabled={rescheduleAppointmentMutation.isPending}
                     >
-                      <X className="h-4 w-4 mr-1" />
-                      {t('appointments.cancel', 'Cancel')}
+                      {rescheduleAppointmentMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      {t('common.save', 'Save')}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {selectedAppointment.status === 'scheduled' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'confirmed' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-confirm-appointment"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        {t('appointments.confirm', 'Confirm')}
+                      </Button>
+                    )}
+                    {(selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'in_progress' })}
+                          disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                          data-testid="button-start-appointment"
+                        >
+                          {t('appointments.start', 'Start')}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'cancelled' })}
+                          disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                          data-testid="button-cancel-appointment"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          {t('appointments.cancel', 'Cancel')}
+                        </Button>
+                      </>
+                    )}
+                    {selectedAppointment.status === 'in_progress' && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'completed' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-complete-appointment"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        {t('appointments.complete', 'Complete')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
+                          deleteAppointmentMutation.mutate(selectedAppointment.id);
+                        }
+                      }}
+                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                      data-testid="button-delete-appointment"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {t('appointments.delete', 'Delete')}
                     </Button>
                   </>
                 )}
-                {selectedAppointment.status === 'in_progress' && (
-                  <Button
-                    size="sm"
-                    onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'completed' })}
-                    disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                    data-testid="button-complete-appointment"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    {t('appointments.complete', 'Complete')}
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => {
-                    if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
-                      deleteAppointmentMutation.mutate(selectedAppointment.id);
-                    }
-                  }}
-                  disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                  data-testid="button-delete-appointment"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {t('appointments.delete', 'Delete')}
-                </Button>
               </DialogFooter>
             </div>
           )}
