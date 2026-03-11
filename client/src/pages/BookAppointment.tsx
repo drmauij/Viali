@@ -92,10 +92,12 @@ export default function BookAppointment() {
         if (preselected) {
           setSelectedProvider(preselected);
           setStep("datetime");
+          setAvailableDatesLoading(true);
           setSeekingAvailableMonth(true);
         } else if (d.providers.length === 1) {
           setSelectedProvider(d.providers[0]);
           setStep("datetime");
+          setAvailableDatesLoading(true);
           setSeekingAvailableMonth(true);
         }
       })
@@ -225,6 +227,7 @@ export default function BookAppointment() {
     setSelectedDate(undefined);
     setSlots([]);
     setSelectedSlot(null);
+    setAvailableDatesLoading(true);
     setSeekingAvailableMonth(true);
   }, []);
 
