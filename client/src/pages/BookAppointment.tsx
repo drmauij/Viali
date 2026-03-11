@@ -188,6 +188,7 @@ export default function BookAppointment() {
       setSeekingAvailableMonth(false);
       return;
     }
+    setAvailableDatesLoading(true);
     setVisibleMonth(next);
   }, [availableDates, availableDatesLoading, seekingAvailableMonth, visibleMonth, dateConstraints.toDate]);
 
