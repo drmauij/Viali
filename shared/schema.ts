@@ -4219,7 +4219,10 @@ export const providerAvailabilityWindows = pgTable("provider_availability_window
   slotDurationMinutes: integer("slot_duration_minutes").default(30),
   
   notes: text("notes"),
-  
+
+  // Whether this window appears on the public booking calendar
+  isPublic: boolean("is_public").default(true).notNull(),
+
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

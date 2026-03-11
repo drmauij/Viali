@@ -1212,6 +1212,13 @@
       "when": 1773213905554,
       "tag": "0172_heavy_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1773257494085,
+      "tag": "0173_violet_arclight",
+      "breakpoints": true
     }
   ]
 }

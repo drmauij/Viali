@@ -104,6 +104,7 @@ interface ProviderAvailabilityWindowData {
   endTime: string;
   slotDurationMinutes: number;
   notes: string | null;
+  isPublic: boolean;
 }
 
 type CalendarResource = {
@@ -899,10 +900,11 @@ export default function ClinicCalendar({
         dayEnd.setHours(endH, endM, 0, 0);
 
         const notes = window.notes || t('appointments.available', 'Available');
+        const publicPrefix = window.isPublic === false ? '🔒 ' : '✓ ';
 
         events.push({
           id: `window-${window.id}`,
-          title: `✓ ${notes}`,
+          title: `${publicPrefix}${notes}`,
           start: dayStart,
           end: dayEnd,
           resource: window.providerId,

@@ -969,7 +969,7 @@ export async function deleteClinicAppointment(id: string): Promise<void> {
     .where(eq(clinicAppointments.id, id));
 }
 
-export async function getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string): Promise<{ startTime: string; endTime: string }[]> {
+export async function getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number, hospitalId?: string, publicOnly?: boolean): Promise<{ startTime: string; endTime: string }[]> {
   const dateObj = new Date(date);
   const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
 
@@ -1024,10 +1024,13 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     .orderBy(providerAvailability.startTime);
 
   // Query availability windows for this specific date
-  const windowConditions = [
+  const windowConditions: any[] = [
     eq(providerAvailabilityWindows.providerId, providerId),
     eq(providerAvailabilityWindows.date, date),
   ];
+  if (publicOnly) {
+    windowConditions.push(eq(providerAvailabilityWindows.isPublic, true));
+  }
   if (effectiveUnitId === null && hospitalId) {
     windowConditions.push(eq(providerAvailabilityWindows.hospitalId, hospitalId));
     windowConditions.push(isNull(providerAvailabilityWindows.unitId));
@@ -1065,12 +1068,15 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       .where(and(...hospitalWeeklyConditions))
       .orderBy(providerAvailability.startTime);
 
-    const hospitalWindowConditions = [
+    const hospitalWindowConditions: any[] = [
       eq(providerAvailabilityWindows.providerId, providerId),
       eq(providerAvailabilityWindows.date, date),
       eq(providerAvailabilityWindows.hospitalId, hospitalId),
       isNull(providerAvailabilityWindows.unitId),
     ];
+    if (publicOnly) {
+      hospitalWindowConditions.push(eq(providerAvailabilityWindows.isPublic, true));
+    }
     windowList = await db
       .select()
       .from(providerAvailabilityWindows)
@@ -1241,7 +1247,8 @@ export async function getAvailableDatesForMonth(
   unitId: string,
   hospitalId: string,
   month: string, // YYYY-MM format
-  durationMinutes: number = 30
+  durationMinutes: number = 30,
+  publicOnly?: boolean
 ): Promise<string[]> {
   const [yearStr, monthStr] = month.split('-');
   const year = parseInt(yearStr, 10);
@@ -1270,7 +1277,7 @@ export async function getAvailableDatesForMonth(
     const dateStr = formatDateLocal(d);
     // Skip closure dates
     if (closedDates.has(dateStr)) continue;
-    const slots = await getAvailableSlots(providerId, unitId, dateStr, durationMinutes, hospitalId);
+    const slots = await getAvailableSlots(providerId, unitId, dateStr, durationMinutes, hospitalId, publicOnly);
     if (slots.length > 0) {
       availableDates.push(dateStr);
     }

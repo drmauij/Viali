@@ -512,9 +512,14 @@ export function ManageAvailabilityDialog({
                             <div className="font-medium text-green-800 dark:text-green-300">
                               {format(parseISO(window.date), 'EEEE, PP', { locale: dateLocale })}
                             </div>
-                            <div className="text-muted-foreground">
-                              {window.startTime} - {window.endTime}
-                              {window.notes && <span className="ml-2">({window.notes})</span>}
+                            <div className="text-muted-foreground flex items-center gap-2">
+                              <span>{window.startTime} - {window.endTime}</span>
+                              {window.isPublic === false && (
+                                <Badge variant="outline" className="text-xs">
+                                  {t('availability.privateOnly', 'Staff only')}
+                                </Badge>
+                              )}
+                              {window.notes && <span>({window.notes})</span>}
                             </div>
                           </div>
                           <Button
@@ -914,6 +919,7 @@ function AvailabilityWindowDialog({
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [notes, setNotes] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
 
   const handleSubmit = () => {
     onSubmit({
@@ -921,6 +927,7 @@ function AvailabilityWindowDialog({
       startTime,
       endTime,
       notes: notes || null,
+      isPublic,
     });
   };
 
@@ -971,6 +978,23 @@ function AvailabilityWindowDialog({
               onChange={(e) => setNotes(e.target.value)}
               placeholder={t('availability.windowNotesPlaceholder', 'e.g., Morning consultations only')}
               data-testid="input-window-notes"
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="window-public-toggle">
+                {t('availability.showOnPublicCalendar', 'Show on public calendar')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('availability.publicCalendarHint', 'When off, only staff can book appointments in this window')}
+              </p>
+            </div>
+            <Switch
+              id="window-public-toggle"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+              data-testid="switch-window-public"
             />
           </div>
         </div>

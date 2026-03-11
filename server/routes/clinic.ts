@@ -261,7 +261,7 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/available-da
     const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
     const slotDuration = settings?.slotDurationMinutes || 30;
 
-    const dates = await storage.getAvailableDatesForMonth(providerId, unitId, hospital.id, month, slotDuration);
+    const dates = await storage.getAvailableDatesForMonth(providerId, unitId, hospital.id, month, slotDuration, true);
     res.json({ month, providerId, dates });
   } catch (error) {
     logger.error('Error fetching available dates:', error);
@@ -336,7 +336,7 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', asyn
     const settings = hospital.bookingSettings as { slotDurationMinutes?: number; maxAdvanceDays?: number; minAdvanceHours?: number } | null;
     const slotDuration = settings?.slotDurationMinutes || 30;
 
-    const slots = await storage.getAvailableSlots(providerId, unitId, date, slotDuration, hospital.id);
+    const slots = await storage.getAvailableSlots(providerId, unitId, date, slotDuration, hospital.id, true);
 
     res.json({
       date,
@@ -2532,15 +2532,15 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
     const { hospitalId, unitId, providerId } = req.params;
     const userId = req.user.id;
     
-    const { date, startTime, endTime, slotDurationMinutes, notes } = req.body;
-    
+    const { date, startTime, endTime, slotDurationMinutes, notes, isPublic } = req.body;
+
     if (!date || !startTime || !endTime) {
       return res.status(400).json({ message: "Date, start time, and end time are required" });
     }
-    
+
     // Determine calendar scope
     const scope = await getCalendarScope(unitId, hospitalId);
-    
+
     const window = await storage.createProviderAvailabilityWindow({
       providerId,
       unitId: scope.effectiveUnitId ?? undefined,
@@ -2550,6 +2550,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
       endTime,
       slotDurationMinutes: slotDurationMinutes || 30,
       notes: notes || null,
+      isPublic: isPublic !== undefined ? isPublic : true,
       createdBy: userId,
     });
     
@@ -2567,13 +2568,14 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
 router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, windowId } = req.params;
-    const { startTime, endTime, slotDurationMinutes, notes } = req.body;
+    const { startTime, endTime, slotDurationMinutes, notes, isPublic } = req.body;
 
     const window = await storage.updateProviderAvailabilityWindow(windowId, {
       startTime,
       endTime,
       slotDurationMinutes,
       notes,
+      ...(isPublic !== undefined && { isPublic }),
     });
     
     res.json(window);
