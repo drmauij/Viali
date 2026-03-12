@@ -139,8 +139,8 @@ export default function AppointmentDetailDialog({
     },
   });
 
-  const rescheduleAppointmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { appointmentDate?: string; startTime?: string; endTime?: string; providerId?: string } }) => {
+  const saveAppointmentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, data);
     },
     onSuccess: () => {
@@ -150,12 +150,12 @@ export default function AppointmentDetailDialog({
           return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
         }
       });
-      toast({ title: t('appointments.rescheduled', 'Appointment rescheduled') });
+      toast({ title: t('appointments.updated', 'Appointment updated') });
       setEditMode(false);
       onOpenChange(false);
     },
     onError: () => {
-      toast({ title: t('appointments.rescheduleError', 'Failed to reschedule appointment'), variant: "destructive" });
+      toast({ title: t('appointments.updateError', 'Failed to update appointment'), variant: "destructive" });
     },
   });
 
@@ -185,7 +185,7 @@ export default function AppointmentDetailDialog({
       setEditMode(false);
       return;
     }
-    rescheduleAppointmentMutation.mutate({ id: appointment.id, data: changes });
+    saveAppointmentMutation.mutate({ id: appointment.id, data: changes });
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -419,16 +419,16 @@ export default function AppointmentDetailDialog({
                     variant="outline"
                     size="sm"
                     onClick={() => setEditMode(false)}
-                    disabled={rescheduleAppointmentMutation.isPending}
+                    disabled={saveAppointmentMutation.isPending}
                   >
                     {t('common.cancel', 'Cancel')}
                   </Button>
                   <Button
                     size="sm"
                     onClick={handleSaveReschedule}
-                    disabled={rescheduleAppointmentMutation.isPending}
+                    disabled={saveAppointmentMutation.isPending}
                   >
-                    {rescheduleAppointmentMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                    {saveAppointmentMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                     {t('common.save', 'Save')}
                   </Button>
                 </>
