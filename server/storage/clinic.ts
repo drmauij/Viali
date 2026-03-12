@@ -2146,6 +2146,59 @@ export async function markAppointmentReminderSent(appointmentId: string): Promis
     .where(eq(clinicAppointments.id, appointmentId));
 }
 
+export async function getAppointmentsForMorningReminder(hospitalId: string, date: string): Promise<Array<{
+  appointmentId: string;
+  patientId: string;
+  patientFirstName: string;
+  patientLastName: string;
+  patientEmail: string | null;
+  patientPhone: string | null;
+  appointmentDate: string;
+  startTime: string;
+  unitId: string;
+}>> {
+  const results = await db
+    .select({
+      appointmentId: clinicAppointments.id,
+      patientId: clinicAppointments.patientId,
+      patientFirstName: patients.firstName,
+      patientLastName: patients.surname,
+      patientEmail: patients.email,
+      patientPhone: patients.phone,
+      appointmentDate: clinicAppointments.appointmentDate,
+      startTime: clinicAppointments.startTime,
+      unitId: clinicAppointments.unitId,
+    })
+    .from(clinicAppointments)
+    .innerJoin(patients, eq(clinicAppointments.patientId, patients.id))
+    .where(and(
+      eq(clinicAppointments.hospitalId, hospitalId),
+      eq(clinicAppointments.appointmentDate, date),
+      eq(clinicAppointments.appointmentType, 'external'),
+      inArray(clinicAppointments.status, ['scheduled', 'confirmed']),
+      eq(clinicAppointments.morningReminderSent, false),
+    ));
+
+  return results.map(r => ({
+    appointmentId: r.appointmentId,
+    patientId: r.patientId!,
+    patientFirstName: r.patientFirstName || '',
+    patientLastName: r.patientLastName || '',
+    patientEmail: r.patientEmail,
+    patientPhone: r.patientPhone,
+    appointmentDate: r.appointmentDate,
+    startTime: r.startTime,
+    unitId: r.unitId,
+  }));
+}
+
+export async function markMorningReminderSent(appointmentId: string): Promise<void> {
+  await db
+    .update(clinicAppointments)
+    .set({ morningReminderSent: true, morningReminderSentAt: new Date() })
+    .where(eq(clinicAppointments.id, appointmentId));
+}
+
 export async function createAppointmentActionToken(data: InsertAppointmentActionToken): Promise<AppointmentActionToken> {
   const [created] = await db
     .insert(appointmentActionTokens)
