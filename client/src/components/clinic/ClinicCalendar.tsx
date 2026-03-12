@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
@@ -229,6 +229,8 @@ export default function ClinicCalendar({
   const [editTimeOffOpen, setEditTimeOffOpen] = useState(false);
   const [selectedTimeOff, setSelectedTimeOff] = useState<ProviderTimeOff | null>(null);
   const [selectedTimeOffProviderName, setSelectedTimeOffProviderName] = useState<string>("");
+  const [hoverTime, setHoverTime] = useState<{ y: number; time: string } | null>(null);
+  const calendarContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     sessionStorage.setItem(CALENDAR_VIEW_KEY, currentView);
@@ -237,6 +239,53 @@ export default function ClinicCalendar({
   useEffect(() => {
     sessionStorage.setItem(CALENDAR_DATE_KEY, selectedDate.toISOString());
   }, [selectedDate]);
+
+  // Hover time indicator for day view
+  useEffect(() => {
+    if (currentView !== 'day') {
+      setHoverTime(null);
+      return;
+    }
+
+    const container = calendarContainerRef.current;
+    if (!container) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const timeContent = container.querySelector('.rbc-time-content');
+      if (!timeContent) return;
+
+      const rect = timeContent.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      if (y < 0 || y > rect.height) {
+        setHoverTime(null);
+        return;
+      }
+
+      // Calculate time from Y position — must match min/max props (6:00–22:00)
+      const minHour = 6;
+      const maxHour = 22;
+      const totalRange = (maxHour - minHour) * 60;
+      const totalMinutes = minHour * 60 + (y / rect.height) * totalRange;
+      const hours = Math.floor(totalMinutes / 60);
+      const minutesRaw = totalMinutes - hours * 60;
+      const minutes = Math.floor(minutesRaw / 5) * 5;
+      const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+      setHoverTime({ y: y + rect.top - container.getBoundingClientRect().top, time: timeStr });
+    };
+
+    const handleMouseLeave = () => setHoverTime(null);
+
+    const timeContent = container.querySelector('.rbc-time-content');
+    if (timeContent) {
+      timeContent.addEventListener('mousemove', handleMouseMove as EventListener);
+      timeContent.addEventListener('mouseleave', handleMouseLeave);
+      return () => {
+        timeContent.removeEventListener('mousemove', handleMouseMove as EventListener);
+        timeContent.removeEventListener('mouseleave', handleMouseLeave);
+      };
+    }
+  }, [currentView]);
 
   const dateRange = useMemo(() => {
     const start = new Date(selectedDate);
@@ -1410,7 +1459,7 @@ export default function ClinicCalendar({
 
       {/* Calendar */}
       <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
-        <div className="h-full calendar-container" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined}>
+        <div ref={calendarContainerRef} className="h-full calendar-container relative" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined}>
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -1580,6 +1629,17 @@ export default function ClinicCalendar({
             style={{ minHeight: '600px' }}
             popup
           />
+        )}
+        {hoverTime && currentView === 'day' && (
+          <div
+            className="absolute left-0 right-0 pointer-events-none z-50 flex items-center"
+            style={{ top: hoverTime.y }}
+          >
+            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap">
+              {hoverTime.time}
+            </span>
+            <div className="flex-1 border-t border-dashed border-primary/60" />
+          </div>
         )}
         </div>
       </div>
