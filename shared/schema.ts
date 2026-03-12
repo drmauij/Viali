@@ -4312,7 +4312,9 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   // Reminders
   reminderSent: boolean("reminder_sent").default(false),
   reminderSentAt: timestamp("reminder_sent_at"),
-  
+  morningReminderSent: boolean("morning_reminder_sent").default(false),
+  morningReminderSentAt: timestamp("morning_reminder_sent_at"),
+
   // Cal.com sync tracking
   calcomBookingUid: varchar("calcom_booking_uid"), // Cal.com booking UID for sync
   calcomSyncedAt: timestamp("calcom_synced_at"), // When last synced to Cal.com

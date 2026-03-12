@@ -1,0 +1,2 @@
+ALTER TABLE "clinic_appointments" ADD COLUMN IF NOT EXISTS "morning_reminder_sent" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "clinic_appointments" ADD COLUMN IF NOT EXISTS "morning_reminder_sent_at" timestamp;
