@@ -45,6 +45,10 @@ export default function BookAppointment() {
   const searchParams = new URLSearchParams(searchString);
   const isEmbed = searchParams.get("embed") === "true";
   const preselectedProviderId = searchParams.get("provider");
+  const prefillFirstName = searchParams.get("firstName");
+  const prefillSurname = searchParams.get("surname");
+  const prefillEmail = searchParams.get("email");
+  const prefillPhone = searchParams.get("phone");
 
   // Theme state
   const [isDark, setIsDark] = useState(false);
@@ -63,10 +67,10 @@ export default function BookAppointment() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
   // Form state
-  const [firstName, setFirstName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState(prefillFirstName || "");
+  const [surname, setSurname] = useState(prefillSurname || "");
+  const [email, setEmail] = useState(prefillEmail || "");
+  const [phone, setPhone] = useState(prefillPhone || "");
   const [notes, setNotes] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
