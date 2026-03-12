@@ -2298,17 +2298,17 @@ async function processAppointmentReminder(job: any): Promise<void> {
 
   const tz = hospital.timezone || 'Europe/Zurich';
 
-  // Only send reminders between 5:30 PM and 6:30 PM in hospital timezone
+  // Only send reminders between 2:00 PM and 3:00 PM in hospital timezone
   const now = new Date();
   const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: tz }));
   const currentHour = nowInTz.getHours();
   const currentMinute = nowInTz.getMinutes();
   const timeInMinutes = currentHour * 60 + currentMinute;
-  const reminderWindowStart = 17 * 60 + 30; // 5:30pm
-  const reminderWindowEnd = 18 * 60 + 30;   // 6:30pm
+  const reminderWindowStart = 14 * 60;      // 2:00pm
+  const reminderWindowEnd = 15 * 60;        // 3:00pm
 
   if (timeInMinutes < reminderWindowStart || timeInMinutes > reminderWindowEnd) {
-    logger.info(`[Worker] Skipping appointment reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} (${tz}) is outside window (17:30-18:30)`);
+    logger.info(`[Worker] Skipping appointment reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} (${tz}) is outside window (14:00-15:00)`);
     return;
   }
 
