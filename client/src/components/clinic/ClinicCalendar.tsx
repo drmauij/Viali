@@ -1318,7 +1318,7 @@ export default function ClinicCalendar({
           {event.patientName}
         </div>
         {event.notes && (
-          <div className="text-[10px] text-muted-foreground truncate mt-0.5 opacity-70">
+          <div className="text-[10px] truncate mt-0.5 opacity-75">
             {event.notes}
           </div>
         )}

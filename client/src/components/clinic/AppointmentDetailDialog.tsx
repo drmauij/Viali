@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
   Calendar,
@@ -98,6 +99,7 @@ export default function AppointmentDetailDialog({
   const [editProviderId, setEditProviderId] = useState('');
   const [editIsVideo, setEditIsVideo] = useState(false);
   const [editVideoLink, setEditVideoLink] = useState('');
+  const [editNotes, setEditNotes] = useState('');
 
   const updateAppointmentMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -165,6 +167,7 @@ export default function AppointmentDetailDialog({
     setEditProviderId(appointment.providerId || '');
     setEditIsVideo(appointment.isVideoAppointment || false);
     setEditVideoLink(appointment.videoMeetingLink || '');
+    setEditNotes(appointment.notes || '');
     setEditMode(true);
   };
 
@@ -177,6 +180,7 @@ export default function AppointmentDetailDialog({
     if (editProviderId !== (appointment.providerId || '')) changes.providerId = editProviderId;
     if (editIsVideo !== (appointment.isVideoAppointment || false)) changes.isVideoAppointment = editIsVideo;
     if (editVideoLink !== (appointment.videoMeetingLink || '')) changes.videoMeetingLink = editVideoLink || null;
+    if (editNotes !== (appointment.notes || '')) changes.notes = editNotes || null;
     if (Object.keys(changes).length === 0) {
       setEditMode(false);
       return;
@@ -390,12 +394,22 @@ export default function AppointmentDetailDialog({
                 </div>
               )}
 
-              {appointment.notes && (
+              {editMode ? (
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">{t('appointments.notes', 'Notes')}</p>
+                  <Textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder={t('appointments.notesPlaceholder', 'Optional notes...')}
+                    rows={2}
+                  />
+                </div>
+              ) : appointment.notes ? (
                 <div>
                   <p className="text-muted-foreground text-sm mb-1">{t('appointments.notes', 'Notes')}</p>
                   <p className="text-sm bg-muted/50 p-2 rounded">{appointment.notes}</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <DialogFooter className="flex-col gap-2 sm:flex-row">
