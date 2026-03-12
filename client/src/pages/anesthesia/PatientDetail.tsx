@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -40,6 +40,7 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { generateWristbandPdf } from "@/lib/wristbandPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
@@ -1461,6 +1462,24 @@ export default function PatientDetail() {
     }
   };
 
+  const handlePrintWristband = async () => {
+    if (!patient) return;
+    try {
+      const patientUrl = `${window.location.origin}/patients/${patient.id}`;
+      await generateWristbandPdf({
+        patientName: `${patient.surname}, ${patient.firstName}`,
+        birthday: formatDate(patient.birthday),
+        sex: patient.sex || "O",
+        patientNumber: patient.patientNumber || "",
+        patientUrl,
+      });
+      toast({ title: t('common.success', 'Success'), description: t('anesthesia.patientDetail.wristbandDownloaded', 'Wristband PDF downloaded') });
+    } catch (error) {
+      console.error("Failed to generate wristband PDF:", error);
+      toast({ title: t('common.error', 'Error'), description: t('anesthesia.patientDetail.wristbandError', 'Failed to generate wristband PDF'), variant: "destructive" });
+    }
+  };
+
   // Handle PDF download for a surgery - uses centralized PDF generation utility
   const handleDownloadPDF = async (surgery: SurgeryWithAssistants) => {
     if (!patient) {
@@ -1759,6 +1778,15 @@ export default function PatientDetail() {
               </div>
               {canWrite && (
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handlePrintWristband}
+                    data-testid="button-print-wristband"
+                    title={t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
                   {addons.questionnaire && (
                     <Button
                       variant="outline"
