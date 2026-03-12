@@ -1467,7 +1467,7 @@ export default function PatientDetail() {
     try {
       const patientUrl = `${window.location.origin}/patients/${patient.id}`;
       await generateWristbandPdf({
-        patientName: `${patient.surname}, ${patient.firstName}`,
+        patientName: `${patient.surname.toUpperCase()}, ${patient.firstName}`,
         birthday: formatDate(patient.birthday),
         sex: patient.sex || "O",
         patientNumber: patient.patientNumber || "",
