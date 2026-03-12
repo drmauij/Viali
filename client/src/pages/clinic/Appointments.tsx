@@ -407,7 +407,7 @@ export function BookingDialog({
   hospitalId: string;
   unitId: string;
   providers: { id: string; firstName: string | null; lastName: string | null }[];
-  defaults?: { providerId?: string; date?: Date; endDate?: Date };
+  defaults?: { providerId?: string; date?: Date; endDate?: Date; patientId?: string; patientName?: string };
 }) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -435,7 +435,7 @@ export function BookingDialog({
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [birthdayInput, setBirthdayInput] = useState("");
 
-  // Update state when defaults change (from calendar slot selection)
+  // Update state when defaults change (from calendar slot selection or patient pre-fill)
   useMemo(() => {
     if (defaults?.providerId) setSelectedProviderId(defaults.providerId);
     if (defaults?.date) {
@@ -443,6 +443,10 @@ export function BookingDialog({
       if (defaults.endDate) {
         setSelectedSlot(`${formatTime(defaults.date)}-${formatTime(defaults.endDate)}`);
       }
+    }
+    if (defaults?.patientId) {
+      setSelectedPatientId(defaults.patientId);
+      if (defaults.patientName) setPatientSearch(defaults.patientName);
     }
   }, [defaults]);
 

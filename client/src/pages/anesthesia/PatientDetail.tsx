@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,7 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import { useModule } from "@/contexts/ModuleContext";
-import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency, formatDateLong } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
@@ -59,6 +59,9 @@ import { usePatientQueries } from "./patientDetail/usePatientQueries";
 import { usePatientMutations } from "./patientDetail/usePatientMutations";
 import { PatientCardImageUploader } from "./patientDetail/components/PatientCardImageUploader";
 import { InvoiceDetailDialog } from "@/components/clinic/InvoiceDetailDialog";
+import AppointmentDetailDialog, { type AppointmentWithDetails, STATUS_COLORS, getStatusLabel } from "@/components/clinic/AppointmentDetailDialog";
+import { BookingDialog } from "@/pages/clinic/Appointments";
+import { parseISO } from "date-fns";
 
 export default function PatientDetail() {
   const { t, i18n } = useTranslation();
@@ -136,6 +139,11 @@ export default function PatientDetail() {
   } = usePatientState();
 
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+
+  // --- Appointments tab state ---
+  const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
+  const [selectedAppointmentForDetail, setSelectedAppointmentForDetail] = useState<AppointmentWithDetails | null>(null);
+  const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
 
   // --- Compact wizard + brief editor/audit state ---
   const [compactWizardOpen, setCompactWizardOpen] = useState(false);
@@ -234,6 +242,35 @@ export default function PatientDetail() {
       return res.json();
     },
     enabled: !!patient?.id && !!selectedCaseId && !!activeHospital?.id,
+  });
+
+  // Fetch patient appointments for the Appointments tab
+  const { data: patientAppointments = [] } = useQuery<AppointmentWithDetails[]>({
+    queryKey: [`/api/clinic/${activeHospital?.id}/appointments`, { patientId: derivedPatientId }],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinic/${activeHospital?.id}/appointments?patientId=${derivedPatientId}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) throw new Error('Failed to fetch appointments');
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && !!derivedPatientId,
+  });
+
+  // Fetch bookable providers for appointment dialogs
+  const { data: bookableProviders = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
+    queryKey: ['bookable-providers', activeHospital?.id, activeHospital?.unitId],
+    queryFn: async () => {
+      const url = activeHospital?.unitId
+        ? `/api/clinic/${activeHospital.id}/bookable-providers?unitId=${activeHospital.unitId}`
+        : `/api/clinic/${activeHospital!.id}/bookable-providers`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch providers');
+      const data = await response.json();
+      return data.map((p: any) => ({ id: p.userId, firstName: p.user?.firstName || null, lastName: p.user?.lastName || null }));
+    },
+    enabled: !!activeHospital?.id,
   });
 
   // Upload file to S3 and create attachment record
@@ -1935,6 +1972,12 @@ export default function PatientDetail() {
             <TabsTrigger value="medications" data-testid="tab-medications" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.medications', 'Medications')}
             </TabsTrigger>
+            <TabsTrigger value="appointments" data-testid="tab-appointments" className="whitespace-nowrap">
+              {t('anesthesia.patientDetail.appointments', 'Appointments')}
+              {patientAppointments.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{patientAppointments.length}</Badge>
+              )}
+            </TabsTrigger>
             {addons.questionnaire && (
               <TabsTrigger value="questionnaire" data-testid="tab-questionnaire" className="whitespace-nowrap">
                 {t('questionnaireTab.tabTitle', 'Questionnaire')}
@@ -3126,6 +3169,75 @@ export default function PatientDetail() {
             />
           </TabsContent>
         )}
+
+        <TabsContent value="appointments" className="mt-0 space-y-4">
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => setNewAppointmentOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {t('appointments.bookNew', 'Book New Appointment')}
+            </Button>
+          </div>
+
+          {patientAppointments.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              {t('appointments.noAppointments', 'No appointments found')}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[...patientAppointments]
+                .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate) || (b.startTime || '').localeCompare(a.startTime || ''))
+                .map((appt) => (
+                  <div
+                    key={appt.id}
+                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/30 cursor-pointer"
+                    onClick={() => {
+                      setSelectedAppointmentForDetail(appt);
+                      setAppointmentDetailOpen(true);
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <span>{formatDateLong(parseISO(appt.appointmentDate))}</span>
+                        <span className="text-muted-foreground">{appt.startTime} - {appt.endTime}</span>
+                        {appt.isVideoAppointment && <Video className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        {appt.provider && <span>{appt.provider.firstName} {appt.provider.lastName}</span>}
+                        {appt.service?.name && <span>· {appt.service.name}</span>}
+                      </div>
+                      {appt.notes && (
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">{appt.notes}</div>
+                      )}
+                    </div>
+                    <Badge className={`${STATUS_COLORS[appt.status]?.bg || ''} ${STATUS_COLORS[appt.status]?.text || ''} shrink-0`}>
+                      {getStatusLabel(appt.status, t)}
+                    </Badge>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <AppointmentDetailDialog
+            open={appointmentDetailOpen}
+            onOpenChange={setAppointmentDetailOpen}
+            appointment={selectedAppointmentForDetail}
+            hospitalId={activeHospital?.id || ""}
+            unitId={activeHospital?.unitId || ""}
+            providers={bookableProviders}
+          />
+
+          <BookingDialog
+            open={newAppointmentOpen}
+            onOpenChange={setNewAppointmentOpen}
+            hospitalId={activeHospital?.id || ""}
+            unitId={activeHospital?.unitId || ""}
+            providers={bookableProviders}
+            defaults={{ patientId: derivedPatientId, patientName: patient ? `${patient.firstName} ${patient.surname}` : '' }}
+          />
+        </TabsContent>
       </Tabs>
 
       {/* Pre-OP Full Screen Dialog */}
