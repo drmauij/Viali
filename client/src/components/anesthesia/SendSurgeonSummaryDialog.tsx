@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Send, Loader2, Mail, CheckCircle } from "lucide-react";
+import { Send, Loader2, Mail, CheckCircle, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -81,6 +81,42 @@ export function SendSurgeonSummaryDialog({
     return `${day}.${month}.${year}`;
   };
 
+  const buildSummaryPdf = () => {
+    return generateSurgeonSummaryPDF({
+      patient: {
+        firstName: patient.firstName,
+        surname: patient.surname,
+        birthday: patient.birthday,
+        patientNumber: patient.patientNumber,
+      },
+      surgery: {
+        plannedSurgery: surgery.plannedSurgery,
+        chopCode: surgery.chopCode,
+        surgeon: surgery.surgeon,
+        plannedDate: surgery.plannedDate,
+        actualStartTime: surgery.actualStartTime,
+        actualEndTime: surgery.actualEndTime,
+        status: surgery.status,
+        anesthesiaType: surgery.anesthesiaType,
+      },
+      anesthesiaRecord: anesthesiaRecord ? {
+        anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
+        anesthesiaEndTime: anesthesiaRecord.anesthesiaEndTime,
+        timeMarkers: anesthesiaRecord.timeMarkers,
+        anesthesiaOverview: {
+          general: !!(generalTechniqueData?.approach && generalTechniqueData.approach !== 'sedation') || !!generalTechniqueData?.rsi,
+          sedation: generalTechniqueData?.approach === 'sedation',
+          regionalSpinal: neuraxialBlocksData.some((b: any) => b.type === 'spinal'),
+          regionalEpidural: neuraxialBlocksData.some((b: any) => b.type === 'epidural'),
+          regionalPeripheral: peripheralBlocksData.length > 0,
+        },
+      } : null,
+      noPreOpRequired: surgery.noPreOpRequired,
+      staffMembers: staffMembers,
+      language: activeHospital?.defaultLanguage || 'de',
+    });
+  };
+
   const handleSend = async () => {
     if (!email || !surgery || !patient) return;
 
@@ -96,40 +132,7 @@ export function SendSurgeonSummaryDialog({
 
     setIsSending(true);
     try {
-      const doc = generateSurgeonSummaryPDF({
-        patient: {
-          firstName: patient.firstName,
-          surname: patient.surname,
-          birthday: patient.birthday,
-          patientNumber: patient.patientNumber,
-        },
-        surgery: {
-          plannedSurgery: surgery.plannedSurgery,
-          chopCode: surgery.chopCode,
-          surgeon: surgery.surgeon,
-          plannedDate: surgery.plannedDate,
-          actualStartTime: surgery.actualStartTime,
-          actualEndTime: surgery.actualEndTime,
-          status: surgery.status,
-          anesthesiaType: surgery.anesthesiaType,
-        },
-        anesthesiaRecord: anesthesiaRecord ? {
-          anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
-          anesthesiaEndTime: anesthesiaRecord.anesthesiaEndTime,
-          timeMarkers: anesthesiaRecord.timeMarkers,
-          anesthesiaOverview: {
-            general: !!(generalTechniqueData?.approach && generalTechniqueData.approach !== 'sedation') || !!generalTechniqueData?.rsi,
-            sedation: generalTechniqueData?.approach === 'sedation',
-            regionalSpinal: neuraxialBlocksData.some((b: any) => b.type === 'spinal'),
-            regionalEpidural: neuraxialBlocksData.some((b: any) => b.type === 'epidural'),
-            regionalPeripheral: peripheralBlocksData.length > 0,
-          },
-        } : null,
-        noPreOpRequired: surgery.noPreOpRequired,
-        staffMembers: staffMembers,
-        language: activeHospital?.defaultLanguage || 'de',
-      });
-
+      const doc = buildSummaryPdf();
       const pdfBase64 = doc.output('datauristring').split(',')[1];
       const patientName = `${patient.surname}, ${patient.firstName}`;
       const surgeryDate = formatDateForDisplay(surgery.plannedDate);
@@ -157,6 +160,27 @@ export function SendSurgeonSummaryDialog({
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!surgery || !patient) return;
+    try {
+      const doc = buildSummaryPdf();
+      const surgeryDate = formatDateForDisplay(surgery.plannedDate);
+      doc.save(`Surgery_Summary_${patient.surname}_${patient.firstName}_${surgeryDate}.pdf`);
+
+      toast({
+        title: t('anesthesia.surgerySummary.downloaded', 'PDF downloaded'),
+        description: t('anesthesia.surgerySummary.downloadedDescription', 'Surgery summary PDF has been downloaded'),
+      });
+    } catch (error) {
+      console.error('Failed to download surgery summary:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('anesthesia.surgerySummary.downloadFailed', 'Failed to generate PDF. Please try again.'),
+        variant: "destructive",
+      });
     }
   };
 
@@ -224,6 +248,15 @@ export function SendSurgeonSummaryDialog({
                 data-testid="button-cancel-send-summary"
               >
                 {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownload}
+                disabled={isSending}
+                data-testid="button-download-surgeon-summary"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('anesthesia.surgerySummary.downloadPdf', 'Download PDF')}
               </Button>
               <Button
                 onClick={handleSend}
