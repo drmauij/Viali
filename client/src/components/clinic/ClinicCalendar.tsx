@@ -240,52 +240,40 @@ export default function ClinicCalendar({
     sessionStorage.setItem(CALENDAR_DATE_KEY, selectedDate.toISOString());
   }, [selectedDate]);
 
-  // Hover time indicator for day view
-  useEffect(() => {
-    if (currentView !== 'day') {
-      setHoverTime(null);
-      return;
-    }
+  // Hover time indicator for day view — uses onMouseMove on the container
+  // instead of attaching to .rbc-time-content via useEffect (which races with DOM)
+  const handleCalendarMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (currentView !== 'day') return;
 
     const container = calendarContainerRef.current;
     if (!container) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const timeContent = container.querySelector('.rbc-time-content');
-      if (!timeContent) return;
-
-      const rect = timeContent.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      if (y < 0 || y > rect.height) {
-        setHoverTime(null);
-        return;
-      }
-
-      // Calculate time from Y position — must match min/max props (6:00–22:00)
-      const minHour = 6;
-      const maxHour = 22;
-      const totalRange = (maxHour - minHour) * 60;
-      const totalMinutes = minHour * 60 + (y / rect.height) * totalRange;
-      const hours = Math.floor(totalMinutes / 60);
-      const minutesRaw = totalMinutes - hours * 60;
-      const minutes = Math.floor(minutesRaw / 5) * 5;
-      const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-
-      setHoverTime({ y: y + rect.top - container.getBoundingClientRect().top, time: timeStr });
-    };
-
-    const handleMouseLeave = () => setHoverTime(null);
-
     const timeContent = container.querySelector('.rbc-time-content');
-    if (timeContent) {
-      timeContent.addEventListener('mousemove', handleMouseMove as EventListener);
-      timeContent.addEventListener('mouseleave', handleMouseLeave);
-      return () => {
-        timeContent.removeEventListener('mousemove', handleMouseMove as EventListener);
-        timeContent.removeEventListener('mouseleave', handleMouseLeave);
-      };
+    if (!timeContent) return;
+
+    const rect = timeContent.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    if (y < 0 || y > rect.height) {
+      setHoverTime(null);
+      return;
     }
+
+    // Calculate time from Y position — must match min/max props (6:00–22:00)
+    const minHour = 6;
+    const maxHour = 22;
+    const totalRange = (maxHour - minHour) * 60;
+    const totalMinutes = minHour * 60 + (y / rect.height) * totalRange;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutesRaw = totalMinutes - hours * 60;
+    const minutes = Math.floor(minutesRaw / 5) * 5;
+    const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+    setHoverTime({ y: y + rect.top - container.getBoundingClientRect().top, time: timeStr });
   }, [currentView]);
+
+  const handleCalendarMouseLeave = useCallback(() => {
+    setHoverTime(null);
+  }, []);
 
   const dateRange = useMemo(() => {
     const start = new Date(selectedDate);
@@ -1459,7 +1447,7 @@ export default function ClinicCalendar({
 
       {/* Calendar */}
       <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
-        <div ref={calendarContainerRef} className="h-full calendar-container relative" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined}>
+        <div ref={calendarContainerRef} className="h-full calendar-container relative" style={calendarMinWidth ? { minWidth: calendarMinWidth } : undefined} onMouseMove={handleCalendarMouseMove} onMouseLeave={handleCalendarMouseLeave}>
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
