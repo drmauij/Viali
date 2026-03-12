@@ -434,7 +434,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         startTime,
         endTime,
         durationMinutes: slotDuration,
-        status: 'confirmed',
+        status: 'scheduled',
         calcomSource: 'local',
         notes: notes || null,
       });
