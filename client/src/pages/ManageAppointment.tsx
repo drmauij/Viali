@@ -32,6 +32,16 @@ export default function ManageAppointment() {
   const [cancelled, setCancelled] = useState(false);
   const [cancelResult, setCancelResult] = useState<CancelResult | null>(null);
 
+  // Force light theme for this public page
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute("data-theme");
+    root.removeAttribute("data-theme");
+    return () => {
+      if (previousTheme) root.setAttribute("data-theme", previousTheme);
+    };
+  }, []);
+
   useEffect(() => {
     if (!token) return;
     fetch(`/api/clinic/appointments/cancel-info/${token}`)
@@ -110,8 +120,8 @@ export default function ManageAppointment() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
     );
   }
@@ -141,14 +151,14 @@ export default function ManageAppointment() {
     };
     const msg = messages[error] || messages.not_found;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <div className="text-4xl mb-4">
               {error === "already_cancelled" || error === "already_used" ? "\u2713" : "\u26A0"}
             </div>
-            <p className="text-lg text-foreground">{msg.de}</p>
-            <p className="text-sm text-muted-foreground mt-1">{msg.en}</p>
+            <p className="text-lg text-gray-700">{msg.de}</p>
+            <p className="text-sm text-gray-500 mt-1">{msg.en}</p>
           </CardContent>
         </Card>
       </div>
@@ -157,14 +167,14 @@ export default function ManageAppointment() {
 
   if (cancelled && cancelResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <div className="text-4xl mb-4">{"\u2713"}</div>
             <h2 className="text-xl font-semibold mb-2">
               {isGerman ? "Termin abgesagt" : "Appointment Cancelled"}
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-gray-500">
               {isGerman
                 ? `Ihr Termin bei ${cancelResult.appointment.clinicName} am ${cancelResult.appointment.date} um ${cancelResult.appointment.time} wurde erfolgreich abgesagt.`
                 : `Your appointment at ${cancelResult.appointment.clinicName} on ${cancelResult.appointment.date} at ${cancelResult.appointment.time} has been successfully cancelled.`}
@@ -194,22 +204,22 @@ export default function ManageAppointment() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-muted rounded-lg p-4 space-y-2">
+          <div className="bg-gray-100 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">{isGerman ? "Klinik" : "Clinic"}</span>
+              <span className="text-gray-500">{isGerman ? "Klinik" : "Clinic"}</span>
               <span className="font-medium">{info.clinicName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">{isGerman ? "Datum" : "Date"}</span>
+              <span className="text-gray-500">{isGerman ? "Datum" : "Date"}</span>
               <span className="font-medium">{info.appointmentDate}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">{isGerman ? "Uhrzeit" : "Time"}</span>
+              <span className="text-gray-500">{isGerman ? "Uhrzeit" : "Time"}</span>
               <span className="font-medium">{info.appointmentTime}</span>
             </div>
           </div>
 
-          <p className="text-center text-muted-foreground text-sm">
+          <p className="text-center text-gray-500 text-sm">
             {isGerman
               ? "Was m\u00F6chten Sie mit diesem Termin tun?"
               : "What would you like to do with this appointment?"}
