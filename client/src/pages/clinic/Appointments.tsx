@@ -26,6 +26,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Calendar,
   Clock,
@@ -43,6 +44,7 @@ import {
   UserPlus,
   Loader2,
   Pencil,
+  Video,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { format, parseISO } from "date-fns";
@@ -99,6 +101,8 @@ export default function ClinicAppointments() {
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
   const [editProviderId, setEditProviderId] = useState('');
+  const [editIsVideo, setEditIsVideo] = useState(false);
+  const [editVideoLink, setEditVideoLink] = useState('');
 
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
@@ -216,16 +220,20 @@ export default function ClinicAppointments() {
     setEditStartTime(selectedAppointment.startTime);
     setEditEndTime(selectedAppointment.endTime);
     setEditProviderId(selectedAppointment.providerId || '');
+    setEditIsVideo(selectedAppointment.isVideoAppointment || false);
+    setEditVideoLink(selectedAppointment.videoMeetingLink || '');
     setEditMode(true);
   };
 
   const handleSaveReschedule = () => {
     if (!selectedAppointment) return;
-    const changes: Record<string, string> = {};
+    const changes: Record<string, any> = {};
     if (editDate !== selectedAppointment.appointmentDate) changes.appointmentDate = editDate;
     if (editStartTime !== selectedAppointment.startTime) changes.startTime = editStartTime;
     if (editEndTime !== selectedAppointment.endTime) changes.endTime = editEndTime;
     if (editProviderId !== (selectedAppointment.providerId || '')) changes.providerId = editProviderId;
+    if (editIsVideo !== (selectedAppointment.isVideoAppointment || false)) changes.isVideoAppointment = editIsVideo;
+    if (editVideoLink !== (selectedAppointment.videoMeetingLink || '')) changes.videoMeetingLink = editVideoLink || null;
     if (Object.keys(changes).length === 0) {
       setEditMode(false);
       return;
@@ -586,12 +594,53 @@ export default function ClinicAppointments() {
                   </div>
                 </div>
 
+                {editMode && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <Video className="h-4 w-4" />
+                        {t('appointments.videoAppointment', 'Video Appointment')}
+                      </Label>
+                      <Switch checked={editIsVideo} onCheckedChange={setEditIsVideo} />
+                    </div>
+                    {editIsVideo && (
+                      <div>
+                        <Label>{t('appointments.videoMeetingLink', 'Meeting Link')}</Label>
+                        <Input
+                          value={editVideoLink}
+                          onChange={(e) => setEditVideoLink(e.target.value)}
+                          placeholder="https://zoom.us/j/... or https://meet.google.com/..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <p className="text-muted-foreground text-sm mb-1">{t('appointments.statusLabel', 'Status')}</p>
                   <Badge className={`${STATUS_COLORS[selectedAppointment.status]?.bg} ${STATUS_COLORS[selectedAppointment.status]?.text}`}>
                     {getStatusLabel(selectedAppointment.status)}
                   </Badge>
                 </div>
+
+                {selectedAppointment.isVideoAppointment && (
+                  <div>
+                    <p className="text-muted-foreground text-sm mb-1 flex items-center gap-1">
+                      <Video className="h-3 w-3" />
+                      {t('appointments.videoAppointment', 'Video Appointment')}
+                    </p>
+                    {selectedAppointment.videoMeetingLink && (
+                      <a
+                        href={selectedAppointment.videoMeetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary underline break-all"
+                      >
+                        {selectedAppointment.videoMeetingLink}
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {selectedAppointment.notes && (
                   <div>
@@ -797,6 +846,8 @@ function BookingDialog({
   );
   const [patientSearch, setPatientSearch] = useState("");
   const [notes, setNotes] = useState("");
+  const [isVideoAppointment, setIsVideoAppointment] = useState(false);
+  const [videoMeetingLink, setVideoMeetingLink] = useState("");
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
   const [newPatientSurname, setNewPatientSurname] = useState("");
@@ -963,6 +1014,8 @@ function BookingDialog({
     setSelectedSlot("");
     setPatientSearch("");
     setNotes("");
+    setIsVideoAppointment(false);
+    setVideoMeetingLink("");
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -986,6 +1039,8 @@ function BookingDialog({
       startTime,
       endTime,
       notes: notes || null,
+      isVideoAppointment,
+      videoMeetingLink: videoMeetingLink || null,
     });
   };
 
@@ -1181,6 +1236,25 @@ function BookingDialog({
               data-testid="input-booking-notes"
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              {t('appointments.videoAppointment', 'Video Appointment')}
+            </Label>
+            <Switch checked={isVideoAppointment} onCheckedChange={setIsVideoAppointment} />
+          </div>
+          {isVideoAppointment && (
+            <div>
+              <Label>{t('appointments.videoMeetingLink', 'Meeting Link')}</Label>
+              <Input
+                value={videoMeetingLink}
+                onChange={(e) => setVideoMeetingLink(e.target.value)}
+                placeholder="https://zoom.us/j/... or https://meet.google.com/..."
+                data-testid="input-booking-video-link"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
