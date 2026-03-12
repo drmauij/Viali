@@ -4414,7 +4414,7 @@ export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema
 export const scheduledJobs = pgTable("scheduled_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobType: varchar("job_type", { 
-    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing", "sync_calcom", "pre_surgery_reminder", "appointment_reminder"]
+    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing", "sync_calcom", "pre_surgery_reminder", "appointment_reminder", "morning_appointment_reminder"]
   }).notNull(),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   

@@ -958,6 +958,18 @@ export interface IStorage {
     unitId: string;
   }>>;
   markAppointmentReminderSent(appointmentId: string): Promise<void>;
+  getAppointmentsForMorningReminder(hospitalId: string, date: string): Promise<Array<{
+    appointmentId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    patientPhone: string | null;
+    appointmentDate: string;
+    startTime: string;
+    unitId: string;
+  }>>;
+  markMorningReminderSent(appointmentId: string): Promise<void>;
   createAppointmentActionToken(data: InsertAppointmentActionToken): Promise<AppointmentActionToken>;
   getAppointmentActionToken(token: string): Promise<any>;
   markAppointmentActionTokenUsed(token: string): Promise<void>;
@@ -1560,6 +1572,8 @@ export class DatabaseStorage implements IStorage {
   markSurgeryReminderSent = clinicStorage.markSurgeryReminderSent;
   getAppointmentsForReminder = clinicStorage.getAppointmentsForReminder;
   markAppointmentReminderSent = clinicStorage.markAppointmentReminderSent;
+  getAppointmentsForMorningReminder = clinicStorage.getAppointmentsForMorningReminder;
+  markMorningReminderSent = clinicStorage.markMorningReminderSent;
   createAppointmentActionToken = clinicStorage.createAppointmentActionToken;
   getAppointmentActionToken = clinicStorage.getAppointmentActionToken;
   markAppointmentActionTokenUsed = clinicStorage.markAppointmentActionTokenUsed;
