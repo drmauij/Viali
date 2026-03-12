@@ -142,6 +142,7 @@ export default function PatientDetail() {
 
   // --- Appointments tab state ---
   const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
+  const [editBirthdayDisplay, setEditBirthdayDisplay] = useState('');
   const [selectedAppointmentForDetail, setSelectedAppointmentForDetail] = useState<AppointmentWithDetails | null>(null);
   const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
 
@@ -477,10 +478,12 @@ export default function PatientDetail() {
     
     if (openEdit === 'true') {
       // Initialize edit form with patient data
+      const birthdayIso = patient.birthday ? formatDateForInput(patient.birthday) : "";
+      setEditBirthdayDisplay(birthdayIso ? isoToDisplayDate(birthdayIso) : '');
       setEditForm({
         surname: patient.surname || "",
         firstName: patient.firstName || "",
-        birthday: patient.birthday ? formatDateForInput(patient.birthday) : "",
+        birthday: birthdayIso,
         sex: (patient.sex as "M" | "F" | "O") || "M",
         email: patient.email || "",
         phone: patient.phone || "",
@@ -1771,6 +1774,7 @@ export default function PatientDetail() {
                     variant="outline"
                     size="icon"
                     onClick={() => {
+                      setEditBirthdayDisplay(patient.birthday ? isoToDisplayDate(patient.birthday) : '');
                       setEditForm({
                         surname: patient.surname,
                         firstName: patient.firstName,
@@ -5700,21 +5704,18 @@ export default function PatientDetail() {
                     id="edit-birthday"
                     type="text"
                     placeholder="dd.MM.yyyy"
-                    value={editForm.birthday ? isoToDisplayDate(editForm.birthday) : ''}
+                    value={editBirthdayDisplay}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      const parsed = parseFlexibleDate(value);
-                      if (parsed) {
-                        setEditForm({ ...editForm, birthday: parsed.isoDate });
-                      } else {
-                        // Keep the raw value for typing, will be validated on save
-                        setEditForm({ ...editForm, birthday: value });
-                      }
+                      setEditBirthdayDisplay(e.target.value);
                     }}
                     onBlur={(e) => {
                       const parsed = parseFlexibleDate(e.target.value);
                       if (parsed) {
                         setEditForm({ ...editForm, birthday: parsed.isoDate });
+                        setEditBirthdayDisplay(isoToDisplayDate(parsed.isoDate));
+                      } else {
+                        // Keep raw value, will be validated on save
+                        setEditForm({ ...editForm, birthday: e.target.value });
                       }
                     }}
                     data-testid="input-edit-birthday"
