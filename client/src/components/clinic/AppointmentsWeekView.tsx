@@ -4,7 +4,7 @@ import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { ToggleRight, ToggleLeft } from "lucide-react";
+import { ToggleRight, ToggleLeft, Video } from "lucide-react";
 import SaalStaffPopover from "./SaalStaffPopover";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
@@ -488,7 +488,7 @@ export default function AppointmentsWeekView({
                             <div
                               key={item.key}
                               className={cn(
-                                "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md",
+                                "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md overflow-hidden",
                                 getStatusClass(item.appt!.status)
                               )}
                               onClick={(e) => {
@@ -498,12 +498,18 @@ export default function AppointmentsWeekView({
                               title={`${item.appt!.startTime} - ${item.appt!.endTime}\n${getPatientName(item.appt!)}\n${item.appt!.service?.name || ''}`}
                               data-testid={`appointment-event-${item.appt!.id}`}
                             >
-                              <div className="font-semibold truncate">
+                              <div className="font-semibold truncate flex items-center gap-1">
+                                {item.appt!.isVideoAppointment && <Video className="w-3 h-3 flex-shrink-0" />}
                                 {item.appt!.startTime} {getPatientName(item.appt!)}
                               </div>
                               {item.appt!.service?.name && (
                                 <div className="truncate opacity-80">
                                   {item.appt!.service.name}
+                                </div>
+                              )}
+                              {item.appt!.notes && (
+                                <div className="truncate opacity-60 text-[10px]">
+                                  {item.appt!.notes}
                                 </div>
                               )}
                             </div>
