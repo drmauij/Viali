@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft, Video } from "lucide-react";
 import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getMomentTimeFormat } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,7 @@ interface CalendarEvent {
   absenceType?: string;
   isTimeOffBlock?: boolean;
   timeOffReason?: string;
+  isVideoAppointment?: boolean;
   isAvailabilityWindow?: boolean;
   windowId?: string;
 }
@@ -727,6 +728,7 @@ export default function ClinicCalendar({
         serviceName,
         status: appt.status,
         notes: appt.notes,
+        isVideoAppointment: appt.isVideoAppointment || false,
         isSurgeryBlock: false,
       };
     });
@@ -1258,13 +1260,19 @@ export default function ClinicCalendar({
     
     const isCancelled = event.status === 'cancelled';
     return (
-      <div className="flex flex-col h-full p-1" data-testid={`appointment-event-${event.appointmentId}`}>
-        <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''}`}>
+      <div className="flex flex-col h-full p-1 overflow-hidden" data-testid={`appointment-event-${event.appointmentId}`}>
+        <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''} flex items-center gap-1`}>
+          {event.isVideoAppointment && <Video className="w-3 h-3 flex-shrink-0" />}
           {event.serviceName || t('appointments.appointment', 'Appointment')}
         </div>
         <div className={`text-xs ${isCancelled ? 'line-through' : ''}`}>
           {event.patientName}
         </div>
+        {event.notes && (
+          <div className="text-[10px] text-muted-foreground truncate mt-0.5 opacity-70">
+            {event.notes}
+          </div>
+        )}
       </div>
     );
   }, [t]);
