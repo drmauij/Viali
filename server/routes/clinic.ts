@@ -478,6 +478,30 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             lang,
             manageUrl,
           );
+
+          // Notify clinic staff about new booking
+          const clinicEmail = hospital.companyEmail || (hospital as any).externalSurgeryNotificationEmail;
+          if (clinicEmail) {
+            try {
+              const provider = await storage.getUser(providerId);
+              const providerName = provider
+                ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
+                : '';
+              const patientName = `${firstName} ${surname}`.trim();
+              const { sendNewBookingAlertEmail } = await import('../resend');
+              await sendNewBookingAlertEmail(
+                clinicEmail,
+                patientName,
+                hospital.name,
+                formattedDate,
+                startTime,
+                providerName,
+                lang,
+              );
+            } catch (alertErr) {
+              logger.error('Failed to send new booking alert email to clinic:', alertErr);
+            }
+          }
         } catch (emailErr) {
           logger.error('Failed to send booking confirmation email:', emailErr);
         }

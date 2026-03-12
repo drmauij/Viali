@@ -1730,3 +1730,58 @@ export async function sendAppointmentPatientCancelledAlertEmail(
     return { success: false, error };
   }
 }
+
+export async function sendNewBookingAlertEmail(
+  toEmail: string,
+  patientName: string,
+  clinicName: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  providerName: string,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Neue Terminbuchung – ${patientName} am ${appointmentDate} ${appointmentTime}`
+      : `New appointment booking – ${patientName} on ${appointmentDate} ${appointmentTime}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">${isGerman ? 'Neue Terminbuchung' : 'New Appointment Booking'}</h2>
+        <p>${isGerman
+          ? `<strong>${patientName}</strong> hat einen neuen Termin über die Online-Buchung gebucht:`
+          : `<strong>${patientName}</strong> has booked a new appointment via online booking:`}</p>
+        <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${appointmentDate}</p>
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Uhrzeit' : 'Time'}:</strong> ${appointmentTime}</p>
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+          <p style="margin: 4px 0;"><strong>${isGerman ? 'Behandler' : 'Provider'}:</strong> ${providerName}</p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">${isGerman
+          ? 'Diese E-Mail wurde automatisch gesendet.'
+          : 'This email was sent automatically.'}</p>
+      </div>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('Failed to send new booking alert email:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Sent new booking alert to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('Error sending new booking alert email:', error);
+    return { success: false, error };
+  }
+}
