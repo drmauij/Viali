@@ -7,6 +7,7 @@ interface WristbandData {
   sex: string;
   patientNumber: string;
   patientUrl: string;
+  surgeryInfo?: string; // e.g. "Knee Replacement — Left"
 }
 
 export async function generateWristbandPdf(data: WristbandData): Promise<void> {
@@ -31,17 +32,25 @@ export async function generateWristbandPdf(data: WristbandData): Promise<void> {
 
   // Text starts after QR code
   const textX = margin + qrSize + 3;
+  const hasSurgery = !!data.surgeryInfo;
 
   // Patient Name (bold, largest text)
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(data.patientName, textX, 10);
+  doc.setFontSize(hasSurgery ? 14 : 16);
+  doc.text(data.patientName, textX, hasSurgery ? 8 : 10);
 
   // DOB, Sex, Patient Number (second line)
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
+  doc.setFontSize(hasSurgery ? 9 : 11);
   const infoLine = `${data.birthday}  •  ${data.sex}  •  ${data.patientNumber}`;
-  doc.text(infoLine, textX, 18);
+  doc.text(infoLine, textX, hasSurgery ? 14 : 18);
+
+  // Surgery info (optional third line)
+  if (data.surgeryInfo) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(data.surgeryInfo, textX, 20);
+  }
 
   // Download
   const safeName = data.patientName.replace(/[^a-zA-Z0-9_-]/g, "_");

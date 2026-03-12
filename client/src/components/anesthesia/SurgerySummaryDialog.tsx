@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare, Trash2, Archive, UserPlus } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare, Trash2, Archive, UserPlus, Printer } from "lucide-react";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -20,6 +20,7 @@ import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
 import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
+import { generateWristbandPdf } from "@/lib/wristbandPdf";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -299,6 +300,26 @@ export default function SurgerySummaryDialog({
       }
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handlePrintWristband = async () => {
+    if (!patient || !surgery) return;
+    try {
+      const patientUrl = `${window.location.origin}/patients/${patient.id}`;
+      const sideSuffix = surgery.surgerySide ? ` — ${surgery.surgerySide.charAt(0).toUpperCase() + surgery.surgerySide.slice(1)}` : "";
+      await generateWristbandPdf({
+        patientName: `${patient.surname.toUpperCase()}, ${patient.firstName}`,
+        birthday: patient.birthday ? formatDate(patient.birthday) : "",
+        sex: patient.sex || "O",
+        patientNumber: patient.patientNumber || "",
+        patientUrl,
+        surgeryInfo: `${surgery.plannedSurgery}${sideSuffix}`,
+      });
+      toast({ title: t('common.success', 'Success'), description: t('anesthesia.patientDetail.wristbandDownloaded', 'Wristband PDF downloaded') });
+    } catch (error) {
+      console.error("Failed to generate wristband PDF:", error);
+      toast({ title: t('common.error', 'Error'), description: t('anesthesia.patientDetail.wristbandError', 'Failed to generate wristband PDF'), variant: "destructive" });
     }
   };
 
@@ -902,6 +923,14 @@ export default function SurgerySummaryDialog({
                       {t('anesthesia.op.downloadPdf')}
                     </>
                   )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePrintWristband}
+                  data-testid="button-print-wristband-summary"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  {t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
                 </Button>
                 <Button
                   variant="outline"

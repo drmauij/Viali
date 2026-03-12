@@ -1462,16 +1462,22 @@ export default function PatientDetail() {
     }
   };
 
-  const handlePrintWristband = async () => {
+  const handlePrintWristband = async (surgery?: any) => {
     if (!patient) return;
     try {
       const patientUrl = `${window.location.origin}/patients/${patient.id}`;
+      let surgeryInfo: string | undefined;
+      if (surgery) {
+        const sideSuffix = surgery.surgerySide ? ` — ${surgery.surgerySide.charAt(0).toUpperCase() + surgery.surgerySide.slice(1)}` : "";
+        surgeryInfo = `${surgery.plannedSurgery}${sideSuffix}`;
+      }
       await generateWristbandPdf({
         patientName: `${patient.surname.toUpperCase()}, ${patient.firstName}`,
         birthday: formatDate(patient.birthday),
         sex: patient.sex || "O",
         patientNumber: patient.patientNumber || "",
         patientUrl,
+        surgeryInfo,
       });
       toast({ title: t('common.success', 'Success'), description: t('anesthesia.patientDetail.wristbandDownloaded', 'Wristband PDF downloaded') });
     } catch (error) {
@@ -2781,6 +2787,15 @@ export default function PatientDetail() {
                     <Badge className={getStatusColor(surgery.status)}>
                       {surgery.status}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePrintWristband(surgery)}
+                      data-testid={`button-print-wristband-${surgery.id}`}
+                      title={t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
