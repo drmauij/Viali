@@ -1245,7 +1245,8 @@ export async function sendAppointmentConfirmationEmail(
   appointmentTime: string,
   language: string = 'de',
   cancelUrl: string = '',
-  providerName: string = ''
+  providerName: string = '',
+  videoMeetingLink: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1263,6 +1264,12 @@ export async function sendAppointmentConfirmationEmail(
           <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
         </p>` : '';
 
+    const videoSection = videoMeetingLink ? `
+        <p style="margin-top: 12px; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+          <strong>📹 ${isGerman ? 'Video-Termin' : 'Video Appointment'}</strong><br/>
+          <a href="${videoMeetingLink}" style="color: #2563eb; word-break: break-all;">${isGerman ? 'Hier beitreten' : 'Join here'}: ${videoMeetingLink}</a>
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1270,6 +1277,7 @@ export async function sendAppointmentConfirmationEmail(
         <p>${isGerman
           ? `Ihr Termin am ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment on ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. For questions, please contact us directly.`}</p>
+        ${videoSection}
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
@@ -1303,7 +1311,8 @@ export async function sendAppointmentRescheduleEmail(
   appointmentTime: string,
   language: string = 'de',
   cancelUrl: string = '',
-  providerName: string = ''
+  providerName: string = '',
+  videoMeetingLink: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1321,6 +1330,12 @@ export async function sendAppointmentRescheduleEmail(
           <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
         </p>` : '';
 
+    const videoSection = videoMeetingLink ? `
+        <p style="margin-top: 12px; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+          <strong>📹 ${isGerman ? 'Video-Termin' : 'Video Appointment'}</strong><br/>
+          <a href="${videoMeetingLink}" style="color: #2563eb; word-break: break-all;">${isGerman ? 'Hier beitreten' : 'Join here'}: ${videoMeetingLink}</a>
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1328,6 +1343,7 @@ export async function sendAppointmentRescheduleEmail(
         <p>${isGerman
           ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''}. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''}. For questions, please contact us directly.`}</p>
+        ${videoSection}
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
