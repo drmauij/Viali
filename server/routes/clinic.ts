@@ -88,6 +88,13 @@ router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
       patientName: appointment.patient?.firstName || '',
       status: appointment.status,
       language: lang,
+      // Fields for manage-appointment page (reschedule + pre-fill)
+      bookingToken: hospital.bookingToken || null,
+      providerId: appointment.providerId || null,
+      patientFirstName: appointment.patient?.firstName || '',
+      patientSurname: appointment.patient?.surname || '',
+      patientEmail: appointment.patient?.email || null,
+      patientPhone: appointment.patient?.phone || null,
     });
   } catch (error) {
     logger.error('Error fetching cancel info:', error);
@@ -127,9 +134,10 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
     }
 
     // Cancel the appointment
+    const reason = req.body.reason || 'Cancelled by patient';
     await storage.updateClinicAppointment(appointment.id, {
       status: 'cancelled',
-      cancellationReason: 'Cancelled by patient',
+      cancellationReason: reason,
     });
 
     // Mark token as used
