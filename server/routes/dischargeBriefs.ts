@@ -834,7 +834,7 @@ router.delete(
 router.post(
   "/api/discharge-brief-templates/extract-text",
   isAuthenticated,
-  requireHospitalAdmin,
+  requireHospitalAccess,
   async (req: any, res: Response) => {
     try {
       const { fileData, fileName, mimeType } = req.body;
@@ -925,7 +925,7 @@ Return ONLY the extracted body content as plain text. Preserve paragraph structu
 router.post(
   "/api/discharge-brief-templates/import-file",
   isAuthenticated,
-  requireHospitalAdmin,
+  requireHospitalAccess,
   async (req: any, res: Response) => {
     try {
       const { fileData, fileName, mimeType, hospitalId, briefType } = req.body;
@@ -1009,7 +1009,9 @@ Return ONLY valid JSON, no markdown fences.`,
         };
       }
 
-      // Create the template
+      // Create the template — owned by the importing user
+      const role = req.headers["x-active-role"] as string;
+      const isAdmin = role === "admin";
       const template = await createDischargeBriefTemplate({
         hospitalId,
         briefType: parsed.briefType || briefType || "surgery_discharge",
@@ -1017,6 +1019,8 @@ Return ONLY valid JSON, no markdown fences.`,
         description: parsed.description || null,
         templateContent: parsed.content || rawText,
         procedureType: parsed.procedureType || null,
+        assignedUserId: req.user?.id,
+        visibility: isAdmin ? "hospital" : "personal",
         createdBy: req.user?.id,
       });
 
