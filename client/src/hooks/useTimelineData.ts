@@ -41,11 +41,30 @@ export function useTimelineData({
     
     if (!dataToUse || dataToUse.length === 0) {
       const now = new Date().getTime();
-      const sixHoursAgo = now - 6 * 60 * 60 * 1000;
       const oneYearFuture = now + ONE_YEAR_MS;
 
+      // Even without vitals, consider medication/event timestamps so the timeline
+      // extends back far enough to scroll to existing infusions/medications
+      const auxTimestamps: number[] = [];
+      if (medsToUse && medsToUse.length > 0) {
+        medsToUse.forEach((med: any) => {
+          if (med.timestamp) auxTimestamps.push(new Date(med.timestamp).getTime());
+          if (med.endTimestamp) auxTimestamps.push(new Date(med.endTimestamp).getTime());
+        });
+      }
+      if (eventsData && eventsData.length > 0) {
+        eventsData.forEach((event: any) => {
+          if (event.timestamp) auxTimestamps.push(new Date(event.timestamp).getTime());
+        });
+      }
+
+      const earliestAux = auxTimestamps.length > 0 ? Math.min(...auxTimestamps) : now;
+      const sixHoursAgo = now - 6 * 60 * 60 * 1000;
+      // Use whichever is earlier: 6h ago or 1h before earliest medication/event
+      const startTime = Math.min(sixHoursAgo, earliestAux - 60 * 60 * 1000);
+
       return {
-        startTime: sixHoursAgo,
+        startTime,
         endTime: oneYearFuture,
         vitals: {
           sysBP: [],
