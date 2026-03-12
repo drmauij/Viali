@@ -4,7 +4,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
@@ -29,28 +27,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
   Calendar,
-  Clock,
-  User,
-  Users,
-  Phone,
-  Mail,
-  X,
-  Check,
   AlertCircle,
   RefreshCw,
-  Trash2,
   ToggleRight,
   ToggleLeft,
   UserPlus,
   Loader2,
-  Pencil,
   Video,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { formatDateForInput, formatTime, formatDateLong } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -59,23 +48,8 @@ import { BookingTypeSelector, type BookingType } from "@/components/clinic/Booki
 import QuickCreateSurgeryDialog from "@/components/anesthesia/QuickCreateSurgeryDialog";
 import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import { useLocation } from "wouter";
-import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
-
-type AppointmentWithDetails = ClinicAppointment & {
-  patient?: Patient;
-  provider?: UserType;
-  service?: ClinicService;
-  colleague?: UserType;
-};
-
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  scheduled: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-800 dark:text-blue-300", border: "border-blue-300 dark:border-blue-700" },
-  confirmed: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-800 dark:text-green-300", border: "border-green-300 dark:border-green-700" },
-  in_progress: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-800 dark:text-orange-300", border: "border-orange-300 dark:border-orange-700" },
-  completed: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600" },
-  cancelled: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-800 dark:text-red-300", border: "border-red-300 dark:border-red-700" },
-  no_show: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-800 dark:text-purple-300", border: "border-purple-300 dark:border-purple-700" },
-};
+import AppointmentDetailDialog, { STATUS_COLORS, getStatusLabel, type AppointmentWithDetails } from "@/components/clinic/AppointmentDetailDialog";
+import type { Patient, ClinicService } from "@shared/schema";
 
 export default function ClinicAppointments() {
   const { t, i18n } = useTranslation();
@@ -96,14 +70,6 @@ export default function ClinicAppointments() {
   const [timeOffDefaults, setTimeOffDefaults] = useState<{
     providerId: string; startDate: string; endDate: string;
   } | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [editDate, setEditDate] = useState('');
-  const [editStartTime, setEditStartTime] = useState('');
-  const [editEndTime, setEditEndTime] = useState('');
-  const [editProviderId, setEditProviderId] = useState('');
-  const [editIsVideo, setEditIsVideo] = useState(false);
-  const [editVideoLink, setEditVideoLink] = useState('');
-
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
     setAvailabilityDialogOpen(true);
@@ -155,91 +121,6 @@ export default function ClinicAppointments() {
     queryKey: [`/api/surgery-rooms/${hospitalId}`],
     enabled: !!hospitalId && canPlanSurgery,
   });
-
-  const updateAppointmentMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, { status });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
-        }
-      });
-      toast({ title: t('appointments.statusUpdated', 'Appointment status updated') });
-      setDetailDialogOpen(false);
-    },
-    onError: () => {
-      toast({ title: t('appointments.updateError', 'Failed to update appointment'), variant: "destructive" });
-    },
-  });
-
-  const deleteAppointmentMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/clinic/${hospitalId}/appointments/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
-        }
-      });
-      toast({ title: t('appointments.deleted', 'Appointment deleted') });
-      setDetailDialogOpen(false);
-    },
-    onError: () => {
-      toast({ title: t('appointments.deleteError', 'Failed to delete appointment'), variant: "destructive" });
-    },
-  });
-
-  const rescheduleAppointmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { appointmentDate?: string; startTime?: string; endTime?: string; providerId?: string } }) => {
-      return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
-        }
-      });
-      toast({ title: t('appointments.rescheduled', 'Appointment rescheduled') });
-      setEditMode(false);
-      setDetailDialogOpen(false);
-    },
-    onError: () => {
-      toast({ title: t('appointments.rescheduleError', 'Failed to reschedule appointment'), variant: "destructive" });
-    },
-  });
-
-  const enterEditMode = () => {
-    if (!selectedAppointment) return;
-    setEditDate(selectedAppointment.appointmentDate);
-    setEditStartTime(selectedAppointment.startTime);
-    setEditEndTime(selectedAppointment.endTime);
-    setEditProviderId(selectedAppointment.providerId || '');
-    setEditIsVideo(selectedAppointment.isVideoAppointment || false);
-    setEditVideoLink(selectedAppointment.videoMeetingLink || '');
-    setEditMode(true);
-  };
-
-  const handleSaveReschedule = () => {
-    if (!selectedAppointment) return;
-    const changes: Record<string, any> = {};
-    if (editDate !== selectedAppointment.appointmentDate) changes.appointmentDate = editDate;
-    if (editStartTime !== selectedAppointment.startTime) changes.startTime = editStartTime;
-    if (editEndTime !== selectedAppointment.endTime) changes.endTime = editEndTime;
-    if (editProviderId !== (selectedAppointment.providerId || '')) changes.providerId = editProviderId;
-    if (editIsVideo !== (selectedAppointment.isVideoAppointment || false)) changes.isVideoAppointment = editIsVideo;
-    if (editVideoLink !== (selectedAppointment.videoMeetingLink || '')) changes.videoMeetingLink = editVideoLink || null;
-    if (Object.keys(changes).length === 0) {
-      setEditMode(false);
-      return;
-    }
-    rescheduleAppointmentMutation.mutate({ id: selectedAppointment.id, data: changes });
-  };
 
   const createOffTimeMutation = useMutation({
     mutationFn: async (data: { providerId: string; date: string; startTime: string; endTime: string }) => {
@@ -358,18 +239,6 @@ export default function ClinicAppointments() {
     setDetailDialogOpen(true);
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      scheduled: t('appointments.status.scheduled', 'Scheduled'),
-      confirmed: t('appointments.status.confirmed', 'Confirmed'),
-      in_progress: t('appointments.status.inProgress', 'In Progress'),
-      completed: t('appointments.status.completed', 'Completed'),
-      cancelled: t('appointments.status.cancelled', 'Cancelled'),
-      no_show: t('appointments.status.noShow', 'No Show'),
-    };
-    return labels[status] || status;
-  };
-
   if (!hospitalId || !unitId) {
     return (
       <div className="container mx-auto p-4" data-testid="appointments-no-hospital">
@@ -420,7 +289,7 @@ export default function ClinicAppointments() {
               {Object.entries(STATUS_COLORS).map(([status, colors]) => (
                 <div key={status} className="flex items-center gap-1.5">
                   <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
-                  <span className="text-muted-foreground">{getStatusLabel(status)}</span>
+                  <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
                 </div>
               ))}
               <div className="flex items-center gap-1.5">
@@ -436,310 +305,21 @@ export default function ClinicAppointments() {
         />
       </div>
 
-      <Dialog open={detailDialogOpen} onOpenChange={(open) => { setDetailDialogOpen(open); if (!open) setEditMode(false); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              {t('appointments.details', 'Appointment Details')}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedAppointment && (
-            <div className="space-y-3">
-              {/* Patient / Colleague Card */}
-              {selectedAppointment.appointmentType === 'internal' ? (
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium" data-testid="text-patient-name">
-                        {selectedAppointment.colleague
-                          ? `${selectedAppointment.colleague.firstName} ${selectedAppointment.colleague.lastName}`
-                          : t('appointments.internalMeeting', 'Internal Meeting')}
-                      </h4>
-                      {selectedAppointment.internalSubject && (
-                        <p className="text-sm text-muted-foreground">
-                          {selectedAppointment.internalSubject}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="rounded-lg border bg-muted/30 p-3 cursor-pointer transition-colors hover:bg-muted/60"
-                  onClick={() => {
-                    if (selectedAppointment.patient?.id) {
-                      const patientId = selectedAppointment.patient.id;
-                      const moduleBase = activeHospital?.unitType === 'or' ? '/surgery'
-                        : activeHospital?.unitType === 'anesthesia' ? '/anesthesia'
-                        : '/clinic';
-                      setDetailDialogOpen(false);
-                      setEditMode(false);
-                      setTimeout(() => setLocation(`${moduleBase}/patients/${patientId}`), 150);
-                    }
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-medium" data-testid="text-patient-name">
-                        {selectedAppointment.patient
-                          ? `${selectedAppointment.patient.firstName} ${selectedAppointment.patient.surname}`
-                          : t('appointments.unknownPatient', 'Unknown Patient')}
-                      </h4>
-                      {selectedAppointment.patient?.phone && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {selectedAppointment.patient.phone}
-                        </p>
-                      )}
-                      {selectedAppointment.patient?.email && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {selectedAppointment.patient.email}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Appointment Details Card */}
-              <div className="rounded-lg border p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">{t('appointments.details', 'Appointment Details')}</p>
-                  {!editMode && (selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={enterEditMode}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">{t('appointments.date', 'Date')}</p>
-                    {editMode ? (
-                      <DateInput
-                        value={editDate}
-                        onChange={(val) => setEditDate(val)}
-                      />
-                    ) : (
-                      <p className="font-medium" data-testid="text-appointment-date">
-                        {formatDateLong(parseISO(selectedAppointment.appointmentDate))}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">{t('appointments.time', 'Time')}</p>
-                    {editMode ? (
-                      <div className="flex items-center gap-1">
-                        <TimeInput
-                          value={editStartTime}
-                          onChange={(val) => setEditStartTime(val)}
-                          className="w-20"
-                        />
-                        <span>-</span>
-                        <TimeInput
-                          value={editEndTime}
-                          onChange={(val) => setEditEndTime(val)}
-                          className="w-20"
-                        />
-                      </div>
-                    ) : (
-                      <p className="font-medium" data-testid="text-appointment-time">
-                        {selectedAppointment.startTime} - {selectedAppointment.endTime}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">{t('appointments.provider', 'Provider')}</p>
-                    {editMode ? (
-                      <Select value={editProviderId} onValueChange={setEditProviderId}>
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {providers.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.firstName} {p.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <p className="font-medium">
-                        {selectedAppointment.provider
-                          ? `${selectedAppointment.provider.firstName} ${selectedAppointment.provider.lastName}`
-                          : '-'}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">
-                      {selectedAppointment.appointmentType === 'internal'
-                        ? t('appointments.subject', 'Subject')
-                        : t('appointments.service', 'Service')}
-                    </p>
-                    <p className="font-medium">
-                      {selectedAppointment.appointmentType === 'internal'
-                        ? (selectedAppointment.internalSubject || '-')
-                        : (selectedAppointment.service?.name || '-')}
-                    </p>
-                  </div>
-                </div>
-
-                {editMode && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <Video className="h-4 w-4" />
-                        {t('appointments.videoAppointment', 'Video Appointment')}
-                      </Label>
-                      <Switch checked={editIsVideo} onCheckedChange={setEditIsVideo} />
-                    </div>
-                    {editIsVideo && (
-                      <div>
-                        <Label>{t('appointments.videoMeetingLink', 'Meeting Link')}</Label>
-                        <Input
-                          value={editVideoLink}
-                          onChange={(e) => setEditVideoLink(e.target.value)}
-                          placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-muted-foreground text-sm mb-1">{t('appointments.statusLabel', 'Status')}</p>
-                  <Badge className={`${STATUS_COLORS[selectedAppointment.status]?.bg} ${STATUS_COLORS[selectedAppointment.status]?.text}`}>
-                    {getStatusLabel(selectedAppointment.status)}
-                  </Badge>
-                </div>
-
-                {selectedAppointment.isVideoAppointment && (
-                  <div>
-                    <p className="text-muted-foreground text-sm mb-1 flex items-center gap-1">
-                      <Video className="h-3 w-3" />
-                      {t('appointments.videoAppointment', 'Video Appointment')}
-                    </p>
-                    {selectedAppointment.videoMeetingLink && (
-                      <a
-                        href={selectedAppointment.videoMeetingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary underline break-all"
-                      >
-                        {selectedAppointment.videoMeetingLink}
-                      </a>
-                    )}
-                  </div>
-                )}
-
-                {selectedAppointment.notes && (
-                  <div>
-                    <p className="text-muted-foreground text-sm mb-1">{t('appointments.notes', 'Notes')}</p>
-                    <p className="text-sm bg-muted/50 p-2 rounded">{selectedAppointment.notes}</p>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter className="flex-col gap-2 sm:flex-row">
-                {editMode ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditMode(false)}
-                      disabled={rescheduleAppointmentMutation.isPending}
-                    >
-                      {t('common.cancel', 'Cancel')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveReschedule}
-                      disabled={rescheduleAppointmentMutation.isPending}
-                    >
-                      {rescheduleAppointmentMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                      {t('common.save', 'Save')}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    {selectedAppointment.status === 'scheduled' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'confirmed' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-confirm-appointment"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        {t('appointments.confirm', 'Confirm')}
-                      </Button>
-                    )}
-                    {(selectedAppointment.status === 'scheduled' || selectedAppointment.status === 'confirmed') && (
-                      <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'in_progress' })}
-                          disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                          data-testid="button-start-appointment"
-                        >
-                          {t('appointments.start', 'Start')}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'cancelled' })}
-                          disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                          data-testid="button-cancel-appointment"
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          {t('appointments.cancel', 'Cancel')}
-                        </Button>
-                      </>
-                    )}
-                    {selectedAppointment.status === 'in_progress' && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'completed' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-complete-appointment"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        {t('appointments.complete', 'Complete')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
-                          deleteAppointmentMutation.mutate(selectedAppointment.id);
-                        }
-                      }}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-delete-appointment"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      {t('appointments.delete', 'Delete')}
-                    </Button>
-                  </>
-                )}
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <AppointmentDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={(open) => { setDetailDialogOpen(open); }}
+        appointment={selectedAppointment}
+        hospitalId={hospitalId}
+        unitId={unitId}
+        providers={providers}
+        onNavigateToPatient={(patientId) => {
+          const moduleBase = activeHospital?.unitType === 'or' ? '/surgery'
+            : activeHospital?.unitType === 'anesthesia' ? '/anesthesia'
+            : '/clinic';
+          setDetailDialogOpen(false);
+          setTimeout(() => setLocation(`${moduleBase}/patients/${patientId}`), 150);
+        }}
+      />
 
       <BookingTypeSelector
         open={bookingTypeSelectorOpen}
@@ -814,7 +394,7 @@ export default function ClinicAppointments() {
   );
 }
 
-function BookingDialog({
+export function BookingDialog({
   open,
   onOpenChange,
   hospitalId,
