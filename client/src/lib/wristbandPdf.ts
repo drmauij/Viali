@@ -17,31 +17,31 @@ export async function generateWristbandPdf(data: WristbandData): Promise<void> {
   });
 
   const pageHeight = 25.4;
-  const qrSize = 18;
-  const margin = 3;
-  const xPos = margin;
-  const centerY = pageHeight / 2;
+  const qrSize = 22;
+  const margin = 2;
 
-  // Patient Name (bold, largest text)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(data.patientName, xPos, centerY - 3);
-
-  // DOB, Sex, Patient Number (second line)
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const infoLine = `${data.birthday}  •  ${data.sex}  •  ${data.patientNumber}`;
-  doc.text(infoLine, xPos, centerY + 4);
-
-  // QR Code (right side)
+  // QR Code (left side, first element)
   const qrDataUrl = await QRCode.toDataURL(data.patientUrl, {
     width: 400,
     margin: 1,
     errorCorrectionLevel: "M",
   });
-  const qrX = 279.4 - margin - qrSize;
   const qrY = (pageHeight - qrSize) / 2;
-  doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+  doc.addImage(qrDataUrl, "PNG", margin, qrY, qrSize, qrSize);
+
+  // Text starts after QR code
+  const textX = margin + qrSize + 3;
+
+  // Patient Name (bold, largest text)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(data.patientName, textX, 10);
+
+  // DOB, Sex, Patient Number (second line)
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const infoLine = `${data.birthday}  •  ${data.sex}  •  ${data.patientNumber}`;
+  doc.text(infoLine, textX, 18);
 
   // Download
   const safeName = data.patientName.replace(/[^a-zA-Z0-9_-]/g, "_");
