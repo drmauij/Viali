@@ -1,0 +1,2 @@
+ALTER TABLE "clinic_appointments" ADD COLUMN IF NOT EXISTS "is_video_appointment" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "clinic_appointments" ADD COLUMN IF NOT EXISTS "video_meeting_link" text;

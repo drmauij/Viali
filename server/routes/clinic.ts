@@ -1861,6 +1861,8 @@ const updateAppointmentSchema = z.object({
   notes: z.string().nullable().optional(),
   serviceId: z.string().nullable().optional(),
   providerId: z.string().optional(),
+  isVideoAppointment: z.boolean().optional(),
+  videoMeetingLink: z.string().nullable().optional(),
 });
 
 // Update appointment

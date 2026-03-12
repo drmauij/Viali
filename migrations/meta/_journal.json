@@ -1219,6 +1219,13 @@
       "when": 1773257494085,
       "tag": "0173_violet_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1773306486170,
+      "tag": "0174_lumpy_wildside",
+      "breakpoints": true
     }
   ]
 }

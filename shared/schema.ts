@@ -4304,6 +4304,10 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   // Notes
   notes: text("notes"),
   cancellationReason: text("cancellation_reason"),
+
+  // Video appointment
+  isVideoAppointment: boolean("is_video_appointment").default(false),
+  videoMeetingLink: text("video_meeting_link"),
   
   // Reminders
   reminderSent: boolean("reminder_sent").default(false),
