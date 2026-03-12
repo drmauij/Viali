@@ -450,7 +450,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
 
           // Generate cancel token
-          let cancelUrl = '';
+          let manageUrl = '';
           try {
             const crypto = await import('crypto');
             const cancelToken = crypto.randomBytes(32).toString('hex');
@@ -463,7 +463,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
               expiresAt: tokenExpiresAt,
             });
             const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
-            cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+            manageUrl = `${baseUrl}/manage-appointment/${cancelToken}`;
           } catch (tokenErr) {
             logger.error('Failed to generate cancel token for booking:', tokenErr);
           }
@@ -476,7 +476,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             formattedDate,
             startTime,
             lang,
-            cancelUrl,
+            manageUrl,
           );
         } catch (emailErr) {
           logger.error('Failed to send booking confirmation email:', emailErr);
@@ -1529,8 +1529,8 @@ async function sendAppointmentNotification(
     const clinicName = hospital.name;
     const patientName = patient.firstName || '';
 
-    // Generate cancel link for confirmation and reschedule messages (not cancellation)
-    let cancelUrl = '';
+    // Generate manage link for confirmation and reschedule messages (not cancellation)
+    let manageUrl = '';
     if (type !== 'cancellation' && appointment.appointmentType === 'external') {
       try {
         const { randomUUID } = await import('crypto');
@@ -1545,7 +1545,7 @@ async function sendAppointmentNotification(
           expiresAt: tokenExpiresAt,
         });
         const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
-        cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+        manageUrl = `${baseUrl}/manage-appointment/${cancelToken}`;
       } catch (tokenErr) {
         logger.error('Failed to generate cancel token for appointment notification:', tokenErr);
       }
@@ -1560,20 +1560,20 @@ async function sendAppointmentNotification(
       const { isSmsConfiguredForHospital, sendSms } = await import('../sms');
       const smsAvailable = await isSmsConfiguredForHospital(hospitalId);
       if (smsAvailable) {
-        const cancelSuffix = cancelUrl
-          ? (isGerman ? `\nZum Absagen: ${cancelUrl}` : `\nTo cancel: ${cancelUrl}`)
+        const manageSuffix = manageUrl
+          ? (isGerman ? `\nVerwalten/Absagen: ${manageUrl}` : `\nManage/Cancel: ${manageUrl}`)
           : '';
         const videoSuffix = (appointment.isVideoAppointment && appointment.videoMeetingLink)
           ? (isGerman ? `\n📹 Video-Termin: ${appointment.videoMeetingLink}` : `\n📹 Video call: ${appointment.videoMeetingLink}`)
           : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${videoSuffix}${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${videoSuffix}${cancelSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
           },
           reschedule: {
-            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${videoSuffix}${cancelSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${videoSuffix}${cancelSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
@@ -1598,11 +1598,11 @@ async function sendAppointmentNotification(
         const result = await sendAppointmentCancellationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       } else {
-        // For confirmation and reschedule, use versions with cancel link + video link
+        // For confirmation and reschedule, use versions with manage link + video link
         const videoLink = (appointment.isVideoAppointment && appointment.videoMeetingLink) ? appointment.videoMeetingLink : '';
         const result = type === 'reschedule'
-          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl, providerName, videoLink)
-          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, cancelUrl, providerName, videoLink);
+          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink)
+          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       }
     }

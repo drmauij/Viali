@@ -1244,7 +1244,7 @@ export async function sendAppointmentConfirmationEmail(
   appointmentDate: string,
   appointmentTime: string,
   language: string = 'de',
-  cancelUrl: string = '',
+  manageUrl: string = '',
   providerName: string = '',
   videoMeetingLink: string = ''
 ) {
@@ -1256,12 +1256,12 @@ export async function sendAppointmentConfirmationEmail(
       ? `Terminbestätigung – ${clinicName}`
       : `Appointment Confirmation – ${clinicName}`;
 
-    const cancelSection = cancelUrl ? `
+    const cancelSection = manageUrl ? `
         <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
-          ? 'Falls Sie den Termin nicht wahrnehmen können:'
-          : 'If you cannot make this appointment:'}</p>
+          ? 'Falls Sie den Termin verschieben oder absagen möchten:'
+          : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
-          <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termin verwalten' : 'Manage Appointment'}</a>
         </p>` : '';
 
     const videoSection = videoMeetingLink ? `
@@ -1310,7 +1310,7 @@ export async function sendAppointmentRescheduleEmail(
   appointmentDate: string,
   appointmentTime: string,
   language: string = 'de',
-  cancelUrl: string = '',
+  manageUrl: string = '',
   providerName: string = '',
   videoMeetingLink: string = ''
 ) {
@@ -1322,12 +1322,12 @@ export async function sendAppointmentRescheduleEmail(
       ? `Terminverschiebung – ${clinicName}`
       : `Appointment Rescheduled – ${clinicName}`;
 
-    const cancelSection = cancelUrl ? `
+    const cancelSection = manageUrl ? `
         <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
-          ? 'Falls Sie den neuen Termin nicht wahrnehmen können:'
-          : 'If you cannot make the new appointment:'}</p>
+          ? 'Falls Sie den Termin verschieben oder absagen möchten:'
+          : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
-          <a href="${cancelUrl}" style="color: #dc2626; font-size: 14px;">${isGerman ? 'Termin absagen' : 'Cancel Appointment'}</a>
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termin verwalten' : 'Manage Appointment'}</a>
         </p>` : '';
 
     const videoSection = videoMeetingLink ? `
@@ -1628,7 +1628,7 @@ export async function sendAppointmentReminderEmail(
   clinicName: string,
   appointmentDate: string,
   appointmentTime: string,
-  cancelUrl: string,
+  manageUrl: string,
   language: string = 'de'
 ) {
   try {
@@ -1647,11 +1647,11 @@ export async function sendAppointmentReminderEmail(
           ? `Wir möchten Sie an Ihren Termin am <strong>${appointmentDate}</strong> um <strong>${appointmentTime}</strong> erinnern.`
           : `This is a reminder for your appointment on <strong>${appointmentDate}</strong> at <strong>${appointmentTime}</strong>.`}</p>
         <p>${isGerman
-          ? 'Falls Sie den Termin nicht wahrnehmen können, können Sie ihn hier absagen:'
-          : 'If you cannot make this appointment, you can cancel it here:'}</p>
+          ? 'Falls Sie den Termin verschieben oder absagen möchten:'
+          : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 24px 0;">
-          <a href="${cancelUrl}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-            ${isGerman ? 'Termin absagen' : 'Cancel Appointment'}
+          <a href="${manageUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            ${isGerman ? 'Termin verwalten' : 'Manage Appointment'}
           </a>
         </p>
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>

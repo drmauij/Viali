@@ -2376,7 +2376,7 @@ async function processAppointmentReminder(job: any): Promise<void> {
         expiresAt: tokenExpiresAt,
       });
 
-      const cancelUrl = `${baseUrl}/cancel-appointment/${cancelToken}`;
+      const manageUrl = `${baseUrl}/manage-appointment/${cancelToken}`;
 
       // Format appointment date for display using hospital timezone
       const dateObj = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
@@ -2389,8 +2389,8 @@ async function processAppointmentReminder(job: any): Promise<void> {
 
       // Try SMS first
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
-        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Zum Absagen: ${cancelUrl}`;
-        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. To cancel: ${cancelUrl}`;
+        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Verwalten/Absagen: ${manageUrl}`;
+        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Manage/Cancel: ${manageUrl}`;
         const smsMessage = isGerman ? smsDe : smsEn;
 
         const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
@@ -2411,7 +2411,7 @@ async function processAppointmentReminder(job: any): Promise<void> {
           hospitalName,
           formattedDate,
           formattedTime,
-          cancelUrl,
+          manageUrl,
           lang,
         );
         if (emailResult.success) {
