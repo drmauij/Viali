@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText } from "lucide-react";
-import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getMomentTimeFormat } from "@/lib/dateUtils";
+import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getMomentTimeFormat, formatDateForInput } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -382,8 +382,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     queryKey: [`/api/hospitals/${activeHospital?.id}/closures`, dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
       const params = new URLSearchParams({
-        from: dateRange.start.toISOString().split('T')[0],
-        to: dateRange.end.toISOString().split('T')[0],
+        from: formatDateForInput(dateRange.start),
+        to: formatDateForInput(dateRange.end),
       });
       const response = await fetch(`/api/hospitals/${activeHospital?.id}/closures?${params}`);
       if (!response.ok) throw new Error('Failed to fetch closures');
@@ -984,7 +984,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
   // Detect if the currently selected day falls within a closure
   const dayClosure = useMemo(() => {
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const dateStr = selectedDate.toLocaleDateString('sv-SE');
     return closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate) || null;
   }, [selectedDate, closures]);
 
@@ -998,7 +998,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     if (!canPlanSurgery) return;
 
     // Block slot selection on closed dates
-    const slotDateStr = slotInfo.start.toISOString().split('T')[0];
+    const slotDateStr = slotInfo.start.toLocaleDateString('sv-SE');
     const isClosed = closures.some(c => slotDateStr >= c.startDate && slotDateStr <= c.endDate);
     if (isClosed) {
       toast({ title: t("opCalendar.clinicClosedToast", "The clinic is closed on this date"), variant: "destructive" });
@@ -1239,7 +1239,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     });
 
     const hasEvents = dayEvents.length > 0;
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toLocaleDateString('sv-SE');
     const cellClosure = closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate);
 
     return (
@@ -1271,7 +1271,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
   // Custom date cell wrapper to make entire month cell clickable
   const DateCellWrapper = useCallback(({ value, children }: { value: Date; children: React.ReactNode }) => {
-    const dateStr = value.toISOString().split('T')[0];
+    const dateStr = value.toLocaleDateString('sv-SE');
     const cellClosure = closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate);
 
     return (
