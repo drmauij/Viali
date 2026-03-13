@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -3158,26 +3159,25 @@ export default function Hospital() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("admin.startDate", "Start Date")} *</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={closureForm.startDate}
-                  onChange={(e) => {
-                    const newStart = e.target.value;
+                  onChange={(isoDate) => {
                     setClosureForm({
                       ...closureForm,
-                      startDate: newStart,
-                      endDate: closureForm.endDate && closureForm.endDate < newStart ? newStart : closureForm.endDate,
+                      startDate: isoDate,
+                      endDate: closureForm.endDate && closureForm.endDate < isoDate ? isoDate : closureForm.endDate,
                     });
                   }}
+                  placeholder={t("admin.pickDate", "Pick date")}
                 />
               </div>
               <div>
                 <Label>{t("admin.endDate", "End Date")} *</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={closureForm.endDate}
-                  onChange={(e) => setClosureForm({ ...closureForm, endDate: e.target.value })}
+                  onChange={(isoDate) => setClosureForm({ ...closureForm, endDate: isoDate })}
                   min={closureForm.startDate || undefined}
+                  placeholder={t("admin.pickDate", "Pick date")}
                 />
               </div>
             </div>

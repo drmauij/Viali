@@ -28,6 +28,7 @@ import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
 import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
 import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
+import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
@@ -981,6 +982,12 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     }
   }, [toast, canPlanSurgery]);
 
+  // Detect if the currently selected day falls within a closure
+  const dayClosure = useMemo(() => {
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    return closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate) || null;
+  }, [selectedDate, closures]);
+
   // Handle time slot selection (for quick create)
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     // Touch tap-to-place: if a request is tap-selected, use this click to place it
@@ -1225,13 +1232,15 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   }, [getPreOpStatus, getQuestionnaireDot, t]);
 
   // Custom month date cell component - show indicator dots instead of event details
-  const MonthDateHeader = useCallback(({ date, drilldownView }: { date: Date; drilldownView?: string }) => {
+  const MonthDateHeader = useCallback(({ date }: { date: Date }) => {
     const dayEvents = calendarEvents.filter(event => {
       const eventDate = new Date(event.start);
       return eventDate.toDateString() === date.toDateString();
     });
 
     const hasEvents = dayEvents.length > 0;
+    const dateStr = date.toISOString().split('T')[0];
+    const cellClosure = closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate);
 
     return (
       <div className="rbc-date-cell">
@@ -1245,20 +1254,32 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         >
           {date.getDate()}
         </button>
-        {hasEvents && (
+        {cellClosure ? (
+          <div className="flex justify-center mt-1">
+            <span className="text-[9px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 px-1 rounded">
+              {t("opCalendar.closed", "Closed")}
+            </span>
+          </div>
+        ) : hasEvents ? (
           <div className="flex justify-center mt-1">
             <div className="w-2 h-2 rounded-full bg-blue-500" data-testid={`indicator-${date.toISOString()}`}></div>
           </div>
-        )}
+        ) : null}
       </div>
     );
-  }, [calendarEvents]);
+  }, [calendarEvents, closures, t]);
 
   // Custom date cell wrapper to make entire month cell clickable
   const DateCellWrapper = useCallback(({ value, children }: { value: Date; children: React.ReactNode }) => {
+    const dateStr = value.toISOString().split('T')[0];
+    const cellClosure = closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate);
+
     return (
-      <div 
-        className="rbc-day-bg cursor-pointer hover:bg-accent/50 transition-colors"
+      <div
+        className={cn(
+          "rbc-day-bg cursor-pointer hover:bg-accent/50 transition-colors",
+          cellClosure && "bg-amber-50 dark:bg-amber-900/20"
+        )}
         onClick={() => {
           if (currentView === "month") {
             setSelectedDate(value);
@@ -1270,7 +1291,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         {children}
       </div>
     );
-  }, [currentView]);
+  }, [currentView, closures]);
 
   const goToToday = () => {
     setSelectedDate(new Date());
@@ -1582,75 +1603,88 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               getPreOpStatus={getPreOpStatus}
             />
           ) : (
-            <DragAndDropCalendar
-              localizer={localizer}
-              events={currentView === "month" ? [] : calendarEvents}
-              resources={currentView === "day" ? resources : undefined}
-              resourceIdAccessor="id"
-              resourceTitleAccessor="title"
-              startAccessor="start"
-              endAccessor="end"
-              resourceAccessor="resource"
-              view={currentView}
-              date={selectedDate}
-              onNavigate={setSelectedDate}
-              onView={(view: View) => setCurrentView(view as ViewType)}
-              onSelectSlot={handleSelectSlot}
-              onSelectEvent={handleSelectEvent}
-              onEventDrop={handleEventDrop}
-              onEventResize={handleEventResize}
-              eventPropGetter={eventStyleGetter}
-              formats={formats}
-              components={{
-                event: EventComponent,
-                toolbar: () => null,
-                month: {
-                  dateHeader: MonthDateHeader,
-                },
-                dateCellWrapper: DateCellWrapper,
-                resourceHeader: ({ resource, label }: { resource: CalendarResource; label: React.ReactNode }) => (
-                  <DroppableRoomHeader 
-                    resource={resource} 
-                    label={String(label)} 
-                    roomStaff={roomStaff}
-                    onRemoveStaff={handleRemoveRoomStaff}
-                    dropStaffText={t('opCalendar.dropStaffHere')}
-                    roomChecklists={checklistsByRoom.get(resource.id) || []}
-                    onChecklistClick={handleRoomChecklistClick}
-                  />
-                ),
-              }}
-              selectable={canPlanSurgery || !!tapSelectedRequest}
-              resizable={canPlanSurgery}
-              step={10}
-              timeslots={6}
-              min={new Date(0, 0, 0, 7, 0, 0)}
-              max={new Date(0, 0, 0, 22, 0, 0)}
-              style={{ minHeight: '600px' }}
-              popup
-              data-testid="calendar-main"
-              dragFromOutsideItem={() => {
-                if (!draggedRequest) return undefined as unknown as CalendarEvent;
-                const now = new Date();
-                const durationMs = (draggedRequest.surgeryDurationMinutes || 60) * 60 * 1000;
-                return {
-                  id: 'ext-req',
-                  title: draggedRequest.surgeryName || 'Request',
-                  start: now,
-                  end: new Date(now.getTime() + durationMs),
-                  surgeryId: 'ext-req',
-                  patientId: null,
-                  plannedSurgery: draggedRequest.surgeryName || '',
-                  patientName: '',
-                  patientBirthday: '',
-                  isCancelled: false,
-                  isSuspended: false,
-                } as CalendarEvent;
-              }}
-              onDropFromOutside={onDropFromOutside ? ({ start, end, resource }) =>
-                onDropFromOutside({ start: new Date(start), end: new Date(end), resource: resource as string | undefined })
-              : undefined}
-            />
+            <div className="relative h-full">
+              <DragAndDropCalendar
+                localizer={localizer}
+                events={currentView === "month" ? [] : calendarEvents}
+                resources={currentView === "day" ? resources : undefined}
+                resourceIdAccessor="id"
+                resourceTitleAccessor="title"
+                startAccessor="start"
+                endAccessor="end"
+                resourceAccessor="resource"
+                view={currentView}
+                date={selectedDate}
+                onNavigate={setSelectedDate}
+                onView={(view: View) => setCurrentView(view as ViewType)}
+                onSelectSlot={handleSelectSlot}
+                onSelectEvent={handleSelectEvent}
+                onEventDrop={handleEventDrop}
+                onEventResize={handleEventResize}
+                eventPropGetter={eventStyleGetter}
+                formats={formats}
+                components={{
+                  event: EventComponent,
+                  toolbar: () => null,
+                  month: {
+                    dateHeader: MonthDateHeader,
+                  },
+                  dateCellWrapper: DateCellWrapper,
+                  resourceHeader: ({ resource, label }: { resource: CalendarResource; label: React.ReactNode }) => (
+                    <DroppableRoomHeader
+                      resource={resource}
+                      label={String(label)}
+                      roomStaff={roomStaff}
+                      onRemoveStaff={handleRemoveRoomStaff}
+                      dropStaffText={t('opCalendar.dropStaffHere')}
+                      roomChecklists={checklistsByRoom.get(resource.id) || []}
+                      onChecklistClick={handleRoomChecklistClick}
+                    />
+                  ),
+                }}
+                selectable={canPlanSurgery || !!tapSelectedRequest}
+                resizable={canPlanSurgery}
+                step={10}
+                timeslots={6}
+                min={new Date(0, 0, 0, 7, 0, 0)}
+                max={new Date(0, 0, 0, 22, 0, 0)}
+                style={{ minHeight: '600px' }}
+                popup
+                data-testid="calendar-main"
+                dragFromOutsideItem={() => {
+                  if (!draggedRequest) return undefined as unknown as CalendarEvent;
+                  const now = new Date();
+                  const durationMs = (draggedRequest.surgeryDurationMinutes || 60) * 60 * 1000;
+                  return {
+                    id: 'ext-req',
+                    title: draggedRequest.surgeryName || 'Request',
+                    start: now,
+                    end: new Date(now.getTime() + durationMs),
+                    surgeryId: 'ext-req',
+                    patientId: null,
+                    plannedSurgery: draggedRequest.surgeryName || '',
+                    patientName: '',
+                    patientBirthday: '',
+                    isCancelled: false,
+                    isSuspended: false,
+                  } as CalendarEvent;
+                }}
+                onDropFromOutside={onDropFromOutside ? ({ start, end, resource }) =>
+                  onDropFromOutside({ start: new Date(start), end: new Date(end), resource: resource as string | undefined })
+                : undefined}
+              />
+              {currentView === "day" && dayClosure && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-amber-100/70 dark:bg-amber-900/30 rounded-lg">
+                  <div className="bg-amber-100 dark:bg-amber-900/80 border border-amber-300 dark:border-amber-700 rounded-xl px-8 py-6 text-center shadow-lg">
+                    <i className="fas fa-calendar-xmark text-amber-600 dark:text-amber-400 text-4xl mb-3"></i>
+                    <div className="text-lg font-semibold text-amber-800 dark:text-amber-200">
+                      {t("opCalendar.clinicClosed", "Clinic Closed")}
+                    </div>
+                    <div className="text-sm text-amber-600 dark:text-amber-400 mt-1">{dayClosure.name}</div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           </div>
         </div>
