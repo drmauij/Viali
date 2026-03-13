@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useEpisodeMutations } from "./useEpisodeMutations";
@@ -88,20 +89,16 @@ export function CreateEpisodeDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="episode-start-date">{t('episodes.startDate')}</Label>
-              <Input
-                id="episode-start-date"
-                type="date"
+              <DateInput
                 value={referenceDate}
-                onChange={(e) => setReferenceDate(e.target.value)}
+                onChange={(isoDate) => setReferenceDate(isoDate)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="episode-end-date">{t('episodes.endDate')}</Label>
-              <Input
-                id="episode-end-date"
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(isoDate) => setEndDate(isoDate)}
               />
             </div>
           </div>

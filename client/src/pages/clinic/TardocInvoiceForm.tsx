@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Select,
   SelectContent,
@@ -909,7 +910,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                     <FormItem>
                       <FormLabel>Treatment Start *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateInput value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -921,7 +922,7 @@ export default function TardocInvoiceForm({ hospitalId, onSuccess, onCancel, pre
                     <FormItem>
                       <FormLabel>Treatment End</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateInput value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -1414,9 +1415,9 @@ function TardocLineItem({
       {/* Date */}
       <div className="sm:col-span-1">
         <Label className="sm:hidden text-xs">Date</Label>
-        <Input
-          type="date"
-          {...form.register(`items.${index}.treatmentDate`)}
+        <DateInput
+          value={form.watch(`items.${index}.treatmentDate`) || ""}
+          onChange={(isoDate) => form.setValue(`items.${index}.treatmentDate`, isoDate)}
           className="h-8 text-xs"
         />
       </div>

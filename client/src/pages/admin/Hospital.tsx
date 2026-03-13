@@ -6039,20 +6039,16 @@ function TpwRatesCard({ hospitalId }: { hospitalId?: string }) {
             </div>
             <div>
               <label className="text-xs font-medium">Valid From *</label>
-              <input
-                type="date"
-                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
+              <DateInput
                 value={newRate.validFrom}
-                onChange={e => setNewRate(r => ({ ...r, validFrom: e.target.value }))}
+                onChange={(isoDate) => setNewRate(r => ({ ...r, validFrom: isoDate }))}
               />
             </div>
             <div>
               <label className="text-xs font-medium">Valid To</label>
-              <input
-                type="date"
-                className="w-full border rounded px-2 py-1.5 text-sm bg-background text-foreground"
+              <DateInput
                 value={newRate.validTo}
-                onChange={e => setNewRate(r => ({ ...r, validTo: e.target.value }))}
+                onChange={(isoDate) => setNewRate(r => ({ ...r, validTo: isoDate }))}
               />
             </div>
           </div>

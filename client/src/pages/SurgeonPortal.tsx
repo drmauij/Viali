@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -537,10 +538,9 @@ function ActionRequestDialog({ open, onOpenChange, type, surgery, token, lang, o
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label>{t.preferredDate}</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={proposedDate}
-                  onChange={(e) => setProposedDate(e.target.value)}
+                  onChange={(isoDate) => setProposedDate(isoDate)}
                 />
                 {proposedDateClosure && (
                   <p className="text-sm text-red-600 dark:text-red-400">
