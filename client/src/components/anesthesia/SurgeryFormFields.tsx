@@ -15,8 +15,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Check, ChevronsUpDown, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 import { TimeInput } from "@/components/ui/time-input";
+import { DateInput } from "@/components/ui/date-input";
 import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 
 export interface SurgeryFormFieldsProps {
@@ -233,25 +233,9 @@ export function SurgeryFormFields({
         </div>
         <div className="space-y-1">
           <Label>{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
-          <Input
-            type="text"
-            placeholder="dd.MM.yyyy"
-            value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              const parsed = parseFlexibleDate(value);
-              if (parsed) {
-                onSurgeryDateChange(parsed.isoDate);
-              } else {
-                onSurgeryDateChange(value);
-              }
-            }}
-            onBlur={(e) => {
-              const parsed = parseFlexibleDate(e.target.value);
-              if (parsed) {
-                onSurgeryDateChange(parsed.isoDate);
-              }
-            }}
+          <DateInput
+            value={surgeryDate}
+            onChange={onSurgeryDateChange}
             disabled={disabled}
             data-testid={tid("input-surgery-date")}
           />
