@@ -200,7 +200,11 @@ export default function Users() {
   const [userToArchive, setUserToArchive] = useState<HospitalUser | null>(null);
 
   // Tab state for user types
-  const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">("appUsers");
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  const validUserTabs = ["appUsers", "staffMembers"];
+  const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">(
+    urlTab && validUserTabs.includes(urlTab) ? urlTab as any : "appUsers"
+  );
 
   // Search, sort, and filter states
   const [appUserSearch, setAppUserSearch] = useState("");

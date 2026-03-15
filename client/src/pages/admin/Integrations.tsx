@@ -36,7 +36,11 @@ export default function Integrations() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc">("galexis");
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  const validTabs = ["galexis", "sms", "cameras", "cardreader", "tardoc"];
+  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc">(
+    urlTab && validTabs.includes(urlTab) ? urlTab as any : "galexis"
+  );
 
   const isAdmin = activeHospital?.role === "admin";
 

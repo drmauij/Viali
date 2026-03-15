@@ -29,7 +29,11 @@ export default function SettingsPage() {
   const isAdmin = activeHospital?.role === "admin";
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"settings" | "links" | "data" | "security" | "experimental">("settings");
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  const validTabs = ["settings", "links", "data", "security", "experimental"];
+  const [activeTab, setActiveTab] = useState<"settings" | "links" | "data" | "security" | "experimental">(
+    urlTab && validTabs.includes(urlTab) ? urlTab as any : "settings"
+  );
 
   // Hospital company data states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);

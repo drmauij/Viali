@@ -41,7 +41,11 @@ export default function Clinical() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates">("units");
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  const validTabs = ["units", "rooms", "checklists", "templates"];
+  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates">(
+    urlTab && validTabs.includes(urlTab) ? urlTab as any : "units"
+  );
 
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
