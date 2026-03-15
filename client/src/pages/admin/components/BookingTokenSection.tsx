@@ -4,7 +4,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, ExternalLink } from "lucide-react";
@@ -13,9 +12,7 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
   const { t } = useTranslation();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [copiedProviderId, setCopiedProviderId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showProviderLinks, setShowProviderLinks] = useState(false);
   const [slotDuration, setSlotDuration] = useState<string>("30");
   const [maxDays, setMaxDays] = useState<string>("90");
   const [minHours, setMinHours] = useState<string>("2");
@@ -23,38 +20,6 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
   const { data: tokenData } = useQuery<{ bookingToken: string | null; bookingSettings: any }>({
     queryKey: [`/api/admin/${hospitalId}/booking-token`],
     enabled: !!hospitalId && isAdmin,
-  });
-
-  // Fetch bookable providers to show per-provider links
-  const { data: bookableProviders } = useQuery<any[]>({
-    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`],
-    enabled: !!hospitalId && isAdmin && !!tokenData?.bookingToken,
-  });
-
-  // Fetch all clinic providers to allow toggling visibility
-  const { data: allProviders } = useQuery<any[]>({
-    queryKey: [`/api/clinic/${hospitalId}/clinic-providers`],
-    enabled: !!hospitalId && isAdmin && !!tokenData?.bookingToken,
-  });
-
-  // Mutation to update provider booking settings
-  const updateProviderMutation = useMutation({
-    mutationFn: async ({ userId, isBookable, bookingServiceName, bookingLocation }: { userId: string; isBookable: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
-      return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${userId}`, {
-        isBookable,
-        bookingServiceName,
-        bookingLocation,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ predicate: (q) => {
-        const k = q.queryKey[0];
-        return typeof k === 'string' && (k.includes('/clinic-providers') || k.includes('/bookable-providers'));
-      }});
-    },
-    onError: () => {
-      toast({ title: 'Error', description: 'Failed to update provider', variant: 'destructive' });
-    },
   });
 
   useEffect(() => {
@@ -212,103 +177,6 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
               </div>
             )}
 
-            {/* Per-provider settings and direct links */}
-            {allProviders && allProviders.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowProviderLinks(!showProviderLinks)}
-                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  {showProviderLinks ? "▾" : "▸"} Direct links per provider ({bookableProviders?.length || 0})
-                </button>
-                {showProviderLinks && (
-                  <div className="mt-2 space-y-3">
-                    {allProviders.map((p: any) => {
-                      const providerUrl = `${bookingUrl}?provider=${p.userId}`;
-                      const isCopied = copiedProviderId === p.userId;
-                      const isBookable = p.isBookable ?? false;
-                      return (
-                        <div key={p.userId} className={`p-3 rounded-lg border ${isBookable ? 'bg-muted/50 border-border' : 'bg-transparent border-dashed border-muted'}`}>
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={isBookable}
-                              onCheckedChange={(checked) => {
-                                updateProviderMutation.mutate({
-                                  userId: p.userId,
-                                  isBookable: !!checked,
-                                  bookingServiceName: p.bookingServiceName || undefined,
-                                  bookingLocation: p.bookingLocation || undefined,
-                                });
-                              }}
-                            />
-                            <span className={`text-sm font-medium flex-1 truncate ${!isBookable ? 'text-muted-foreground' : ''}`}>
-                              {p.user?.firstName} {p.user?.lastName}
-                            </span>
-                            {isBookable && (
-                              <>
-                                <Input
-                                  value={providerUrl}
-                                  readOnly
-                                  className="max-w-[220px] bg-background text-xs font-mono h-7"
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 shrink-0"
-                                  onClick={async () => {
-                                    try {
-                                      await navigator.clipboard.writeText(providerUrl);
-                                      setCopiedProviderId(p.userId);
-                                      setTimeout(() => setCopiedProviderId(null), 2000);
-                                    } catch { /* ignore */ }
-                                  }}
-                                >
-                                  {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                          {isBookable && (
-                            <div className="mt-2 ml-8 grid grid-cols-2 gap-2">
-                              <Input
-                                placeholder="Service (e.g. Plastische Chirurgie Beratung)"
-                                defaultValue={p.bookingServiceName || ''}
-                                className="h-7 text-xs"
-                                onBlur={(e) => {
-                                  if (e.target.value !== (p.bookingServiceName || '')) {
-                                    updateProviderMutation.mutate({
-                                      userId: p.userId,
-                                      isBookable: true,
-                                      bookingServiceName: e.target.value,
-                                      bookingLocation: p.bookingLocation || undefined,
-                                    });
-                                  }
-                                }}
-                              />
-                              <Input
-                                placeholder="Location (e.g. Gaissbergstr. 45)"
-                                defaultValue={p.bookingLocation || ''}
-                                className="h-7 text-xs"
-                                onBlur={(e) => {
-                                  if (e.target.value !== (p.bookingLocation || '')) {
-                                    updateProviderMutation.mutate({
-                                      userId: p.userId,
-                                      isBookable: true,
-                                      bookingServiceName: p.bookingServiceName || undefined,
-                                      bookingLocation: e.target.value,
-                                    });
-                                  }
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <div className="flex items-center gap-3">

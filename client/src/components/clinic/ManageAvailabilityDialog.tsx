@@ -37,6 +37,10 @@ import {
   Settings,
   Info,
   Repeat,
+  Globe,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -113,6 +117,35 @@ export function ManageAvailabilityDialog({
 
   const selectedProviderData = clinicProviders.find(p => p.userId === selectedProviderId);
   const availabilityMode = selectedProviderData?.availabilityMode || 'always_available';
+
+  // Public Calendar tab: all providers (including non-bookable) + booking token
+  const { data: allClinicProviders = [] } = useQuery<any[]>({
+    queryKey: [`/api/clinic/${hospitalId}/clinic-providers`],
+    enabled: !!hospitalId && open,
+  });
+  const selectedFullProvider = allClinicProviders.find((p: any) => p.userId === selectedProviderId);
+
+  const { data: bookingTokenData } = useQuery<{ bookingToken: string | null }>({
+    queryKey: [`/api/admin/${hospitalId}/booking-token`],
+    enabled: !!hospitalId && open,
+  });
+
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const updateProviderBookingMutation = useMutation({
+    mutationFn: async (data: { isBookable: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
+      return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${selectedProviderId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return typeof k === 'string' && (k.includes('/clinic-providers') || k.includes('/bookable-providers'));
+      }});
+    },
+    onError: () => {
+      toast({ title: t('common.error', 'Error'), description: t('availability.bookingUpdateError', 'Failed to update booking settings'), variant: 'destructive' });
+    },
+  });
 
   const { data: availability = [], isLoading: availabilityLoading } = useQuery<ProviderAvailability[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability`],
@@ -314,7 +347,7 @@ export function ManageAvailabilityDialog({
 
             {selectedProviderId && (
               <Tabs defaultValue="mode" className="space-y-4">
-                <TabsList className="w-full grid grid-cols-4">
+                <TabsList className="w-full grid grid-cols-5">
                   <TabsTrigger value="mode" className="text-xs" data-testid="tab-mode-dialog">
                     <Settings className="h-4 w-4 mr-1 hidden sm:block" />
                     {t('availability.mode', 'Mode')}
@@ -330,6 +363,10 @@ export function ManageAvailabilityDialog({
                   <TabsTrigger value="timeoff" className="text-xs" data-testid="tab-timeoff-dialog">
                     <CalendarOff className="h-4 w-4 mr-1 hidden sm:block" />
                     {t('availability.timeOff', 'Time Off')}
+                  </TabsTrigger>
+                  <TabsTrigger value="booking" className="text-xs" data-testid="tab-booking-dialog">
+                    <Globe className="h-4 w-4 mr-1 hidden sm:block" />
+                    {t('availability.publicCalendar', 'Public Calendar')}
                   </TabsTrigger>
                 </TabsList>
 
@@ -623,6 +660,131 @@ export function ManageAvailabilityDialog({
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Public Calendar Tab */}
+                <TabsContent value="booking" className="space-y-4">
+                  {(() => {
+                    const isBookable = selectedFullProvider?.isBookable ?? false;
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                    const bookingUrl = bookingTokenData?.bookingToken ? `${baseUrl}/book/${bookingTokenData.bookingToken}` : null;
+                    const providerUrl = bookingUrl ? `${bookingUrl}?provider=${selectedProviderId}` : null;
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Enable/Disable toggle */}
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                          <div className="flex-1">
+                            <Label className="font-medium">
+                              {t('availability.publicCalendarEnabled', 'Public Calendar Enabled')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {t('availability.publicCalendarDescription', 'Allow patients to book appointments with this provider through the public booking page.')}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={isBookable}
+                            onCheckedChange={(checked) => {
+                              updateProviderBookingMutation.mutate({
+                                isBookable: checked,
+                                bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
+                                bookingLocation: selectedFullProvider?.bookingLocation || undefined,
+                              });
+                            }}
+                            disabled={updateProviderBookingMutation.isPending}
+                          />
+                        </div>
+
+                        {/* Booking settings — always visible when enabled */}
+                        {isBookable && (
+                          <>
+                            {/* Direct booking link */}
+                            {providerUrl ? (
+                              <div className="space-y-2">
+                                <Label className="text-sm">{t('availability.directLink', 'Direct Booking Link')}</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={providerUrl}
+                                    readOnly
+                                    className="flex-1 bg-muted text-sm font-mono"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(providerUrl);
+                                        setCopiedLink(true);
+                                        setTimeout(() => setCopiedLink(false), 2000);
+                                      } catch { /* ignore */ }
+                                    }}
+                                  >
+                                    {copiedLink ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => window.open(providerUrl, '_blank')}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                <p className="text-sm text-amber-700 dark:text-amber-300">
+                                  <i className="fas fa-info-circle mr-2"></i>
+                                  {t('availability.noBookingLink', 'No booking link has been generated yet. Generate one in Admin → Settings → Links.')}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Service and Location */}
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-sm">{t('availability.bookingService', 'Service')}</Label>
+                                <Input
+                                  placeholder={t('availability.bookingServicePlaceholder', 'e.g. Plastische Chirurgie Beratung')}
+                                  defaultValue={selectedFullProvider?.bookingServiceName || ''}
+                                  key={`service-${selectedProviderId}`}
+                                  className="mt-1"
+                                  onBlur={(e) => {
+                                    if (e.target.value !== (selectedFullProvider?.bookingServiceName || '')) {
+                                      updateProviderBookingMutation.mutate({
+                                        isBookable: true,
+                                        bookingServiceName: e.target.value,
+                                        bookingLocation: selectedFullProvider?.bookingLocation || undefined,
+                                      });
+                                    }
+                                  }}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">{t('availability.bookingServiceHint', 'Displayed on the public booking page for this provider')}</p>
+                              </div>
+                              <div>
+                                <Label className="text-sm">{t('availability.bookingLocation', 'Location')}</Label>
+                                <Input
+                                  placeholder={t('availability.bookingLocationPlaceholder', 'e.g. Gaissbergstr. 45')}
+                                  defaultValue={selectedFullProvider?.bookingLocation || ''}
+                                  key={`location-${selectedProviderId}`}
+                                  className="mt-1"
+                                  onBlur={(e) => {
+                                    if (e.target.value !== (selectedFullProvider?.bookingLocation || '')) {
+                                      updateProviderBookingMutation.mutate({
+                                        isBookable: true,
+                                        bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
+                                        bookingLocation: e.target.value,
+                                      });
+                                    }
+                                  }}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">{t('availability.bookingLocationHint', 'Address shown to patients when booking')}</p>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </TabsContent>
               </Tabs>
             )}
