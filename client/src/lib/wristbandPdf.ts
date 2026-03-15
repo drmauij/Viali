@@ -1,4 +1,3 @@
-import jsPDF from "jspdf";
 import QRCode from "qrcode";
 
 interface WristbandData {
@@ -11,6 +10,7 @@ interface WristbandData {
 }
 
 export async function generateWristbandPdf(data: WristbandData): Promise<void> {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     orientation: "landscape",
     unit: "mm",

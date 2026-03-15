@@ -81,7 +81,7 @@ export function SendSurgeonSummaryDialog({
     return `${day}.${month}.${year}`;
   };
 
-  const buildSummaryPdf = () => {
+  const buildSummaryPdf = async () => {
     return generateSurgeonSummaryPDF({
       patient: {
         firstName: patient.firstName,
@@ -132,7 +132,7 @@ export function SendSurgeonSummaryDialog({
 
     setIsSending(true);
     try {
-      const doc = buildSummaryPdf();
+      const doc = await buildSummaryPdf();
       const pdfBase64 = doc.output('datauristring').split(',')[1];
       const patientName = `${patient.surname}, ${patient.firstName}`;
       const surgeryDate = formatDateForDisplay(surgery.plannedDate);
@@ -163,10 +163,10 @@ export function SendSurgeonSummaryDialog({
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!surgery || !patient) return;
     try {
-      const doc = buildSummaryPdf();
+      const doc = await buildSummaryPdf();
       const surgeryDate = formatDateForDisplay(surgery.plannedDate);
       doc.save(`Surgery_Summary_${patient.surname}_${patient.firstName}_${surgeryDate}.pdf`);
 

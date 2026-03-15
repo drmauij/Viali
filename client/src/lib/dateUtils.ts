@@ -218,6 +218,14 @@ export const getMomentTimeFormat = (): string => {
   return currentConfig.timeFormat === "h:mm a" ? "h:mm A" : "HH:mm";
 };
 
+/**
+ * Get the current time format string for date-fns.
+ * Returns "HH:mm" for 24h or "h:mm a" for 12h (date-fns format).
+ */
+export const getDateFnsTimeFormat = (): string => {
+  return currentConfig.timeFormat === "h:mm a" ? "h:mm a" : "HH:mm";
+};
+
 export const formatDateForInput = (date: string | Date | null | undefined): string => {
   if (!date) return "";
   

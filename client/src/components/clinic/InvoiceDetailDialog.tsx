@@ -12,8 +12,7 @@ import { de, enUS } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import type { jsPDF } from "jspdf";
 
 interface Invoice {
   id: string;
@@ -186,6 +185,8 @@ export function InvoiceDetailDialog({
   const buildPDF = async (): Promise<jsPDF | null> => {
     if (!invoiceWithItems || !companyData) return null;
 
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
     const invoice = invoiceWithItems;
     const isGerman = i18n.language === "de";

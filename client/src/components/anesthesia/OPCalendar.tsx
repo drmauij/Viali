@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
+import { Calendar, dateFnsLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import { format as dateFnsFormat, parse, startOfWeek, getDay, type Locale } from "date-fns";
+import { de, enUS } from "date-fns/locale";
 import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, useDroppable } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -15,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText } from "lucide-react";
-import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getMomentTimeFormat, formatDateForInput } from "@/lib/dateUtils";
+import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getDateFnsTimeFormat, formatDateForInput } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -71,9 +70,14 @@ type CalendarResource = {
   title: string;
 };
 
-// Helper to get moment locale from i18n language
-function getMomentLocale(lang: string): string {
-  return lang.startsWith('de') ? 'de' : 'en-gb';
+// date-fns locales map
+const dateFnsLocales: Record<string, Locale> = {
+  'de': de,
+  'en': enUS,
+};
+
+function getDateFnsLocale(lang: string): Locale {
+  return lang.startsWith('de') ? de : enUS;
 }
 
 // Explicitly type DragAndDropCalendar with CalendarEvent and CalendarResource
@@ -83,22 +87,22 @@ const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
 
 // Custom formats for European date/time display
 const formats = {
-  timeGutterFormat: (date: Date) => moment(date).format(getMomentTimeFormat()),
+  timeGutterFormat: (date: Date) => dateFnsFormat(date, getDateFnsTimeFormat()),
   eventTimeRangeFormat: () => '', // Hide time from events
   selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
-    const tf = getMomentTimeFormat();
-    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+    const tf = getDateFnsTimeFormat();
+    return `${dateFnsFormat(start, tf)} - ${dateFnsFormat(end, tf)}`;
   },
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
-    const tf = getMomentTimeFormat();
-    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+    const tf = getDateFnsTimeFormat();
+    return `${dateFnsFormat(start, tf)} - ${dateFnsFormat(end, tf)}`;
   },
-  dayHeaderFormat: 'dddd DD/MM/YYYY',
+  dayHeaderFormat: 'EEEE dd/MM/yyyy',
   dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
-  agendaDateFormat: 'DD/MM/YYYY',
+    `${dateFnsFormat(start, 'dd/MM/yyyy')} - ${dateFnsFormat(end, 'dd/MM/yyyy')}`,
+  agendaDateFormat: 'dd/MM/yyyy',
   agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
+    `${dateFnsFormat(start, 'dd/MM/yyyy')} - ${dateFnsFormat(end, 'dd/MM/yyyy')}`,
 };
 
 type ViewType = "day" | "week" | "month";
@@ -245,10 +249,14 @@ function DroppableRoomHeader({
 export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
-  // Set moment locale based on i18n language and create localizer
-  const momentLocale = getMomentLocale(i18n.language);
-  moment.locale(momentLocale);
-  const localizer = useMemo(() => momentLocalizer(moment), [momentLocale]);
+  // Create date-fns localizer based on i18n language
+  const localizer = useMemo(() => dateFnsLocalizer({
+    format: dateFnsFormat,
+    parse,
+    startOfWeek,
+    getDay,
+    locales: dateFnsLocales,
+  }), []);
   
   // Restore calendar view and date from sessionStorage
   const [currentView, setCurrentView] = useState<ViewType>(() => {
@@ -668,7 +676,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   }, [preOpMap]);
 
   // Generate PDF for the current day's surgeries
-  const generateDayPdf = useCallback(() => {
+  const generateDayPdf = useCallback(async () => {
     const dayStart = new Date(selectedDate);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(selectedDate);
@@ -710,7 +718,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       { ...defaultColumns.preOp(formatPreOpSummaryForPdf, t), width: 50 },
     ];
 
-    generateDayPlanPdf({
+    await generateDayPlanPdf({
       date: selectedDate,
       hospitalName: activeHospital?.name || '',
       surgeries: daySurgeries,
@@ -2056,9 +2064,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             <DialogDescription>
               {roomBlockEvent && (() => {
                 const room = surgeryRooms.find((r: any) => r.id === roomBlockEvent.resource);
-                const tf = getMomentTimeFormat();
-                const start = moment(roomBlockEvent.start).format(tf);
-                const end = moment(roomBlockEvent.end).format(tf);
+                const tf = getDateFnsTimeFormat();
+                const start = dateFnsFormat(roomBlockEvent.start, tf);
+                const end = dateFnsFormat(roomBlockEvent.end, tf);
                 return `${room?.name || ''} · ${start} – ${end}`;
               })()}
             </DialogDescription>

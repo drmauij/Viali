@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { formatDateTimeLong } from "@/lib/dateUtils";
 
 export interface ChecklistHistoryPdfEntry {
@@ -21,9 +19,11 @@ export interface ChecklistHistoryPdfOptions {
   t: TFunction;
 }
 
-export function generateChecklistHistoryPdf(options: ChecklistHistoryPdfOptions): void {
+export async function generateChecklistHistoryPdf(options: ChecklistHistoryPdfOptions): Promise<void> {
   const { templateName, recurrency, hospitalName, entries, t } = options;
 
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF();
 
   // Header

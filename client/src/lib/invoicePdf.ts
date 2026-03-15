@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import i18next from "i18next";
 import type { Surgery, Patient } from "@shared/schema";
 import { formatDate, formatDateTime, formatDateForInput } from "@/lib/dateUtils";
@@ -181,6 +179,8 @@ export async function generateInvoicePdf(
     );
 
     // Step 4: Generate PDF
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF({ orientation: "portrait" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;

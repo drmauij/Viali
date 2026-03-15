@@ -168,7 +168,7 @@ export function usePdfExport(props: UsePdfExportProps) {
         allergies: convertedAllergies,
       };
 
-      generateAnesthesiaRecordPDF({
+      await generateAnesthesiaRecordPDF({
         patient: patientWithAllergyLabels,
         surgery: props.surgery,
         anesthesiaRecord: props.anesthesiaRecord || null,

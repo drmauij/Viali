@@ -30,6 +30,24 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React
+          'vendor-react': ['react', 'react-dom', 'wouter'],
+          // UI framework
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          // Charts (heavy)
+          'vendor-echarts': ['echarts', 'echarts-for-react'],
+          // Data fetching
+          'vendor-query': ['@tanstack/react-query'],
+          // PDF generation (heavy, rarely used)
+          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+          // DnD
+          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
   },
   server: {
     fs: {

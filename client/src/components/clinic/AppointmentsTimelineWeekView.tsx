@@ -7,13 +7,16 @@ import Timeline, {
   TimelineItemBase,
 } from "react-calendar-timeline";
 import "react-calendar-timeline/style.css";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import {
+  format,
+  startOfISOWeek,
+  endOfISOWeek,
+  addDays,
+} from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getMomentTimeFormat } from "@/lib/dateUtils";
+import { getDateFnsTimeFormat } from "@/lib/dateUtils";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 interface TimelineGroup extends TimelineGroupBase {
@@ -148,21 +151,17 @@ export default function AppointmentsTimelineWeekView({
   const [visibleTimeStart, setVisibleTimeStart] = useState<number>(0);
   const [visibleTimeEnd, setVisibleTimeEnd] = useState<number>(0);
 
-  useEffect(() => {
-    moment.locale(i18n.language.startsWith('de') ? 'de' : 'en-gb');
-  }, [i18n.language]);
-
   const weekRange = useMemo(() => {
-    const start = moment(selectedDate).startOf('isoWeek');
-    const end = moment(selectedDate).endOf('isoWeek');
+    const start = startOfISOWeek(selectedDate);
+    const end = endOfISOWeek(selectedDate);
     return { start, end };
   }, [selectedDate]);
 
   useEffect(() => {
-    const start = weekRange.start.clone();
-    const end = start.clone().add(2, 'days');
-    setVisibleTimeStart(start.valueOf());
-    setVisibleTimeEnd(end.valueOf());
+    const start = weekRange.start;
+    const end = addDays(start, 2);
+    setVisibleTimeStart(start.getTime());
+    setVisibleTimeEnd(end.getTime());
   }, [weekRange]);
 
   const handleZoomIn = () => {
@@ -176,9 +175,9 @@ export default function AppointmentsTimelineWeekView({
   const handleZoomOut = () => {
     const center = (visibleTimeStart + visibleTimeEnd) / 2;
     const currentRange = visibleTimeEnd - visibleTimeStart;
-    const newRange = Math.min(currentRange * 1.3, weekRange.end.valueOf() - weekRange.start.valueOf());
-    const newStart = Math.max(center - newRange / 2, weekRange.start.valueOf());
-    const newEnd = Math.min(center + newRange / 2, weekRange.end.valueOf());
+    const newRange = Math.min(currentRange * 1.3, weekRange.end.getTime() - weekRange.start.getTime());
+    const newStart = Math.max(center - newRange / 2, weekRange.start.getTime());
+    const newEnd = Math.min(center + newRange / 2, weekRange.end.getTime());
     setVisibleTimeStart(newStart);
     setVisibleTimeEnd(newEnd);
   };
@@ -240,8 +239,8 @@ export default function AppointmentsTimelineWeekView({
         id: appt.id,
         group: appt.providerId,
         title: serviceName ? `${serviceName}\n${patientName}` : patientName,
-        start_time: moment(start).valueOf(),
-        end_time: moment(end).valueOf(),
+        start_time: start.getTime(),
+        end_time: end.getTime(),
         itemProps: {
           className: statusClass,
           onDoubleClick: () => onEventClick?.(appt),
@@ -275,8 +274,8 @@ export default function AppointmentsTimelineWeekView({
           id: `surgery-${surgery.id}`,
           group: resourceId!,
           title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
-          start_time: moment(start).valueOf(),
-          end_time: moment(end).valueOf(),
+          start_time: start.getTime(),
+          end_time: end.getTime(),
           canMove: false,
           canResize: false,
           itemProps: {
@@ -297,10 +296,10 @@ export default function AppointmentsTimelineWeekView({
         const absenceEnd = new Date(absence.endDate);
         
         // Create all-day items for each day in the absence range that falls within the week
-        const currentDate = new Date(Math.max(absenceStart.getTime(), weekRange.start.valueOf()));
+        const currentDate = new Date(Math.max(absenceStart.getTime(), weekRange.start.getTime()));
         currentDate.setHours(0, 0, 0, 0);
         
-        const rangeEnd = new Date(Math.min(absenceEnd.getTime(), weekRange.end.valueOf()));
+        const rangeEnd = new Date(Math.min(absenceEnd.getTime(), weekRange.end.getTime()));
         rangeEnd.setHours(23, 59, 59, 999);
         
         while (currentDate <= rangeEnd) {
@@ -318,11 +317,11 @@ export default function AppointmentsTimelineWeekView({
           const statusClass = STATUS_COLORS[absenceStatus] || 'timeline-item-absence-other';
           
           absenceItems.push({
-            id: `absence-${absence.id}-${moment(currentDate).format('YYYY-MM-DD')}`,
+            id: `absence-${absence.id}-${format(currentDate, 'yyyy-MM-dd')}`,
             group: absence.providerId,
             title: `${icon} ${displayLabel}`,
-            start_time: moment(dayStart).valueOf(),
-            end_time: moment(dayEnd).valueOf(),
+            start_time: dayStart.getTime(),
+            end_time: dayEnd.getTime(),
             canMove: false,
             canResize: false,
             itemProps: {
@@ -345,10 +344,10 @@ export default function AppointmentsTimelineWeekView({
         const timeOffEnd = new Date(timeOff.endDate);
         
         // Create items for each day in the time off range that falls within the week
-        const currentDate = new Date(Math.max(timeOffStart.getTime(), weekRange.start.valueOf()));
+        const currentDate = new Date(Math.max(timeOffStart.getTime(), weekRange.start.getTime()));
         currentDate.setHours(0, 0, 0, 0);
         
-        const rangeEnd = new Date(Math.min(timeOffEnd.getTime(), weekRange.end.valueOf()));
+        const rangeEnd = new Date(Math.min(timeOffEnd.getTime(), weekRange.end.getTime()));
         rangeEnd.setHours(23, 59, 59, 999);
         
         while (currentDate <= rangeEnd) {
@@ -369,11 +368,11 @@ export default function AppointmentsTimelineWeekView({
           const reason = timeOff.reason || 'Time Off';
           
           timeOffItems.push({
-            id: `timeoff-${timeOff.id}-${moment(currentDate).format('YYYY-MM-DD')}`,
+            id: `timeoff-${timeOff.id}-${format(currentDate, 'yyyy-MM-dd')}`,
             group: timeOff.providerId,
             title: `🚫 ${reason}`,
-            start_time: moment(dayStart).valueOf(),
-            end_time: moment(dayEnd).valueOf(),
+            start_time: dayStart.getTime(),
+            end_time: dayEnd.getTime(),
             canMove: false,
             canResize: false,
             itemProps: {
@@ -403,9 +402,9 @@ export default function AppointmentsTimelineWeekView({
     const currentStart = currentState?.start || new Date();
     const currentEnd = currentState?.end || new Date();
     
-    const duration = moment(currentEnd).diff(moment(currentStart));
-    const newStart = moment(dragTime).toDate();
-    const newEnd = moment(dragTime).add(duration).toDate();
+    const duration = currentEnd.getTime() - currentStart.getTime();
+    const newStart = new Date(dragTime);
+    const newEnd = new Date(dragTime + duration);
     const newProviderId = String(groups[newGroupOrder]?.id);
 
     if (newProviderId) {
@@ -433,17 +432,14 @@ export default function AppointmentsTimelineWeekView({
     const currentStart = currentState?.start || new Date();
     const currentEnd = currentState?.end || new Date();
 
-    let newStart = moment(currentStart);
-    let newEnd = moment(currentEnd);
+    let finalStart = new Date(currentStart);
+    let finalEnd = new Date(currentEnd);
 
     if (edge === 'left') {
-      newStart = moment(time);
+      finalStart = new Date(time);
     } else {
-      newEnd = moment(time);
+      finalEnd = new Date(time);
     }
-
-    const finalStart = newStart.toDate();
-    const finalEnd = newEnd.toDate();
 
     currentStateRef.current.set(id, {
       providerId,
@@ -473,8 +469,8 @@ export default function AppointmentsTimelineWeekView({
         <Timeline
           groups={groups}
           items={items}
-          defaultTimeStart={weekRange.start.valueOf()}
-          defaultTimeEnd={weekRange.end.valueOf()}
+          defaultTimeStart={weekRange.start.getTime()}
+          defaultTimeEnd={weekRange.end.getTime()}
           visibleTimeStart={visibleTimeStart}
           visibleTimeEnd={visibleTimeEnd}
           onTimeChange={handleTimeChange}
@@ -534,7 +530,8 @@ export default function AppointmentsTimelineWeekView({
             unit="day"
             labelFormat={(interval: any) => {
               const startTime = interval[0] || interval.startTime;
-              return moment(startTime.toDate ? startTime.toDate() : startTime).format('DD.MM.YY');
+              const d = startTime.toDate ? startTime.toDate() : new Date(startTime);
+              return format(d, 'dd.MM.yy');
             }}
             style={{ height: 50 }}
           />
@@ -542,7 +539,8 @@ export default function AppointmentsTimelineWeekView({
             unit="hour"
             labelFormat={(interval: any) => {
               const startTime = interval[0] || interval.startTime;
-              return moment(startTime.toDate ? startTime.toDate() : startTime).format(getMomentTimeFormat());
+              const d = startTime.toDate ? startTime.toDate() : new Date(startTime);
+              return format(d, getDateFnsTimeFormat());
             }}
             style={{ height: 40 }}
           />

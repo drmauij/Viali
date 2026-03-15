@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { formatDate, formatTime, formatDateForInput } from "@/lib/dateUtils";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
@@ -48,13 +46,15 @@ function getRoleLabels(t: TFunction): Record<string, string> {
   };
 }
 
-export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
+export async function generateDayPlanPdf(options: DayPlanPdfOptions): Promise<void> {
   const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom, dayNotes, t } = options;
 
   if (surgeries.length === 0) {
     return;
   }
 
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF({ orientation: 'landscape' });
   const roleLabels = getRoleLabels(t);
 

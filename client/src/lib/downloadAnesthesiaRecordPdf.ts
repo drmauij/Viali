@@ -209,7 +209,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     };
 
     // Generate PDF with native jsPDF charts (reliable, full-width landscape rendering)
-    generateAnesthesiaRecordPDF({
+    await generateAnesthesiaRecordPDF({
       patient: patientWithAllergyLabels,
       surgery,
       anesthesiaRecord,

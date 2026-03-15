@@ -1,16 +1,15 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
+import { Calendar, dateFnsLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import { format as dateFnsFormat, parse, startOfWeek, getDay, type Locale } from "date-fns";
+import { de, enUS } from "date-fns/locale";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft, Video } from "lucide-react";
-import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getMomentTimeFormat } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getDateFnsTimeFormat } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -113,31 +112,33 @@ type CalendarResource = {
   title: string;
 };
 
-function getMomentLocale(lang: string): string {
-  return lang.startsWith('de') ? 'de' : 'en-gb';
-}
+// date-fns locales map
+const dateFnsLocales: Record<string, Locale> = {
+  'de': de,
+  'en': enUS,
+};
 
 const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
   Calendar as React.ComponentType<CalendarProps<CalendarEvent, CalendarResource>>
 );
 
 const formats = {
-  timeGutterFormat: (date: Date) => moment(date).format(getMomentTimeFormat()),
+  timeGutterFormat: (date: Date) => dateFnsFormat(date, getDateFnsTimeFormat()),
   eventTimeRangeFormat: () => '',
   selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
-    const tf = getMomentTimeFormat();
-    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+    const tf = getDateFnsTimeFormat();
+    return `${dateFnsFormat(start, tf)} - ${dateFnsFormat(end, tf)}`;
   },
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => {
-    const tf = getMomentTimeFormat();
-    return `${moment(start).format(tf)} - ${moment(end).format(tf)}`;
+    const tf = getDateFnsTimeFormat();
+    return `${dateFnsFormat(start, tf)} - ${dateFnsFormat(end, tf)}`;
   },
-  dayHeaderFormat: 'dddd DD/MM/YYYY',
+  dayHeaderFormat: 'EEEE dd/MM/yyyy',
   dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
-  agendaDateFormat: 'DD/MM/YYYY',
+    `${dateFnsFormat(start, 'dd/MM/yyyy')} - ${dateFnsFormat(end, 'dd/MM/yyyy')}`,
+  agendaDateFormat: 'dd/MM/yyyy',
   agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
+    `${dateFnsFormat(start, 'dd/MM/yyyy')} - ${dateFnsFormat(end, 'dd/MM/yyyy')}`,
 };
 
 type ViewType = "day" | "week" | "month";
@@ -209,9 +210,13 @@ export default function ClinicCalendar({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
-  const momentLocale = getMomentLocale(i18n.language);
-  moment.locale(momentLocale);
-  const localizer = useMemo(() => momentLocalizer(moment), [momentLocale]);
+  const localizer = useMemo(() => dateFnsLocalizer({
+    format: dateFnsFormat,
+    parse,
+    startOfWeek,
+    getDay,
+    locales: dateFnsLocales,
+  }), []);
   
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     const saved = sessionStorage.getItem(CALENDAR_VIEW_KEY);

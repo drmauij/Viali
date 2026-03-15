@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -34,6 +35,8 @@ const __dirname = path.dirname(__filename);
 const migrationsPath = path.resolve(__dirname, "..", "migrations");
 
 const app = express();
+
+app.use(compression());
 
 app.use(helmet({
   contentSecurityPolicy: {

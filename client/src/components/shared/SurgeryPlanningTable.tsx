@@ -1290,7 +1290,7 @@ export function SurgeryPlanningTable({
   };
   
   // Generate PDF for a day's surgeries using shared utility
-  const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
+  const generateDayPdf = async (dateKey: string, daySurgeries: Surgery[]) => {
     const displayDate = formatDate(new Date(dateKey + 'T12:00:00'));
     
     // Build roomStaffByRoom Map for PDF from fetched data
@@ -1318,7 +1318,7 @@ export function SurgeryPlanningTable({
     ];
 
     const activeSurgeries = daySurgeries.filter((s: any) => !s.isSuspended);
-    generateDayPlanPdf({
+    await generateDayPlanPdf({
       date: new Date(dateKey + 'T12:00:00'),
       hospitalName: activeHospital?.name || '',
       surgeries: activeSurgeries,

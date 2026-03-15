@@ -21,8 +21,6 @@ import SignaturePad from "@/components/SignaturePad";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
 import type { Activity, User, Item, ControlledCheck, Patient } from "@shared/schema";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 interface ItemWithStock extends Item {
   stockLevel?: { qtyOnHand: number };
@@ -675,7 +673,7 @@ export default function ControlledLog() {
     return formatDate(time);
   };
 
-  const downloadMonthlyReport = () => {
+  const downloadMonthlyReport = async () => {
     const month = parseInt(selectedMonth);
     const year = parseInt(selectedYear);
     
@@ -709,8 +707,10 @@ export default function ControlledLog() {
       groupedByDrug[drugKey].push(activity);
     });
 
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
-    const monthNames = ["January", "February", "March", "April", "May", "June", 
+    const monthNames = ["January", "February", "March", "April", "May", "June",
                         "July", "August", "September", "October", "November", "December"];
     
     // Header

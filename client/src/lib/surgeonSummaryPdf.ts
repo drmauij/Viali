@@ -1,5 +1,4 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import type { jsPDF } from "jspdf";
 import i18next from "i18next";
 import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
 
@@ -115,7 +114,9 @@ function getAnesthesiaTypeLabels(
   return t("anesthesia.pdf.na");
 }
 
-export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
+export async function generateSurgeonSummaryPDF(data: SurgeonSummaryData): Promise<jsPDF> {
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF("portrait", "mm", "a4");
   const originalLang = i18next.language;
   if (data.language) {
@@ -392,8 +393,8 @@ export function generateSurgeonSummaryPDF(data: SurgeonSummaryData): jsPDF {
   }
 }
 
-export function downloadSurgeonSummaryPDF(data: SurgeonSummaryData): void {
-  const doc = generateSurgeonSummaryPDF(data);
+export async function downloadSurgeonSummaryPDF(data: SurgeonSummaryData): Promise<void> {
+  const doc = await generateSurgeonSummaryPDF(data);
   const dateStr = formatDate(new Date()).replace(/\//g, "-");
   const filename = `Surgery_Summary_${data.patient.surname}_${dateStr}.pdf`;
   doc.save(filename);

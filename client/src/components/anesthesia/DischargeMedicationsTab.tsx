@@ -22,7 +22,6 @@ import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Pack
 import SignaturePad from "@/components/SignaturePad";
 import { ControlledItemsCommitDialog } from "@/components/anesthesia/ControlledItemsCommitDialog";
 import { formatDate, formatCurrency } from "@/lib/dateUtils";
-import jsPDF from "jspdf";
 
 interface DischargeMedicationsTabProps {
   patientId: string;
@@ -494,7 +493,7 @@ export function DischargeMedicationsTab({
     return [...surgeries].sort((a, b) => new Date(b.plannedDate).getTime() - new Date(a.plannedDate).getTime());
   }, [surgeries]);
 
-  const printLabels = (slot: any, columns: number | "label62", startRow: number = 0) => {
+  const printLabels = async (slot: any, columns: number | "label62", startRow: number = 0) => {
     const items = slot.items || [];
     if (items.length === 0) {
       toast({ title: t('dischargeMedications.noItemsToPrint', 'No medications to print labels for'), variant: "destructive" });
@@ -504,6 +503,8 @@ export function DischargeMedicationsTab({
     const doctorName = slot.doctor ? `Dr. ${slot.doctor.firstName} ${slot.doctor.lastName}` : '';
     const dateStr = formatDate(slot.createdAt);
     const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
+
+    const { jsPDF } = await import("jspdf");
 
     // 62mm label printer path — one medication per page
     // Page matches Brother QL-720NW PPD "62X1" size: 175.68 × 282.46 pts ≈ 62mm × 99.6mm

@@ -1,4 +1,3 @@
-import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import i18next from "i18next";
 
@@ -18,6 +17,7 @@ export async function generateQuestionnairePosterPdf(
   const { questionnaireUrl, hospitalName, companyLogoUrl } = options;
   const t = (key: string) => i18next.t(key);
 
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF("portrait", "mm", "a4");
   const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
   const centerX = pageWidth / 2;

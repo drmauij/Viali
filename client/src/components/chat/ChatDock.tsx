@@ -43,7 +43,6 @@ import {
 import PatientChatList, { type PatientConversation } from "./PatientChatList";
 import PatientChatThread from "./PatientChatThread";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import html2canvas from "html2canvas";
 import { isToday, isYesterday } from "date-fns";
 import { formatDate, formatTime } from "@/lib/dateUtils";
 import {
@@ -974,6 +973,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         
         await new Promise(resolve => setTimeout(resolve, 100));
         
+        const { default: html2canvas } = await import("html2canvas");
         const canvas = await html2canvas(document.body, {
           useCORS: true,
           logging: false,

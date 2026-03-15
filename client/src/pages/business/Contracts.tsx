@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
-import jsPDF from "jspdf";
 import { 
   FileText, 
   Download, 
@@ -417,6 +416,7 @@ export default function Contracts() {
   const generateContractPDF = async (contract: WorkerContract) => {
     if (!companyData) return;
 
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const role = roleInfo[contract.role];
 
@@ -604,6 +604,7 @@ export default function Contracts() {
   const generateContractPDFBase64 = async (contract: WorkerContract): Promise<string | null> => {
     if (!companyData) return null;
 
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const role = roleInfo[contract.role];
 

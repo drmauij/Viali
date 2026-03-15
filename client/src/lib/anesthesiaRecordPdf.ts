@@ -1,5 +1,4 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import type { jsPDF } from "jspdf";
 import i18next from "i18next";
 import type {
   Patient,
@@ -1599,7 +1598,9 @@ function drawRhythmTimeline(
   return chartY + chartHeight + 5;
 }
 
-export function generateAnesthesiaRecordPDF(data: ExportData) {
+export async function generateAnesthesiaRecordPDF(data: ExportData) {
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF();
   let yPos = 20;
 

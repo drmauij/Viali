@@ -1,7 +1,14 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import {
+  format,
+  startOfISOWeek,
+  addDays,
+  startOfDay,
+  endOfDay,
+  isSameDay,
+  isWithinInterval,
+  getDay,
+} from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { ToggleRight, ToggleLeft, Video } from "lucide-react";
@@ -124,17 +131,14 @@ export default function AppointmentsWeekView({
 }: AppointmentsWeekViewProps) {
   const { t, i18n } = useTranslation();
 
-  const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
-  moment.locale(momentLocale);
-
   const weekDays = useMemo(() => {
-    const weekStart = moment(selectedDate).startOf('isoWeek');
-    const days = [];
+    const weekStart = startOfISOWeek(selectedDate);
+    const days: Date[] = [];
     for (let i = 0; i < 5; i++) {
-      days.push(moment(weekStart).add(i, 'days').locale(momentLocale));
+      days.push(addDays(weekStart, i));
     }
     return days;
-  }, [selectedDate, momentLocale]);
+  }, [selectedDate]);
 
   // Drag selection state for multi-day off-time
   const [dragState, setDragState] = useState<{
@@ -178,8 +182,8 @@ export default function AppointmentsWeekView({
         const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
         onDragSelectRange(
           ds.providerId,
-          weekDays[minIdx].toDate(),
-          weekDays[maxIdx].toDate(),
+          weekDays[minIdx],
+          weekDays[maxIdx],
         );
       }
     };
@@ -245,14 +249,14 @@ export default function AppointmentsWeekView({
     return `${lastName}, ${firstName}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '') || t('common.unknown');
   };
 
-  const getAppointmentsForProviderDay = (providerId: string, day: moment.Moment) => {
-    const dayStart = day.clone().startOf('day');
-    const dayEnd = day.clone().endOf('day');
-    
+  const getAppointmentsForProviderDay = (providerId: string, day: Date) => {
+    const dayStartDate = startOfDay(day);
+    const dayEndDate = endOfDay(day);
+
     return appointments.filter(appt => {
       if (appt.providerId !== providerId) return false;
-      const apptDate = moment(appt.appointmentDate);
-      return apptDate.isBetween(dayStart, dayEnd, 'day', '[]');
+      const apptDate = new Date(appt.appointmentDate);
+      return isWithinInterval(apptDate, { start: dayStartDate, end: dayEndDate });
     }).sort((a, b) => {
       const timeA = a.startTime || '00:00';
       const timeB = b.startTime || '00:00';
@@ -260,8 +264,8 @@ export default function AppointmentsWeekView({
     });
   };
 
-  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
-    const dayDate = day.format('YYYY-MM-DD');
+  const getAbsenceForProviderDay = (providerId: string, day: Date): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
+    const dayDate = format(day, 'yyyy-MM-dd');
 
     const absence = providerAbsences.find(a => {
       if (a.providerId !== providerId) return false;
@@ -297,20 +301,20 @@ export default function AppointmentsWeekView({
     return STATUS_COLORS[status || 'scheduled'] || STATUS_COLORS.scheduled;
   };
 
-  const isToday = (day: moment.Moment) => {
-    return day.isSame(moment(), 'day');
+  const isToday = (day: Date) => {
+    return isSameDay(day, new Date());
   };
 
-  const formatDayHeader = (day: moment.Moment) => {
+  const formatDayHeader = (day: Date) => {
     const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const dayKey = dayKeys[day.day()];
+    const dayKey = dayKeys[getDay(day)];
     const translatedDay = t(`opCalendar.weekView.days.${dayKey}`);
-    return `${translatedDay} ${day.format('DD.MM')}`;
+    return `${translatedDay} ${format(day, 'dd.MM')}`;
   };
 
-  const handleCanvasClick = (providerId: string, day: moment.Moment) => {
+  const handleCanvasClick = (providerId: string, day: Date) => {
     if (!onCanvasClick) return;
-    const clickTime = day.clone().hour(9).minute(0).toDate();
+    const clickTime = new Date(startOfDay(day).getTime() + 9 * 3600000);
     onCanvasClick(providerId, clickTime);
   };
 
@@ -330,8 +334,8 @@ export default function AppointmentsWeekView({
               isToday(day) && "bg-primary/10 text-primary"
             )}
             style={{ minWidth: MIN_COL_WIDTH }}
-            onClick={() => onDayClick?.(day.toDate())}
-            data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
+            onClick={() => onDayClick?.(day)}
+            data-testid={`day-header-${format(day, 'yyyy-MM-dd')}`}
           >
             {formatDayHeader(day)}
           </div>
@@ -358,7 +362,7 @@ export default function AppointmentsWeekView({
               {weekDays.map((day, dayIdx) => {
                 const dayAppointments = getAppointmentsForProviderDay(provider.id, day);
                 const absence = getAbsenceForProviderDay(provider.id, day);
-                const dayStr = day.format('YYYY-MM-DD');
+                const dayStr = format(day, 'yyyy-MM-dd');
                 const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
                 const isSaalPlanned = !!poolEntry;
 

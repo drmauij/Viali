@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
-import jsPDF from "jspdf";
 import { DateInput } from "@/components/ui/date-input";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -543,7 +542,8 @@ function ExternalWorklogContent({ token }: { token: string }) {
     }
   };
 
-  const generateWorklogPDF = (entry: WorklogEntry, hospitalName: string, unitName: string) => {
+  const generateWorklogPDF = async (entry: WorklogEntry, hospitalName: string, unitName: string) => {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const isGerman = currentLang === "de";
@@ -671,11 +671,12 @@ function ExternalWorklogContent({ token }: { token: string }) {
     return `${hours}:${minutes.toString().padStart(2, "0")}`;
   };
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     if (!linkInfo) return;
     setIsGeneratingReport(true);
-    
+
     try {
+      const { jsPDF } = await import("jspdf");
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();

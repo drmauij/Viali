@@ -1,10 +1,17 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import {
+  format,
+  startOfISOWeek,
+  addDays,
+  startOfDay,
+  endOfDay,
+  isSameDay,
+  isWithinInterval,
+  getDay,
+} from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { getMomentTimeFormat } from "@/lib/dateUtils";
+import { getDateFnsTimeFormat } from "@/lib/dateUtils";
 import type { LucideIcon } from "lucide-react";
 
 export interface PreOpStatusInfo {
@@ -82,9 +89,7 @@ export default function TimelineWeekView({
   const isDraggingRef = useRef(false);
   const dragStateRef = useRef<DragState | null>(null);
   
-  // Set moment locale based on current language
-  const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
-  moment.locale(momentLocale);
+  // No locale setup needed — date-fns uses explicit locale params where needed
   
   // Questionnaire status dot config
   // Hidden when pre-op assessment is stand-by/approved/not-approved/completed.
@@ -105,20 +110,20 @@ export default function TimelineWeekView({
   }, [t]);
 
   // Check if a day falls within any closure
-  const getClosureForDay = useCallback((day: moment.Moment): ClinicClosureInfo | null => {
-    const dateStr = day.format('YYYY-MM-DD');
+  const getClosureForDay = useCallback((day: Date): ClinicClosureInfo | null => {
+    const dateStr = format(day, 'yyyy-MM-dd');
     return closures.find(c => dateStr >= c.startDate && dateStr <= c.endDate) || null;
   }, [closures]);
 
   // Calculate week days (Monday to Friday - excluding weekends)
   const weekDays = useMemo(() => {
-    const weekStart = moment(selectedDate).startOf('isoWeek');
-    const days = [];
+    const weekStart = startOfISOWeek(selectedDate);
+    const days: Date[] = [];
     for (let i = 0; i < 5; i++) {
-      days.push(moment(weekStart).add(i, 'days').locale(momentLocale));
+      days.push(addDays(weekStart, i));
     }
     return days;
-  }, [selectedDate, momentLocale]);
+  }, [selectedDate]);
 
   // Generate time slots (hours)
   const timeSlots = useMemo(() => {
@@ -180,15 +185,14 @@ export default function TimelineWeekView({
   };
 
   // Get surgeries for a specific day (uses displayStart for accurate placement)
-  const getSurgeriesForDay = (day: moment.Moment) => {
-    const dayStart = day.clone().startOf('day');
-    const dayEnd = day.clone().endOf('day');
-    
+  const getSurgeriesForDay = (day: Date) => {
+    const dayStartDate = startOfDay(day);
+    const dayEndDate = endOfDay(day);
+
     return surgeries.filter(surgery => {
       // Use the same logic as display to determine which day the surgery belongs to
       const { displayStart } = getDisplayTimes(surgery);
-      const surgeryDate = moment(displayStart);
-      return surgeryDate.isBetween(dayStart, dayEnd, 'day', '[]');
+      return isWithinInterval(displayStart, { start: dayStartDate, end: dayEndDate });
     });
   };
 
@@ -307,16 +311,16 @@ export default function TimelineWeekView({
     return { top, height, isTruncatedStart, isTruncatedEnd, displayStart };
   };
 
-  const isToday = (day: moment.Moment) => {
-    return day.isSame(moment(), 'day');
+  const isToday = (day: Date) => {
+    return isSameDay(day, new Date());
   };
 
-  const formatDayHeader = (day: moment.Moment) => {
-    // Use translation keys for day names instead of moment locale
+  const formatDayHeader = (day: Date) => {
+    // Use translation keys for day names instead of locale
     const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const dayKey = dayKeys[day.day()];
+    const dayKey = dayKeys[getDay(day)];
     const translatedDay = t(`opCalendar.weekView.days.${dayKey}`);
-    return `${translatedDay} ${day.format('DD.MM')}`;
+    return `${translatedDay} ${format(day, 'dd.MM')}`;
   };
 
   // Track whether mouse actually moved to a different slot (true drag vs click)
@@ -371,17 +375,13 @@ export default function TimelineWeekView({
     const endMinutes = currentDrag.endSlot * SLOT_MINUTES;
 
     if (wasDragged && onSlotSelect) {
-      const startTime = day.clone()
-        .hour(BUSINESS_HOUR_START).minute(0).second(0)
-        .add(startMinutes, 'minutes').toDate();
-      const endTime = day.clone()
-        .hour(BUSINESS_HOUR_START).minute(0).second(0)
-        .add(endMinutes, 'minutes').toDate();
+      const base = startOfDay(day);
+      const startTime = new Date(base.getTime() + (BUSINESS_HOUR_START * 60 + startMinutes) * 60000);
+      const endTime = new Date(base.getTime() + (BUSINESS_HOUR_START * 60 + endMinutes) * 60000);
       onSlotSelect(roomId, startTime, endTime);
     } else if (onCanvasClick) {
-      const clickTime = day.clone()
-        .hour(BUSINESS_HOUR_START).minute(0).second(0)
-        .add(startMinutes, 'minutes').toDate();
+      const base = startOfDay(day);
+      const clickTime = new Date(base.getTime() + (BUSINESS_HOUR_START * 60 + startMinutes) * 60000);
       onCanvasClick(roomId, clickTime);
     }
     
@@ -429,7 +429,7 @@ export default function TimelineWeekView({
       const parts = testId.split('-');
       const slotIdx = parseInt(parts[parts.length - 1], 10);
       const dateStr = parts.slice(2, 5).join('-');
-      const dayIdx = weekDaysRef.current.findIndex(d => d.format('YYYY-MM-DD') === dateStr);
+      const dayIdx = weekDaysRef.current.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
       if (dayIdx < 0 || isNaN(slotIdx)) return null;
       return { dayIdx, slotIdx };
     };
@@ -503,9 +503,8 @@ export default function TimelineWeekView({
         if (onCanvasClickRef.current) {
           const day = weekDaysRef.current[dayIdx];
           const startMinutes = slotIdx * SLOT_MINUTES;
-          const clickTime = day.clone()
-            .hour(BUSINESS_HOUR_START).minute(0).second(0)
-            .add(startMinutes, 'minutes').toDate();
+          const base = startOfDay(day);
+          const clickTime = new Date(base.getTime() + (BUSINESS_HOUR_START * 60 + startMinutes) * 60000);
           onCanvasClickRef.current(surgeryRoomsRef.current[0]?.id || '', clickTime);
         }
       }
@@ -562,8 +561,8 @@ export default function TimelineWeekView({
                 dayClosure && "bg-amber-100 dark:bg-amber-900/30"
               )}
               style={{ minWidth: MIN_COL_WIDTH }}
-              onClick={() => onDayClick?.(day.toDate())}
-              data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
+              onClick={() => onDayClick?.(day)}
+              data-testid={`day-header-${format(day, 'yyyy-MM-dd')}`}
             >
               {formatDayHeader(day)}
               {dayClosure && (
@@ -604,7 +603,7 @@ export default function TimelineWeekView({
                   dayClosure && "bg-amber-50/60 dark:bg-amber-900/10"
                 )}
                 style={{ minWidth: MIN_COL_WIDTH }}
-                data-testid={`day-column-${day.format('YYYY-MM-DD')}`}
+                data-testid={`day-column-${format(day, 'yyyy-MM-dd')}`}
               >
                 {/* Closure overlay */}
                 {dayClosure && (
@@ -641,7 +640,7 @@ export default function TimelineWeekView({
                         if (isTouchDeviceRef.current || dayClosure) return;
                         handleMouseUp();
                       }}
-                      data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${slotIdx}`}
+                      data-testid={`time-slot-${format(day, 'yyyy-MM-dd')}-${slotIdx}`}
                     />
                   );
                 })}
@@ -673,7 +672,7 @@ export default function TimelineWeekView({
                   const roomName = getRoomName(surgery.surgeryRoomId);
                   const patientName = getPatientName(surgery.patientId);
                   const procedureName = surgery.plannedSurgery || 'Surgery';
-                  const startTime = moment(displayStart).format(getMomentTimeFormat());
+                  const startTime = format(displayStart, getDateFnsTimeFormat());
                   const pacuBedName = getPacuBedName(surgery.pacuBedId);
                   const preOpKey = getPreOpStatus ? getPreOpStatus(surgery.id).key : 'planned';
                   const qDot = getQuestionnaireDot(surgery.questionnaireStatus, preOpKey);

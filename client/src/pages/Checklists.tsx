@@ -415,9 +415,9 @@ export default function Checklists() {
                           size="sm"
                           className="ml-auto h-8 w-8 p-0"
                           disabled={entries.length === 0}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            generateChecklistHistoryPdf({
+                            await generateChecklistHistoryPdf({
                               templateName: template.name,
                               recurrency: template.recurrency,
                               hospitalName: activeHospital?.name || '',

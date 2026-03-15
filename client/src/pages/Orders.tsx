@@ -28,8 +28,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon, GripVertical, Flame } from "lucide-react";
 import type { OrderAttachment } from "@shared/schema";
 import { DndContext, DragEndEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -997,7 +995,9 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     }).format(Number(amount));
   };
 
-  const downloadOrderPDF = (order: OrderWithDetails) => {
+  const downloadOrderPDF = async (order: OrderWithDetails) => {
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
     
     // Header

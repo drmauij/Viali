@@ -1,7 +1,5 @@
 import type { ItemWithStock, UnitType, FilterType } from "./types";
 import type { Folder, Vendor } from "@shared/schema";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
 import { parseCurrencyValue } from "./helpers";
@@ -270,6 +268,8 @@ export async function downloadInventoryPdf(params: DownloadInventoryPdfParams): 
     console.error("Error fetching supplier codes for PDF:", error);
   }
 
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
   const doc = new jsPDF({ orientation: "portrait", format: "a4" });
 
   const folderMap = new Map<string, Folder>();

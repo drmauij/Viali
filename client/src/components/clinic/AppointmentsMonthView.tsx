@@ -1,7 +1,17 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import moment from "moment";
-import "moment/locale/en-gb";
-import "moment/locale/de";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  addDays,
+  startOfDay,
+  endOfDay,
+  isSameDay,
+  isWithinInterval,
+  isBefore,
+  getDay,
+  getDate,
+} from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { ABSENCE_COLORS, ABSENCE_ICONS, ABSENCE_TYPE_LABEL_KEYS } from "@/lib/absenceConstants";
@@ -97,29 +107,26 @@ export default function AppointmentsMonthView({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; providerId: string; dayIdx: number } | null>(null);
 
-  const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
-  moment.locale(momentLocale);
-
   // Generate weekdays only (no Sat/Sun), with separator positions between weeks
   const { weekdays, separatorAfter } = useMemo(() => {
-    const monthStart = moment(selectedDate).startOf('month');
-    const monthEnd = moment(selectedDate).endOf('month');
-    const wd: moment.Moment[] = [];
+    const monthStartDate = startOfMonth(selectedDate);
+    const monthEndDate = endOfMonth(selectedDate);
+    const wd: Date[] = [];
     const seps = new Set<number>(); // indices after which to insert a gray separator
-    const current = monthStart.clone();
-    while (current.isSameOrBefore(monthEnd, 'day')) {
-      const dow = current.day();
+    let current = new Date(monthStartDate);
+    while (!isBefore(monthEndDate, startOfDay(current))) {
+      const dow = getDay(current);
       if (dow !== 0 && dow !== 6) {
         // If this is a Monday and there are already days in the list, add separator before it
         if (dow === 1 && wd.length > 0) {
           seps.add(wd.length - 1);
         }
-        wd.push(current.clone().locale(momentLocale));
+        wd.push(new Date(current));
       }
-      current.add(1, 'day');
+      current = addDays(current, 1);
     }
     return { weekdays: wd, separatorAfter: seps };
-  }, [selectedDate, momentLocale]);
+  }, [selectedDate]);
 
   const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
     setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
@@ -150,8 +157,8 @@ export default function AppointmentsMonthView({
         const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
         onDragSelectRange(
           ds.providerId,
-          weekdays[minIdx].toDate(),
-          weekdays[maxIdx].toDate(),
+          weekdays[minIdx],
+          weekdays[maxIdx],
         );
       }
     };
@@ -217,14 +224,14 @@ export default function AppointmentsMonthView({
     return `${lastName}, ${firstName}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '') || t('common.unknown');
   };
 
-  const getAppointmentsForProviderDay = (providerId: string, day: moment.Moment) => {
-    const dayStart = day.clone().startOf('day');
-    const dayEnd = day.clone().endOf('day');
+  const getAppointmentsForProviderDay = (providerId: string, day: Date) => {
+    const dayStartDate = startOfDay(day);
+    const dayEndDate = endOfDay(day);
 
     return appointments.filter(appt => {
       if (appt.providerId !== providerId) return false;
-      const apptDate = moment(appt.appointmentDate);
-      return apptDate.isBetween(dayStart, dayEnd, 'day', '[]');
+      const apptDate = new Date(appt.appointmentDate);
+      return isWithinInterval(apptDate, { start: dayStartDate, end: dayEndDate });
     }).sort((a, b) => {
       const timeA = a.startTime || '00:00';
       const timeB = b.startTime || '00:00';
@@ -232,8 +239,8 @@ export default function AppointmentsMonthView({
     });
   };
 
-  const getAbsenceForProviderDay = (providerId: string, day: moment.Moment): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
-    const dayDate = day.format('YYYY-MM-DD');
+  const getAbsenceForProviderDay = (providerId: string, day: Date): { type: string; notes?: string | null; isPartial?: boolean; startTime?: string | null; endTime?: string | null; approvalStatus?: string } | null => {
+    const dayDate = format(day, 'yyyy-MM-dd');
 
     const absence = providerAbsences.find(a => {
       if (a.providerId !== providerId) return false;
@@ -258,15 +265,15 @@ export default function AppointmentsMonthView({
     return null;
   };
 
-  const isToday = (day: moment.Moment) => day.isSame(moment(), 'day');
+  const isToday = (day: Date) => isSameDay(day, new Date());
 
-  const formatDayAbbrev = (day: moment.Moment) => {
+  const formatDayAbbrev = (day: Date) => {
     const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const dayKey = dayKeys[day.day()];
+    const dayKey = dayKeys[getDay(day)];
     return t(`opCalendar.weekView.days.${dayKey}`);
   };
 
-  const buildTooltip = (providerId: string, day: moment.Moment): string => {
+  const buildTooltip = (providerId: string, day: Date): string => {
     const parts: string[] = [];
     const dayAppts = getAppointmentsForProviderDay(providerId, day);
     const absence = getAbsenceForProviderDay(providerId, day);
@@ -281,13 +288,13 @@ export default function AppointmentsMonthView({
       parts.push(`${dayAppts.length} ${t('appointments.appointment', 'Appointment')}${dayAppts.length > 1 ? 's' : ''}`);
     }
 
-    const dayStr = day.format('YYYY-MM-DD');
+    const dayStr = format(day, 'yyyy-MM-dd');
     const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(providerId);
     if (poolEntry) {
       parts.push(t('appointments.saalPlanned', 'Saal planned'));
     }
 
-    return parts.join('\n') || day.format('DD.MM.YYYY');
+    return parts.join('\n') || format(day, 'dd.MM.yyyy');
   };
 
   const SEP_WIDTH = 8;
@@ -308,7 +315,7 @@ export default function AppointmentsMonthView({
                 isToday(day) && "bg-primary/10 text-primary font-bold"
               )}
               style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH }}
-              onClick={() => onDayClick?.(day.toDate())}
+              onClick={() => onDayClick?.(day)}
             >
               {formatDayAbbrev(day)}
             </div>
@@ -340,7 +347,7 @@ export default function AppointmentsMonthView({
 
               {/* Day cells */}
               {weekdays.map((day, dayIdx) => {
-                const dayStr = day.format('YYYY-MM-DD');
+                const dayStr = format(day, 'yyyy-MM-dd');
                 const dayAppointments = getAppointmentsForProviderDay(provider.id, day);
                 const absence = getAbsenceForProviderDay(provider.id, day);
                 const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
@@ -361,7 +368,7 @@ export default function AppointmentsMonthView({
                       style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 58 }}
                       onClick={() => {
                         if (!dragState) {
-                          onDayClick?.(day.toDate());
+                          onDayClick?.(day);
                         }
                       }}
                       onMouseDown={(e) => {
@@ -464,7 +471,7 @@ export default function AppointmentsMonthView({
 
                           {/* Day number — bottom left */}
                           <span className="absolute bottom-0.5 left-1 text-[11px] leading-none text-muted-foreground">
-                            {day.date()}
+                            {getDate(day)}
                           </span>
 
                           {/* Appointment dots — center */}

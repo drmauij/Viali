@@ -4,8 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, Download, Package, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 type SurgerySetData = {
   id: string;
@@ -263,7 +261,9 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
   const hasAnything = hasInventory || sections.length > 0;
 
   // PDF generation
-  const generatePdf = () => {
+  const generatePdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 

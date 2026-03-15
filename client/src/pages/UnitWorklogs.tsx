@@ -16,7 +16,6 @@ import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2, Search } from "lucide-react";
 import { formatDate, formatDateTime, formatDateForInput, formatDateHeader } from "@/lib/dateUtils";
-import jsPDF from "jspdf";
 import type { TFunction } from "i18next";
 
 interface WorklogEntry {
@@ -60,7 +59,8 @@ function getStatusBadge(status: string, t: TFunction) {
   }
 }
 
-function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction) {
+async function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction) {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
