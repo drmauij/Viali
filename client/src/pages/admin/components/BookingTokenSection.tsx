@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, ExternalLink } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, ExternalLink } from "lucide-react";
 
 export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: string | undefined; isAdmin: boolean }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [slotDuration, setSlotDuration] = useState<string>("30");
   const [maxDays, setMaxDays] = useState<string>("90");
   const [minHours, setMinHours] = useState<string>("2");
@@ -63,7 +62,6 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/booking-token`] });
       toast({ title: t("common.success"), description: "Settings saved" });
-      setShowSettings(false);
     },
   });
 
@@ -111,10 +109,6 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
                 {generateMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Regenerate Link
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -131,51 +125,49 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
               </Button>
             </div>
 
-            {/* Settings panel */}
-            {showSettings && (
-              <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
-                <h4 className="text-sm font-medium">Booking Settings</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Slot Duration (min)</Label>
-                    <Input
-                      type="number"
-                      value={slotDuration}
-                      onChange={(e) => setSlotDuration(e.target.value)}
-                      min={5}
-                      max={120}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Max Advance (days)</Label>
-                    <Input
-                      type="number"
-                      value={maxDays}
-                      onChange={(e) => setMaxDays(e.target.value)}
-                      min={1}
-                      max={365}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Min Advance (hours)</Label>
-                    <Input
-                      type="number"
-                      value={minHours}
-                      onChange={(e) => setMinHours(e.target.value)}
-                      min={0}
-                      max={168}
-                      className="mt-1"
-                    />
-                  </div>
+            {/* Booking Settings — always visible */}
+            <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
+              <h4 className="text-sm font-medium">Booking Settings</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Slot Duration (min)</Label>
+                  <Input
+                    type="number"
+                    value={slotDuration}
+                    onChange={(e) => setSlotDuration(e.target.value)}
+                    min={5}
+                    max={120}
+                    className="mt-1"
+                  />
                 </div>
-                <Button size="sm" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-                  {saveSettingsMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
-                  Save Settings
-                </Button>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Max Advance (days)</Label>
+                  <Input
+                    type="number"
+                    value={maxDays}
+                    onChange={(e) => setMaxDays(e.target.value)}
+                    min={1}
+                    max={365}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Min Advance (hours)</Label>
+                  <Input
+                    type="number"
+                    value={minHours}
+                    onChange={(e) => setMinHours(e.target.value)}
+                    min={0}
+                    max={168}
+                    className="mt-1"
+                  />
+                </div>
               </div>
-            )}
+              <Button size="sm" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
+                {saveSettingsMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                Save Settings
+              </Button>
+            </div>
 
           </div>
         ) : (
