@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X, UserCircle, UserRound, List, LayoutGrid } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -305,18 +305,18 @@ export default function Pacu() {
     discharged: pacuPatients.filter(p => p.status === 'discharged').length,
   };
 
-  const formatTime = (timestamp: number) => {
+  const formatTime = useCallback((timestamp: number) => {
     return formatTimeUtil(new Date(timestamp));
-  };
+  }, []);
 
-  const getTimeInPacu = (timestamp: number) => {
+  const getTimeInPacu = useCallback((timestamp: number) => {
     const admitted = new Date(timestamp);
     const now = new Date();
     const diffMinutes = Math.floor((now.getTime() - admitted.getTime()) / (1000 * 60));
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  };
+  }, []);
 
   const handleViewModeChange = (value: string) => {
     if (value === 'list' || value === 'grid') {

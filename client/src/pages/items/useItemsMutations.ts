@@ -21,11 +21,6 @@ interface UseItemsMutationsParams {
   setShowDeleteConfirm: (v: boolean) => void;
   setBulkMoveDialogOpen: (v: boolean) => void;
   setBulkMoveTargetUnitId: (v: string) => void;
-  setTransferDialogOpen: (v: boolean) => void;
-  setTransferItems: (v: any[]) => void;
-  setTransferTargetUnitId: (v: string) => void;
-  setTransferDirection: (v: 'to' | 'from') => void;
-  transferItems: any[];
   setBulkImportOpen: (v: boolean) => void;
   setImportJob: (v: any) => void;
   setBulkImages: (v: string[]) => void;
@@ -55,11 +50,6 @@ export function useItemsMutations(params: UseItemsMutationsParams) {
     setShowDeleteConfirm,
     setBulkMoveDialogOpen,
     setBulkMoveTargetUnitId,
-    setTransferDialogOpen,
-    setTransferItems,
-    setTransferTargetUnitId,
-    setTransferDirection,
-    transferItems,
     setBulkImportOpen,
     setImportJob,
     setBulkImages,
@@ -181,45 +171,6 @@ export function useItemsMutations(params: UseItemsMutationsParams) {
       toast({
         title: t('common.error'),
         description: error.message || t('items.failedToDelete'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Transfer items mutation
-  const transferItemsMutation = useMutation({
-    mutationFn: async (data: {
-      sourceUnitId: string;
-      destinationUnitId: string;
-      items: Array<{
-        itemId: string;
-        transferType: 'packs' | 'units';
-        transferQty: number;
-        pharmacode?: string;
-        gtin?: string;
-      }>;
-    }) => {
-      const response = await apiRequest("POST", "/api/items/transfer", {
-        ...data,
-        hospitalId: hospitalId,
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`, unitId] });
-      setTransferDialogOpen(false);
-      setTransferItems([]);
-      setTransferTargetUnitId("");
-      setTransferDirection('to');
-      toast({
-        title: t('items.transferSuccess', 'Transfer Complete'),
-        description: t('items.transferSuccessDesc', `Successfully transferred ${data.transferredCount || transferItems.length} item(s)`),
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('common.error'),
-        description: error.message || t('items.transferFailed', 'Failed to transfer items'),
         variant: "destructive",
       });
     },
@@ -573,7 +524,6 @@ export function useItemsMutations(params: UseItemsMutationsParams) {
     createItemMutation,
     updateItemMutation,
     deleteItemMutation,
-    transferItemsMutation,
     bulkDeleteMutation,
     bulkMoveMutation,
     bulkBillableMutation,

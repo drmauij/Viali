@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { formatCurrency, formatDate } from "@/lib/dateUtils";
@@ -18,7 +18,7 @@ import UpgradeDialog from "@/components/UpgradeDialog";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import type { InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft, ArrowRight, ArrowLeft, Plus, Minus, Search, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
 import { DirectItemCamera } from "@/components/DirectItemCamera";
@@ -40,9 +40,6 @@ import { useItemsMutations } from "./items/useItemsMutations";
 import {
   compressImage,
   normalizeUnit,
-  getDaysUntilExpiry,
-  getExpiryColor,
-  getStockStatus,
   filterAndSortItems,
   getFilterCounts,
   downloadInventoryPdf,
@@ -51,6 +48,8 @@ import {
   parseExcelFile,
   processCsvData,
 } from "./items/itemHandlers";
+import { TransferItemsDialog } from "./items/TransferItemsDialog";
+import ItemRow from "./items/ItemRow";
 
 export default function Items({ overrideUnitId, readOnly = false }: ItemsProps = {}) {
   const { t } = useTranslation();
@@ -154,11 +153,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     packSizeConfirmDialog, setPackSizeConfirmDialog,
     nameConfirmDialog, setNameConfirmDialog,
     transferDialogOpen, setTransferDialogOpen,
-    transferDirection, setTransferDirection,
-    transferItems, setTransferItems,
-    transferTargetUnitId, setTransferTargetUnitId,
-    transferSearchTerm, setTransferSearchTerm,
-    transferScanner, setTransferScanner,
   } = useItemsState();
 
   // Drag and drop sensors
@@ -211,16 +205,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const {
     items, isLoading, folders, runwayData, runwayMap,
     itemCodesData, itemCodesMap, allUnits, availableDestinationUnits,
-    sourceUnitItems, isLoadingSourceItems, sourceUnitCodesData,
-    sourceUnitCodesMap, transferSourceItems, transferSourceCodesMap,
     vendors, openOrderItems,
   } = useItemsQueries({
     hospitalId: activeHospital?.id,
     unitId: effectiveUnitId,
     activeUnitId: activeHospital?.unitId,
     activeFilter,
-    transferTargetUnitId,
-    transferDirection,
+    transferTargetUnitId: "",
+    transferDirection: "to",
   });
   
   // Show onboarding when there are no items
@@ -334,7 +326,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   // Extracted mutations hook
   const {
     createItemMutation, updateItemMutation, deleteItemMutation,
-    transferItemsMutation, bulkDeleteMutation, bulkMoveMutation,
+    bulkDeleteMutation, bulkMoveMutation,
     bulkBillableMutation, quickReduceMutation, quickOrderMutation,
     createImportJobMutation, bulkCreateMutation, bulkUpdateMutation,
     createFolderMutation, updateFolderMutation, deleteFolderMutation,
@@ -356,11 +348,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     setShowDeleteConfirm,
     setBulkMoveDialogOpen,
     setBulkMoveTargetUnitId,
-    setTransferDialogOpen,
-    setTransferItems,
-    setTransferTargetUnitId,
-    setTransferDirection,
-    transferItems,
     setBulkImportOpen,
     setImportJob,
     setBulkImages,
@@ -503,7 +490,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     };
   }, [itemCodes?.gtin, itemCodes?.pharmacode, selectedItem, editDialogOpen, editDialogTab, supplierCodes.length, isLoadingCodes]);
 
-  const handleEditItem = async (item: ItemWithStock) => {
+  const handleEditItem = useCallback(async (item: ItemWithStock) => {
     setSelectedItem(item);
     setEditFormData({
       name: item.name,
@@ -571,7 +558,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       setIsLoadingCodes(false);
       setIsLoadingLots(false);
     }
-  };
+  }, []);
 
   // Handler for notification click
   const handleImportNotificationClick = () => {
@@ -722,9 +709,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   };
 
-  const handleQuickOrder = (e: React.MouseEvent, item: ItemWithStock) => {
+  const handleQuickOrder = useCallback((e: React.MouseEvent, item: ItemWithStock) => {
     e.stopPropagation();
-    
+
     const currentStock = item.stockLevel?.qtyOnHand || 0;
     const maxThreshold = item.maxThreshold || 10;
     const qtyToOrder = Math.max(0, maxThreshold - currentStock);
@@ -748,14 +735,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       packSize,
       vendorId: defaultVendor?.id,
     });
-  };
+  }, [toast, t, vendors, quickOrderMutation]);
 
-  const handleQuickReduce = (e: React.MouseEvent, item: ItemWithStock) => {
+  const handleQuickReduce = useCallback((e: React.MouseEvent, item: ItemWithStock) => {
     e.stopPropagation();
     quickReduceMutation.mutate(item.id);
-  };
+  }, [quickReduceMutation]);
 
-  const toggleItemSelection = (itemId: string) => {
+  const toggleItemSelection = useCallback((itemId: string) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
       if (next.has(itemId)) {
@@ -765,7 +752,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       }
       return next;
     });
-  };
+  }, []);
 
   const selectAllItems = () => {
     setSelectedItems(new Set(filteredItems.map(item => item.id)));
@@ -2122,13 +2109,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => {
-                        setTransferDialogOpen(true);
-                        setTransferItems([]);
-                        setTransferTargetUnitId("");
-                        setTransferSearchTerm("");
-                        setTransferDirection('to');
-                      }} 
+                      onClick={() => setTransferDialogOpen(true)}
                       data-testid="transfer-items-button" 
                       className="flex-1 sm:flex-initial"
                       disabled={availableDestinationUnits.length === 0}
@@ -2289,275 +2270,24 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </DraggableItem>
                   {expandedFolders.has(folder.id) && (
                     <div className="pl-6 space-y-2">
-                      {folderItems.map((item) => {
-                        const stockStatus = getStockStatus(item, t);
-                        const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
-                        const currentQty = item.stockLevel?.qtyOnHand || 0;
-
-                        return (
+                      {folderItems.map((item) => (
                           <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
-                            <div
-                              className="item-row"
-                              onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                              style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
-                              data-testid={`item-${item.id}`}
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                {isBulkDeleteMode ? (
-                                  <div 
-                                    className="flex items-center gap-3 flex-1 cursor-pointer -ml-2 -mr-2 pl-2 pr-2 py-1 rounded hover:bg-muted/50 transition-colors"
-                                    onClick={() => toggleItemSelection(item.id)}
-                                  >
-                                    <div onClick={(e) => e.stopPropagation()}>
-                                      <Checkbox
-                                        checked={selectedItems.has(item.id)}
-                                        onCheckedChange={() => toggleItemSelection(item.id)}
-                                        data-testid={`checkbox-item-${item.id}`}
-                                      />
-                                    </div>
-                                    <div className="flex-1 pointer-events-none">
-                                      <h3 className="text-sm font-semibold text-foreground truncate">{item.name}</h3>
-                                      {item.description && (
-                                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : isBulkEditMode ? (
-                                  item.controlled ? (
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start gap-2">
-                                        <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
-                                        <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
-                                          <i className="fas fa-shield-halved"></i>
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex-1 space-y-2">
-                                      <div>
-                                        <Label className="text-xs">{t('items.name')}</Label>
-                                        <Input
-                                          value={bulkEditItems[item.id]?.name !== undefined ? bulkEditItems[item.id].name : item.name}
-                                          onChange={(e) => {
-                                            setBulkEditItems(prev => ({
-                                              ...prev,
-                                              [item.id]: { ...prev[item.id], name: e.target.value }
-                                            }));
-                                          }}
-                                          data-testid={`bulk-edit-name-${item.id}`}
-                                        />
-                                      </div>
-                                    </div>
-                                  )
-                                ) : (
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{item.description || ''}</p>
-                                      </div>
-                                      {item.controlled && (
-                                        <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
-                                          <i className="fas fa-shield-halved"></i>
-                                        </span>
-                                      )}
-                                      {item.isService && (
-                                        <span className="status-chip bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs flex-shrink-0" data-testid={`item-${item.id}-service`}>
-                                          <i className="fas fa-concierge-bell mr-1"></i>{t('items.serviceBadge')}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {daysUntilExpiry !== null && (
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className={`expiry-indicator ${getExpiryColor(daysUntilExpiry)}`}></div>
-                                  <span className="text-sm text-muted-foreground">
-                                    {t('items.expiresInDays', { days: Math.max(0, daysUntilExpiry) })}
-                                  </span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between">
-                                {isBulkEditMode ? (
-                                  item.controlled ? (
-                                    <div className="flex items-center gap-2 text-muted-foreground py-2" data-testid={`bulk-edit-controlled-disabled-${item.id}`}>
-                                      <i className="fas fa-shield-halved text-amber-500"></i>
-                                      <span className="text-sm">{t('items.controlledNoBulkEdit')}</span>
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-4 gap-2 w-full">
-                                      <div>
-                                        <Label className="text-xs">{t('items.unitType')}</Label>
-                                        <Select
-                                          value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
-                                            ? (bulkEditItems[item.id].trackExactQuantity ? 'pack' : 'single') 
-                                            : (item.trackExactQuantity ? 'pack' : 'single')}
-                                          onValueChange={(val) => {
-                                            setBulkEditItems(prev => ({
-                                              ...prev,
-                                              [item.id]: { ...prev[item.id], trackExactQuantity: val === 'pack' }
-                                            }));
-                                          }}
-                                        >
-                                          <SelectTrigger className="h-9" data-testid={`bulk-edit-unit-type-${item.id}`}>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="pack">{t('items.pack')}</SelectItem>
-                                            <SelectItem value="single">{t('items.singleUnit')}</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? (
-                                        <div>
-                                          <Label className="text-xs">{t('items.packSize')}</Label>
-                                          <Input
-                                            type="number"
-                                            min="1"
-                                            value={bulkEditItems[item.id]?.packSize !== undefined ? bulkEditItems[item.id].packSize : (item.packSize || 1)}
-                                            onChange={(e) => {
-                                              const val = parseInt(e.target.value) || 1;
-                                              setBulkEditItems(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], packSize: val }
-                                              }));
-                                            }}
-                                            data-testid={`bulk-edit-pack-size-${item.id}`}
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div></div>
-                                      )}
-                                      <div>
-                                        <Label className="text-xs">
-                                          {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
-                                        </Label>
-                                        <Input
-                                          type="number"
-                                          value={
-                                            item.trackExactQuantity 
-                                              ? (bulkEditItems[item.id]?.currentUnits !== undefined ? bulkEditItems[item.id].currentUnits : (item.currentUnits || 0))
-                                              : (bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty)
-                                          }
-                                          onChange={(e) => {
-                                            const val = parseInt(e.target.value) || 0;
-                                            if (item.trackExactQuantity) {
-                                              setBulkEditItems(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], currentUnits: val }
-                                              }));
-                                            } else {
-                                              setBulkEditItems(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], actualStock: val }
-                                              }));
-                                            }
-                                          }}
-                                          data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
-                                        />
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                          <Label className="text-xs">{t('items.minThreshold')}</Label>
-                                          <Input
-                                            type="number"
-                                            value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
-                                            onChange={(e) => {
-                                              setBulkEditItems(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], minThreshold: parseInt(e.target.value) || 0 }
-                                              }));
-                                            }}
-                                            data-testid={`bulk-edit-min-${item.id}`}
-                                          />
-                                        </div>
-                                        <div>
-                                          <Label className="text-xs">{t('items.maxThreshold')}</Label>
-                                          <Input
-                                            type="number"
-                                            value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
-                                            onChange={(e) => {
-                                              setBulkEditItems(prev => ({
-                                                ...prev,
-                                                [item.id]: { ...prev[item.id], maxThreshold: parseInt(e.target.value) || 0 }
-                                              }));
-                                            }}
-                                            data-testid={`bulk-edit-max-${item.id}`}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                ) : (
-                                  <div className="flex flex-col sm:flex-row sm:items-center w-full gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex items-center gap-1.5">
-                                        {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
-                                        {item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? (
-                                          <>
-                                            <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                              {item.trackExactQuantity ? (item.currentUnits || 0) : currentQty}
-                                            </span>
-                                            <i className={`fas fa-vial text-lg ${stockStatus.color}`}></i>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                              {currentQty}
-                                            </span>
-                                            <i className={`fas fa-box text-lg ${stockStatus.color}`}></i>
-                                          </>
-                                        )}
-                                      </div>
-                                      {item.status === 'archived' && (
-                                        <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
-                                      )}
-                                    </div>
-                                    <div className="sm:ml-auto flex gap-2 items-center justify-end">
-                                      {canWrite && !item.controlled && 
-                                       (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
-                                        <button
-                                          onClick={(e) => handleQuickReduce(e, item)}
-                                          className="px-2 py-1.5 sm:px-4 sm:py-2 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
-                                          data-testid={`item-${item.id}-quick-reduce`}
-                                          title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
-                                        >
-                                          <i className="fas fa-arrow-right-from-bracket mr-1 sm:mr-1.5"></i>
-                                          {t('items.takeOut', 'Take Out')}
-                                        </button>
-                                      )}
-                                      {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
-                                        openOrderItems[item.id] ? (
-                                          <button
-                                            disabled
-                                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm font-medium cursor-not-allowed"
-                                            data-testid={`item-${item.id}-quick-ordered`}
-                                          >
-                                            <i className="fas fa-check mr-1 sm:mr-1.5"></i>
-                                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                                          </button>
-                                        ) : (
-                                          <button
-                                            onClick={(e) => handleQuickOrder(e, item)}
-                                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors"
-                                            data-testid={`item-${item.id}-quick-order`}
-                                          >
-                                            <i className="fas fa-bolt mr-1 sm:mr-1.5"></i>
-                                            {t('items.quickOrder')}
-                                          </button>
-                                        )
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            <ItemRow
+                              item={item}
+                              mode={isBulkEditMode ? 'bulk-edit' : isBulkDeleteMode ? 'bulk-delete' : 'normal'}
+                              isSelected={selectedItems.has(item.id)}
+                              canWrite={canWrite}
+                              openOrderItems={openOrderItems}
+                              bulkEditData={bulkEditItems}
+                              onEdit={handleEditItem}
+                              onQuickOrder={handleQuickOrder}
+                              onQuickReduce={handleQuickReduce}
+                              onToggleSelect={toggleItemSelection}
+                              onBulkEditChange={setBulkEditItems}
+                              t={t}
+                            />
                           </DraggableItem>
-                        );
-                      })}
+                        ))}
                     </div>
                   )}
                 </div>
@@ -2566,275 +2296,24 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               {/* Render root items */}
               <DroppableFolder id="root">
                 <div className="space-y-3">
-                  {organizedItems.rootItems.map((item) => {
-                    const stockStatus = getStockStatus(item, t);
-                    const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
-                    const currentQty = item.stockLevel?.qtyOnHand || 0;
-
-                    return (
+                  {organizedItems.rootItems.map((item) => (
                       <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
-                        <div 
-                          className="item-row"
-                          onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                          style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
-                          data-testid={`item-${item.id}`}
-                        >
-                <div className="flex items-start justify-between mb-3">
-                  {isBulkDeleteMode ? (
-                    <div 
-                      className="flex items-center gap-3 flex-1 cursor-pointer -ml-2 -mr-2 pl-2 pr-2 py-1 rounded hover:bg-muted/50 transition-colors"
-                      onClick={() => toggleItemSelection(item.id)}
-                    >
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selectedItems.has(item.id)}
-                          onCheckedChange={() => toggleItemSelection(item.id)}
-                          data-testid={`checkbox-item-${item.id}`}
+                        <ItemRow
+                          item={item}
+                          mode={isBulkEditMode ? 'bulk-edit' : isBulkDeleteMode ? 'bulk-delete' : 'normal'}
+                          isSelected={selectedItems.has(item.id)}
+                          canWrite={canWrite}
+                          openOrderItems={openOrderItems}
+                          bulkEditData={bulkEditItems}
+                          onEdit={handleEditItem}
+                          onQuickOrder={handleQuickOrder}
+                          onQuickReduce={handleQuickReduce}
+                          onToggleSelect={toggleItemSelection}
+                          onBulkEditChange={setBulkEditItems}
+                          t={t}
                         />
-                      </div>
-                      <div className="flex-1 pointer-events-none">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.description || ''}</p>
-                      </div>
-                    </div>
-                  ) : isBulkEditMode ? (
-                    item.controlled ? (
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-2">
-                          <h3 className="font-semibold text-foreground truncate flex-1">{item.name}</h3>
-                          <span className="status-chip chip-controlled text-xs">
-                            <i className="fas fa-shield-halved"></i>
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <Label className="text-xs">{t('items.name')}</Label>
-                          <Input
-                            value={bulkEditItems[item.id]?.name !== undefined ? bulkEditItems[item.id].name : item.name}
-                            onChange={(e) => {
-                              setBulkEditItems(prev => ({
-                                ...prev,
-                                [item.id]: { ...prev[item.id], name: e.target.value }
-                              }));
-                            }}
-                            data-testid={`bulk-edit-name-${item.id}`}
-                          />
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">{item.description || ''}</p>
-                        </div>
-                        {item.controlled && (
-                          <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
-                            <i className="fas fa-shield-halved"></i>
-                          </span>
-                        )}
-                        {item.isService && (
-                          <span className="status-chip bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs flex-shrink-0" data-testid={`item-${item.id}-service`}>
-                            <i className="fas fa-concierge-bell mr-1"></i>{t('items.serviceBadge')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {daysUntilExpiry !== null && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`expiry-indicator ${getExpiryColor(daysUntilExpiry)}`}></div>
-                    <span className="text-sm text-muted-foreground">
-                      {t('items.expiresInDays', { days: Math.max(0, daysUntilExpiry) })}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  {isBulkEditMode ? (
-                    item.controlled ? (
-                      <div className="flex items-center gap-2 text-muted-foreground py-2" data-testid={`bulk-edit-controlled-disabled-${item.id}`}>
-                        <i className="fas fa-shield-halved text-amber-500"></i>
-                        <span className="text-sm">{t('items.controlledNoBulkEdit')}</span>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-4 gap-2 w-full">
-                        <div>
-                          <Label className="text-xs">{t('items.unitType')}</Label>
-                          <Select
-                            value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
-                              ? (bulkEditItems[item.id].trackExactQuantity ? 'pack' : 'single') 
-                              : (item.trackExactQuantity ? 'pack' : 'single')}
-                            onValueChange={(val) => {
-                              setBulkEditItems(prev => ({
-                                ...prev,
-                                [item.id]: { ...prev[item.id], trackExactQuantity: val === 'pack' }
-                              }));
-                            }}
-                          >
-                            <SelectTrigger className="h-9" data-testid={`bulk-edit-unit-type-desktop-${item.id}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pack">{t('items.pack')}</SelectItem>
-                              <SelectItem value="single">{t('items.singleUnit')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? (
-                          <div>
-                            <Label className="text-xs">{t('items.packSize')}</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={bulkEditItems[item.id]?.packSize !== undefined ? bulkEditItems[item.id].packSize : (item.packSize || 1)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                setBulkEditItems(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], packSize: val }
-                                }));
-                              }}
-                              data-testid={`bulk-edit-pack-size-${item.id}`}
-                            />
-                          </div>
-                        ) : (
-                          <div></div>
-                        )}
-                        <div>
-                          <Label className="text-xs">
-                            {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
-                          </Label>
-                          <Input
-                            type="number"
-                            value={
-                              item.trackExactQuantity 
-                                ? (bulkEditItems[item.id]?.currentUnits !== undefined ? bulkEditItems[item.id].currentUnits : (item.currentUnits || 0))
-                                : (bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty)
-                            }
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              if (item.trackExactQuantity) {
-                                setBulkEditItems(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], currentUnits: val }
-                                }));
-                              } else {
-                                setBulkEditItems(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], actualStock: val }
-                                }));
-                              }
-                            }}
-                            data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs">{t('items.minThreshold')}</Label>
-                            <Input
-                              type="number"
-                              value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setBulkEditItems(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], minThreshold: val }
-                                }));
-                              }}
-                              data-testid={`bulk-edit-min-${item.id}`}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">{t('items.maxThreshold')}</Label>
-                            <Input
-                              type="number"
-                              value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0;
-                                setBulkEditItems(prev => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], maxThreshold: val }
-                                }));
-                              }}
-                              data-testid={`bulk-edit-max-${item.id}`}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex flex-col sm:flex-row sm:items-center w-full gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5">
-                          {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
-                          {item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? (
-                            <>
-                              <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                {item.trackExactQuantity ? (item.currentUnits || 0) : currentQty}
-                              </span>
-                              <i className={`fas fa-vial text-lg ${stockStatus.color}`}></i>
-                            </>
-                          ) : (
-                            <>
-                              <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                {currentQty}
-                              </span>
-                              <i className={`fas fa-box text-lg ${stockStatus.color}`}></i>
-                            </>
-                          )}
-                        </div>
-                        {item.status === 'archived' && (
-                          <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
-                        )}
-                      </div>
-                      <div className="sm:ml-auto flex gap-2 items-center justify-end">
-                        {canWrite && !item.controlled && 
-                         (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
-                          <button
-                            onClick={(e) => handleQuickReduce(e, item)}
-                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
-                            data-testid={`item-${item.id}-quick-reduce`}
-                            title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
-                          >
-                            <i className="fas fa-arrow-right-from-bracket mr-1 sm:mr-1.5"></i>
-                            {t('items.takeOut', 'Take Out')}
-                          </button>
-                        )}
-                        {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
-                          openOrderItems[item.id] ? (
-                            <button
-                              disabled
-                              className="px-2 py-1.5 sm:px-4 sm:py-2 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm font-medium cursor-not-allowed"
-                              data-testid={`item-${item.id}-quick-ordered`}
-                            >
-                              <i className="fas fa-check mr-1 sm:mr-1.5"></i>
-                              {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => handleQuickOrder(e, item)}
-                              className="px-2 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors"
-                              data-testid={`item-${item.id}-quick-order`}
-                            >
-                              <i className="fas fa-bolt mr-1 sm:mr-1.5"></i>
-                              {t('items.quickOrder')}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                        </div>
                       </DraggableItem>
-                    );
-                  })}
+                    ))}
                 </div>
               </DroppableFolder>
             </>
@@ -5594,435 +5073,17 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       
 
       {/* Transfer Items Dialog */}
-      <Dialog open={transferDialogOpen} onOpenChange={(open) => {
-        setTransferDialogOpen(open);
-        if (!open) {
-          setTransferItems([]);
-          setTransferTargetUnitId("");
-          setTransferSearchTerm("");
-          setTransferDirection('to');
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('items.transferItems', 'Transfer Items')}</DialogTitle>
-            <DialogDescription>
-              {t('items.transferItemsDesc', 'Move items between hospital units. Items will be matched by pharmacode/GTIN at the destination.')}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {/* Transfer Direction Selection */}
-            <div className="space-y-2">
-              <Label>{t('items.transferDirection', 'Transfer Direction')}</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={transferDirection === 'to' ? 'default' : 'outline'}
-                  className="flex-1"
-                  onClick={() => {
-                    setTransferDirection('to');
-                    setTransferItems([]);
-                  }}
-                  data-testid="button-transfer-direction-to"
-                >
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  {t('items.transferTo', 'Transfer To')}
-                </Button>
-                <Button
-                  type="button"
-                  variant={transferDirection === 'from' ? 'default' : 'outline'}
-                  className="flex-1"
-                  onClick={() => {
-                    setTransferDirection('from');
-                    setTransferItems([]);
-                  }}
-                  data-testid="button-transfer-direction-from"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('items.transferFrom', 'Transfer From')}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {transferDirection === 'to' 
-                  ? t('items.transferToDesc', 'Send items from this unit to the selected unit')
-                  : t('items.transferFromDesc', 'Receive items from the selected unit to this unit')
-                }
-              </p>
-            </div>
-
-            {/* Target Unit Selection */}
-            <div className="space-y-2">
-              <Label>
-                {transferDirection === 'to' 
-                  ? t('items.destinationUnit', 'Destination Unit')
-                  : t('items.sourceUnit', 'Source Unit')
-                }
-              </Label>
-              <Select value={transferTargetUnitId} onValueChange={(value) => {
-                setTransferTargetUnitId(value);
-                if (transferDirection === 'from') {
-                  setTransferItems([]);
-                }
-              }}>
-                <SelectTrigger data-testid="select-target-unit">
-                  <SelectValue placeholder={
-                    transferDirection === 'to'
-                      ? t('items.selectDestinationUnit', 'Select destination unit...')
-                      : t('items.selectSourceUnit', 'Select source unit...')
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableDestinationUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Item Search/Add */}
-            <div className="space-y-2">
-              <Label>{t('items.addItemsToTransfer', 'Add Items to Transfer')}</Label>
-              
-              {/* Show message if 'from' direction but no source unit selected */}
-              {transferDirection === 'from' && !transferTargetUnitId && (
-                <div className="p-4 border rounded-lg bg-muted/50 text-center text-muted-foreground">
-                  {t('items.selectSourceFirst', 'Please select a source unit first')}
-                </div>
-              )}
-              
-              {/* Show loading state when fetching source unit items */}
-              {transferDirection === 'from' && transferTargetUnitId && isLoadingSourceItems && (
-                <div className="p-4 border rounded-lg text-center">
-                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                  {t('items.loadingItems', 'Loading items...')}
-                </div>
-              )}
-              
-              {/* Show search when ready */}
-              {(transferDirection === 'to' || (transferDirection === 'from' && transferTargetUnitId && !isLoadingSourceItems)) && (
-                <>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t('items.searchByNameOrCode', 'Search by name, pharmacode, or GTIN...')}
-                        value={transferSearchTerm}
-                        onChange={(e) => setTransferSearchTerm(e.target.value)}
-                        className="pl-10"
-                        data-testid="input-transfer-search"
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setTransferScanner(true)}
-                      data-testid="button-transfer-scan"
-                    >
-                      <i className="fas fa-barcode"></i>
-                    </Button>
-                  </div>
-
-                  {/* Filtered Items List for Selection */}
-                  {transferSearchTerm.trim() && (
-                    <div className="border rounded-lg max-h-48 overflow-y-auto">
-                      {transferSourceItems
-                        .filter(item => {
-                          const search = transferSearchTerm.toLowerCase();
-                          const codes = transferSourceCodesMap.get(item.id);
-                          const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
-                          if (alreadyAdded) return false;
-                          
-                          return (
-                            item.name.toLowerCase().includes(search) ||
-                            codes?.pharmacode?.toLowerCase().includes(search) ||
-                            codes?.gtin?.toLowerCase().includes(search)
-                          );
-                        })
-                        .slice(0, 10)
-                        .map(item => {
-                          const codes = transferSourceCodesMap.get(item.id);
-                          const stockQty = item.stockLevel?.qtyOnHand || 0;
-                          
-                          return (
-                            <div
-                              key={item.id}
-                              className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer flex justify-between items-center"
-                              onClick={() => {
-                                setTransferItems(prev => [...prev, {
-                                  itemId: item.id,
-                                  name: item.name,
-                                  packSize: item.packSize || 1,
-                                  trackExactQuantity: item.trackExactQuantity || false,
-                                  currentUnits: item.currentUnits || 0,
-                                  stockQty,
-                                  transferType: 'packs',
-                                  transferQty: 1,
-                                  pharmacode: codes?.pharmacode,
-                                  gtin: codes?.gtin,
-                                }]);
-                                setTransferSearchTerm("");
-                              }}
-                              data-testid={`transfer-item-option-${item.id}`}
-                            >
-                              <div>
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {codes?.pharmacode && `PC: ${codes.pharmacode}`}
-                                  {codes?.pharmacode && codes?.gtin && ' | '}
-                                  {codes?.gtin && `GTIN: ${codes.gtin}`}
-                                </p>
-                              </div>
-                              <div className="text-right text-sm">
-                                <p>{t('items.stock')}: {stockQty}</p>
-                                {item.trackExactQuantity && (
-                                  <p className="text-muted-foreground">{t('items.units')}: {item.currentUnits || 0}</p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      {transferSourceItems.filter(item => {
-                        const search = transferSearchTerm.toLowerCase();
-                        const codes = transferSourceCodesMap.get(item.id);
-                        const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
-                        if (alreadyAdded) return false;
-                        return (
-                          item.name.toLowerCase().includes(search) ||
-                          codes?.pharmacode?.toLowerCase().includes(search) ||
-                          codes?.gtin?.toLowerCase().includes(search)
-                        );
-                      }).length === 0 && (
-                        <div className="p-4 text-center text-muted-foreground">
-                          {t('items.noItemsFound', 'No items found')}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Selected Items for Transfer */}
-            {transferItems.length > 0 && (
-              <div className="space-y-2">
-                <Label>{t('items.itemsToTransfer', 'Items to Transfer')} ({transferItems.length})</Label>
-                <div className="space-y-2">
-                  {transferItems.map((item, idx) => (
-                    <div key={item.itemId} className="border rounded-lg p-3 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.pharmacode && `PC: ${item.pharmacode}`}
-                            {item.pharmacode && item.gtin && ' | '}
-                            {item.gtin && `GTIN: ${item.gtin}`}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            setTransferItems(prev => prev.filter((_, i) => i !== idx));
-                          }}
-                          data-testid={`remove-transfer-item-${item.itemId}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-4">
-                        {/* Transfer Type Selection (for trackExactQuantity items) */}
-                        {item.trackExactQuantity && (
-                          <div className="flex items-center gap-2">
-                            <Label className="text-sm">{t('items.transferAs', 'Transfer as')}:</Label>
-                            <Select
-                              value={item.transferType}
-                              onValueChange={(value: 'packs' | 'units') => {
-                                setTransferItems(prev => prev.map((ti, i) => 
-                                  i === idx ? { ...ti, transferType: value, transferQty: 1 } : ti
-                                ));
-                              }}
-                            >
-                              <SelectTrigger className="w-24 h-8" data-testid={`select-transfer-type-${item.itemId}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="packs">{t('items.packs', 'Packs')}</SelectItem>
-                                <SelectItem value="units">{t('items.units', 'Units')}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        
-                        {/* Quantity Input */}
-                        <div className="flex items-center gap-2 flex-1">
-                          <Label className="text-sm whitespace-nowrap">
-                            {item.transferType === 'units' ? t('items.units', 'Units') : t('items.qty', 'Qty')}:
-                          </Label>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => {
-                                setTransferItems(prev => prev.map((ti, i) => 
-                                  i === idx ? { ...ti, transferQty: Math.max(1, ti.transferQty - 1) } : ti
-                                ));
-                              }}
-                              data-testid={`decrease-qty-${item.itemId}`}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              max={item.transferType === 'units' ? item.currentUnits : item.stockQty}
-                              value={item.transferQty}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                const max = item.transferType === 'units' ? item.currentUnits : item.stockQty;
-                                setTransferItems(prev => prev.map((ti, i) => 
-                                  i === idx ? { ...ti, transferQty: Math.min(Math.max(1, val), max) } : ti
-                                ));
-                              }}
-                              className="w-16 h-8 text-center"
-                              data-testid={`input-transfer-qty-${item.itemId}`}
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => {
-                                const max = item.transferType === 'units' ? item.currentUnits : item.stockQty;
-                                setTransferItems(prev => prev.map((ti, i) => 
-                                  i === idx ? { ...ti, transferQty: Math.min(ti.transferQty + 1, max) } : ti
-                                ));
-                              }}
-                              data-testid={`increase-qty-${item.itemId}`}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            / {item.transferType === 'units' ? item.currentUnits : item.stockQty} {t('items.available', 'available')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setTransferDialogOpen(false);
-                setTransferItems([]);
-                setTransferTargetUnitId("");
-                setTransferDirection('to');
-              }}
-              data-testid="button-cancel-transfer"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                if (transferTargetUnitId && transferItems.length > 0 && effectiveUnitId) {
-                  const sourceUnitId = transferDirection === 'to' 
-                    ? effectiveUnitId 
-                    : transferTargetUnitId;
-                  const destinationUnitId = transferDirection === 'to' 
-                    ? transferTargetUnitId 
-                    : effectiveUnitId;
-                  
-                  transferItemsMutation.mutate({
-                    sourceUnitId,
-                    destinationUnitId,
-                    items: transferItems.map(item => ({
-                      itemId: item.itemId,
-                      transferType: item.transferType,
-                      transferQty: item.transferQty,
-                      pharmacode: item.pharmacode,
-                      gtin: item.gtin,
-                    })),
-                  });
-                }
-              }}
-              disabled={!transferTargetUnitId || transferItems.length === 0 || transferItemsMutation.isPending}
-              data-testid="button-confirm-transfer"
-            >
-              {transferItemsMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <ArrowRightLeft className="h-4 w-4 mr-2" />
-              )}
-              {t('items.confirmTransfer', 'Transfer Items')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Transfer Items Barcode Scanner */}
-      <BarcodeScanner
-        isOpen={transferScanner}
-        onClose={() => setTransferScanner(false)}
-        onScan={(code) => {
-          setTransferScanner(false);
-          
-          // Find item by pharmacode or GTIN
-          let foundItem: ItemWithStock | undefined;
-          let foundCodes: { gtin?: string; pharmacode?: string } | undefined;
-          
-          for (const item of items) {
-            const codes = itemCodesMap.get(item.id);
-            if (codes?.pharmacode === code || codes?.gtin === code) {
-              foundItem = item;
-              foundCodes = codes;
-              break;
-            }
-          }
-          
-          if (foundItem && !transferItems.some(ti => ti.itemId === foundItem!.id)) {
-            setTransferItems(prev => [...prev, {
-              itemId: foundItem!.id,
-              name: foundItem!.name,
-              packSize: foundItem!.packSize || 1,
-              trackExactQuantity: foundItem!.trackExactQuantity || false,
-              currentUnits: foundItem!.currentUnits || 0,
-              stockQty: foundItem!.stockLevel?.qtyOnHand || 0,
-              transferType: 'packs',
-              transferQty: 1,
-              pharmacode: foundCodes?.pharmacode,
-              gtin: foundCodes?.gtin,
-            }]);
-            toast({
-              title: t('items.itemAdded', 'Item Added'),
-              description: foundItem.name,
-            });
-          } else if (foundItem) {
-            toast({
-              title: t('items.itemAlreadyAdded', 'Item Already Added'),
-              description: foundItem.name,
-            });
-          } else {
-            toast({
-              title: t('items.itemNotFound', 'Item Not Found'),
-              description: t('items.noItemMatchesCode', 'No item matches this code'),
-              variant: "destructive",
-            });
-          }
-        }}
-        onManualEntry={() => {
-          setTransferScanner(false);
-        }}
-      />
+      {transferDialogOpen && (
+        <TransferItemsDialog
+          open={transferDialogOpen}
+          onOpenChange={setTransferDialogOpen}
+          unitId={effectiveUnitId!}
+          hospitalId={activeHospital?.id!}
+          items={items}
+          itemCodesMap={itemCodesMap}
+          availableDestinationUnits={availableDestinationUnits}
+        />
+      )}
       </div>
       
       {/* Desktop Webcam Capture */}

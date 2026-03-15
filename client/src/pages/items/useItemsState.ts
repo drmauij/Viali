@@ -357,11 +357,6 @@ export function useItemsState() {
 
   // Transfer items dialog state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [transferDirection, setTransferDirection] = useState<"to" | "from">("to");
-  const [transferItems, setTransferItems] = useState<TransferItem[]>([]);
-  const [transferTargetUnitId, setTransferTargetUnitId] = useState<string>("");
-  const [transferSearchTerm, setTransferSearchTerm] = useState("");
-  const [transferScanner, setTransferScanner] = useState(false);
 
   return {
     // Search & filter
@@ -509,11 +504,6 @@ export function useItemsState() {
 
     // Transfer items dialog
     transferDialogOpen, setTransferDialogOpen,
-    transferDirection, setTransferDirection,
-    transferItems, setTransferItems,
-    transferTargetUnitId, setTransferTargetUnitId,
-    transferSearchTerm, setTransferSearchTerm,
-    transferScanner, setTransferScanner,
   };
 }
 

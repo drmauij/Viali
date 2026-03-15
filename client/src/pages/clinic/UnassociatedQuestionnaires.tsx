@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -241,7 +241,7 @@ export default function UnassociatedQuestionnaires() {
     },
   });
 
-  const handleOpenAssociateDialog = (response: ResponseWithMatch) => {
+  const handleOpenAssociateDialog = useCallback((response: ResponseWithMatch) => {
     setSelectedResponse(response);
     if (response.matchedPatient) {
       setSelectedPatient(response.matchedPatient);
@@ -250,16 +250,16 @@ export default function UnassociatedQuestionnaires() {
     }
     setAssociateDialogOpen(true);
     setPatientSearchTerm("");
-  };
+  }, []);
 
-  const handleQuickAssociate = (response: ResponseWithMatch) => {
+  const handleQuickAssociate = useCallback((response: ResponseWithMatch) => {
     if (response.matchedPatient) {
       associateMutation.mutate({
         responseId: response.id,
         patientId: response.matchedPatient.id,
       });
     }
-  };
+  }, [associateMutation]);
 
   const handleAssociate = () => {
     if (!selectedResponse || !selectedPatient) return;

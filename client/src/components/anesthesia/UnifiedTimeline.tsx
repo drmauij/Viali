@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback, for
 import * as Sentry from "@sentry/react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen, Layers } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, Undo2, Monitor, MessageSquareText, Trash2, StopCircle, PlayCircle, Droplet, Loader2, Copy, Lock, LockOpen, Layers } from "lucide-react";
 import {
   VitalPoint,
   TimelineVitals,
@@ -19,25 +19,8 @@ import {
   ANESTHESIA_TIME_MARKERS,
   FOUR_HOURS_MS,
   EditValueForm,
-  SortableMedicationItem,
 } from "./unifiedTimeline";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { MedicationReorderPanel } from "./unifiedTimeline/MedicationReorderPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -91,6 +74,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { useTimelineGestures } from "@/hooks/useTimelineGestures";
 import { useTimelineExport } from "./unifiedTimeline/useTimelineExport";
 import { useViewportController } from "./unifiedTimeline/useViewportController";
+import { MedicationItemsSidebar, type SwimlanePosition } from "./unifiedTimeline/MedicationItemsSidebar";
 import { 
   useClinicalSnapshot, 
   useAddVitalPoint, 
@@ -506,78 +490,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   
   // State for medication reorder mode
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const [reorderedItemsByFolder, setReorderedItemsByFolder] = useState<Record<string, typeof anesthesiaItems>>({});
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
-  
-  // DnD Kit sensors for reordering
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-  
-  // Enter reorder mode - group items by folder
-  const enterReorderMode = () => {
-    const itemsByFolder: Record<string, typeof anesthesiaItems> = {};
-    
-    // Group ALL items by folder, including those without administrationGroup
-    anesthesiaItems.forEach(item => {
-      const folderId = item.administrationGroup || 'unassigned';
-      if (!itemsByFolder[folderId]) {
-        itemsByFolder[folderId] = [];
-      }
-      itemsByFolder[folderId].push(item);
-    });
-    
-    setReorderedItemsByFolder(itemsByFolder);
-    setIsReorderMode(true);
-  };
-  
-  // Cancel reorder mode
-  const cancelReorderMode = () => {
-    setIsReorderMode(false);
-    setReorderedItemsByFolder({});
-    setCollapsedFolders(new Set());
-  };
-  
-  // Save reorder changes - folder-scoped sortOrder
-  const saveReorderChanges = async () => {
-    const updates: Array<{ itemId: string; sortOrder: number; folderId: string }> = [];
-    
-    Object.entries(reorderedItemsByFolder).forEach(([folderId, items]) => {
-      items.forEach((item, index) => {
-        updates.push({
-          itemId: item.id,
-          folderId,
-          sortOrder: index, // folder-scoped: 0, 1, 2... within each folder
-        });
-      });
-    });
-    
-    await reorderMedsMutation.mutateAsync(updates);
-    setIsReorderMode(false);
-    setReorderedItemsByFolder({});
-    setCollapsedFolders(new Set());
-  };
-  
-  // Handle drag end for reordering within a folder
-  const handleDragEndInFolder = (folderId: string) => (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (over && active.id !== over.id) {
-      setReorderedItemsByFolder((prev) => {
-        const folderItems = prev[folderId] || [];
-        const oldIndex = folderItems.findIndex((item) => item.id === active.id);
-        const newIndex = folderItems.findIndex((item) => item.id === over.id);
-        
-        return {
-          ...prev,
-          [folderId]: arrayMove(folderItems, oldIndex, newIndex),
-        };
-      });
-    }
-  };
   
   // Use custom hook for medication state management
   const {
@@ -5169,7 +5081,162 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setOutputData,
     resetOutputData,
   };
-  
+
+  // --- Sidebar callback handlers ---
+  const handleBpToggle = useCallback(() => {
+    if (activeToolMode === 'bp') {
+      setActiveToolMode(null);
+      setBpEntryMode('sys');
+      setPendingSysValue(null);
+    } else {
+      setActiveToolMode('bp');
+      setBpEntryMode('sys');
+      setPendingSysValue(null);
+    }
+  }, [activeToolMode]);
+
+  const handleHrToggle = useCallback(() => {
+    setActiveToolMode(activeToolMode === 'hr' ? null : 'hr');
+  }, [activeToolMode]);
+
+  const handleSpo2Toggle = useCallback(() => {
+    setActiveToolMode(activeToolMode === 'spo2' ? null : 'spo2');
+  }, [activeToolMode]);
+
+  const handleBlendToggle = useCallback(() => {
+    if (activeToolMode === 'blend') {
+      setActiveToolMode(null);
+      setBlendSequenceStep('sys');
+    } else {
+      setActiveToolMode('blend');
+      setBlendSequenceStep('sys');
+    }
+  }, [activeToolMode]);
+
+  const handleEditToggle = useCallback(() => {
+    if (activeToolMode === 'edit') {
+      setActiveToolMode(null);
+      setSelectedPoint(null);
+      setDragPosition(null);
+    } else {
+      setActiveToolMode('edit');
+    }
+  }, [activeToolMode]);
+
+  const handleZeitenQuickAdd = useCallback(() => {
+    if (!canWrite) return; // Don't allow modifications on locked records
+
+    const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+    if (nextMarkerIndex !== -1) {
+      const nextMarker = timeMarkers[nextMarkerIndex];
+
+      // Check if trying to set PACU End (P) - auto-stop all running infusions first
+      if (nextMarker.code === 'P') {
+        // Collect and auto-stop all running rate-controlled infusions
+        const stoppedInfusions: string[] = [];
+        Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
+          if (Array.isArray(sessions)) {
+            sessions.forEach(session => {
+              if (session.state === 'running' && session.id) {
+                stoppedInfusions.push(session.label || swimlaneId);
+                updateMedication.mutate({
+                  id: session.id,
+                  endTimestamp: new Date(currentTime),
+                });
+              }
+            });
+          }
+        });
+
+        // Collect and auto-stop all running free-flow infusions
+        Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
+          if (Array.isArray(sessions)) {
+            sessions.forEach(session => {
+              if (!session.endTime && session.id) {
+                stoppedInfusions.push(swimlaneId);
+                updateMedication.mutate({
+                  id: session.id,
+                  endTimestamp: new Date(currentTime),
+                });
+              }
+            });
+          }
+        });
+
+        if (stoppedInfusions.length > 0) {
+          console.log('[P_CHECK] Auto-stopped running infusions:', stoppedInfusions);
+          toast({
+            title: t('anesthesia.pacuEnd.infusionsStopped', 'Infusions stopped'),
+            description: t('anesthesia.pacuEnd.autoStoppedInfusions', '{{count}} running infusion(s) automatically stopped', { count: stoppedInfusions.length }),
+          });
+        }
+
+        // Check for pending commits
+        if (inventoryCommitState.hasPendingCommits) {
+          console.log('[P_CHECK] Blocking PACU End - pending commits exist');
+          toast({
+            title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+            description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Check if setting X2 (Anesthesia End) with pending commits (NON-BLOCKING REMINDER)
+      const shouldShowX2Reminder =
+        nextMarker.code === 'X2' &&
+        inventoryCommitState.hasPendingCommits &&
+        !inventoryCommitState.x2ReminderShownRef.current;
+
+      const updatedMarkers = [...timeMarkers];
+      updatedMarkers[nextMarkerIndex] = {
+        ...updatedMarkers[nextMarkerIndex],
+        time: currentTime,
+      };
+      setTimeMarkers(updatedMarkers);
+
+      // Save to database
+      // NOTE: The backend automatically locks the record when PACU End (P) is set
+      // so we don't need to call lockRecordMutation here
+      if (anesthesiaRecordId && saveTimeMarkersMutation) {
+        console.log('[TIME_MARKERS] Quick add button - triggering save mutation');
+        saveTimeMarkersMutation.mutate({
+          anesthesiaRecordId,
+          timeMarkers: updatedMarkers,
+        });
+      }
+
+      // Show X2 reminder dialog after marker is set
+      if (shouldShowX2Reminder) {
+        console.log('[X2_CHECK] Showing reminder dialog from quick button');
+        inventoryCommitState.x2ReminderShownRef.current = true;
+        setShowCommitReminder(true);
+      }
+    }
+  }, [canWrite, timeMarkers, rateInfusionSessions, freeFlowSessions, currentTime, updateMedication, inventoryCommitState, anesthesiaRecordId, saveTimeMarkersMutation, toast, t]);
+
+  const handleOpenBulkEditDialog = useCallback(() => {
+    const pMarker = timeMarkers.find(m => m.code === 'P');
+    bulkEditPacuEndWasSetRef.current = pMarker?.time != null;
+    setBulkEditDialogOpen(true);
+  }, [timeMarkers]);
+
+  const handleOpenMedicationConfig = useCallback((adminGroup: AdministrationGroup, editItem: AnesthesiaItem | null) => {
+    setSelectedAdminGroupForConfig(adminGroup);
+    setEditingItemForConfig(editItem);
+    setShowMedicationConfigDialog(true);
+  }, []);
+
+  const handleOpenOnDemandDialog = useCallback((adminGroup: AdministrationGroup) => {
+    setSelectedAdminGroupForOnDemand(adminGroup);
+    setShowOnDemandDialog(true);
+  }, []);
+
+  const handleShowEventsTimesPanel = useCallback(() => {
+    setShowEventsTimesPanel(true);
+  }, []);
+
   return (
     <TimelineContextProvider
       vitalsState={vitalsState}
@@ -5323,523 +5390,34 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       </div>
 
       {/* Left sidebar */}
-      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
-        {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[32px] h-[380px] w-full pointer-events-none z-50">
-          {/* First scale: 20-220 with 20-unit steps (11 values) - close to grid, grid extends 0 to 240 for top and bottom padding */}
-          {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
-            const yPercent = ((240 - val) / 240) * 100;
-            return (
-              <div 
-                key={`scale1-${val}`}
-                className="absolute text-xs font-medium text-foreground"
-                style={{ 
-                  right: '60px',
-                  top: `${yPercent}%`,
-                  transform: 'translateY(-50%)'
-                }}
-              >
-                {val}
-              </div>
-            );
-          })}
-          
-          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple, closest to grid, extends 45 to 105 for padding */}
-          {[50, 60, 70, 80, 90, 100].map((val) => {
-            const yPercent = ((105 - val) / 60) * 100;
-            return (
-              <div 
-                key={`scale2-${val}`}
-                className="absolute text-xs font-bold"
-                style={{ 
-                  right: '28px',
-                  top: `${yPercent}%`,
-                  transform: 'translateY(-50%)',
-                  color: '#8b5cf6'
-                }}
-              >
-                {val}
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Vitals icon buttons */}
-        <div className="absolute top-[32px] h-[380px] w-full flex flex-col items-start justify-center gap-2 pl-4">
-          <button
-            onClick={() => {
-              if (activeToolMode === 'bp') {
-                setActiveToolMode(null);
-                setBpEntryMode('sys');
-                setPendingSysValue(null);
-              } else {
-                setActiveToolMode('bp');
-                setBpEntryMode('sys');
-                setPendingSysValue(null);
-              }
-            }}
-            disabled={!canWrite}
-            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
-              activeToolMode === 'bp' 
-                ? 'border-foreground bg-foreground/20' 
-                : 'border-border bg-background hover:border-foreground hover:bg-foreground/10'
-            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            data-testid="button-vitals-bp"
-            title={t('timeline.bloodPressure', 'Blood Pressure (NIBP)')}
-          >
-            <ChevronsDownUp className={`w-5 h-5 transition-colors ${activeToolMode === 'bp' ? 'text-foreground' : 'text-foreground/70 hover:text-foreground'}`} />
-          </button>
-          <button
-            onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
-            disabled={!canWrite}
-            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
-              activeToolMode === 'hr' 
-                ? 'border-red-500 bg-red-500/20' 
-                : 'border-border bg-background hover:border-red-500 hover:bg-red-500/10'
-            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            data-testid="button-vitals-heart"
-            title={t('timeline.heartRate', 'Heart Rate')}
-          >
-            <Heart className={`w-5 h-5 transition-colors ${activeToolMode === 'hr' ? 'text-red-500' : 'hover:text-red-500'}`} />
-          </button>
-          <button
-            onClick={() => setActiveToolMode(activeToolMode === 'spo2' ? null : 'spo2')}
-            disabled={!canWrite}
-            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
-              activeToolMode === 'spo2' 
-                ? 'border-blue-500 bg-blue-500/20' 
-                : 'border-border bg-background hover:border-blue-500 hover:bg-blue-500/10'
-            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            data-testid="button-vitals-oxygen"
-            title={t('timeline.oxygenation', 'Oxygenation (SpO2)')}
-          >
-            <CircleDot className={`w-5 h-5 transition-colors ${activeToolMode === 'spo2' ? 'text-blue-500' : 'hover:text-blue-500'}`} />
-          </button>
-          <button
-            onClick={() => {
-              if (activeToolMode === 'blend') {
-                setActiveToolMode(null);
-                setBlendSequenceStep('sys');
-              } else {
-                setActiveToolMode('blend');
-                setBlendSequenceStep('sys');
-              }
-            }}
-            disabled={!canWrite}
-            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
-              activeToolMode === 'blend' 
-                ? 'border-purple-500 bg-purple-500/20' 
-                : 'border-border bg-background hover:border-purple-500 hover:bg-purple-500/10'
-            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            data-testid="button-vitals-combo"
-            title={t('timeline.sequentialVitals', 'Sequential Vitals Mode')}
-          >
-            <Blend className={`w-5 h-5 transition-colors ${activeToolMode === 'blend' ? 'text-purple-500' : 'hover:text-purple-500'}`} />
-          </button>
-          <button
-            onClick={() => {
-              if (activeToolMode === 'edit') {
-                setActiveToolMode(null);
-                setSelectedPoint(null);
-                setDragPosition(null);
-              } else {
-                setActiveToolMode('edit');
-              }
-            }}
-            disabled={!canWrite}
-            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
-              activeToolMode === 'edit' 
-                ? 'border-amber-500 bg-amber-500/20' 
-                : 'border-border bg-background hover:border-amber-500 hover:bg-amber-500/10'
-            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            data-testid="button-vitals-edit"
-            title={t('timeline.editMode', 'Edit Mode - Move Vital Points')}
-          >
-            <Pencil className={`w-5 h-5 transition-colors ${activeToolMode === 'edit' ? 'text-amber-500' : 'hover:text-amber-500'}`} />
-          </button>
-        </div>
-
-        {/* Swimlane labels */}
-        {swimlanePositions.map((lane, index) => {
-          // Find the corresponding swimlane config to access metadata
-          const swimlaneConfig = activeSwimlanes.find(s => s.id === lane.id);
-          
-          const isZeitenLane = lane.id === "zeiten";
-          const isEreignisseLane = lane.id === "ereignisse";
-          const isMedParent = lane.id === "medikamente";
-          const isVentParent = lane.id === "ventilation";
-          const isOutputParent = lane.id === "output";
-          const isOthersParent = lane.id === "others";
-          const isVentChild = lane.id.startsWith("ventilation-");
-          const isOutputChild = lane.id.startsWith("output-");
-          const isOthersChild = lane.id === "bis";
-          const isTofLane = lane.id === "tof";
-          
-          // Only the main parent swimlanes are collapsible
-          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
-          
-          // Determine styling based on hierarchyLevel field
-          let labelClass = "";
-          if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || isTofLane || lane.id === "herzrhythmus" || lane.id === "position") {
-            // Level 1: Main parent swimlanes (collapsible)
-            labelClass = "text-sm font-semibold";
-          } else if (swimlaneConfig?.hierarchyLevel === 'group') {
-            // Level 2: Administration group headers (non-collapsible, bold, smaller)
-            labelClass = "text-xs font-semibold";
-          } else if (swimlaneConfig?.hierarchyLevel === 'entry') {
-            // Entry lane (e.g., Vent. Params) - bold, smaller text
-            labelClass = "text-xs font-semibold";
-          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isOthersChild) {
-            // Level 3: Individual items (non-collapsible, not bold, smaller)
-            labelClass = "text-xs";
-          } else {
-            // Default
-            labelClass = "text-sm";
-          }
-          
-          // Apply same darker background logic to label area as swimlane area
-          let labelBackgroundColor: string;
-          if (swimlaneConfig?.hierarchyLevel === 'group') {
-            // Match the darker background used in swimlane area for group headers
-            labelBackgroundColor = isDark ? "hsl(150, 45%, 8%)" : "hsl(150, 50%, 75%)";
-          } else {
-            labelBackgroundColor = isDark ? lane.colorDark : lane.colorLight;
-          }
-          
-          // Remove border-b from group headers
-          const shouldShowBorder = swimlaneConfig?.hierarchyLevel !== 'group';
-          
-          return (
-            <div 
-              key={lane.id}
-              className={`absolute w-full flex items-center justify-between px-2 ${shouldShowBorder ? 'border-b' : ''}`}
-              style={{ 
-                top: `${lane.top}px`,
-                height: `${lane.height}px`,
-                backgroundColor: labelBackgroundColor,
-                borderColor: isDark ? "#444444" : "#d1d5db"
-              }}
-            >
-              {isZeitenLane ? (
-                // For Times swimlane, show next timepoint button and times icon
-                <div className="flex items-center justify-between gap-1 flex-1">
-                  <button
-                    onClick={() => {
-                      if (!canWrite) return; // Don't allow modifications on locked records
-                      
-                      const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
-                      if (nextMarkerIndex !== -1) {
-                        const nextMarker = timeMarkers[nextMarkerIndex];
-                        
-                        // Check if trying to set PACU End (P) - auto-stop all running infusions first
-                        if (nextMarker.code === 'P') {
-                          // Collect and auto-stop all running rate-controlled infusions
-                          const stoppedInfusions: string[] = [];
-                          Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
-                            if (Array.isArray(sessions)) {
-                              sessions.forEach(session => {
-                                if (session.state === 'running' && session.id) {
-                                  stoppedInfusions.push(session.label || swimlaneId);
-                                  updateMedication.mutate({
-                                    id: session.id,
-                                    endTimestamp: new Date(currentTime),
-                                  });
-                                }
-                              });
-                            }
-                          });
-                          
-                          // Collect and auto-stop all running free-flow infusions
-                          Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
-                            if (Array.isArray(sessions)) {
-                              sessions.forEach(session => {
-                                if (!session.endTime && session.id) {
-                                  stoppedInfusions.push(swimlaneId);
-                                  updateMedication.mutate({
-                                    id: session.id,
-                                    endTimestamp: new Date(currentTime),
-                                  });
-                                }
-                              });
-                            }
-                          });
-                          
-                          if (stoppedInfusions.length > 0) {
-                            console.log('[P_CHECK] Auto-stopped running infusions:', stoppedInfusions);
-                            toast({
-                              title: t('anesthesia.pacuEnd.infusionsStopped', 'Infusions stopped'),
-                              description: t('anesthesia.pacuEnd.autoStoppedInfusions', '{{count}} running infusion(s) automatically stopped', { count: stoppedInfusions.length }),
-                            });
-                          }
-                          
-                          // Check for pending commits
-                          if (inventoryCommitState.hasPendingCommits) {
-                            console.log('[P_CHECK] Blocking PACU End - pending commits exist');
-                            toast({
-                              title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
-                              description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                        }
-
-                        // Check if setting X2 (Anesthesia End) with pending commits (NON-BLOCKING REMINDER)
-                        const shouldShowX2Reminder = 
-                          nextMarker.code === 'X2' && 
-                          inventoryCommitState.hasPendingCommits && 
-                          !inventoryCommitState.x2ReminderShownRef.current;
-
-                        const updatedMarkers = [...timeMarkers];
-                        updatedMarkers[nextMarkerIndex] = {
-                          ...updatedMarkers[nextMarkerIndex],
-                          time: currentTime,
-                        };
-                        setTimeMarkers(updatedMarkers);
-                        
-                        // Save to database
-                        // NOTE: The backend automatically locks the record when PACU End (P) is set
-                        // so we don't need to call lockRecordMutation here
-                        if (anesthesiaRecordId && saveTimeMarkersMutation) {
-                          console.log('[TIME_MARKERS] Quick add button - triggering save mutation');
-                          saveTimeMarkersMutation.mutate({
-                            anesthesiaRecordId,
-                            timeMarkers: updatedMarkers,
-                          });
-                        }
-
-                        // Show X2 reminder dialog after marker is set
-                        if (shouldShowX2Reminder) {
-                          console.log('[X2_CHECK] Showing reminder dialog from quick button');
-                          inventoryCommitState.x2ReminderShownRef.current = true;
-                          setShowCommitReminder(true);
-                        }
-                      }
-                    }}
-                    disabled={!canWrite}
-                    className={`flex items-center gap-1 text-left bg-primary/10 text-foreground px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors pointer-events-auto truncate flex-1 max-w-[140px] ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    data-testid="button-next-timepoint"
-                    title={(() => {
-                      const nextMarker = timeMarkers.find(m => m.time === null);
-                      return nextMarker 
-                        ? `${t('anesthesia.timeline.zeitenTooltip.next', 'Next')}: ${t(`anesthesia.timeline.timeMarkerLabels.${nextMarker.code}`, nextMarker.label)}` 
-                        : t('anesthesia.timeline.zeitenTooltip.allMarkersPlaced', 'All times set');
-                    })()}
-                  >
-                    {(() => {
-                      const nextMarker = timeMarkers.find(m => m.time === null);
-                      if (nextMarker) {
-                        return (
-                          <>
-                            <ChevronRight className="w-4 h-4 shrink-0" />
-                            <span className="truncate text-[11px]">{t(`anesthesia.timeline.timeMarkerLabels.${nextMarker.code}`, nextMarker.label)}</span>
-                          </>
-                        );
-                      } else {
-                        return <span className="text-[11px]">{t('anesthesia.timeline.zeitenTooltip.allMarkersPlaced', 'All times set')}</span>;
-                      }
-                    })()}
-                  </button>
-                  <button
-                    onClick={() => {
-                      const pMarker = timeMarkers.find(m => m.code === 'P');
-                      bulkEditPacuEndWasSetRef.current = pMarker?.time != null;
-                      setBulkEditDialogOpen(true);
-                    }}
-                    className="hover:bg-background/10 transition-colors rounded p-0.5 pointer-events-auto"
-                    data-testid="button-edit-anesthesia-times"
-                    title={t('anesthesia.timeline.bulkEditTimes.title', 'Edit Anesthesia Times')}
-                  >
-                    <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
-                  </button>
-                </div>
-              ) : isEreignisseLane ? (
-                // For Events swimlane, make entire label area clickable to toggle panel
-                <button
-                  onClick={() => setShowEventsTimesPanel(true)}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
-                  data-testid="button-toggle-events-panel"
-                  title={t('timeline.viewEventsTimes', 'View Events & Times')}
-                >
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                </button>
-              ) : isCollapsibleParent ? (
-                // For collapsible parent swimlanes, make entire label area clickable to toggle
-                <div className="flex items-center justify-between flex-1">
-                  <button
-                    onClick={() => toggleSwimlane(lane.id)}
-                    className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
-                    data-testid={`button-toggle-${lane.id}`}
-                    title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
-                  >
-                    {collapsedSwimlanes.has(lane.id) ? (
-                      <ChevronRight className="w-4 h-4 text-foreground/70 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-foreground/70 shrink-0" />
-                    )}
-                    <span className={`${labelClass} text-black dark:text-white`}>
-                      {lane.label}
-                    </span>
-                  </button>
-                  {isMedParent && !collapsedSwimlanes.has(lane.id) && (
-                    <>
-                      {/* Reorder button - admin only */}
-                      {isAdmin && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            enterReorderMode();
-                          }}
-                          className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
-                          data-testid="button-reorder-medications"
-                          title={t("anesthesia.timeline.reorderMedications")}
-                        >
-                          <ArrowUpDown className="w-4 h-4 text-foreground/70" />
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
-                // For administration group headers, make entire label area clickable to configure medications (admin only)
-                isAdmin ? (
-                  <>
-                    <button
-                      onClick={() => {
-                        // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
-                        const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                        if (adminGroup) {
-                          setSelectedAdminGroupForConfig(adminGroup);
-                          setEditingItemForConfig(null);
-                          setShowMedicationConfigDialog(true);
-                        }
-                      }}
-                      onMouseMove={(e) => {
-                        if (isTouchDevice) return;
-                        const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                        if (adminGroup) {
-                          setAdminGroupHoverInfo({
-                            x: e.clientX,
-                            y: e.clientY,
-                            groupName: adminGroup.name,
-                          });
-                        }
-                      }}
-                      onMouseLeave={() => setAdminGroupHoverInfo(null)}
-                      className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
-                      data-testid={`button-configure-${lane.id}`}
-                      title={t('timeline.configureMedications', 'Configure Medications')}
-                    >
-                      <span className={`${labelClass} text-black dark:text-white`}>
-                        {lane.label}
-                      </span>
-                    </button>
-                    {/* Plus button for on-demand medications (admin users) */}
-                    {canWrite && anesthesiaRecordId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                          if (adminGroup) {
-                            setSelectedAdminGroupForOnDemand(adminGroup);
-                            setShowOnDemandDialog(true);
-                          }
-                        }}
-                        className="ml-1 p-2 rounded-full bg-primary/10 hover:bg-primary/20 active:bg-primary/30 transition-colors pointer-events-auto touch-manipulation"
-                        data-testid={`button-add-on-demand-admin-${lane.id}`}
-                        title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
-                      >
-                        <Plus className="w-5 h-5 text-primary" />
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className={`${labelClass} text-black dark:text-white`}>
-                      {lane.label}
-                    </span>
-                    {/* Plus button to add on-demand medications (available for all users) */}
-                    {canWrite && anesthesiaRecordId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                          if (adminGroup) {
-                            setSelectedAdminGroupForOnDemand(adminGroup);
-                            setShowOnDemandDialog(true);
-                          }
-                        }}
-                        className="ml-1 p-2 rounded-full bg-primary/10 hover:bg-primary/20 active:bg-primary/30 transition-colors pointer-events-auto touch-manipulation"
-                        data-testid={`button-add-on-demand-${lane.id}`}
-                        title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
-                      >
-                        <Plus className="w-5 h-5 text-primary" />
-                      </button>
-                    )}
-                  </div>
-                )
-              ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
-                // For medication item labels, make them clickable to edit (admin only)
-                // Also show cumulative dose badge on the right side
-                <>
-                  {isAdmin ? (
-                    <button
-                      onClick={() => {
-                        // Find the medication item using the itemId property from the lane
-                        const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
-                        if (medicationItem && medicationItem.administrationGroup) {
-                          // Find the admin group by ID (administrationGroup field stores the UUID)
-                          const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
-                          if (adminGroup) {
-                            setSelectedAdminGroupForConfig(adminGroup);
-                            setEditingItemForConfig(medicationItem);
-                            setShowMedicationConfigDialog(true);
-                          }
-                        }
-                      }}
-                      className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer min-w-0"
-                      data-testid={`button-edit-medication-${lane.id}`}
-                      title={t('timeline.editMedicationConfig', 'Edit Medication Configuration')}
-                    >
-                      <span className={`${labelClass} text-black dark:text-white truncate`}>
-                        {lane.label}
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <span className={`${labelClass} text-black dark:text-white truncate`}>
-                        {lane.label}
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center gap-1 flex-1">
-                  {isCollapsibleParent && (
-                    <button
-                      onClick={() => toggleSwimlane(lane.id)}
-                      className="p-0.5 rounded hover:bg-background/50 transition-colors group pointer-events-auto"
-                      data-testid={`button-toggle-${lane.id}`}
-                      title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
-                    >
-                      {collapsedSwimlanes.has(lane.id) ? (
-                        <ChevronRight className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                      )}
-                    </button>
-                  )}
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <MedicationItemsSidebar
+        swimlanePositions={swimlanePositions as SwimlanePosition[]}
+        activeSwimlanes={activeSwimlanes}
+        isDark={isDark}
+        canWrite={canWrite}
+        isAdmin={isAdmin}
+        isTouchDevice={isTouchDevice}
+        activeToolMode={activeToolMode}
+        onBpToggle={handleBpToggle}
+        onHrToggle={handleHrToggle}
+        onSpo2Toggle={handleSpo2Toggle}
+        onBlendToggle={handleBlendToggle}
+        onEditToggle={handleEditToggle}
+        collapsedSwimlanes={collapsedSwimlanes}
+        toggleSwimlane={toggleSwimlane}
+        timeMarkers={timeMarkers}
+        onZeitenQuickAdd={handleZeitenQuickAdd}
+        onOpenBulkEditDialog={handleOpenBulkEditDialog}
+        onShowEventsTimesPanel={handleShowEventsTimesPanel}
+        onEnterReorderMode={() => setIsReorderMode(true)}
+        onOpenMedicationConfig={handleOpenMedicationConfig}
+        onOpenOnDemandDialog={handleOpenOnDemandDialog}
+        onAdminGroupHover={setAdminGroupHoverInfo}
+        anesthesiaRecordId={anesthesiaRecordId}
+        administrationGroups={administrationGroups}
+        anesthesiaItems={anesthesiaItems}
+        t={t}
+      />
 
       {/* Fixed right-side panel for cumulative dose badges */}
       {/* z-50 ensures pills are above medication swimlane elements (z-40) for click capture */}
@@ -7300,114 +6878,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       </AlertDialog>
 
       {/* Medication Reorder Mode Dialog - Folder-grouped */}
-      <Dialog open={isReorderMode} onOpenChange={(open) => !open && cancelReorderMode()}>
-        <DialogContent className="max-w-2xl max-h-[80vh]" data-testid="dialog-reorder-medications">
-          <DialogHeader>
-            <DialogTitle>{t("anesthesia.timeline.reorderMedications")}</DialogTitle>
-            <DialogDescription>
-              {t("anesthesia.timeline.reorderMedicationsDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[50vh] p-4">
-            <div className="space-y-4">
-              {Object.entries(reorderedItemsByFolder)
-                .sort(([aId], [bId]) => {
-                  // Sort: put "unassigned" at the end
-                  if (aId === 'unassigned') return 1;
-                  if (bId === 'unassigned') return -1;
-                  // Otherwise maintain order by folder name
-                  const aFolder = administrationGroups.find(g => g.id === aId);
-                  const bFolder = administrationGroups.find(g => g.id === bId);
-                  return (aFolder?.name || '').localeCompare(bFolder?.name || '');
-                })
-                .map(([folderId, items]) => {
-                const folder = administrationGroups.find(g => g.id === folderId);
-                const folderName = folder?.name || (folderId === 'unassigned' ? 'Unassigned' : 'Unknown');
-                const isCollapsed = collapsedFolders.has(folderId);
-                
-                return (
-                  <div key={folderId} className="border rounded-lg overflow-hidden">
-                    {/* Folder Header - Collapsible */}
-                    <button
-                      onClick={() => {
-                        setCollapsedFolders(prev => {
-                          const next = new Set(prev);
-                          if (next.has(folderId)) {
-                            next.delete(folderId);
-                          } else {
-                            next.add(folderId);
-                          }
-                          return next;
-                        });
-                      }}
-                      className="w-full flex items-center justify-between p-3 bg-muted hover:bg-muted/80 transition-colors"
-                      data-testid={`button-toggle-folder-${folderId}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isCollapsed ? (
-                          <ChevronRight className="w-4 h-4" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4" />
-                        )}
-                        <span className="font-semibold">{folderName}</span>
-                        <Badge variant="secondary">{items.length}</Badge>
-                      </div>
-                    </button>
-                    
-                    {/* Folder Items - Drag-and-drop within folder only */}
-                    {!isCollapsed && (
-                      <div className="p-3">
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={handleDragEndInFolder(folderId)}
-                        >
-                          <SortableContext
-                            items={items.map(item => item.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <div className="space-y-2">
-                              {items.map((item) => (
-                                <SortableMedicationItem key={item.id} id={item.id} item={item} />
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={cancelReorderMode}
-              data-testid="button-cancel-reorder"
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onClick={saveReorderChanges}
-              disabled={reorderMedsMutation.isPending}
-              data-testid="button-save-reorder"
-            >
-              {reorderMedsMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {t("common.saving")}
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  {t("common.save")}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MedicationReorderPanel
+        isOpen={isReorderMode}
+        onClose={() => setIsReorderMode(false)}
+        anesthesiaItems={anesthesiaItems}
+        administrationGroups={administrationGroups}
+        reorderMedsMutation={reorderMedsMutation}
+        t={t}
+      />
 
       {/* Unified Free-Flow Infusion Sheet */}
       <FreeFlowManageDialog
