@@ -40,6 +40,46 @@ export default function Integrations() {
 
   const isAdmin = activeHospital?.role === "admin";
 
+  // ── TARDOC Billing Identifiers state ─────────────────────────────────
+  const [billingForm, setBillingForm] = useState({
+    companyGln: "",
+    companyZsr: "",
+    defaultTpValue: "",
+    companyBankIban: "",
+    companyBankName: "",
+  });
+
+  const { data: hospitalData } = useQuery<any>({
+    queryKey: [`/api/admin/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && isAdmin && activeTab === "tardoc",
+  });
+
+  useEffect(() => {
+    if (hospitalData) {
+      setBillingForm({
+        companyGln: hospitalData.companyGln || "",
+        companyZsr: hospitalData.companyZsr || "",
+        defaultTpValue: hospitalData.defaultTpValue || "",
+        companyBankIban: hospitalData.companyBankIban || "",
+        companyBankName: hospitalData.companyBankName || "",
+      });
+    }
+  }, [hospitalData]);
+
+  const updateBillingMutation = useMutation({
+    mutationFn: async (data: typeof billingForm) => {
+      const res = await apiRequest("PATCH", `/api/admin/${activeHospital!.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      toast({ title: t("common.success"), description: t("admin.billingIdsSaved", "Billing identifiers saved") });
+    },
+    onError: () => {
+      toast({ title: t("common.error"), description: t("admin.billingIdsSaveFailed", "Failed to save billing identifiers"), variant: "destructive" });
+    },
+  });
+
   // ── Galexis state ──────────────────────────────────────────────────────
 
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -960,11 +1000,72 @@ export default function Integrations() {
             {/* TARDOC Billing Identifiers */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="font-medium mb-3">{t("admin.tardocBillingIds", "Billing Identifiers")}</h3>
-              <p className="text-sm text-muted-foreground mb-3">{t("admin.tardocBillingIdsDesc", "GLN, ZSR, and bank details are configured in Settings → Company.")}</p>
-              <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
-                <i className="fas fa-arrow-right mr-2"></i>
-                {t("admin.goToCompanySettings", "Go to Company Settings")}
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <Label htmlFor="tardoc-gln">GLN</Label>
+                  <Input
+                    id="tardoc-gln"
+                    value={billingForm.companyGln}
+                    onChange={(e) => setBillingForm(prev => ({ ...prev, companyGln: e.target.value }))}
+                    placeholder="7601000000000"
+                    maxLength={13}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">13-digit Global Location Number</p>
+                </div>
+                <div>
+                  <Label htmlFor="tardoc-zsr">ZSR</Label>
+                  <Input
+                    id="tardoc-zsr"
+                    value={billingForm.companyZsr}
+                    onChange={(e) => setBillingForm(prev => ({ ...prev, companyZsr: e.target.value }))}
+                    placeholder="Z123456"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-3">
+                <div>
+                  <Label htmlFor="tardoc-tp">{t("admin.defaultTpValue", "Default TP Value")}</Label>
+                  <Input
+                    id="tardoc-tp"
+                    value={billingForm.defaultTpValue}
+                    onChange={(e) => setBillingForm(prev => ({ ...prev, defaultTpValue: e.target.value }))}
+                    placeholder="1.0000"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">CHF per tax point</p>
+                </div>
+                <div>
+                  <Label htmlFor="tardoc-iban">IBAN</Label>
+                  <Input
+                    id="tardoc-iban"
+                    value={billingForm.companyBankIban}
+                    onChange={(e) => setBillingForm(prev => ({ ...prev, companyBankIban: e.target.value }))}
+                    placeholder="CH93 0076 2011 6238 5295 7"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t("admin.ibanHint", "For QR-bill on Tiers Garant invoices")}</p>
+                </div>
+                <div>
+                  <Label htmlFor="tardoc-bank">{t("admin.bankName", "Bank")}</Label>
+                  <Input
+                    id="tardoc-bank"
+                    value={billingForm.companyBankName}
+                    onChange={(e) => setBillingForm(prev => ({ ...prev, companyBankName: e.target.value }))}
+                    placeholder="UBS Switzerland AG"
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Button
+                  size="sm"
+                  onClick={() => updateBillingMutation.mutate(billingForm)}
+                  disabled={updateBillingMutation.isPending}
+                >
+                  {updateBillingMutation.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("common.saving", "Saving...")}</>
+                  ) : (
+                    <>{t("common.save", "Save")}</>
+                  )}
+                </Button>
+              </div>
             </div>
 
             <TardocIntegrationCard hospitalId={activeHospital?.id} />

@@ -980,68 +980,6 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      {/* TARDOC Billing Identifiers */}
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="text-sm font-medium mb-3">{t("admin.tardocBilling", "TARDOC / Insurance Billing")}</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                          <div>
-                            <Label htmlFor="company-gln-inline">GLN</Label>
-                            <Input
-                              id="company-gln-inline"
-                              value={hospitalForm.companyGln}
-                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyGln: e.target.value }))}
-                              placeholder="7601000000000"
-                              maxLength={13}
-                              data-testid="input-company-gln-inline"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">13-digit Global Location Number</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="company-zsr-inline">ZSR</Label>
-                            <Input
-                              id="company-zsr-inline"
-                              value={hospitalForm.companyZsr}
-                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyZsr: e.target.value }))}
-                              placeholder="Z123456"
-                              data-testid="input-company-zsr-inline"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-3">
-                          <div>
-                            <Label htmlFor="default-tp-value-inline">{t("admin.defaultTpValue", "Default TP Value")}</Label>
-                            <Input
-                              id="default-tp-value-inline"
-                              value={hospitalForm.defaultTpValue}
-                              onChange={(e) => setHospitalForm(prev => ({ ...prev, defaultTpValue: e.target.value }))}
-                              placeholder="1.0000"
-                              data-testid="input-default-tp-value-inline"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">CHF per tax point</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="bank-iban-inline">IBAN</Label>
-                            <Input
-                              id="bank-iban-inline"
-                              value={hospitalForm.companyBankIban}
-                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyBankIban: e.target.value }))}
-                              placeholder="CH93 0076 2011 6238 5295 7"
-                              data-testid="input-bank-iban-inline"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">{t("admin.ibanHint", "For QR-bill on Tiers Garant invoices")}</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="bank-name-inline">{t("admin.bankName", "Bank")}</Label>
-                            <Input
-                              id="bank-name-inline"
-                              value={hospitalForm.companyBankName}
-                              onChange={(e) => setHospitalForm(prev => ({ ...prev, companyBankName: e.target.value }))}
-                              placeholder="UBS Switzerland AG"
-                              data-testid="input-bank-name-inline"
-                            />
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
