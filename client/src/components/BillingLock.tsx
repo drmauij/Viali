@@ -29,7 +29,7 @@ export function BillingLock({ children }: { children: React.ReactNode }) {
     refetchOnWindowFocus: false,
   });
 
-  const allowedPaths = ["/admin/billing", "/admin", "/admin/users", "/admin/cameras"];
+  const allowedPaths = ["/admin/billing", "/admin", "/admin/users", "/admin/clinical", "/admin/integrations"];
   const isAllowedPath = allowedPaths.some(path => location.startsWith(path));
 
   if (isLoading) {

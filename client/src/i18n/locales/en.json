@@ -265,10 +265,11 @@
     "checklists": "Checklists",
     "controlled": "Controlled",
     "admin": {
-      "billing": "Billing",
-      "hospital": "Hospital",
+      "settings": "Settings",
+      "clinical": "Clinical",
       "users": "Users",
-      "devices": "Devices"
+      "integrations": "Integrations",
+      "billing": "Billing"
     },
     "scan": "Scan",
     "anesthesia": {

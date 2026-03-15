@@ -172,10 +172,11 @@ export default function BottomNav() {
     
     if (activeModule === "admin") {
       return [
-        { id: "admin-hospital", icon: "fas fa-hospital", label: t('bottomNav.admin.hospital'), path: "/admin" },
+        { id: "admin-settings", icon: "fas fa-cog", label: t('bottomNav.admin.settings'), path: "/admin" },
+        { id: "admin-clinical", icon: "fas fa-stethoscope", label: t('bottomNav.admin.clinical'), path: "/admin/clinical" },
         { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
-        { id: "admin-devices", icon: "fas fa-microchip", label: t('bottomNav.admin.devices'), path: "/admin/cameras" },
-        { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing', 'Billing'), path: "/admin/billing" },
+        { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
+        { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
       ];
     }
     

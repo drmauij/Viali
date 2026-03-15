@@ -346,10 +346,11 @@
     "checklists": "Checklisten",
     "controlled": "Kontrolle",
     "admin": {
-      "billing": "Abrechnung",
-      "hospital": "Krankenhaus",
+      "settings": "Einstellungen",
+      "clinical": "Klinisch",
       "users": "Benutzer",
-      "devices": "Geräte"
+      "integrations": "Integrationen",
+      "billing": "Abrechnung"
     },
     "scan": "Scannen",
     "anesthesia": {

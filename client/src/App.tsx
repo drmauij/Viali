@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { useEffect, Suspense } from "react";
 import React from "react";
 import { queryClient } from "./lib/queryClient";
@@ -25,9 +25,10 @@ const Alerts = React.lazy(() => import("@/pages/Alerts"));
 const SupplierMatches = React.lazy(() => import("@/pages/SupplierMatches"));
 const ControlledLog = React.lazy(() => import("@/pages/ControlledLog"));
 const Checklists = React.lazy(() => import("@/pages/Checklists"));
-const AdminHospital = React.lazy(() => import("@/pages/admin/Hospital"));
+const AdminSettings = React.lazy(() => import("@/pages/admin/Settings"));
+const AdminClinical = React.lazy(() => import("@/pages/admin/Clinical"));
+const AdminIntegrations = React.lazy(() => import("@/pages/admin/Integrations"));
 const AdminUsers = React.lazy(() => import("@/pages/admin/Users"));
-const AdminCameraDevices = React.lazy(() => import("@/pages/admin/CameraDevices"));
 const AdminBilling = React.lazy(() => import("@/pages/admin/Billing"));
 const Signup = React.lazy(() => import("@/pages/Signup"));
 const ResetPassword = React.lazy(() => import("@/pages/ResetPassword"));
@@ -229,10 +230,12 @@ function Router() {
               <Route path="/surgery/preop">{() => <ProtectedRoute requireSurgery><SurgeryPreOpList /></ProtectedRoute>}</Route>
               <Route path="/surgery/preop/:surgeryId">{() => <ProtectedRoute requireSurgery><SurgeryPreOpDetail /></ProtectedRoute>}</Route>
               {/* Admin Module - requires admin role */}
-              <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
+              <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>}</Route>
+              <Route path="/admin/clinical">{() => <ProtectedRoute requireAdmin><AdminClinical /></ProtectedRoute>}</Route>
               <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
-              <Route path="/admin/cameras">{() => <ProtectedRoute requireAdmin><AdminCameraDevices /></ProtectedRoute>}</Route>
+              <Route path="/admin/integrations">{() => <ProtectedRoute requireAdmin><AdminIntegrations /></ProtectedRoute>}</Route>
               <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
+              <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
