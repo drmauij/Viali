@@ -7,7 +7,8 @@ import ChangePasswordDialog from "./ChangePasswordDialog";
 import PersonalSettingsDialog from "./PersonalSettingsDialog";
 import WorktimeLogDialog from "./WorktimeLogDialog";
 import { useModule } from "@/contexts/ModuleContext";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Search } from "lucide-react";
+import { useCommandPalette } from "@/components/CommandPalette";
 import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -36,6 +37,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { user } = useAuth();
   const { setIsDrawerOpen } = useModule();
   const { addons } = useHospitalAddons();
+  const { open: openCommandPalette } = useCommandPalette();
   const [, setLocation] = useLocation();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -261,6 +263,16 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
+          {/* Search / Command Palette */}
+          <button
+            onClick={openCommandPalette}
+            className="w-9 h-9 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
+            title={typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? 'Search (\u2318K)' : 'Search (Ctrl+K)'}
+            data-testid="button-search"
+          >
+            <Search className="w-5 h-5 text-foreground" />
+          </button>
+
           {/* Chat Panel Toggle */}
           <button
             onClick={() => setShowChatPanel(!showChatPanel)}

@@ -5,6 +5,7 @@ import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
 import ModuleDrawer from "./ModuleDrawer";
 import { BillingLock } from "./BillingLock";
+import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
 
 interface Hospital {
@@ -145,9 +146,11 @@ export default function Layout({ children }: LayoutProps) {
         activeHospital={activeHospital}
         onHospitalChange={handleHospitalChange}
       />
-      <BillingLock>
-        {children}
-      </BillingLock>
+      <CommandPaletteProvider>
+        <BillingLock>
+          {children}
+        </BillingLock>
+      </CommandPaletteProvider>
       <BottomNav />
     </div>
   );
