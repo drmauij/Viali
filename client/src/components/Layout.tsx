@@ -139,19 +139,19 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="screen-container">
-      <ModuleDrawer />
-      <TopBar
-        hospitals={hospitals}
-        activeHospital={activeHospital}
-        onHospitalChange={handleHospitalChange}
-      />
-      <CommandPaletteProvider>
+    <CommandPaletteProvider>
+      <div className="screen-container">
+        <ModuleDrawer />
+        <TopBar
+          hospitals={hospitals}
+          activeHospital={activeHospital}
+          onHospitalChange={handleHospitalChange}
+        />
         <BillingLock>
           {children}
         </BillingLock>
-      </CommandPaletteProvider>
-      <BottomNav />
-    </div>
+        <BottomNav />
+      </div>
+    </CommandPaletteProvider>
   );
 }
