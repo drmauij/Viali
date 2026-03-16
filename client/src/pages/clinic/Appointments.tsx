@@ -39,7 +39,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { formatDateForInput, formatTime } from "@/lib/dateUtils";
+import { formatDateForInput, formatTime, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -679,11 +679,15 @@ export function BookingDialog({
                         data-testid={`patient-option-${patient.id}`}
                       >
                         {patient.firstName} {patient.surname}
-                        {patient.birthday && (
+                        {patient.birthday && !isBirthdayUnknown(patient.birthday) ? (
                           <span className="text-muted-foreground ml-2 text-xs">
                             ({format(new Date(patient.birthday), 'P', { locale: dateLocale })})
                           </span>
-                        )}
+                        ) : patient.birthday && isBirthdayUnknown(patient.birthday) ? (
+                          <span className="text-amber-500 ml-2 text-xs font-medium">
+                            (Birthday not provided)
+                          </span>
+                        ) : null}
                       </button>
                     ))}
                   </div>

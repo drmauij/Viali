@@ -34,7 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
 import { useModule } from "@/contexts/ModuleContext";
-import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency, formatDateLong } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatDateTimeForInput, formatDateForInput, toProperCase, parseFlexibleDate, isoToDisplayDate, formatCurrency, formatDateLong, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
@@ -1783,7 +1783,10 @@ export default function PatientDetail() {
               <div>
                 <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
                 <p className="text-xs text-muted-foreground" data-testid="text-patient-info">
-                  {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years) • Patient ID: {patient.patientNumber}
+                  {isBirthdayUnknown(patient.birthday)
+                    ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
+                    : <>{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</>
+                  } • Patient ID: {patient.patientNumber}
                 </p>
               </div>
             </div>
@@ -1809,7 +1812,7 @@ export default function PatientDetail() {
                 <div>
                   <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
                   <p className="text-sm font-normal mt-1">
-                    <span className="text-foreground font-medium" data-testid="text-patient-birthday">{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</span>
+                    <span className={isBirthdayUnknown(patient.birthday) ? "text-amber-500 font-medium" : "text-foreground font-medium"} data-testid="text-patient-birthday">{isBirthdayUnknown(patient.birthday) ? t('common.birthdayNotProvided', 'Birthday not provided') : `${formatDate(patient.birthday)} (${calculateAge(patient.birthday)} years)`}</span>
                     <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
                   </p>
                 </div>
@@ -3464,7 +3467,10 @@ export default function PatientDetail() {
               <div className="text-left flex-1">
                 <p className="font-semibold text-base text-left" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
                 <p className="text-xs text-muted-foreground text-left" data-testid="text-preop-patient-info">
-                  {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y) • ID: {patient.patientNumber}
+                  {isBirthdayUnknown(patient.birthday)
+                    ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
+                    : <>{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y)</>
+                  } • ID: {patient.patientNumber}
                 </p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {patient.phone && (
@@ -6799,7 +6805,7 @@ export default function PatientDetail() {
                   {t('anesthesia.patientDetail.associatingTo', 'Will associate to:')}
                 </p>
                 <p className="text-sm">
-                  {patient.firstName} {patient.surname} ({isoToDisplayDate(patient.birthday)})
+                  {patient.firstName} {patient.surname} ({isBirthdayUnknown(patient.birthday) ? <span className="text-amber-500">{t('common.birthdayNotProvided', 'Birthday not provided')}</span> : isoToDisplayDate(patient.birthday)})
                 </p>
               </div>
             )}

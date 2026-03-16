@@ -148,6 +148,14 @@ export const getDateFormatConfig = (): DateFormatConfig => {
   return currentConfig;
 };
 
+/** Sentinel values used when a patient's birthday is unknown (e.g. booked via public page) */
+const UNKNOWN_BIRTHDAY_SENTINELS = ['1900-01-01', '0000-01-01'];
+
+export const isBirthdayUnknown = (birthday: string | null | undefined): boolean => {
+  if (!birthday) return true;
+  return UNKNOWN_BIRTHDAY_SENTINELS.some(s => birthday.startsWith(s));
+};
+
 export const formatDate = (date: string | Date | null | undefined): string => {
   if (!date) return "N/A";
   

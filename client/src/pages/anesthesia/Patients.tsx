@@ -19,7 +19,7 @@ import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useModule } from "@/contexts/ModuleContext";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
@@ -681,7 +681,7 @@ export default function Patients() {
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1 ml-7">
-                  {formatDate(patient.birthday)} • {patient.patientNumber}
+                  {isBirthdayUnknown(patient.birthday) ? <span className="text-amber-500 font-medium">Birthday not provided</span> : formatDate(patient.birthday)} • {patient.patientNumber}
                 </div>
               </Card>
             ))}

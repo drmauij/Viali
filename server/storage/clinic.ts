@@ -130,7 +130,7 @@ export async function findOrCreatePatientForBooking(
       email: data.email,
       phone: data.phone || null,
       patientNumber: `P-${String(patientCount + 1).padStart(5, '0')}`,
-      birthday: '0000-01-01',
+      birthday: '1900-01-01',
       sex: 'O' as const,
     })
     .returning();

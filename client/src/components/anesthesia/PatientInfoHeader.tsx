@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff, ChevronRight } from "lucide-react";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
@@ -196,7 +196,10 @@ export function PatientInfoHeader({
               <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                 {patient?.birthday && (
                   <p className="text-xs md:text-sm text-muted-foreground">
-                    {formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} ${t('anesthesia.op.yearsOld')}`}
+                    {isBirthdayUnknown(patient.birthday)
+                      ? <span className="text-amber-500 font-medium">{t('common.birthdayNotProvided', 'Birthday not provided')}</span>
+                      : <>{formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} ${t('anesthesia.op.yearsOld')}`}</>
+                    }
                   </p>
                 )}
                 {preOpAssessment && (
