@@ -208,13 +208,17 @@ export async function collectDischargeMedicationsData(
     lines.push(`\n### Prescription by ${doctorName}`);
     if (slot.notes) lines.push(`Notes: ${slot.notes}`);
 
+    // Format medications as a markdown table for better readability
+    lines.push("");
+    lines.push("| Medication | Quantity | Route | Frequency | Notes |");
+    lines.push("|------------|----------|-------|-----------|-------|");
     for (const item of slot.items) {
-      const parts = [item.item?.name || item.customName || "Unknown medication"];
-      if (item.quantity) parts.push(`Qty: ${item.quantity} ${item.unitType || ""}`);
-      if (item.administrationRoute) parts.push(`Route: ${item.administrationRoute}`);
-      if (item.frequency) parts.push(`Freq: ${item.frequency}`);
-      if (item.notes) parts.push(`(${item.notes})`);
-      lines.push(`- ${parts.join(" | ")}`);
+      const name = item.item?.name || item.customName || "Unknown medication";
+      const qty = item.quantity ? `${item.quantity} ${item.unitType || ""}`.trim() : "-";
+      const route = item.administrationRoute || "-";
+      const freq = item.frequency || "-";
+      const notes = item.notes || "-";
+      lines.push(`| ${name} | ${qty} | ${route} | ${freq} | ${notes} |`);
     }
   }
 
@@ -572,7 +576,8 @@ ${templateContent}
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
 - If follow-up appointment data is provided, use the exact dates and times from the data — do not invent appointment dates
 - If a template section has no matching clinical data, keep the section heading but note that no data was available ("keine Daten vorhanden")
-- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
+- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, <table> for tabular data, and <hr> for separators. Do NOT use markdown formatting.
+- IMPORTANT: When listing medications (discharge medications, prescriptions, or any medication list), ALWAYS use an HTML table with columns for Medication, Quantity, Route, Frequency, and Notes. Never list medications as bullet points or plain text.
 - Be concise but thorough`;
   }
 
@@ -627,7 +632,7 @@ Structure the prescription with the following sections:
 2. **Medications** — For each medication: name, dosage/strength, quantity to dispense, frequency, route of administration, duration of treatment, and any special instructions
 
 Do NOT include a prescribing doctor or signature section — this is handled separately by the system.
-Keep it clean and pharmacy-ready. Do not include narrative text — use a structured list format for medications.`;
+Keep it clean and pharmacy-ready. Do not include narrative text — use an HTML table for medications with columns: Medication, Dosage/Strength, Quantity, Frequency, Route, Duration, Instructions.`;
       break;
 
     case "surgery_report":
@@ -660,6 +665,7 @@ ${mandatorySummaries}
 - Use professional medical language appropriate for clinical documentation
 - Base the content ONLY on the provided clinical data — do not invent information
 - Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
-- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting.
+- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, <table> for tabular data, and <hr> for separators. Do NOT use markdown formatting.
+- IMPORTANT: When listing medications (discharge medications, prescriptions, or any medication list), ALWAYS use an HTML table with columns for Medication, Quantity, Route, Frequency, and Notes. Never list medications as bullet points or plain text.
 - Be concise but thorough`;
 }

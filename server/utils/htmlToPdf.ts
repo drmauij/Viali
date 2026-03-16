@@ -323,6 +323,99 @@ function renderList(
 }
 
 // ---------------------------------------------------------------------------
+// Table rendering
+// ---------------------------------------------------------------------------
+
+function renderTable(
+  pdf: jsPDF,
+  el: HTMLElement,
+  margin: number,
+  maxTextWidth: number,
+  state: RenderState,
+): void {
+  const cellPadding = 2;
+  const rowHeight = 6;
+  const fontSize = 9;
+
+  // Collect all rows (from thead + tbody or direct tr children)
+  const rows: { cells: string[]; isHeader: boolean }[] = [];
+  const collectRows = (parent: HTMLElement, isHeader: boolean) => {
+    for (const child of parent.childNodes) {
+      if (child.nodeType !== NodeType.ELEMENT_NODE) continue;
+      const childEl = child as HTMLElement;
+      const tag = childEl.tagName?.toUpperCase();
+      if (tag === "TR") {
+        const cells: string[] = [];
+        for (const td of childEl.childNodes) {
+          if (td.nodeType !== NodeType.ELEMENT_NODE) continue;
+          const tdTag = (td as HTMLElement).tagName?.toUpperCase();
+          if (tdTag === "TD" || tdTag === "TH") {
+            cells.push(getPlainText(td).trim());
+          }
+        }
+        if (cells.length > 0) rows.push({ cells, isHeader });
+      } else if (tag === "THEAD") {
+        collectRows(childEl, true);
+      } else if (tag === "TBODY") {
+        collectRows(childEl, false);
+      }
+    }
+  };
+  collectRows(el, false);
+
+  if (rows.length === 0) return;
+
+  // Determine column count and widths (distribute evenly)
+  const colCount = Math.max(...rows.map((r) => r.cells.length));
+  const colWidth = maxTextWidth / colCount;
+
+  // Render each row
+  for (const row of rows) {
+    // Calculate row height based on text wrapping
+    pdf.setFontSize(fontSize);
+    pdf.setFont("helvetica", row.isHeader ? "bold" : "normal");
+    let maxLines = 1;
+    const wrappedCells: string[][] = [];
+    for (let c = 0; c < colCount; c++) {
+      const text = row.cells[c] || "";
+      const wrapped = pdf.splitTextToSize(text, colWidth - cellPadding * 2);
+      wrappedCells.push(wrapped);
+      maxLines = Math.max(maxLines, wrapped.length);
+    }
+    const actualRowHeight = Math.max(rowHeight, maxLines * 4.5 + cellPadding * 2);
+
+    checkNewPage(pdf, actualRowHeight, state);
+
+    // Draw cell backgrounds for header rows
+    if (row.isHeader) {
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, state.y - 4, maxTextWidth, actualRowHeight, "F");
+    }
+
+    // Draw cell borders and text
+    for (let c = 0; c < colCount; c++) {
+      const x = margin + c * colWidth;
+
+      // Cell border
+      pdf.setDrawColor(200, 200, 200);
+      pdf.rect(x, state.y - 4, colWidth, actualRowHeight);
+
+      // Cell text
+      pdf.setFontSize(fontSize);
+      pdf.setFont("helvetica", row.isHeader ? "bold" : "normal");
+      pdf.setTextColor(0, 0, 0);
+      const lines = wrappedCells[c] || [];
+      for (let l = 0; l < lines.length; l++) {
+        pdf.text(lines[l], x + cellPadding, state.y + l * 4.5);
+      }
+    }
+
+    state.y += actualRowHeight;
+  }
+  state.y += 2; // spacing after table
+}
+
+// ---------------------------------------------------------------------------
 // Recursive node traversal
 // ---------------------------------------------------------------------------
 
@@ -369,6 +462,9 @@ function renderNode(
       break;
     case "P":
       renderParagraph(pdf, el, margin, maxTextWidth, state);
+      break;
+    case "TABLE":
+      renderTable(pdf, el, margin, maxTextWidth, state);
       break;
     case "BR":
       state.y += 3;
