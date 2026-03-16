@@ -1391,6 +1391,7 @@
   border-collapse: collapse;
   width: 100%;
   margin: 0.5rem 0;
+  table-layout: auto;
 }
 .ProseMirror th,
 .ProseMirror td {
@@ -1398,6 +1399,13 @@
   padding: 0.4rem 0.6rem;
   text-align: left;
   font-size: 0.875rem;
+  white-space: nowrap;
+}
+/* Let the first column (medication name) wrap and take remaining space */
+.ProseMirror th:first-child,
+.ProseMirror td:first-child {
+  white-space: normal;
+  width: 30%;
 }
 .ProseMirror th {
   background: hsl(var(--muted));

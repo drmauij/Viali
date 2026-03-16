@@ -244,9 +244,10 @@ function renderParagraphText(
   margin: number,
   maxTextWidth: number,
   state: RenderState,
+  fontStyle: string = "normal",
 ): void {
   pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
+  pdf.setFont("helvetica", fontStyle);
   const wrapped: string[] = pdf.splitTextToSize(text, maxTextWidth);
   for (const w of wrapped) {
     checkNewPage(pdf, 5, state);
@@ -255,6 +256,43 @@ function renderParagraphText(
   }
 }
 
+/** Inline text segment with a specific font style. */
+interface TextSegment {
+  text: string;
+  fontStyle: string; // "normal", "bold", "italic", "bolditalic"
+}
+
+/** Extract text segments from an element, preserving bold/italic formatting. */
+function collectTextSegments(
+  node: Node,
+  parentBold: boolean,
+  parentItalic: boolean,
+): TextSegment[] {
+  if (node.nodeType === NodeType.TEXT_NODE) {
+    const text = node.text;
+    if (!text) return [];
+    let fontStyle = "normal";
+    if (parentBold && parentItalic) fontStyle = "bolditalic";
+    else if (parentBold) fontStyle = "bold";
+    else if (parentItalic) fontStyle = "italic";
+    return [{ text, fontStyle }];
+  }
+  if (node.nodeType !== NodeType.ELEMENT_NODE) return [];
+  const el = node as HTMLElement;
+  const tag = el.tagName?.toUpperCase();
+  const isBold = parentBold || tag === "STRONG" || tag === "B";
+  const isItalic = parentItalic || tag === "EM" || tag === "I";
+  const segments: TextSegment[] = [];
+  for (const child of el.childNodes) {
+    segments.push(...collectTextSegments(child, isBold, isItalic));
+  }
+  return segments;
+}
+
+/**
+ * Render a paragraph with inline bold/italic support.
+ * Groups consecutive segments by style and renders each run.
+ */
 function renderParagraph(
   pdf: jsPDF,
   el: HTMLElement,
@@ -262,14 +300,62 @@ function renderParagraph(
   maxTextWidth: number,
   state: RenderState,
 ): void {
-  const text = getPlainText(el).trim();
-  if (!text) {
-    // Empty paragraph — add small spacing (same as blank line in markdown)
+  const segments = collectTextSegments(el, false, false);
+  // Merge adjacent segments with same style
+  const merged: TextSegment[] = [];
+  for (const seg of segments) {
+    if (merged.length > 0 && merged[merged.length - 1].fontStyle === seg.fontStyle) {
+      merged[merged.length - 1].text += seg.text;
+    } else {
+      merged.push({ ...seg });
+    }
+  }
+
+  const allText = merged.map((s) => s.text).join("").trim();
+  if (!allText) {
     state.y += 3;
     return;
   }
-  renderParagraphText(pdf, text, margin, maxTextWidth, state);
-  state.y += 2; // inter-paragraph spacing
+
+  // If all segments share the same style, render as a simple block
+  const uniqueStyles = new Set(merged.map((s) => s.fontStyle));
+  if (uniqueStyles.size === 1) {
+    const style = merged[0].fontStyle;
+    renderParagraphText(pdf, allText, margin, maxTextWidth, state, style);
+    state.y += 2;
+    return;
+  }
+
+  // Mixed styles: render segment by segment, wrapping across lines
+  pdf.setFontSize(10);
+  const lineHeight = 5;
+  let curX = margin;
+
+  for (const seg of merged) {
+    const text = seg.text;
+    if (!text) continue;
+
+    pdf.setFont("helvetica", seg.fontStyle);
+
+    // Split into words for wrapping
+    const words = text.split(/(\s+)/);
+    for (const word of words) {
+      if (!word) continue;
+      const wordWidth = pdf.getTextWidth(word);
+
+      // Wrap to next line if word doesn't fit (unless we're at line start)
+      if (curX + wordWidth > margin + maxTextWidth && curX > margin) {
+        state.y += lineHeight;
+        checkNewPage(pdf, lineHeight, state);
+        curX = margin;
+      }
+
+      pdf.setFont("helvetica", seg.fontStyle);
+      pdf.text(word, curX, state.y);
+      curX += wordWidth;
+    }
+  }
+  state.y += lineHeight + 2; // finish last line + inter-paragraph spacing
 }
 
 // TODO: Support nested lists (depth parameter + increased indent) once users start nesting in WYSIWYG
@@ -282,6 +368,7 @@ function renderList(
   state: RenderState,
 ): void {
   let itemIndex = 1;
+  const indent = type === "bullet" ? 8 : 10;
 
   for (const child of el.childNodes) {
     // Skip non-element children (whitespace text nodes between <li>s)
@@ -289,35 +376,66 @@ function renderList(
     const li = child as HTMLElement;
     if (li.tagName?.toUpperCase() !== "LI") continue;
 
+    const segments = collectTextSegments(li, false, false);
+    const allText = segments.map((s) => s.text).join("").trim();
+    if (!allText) continue;
+
     pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
 
-    const text = getPlainText(li).trim();
-    if (!text) continue;
-
+    // Render bullet/number marker
+    checkNewPage(pdf, 5, state);
     if (type === "bullet") {
-      const wrapped: string[] = pdf.splitTextToSize(text, maxTextWidth - 8);
-      for (let i = 0; i < wrapped.length; i++) {
-        checkNewPage(pdf, 5, state);
-        if (i === 0) {
-          pdf.text("\u2022", margin + 2, state.y);
-        }
-        pdf.text(wrapped[i], margin + 8, state.y);
-        state.y += 5;
-      }
+      pdf.setFont("helvetica", "normal");
+      pdf.text("\u2022", margin + 2, state.y);
     } else {
-      // ordered
-      const num = String(itemIndex);
-      const wrapped: string[] = pdf.splitTextToSize(text, maxTextWidth - 10);
-      for (let i = 0; i < wrapped.length; i++) {
-        checkNewPage(pdf, 5, state);
-        if (i === 0) {
-          pdf.text(`${num}.`, margin + 2, state.y);
-        }
-        pdf.text(wrapped[i], margin + 10, state.y);
-        state.y += 5;
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`${String(itemIndex)}.`, margin + 2, state.y);
+    }
+
+    // Merge adjacent segments with same style
+    const merged: TextSegment[] = [];
+    for (const seg of segments) {
+      if (merged.length > 0 && merged[merged.length - 1].fontStyle === seg.fontStyle) {
+        merged[merged.length - 1].text += seg.text;
+      } else {
+        merged.push({ ...seg });
       }
     }
+
+    // Check if all segments share the same style
+    const uniqueStyles = new Set(merged.map((s) => s.fontStyle));
+    if (uniqueStyles.size === 1) {
+      pdf.setFont("helvetica", merged[0].fontStyle);
+      const wrapped: string[] = pdf.splitTextToSize(allText, maxTextWidth - indent);
+      for (let i = 0; i < wrapped.length; i++) {
+        if (i > 0) checkNewPage(pdf, 5, state);
+        pdf.text(wrapped[i], margin + indent, state.y);
+        if (i < wrapped.length - 1) state.y += 5;
+      }
+    } else {
+      // Mixed styles within list item
+      const lineWidth = maxTextWidth - indent;
+      let curX = margin + indent;
+      for (const seg of merged) {
+        if (!seg.text) continue;
+        pdf.setFont("helvetica", seg.fontStyle);
+        const words = seg.text.split(/(\s+)/);
+        for (const word of words) {
+          if (!word) continue;
+          const wordWidth = pdf.getTextWidth(word);
+          if (curX + wordWidth > margin + indent + lineWidth && curX > margin + indent) {
+            state.y += 5;
+            checkNewPage(pdf, 5, state);
+            curX = margin + indent;
+          }
+          pdf.setFont("helvetica", seg.fontStyle);
+          pdf.text(word, curX, state.y);
+          curX += wordWidth;
+        }
+      }
+    }
+
+    state.y += 5;
     itemIndex++;
   }
 }
@@ -365,9 +483,27 @@ function renderTable(
 
   if (rows.length === 0) return;
 
-  // Determine column count and widths (distribute evenly)
+  // Determine column count and compute content-aware widths
   const colCount = Math.max(...rows.map((r) => r.cells.length));
-  const colWidth = maxTextWidth / colCount;
+
+  // Measure max text width per column, then distribute proportionally
+  pdf.setFontSize(fontSize);
+  pdf.setFont("helvetica", "normal");
+  const colMaxWidths: number[] = new Array(colCount).fill(0);
+  for (const row of rows) {
+    for (let c = 0; c < colCount; c++) {
+      const text = row.cells[c] || "";
+      const textW = pdf.getTextWidth(text) + cellPadding * 2;
+      colMaxWidths[c] = Math.max(colMaxWidths[c], textW);
+    }
+  }
+  // Minimum column width to prevent columns from being too narrow
+  const minColWidth = 15;
+  const totalNatural = colMaxWidths.reduce((sum, w) => sum + Math.max(w, minColWidth), 0);
+  const colWidths: number[] = colMaxWidths.map((w) => {
+    const clamped = Math.max(w, minColWidth);
+    return (clamped / totalNatural) * maxTextWidth;
+  });
 
   // Render each row
   for (const row of rows) {
@@ -378,7 +514,7 @@ function renderTable(
     const wrappedCells: string[][] = [];
     for (let c = 0; c < colCount; c++) {
       const text = row.cells[c] || "";
-      const wrapped = pdf.splitTextToSize(text, colWidth - cellPadding * 2);
+      const wrapped = pdf.splitTextToSize(text, colWidths[c] - cellPadding * 2);
       wrappedCells.push(wrapped);
       maxLines = Math.max(maxLines, wrapped.length);
     }
@@ -393,12 +529,14 @@ function renderTable(
     }
 
     // Draw cell borders and text
+    let xOffset = 0;
     for (let c = 0; c < colCount; c++) {
-      const x = margin + c * colWidth;
+      const x = margin + xOffset;
+      const cw = colWidths[c];
 
       // Cell border
       pdf.setDrawColor(200, 200, 200);
-      pdf.rect(x, state.y - 4, colWidth, actualRowHeight);
+      pdf.rect(x, state.y - 4, cw, actualRowHeight);
 
       // Cell text
       pdf.setFontSize(fontSize);
@@ -408,6 +546,7 @@ function renderTable(
       for (let l = 0; l < lines.length; l++) {
         pdf.text(lines[l], x + cellPadding, state.y + l * 4.5);
       }
+      xOffset += cw;
     }
 
     state.y += actualRowHeight;
