@@ -1517,7 +1517,7 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthen
 // Appointment notification helper
 // ========================================
 
-async function sendAppointmentNotification(
+export async function sendAppointmentNotification(
   appointmentId: string,
   hospitalId: string,
   type: 'confirmation' | 'reschedule' | 'cancellation'

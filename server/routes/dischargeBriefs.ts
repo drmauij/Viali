@@ -661,6 +661,10 @@ router.post(
         createdBy: userId,
       });
 
+      // Send confirmation notification to patient (async, don't block response)
+      const { sendAppointmentNotification } = await import("./clinic");
+      sendAppointmentNotification(appointment.id, hospitalId, "confirmation");
+
       // Return with provider info for the client
       const { getClinicAppointment } = await import("../storage/clinic");
       const full = await getClinicAppointment(appointment.id);
