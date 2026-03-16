@@ -51,6 +51,7 @@ interface UsePatientMutationsParams {
   setNewPatientNote: (value: string) => void;
   setPendingAttachments: (value: React.SetStateAction<File[]>) => void;
   setNoteToDelete: (value: { id: string; type: "patient" | "surgery" } | null) => void;
+  setEditingNoteId: (value: string | null) => void;
 
   // State setters for surgery mutations
   setIsCreateCaseOpen: (value: boolean) => void;
@@ -113,6 +114,7 @@ export function usePatientMutations({
   setNewPatientNote,
   setPendingAttachments,
   setNoteToDelete,
+  setEditingNoteId,
   setIsCreateCaseOpen,
   setNewCase,
   setArchiveDialogSurgeryId,
@@ -187,6 +189,29 @@ export function usePatientMutations({
       toast({
         title: t('common.error', 'Error'),
         description: error.message || t('anesthesia.patientDetail.noteDeleteError', 'Failed to delete note.'),
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update patient note mutation
+  const updatePatientNoteMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      const res = await apiRequest('PATCH', `/api/patient-notes/${id}`, { content });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
+      setEditingNoteId(null);
+      toast({
+        title: t('anesthesia.patientDetail.noteUpdated', 'Note updated'),
+        description: t('anesthesia.patientDetail.noteUpdatedDesc', 'Your note has been updated.'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('anesthesia.patientDetail.noteUpdateError', 'Failed to update note.'),
         variant: "destructive",
       });
     }
@@ -530,6 +555,7 @@ export function usePatientMutations({
 
   return {
     createPatientNoteMutation,
+    updatePatientNoteMutation,
     deleteNoteMutation,
     createSurgeryMutation,
     archiveSurgeryMutation,

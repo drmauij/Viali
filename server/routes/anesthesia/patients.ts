@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
-import { insertPatientSchema, surgeries } from "@shared/schema";
+import { insertPatientSchema, surgeries, patientNotes } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
@@ -9,9 +9,11 @@ import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms"
 import {
   getPatientNotes,
   createPatientNote,
+  updatePatientNote,
   deletePatientNote,
   getSurgeryNotes,
   getNoteAttachments,
+  createAuditLog,
 } from "../../storage/anesthesia";
 import { db } from "../../db";
 import logger from "../../logger";
@@ -1248,6 +1250,43 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
   } catch (error) {
     logger.error("Error fetching patient notes timeline:", error);
     res.status(500).json({ message: "Failed to fetch notes timeline" });
+  }
+});
+
+// Update patient note (with audit trail for clinical record-keeping)
+router.patch('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: "Content is required" });
+    }
+
+    // Fetch the current note to capture old value for audit
+    const existingNotes = await db.select().from(patientNotes).where(eq(patientNotes.id, noteId));
+    if (existingNotes.length === 0) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+    const oldNote = existingNotes[0];
+
+    const updated = await updatePatientNote(noteId, content.trim());
+
+    // Log to audit trail for legal traceability
+    await createAuditLog({
+      recordType: "patient_note",
+      recordId: noteId,
+      action: "update",
+      userId,
+      oldValue: { content: oldNote.content },
+      newValue: { content: content.trim() },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error updating patient note:", error);
+    res.status(500).json({ message: "Failed to update note" });
   }
 });
 

@@ -106,6 +106,8 @@ export default function PatientDetail() {
     loadingAttachments, setLoadingAttachments,
     previewImage, setPreviewImage,
     noteToDelete, setNoteToDelete,
+    editingNoteId, setEditingNoteId,
+    editingNoteContent, setEditingNoteContent,
     noteAttachmentInputRef,
     isUploadDialogOpen, setIsUploadDialogOpen,
     isCameraOpen, setIsCameraOpen,
@@ -521,6 +523,7 @@ export default function PatientDetail() {
   // --- Extracted mutations hook ---
   const {
     createPatientNoteMutation,
+    updatePatientNoteMutation,
     deleteNoteMutation,
     createSurgeryMutation,
     archiveSurgeryMutation,
@@ -541,6 +544,7 @@ export default function PatientDetail() {
     setNewPatientNote,
     setPendingAttachments,
     setNoteToDelete,
+    setEditingNoteId,
     setIsCreateCaseOpen,
     setNewCase,
     setArchiveDialogSurgeryId,
@@ -2186,6 +2190,20 @@ export default function PatientDetail() {
                             </span>
                           )}
                           <div className="flex-1" />
+                          {canWrite && note.type === 'patient' && editingNoteId !== note.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                              onClick={() => {
+                                setEditingNoteId(note.id);
+                                setEditingNoteContent(note.content);
+                              }}
+                              data-testid={`button-edit-note-${note.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -2196,9 +2214,43 @@ export default function PatientDetail() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                        
-                        {/* Note content */}
-                        <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+
+                        {/* Note content - inline editing or display */}
+                        {editingNoteId === note.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editingNoteContent}
+                              onChange={(e) => setEditingNoteContent(e.target.value)}
+                              className="min-h-[80px] text-sm"
+                              autoFocus
+                              data-testid={`input-edit-note-${note.id}`}
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingNoteId(null)}
+                              >
+                                {t('common.cancel', 'Cancel')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={!editingNoteContent.trim() || editingNoteContent.trim() === note.content || updatePatientNoteMutation.isPending}
+                                onClick={() => updatePatientNoteMutation.mutate({ id: note.id, content: editingNoteContent })}
+                                data-testid={`button-save-note-${note.id}`}
+                              >
+                                {updatePatientNoteMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                ) : (
+                                  <Save className="h-4 w-4 mr-1" />
+                                )}
+                                {t('common.save', 'Save')}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                        )}
                         
                         {/* Attachments section - only show if note has attachments */}
                         {note.attachmentCount > 0 && (() => {

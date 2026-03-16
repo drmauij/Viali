@@ -302,6 +302,8 @@ export function usePatientState() {
   const [loadingAttachments, setLoadingAttachments] = useState<Record<string, boolean>>({});
   const [previewImage, setPreviewImage] = useState<PreviewImage>(null);
   const [noteToDelete, setNoteToDelete] = useState<NoteToDelete>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState("");
   const noteAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // --- Document upload state ---
@@ -553,6 +555,8 @@ export function usePatientState() {
     loadingAttachments, setLoadingAttachments,
     previewImage, setPreviewImage,
     noteToDelete, setNoteToDelete,
+    editingNoteId, setEditingNoteId,
+    editingNoteContent, setEditingNoteContent,
     noteAttachmentInputRef,
 
     // Document upload
