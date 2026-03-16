@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { de } from "date-fns/locale";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -260,7 +261,7 @@ export default function BookAppointment() {
 
   const handleSubmit = useCallback(async () => {
     if (!token || !selectedProvider || !selectedDate || !selectedSlot) return;
-    if (!firstName.trim() || !surname.trim() || !email.trim()) return;
+    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim()) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -278,8 +279,8 @@ export default function BookAppointment() {
           firstName: firstName.trim(),
           surname: surname.trim(),
           email: email.trim(),
-          phone: phone.trim() || undefined,
-          notes: notes.trim() || undefined,
+          phone: phone.trim(),
+          notes: notes.trim(),
         }),
       });
 
@@ -743,19 +744,18 @@ export default function BookAppointment() {
                   "text-xs font-medium mb-1.5 block",
                   isDark ? "text-white/60" : "text-gray-500"
                 )}>
-                  Telefon
+                  Telefon *
                 </Label>
-                <Input
+                <PhoneInputWithCountry
                   id="phone"
-                  type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+41 79 123 45 67"
+                  onChange={(val) => setPhone(val)}
+                  placeholder="79 123 45 67"
                   className={cn(
-                    "rounded-xl h-11",
+                    "[&_input]:rounded-xl [&_input]:h-11 [&_button]:rounded-xl [&_button]:h-11",
                     isDark
-                      ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+                      ? "[&_input]:bg-white/5 [&_input]:border-white/15 [&_input]:text-white [&_input]:placeholder:text-white/30 [&_button]:bg-white/5 [&_button]:border-white/15 [&_button]:text-white"
+                      : "[&_input]:bg-white [&_input]:border-gray-200 [&_input]:text-gray-900 [&_input]:placeholder:text-gray-400 [&_button]:bg-white [&_button]:border-gray-200"
                   )}
                 />
               </div>
@@ -765,13 +765,13 @@ export default function BookAppointment() {
                   "text-xs font-medium mb-1.5 block",
                   isDark ? "text-white/60" : "text-gray-500"
                 )}>
-                  Anmerkungen
+                  Grund der Terminanfrage *
                 </Label>
                 <textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Grund des Besuchs, besondere Hinweise..."
+                  placeholder="Beschreiben Sie kurz den Grund Ihres Termins..."
                   rows={3}
                   maxLength={1000}
                   className={cn(
@@ -804,7 +804,7 @@ export default function BookAppointment() {
 
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !privacyAccepted}
+                disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted}
                 className={cn(
                   "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                   isDark

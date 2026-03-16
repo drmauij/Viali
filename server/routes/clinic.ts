@@ -362,8 +362,8 @@ const bookingSchema = z.object({
   firstName: z.string().min(1).max(100),
   surname: z.string().min(1).max(100),
   email: z.string().email().max(255),
-  phone: z.string().max(30).optional(),
-  notes: z.string().max(1000).optional(),
+  phone: z.string().min(1).max(30),
+  notes: z.string().min(1).max(1000),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
