@@ -456,6 +456,7 @@ function renderTable(
   const fontSize = 9;
 
   // Collect all rows (from thead + tbody or direct tr children)
+  // Detect header rows by <thead> wrapper OR by presence of <th> cells
   const rows: { cells: string[]; isHeader: boolean }[] = [];
   const collectRows = (parent: HTMLElement, isHeader: boolean) => {
     for (const child of parent.childNodes) {
@@ -464,14 +465,16 @@ function renderTable(
       const tag = childEl.tagName?.toUpperCase();
       if (tag === "TR") {
         const cells: string[] = [];
+        let hasThCells = false;
         for (const td of childEl.childNodes) {
           if (td.nodeType !== NodeType.ELEMENT_NODE) continue;
           const tdTag = (td as HTMLElement).tagName?.toUpperCase();
           if (tdTag === "TD" || tdTag === "TH") {
             cells.push(getPlainText(td).trim());
+            if (tdTag === "TH") hasThCells = true;
           }
         }
-        if (cells.length > 0) rows.push({ cells, isHeader });
+        if (cells.length > 0) rows.push({ cells, isHeader: isHeader || hasThCells });
       } else if (tag === "THEAD") {
         collectRows(childEl, true);
       } else if (tag === "TBODY") {

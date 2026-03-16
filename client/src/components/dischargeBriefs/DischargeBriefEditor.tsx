@@ -178,9 +178,16 @@ export function DischargeBriefEditor({
     },
   });
 
-  // Export PDF mutation
+  // Export PDF mutation — auto-saves current editor content first
   const exportPdfMutation = useMutation({
     mutationFn: async () => {
+      // Save latest editor content before generating PDF
+      if (editor && !brief?.isLocked) {
+        const html = editor.getHTML();
+        await apiRequest("PATCH", `/api/discharge-briefs/${briefId}`, {
+          content: html,
+        });
+      }
       const res = await apiRequest(
         "POST",
         `/api/discharge-briefs/${briefId}/export-pdf`,
