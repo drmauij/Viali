@@ -108,6 +108,7 @@ export default function PatientDetail() {
     noteToDelete, setNoteToDelete,
     editingNoteId, setEditingNoteId,
     editingNoteContent, setEditingNoteContent,
+    editingNoteKeepOriginalDate, setEditingNoteKeepOriginalDate,
     noteAttachmentInputRef,
     isUploadDialogOpen, setIsUploadDialogOpen,
     isCameraOpen, setIsCameraOpen,
@@ -545,6 +546,7 @@ export default function PatientDetail() {
     setPendingAttachments,
     setNoteToDelete,
     setEditingNoteId,
+    setEditingNoteKeepOriginalDate,
     setIsCreateCaseOpen,
     setNewCase,
     setArchiveDialogSurgeryId,
@@ -2225,27 +2227,42 @@ export default function PatientDetail() {
                               autoFocus
                               data-testid={`input-edit-note-${note.id}`}
                             />
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setEditingNoteId(null)}
-                              >
-                                {t('common.cancel', 'Cancel')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                disabled={!editingNoteContent.trim() || editingNoteContent.trim() === note.content || updatePatientNoteMutation.isPending}
-                                onClick={() => updatePatientNoteMutation.mutate({ id: note.id, content: editingNoteContent })}
-                                data-testid={`button-save-note-${note.id}`}
-                              >
-                                {updatePatientNoteMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                ) : (
-                                  <Save className="h-4 w-4 mr-1" />
-                                )}
-                                {t('common.save', 'Save')}
-                              </Button>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id={`keep-original-date-${note.id}`}
+                                  checked={editingNoteKeepOriginalDate}
+                                  onCheckedChange={setEditingNoteKeepOriginalDate}
+                                />
+                                <Label htmlFor={`keep-original-date-${note.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                                  {t('anesthesia.patientDetail.keepOriginalDate', 'Keep original date/time')}
+                                </Label>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingNoteId(null);
+                                    setEditingNoteKeepOriginalDate(false);
+                                  }}
+                                >
+                                  {t('common.cancel', 'Cancel')}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  disabled={!editingNoteContent.trim() || editingNoteContent.trim() === note.content || updatePatientNoteMutation.isPending}
+                                  onClick={() => updatePatientNoteMutation.mutate({ id: note.id, content: editingNoteContent, keepOriginalDate: editingNoteKeepOriginalDate })}
+                                  data-testid={`button-save-note-${note.id}`}
+                                >
+                                  {updatePatientNoteMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                  ) : (
+                                    <Save className="h-4 w-4 mr-1" />
+                                  )}
+                                  {t('common.save', 'Save')}
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         ) : (

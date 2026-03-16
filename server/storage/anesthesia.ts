@@ -569,10 +569,14 @@ export async function createPatientNote(note: InsertPatientNote): Promise<Patien
   return created;
 }
 
-export async function updatePatientNote(id: string, content: string): Promise<PatientNote> {
+export async function updatePatientNote(id: string, content: string, keepOriginalDate = false): Promise<PatientNote> {
+  const setFields: Record<string, any> = { content };
+  if (!keepOriginalDate) {
+    setFields.updatedAt = new Date();
+  }
   const [updated] = await db
     .update(patientNotes)
-    .set({ content, updatedAt: new Date() })
+    .set(setFields)
     .where(eq(patientNotes.id, id))
     .returning();
   return updated;

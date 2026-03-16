@@ -52,6 +52,7 @@ interface UsePatientMutationsParams {
   setPendingAttachments: (value: React.SetStateAction<File[]>) => void;
   setNoteToDelete: (value: { id: string; type: "patient" | "surgery" } | null) => void;
   setEditingNoteId: (value: string | null) => void;
+  setEditingNoteKeepOriginalDate: (value: boolean) => void;
 
   // State setters for surgery mutations
   setIsCreateCaseOpen: (value: boolean) => void;
@@ -115,6 +116,7 @@ export function usePatientMutations({
   setPendingAttachments,
   setNoteToDelete,
   setEditingNoteId,
+  setEditingNoteKeepOriginalDate,
   setIsCreateCaseOpen,
   setNewCase,
   setArchiveDialogSurgeryId,
@@ -196,13 +198,14 @@ export function usePatientMutations({
 
   // Update patient note mutation
   const updatePatientNoteMutation = useMutation({
-    mutationFn: async ({ id, content }: { id: string; content: string }) => {
-      const res = await apiRequest('PATCH', `/api/patient-notes/${id}`, { content });
+    mutationFn: async ({ id, content, keepOriginalDate }: { id: string; content: string; keepOriginalDate?: boolean }) => {
+      const res = await apiRequest('PATCH', `/api/patient-notes/${id}`, { content, keepOriginalDate });
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
       setEditingNoteId(null);
+      setEditingNoteKeepOriginalDate(false);
       toast({
         title: t('anesthesia.patientDetail.noteUpdated', 'Note updated'),
         description: t('anesthesia.patientDetail.noteUpdatedDesc', 'Your note has been updated.'),

@@ -1257,7 +1257,7 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
 router.patch('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { noteId } = req.params;
-    const { content } = req.body;
+    const { content, keepOriginalDate } = req.body;
     const userId = req.user.id;
 
     if (!content || !content.trim()) {
@@ -1271,7 +1271,7 @@ router.patch('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, 
     }
     const oldNote = existingNotes[0];
 
-    const updated = await updatePatientNote(noteId, content.trim());
+    const updated = await updatePatientNote(noteId, content.trim(), !!keepOriginalDate);
 
     // Log to audit trail for legal traceability
     await createAuditLog({
@@ -1280,7 +1280,7 @@ router.patch('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, 
       action: "update",
       userId,
       oldValue: { content: oldNote.content },
-      newValue: { content: content.trim() },
+      newValue: { content: content.trim(), keepOriginalDate: !!keepOriginalDate },
     });
 
     res.json(updated);

@@ -304,6 +304,7 @@ export function usePatientState() {
   const [noteToDelete, setNoteToDelete] = useState<NoteToDelete>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
+  const [editingNoteKeepOriginalDate, setEditingNoteKeepOriginalDate] = useState(false);
   const noteAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // --- Document upload state ---
@@ -557,6 +558,7 @@ export function usePatientState() {
     noteToDelete, setNoteToDelete,
     editingNoteId, setEditingNoteId,
     editingNoteContent, setEditingNoteContent,
+    editingNoteKeepOriginalDate, setEditingNoteKeepOriginalDate,
     noteAttachmentInputRef,
 
     // Document upload
