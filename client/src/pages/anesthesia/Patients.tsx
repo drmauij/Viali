@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send } from "lucide-react";
+import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send, MapPin } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -187,6 +187,29 @@ export default function Patients() {
   });
 
   // Create patient mutation
+  const vekaLookupMutation = useMutation({
+    mutationFn: async (cardNumber: string) => {
+      const response = await apiRequest('POST', '/api/veka/lookup', { cardNumber });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      if (data.found) {
+        setNewPatient(prev => ({
+          ...prev,
+          street: data.street || prev.street,
+          postalCode: data.postalCode || prev.postalCode,
+          city: data.city || prev.city,
+        }));
+        toast({ title: t('common.success'), description: t('anesthesia.patients.addressResolved', 'Address resolved from insurance card') });
+      } else {
+        toast({ title: t('common.info', 'Info'), description: t('anesthesia.patients.addressNotFound', 'No address found for this card number'), variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('anesthesia.patients.addressLookupFailed', 'Address lookup failed'), variant: "destructive" });
+    },
+  });
+
   const createPatientMutation = useMutation({
     mutationFn: async (patientData: any) => {
       return await apiRequest('POST', '/api/patients', patientData);
@@ -464,6 +487,23 @@ export default function Patients() {
                     placeholder="79 123 45 67"
                   />
                 </div>
+
+                {newPatient.insuranceNumber && /^(80756|80438)\d{15}$/.test(newPatient.insuranceNumber.replace(/\s/g, '')) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => vekaLookupMutation.mutate(newPatient.insuranceNumber)}
+                    disabled={vekaLookupMutation.isPending}
+                  >
+                    {vekaLookupMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <MapPin className="h-4 w-4 mr-2" />
+                    )}
+                    {t('anesthesia.patients.resolveAddress', 'Adresse abfragen')}
+                  </Button>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>

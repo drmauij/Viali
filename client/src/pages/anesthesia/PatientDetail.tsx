@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -564,6 +564,33 @@ export default function PatientDetail() {
     setIsImportQuestionnaireOpen,
     uploadNoteAttachment,
   });
+
+  // VeKa address lookup
+  const [isVekaLoading, setIsVekaLoading] = useState(false);
+  const handleVekaLookup = async () => {
+    const cardNumber = editForm.insuranceNumber;
+    if (!cardNumber) return;
+    setIsVekaLoading(true);
+    try {
+      const response = await apiRequest('POST', '/api/veka/lookup', { cardNumber });
+      const data = await response.json();
+      if (data.found) {
+        setEditForm((prev: any) => ({
+          ...prev,
+          street: data.street || prev.street,
+          postalCode: data.postalCode || prev.postalCode,
+          city: data.city || prev.city,
+        }));
+        toast({ title: t('common.success'), description: t('anesthesia.patients.addressResolved', 'Address resolved from insurance card') });
+      } else {
+        toast({ title: t('common.info', 'Info'), description: t('anesthesia.patients.addressNotFound', 'No address found for this card number'), variant: "destructive" });
+      }
+    } catch {
+      toast({ title: t('common.error'), description: t('anesthesia.patients.addressLookupFailed', 'Address lookup failed'), variant: "destructive" });
+    } finally {
+      setIsVekaLoading(false);
+    }
+  };
 
   // Handle file upload to S3
   const handleFileUpload = async (file: File) => {
@@ -5908,17 +5935,34 @@ export default function PatientDetail() {
                 </div>
               </div>
 
+              {editForm.insuranceNumber && /^(80756|80438)\d{15}$/.test(editForm.insuranceNumber.replace(/\s/g, '')) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleVekaLookup}
+                  disabled={isVekaLoading}
+                >
+                  {isVekaLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4 mr-2" />
+                  )}
+                  {t('anesthesia.patients.resolveAddress', 'Adresse abfragen')}
+                </Button>
+              )}
+
               <AddressAutocomplete
                 values={{
                   street: editForm.street,
                   postalCode: editForm.postalCode,
                   city: editForm.city,
                 }}
-                onChange={(values) => setEditForm({ 
-                  ...editForm, 
-                  street: values.street, 
-                  postalCode: values.postalCode, 
-                  city: values.city 
+                onChange={(values) => setEditForm({
+                  ...editForm,
+                  street: values.street,
+                  postalCode: values.postalCode,
+                  city: values.city
                 })}
                 showLabels
               />

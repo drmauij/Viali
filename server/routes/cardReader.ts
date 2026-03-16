@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import type { Hospital } from "@shared/schema";
 import logger from "../logger";
+import { lookupVekaAddress, isVekaConfigured, isValidVekaNumber } from "../services/vekaClient";
+import { isAuthenticated } from "../auth/google";
 
 const router = Router();
 
@@ -131,15 +133,29 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
       });
     }
 
+    // Enrich with VeKa address if card number is present and address is missing
+    let vekaStreet = street;
+    let vekaPostalCode = postalCode;
+    let vekaCity = city;
+
+    if (!street && !postalCode && !city && cardNumber && isVekaConfigured()) {
+      const vekaAddress = await lookupVekaAddress(cardNumber, req.hospital!.companyZsr);
+      if (vekaAddress) {
+        vekaStreet = vekaAddress.street;
+        vekaPostalCode = vekaAddress.postalCode;
+        vekaCity = vekaAddress.city;
+      }
+    }
+
     // No match — build URL for pre-filled patient creation
     const params = new URLSearchParams({ newPatient: '1' });
     if (surname) params.set('surname', surname);
     if (firstName) params.set('firstName', firstName);
     if (birthday) params.set('birthday', birthday);
     if (sex) params.set('sex', sex);
-    if (street) params.set('street', street);
-    if (postalCode) params.set('postalCode', postalCode);
-    if (city) params.set('city', city);
+    if (vekaStreet) params.set('street', vekaStreet);
+    if (vekaPostalCode) params.set('postalCode', vekaPostalCode);
+    if (vekaCity) params.set('city', vekaCity);
     if (insuranceName) params.set('insuranceProvider', insuranceName);
     if (cardNumber) params.set('insuranceNumber', cardNumber);
     if (healthInsuranceNumber) params.set('healthInsuranceNumber', healthInsuranceNumber);
@@ -151,6 +167,50 @@ router.post('/api/card-reader/lookup', lookupLimiter, authenticateCardReaderToke
   } catch (error) {
     logger.error("Card reader lookup error:", error);
     return res.status(500).json({ message: "Lookup failed" });
+  }
+});
+
+// POST /api/veka/lookup — manual address lookup by card number (authenticated users)
+const vekaLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 20,
+  keyPrefix: 'veka-lookup'
+});
+
+router.post('/api/veka/lookup', vekaLimiter, isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { cardNumber } = req.body;
+
+    if (!cardNumber) {
+      return res.status(400).json({ error: 'Missing cardNumber' });
+    }
+
+    if (!isValidVekaNumber(cardNumber)) {
+      return res.status(400).json({ error: 'Invalid card number format. Expected 20-digit VeKa number.' });
+    }
+
+    if (!isVekaConfigured()) {
+      return res.status(503).json({ error: 'VeKa-Center integration is not configured' });
+    }
+
+    // Get user's hospital ZSR from their first hospital
+    let hospitalZsr: string | null = null;
+    if (req.user?.id) {
+      const userHospitals = await storage.getUserHospitals(req.user.id);
+      if (userHospitals.length > 0) {
+        hospitalZsr = userHospitals[0].companyZsr || null;
+      }
+    }
+
+    const address = await lookupVekaAddress(cardNumber, hospitalZsr);
+    if (!address) {
+      return res.json({ found: false, error: 'Address not found' });
+    }
+
+    return res.json({ found: true, ...address });
+  } catch (error) {
+    logger.error("VeKa lookup error:", error);
+    return res.status(500).json({ error: 'Lookup failed' });
   }
 });
 
