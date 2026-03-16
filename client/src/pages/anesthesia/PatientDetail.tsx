@@ -345,8 +345,7 @@ export default function PatientDetail() {
   // Handle file selection for new note
   const handleAttachmentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter(f => f.type.startsWith('image/'));
-    setPendingAttachments(prev => [...prev, ...imageFiles]);
+    setPendingAttachments(prev => [...prev, ...files]);
     if (noteAttachmentInputRef.current) {
       noteAttachmentInputRef.current.value = '';
     }
@@ -2067,8 +2066,7 @@ export default function PatientDetail() {
             type="file"
             ref={noteAttachmentInputRef}
             onChange={handleAttachmentSelect}
-            accept="image/*"
-            capture="environment"
+            accept="image/*,application/pdf,.doc,.docx,.txt"
             multiple
             className="hidden"
             data-testid="input-note-attachment"
@@ -2093,11 +2091,20 @@ export default function PatientDetail() {
                   <div className="flex flex-wrap gap-2">
                     {pendingAttachments.map((file, index) => (
                       <div key={index} className="relative group">
-                        <img
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          className="h-16 w-16 object-cover rounded border"
-                        />
+                        {file.type.startsWith('image/') ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={file.name}
+                            className="h-16 w-16 object-cover rounded border"
+                          />
+                        ) : (
+                          <div className="h-16 w-16 bg-muted rounded border flex flex-col items-center justify-center p-1">
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                            <span className="text-[8px] text-muted-foreground truncate w-full text-center mt-0.5">
+                              {file.name.length > 10 ? file.name.slice(0, 10) + '...' : file.name}
+                            </span>
+                          </div>
+                        )}
                         <button
                           onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== index))}
                           className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"

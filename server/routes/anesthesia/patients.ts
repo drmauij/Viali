@@ -13,6 +13,8 @@ import {
   deletePatientNote,
   getSurgeryNotes,
   getNoteAttachments,
+  createNoteAttachment,
+  getNoteAttachment,
   createAuditLog,
 } from "../../storage/anesthesia";
 import { db } from "../../db";
@@ -1299,6 +1301,111 @@ router.delete('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess,
   } catch (error) {
     logger.error("Error deleting patient note:", error);
     res.status(500).json({ message: "Failed to delete note" });
+  }
+});
+
+// ========== NOTE ATTACHMENT ROUTES ==========
+
+// Get upload ticket (presigned URL) for note attachment
+router.post('/api/notes/:noteType/:noteId/attachments/upload-ticket', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+    const { filename, contentType } = req.body;
+
+    if (!['patient', 'surgery'].includes(noteType)) {
+      return res.status(400).json({ message: "Invalid note type" });
+    }
+
+    const { ObjectStorageService } = await import('../../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const { uploadURL, storageKey } = await objectStorageService.getNoteAttachmentUploadURL(
+      noteType as 'patient' | 'surgery',
+      noteId,
+      filename,
+      contentType
+    );
+
+    res.json({ uploadURL, storageKey });
+  } catch (error) {
+    logger.error("Error getting upload ticket for note attachment:", error);
+    res.status(500).json({ message: "Failed to get upload ticket" });
+  }
+});
+
+// Create note attachment record (after upload to S3)
+router.post('/api/notes/:noteType/:noteId/attachments', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+    const { storageKey, fileName, mimeType, fileSize } = req.body;
+    const userId = req.user.id;
+
+    if (!['patient', 'surgery'].includes(noteType)) {
+      return res.status(400).json({ message: "Invalid note type" });
+    }
+
+    if (!storageKey || !fileName) {
+      return res.status(400).json({ message: "storageKey and fileName are required" });
+    }
+
+    const attachment = await createNoteAttachment({
+      noteType: noteType as 'patient' | 'surgery',
+      noteId,
+      storageKey,
+      fileName,
+      mimeType: mimeType || 'application/octet-stream',
+      fileSize: fileSize || null,
+      uploadedBy: userId,
+    });
+
+    res.json(attachment);
+  } catch (error) {
+    logger.error("Error creating note attachment:", error);
+    res.status(500).json({ message: "Failed to create attachment" });
+  }
+});
+
+// List attachments for a note
+router.get('/api/notes/:noteType/:noteId/attachments', isAuthenticated, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+
+    if (!['patient', 'surgery'].includes(noteType)) {
+      return res.status(400).json({ message: "Invalid note type" });
+    }
+
+    const attachments = await getNoteAttachments(noteType as 'patient' | 'surgery', noteId);
+    res.json(attachments);
+  } catch (error) {
+    logger.error("Error fetching note attachments:", error);
+    res.status(500).json({ message: "Failed to fetch attachments" });
+  }
+});
+
+// Get download URL for a note attachment
+router.get('/api/notes/attachments/:attachmentId/download', isAuthenticated, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+
+    const attachment = await getNoteAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    const { ObjectStorageService } = await import('../../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const downloadURL = await objectStorageService.getObjectDownloadURL(attachment.storageKey, 3600);
+    res.json({ downloadURL, fileName: attachment.fileName });
+  } catch (error) {
+    logger.error("Error getting download URL for note attachment:", error);
+    res.status(500).json({ message: "Failed to get download URL" });
   }
 });
 
