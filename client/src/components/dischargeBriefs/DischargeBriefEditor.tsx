@@ -22,6 +22,13 @@ import {
 } from "@/components/ui/dialog";
 import SignaturePad from "@/components/SignaturePad";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Bold,
   Italic,
   Heading2,
@@ -35,6 +42,10 @@ import {
   LockOpen,
   Loader2,
   X,
+  TableIcon,
+  Plus,
+  Minus,
+  Trash2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
 
@@ -376,6 +387,104 @@ export function DischargeBriefEditor({
           >
             <ListOrdered className="h-4 w-4" />
           </Button>
+          <div className="w-px h-5 bg-border mx-1" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8",
+                  editor.isActive("table") && "bg-accent",
+                )}
+                title={t("dischargeBrief.table", "Table")}
+              >
+                <TableIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {editor.isActive("table") ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().addRowBefore().run()
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.addRowAbove", "Add row above")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().addRowAfter().run()
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.addRowBelow", "Add row below")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().deleteRow().run()
+                    }
+                  >
+                    <Minus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.deleteRow", "Delete row")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().addColumnBefore().run()
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.addColumnBefore", "Add column before")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().addColumnAfter().run()
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.addColumnAfter", "Add column after")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      editor.chain().focus().deleteColumn().run()
+                    }
+                  >
+                    <Minus className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.deleteColumn", "Delete column")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() =>
+                      editor.chain().focus().deleteTable().run()
+                    }
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t("dischargeBrief.deleteTable", "Delete table")}
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() =>
+                    editor
+                      .chain()
+                      .focus()
+                      .insertTable({
+                        rows: 3,
+                        cols: 3,
+                        withHeaderRow: true,
+                      })
+                      .run()
+                  }
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("dischargeBrief.insertTable", "Insert table")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
 
