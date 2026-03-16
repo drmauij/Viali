@@ -168,6 +168,8 @@ export function DischargeBriefCompactWizard({
   const [quickAddTime, setQuickAddTime] = useState("09:00");
   const [quickAddNotes, setQuickAddNotes] = useState("");
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+  const [showMedTemplateSelect, setShowMedTemplateSelect] = useState(false);
+  const [isCreatingFromTemplate, setIsCreatingFromTemplate] = useState(false);
 
   // ---- reset / initialize on open ----
   useEffect(() => {
@@ -188,6 +190,8 @@ export function DischargeBriefCompactWizard({
       setQuickAddTime("09:00");
       setQuickAddNotes("");
       setIsCreatingAppointment(false);
+      setShowMedTemplateSelect(false);
+      setIsCreatingFromTemplate(false);
     }
   }, [
     open,
@@ -218,6 +222,19 @@ export function DischargeBriefCompactWizard({
 
   const { data: units } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: [`/api/units/${hospitalId}`],
+    enabled: open && !!hospitalId,
+  });
+
+  const { data: medicationTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals", hospitalId, "discharge-medication-templates"],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/hospitals/${hospitalId}/discharge-medication-templates`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to fetch templates");
+      return res.json();
+    },
     enabled: open && !!hospitalId,
   });
 
@@ -277,6 +294,84 @@ export function DischargeBriefCompactWizard({
         : [...prev, apptId],
     );
   }, []);
+
+  // ---- create medication slot from template ----
+  const handleCreateFromMedTemplate = useCallback(
+    async (templateId: string) => {
+      const template = medicationTemplates.find((t: any) => t.id === templateId);
+      if (!template) return;
+      setIsCreatingFromTemplate(true);
+      try {
+        // Map template items to medication items (same as DischargeMedicationsTab.loadTemplate)
+        const items = (template.items || []).map((ti: any) => ({
+          itemId: ti.itemId || null,
+          customName: ti.customName || undefined,
+          quantity: ti.quantity || 1,
+          unitType: ti.unitType || "packs",
+          administrationRoute: ti.administrationRoute || "p.o.",
+          frequency: ti.frequency || "1-0-1-0",
+          notes: ti.notes || "",
+        }));
+
+        // Auto-fill doctor from selected surgery's surgeon
+        let doctorId: string | undefined;
+        if (surgeryId) {
+          const surgery = surgeries.find((s) => s.id === surgeryId);
+          if (surgery && "surgeonId" in surgery) {
+            doctorId = (surgery as any).surgeonId;
+          }
+        }
+
+        const res = await apiRequest(
+          "POST",
+          `/api/patients/${patientId}/discharge-medications`,
+          {
+            hospitalId,
+            surgeryId: surgeryId ?? undefined,
+            doctorId: doctorId ?? undefined,
+            items,
+          },
+        );
+        const created = await res.json();
+
+        // Auto-select the new slot and ensure block is selected
+        setSelectedMedicationSlotIds((prev) => [...prev, created.id]);
+        setSelectedBlocks((prev) =>
+          prev.includes("discharge_medications")
+            ? prev
+            : [...prev, "discharge_medications"],
+        );
+        queryClient.invalidateQueries({ queryKey: [blocksQueryKey] });
+        toast({
+          title: t(
+            "dischargeBriefs.wizard.medsCreatedFromTemplate",
+            "Medications created from template",
+          ),
+        });
+        setShowMedTemplateSelect(false);
+      } catch (error: any) {
+        toast({
+          title: t("common.error", "Error"),
+          description:
+            error?.message ?? "Failed to create medications from template",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreatingFromTemplate(false);
+      }
+    },
+    [
+      medicationTemplates,
+      patientId,
+      hospitalId,
+      surgeryId,
+      surgeries,
+      queryClient,
+      blocksQueryKey,
+      toast,
+      t,
+    ],
+  );
 
   // ---- labels ----
   const blockLabel = useCallback(
@@ -582,7 +677,8 @@ export function DischargeBriefCompactWizard({
                   const showSubItems =
                     (isSelected || isRequired) &&
                     ((block.notes && block.notes.length > 0) ||
-                      block.key === "follow_up_appointments");
+                      block.key === "follow_up_appointments" ||
+                      block.key === "discharge_medications");
 
                   return (
                     <div key={block.key}>
@@ -677,6 +773,78 @@ export function DischargeBriefCompactWizard({
                               </span>
                             </label>
                           ))}
+
+                          {/* Quick-create medications from template */}
+                          {block.key === "discharge_medications" &&
+                            medicationTemplates.length > 0 && (
+                              <>
+                                {showMedTemplateSelect ? (
+                                  <div className="rounded border bg-muted/30 p-2 space-y-2">
+                                    <Select
+                                      onValueChange={(v) =>
+                                        handleCreateFromMedTemplate(v)
+                                      }
+                                      disabled={isCreatingFromTemplate}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue
+                                          placeholder={t(
+                                            "dischargeBriefs.wizard.selectMedTemplate",
+                                            "Select medication template...",
+                                          )}
+                                        />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {medicationTemplates.map(
+                                          (tmpl: any) => (
+                                            <SelectItem
+                                              key={tmpl.id}
+                                              value={tmpl.id}
+                                            >
+                                              {tmpl.name}
+                                              {tmpl.items?.length
+                                                ? ` (${tmpl.items.length})`
+                                                : ""}
+                                            </SelectItem>
+                                          ),
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                    <div className="flex gap-1.5 justify-end">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() =>
+                                          setShowMedTemplateSelect(false)
+                                        }
+                                        disabled={isCreatingFromTemplate}
+                                      >
+                                        {t("common.cancel", "Cancel")}
+                                      </Button>
+                                      {isCreatingFromTemplate && (
+                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs w-full justify-start"
+                                    onClick={() =>
+                                      setShowMedTemplateSelect(true)
+                                    }
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    {t(
+                                      "dischargeBriefs.wizard.createFromMedTemplate",
+                                      "Create from Template",
+                                    )}
+                                  </Button>
+                                )}
+                              </>
+                            )}
 
                           {/* Quick-add appointment form */}
                           {block.key === "follow_up_appointments" && (
