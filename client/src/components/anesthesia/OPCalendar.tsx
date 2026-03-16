@@ -1682,7 +1682,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 : undefined}
               />
               {currentView === "day" && dayClosure && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-amber-100/70 dark:bg-amber-900/30 rounded-lg">
+                <div className="absolute inset-0 z-30 flex items-start justify-center pt-32 bg-amber-100/70 dark:bg-amber-900/30 rounded-lg">
                   <div className="bg-amber-100 dark:bg-amber-900/80 border border-amber-300 dark:border-amber-700 rounded-xl px-8 py-6 text-center shadow-lg">
                     <i className="fas fa-calendar-xmark text-amber-600 dark:text-amber-400 text-4xl mb-3"></i>
                     <div className="text-lg font-semibold text-amber-800 dark:text-amber-200">
