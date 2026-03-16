@@ -30,7 +30,6 @@ import type { SurgeryWithAssistants } from "./patientDetail/usePatientQueries";
 import { PREOP_BLOCK_GROUPS } from "@/lib/anesthesiaBlocks";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { DateInput } from "@/components/ui/date-input";
-import { TimeInput } from "@/components/ui/time-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useCanPlanSurgery } from "@/hooks/useCanPlanSurgery";
@@ -45,6 +44,7 @@ import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButt
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { Slider } from "@/components/ui/slider";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
@@ -6237,7 +6237,7 @@ export default function PatientDetail() {
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
                 {t('anesthesia.patientDetail.callbackAppointment.slotsLabel', 'Appointment time slots')}
               </label>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {callbackSlots.map((slot, index) => {
                   const dayName = (() => {
                     try {
@@ -6245,62 +6245,73 @@ export default function PatientDetail() {
                       return d.toLocaleDateString('de-CH', { weekday: 'long' });
                     } catch { return ''; }
                   })();
-                  return (
-                    <div key={index} className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40" data-testid={`callback-slot-${index}`}>
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                          <DateInput
-                            value={slot.date}
-                            onChange={(v) => {
-                              const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], date: v };
-                              setCallbackSlots(updated);
-                            }}
-                            className="flex-1"
-                            data-testid={`input-callback-date-${index}`}
-                          />
-                          {dayName && <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{dayName}</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                          <TimeInput
-                            value={slot.fromTime}
-                            onChange={(v) => {
-                              const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], fromTime: v };
-                              setCallbackSlots(updated);
-                            }}
-                            className="flex-1"
-                            data-testid={`input-callback-from-${index}`}
-                          />
-                          <span className="text-gray-500">–</span>
-                          <TimeInput
-                            value={slot.toTime}
-                            onChange={(v) => {
-                              const updated = [...callbackSlots];
-                              updated[index] = { ...updated[index], toTime: v };
-                              setCallbackSlots(updated);
-                            }}
-                            className="flex-1"
-                            data-testid={`input-callback-to-${index}`}
-                          />
-                        </div>
-                      </div>
+                  {
+                    const now = new Date();
+                    const ceilHour = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
+                    const slotMin = index === 0 ? Math.max(ceilHour * 60, 480) : 480;
+                    const slotMax = 1020; // 17:00
+                    const fromMins = parseInt(slot.fromTime.split(':')[0]) * 60 + parseInt(slot.fromTime.split(':')[1] || '0');
+                    const toMins = parseInt(slot.toTime.split(':')[0]) * 60 + parseInt(slot.toTime.split(':')[1] || '0');
+                    const clampedFrom = Math.max(slotMin, Math.min(fromMins, slotMax - 60));
+                    const clampedTo = Math.max(clampedFrom + 60, Math.min(toMins, slotMax));
+                    const fmtMins = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:00`;
+                    return (
+                    <div key={index} className="relative px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40" data-testid={`callback-slot-${index}`}>
                       {callbackSlots.length > 1 && (
                         <button
                           onClick={() => setCallbackSlots(callbackSlots.filter((_, i) => i !== index))}
-                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          className="absolute top-1.5 right-1.5 p-0.5 text-gray-400 hover:text-red-500 transition-colors"
                           data-testid={`button-remove-slot-${index}`}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5" />
                         </button>
                       )}
+                      {/* Date row */}
+                      <div className="flex items-center gap-2">
+                        <DateInput
+                          value={slot.date}
+                          onChange={(v) => {
+                            const updated = [...callbackSlots];
+                            updated[index] = { ...updated[index], date: v };
+                            setCallbackSlots(updated);
+                          }}
+                          className="w-36"
+                          data-testid={`input-callback-date-${index}`}
+                        />
+                        {dayName && <span className="text-xs text-gray-500 dark:text-gray-400">{dayName}</span>}
+                      </div>
+                      {/* Time slider */}
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-muted-foreground">{fmtMins(slotMin)}</span>
+                          <span className="text-sm font-medium tabular-nums">
+                            {fmtMins(clampedFrom)} – {fmtMins(clampedTo)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">17:00</span>
+                        </div>
+                        <Slider
+                          min={slotMin}
+                          max={slotMax}
+                          step={60}
+                          value={[clampedFrom, clampedTo]}
+                          onValueChange={([from, to]) => {
+                            const updated = [...callbackSlots];
+                            updated[index] = {
+                              ...updated[index],
+                              fromTime: fmtMins(from),
+                              toTime: fmtMins(to),
+                            };
+                            setCallbackSlots(updated);
+                          }}
+                          data-testid={`slider-callback-time-${index}`}
+                        />
+                      </div>
                     </div>
-                  );
+                    );
+                  }
                 })}
                 <button
-                  onClick={() => setCallbackSlots([...callbackSlots, { date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }])}
+                  onClick={() => setCallbackSlots([...callbackSlots, { date: formatDateForInput(new Date()), fromTime: '08:00', toTime: '17:00' }])}
                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                   data-testid="button-add-slot"
                 >

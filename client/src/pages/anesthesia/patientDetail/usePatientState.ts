@@ -378,9 +378,13 @@ export function usePatientState() {
   const [showCallbackAppointmentDialog, setShowCallbackAppointmentDialog] = useState(false);
   const [callbackAssessmentId, setCallbackAssessmentId] = useState<string | null>(null);
   const [callbackSending, setCallbackSending] = useState(false);
-  const [callbackSlots, setCallbackSlots] = useState<CallbackSlot[]>([
-    { date: formatDateForInput(new Date()), fromTime: '09:00', toTime: '10:00' }
-  ]);
+  const [callbackSlots, setCallbackSlots] = useState<CallbackSlot[]>(() => {
+    const now = new Date();
+    const ceilHour = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
+    const fromHour = Math.max(ceilHour, 8);
+    const fromTime = `${String(fromHour).padStart(2, '0')}:00`;
+    return [{ date: formatDateForInput(new Date()), fromTime, toTime: '17:00' }];
+  });
   const [callbackPhoneNumber, setCallbackPhoneNumber] = useState('');
 
   // --- Assessment data (pre-op form) ---
