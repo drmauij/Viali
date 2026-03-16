@@ -5,6 +5,16 @@ import {
   getSurgery,
   getPatientDischargeMedications,
   getAnesthesiaMedications,
+  getSurgeryStaff,
+  getSurgeryAssistants,
+  getNeuraxialBlocks,
+  getPeripheralBlocks,
+  getAirwayManagement,
+  getDifficultAirwayReport,
+  getGeneralTechnique,
+  getClinicalSnapshot,
+  getAnesthesiaInstallations,
+  getAnesthesiaEvents,
 } from "../storage/anesthesia";
 import { getClinicAppointmentsByHospital } from "../storage/clinic";
 import { db } from "../db";
@@ -14,6 +24,79 @@ import {
   type Patient,
   type Hospital,
 } from "../../shared/schema";
+
+// ========== HELPERS ==========
+
+function calcDurationMinutes(
+  markers: any[],
+  startCode: string,
+  endCode: string,
+): number | null {
+  const start = markers.find((m: any) => m.code === startCode && m.time);
+  const end = markers.find((m: any) => m.code === endCode && m.time);
+  if (!start || !end) return null;
+  const diff = new Date(end.time).getTime() - new Date(start.time).getTime();
+  if (diff <= 0) return null;
+  return Math.round(diff / 60000);
+}
+
+function summarizeVitalsCourse(snapshotData: any): string | null {
+  if (!snapshotData) return null;
+
+  const parts: string[] = [];
+  let hasAbnormal = false;
+
+  // Heart rate
+  const hrPoints = snapshotData.hr as Array<{ value: number }> | undefined;
+  if (hrPoints?.length) {
+    const values = hrPoints.map((p) => p.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    parts.push(`HR ${min}-${max}/min`);
+    if (min < 50 || max > 120) hasAbnormal = true;
+  }
+
+  // Blood pressure
+  const bpPoints = snapshotData.bp as Array<{ sys: number; dia: number }> | undefined;
+  if (bpPoints?.length) {
+    const sysValues = bpPoints.map((p) => p.sys);
+    const diaValues = bpPoints.map((p) => p.dia);
+    const sysMin = Math.min(...sysValues);
+    const sysMax = Math.max(...sysValues);
+    const diaMin = Math.min(...diaValues);
+    const diaMax = Math.max(...diaValues);
+    parts.push(`BD ${sysMin}/${diaMin}-${sysMax}/${diaMax} mmHg`);
+    if (sysMin < 90 || sysMax > 180) hasAbnormal = true;
+  }
+
+  // SpO2
+  const spo2Points = snapshotData.spo2 as Array<{ value: number }> | undefined;
+  if (spo2Points?.length) {
+    const values = spo2Points.map((p) => p.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    parts.push(`SpO2 ${min}-${max}%`);
+    if (min < 92) hasAbnormal = true;
+  }
+
+  // Temperature
+  const tempPoints = snapshotData.temp as Array<{ value: number }> | undefined;
+  if (tempPoints?.length) {
+    const values = tempPoints.map((p) => p.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    parts.push(`Temp ${min}-${max}°C`);
+    if (min < 35.0 || max > 38.5) hasAbnormal = true;
+  }
+
+  if (parts.length === 0) return null;
+
+  const rangeStr = parts.join(", ");
+  if (hasAbnormal) {
+    return `Vitalparameter mit Auffälligkeiten (${rangeStr})`;
+  }
+  return `Stabile Vitalparameter (${rangeStr})`;
+}
 
 // ========== STAFF NAME COLLECTION ==========
 
@@ -57,6 +140,24 @@ export async function collectStaffNames(
     // Surgeon name from surgery details
     const surgery = await getSurgery(surgeryId);
     if (surgery?.surgeon) names.add(surgery.surgeon);
+
+    // Actual surgery staff entries from documentation
+    if (record) {
+      try {
+        const staffEntries = await getSurgeryStaff(record.id);
+        for (const entry of staffEntries) {
+          if (entry.name?.trim()) names.add(entry.name.trim());
+        }
+      } catch { /* staff entries may not exist */ }
+    }
+
+    // Surgery assistants
+    try {
+      const assistants = await getSurgeryAssistants(surgeryId);
+      for (const a of assistants) {
+        if (a.name?.trim()) names.add(a.name.trim());
+      }
+    } catch { /* assistants may not exist */ }
   }
 
   // Discharge medication doctors
@@ -125,14 +226,176 @@ export async function collectAnesthesiaRecordData(
     }
   }
 
-  // Surgery staff
-  if (record.surgeryStaff) {
-    const staff = record.surgeryStaff as any;
-    lines.push("\n### Surgery Staff");
-    for (const [role, name] of Object.entries(staff)) {
-      if (name) lines.push(`- ${role}: ${name}`);
+  // Surgery staff — prefer actual staff entries over legacy JSONB
+  try {
+    const staffEntries = await getSurgeryStaff(record.id);
+    if (staffEntries.length > 0) {
+      lines.push("\n### Surgery Staff (Actual)");
+      for (const entry of staffEntries) {
+        if (entry.name) lines.push(`- ${entry.role}: ${entry.name}`);
+      }
+    } else if (record.surgeryStaff) {
+      const staff = record.surgeryStaff as any;
+      lines.push("\n### Surgery Staff");
+      for (const [role, name] of Object.entries(staff)) {
+        if (name) lines.push(`- ${role}: ${name}`);
+      }
+    }
+  } catch {
+    // Fallback to legacy JSONB
+    if (record.surgeryStaff) {
+      const staff = record.surgeryStaff as any;
+      lines.push("\n### Surgery Staff");
+      for (const [role, name] of Object.entries(staff)) {
+        if (name) lines.push(`- ${role}: ${name}`);
+      }
     }
   }
+
+  // Anesthesia duration from time markers
+  if (record.timeMarkers && Array.isArray(record.timeMarkers)) {
+    const markers = record.timeMarkers.filter((m: any) => m.time);
+    const anesDuration = calcDurationMinutes(markers, "X1", "X2");
+    if (anesDuration) {
+      lines.push(`\nAnesthesia Duration (X1→X2): ${anesDuration} min`);
+    }
+  }
+
+  // General technique details
+  try {
+    const technique = await getGeneralTechnique(record.id);
+    if (technique) {
+      lines.push("\n### General Anesthesia Technique");
+      if (technique.approach) lines.push(`Approach: ${technique.approach}`);
+      if (technique.rsi) lines.push(`RSI (Rapid Sequence Intubation): Yes`);
+      if (technique.sedationLevel) lines.push(`Sedation Level: ${technique.sedationLevel}`);
+      if (technique.airwaySupport) lines.push(`Airway Support: ${technique.airwaySupport}`);
+      if (technique.notes) lines.push(`Notes: ${technique.notes}`);
+    }
+  } catch { /* technique may not exist */ }
+
+  // Airway management
+  try {
+    const airway = await getAirwayManagement(record.id);
+    if (airway) {
+      lines.push("\n### Airway Management");
+      if (airway.airwayDevice) lines.push(`Device: ${airway.airwayDevice}`);
+      if (airway.size) lines.push(`Size: ${airway.size}`);
+      if (airway.depth) lines.push(`Depth: ${airway.depth} cm`);
+      if (airway.cuffPressure) lines.push(`Cuff Pressure: ${airway.cuffPressure} cmH2O`);
+      if (airway.intubationPreExisting) lines.push(`Pre-existing intubation: Yes`);
+      if (airway.laryngoscopeType) lines.push(`Laryngoscope: ${airway.laryngoscopeType}${airway.laryngoscopeBlade ? ` blade ${airway.laryngoscopeBlade}` : ""}`);
+      if (airway.intubationAttempts) lines.push(`Intubation Attempts: ${airway.intubationAttempts}`);
+      if (airway.cormackLehane) lines.push(`Cormack-Lehane Grade: ${airway.cormackLehane}`);
+      if (airway.difficultAirway) {
+        lines.push(`Difficult Airway: Yes`);
+        try {
+          const dar = await getDifficultAirwayReport(airway.id);
+          if (dar) {
+            lines.push("\n#### Difficult Airway Report");
+            if (dar.description) lines.push(`Description: ${dar.description}`);
+            if (dar.finalTechnique) lines.push(`Final Technique: ${dar.finalTechnique}`);
+            if (dar.equipmentUsed) lines.push(`Equipment Used: ${dar.equipmentUsed}`);
+            if (dar.complications) lines.push(`Complications: ${dar.complications}`);
+            if (dar.recommendations) lines.push(`Recommendations: ${dar.recommendations}`);
+          }
+        } catch { /* report may not exist */ }
+      }
+      if (airway.notes) lines.push(`Notes: ${airway.notes}`);
+    }
+  } catch { /* airway may not exist */ }
+
+  // Regional blocks — neuraxial
+  try {
+    const neuraxialBlocks = await getNeuraxialBlocks(record.id);
+    if (neuraxialBlocks.length > 0) {
+      lines.push("\n### Neuraxial Blocks");
+      for (const block of neuraxialBlocks) {
+        const desc = [block.blockType, block.level, block.approach].filter(Boolean).join(", ");
+        lines.push(`- ${desc}`);
+        if (block.needleGauge) lines.push(`  Needle: ${block.needleGauge}`);
+        if (block.attempts) lines.push(`  Attempts: ${block.attempts}`);
+        if (block.sensoryLevel) lines.push(`  Sensory Level: ${block.sensoryLevel}`);
+        if (block.catheterPresent) lines.push(`  Catheter: Yes${block.catheterDepth ? ` (${block.catheterDepth})` : ""}`);
+        if (block.guidanceTechnique) lines.push(`  Guidance: ${block.guidanceTechnique}`);
+        if (block.testDose) lines.push(`  Test Dose: ${block.testDose}`);
+        if (block.notes) lines.push(`  Notes: ${block.notes}`);
+      }
+    }
+  } catch { /* blocks may not exist */ }
+
+  // Regional blocks — peripheral
+  try {
+    const peripheralBlocks = await getPeripheralBlocks(record.id);
+    if (peripheralBlocks.length > 0) {
+      lines.push("\n### Peripheral Blocks");
+      for (const block of peripheralBlocks) {
+        const desc = [block.blockType, block.laterality].filter(Boolean).join(", ");
+        lines.push(`- ${desc}`);
+        if (block.guidanceTechnique) lines.push(`  Guidance: ${block.guidanceTechnique}`);
+        if (block.needleType) lines.push(`  Needle: ${block.needleType}`);
+        if (block.attempts) lines.push(`  Attempts: ${block.attempts}`);
+        if (block.catheterPlaced) lines.push(`  Catheter: placed`);
+        if (block.sensoryAssessment) lines.push(`  Sensory: ${block.sensoryAssessment}`);
+        if (block.motorAssessment) lines.push(`  Motor: ${block.motorAssessment}`);
+        if (block.notes) lines.push(`  Notes: ${block.notes}`);
+      }
+    }
+  } catch { /* blocks may not exist */ }
+
+  // Installations (vascular access)
+  try {
+    const installations = await getAnesthesiaInstallations(record.id);
+    if (installations.length > 0) {
+      lines.push("\n### Installations / Vascular Access");
+      for (const inst of installations) {
+        const parts = [inst.category, inst.location].filter(Boolean);
+        let detail = parts.join(" — ");
+        if (inst.isPreExisting) detail += " (pre-existing)";
+        if (inst.attempts && inst.attempts > 1) detail += ` (${inst.attempts} attempts)`;
+        const meta = inst.metadata as any;
+        if (meta) {
+          if (meta.gauge) detail += `, ${meta.gauge}`;
+          if (meta.lumens) detail += `, ${meta.lumens}-lumen`;
+          if (meta.depth) detail += `, ${meta.depth}cm`;
+          if (meta.bladderType) detail += `, ${meta.bladderType}`;
+          if (meta.bladderSize) detail += `, CH ${meta.bladderSize}`;
+        }
+        lines.push(`- ${detail}`);
+        if (inst.notes) lines.push(`  Notes: ${inst.notes}`);
+      }
+    }
+  } catch { /* installations may not exist */ }
+
+  // Anesthesia events / inline notes
+  try {
+    const events = await getAnesthesiaEvents(record.id);
+    if (events.length > 0) {
+      lines.push("\n### Anesthesia Events / Timeline Notes");
+      const sorted = [...events].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+      for (const evt of sorted) {
+        const time = new Date(evt.timestamp).toLocaleTimeString("de-CH", {
+          timeZone: timezone || "Europe/Zurich",
+        });
+        const desc = [evt.eventType, evt.description].filter(Boolean).join(": ");
+        lines.push(`- ${time} — ${desc}`);
+      }
+    }
+  } catch { /* events may not exist */ }
+
+  // Vitals course summary
+  try {
+    const snapshot = await getClinicalSnapshot(record.id);
+    if (snapshot?.data) {
+      const vitalsSummary = summarizeVitalsCourse(snapshot.data);
+      if (vitalsSummary) {
+        lines.push(`\n### Vitals Course Summary`);
+        lines.push(vitalsSummary);
+      }
+    }
+  } catch { /* snapshot may not exist */ }
 
   // WHO Checklists
   for (const [key, label] of [
@@ -180,6 +443,35 @@ export async function collectAnesthesiaRecordData(
     }
   } catch {
     // Medications fetch may not be available
+  }
+
+  // Anesthesia course verdict
+  {
+    const postOp = record.postOpData as any;
+    const hasComplications = postOp?.complications && postOp.complications.trim().length > 0;
+    let hasDifficultAirway = false;
+    try {
+      const airway = await getAirwayManagement(record.id);
+      hasDifficultAirway = !!airway?.difficultAirway;
+    } catch { /* ignore */ }
+    let hasCriticalEvents = false;
+    try {
+      const events = await getAnesthesiaEvents(record.id);
+      hasCriticalEvents = events.some(
+        (e) => e.eventType === "complication",
+      );
+    } catch { /* ignore */ }
+
+    lines.push("\n### Anesthesia Course Verdict");
+    if (!hasComplications && !hasDifficultAirway && !hasCriticalEvents) {
+      lines.push("Komplikationsloser Anästhesieverlauf");
+    } else {
+      const issues: string[] = [];
+      if (hasComplications) issues.push(`Complications: ${postOp.complications}`);
+      if (hasDifficultAirway) issues.push("Difficult airway encountered");
+      if (hasCriticalEvents) issues.push("Critical events during anesthesia (see timeline)");
+      lines.push(issues.join("; "));
+    }
   }
 
   return lines.join("\n");
@@ -318,9 +610,120 @@ export async function collectSurgeryData(
   if (surgery.plannedDate) lines.push(`Date: ${new Date(surgery.plannedDate).toLocaleDateString("de-CH", { timeZone: timezone || "Europe/Zurich" })}`);
   if (surgery.surgerySide) lines.push(`Side: ${surgery.surgerySide}`);
   if (surgery.chopCode) lines.push(`CHOP Code: ${surgery.chopCode}`);
-  if (surgery.surgeon) lines.push(`Surgeon: ${surgery.surgeon}`);
+  if (surgery.surgeon) lines.push(`Surgeon (planned): ${surgery.surgeon}`);
   if (surgery.notes) lines.push(`Notes: ${surgery.notes}`);
   if (surgery.implantDetails) lines.push(`Implants: ${surgery.implantDetails}`);
+
+  // Actual surgical assistants
+  try {
+    const assistants = await getSurgeryAssistants(surgeryId);
+    if (assistants.length > 0) {
+      lines.push(`\n### Surgical Assistants`);
+      for (const a of assistants) {
+        lines.push(`- ${a.name}`);
+      }
+    }
+  } catch { /* assistants may not exist */ }
+
+  // Surgery duration from anesthesia record time markers (O1→O2)
+  try {
+    const record = await getAnesthesiaRecord(surgeryId);
+    if (record?.timeMarkers && Array.isArray(record.timeMarkers)) {
+      const markers = record.timeMarkers.filter((m: any) => m.time);
+      const surgDuration = calcDurationMinutes(markers, "O1", "O2");
+      if (surgDuration) {
+        lines.push(`\nSurgery Duration (O1→O2): ${surgDuration} min`);
+      }
+    }
+
+    // Intraoperative data from anesthesia record
+    if (record?.intraOpData) {
+      const intra = record.intraOpData as any;
+      const intraParts: string[] = [];
+
+      // Positioning
+      if (intra.positioning) {
+        const pos = intra.positioning;
+        const positions: string[] = [];
+        if (pos.RL) positions.push("Rückenlage");
+        if (pos.SL) positions.push("Seitenlage");
+        if (pos.BL) positions.push("Bauchlage");
+        if (pos.SSL) positions.push("Steinschnittlage");
+        if (pos.EXT) positions.push("Extension");
+        if (positions.length > 0) intraParts.push(`Positioning: ${positions.join(", ")}${pos.notes ? ` (${pos.notes})` : ""}`);
+      }
+
+      // Equipment
+      if (intra.equipment) {
+        const eq = intra.equipment;
+        const eqParts: string[] = [];
+        if (eq.monopolar) eqParts.push("Monopolar");
+        if (eq.bipolar) eqParts.push("Bipolar");
+        if (eq.neutralElectrodeLocation) eqParts.push(`Neutral electrode: ${eq.neutralElectrodeSide || ""} ${eq.neutralElectrodeLocation}`.trim());
+        if (eq.devices) eqParts.push(eq.devices);
+        if (eqParts.length > 0) intraParts.push(`Equipment: ${eqParts.join(", ")}`);
+        if (eq.pathology) {
+          const path: string[] = [];
+          if (eq.pathology.histology) path.push("Histology");
+          if (eq.pathology.microbiology) path.push("Microbiology");
+          if (path.length > 0) intraParts.push(`Pathology Specimens: ${path.join(", ")}`);
+        }
+      }
+
+      // Tourniquet
+      if (intra.tourniquet) {
+        const t = intra.tourniquet;
+        const tParts = [t.position, t.side].filter(Boolean).join(" ");
+        let tLine = `Tourniquet: ${tParts}`;
+        if (t.pressure) tLine += `, ${t.pressure} mmHg`;
+        if (t.duration) tLine += `, ${t.duration} min`;
+        if (t.notes) tLine += ` (${t.notes})`;
+        intraParts.push(tLine);
+      }
+
+      // Drainages (new array format)
+      if (intra.drainages?.length) {
+        for (const d of intra.drainages) {
+          const dParts = [d.type === "Other" ? d.typeOther : d.type, d.size, d.position].filter(Boolean);
+          intraParts.push(`Drainage: ${dParts.join(", ")}`);
+        }
+      } else if (intra.drainage) {
+        // Legacy format
+        const d = intra.drainage;
+        const dParts = [];
+        if (d.redonCH) dParts.push(`Redon CH ${d.redonCH}`);
+        if (d.redonCount) dParts.push(`×${d.redonCount}`);
+        if (d.other) dParts.push(d.other);
+        if (dParts.length > 0) intraParts.push(`Drainage: ${dParts.join(", ")}`);
+      }
+
+      // X-ray / fluoroscopy
+      if (intra.xray?.used) {
+        let xLine = "X-ray/Fluoroscopy: Yes";
+        if (intra.xray.imageCount) xLine += `, ${intra.xray.imageCount} images`;
+        if (intra.xray.bodyRegion) xLine += `, ${intra.xray.bodyRegion}`;
+        if (intra.xray.notes) xLine += ` (${intra.xray.notes})`;
+        intraParts.push(xLine);
+      }
+
+      // CO2 pressure
+      if (intra.co2Pressure?.pressure) {
+        intraParts.push(`CO2 Pressure: ${intra.co2Pressure.pressure} mmHg${intra.co2Pressure.notes ? ` (${intra.co2Pressure.notes})` : ""}`);
+      }
+
+      // Intraoperative notes
+      if (intra.intraoperativeNotes) {
+        intraParts.push(`Intraoperative Notes: ${intra.intraoperativeNotes}`);
+      }
+
+      if (intraParts.length > 0) {
+        lines.push("\n### Intraoperative Details");
+        for (const p of intraParts) {
+          lines.push(`- ${p}`);
+        }
+      }
+    }
+  } catch { /* anesthesia record may not exist */ }
 
   return lines.join("\n");
 }
@@ -482,13 +885,16 @@ export function buildUserMessageSuffix(selectedBlocks: string[], briefType?: str
 
   if (blocks.has("anesthesia_record")) {
     sections.push(
-      `- Write a section titled "Anästhesie" that summarizes: anesthesia type, techniques/installations (intubation, arterial line, regional blocks etc.), lead anesthesiologist, start/end time with total duration, and any complications. Use the "Anesthesia Record" data above.`,
+      `- Write a section titled "Anästhesie" that summarizes: anesthesia type and technique details (TIVA/balanced/sedation), airway management (device, size, intubation details), regional blocks (neuraxial and peripheral with technique/level), installations/vascular access (lines, catheters), lead anesthesiologist, anesthesia duration (X1→X2), vitals course summary, anesthesia events/timeline notes, and any complications. Use the detailed "Anesthesia Record" data above including the Airway Management, Regional Blocks, Installations, Events, and Vitals Course sections.`,
+    );
+    sections.push(
+      `- If the "Anesthesia Course Verdict" indicates "Komplikationsloser Anästhesieverlauf", summarize the anesthesia course briefly as "komplikationsloser Anästhesieverlauf" (or equivalent in the target language). If complications are noted, describe them.`,
     );
   }
 
   if (blocks.has("surgery_details") || blocks.has("surgery_notes")) {
     sections.push(
-      `- Write a section titled "Operationsbericht" that summarizes: procedure performed (with side), lead surgeon, surgery duration, and a brief operative course description. Use the "Surgery Details" and/or "Surgery Notes" data above.`,
+      `- Write a section titled "Operationsbericht" that summarizes: procedure performed (with side), lead surgeon and surgical assistants, surgery duration (O1→O2), intraoperative details (positioning, tourniquet, drainage, equipment), and a brief operative course description. Use the "Surgery Details" and/or "Surgery Notes" data above including the Intraoperative Details section.`,
     );
   }
 
@@ -534,11 +940,15 @@ export function getSystemPrompt(
 
 ## Mandatory: Anesthesia Summary
 You MUST include a concise anesthesia summary with these details (extract from the Anesthesia Record data):
-- Type of anesthesia (e.g., general anesthesia, regional, sedation)
-- Particular installations/techniques (e.g., intubation, arterial line, central venous catheter, regional blocks)
-- Lead anesthesiologist name
-- Anesthesia start/end time and total duration (calculate from time markers)
-- Notable events or complications during anesthesia, if any`;
+- Type of anesthesia and technique details (e.g., TIVA, balanced gas, sedation approach)
+- Airway management (device type, size, intubation details, difficult airway if applicable)
+- Regional blocks: neuraxial blocks (type, level, approach) and peripheral blocks (type, laterality, guidance technique)
+- Installations/vascular access (peripheral IV, arterial line, central venous catheter, bladder catheter — with gauge/size)
+- Lead anesthesiologist name (from Surgery Staff entries)
+- Anesthesia duration (use the X1→X2 duration provided)
+- Vitals course summary (use the provided vitals ranges)
+- Anesthesia events/timeline notes (include significant events chronologically)
+- If the Anesthesia Course Verdict indicates no complications, state "komplikationsloser Anästhesieverlauf". If complications are noted, describe them.`;
     }
 
     if (blocks.has("surgery_details") || blocks.has("surgery_notes")) {
@@ -547,8 +957,9 @@ You MUST include a concise anesthesia summary with these details (extract from t
 ## Mandatory: Surgery Summary
 You MUST include a concise surgery summary with these details (extract from Surgery Details / Surgery Notes data):
 - Procedure performed (with side if applicable)
-- Lead surgeon name
-- Surgery duration (calculate from time markers if available)
+- Lead surgeon and surgical assistants
+- Surgery duration (use the O1→O2 duration provided)
+- Intraoperative details: patient positioning, tourniquet (if used), drainage, equipment, pathology specimens, X-ray/fluoroscopy
 - A very brief description of the operative course based on documented surgery notes`;
     }
   }
