@@ -384,9 +384,15 @@ export function usePatientState() {
   const [callbackSlots, setCallbackSlots] = useState<CallbackSlot[]>(() => {
     const now = new Date();
     const ceilHour = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
+    // If it's already 17:00 or later, default to tomorrow 08:00–17:00
+    if (ceilHour >= 17) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return [{ date: formatDateForInput(tomorrow), fromTime: '08:00', toTime: '17:00' }];
+    }
     const fromHour = Math.max(ceilHour, 8);
     const fromTime = `${String(fromHour).padStart(2, '0')}:00`;
-    return [{ date: formatDateForInput(new Date()), fromTime, toTime: '17:00' }];
+    return [{ date: formatDateForInput(now), fromTime, toTime: '17:00' }];
   });
   const [callbackPhoneNumber, setCallbackPhoneNumber] = useState('');
 

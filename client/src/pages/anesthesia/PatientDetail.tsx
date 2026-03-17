@@ -6416,8 +6416,11 @@ export default function PatientDetail() {
                   })();
                   {
                     const now = new Date();
+                    const todayStr = formatDateForInput(now);
+                    const isToday = slot.date === todayStr;
                     const ceilHour = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
-                    const slotMin = index === 0 ? Math.max(ceilHour * 60, 480) : 480;
+                    // Today: slider starts from next full hour (min 8:00). Other dates: always 8:00–17:00
+                    const slotMin = isToday ? Math.max(ceilHour * 60, 480) : 480;
                     const slotMax = 1020; // 17:00
                     const fromMins = parseInt(slot.fromTime.split(':')[0]) * 60 + parseInt(slot.fromTime.split(':')[1] || '0');
                     const toMins = parseInt(slot.toTime.split(':')[0]) * 60 + parseInt(slot.toTime.split(':')[1] || '0');
@@ -6480,7 +6483,18 @@ export default function PatientDetail() {
                   }
                 })}
                 <button
-                  onClick={() => setCallbackSlots([...callbackSlots, { date: formatDateForInput(new Date()), fromTime: '08:00', toTime: '17:00' }])}
+                  onClick={() => {
+                    const now = new Date();
+                    const ceil = now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours();
+                    if (ceil >= 17) {
+                      const tomorrow = new Date(now);
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setCallbackSlots([...callbackSlots, { date: formatDateForInput(tomorrow), fromTime: '08:00', toTime: '17:00' }]);
+                    } else {
+                      const fromHour = Math.max(ceil, 8);
+                      setCallbackSlots([...callbackSlots, { date: formatDateForInput(now), fromTime: `${String(fromHour).padStart(2, '0')}:00`, toTime: '17:00' }]);
+                    }
+                  }}
                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                   data-testid="button-add-slot"
                 >
