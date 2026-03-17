@@ -10,10 +10,14 @@ export interface OutputData {
   vomit: OutputPoint[];
 }
 
+export type UrineMode = 'partial' | 'total'; // partial = urometer (incremental), total = bag (absolute)
+
 export interface UseOutputStateReturn {
   outputData: OutputData;
   setOutputData: React.Dispatch<React.SetStateAction<OutputData>>;
   resetOutputData: () => void;
+  urineMode: UrineMode;
+  setUrineMode: React.Dispatch<React.SetStateAction<UrineMode>>;
 }
 
 const INITIAL_OUTPUT_DATA: OutputData = {
@@ -37,6 +41,7 @@ const INITIAL_OUTPUT_DATA: OutputData = {
  */
 export function useOutputState(): UseOutputStateReturn {
   const [outputData, setOutputData] = useState<OutputData>(INITIAL_OUTPUT_DATA);
+  const [urineMode, setUrineMode] = useState<UrineMode>('partial');
 
   const resetOutputData = () => {
     // Create fresh object to ensure React detects the change (avoid stale data)
@@ -53,5 +58,7 @@ export function useOutputState(): UseOutputStateReturn {
     outputData,
     setOutputData,
     resetOutputData,
+    urineMode,
+    setUrineMode,
   };
 }

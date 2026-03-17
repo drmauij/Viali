@@ -582,6 +582,7 @@ export interface IStorage {
   ): Promise<ClinicalSnapshot>;
   
   // Output operations
+  setUrineMode(anesthesiaRecordId: string, mode: 'partial' | 'total'): Promise<ClinicalSnapshot>;
   addOutputPoint(anesthesiaRecordId: string, paramKey: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
   updateOutputPoint(anesthesiaRecordId: string, paramKey: string, pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteOutputPoint(anesthesiaRecordId: string, paramKey: string, pointId: string): Promise<ClinicalSnapshot | null>;
@@ -1323,6 +1324,7 @@ export class DatabaseStorage implements IStorage {
   addBulkVentilationParameters = anesthesiaStorage.addBulkVentilationParameters;
   updateBulkVentilationParameters = anesthesiaStorage.updateBulkVentilationParameters;
   deleteBulkVentilationParameters = anesthesiaStorage.deleteBulkVentilationParameters;
+  setUrineMode = anesthesiaStorage.setUrineMode;
   addOutputPoint = anesthesiaStorage.addOutputPoint;
   updateOutputPoint = anesthesiaStorage.updateOutputPoint;
   deleteOutputPoint = anesthesiaStorage.deleteOutputPoint;

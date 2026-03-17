@@ -80,7 +80,7 @@ export function OutputSwimlane({
     swimlanes: activeSwimlanes,
   } = useTimelineContext();
 
-  const { outputData } = outputState;
+  const { outputData, urineMode } = outputState;
 
   // State for hover tooltips
   const [outputHoverInfo, setOutputHoverInfo] = useState<{
@@ -299,6 +299,49 @@ export function OutputSwimlane({
           </div>
         );
       })()}
+
+      {/* Cumulative total badges on right side of output swimlanes */}
+      {!collapsedSwimlanes.has('output') && Object.entries(outputData).map(([paramKey, dataPoints]) => {
+        const paramIndex = PARAM_INDEX_MAP[paramKey];
+        if (paramIndex === undefined) return null;
+
+        const childLane = swimlanePositions.find(lane => lane.id === `output-${paramIndex}`);
+        if (!childLane) return null;
+
+        if (!dataPoints || dataPoints.length === 0) return null;
+
+        // Calculate cumulative total
+        // For urine in 'total' (bag) mode, use the last value; otherwise sum all
+        let cumulativeTotal: number;
+        const isUrineTotal = paramKey === 'urine' && urineMode === 'total';
+        if (isUrineTotal) {
+          // Bag mode: last entered value is the total
+          const sorted = [...dataPoints].sort((a, b) => a.timestamp - b.timestamp);
+          cumulativeTotal = sorted[sorted.length - 1].value;
+        } else {
+          cumulativeTotal = dataPoints.reduce((sum: number, p: any) => sum + p.value, 0);
+        }
+
+        if (cumulativeTotal <= 0) return null;
+
+        return (
+          <div
+            key={`output-cumulative-${paramKey}`}
+            className="absolute right-1 z-50 flex items-center justify-end"
+            style={{
+              top: `${childLane.top}px`,
+              height: `${childLane.height}px`,
+            }}
+          >
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-medium text-white rounded-full whitespace-nowrap shadow-sm bg-rose-600"
+              title={`${LABEL_MAP[paramKey]}: ${cumulativeTotal} ml${isUrineTotal ? ' (bag)' : ''}`}
+            >
+              {cumulativeTotal} ml
+            </span>
+          </div>
+        );
+      })}
 
       {/* Output parameter values as DOM overlays */}
       {!collapsedSwimlanes.has('output') && Object.entries(outputData).flatMap(([paramKey, dataPoints]) => {

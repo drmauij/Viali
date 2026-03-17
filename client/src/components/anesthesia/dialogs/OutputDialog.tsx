@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
-import { useCreateOutput, type OutputParamKey } from "@/hooks/useOutputQuery";
+import { useCreateOutput, useSetUrineMode, type OutputParamKey } from "@/hooks/useOutputQuery";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import type { UrineMode } from "@/hooks/useOutputState";
 
 interface PendingOutputValue {
   paramKey: OutputParamKey;
@@ -19,6 +20,8 @@ interface OutputDialogProps {
   pendingOutputValue: PendingOutputValue | null;
   onOutputCreated?: () => void;
   readOnly?: boolean;
+  urineMode?: UrineMode;
+  onUrineModeChange?: (mode: UrineMode) => void;
 }
 
 export function OutputDialog({
@@ -28,6 +31,8 @@ export function OutputDialog({
   pendingOutputValue,
   onOutputCreated,
   readOnly = false,
+  urineMode,
+  onUrineModeChange,
 }: OutputDialogProps) {
   const { t } = useTranslation();
   const [outputValueInput, setOutputValueInput] = useState("");
@@ -116,6 +121,45 @@ export function OutputDialog({
             disabled={readOnly}
           />
         </div>
+        {/* Urine mode toggle - only show for urine parameter */}
+        {pendingOutputValue?.paramKey === 'urine' && urineMode && onUrineModeChange && (
+          <div className="flex items-center gap-3 pt-2 border-t">
+            <Label className="text-sm text-muted-foreground">{t('anesthesia.timeline.output.urineReadingMode', 'Reading mode')}:</Label>
+            <div className="flex rounded-md border overflow-hidden">
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  urineMode === 'partial'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80'
+                }`}
+                onClick={() => onUrineModeChange('partial')}
+                disabled={readOnly}
+                data-testid="btn-urine-mode-partial"
+              >
+                {t('anesthesia.timeline.output.urometer', 'Urometer')}
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  urineMode === 'total'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80'
+                }`}
+                onClick={() => onUrineModeChange('total')}
+                disabled={readOnly}
+                data-testid="btn-urine-mode-total"
+              >
+                {t('anesthesia.timeline.output.bag', 'Bag')}
+              </button>
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              {urineMode === 'partial'
+                ? t('anesthesia.timeline.output.urometerHint', 'Values are incremental')
+                : t('anesthesia.timeline.output.bagHint', 'Values are cumulative totals')}
+            </span>
+          </div>
+        )}
       </div>
     </BaseTimelineDialog>
   );

@@ -76,6 +76,7 @@ interface TimelineDataSyncSetters {
   setVentilationModeData: React.Dispatch<React.SetStateAction<VentilationModePoint[]>>;
   setVentilationData: React.Dispatch<React.SetStateAction<VentilationData>>;
   setOutputData: React.Dispatch<React.SetStateAction<OutputData>>;
+  setUrineMode: React.Dispatch<React.SetStateAction<import('@/hooks/useOutputState').UrineMode>>;
   setPositionData: React.Dispatch<React.SetStateAction<PositionPoint[]>>;
   setEventComments: React.Dispatch<React.SetStateAction<EventComment[]>>;
 }
@@ -115,6 +116,7 @@ export function useTimelineDataSync(
     setVentilationModeData,
     setVentilationData,
     setOutputData,
+    setUrineMode,
     setPositionData,
     setEventComments,
   } = setters;
@@ -444,7 +446,15 @@ export function useTimelineDataSync(
       // Clear stale state when switching to record with no data
       setOutputData({ urine: [], blood: [], gastricTube: [], drainage: [], vomit: [] });
     }
-  }, [clinicalSnapshot, setOutputData]);
+
+    // Sync urineMode from snapshot metadata
+    const storedUrineMode = (snapshotData as any)?.urineMode;
+    if (storedUrineMode === 'partial' || storedUrineMode === 'total') {
+      setUrineMode(storedUrineMode);
+    } else {
+      setUrineMode('partial'); // default to urometer (incremental)
+    }
+  }, [clinicalSnapshot, setOutputData, setUrineMode]);
 
   // Sync position data from API
   useEffect(() => {

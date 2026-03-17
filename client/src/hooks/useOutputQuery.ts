@@ -61,6 +61,26 @@ export function useUpdateOutput(anesthesiaRecordId: string | undefined) {
   });
 }
 
+// Hook to toggle urine mode (partial/urometer vs total/bag)
+export function useSetUrineMode(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (mode: 'partial' | 'total') => {
+      return await apiRequest(
+        'PATCH',
+        '/api/anesthesia/output/urine-mode',
+        { anesthesiaRecordId, mode }
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
 // Hook to delete an output point
 export function useDeleteOutput(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();

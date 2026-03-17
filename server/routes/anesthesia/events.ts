@@ -328,6 +328,50 @@ router.delete('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteA
   }
 });
 
+router.patch('/api/anesthesia/output/urine-mode', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { anesthesiaRecordId, mode } = req.body;
+
+    if (!anesthesiaRecordId || !['partial', 'total'].includes(mode)) {
+      return res.status(400).json({ message: "Invalid data: anesthesiaRecordId and mode ('partial' | 'total') required" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.setUrineMode(anesthesiaRecordId, mode);
+
+    broadcastAnesthesiaUpdate({
+      recordId: anesthesiaRecordId,
+      section: 'output',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    logger.error("Error setting urine mode:", error);
+    res.status(500).json({ message: "Failed to set urine mode" });
+  }
+});
+
 router.post('/api/anesthesia/output', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;

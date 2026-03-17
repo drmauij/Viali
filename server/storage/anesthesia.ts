@@ -2467,6 +2467,29 @@ export async function deleteBulkVentilationParameters(
   return updated;
 }
 
+export async function setUrineMode(
+  anesthesiaRecordId: string,
+  mode: 'partial' | 'total'
+): Promise<ClinicalSnapshot> {
+  const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
+
+  const updatedData = {
+    ...snapshot.data,
+    urineMode: mode,
+  };
+
+  const [updated] = await db
+    .update(clinicalSnapshots)
+    .set({
+      data: updatedData,
+      updatedAt: new Date(),
+    })
+    .where(eq(clinicalSnapshots.id, snapshot.id))
+    .returning();
+
+  return updated;
+}
+
 export async function addOutputPoint(
   anesthesiaRecordId: string,
   paramKey: string,

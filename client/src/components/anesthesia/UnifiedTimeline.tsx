@@ -88,7 +88,7 @@ import {
 import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
-import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
+import { useCreateOutput, useUpdateOutput, useDeleteOutput, useSetUrineMode } from "@/hooks/useOutputQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { TimelineContextProvider } from "./TimelineContext";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
@@ -566,6 +566,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const createOutput = useCreateOutput(anesthesiaRecordId);
   const updateOutput = useUpdateOutput(anesthesiaRecordId);
   const deleteOutput = useDeleteOutput(anesthesiaRecordId);
+  const setUrineModeMutation = useSetUrineMode(anesthesiaRecordId);
   
   // State for collapsible parent swimlanes
   // Initialize with all parent swimlanes expanded to ensure BIS/TOF are visible
@@ -765,6 +766,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     outputData,
     setOutputData,
     resetOutputData,
+    urineMode,
+    setUrineMode,
   } = useOutputState();
 
   // Refs for edit mode to avoid recreating event listeners
@@ -1192,7 +1195,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       // Clear stale state when switching to record with no data
       setOutputData({ urine: [], blood: [], gastricTube: [], drainage: [], vomit: [] });
     }
-  }, [clinicalSnapshot, setOutputData]);
+
+    // Sync urineMode from snapshot metadata
+    const storedUrineMode = snapshotData?.urineMode;
+    if (storedUrineMode === 'partial' || storedUrineMode === 'total') {
+      setUrineMode(storedUrineMode);
+    } else {
+      setUrineMode('partial');
+    }
+  }, [clinicalSnapshot, setOutputData, setUrineMode]);
 
   // NEW: Sync position data from API
   useEffect(() => {
@@ -5293,6 +5304,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     outputData,
     setOutputData,
     resetOutputData,
+    urineMode,
+    setUrineMode,
   };
 
   // --- Sidebar callback handlers ---
@@ -7545,6 +7558,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setPendingOutputValue(null);
         }}
         readOnly={!canWrite}
+        urineMode={urineMode}
+        onUrineModeChange={(mode) => {
+          setUrineMode(mode);
+          if (anesthesiaRecordId) {
+            setUrineModeMutation.mutate(mode);
+          }
+        }}
       />
 
       {/* Ventilation Parameter Entry Dialog */}
