@@ -401,13 +401,17 @@ export async function executePatientMerge(
       const result = await tx.execute(
         sql`UPDATE ${sql.raw(`"${ref.table}"`)} SET ${sql.raw(`"${ref.column}"`)} = ${primaryPatientId} WHERE ${sql.raw(`"${ref.column}"`)} = ${secondaryPatientId}${hospitalFilter} RETURNING id`
       );
-      const count = result.rows.length;
+      const rows = result.rows ?? (result as any) ?? [];
+      const count = Array.isArray(rows) ? rows.length : 0;
+      logger.info(
+        `[PatientMerge] Relink ${ref.table}.${ref.column}: ${count} records updated`
+      );
       if (count > 0) {
         fkUpdates.push({
           table: ref.table,
           column: ref.column,
           count,
-          recordIds: result.rows.map((r: any) => r.id),
+          recordIds: rows.map((r: any) => r.id),
         });
       }
     }

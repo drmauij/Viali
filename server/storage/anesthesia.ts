@@ -191,7 +191,8 @@ export async function upsertHospitalAnesthesiaSettings(settings: InsertHospitalA
 export async function getPatients(hospitalId: string, search?: string): Promise<Patient[]> {
   let conditions = [
     eq(patients.hospitalId, hospitalId),
-    isNull(patients.deletedAt)
+    isNull(patients.deletedAt),
+    eq(patients.isArchived, false),
   ];
 
   if (search && search.trim()) {
