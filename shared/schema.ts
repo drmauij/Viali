@@ -1978,6 +1978,8 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
     urine677?: VitalPointWithId[];
     blood?: VitalPointWithId[];
     bloodIrrigation?: VitalPointWithId[];
+    // Output metadata
+    urineMode?: 'partial' | 'total'; // 'partial' = urometer (incremental), 'total' = bag (absolute)
     // Others (BIS, TOF)
     bis?: VitalPointWithId[];
     tof?: TOFPointWithId[];
@@ -5723,6 +5725,54 @@ export const insertStaffMergeSchema = createInsertSchema(staffMerges).omit({
 
 export type StaffMerge = typeof staffMerges.$inferSelect;
 export type InsertStaffMerge = z.infer<typeof insertStaffMergeSchema>;
+
+// Patient Merge Status
+export const patientMergeStatusEnum = pgEnum("patient_merge_status", [
+  "completed",
+  "undone",
+]);
+
+// Patient Merges (Audit trail for patient deduplication/merge operations)
+export const patientMerges = pgTable("patient_merges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  primaryPatientId: varchar("primary_patient_id").notNull().references(() => patients.id),
+  secondaryPatientId: varchar("secondary_patient_id").notNull().references(() => patients.id),
+  mergedBy: varchar("merged_by").notNull().references(() => users.id),
+  // Full snapshots for undo capability
+  primaryPatientSnapshot: jsonb("primary_patient_snapshot").notNull(),
+  secondaryPatientSnapshot: jsonb("secondary_patient_snapshot").notNull(),
+  // Detailed log of all changes made
+  fkUpdates: jsonb("fk_updates").notNull(), // Array of { table, column, recordIds, fromPatientId, toPatientId }
+  fieldChoices: jsonb("field_choices").notNull(), // { fieldName: { chosen: "primary"|"secondary", value } }
+  deletedChatArchives: jsonb("deleted_chat_archives"), // Array of archived chat data from secondary patient
+  conversationIdUpdates: jsonb("conversation_id_updates"), // Array of { oldConversationId, newConversationId }
+  // Status tracking
+  status: patientMergeStatusEnum("status").notNull().default("completed"),
+  undoneAt: timestamp("undone_at"),
+  undoneBy: varchar("undone_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_patient_merges_hospital").on(table.hospitalId),
+  index("idx_patient_merges_primary").on(table.primaryPatientId),
+  index("idx_patient_merges_secondary").on(table.secondaryPatientId),
+  index("idx_patient_merges_status").on(table.status),
+]);
+
+export const patientMergesRelations = relations(patientMerges, ({ one }) => ({
+  hospital: one(hospitals, { fields: [patientMerges.hospitalId], references: [hospitals.id] }),
+  primaryPatient: one(patients, { fields: [patientMerges.primaryPatientId], references: [patients.id] }),
+  secondaryPatient: one(patients, { fields: [patientMerges.secondaryPatientId], references: [patients.id] }),
+  merger: one(users, { fields: [patientMerges.mergedBy], references: [users.id] }),
+}));
+
+export const insertPatientMergeSchema = createInsertSchema(patientMerges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PatientMerge = typeof patientMerges.$inferSelect;
+export type InsertPatientMerge = z.infer<typeof insertPatientMergeSchema>;
 
 // ========== TARDOC INSURANCE INVOICING ==========
 // Swiss TARDOC tariff system for insurance billing (KVG/UVG/IVG/MVG)
