@@ -1748,6 +1748,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
+    // Monitoring (was "Others") — moved up after Events for BIS + PK visibility
+    { id: "others", label: t("anesthesia.timeline.monitoring", "Monitoring"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
     // Conditionally show TOF (OR mode) or VAS/Scores (PACU mode)
     ...(isPacuMode ? [
       { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
@@ -1760,7 +1762,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     { id: "position", label: t("anesthesia.timeline.position.label"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation.label"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: t("anesthesia.timeline.output.label"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
-    { id: "others", label: t("anesthesia.timeline.others"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
   ];
 
   // Build active swimlanes with collapsible children
