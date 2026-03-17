@@ -252,6 +252,89 @@ export async function findPatientDuplicates(
     }
   }
 
+  // 3b. Cross-birthday pass — exact or near-exact name matches across different birthday groups
+  // Groups by normalized full name to efficiently find same-name patients with different birthdays
+  const nameGroups = new Map<string, PatientRow[]>();
+  for (const p of allPatients) {
+    const key = normalizeName(`${p.firstName} ${p.surname}`);
+    if (!key) continue;
+    const existing = nameGroups.get(key);
+    if (existing) {
+      existing.push(p);
+    } else {
+      nameGroups.set(key, [p]);
+    }
+  }
+
+  // Exact name match with different birthdays
+  for (const [, group] of nameGroups) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const pi = group[i]!;
+        const pj = group[j]!;
+        if (pi.birthday === pj.birthday) continue; // already handled in step 3
+        const pairKey = [pi.id, pj.id].sort().join(":");
+        if (seen.has(pairKey)) continue;
+        seen.add(pairKey);
+
+        const reasons: string[] = ["Exact name match", "Different birthday — verify"];
+        let confidence = 0.75; // lower than same-birthday match
+
+        // Boost signals
+        if (pi.phone && pj.phone && pi.phone.replace(/\s+/g, "") === pj.phone.replace(/\s+/g, "")) {
+          confidence = Math.min(1.0, confidence + 0.05);
+          reasons.push("Same phone");
+        }
+        if (pi.email && pj.email && pi.email.toLowerCase() === pj.email.toLowerCase()) {
+          confidence = Math.min(1.0, confidence + 0.05);
+          reasons.push("Same email");
+        }
+
+        pairs.push({
+          patient1: toSummary(pi),
+          patient2: toSummary(pj),
+          confidence: Math.round(confidence * 100) / 100,
+          reasons,
+        });
+      }
+    }
+  }
+
+  // Also check name-swapped across different birthdays
+  for (const p of allPatients) {
+    const swapped = normalizeName(`${p.surname} ${p.firstName}`);
+    if (!swapped) continue;
+    const matchGroup = nameGroups.get(swapped);
+    if (!matchGroup) continue;
+    for (const other of matchGroup) {
+      if (other.id === p.id) continue;
+      if (other.birthday === p.birthday) continue; // already handled
+      const pairKey = [p.id, other.id].sort().join(":");
+      if (seen.has(pairKey)) continue;
+      seen.add(pairKey);
+
+      const reasons: string[] = ["Name/surname swapped", "Different birthday — verify"];
+      let confidence = 0.7;
+
+      if (p.phone && other.phone && p.phone.replace(/\s+/g, "") === other.phone.replace(/\s+/g, "")) {
+        confidence = Math.min(1.0, confidence + 0.05);
+        reasons.push("Same phone");
+      }
+      if (p.email && other.email && p.email.toLowerCase() === other.email.toLowerCase()) {
+        confidence = Math.min(1.0, confidence + 0.05);
+        reasons.push("Same email");
+      }
+
+      pairs.push({
+        patient1: toSummary(p),
+        patient2: toSummary(other),
+        confidence: Math.round(confidence * 100) / 100,
+        reasons,
+      });
+    }
+  }
+
   // 4. Insurance number pass — find pairs with matching insurance numbers not already found
   const insuranceGroups = new Map<string, PatientRow[]>();
 
