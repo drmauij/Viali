@@ -23,6 +23,8 @@ import { formatDate, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useModule } from "@/contexts/ModuleContext";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import PatientDuplicatesDialog from "@/components/patients/PatientDuplicatesDialog";
+import PatientMergeDialog from "@/components/patients/PatientMergeDialog";
 
 export default function Patients() {
   const { t } = useTranslation();
@@ -63,6 +65,9 @@ export default function Patients() {
   const [birthdayInput, setBirthdayInput] = useState("");
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
   const [selectedPatientForForm, setSelectedPatientForForm] = useState<Patient | null>(null);
+  const isAdmin = activeHospital?.role === "admin";
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [mergePatients, setMergePatients] = useState<{ p1: string; p2: string } | null>(null);
 
   // Pre-fill patient creation form from URL params (used by card reader bridge)
   useEffect(() => {
@@ -338,7 +343,13 @@ export default function Patients() {
           </p>
         </div>
         
-        {canWrite && (
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setShowDuplicates(true)}>
+              Find Duplicates
+            </Button>
+          )}
+          {canWrite && (
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-create-patient">
@@ -606,6 +617,7 @@ export default function Patients() {
           </DialogContent>
           </Dialog>
         )}
+        </div>
       </div>
 
       <div className="mb-6">
@@ -708,6 +720,29 @@ export default function Patients() {
           patientEmail={selectedPatientForForm.email}
           patientPhone={selectedPatientForForm.phone}
         />
+      )}
+
+      {isAdmin && activeHospital && (
+        <>
+          <PatientDuplicatesDialog
+            open={showDuplicates}
+            onOpenChange={setShowDuplicates}
+            hospitalId={activeHospital.id}
+            onMerge={(p1Id, p2Id) => {
+              setShowDuplicates(false);
+              setMergePatients({ p1: p1Id, p2: p2Id });
+            }}
+          />
+          {mergePatients && (
+            <PatientMergeDialog
+              open={!!mergePatients}
+              onOpenChange={(open) => { if (!open) setMergePatients(null); }}
+              hospitalId={activeHospital.id}
+              initialPatient1Id={mergePatients.p1}
+              initialPatient2Id={mergePatients.p2}
+            />
+          )}
+        </>
       )}
     </div>
   );
