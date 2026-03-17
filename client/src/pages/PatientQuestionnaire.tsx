@@ -84,6 +84,9 @@ interface QuestionnaireConfig {
   patientBirthday?: string;
   patientPhone?: string;
   patientEmail?: string;
+  patientStreet?: string;
+  patientPostalCode?: string;
+  patientCity?: string;
   hospitalId: string;
   surgeryId?: string;
   existingResponse?: {
@@ -93,6 +96,9 @@ interface QuestionnaireConfig {
     patientBirthday?: string;
     patientEmail?: string;
     patientPhone?: string;
+    patientStreet?: string;
+    patientPostalCode?: string;
+    patientCity?: string;
     allergies?: string[];
     allergiesNotes?: string;
     medications?: Medication[];
@@ -152,6 +158,9 @@ interface FormData {
   patientBirthday: string;
   patientEmail: string;
   patientPhone: string;
+  patientStreet: string;
+  patientPostalCode: string;
+  patientCity: string;
   height: string;
   weight: string;
   referralSource: string;
@@ -228,6 +237,9 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.birthday": "Date of Birth",
     "questionnaire.personal.email": "Email (optional)",
     "questionnaire.personal.phone": "Phone",
+    "questionnaire.personal.street": "Street, Nr.",
+    "questionnaire.personal.postalCode": "Postal Code",
+    "questionnaire.personal.city": "City",
     "questionnaire.personal.height": "Height (cm)",
     "questionnaire.personal.weight": "Weight (kg)",
     "questionnaire.personal.referralSource": "How did you hear about us? (optional)",
@@ -415,6 +427,9 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.birthday": "Geburtsdatum",
     "questionnaire.personal.email": "E-Mail (optional)",
     "questionnaire.personal.phone": "Telefon",
+    "questionnaire.personal.street": "Strasse, Nr.",
+    "questionnaire.personal.postalCode": "PLZ",
+    "questionnaire.personal.city": "Ort",
     "questionnaire.personal.height": "Größe (cm)",
     "questionnaire.personal.weight": "Gewicht (kg)",
     "questionnaire.personal.referralSource": "Wie haben Sie von uns erfahren? (optional)",
@@ -602,6 +617,9 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.birthday": "Data di nascita",
     "questionnaire.personal.email": "Email (facoltativo)",
     "questionnaire.personal.phone": "Telefono",
+    "questionnaire.personal.street": "Via, Nr.",
+    "questionnaire.personal.postalCode": "CAP",
+    "questionnaire.personal.city": "Città",
     "questionnaire.personal.height": "Altezza (cm)",
     "questionnaire.personal.weight": "Peso (kg)",
     "questionnaire.personal.referralSource": "Come ci ha conosciuto? (opzionale)",
@@ -789,6 +807,9 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.birthday": "Fecha de nacimiento",
     "questionnaire.personal.email": "Email (opcional)",
     "questionnaire.personal.phone": "Teléfono",
+    "questionnaire.personal.street": "Calle, Nr.",
+    "questionnaire.personal.postalCode": "Código postal",
+    "questionnaire.personal.city": "Ciudad",
     "questionnaire.personal.height": "Altura (cm)",
     "questionnaire.personal.weight": "Peso (kg)",
     "questionnaire.personal.referralSource": "¿Cómo nos conoció? (opcional)",
@@ -976,6 +997,9 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.birthday": "Date de naissance",
     "questionnaire.personal.email": "Email (facultatif)",
     "questionnaire.personal.phone": "Téléphone",
+    "questionnaire.personal.street": "Rue, Nr.",
+    "questionnaire.personal.postalCode": "Code postal",
+    "questionnaire.personal.city": "Ville",
     "questionnaire.personal.height": "Taille (cm)",
     "questionnaire.personal.weight": "Poids (kg)",
     "questionnaire.personal.referralSource": "Comment nous avez-vous connu ? (optionnel)",
@@ -1179,6 +1203,9 @@ export default function PatientQuestionnaire() {
     patientBirthday: "",
     patientEmail: "",
     patientPhone: "",
+    patientStreet: "",
+    patientPostalCode: "",
+    patientCity: "",
     height: "",
     weight: "",
     referralSource: "",
@@ -1264,6 +1291,9 @@ export default function PatientQuestionnaire() {
         patientBirthday: existing?.patientBirthday || config.patientBirthday || "",
         patientEmail: existing?.patientEmail || config.patientEmail || "",
         patientPhone: existing?.patientPhone || config.patientPhone || "",
+        patientStreet: existing?.patientStreet || config.patientStreet || "",
+        patientPostalCode: existing?.patientPostalCode || config.patientPostalCode || "",
+        patientCity: existing?.patientCity || config.patientCity || "",
         height: existing?.height || "",
         weight: existing?.weight || "",
         referralSource: (existing as any)?.referralSource || "",
@@ -2035,6 +2065,41 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           </div>
         </div>
       )}
+
+      <div className="space-y-2">
+        <div>
+          <Label htmlFor="street">{t("questionnaire.personal.street")}</Label>
+          <Input
+            id="street"
+            value={formData.patientStreet}
+            onChange={(e) => updateField("patientStreet", e.target.value)}
+            autoComplete="street-address"
+            data-testid="input-street"
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <Label htmlFor="postalCode">{t("questionnaire.personal.postalCode")}</Label>
+            <Input
+              id="postalCode"
+              value={formData.patientPostalCode}
+              onChange={(e) => updateField("patientPostalCode", e.target.value)}
+              autoComplete="postal-code"
+              data-testid="input-postal-code"
+            />
+          </div>
+          <div className="col-span-2">
+            <Label htmlFor="city">{t("questionnaire.personal.city")}</Label>
+            <Input
+              id="city"
+              value={formData.patientCity}
+              onChange={(e) => updateField("patientCity", e.target.value)}
+              autoComplete="address-level2"
+              data-testid="input-city"
+            />
+          </div>
+        </div>
+      </div>
 
       <Separator />
 
@@ -3201,6 +3266,11 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
           <p className="text-sm">{formData.patientFirstName} {formData.patientLastName}</p>
           {formData.patientBirthday && <p className="text-sm text-gray-500">{formData.patientBirthday}</p>}
           {formData.patientPhone && <p className="text-sm text-gray-500">{formData.patientPhone}</p>}
+          {(formData.patientStreet || formData.patientCity) && (
+            <p className="text-sm text-gray-500">
+              {[formData.patientStreet, [formData.patientPostalCode, formData.patientCity].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+            </p>
+          )}
           {formData.referralSource && (
             <p className="text-sm text-gray-500">
               {t("questionnaire.summary.referralSource")}: {t(`questionnaire.personal.referral.${

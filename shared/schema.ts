@@ -3919,7 +3919,10 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   patientBirthday: date("patient_birthday"),
   patientEmail: varchar("patient_email"),
   patientPhone: varchar("patient_phone"),
-  
+  patientStreet: varchar("patient_street"),
+  patientPostalCode: varchar("patient_postal_code"),
+  patientCity: varchar("patient_city"),
+
   // Medical history - patient's own words
   allergies: jsonb("allergies").$type<string[]>(),
   allergiesNotes: text("allergies_notes"),
