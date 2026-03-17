@@ -11,6 +11,11 @@ export interface VentilationData {
   respiratoryRate: VentilationPoint[];
   minuteVolume: VentilationPoint[];
   fiO2: VentilationPoint[];
+  sevofluranInsp: VentilationPoint[];
+  sevofluranExp: VentilationPoint[];
+  desfluranInsp: VentilationPoint[];
+  desfluranExp: VentilationPoint[];
+  mac: VentilationPoint[];
 }
 
 export interface UseVentilationStateReturn {
@@ -38,6 +43,11 @@ export function useVentilationState(initialData?: {
     respiratoryRate: initialData?.ventilation?.respiratoryRate || [],
     minuteVolume: initialData?.ventilation?.minuteVolume || [],
     fiO2: initialData?.ventilation?.fiO2 || [],
+    sevofluranInsp: initialData?.ventilation?.sevofluranInsp || [],
+    sevofluranExp: initialData?.ventilation?.sevofluranExp || [],
+    desfluranInsp: initialData?.ventilation?.desfluranInsp || [],
+    desfluranExp: initialData?.ventilation?.desfluranExp || [],
+    mac: initialData?.ventilation?.mac || [],
   });
 
   const [ventilationModeData, setVentilationModeData] = useState<VentilationModePoint[]>(
@@ -69,6 +79,11 @@ export function useVentilationState(initialData?: {
         respiratoryRate: data.ventilation.respiratoryRate || [],
         minuteVolume: data.ventilation.minuteVolume || [],
         fiO2: data.ventilation.fiO2 || [],
+        sevofluranInsp: data.ventilation.sevofluranInsp || [],
+        sevofluranExp: data.ventilation.sevofluranExp || [],
+        desfluranInsp: data.ventilation.desfluranInsp || [],
+        desfluranExp: data.ventilation.desfluranExp || [],
+        mac: data.ventilation.mac || [],
       });
     }
     if (data.modes !== undefined) {

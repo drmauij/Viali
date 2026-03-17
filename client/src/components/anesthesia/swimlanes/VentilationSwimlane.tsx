@@ -28,6 +28,11 @@ const VENTILATION_PARAM_MAP: { [index: number]: { key: keyof VentilationData; la
   4: { key: 'respiratoryRate', label: 'Respiratory Rate' },
   5: { key: 'minuteVolume', label: 'Minute Volume' },
   6: { key: 'fiO2', label: 'FiO2' },
+  7: { key: 'sevofluranInsp', label: 'Sevo Insp' },
+  8: { key: 'sevofluranExp', label: 'Sevo Exp' },
+  9: { key: 'desfluranInsp', label: 'Des Insp' },
+  10: { key: 'desfluranExp', label: 'Des Exp' },
+  11: { key: 'mac', label: 'MAC' },
 };
 
 /**
@@ -41,6 +46,11 @@ const SNAPSHOT_KEY_MAP: Record<string, string> = {
   respiratoryRate: 'respiratoryRate',
   minuteVolume: 'minuteVolume',
   fiO2: 'fio2',
+  sevofluranInsp: 'sevofluranInsp',
+  sevofluranExp: 'sevofluranExp',
+  desfluranInsp: 'desfluranInsp',
+  desfluranExp: 'desfluranExp',
+  mac: 'mac',
 };
 
 export interface VentilationData {
@@ -51,6 +61,11 @@ export interface VentilationData {
   respiratoryRate: VitalPoint[];
   minuteVolume: VitalPoint[];
   fiO2: VitalPoint[];
+  sevofluranInsp: VitalPoint[];
+  sevofluranExp: VitalPoint[];
+  desfluranInsp: VitalPoint[];
+  desfluranExp: VitalPoint[];
+  mac: VitalPoint[];
 }
 
 export interface VentilationModePoint {
@@ -327,6 +342,11 @@ export function VentilationSwimlane({
           respiratoryRate: 4,
           minuteVolume: 5,
           fiO2: 6,
+          sevofluranInsp: 7,
+          sevofluranExp: 8,
+          desfluranInsp: 9,
+          desfluranExp: 10,
+          mac: 11,
         };
 
         const paramIndex = paramIndexMap[paramKey];
@@ -346,6 +366,11 @@ export function VentilationSwimlane({
           respiratoryRate: 'Respiratory Rate',
           minuteVolume: 'Minute Volume',
           fiO2: 'FiO2',
+          sevofluranInsp: 'Sevo Insp',
+          sevofluranExp: 'Sevo Exp',
+          desfluranInsp: 'Des Insp',
+          desfluranExp: 'Des Exp',
+          mac: 'MAC',
         };
 
         return dataPoints.map((point: VitalPoint, index: number) => {
@@ -618,6 +643,46 @@ export function generateVentilationSeries(
       cursor: 'pointer',
       z: 10,
     });
+  }
+
+  // Add volatile agent series (indices 7-11)
+  const volatileParams: { key: keyof VentilationData; name: string; offset: number }[] = [
+    { key: 'sevofluranInsp', name: 'Sevo Insp', offset: 8 },
+    { key: 'sevofluranExp', name: 'Sevo Exp', offset: 9 },
+    { key: 'desfluranInsp', name: 'Des Insp', offset: 10 },
+    { key: 'desfluranExp', name: 'Des Exp', offset: 11 },
+    { key: 'mac', name: 'MAC', offset: 12 },
+  ];
+
+  for (const vp of volatileParams) {
+    const points = ventilationData[vp.key];
+    if (points?.length > 0) {
+      const paramIndex = ventilationParentIndex + vp.offset;
+      const gridIdx = paramIndex + 1;
+      const valuesMap = new Map(points.map(([time, val]) => [time, val]));
+      const seriesData = points.map(([time, val]) => [time, ""]);
+      series.push({
+        type: 'scatter',
+        name: vp.name,
+        xAxisIndex: gridIdx,
+        yAxisIndex: gridIdx + 1,
+        data: seriesData,
+        symbol: 'none',
+        label: {
+          show: true,
+          formatter: (params: any) => {
+            const timestamp = params.value[0];
+            return valuesMap.get(timestamp)?.toString() || '';
+          },
+          fontSize: 13,
+          fontWeight: '600',
+          fontFamily: modernMonoFont,
+          color: textColor,
+        },
+        cursor: 'pointer',
+        z: 10,
+      });
+    }
   }
 
   return series;

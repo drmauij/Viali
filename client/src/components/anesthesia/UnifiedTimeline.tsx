@@ -1087,6 +1087,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       respiratoryRate: snapshotData?.respiratoryRate || [],
       minuteVolume: snapshotData?.minuteVolume || [],
       fiO2: snapshotData?.fio2 || [],
+      sevofluranInsp: snapshotData?.sevofluranInsp || [],
+      sevofluranExp: snapshotData?.sevofluranExp || [],
+      desfluranInsp: snapshotData?.desfluranInsp || [],
+      desfluranExp: snapshotData?.desfluranExp || [],
+      mac: snapshotData?.mac || [],
     };
     
     const totalPoints = Object.values(ventParams).reduce((sum, arr) => sum + arr.length, 0);
@@ -1120,6 +1125,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         point.value,
       ] as [number, number]),
       fiO2: ventParams.fiO2.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      sevofluranInsp: ventParams.sevofluranInsp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      sevofluranExp: ventParams.sevofluranExp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      desfluranInsp: ventParams.desfluranInsp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      desfluranExp: ventParams.desfluranExp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      mac: ventParams.mac.map((point: any) => [
         new Date(point.timestamp).getTime(),
         point.value,
       ] as [number, number]),
@@ -1872,6 +1897,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     "Respiratory Rate (/min)",
     "Minute Volume (l/min)",
     "FiO2 (%)",
+    "Sevo Insp (Vol%)",
+    "Sevo Exp (Vol%)",
+    "Des Insp (Vol%)",
+    "Des Exp (Vol%)",
+    "MAC",
   ];
 
   // Predefined output parameters list

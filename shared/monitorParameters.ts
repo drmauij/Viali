@@ -261,11 +261,43 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'MAC',
-    aliases: ['MAC', 'Minimum Alveolar Concentration', 'MAC Age', 'Et MAC', 'Fi MAC'],
+    aliases: ['MAC', 'Minimum Alveolar Concentration', 'MAC Age', 'Et MAC', 'Fi MAC', 'MAC Tot'],
     category: 'ventilation',
     unit: '',
     min: 0,
     max: 3
+  },
+  {
+    standardName: 'SevofluranInsp',
+    aliases: ['Sevo Insp', 'Sevofluran Insp', 'Sevoflurane Insp', 'Fi Sevo', 'FiSevo', 'Sev Insp', 'Sevo Fi', 'SEV Insp'],
+    category: 'ventilation',
+    unit: 'Vol%',
+    min: 0,
+    max: 8
+  },
+  {
+    standardName: 'SevofluranExp',
+    aliases: ['Sevo Exp', 'Sevofluran Exp', 'Sevoflurane Exp', 'Et Sevo', 'EtSevo', 'Sev Exp', 'Sevo Et', 'SEV Exp'],
+    category: 'ventilation',
+    unit: 'Vol%',
+    min: 0,
+    max: 8
+  },
+  {
+    standardName: 'DesfluranInsp',
+    aliases: ['Des Insp', 'Desfluran Insp', 'Desflurane Insp', 'Fi Des', 'FiDes', 'DES Insp'],
+    category: 'ventilation',
+    unit: 'Vol%',
+    min: 0,
+    max: 18
+  },
+  {
+    standardName: 'DesfluranExp',
+    aliases: ['Des Exp', 'Desfluran Exp', 'Desflurane Exp', 'Et Des', 'EtDes', 'DES Exp'],
+    category: 'ventilation',
+    unit: 'Vol%',
+    min: 0,
+    max: 18
   },
   {
     standardName: 'InspCO2',

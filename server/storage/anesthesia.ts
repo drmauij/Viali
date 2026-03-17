@@ -2305,13 +2305,18 @@ export async function addBulkVentilationParameters(
     minuteVolume?: number;
     etco2?: number;
     pip?: number;
+    sevofluranInsp?: number;
+    sevofluranExp?: number;
+    desfluranInsp?: number;
+    desfluranExp?: number;
+    mac?: number;
   }
 ): Promise<ClinicalSnapshot> {
   const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
   const data = snapshot.data as any;
-  
+
   const updatedData = { ...data };
-  
+
   if (ventilationMode) {
     const currentModes = data.ventilationModes || [];
     const newModePoint = {
@@ -2319,11 +2324,11 @@ export async function addBulkVentilationParameters(
       timestamp,
       value: ventilationMode,
     };
-    updatedData.ventilationModes = [...currentModes, newModePoint].sort((a, b) => 
+    updatedData.ventilationModes = [...currentModes, newModePoint].sort((a, b) =>
       a.timestamp.localeCompare(b.timestamp)
     );
   }
-  
+
   const vitalTypeMap = {
     peep: 'peep',
     fio2: 'fio2',
@@ -2332,6 +2337,11 @@ export async function addBulkVentilationParameters(
     minuteVolume: 'minuteVolume',
     etco2: 'etco2',
     pip: 'pip',
+    sevofluranInsp: 'sevofluranInsp',
+    sevofluranExp: 'sevofluranExp',
+    desfluranInsp: 'desfluranInsp',
+    desfluranExp: 'desfluranExp',
+    mac: 'mac',
   };
   
   for (const [paramKey, vitalType] of Object.entries(vitalTypeMap)) {
@@ -2373,18 +2383,23 @@ export async function updateBulkVentilationParameters(
     minuteVolume?: number;
     etco2?: number;
     pip?: number;
+    sevofluranInsp?: number;
+    sevofluranExp?: number;
+    desfluranInsp?: number;
+    desfluranExp?: number;
+    mac?: number;
   }
 ): Promise<ClinicalSnapshot> {
   const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
   const data = snapshot.data as any;
-  
-  const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip'];
-  
+
+  const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip', 'sevofluranInsp', 'sevofluranExp', 'desfluranInsp', 'desfluranExp', 'mac'];
+
   const updatedData = { ...data };
-  
+
   for (const vitalType of vitalTypes) {
     const currentPoints = data[vitalType] || [];
-    
+
     const originalTs = new Date(originalTimestamp).getTime();
     const filteredPoints = currentPoints.filter((p: any) => {
       const pointTs = new Date(p.timestamp).getTime();
@@ -2425,10 +2440,10 @@ export async function deleteBulkVentilationParameters(
   const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
   const data = snapshot.data as any;
   
-  const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip'];
-  
+  const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip', 'sevofluranInsp', 'sevofluranExp', 'desfluranInsp', 'desfluranExp', 'mac'];
+
   const updatedData = { ...data };
-  
+
   const targetTs = new Date(timestamp).getTime();
   
   for (const vitalType of vitalTypes) {

@@ -86,6 +86,10 @@ VENTILATION PARAMETERS:
 - CO2 Exp/etCO2/Et → Expired/End-tidal CO2 (15-80 mmHg or 3-8%)
 - O2 Insp/Exp/Fi/Et → Inspired/Expired O2 percentages (21-100%)
 - MAC → Minimum Alveolar Concentration (0-3)
+- Sevo Insp/Fi Sevo → Sevoflurane inspired concentration (0-8 Vol%)
+- Sevo Exp/Et Sevo → Sevoflurane expired/end-tidal concentration (0-8 Vol%)
+- Des Insp/Fi Des → Desflurane inspired concentration (0-18 Vol%)
+- Des Exp/Et Des → Desflurane expired/end-tidal concentration (0-18 Vol%)
 - O2% / FiO2 → Fraction Inspired O2 (21-100%)
 - Fluss/Flow/Gesamt-Flow → Gas flow (0-20 L/min)
 - Freq/AF/RR/RF → Respiratory Rate (4-60 /min)
@@ -114,6 +118,7 @@ CRITICAL EXTRACTION RULES:
 5. For values shown as "AUS" or "OFF" or "---", skip that parameter
 6. Read small text carefully - don't miss Cdyn, Resist, Trigger in right panels
 7. Extract MAC even if 0.0 (it's still a valid parameter)
+9. Extract volatile agent concentrations (Sevoflurane/Desflurane) as separate Insp and Exp values - usually shown in gas measurement area top-left
 8. For BP, also extract MAP if shown in parentheses like "(69)"
 
 Return a JSON object:

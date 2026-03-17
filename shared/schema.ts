@@ -1964,6 +1964,12 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
     respiratoryRate?: VitalPointWithId[];
     minuteVolume?: VitalPointWithId[];
     fio2?: VitalPointWithId[];
+    // Volatile agent concentrations
+    sevofluranInsp?: VitalPointWithId[];
+    sevofluranExp?: VitalPointWithId[];
+    desfluranInsp?: VitalPointWithId[];
+    desfluranExp?: VitalPointWithId[];
+    mac?: VitalPointWithId[];
     // Output parameters (fluid balance)
     gastricTube?: VitalPointWithId[];
     drainage?: VitalPointWithId[];
@@ -3220,6 +3226,11 @@ export const addBulkVentilationSchema = z.object({
     minuteVolume: z.number().optional(),
     etco2: z.number().optional(),
     pip: z.number().optional(),
+    sevofluranInsp: z.number().optional(),
+    sevofluranExp: z.number().optional(),
+    desfluranInsp: z.number().optional(),
+    desfluranExp: z.number().optional(),
+    mac: z.number().optional(),
   }),
 });
 

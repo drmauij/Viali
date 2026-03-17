@@ -1474,6 +1474,9 @@ function drawVentilationSwimlanes(
     { key: "respiratoryRate", label: i18next.t("anesthesia.pdf.rrPerMin"), color: [139, 92, 246] as [number, number, number], unit: "/min" },
     { key: "fio2", label: i18next.t("anesthesia.pdf.fio2Percent"), color: [236, 72, 153] as [number, number, number], unit: "%" },
     { key: "etco2", label: i18next.t("anesthesia.pdf.etco2MmHg"), color: [234, 179, 8] as [number, number, number], unit: "mmHg" },
+    { key: "sevofluranExp", label: "Sevo Exp (Vol%)", color: [168, 85, 247] as [number, number, number], unit: "Vol%" },
+    { key: "desfluranExp", label: "Des Exp (Vol%)", color: [244, 114, 182] as [number, number, number], unit: "Vol%" },
+    { key: "mac", label: "MAC", color: [107, 114, 128] as [number, number, number], unit: "" },
   ];
 
   // Check if we have any ventilation data

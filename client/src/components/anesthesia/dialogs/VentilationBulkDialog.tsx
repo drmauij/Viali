@@ -17,6 +17,11 @@ interface PendingVentilationBulk {
     fio2?: number;
     etco2?: number;
     minuteVolume?: number;
+    sevofluranInsp?: number;
+    sevofluranExp?: number;
+    desfluranInsp?: number;
+    desfluranExp?: number;
+    mac?: number;
   };
 }
 
@@ -67,6 +72,11 @@ export function VentilationBulkDialog({
     minuteVolume: "",
     etCO2: "",
     pip: "",
+    sevofluranInsp: "",
+    sevofluranExp: "",
+    desfluranInsp: "",
+    desfluranExp: "",
+    mac: "",
   });
 
   useEffect(() => {
@@ -82,6 +92,11 @@ export function VentilationBulkDialog({
         minuteVolume: "",
         etCO2: "",
         pip: "",
+        sevofluranInsp: "",
+        sevofluranExp: "",
+        desfluranInsp: "",
+        desfluranExp: "",
+        mac: "",
       });
     } else {
       // Initialize time from pending data
@@ -102,6 +117,11 @@ export function VentilationBulkDialog({
               fiO2: params.fio2 !== undefined ? params.fio2.toString() : "",
               etCO2: params.etco2 !== undefined ? params.etco2.toString() : "",
               minuteVolume: params.minuteVolume !== undefined ? params.minuteVolume.toString() : "",
+              sevofluranInsp: params.sevofluranInsp !== undefined ? params.sevofluranInsp.toString() : "",
+              sevofluranExp: params.sevofluranExp !== undefined ? params.sevofluranExp.toString() : "",
+              desfluranInsp: params.desfluranInsp !== undefined ? params.desfluranInsp.toString() : "",
+              desfluranExp: params.desfluranExp !== undefined ? params.desfluranExp.toString() : "",
+              mac: params.mac !== undefined ? params.mac.toString() : "",
             });
             return; // Skip default calculation when editing with actual values
           }
@@ -146,6 +166,11 @@ export function VentilationBulkDialog({
       if (bulkVentilationParams.minuteVolume) parameters.minuteVolume = parseFloat(bulkVentilationParams.minuteVolume);
       if (bulkVentilationParams.etCO2) parameters.etco2 = parseFloat(bulkVentilationParams.etCO2);
       if (bulkVentilationParams.pip) parameters.pip = parseFloat(bulkVentilationParams.pip);
+      if (bulkVentilationParams.sevofluranInsp) parameters.sevofluranInsp = parseFloat(bulkVentilationParams.sevofluranInsp);
+      if (bulkVentilationParams.sevofluranExp) parameters.sevofluranExp = parseFloat(bulkVentilationParams.sevofluranExp);
+      if (bulkVentilationParams.desfluranInsp) parameters.desfluranInsp = parseFloat(bulkVentilationParams.desfluranInsp);
+      if (bulkVentilationParams.desfluranExp) parameters.desfluranExp = parseFloat(bulkVentilationParams.desfluranExp);
+      if (bulkVentilationParams.mac) parameters.mac = parseFloat(bulkVentilationParams.mac);
       
       // Determine ventilation mode (skip if skipModeSelection is true)
       let modeValue = null;
@@ -331,6 +356,75 @@ export function VentilationBulkDialog({
                 disabled={readOnly}
               />
             </div>
+            {/* Volatile Agents */}
+            <div className="col-span-2 border-t pt-3 mt-1">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Volatile Agents</Label>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-sevo-insp">Sevo Insp (Vol%)</Label>
+              <Input
+                id="bulk-sevo-insp"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.sevofluranInsp}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, sevofluranInsp: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-sevo-insp"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-sevo-exp">Sevo Exp (Vol%)</Label>
+              <Input
+                id="bulk-sevo-exp"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.sevofluranExp}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, sevofluranExp: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-sevo-exp"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-des-insp">Des Insp (Vol%)</Label>
+              <Input
+                id="bulk-des-insp"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.desfluranInsp}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, desfluranInsp: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-des-insp"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-des-exp">Des Exp (Vol%)</Label>
+              <Input
+                id="bulk-des-exp"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.desfluranExp}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, desfluranExp: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-des-exp"
+                disabled={readOnly}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-mac">MAC</Label>
+              <Input
+                id="bulk-mac"
+                type="number"
+                step="0.1"
+                value={bulkVentilationParams.mac}
+                onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, mac: e.target.value }))}
+                placeholder="Optional"
+                data-testid="input-bulk-mac"
+                disabled={readOnly}
+              />
+            </div>
           </div>
         ) : isSpontaneousBreathing ? (
           // Spontaneous breathing mode - only show O2 flow and etCO2
@@ -465,6 +559,75 @@ export function VentilationBulkDialog({
                   onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
                   placeholder="Optional"
                   data-testid="input-bulk-pip"
+                  disabled={readOnly}
+                />
+              </div>
+              {/* Volatile Agents */}
+              <div className="col-span-2 border-t pt-3 mt-1">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Volatile Agents</Label>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-sevo-insp-2">Sevo Insp (Vol%)</Label>
+                <Input
+                  id="bulk-sevo-insp-2"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.sevofluranInsp}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, sevofluranInsp: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-sevo-insp"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-sevo-exp-2">Sevo Exp (Vol%)</Label>
+                <Input
+                  id="bulk-sevo-exp-2"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.sevofluranExp}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, sevofluranExp: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-sevo-exp"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-des-insp-2">Des Insp (Vol%)</Label>
+                <Input
+                  id="bulk-des-insp-2"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.desfluranInsp}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, desfluranInsp: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-des-insp"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-des-exp-2">Des Exp (Vol%)</Label>
+                <Input
+                  id="bulk-des-exp-2"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.desfluranExp}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, desfluranExp: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-des-exp"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-mac-2">MAC</Label>
+                <Input
+                  id="bulk-mac-2"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.mac}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, mac: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-mac"
                   disabled={readOnly}
                 />
               </div>

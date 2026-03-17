@@ -339,6 +339,11 @@ export function useTimelineDataSync(
       respiratoryRate: snapshotData?.respiratoryRate || [],
       minuteVolume: snapshotData?.minuteVolume || [],
       fiO2: snapshotData?.fio2 || [],
+      sevofluranInsp: (snapshotData as any)?.sevofluranInsp || [],
+      sevofluranExp: (snapshotData as any)?.sevofluranExp || [],
+      desfluranInsp: (snapshotData as any)?.desfluranInsp || [],
+      desfluranExp: (snapshotData as any)?.desfluranExp || [],
+      mac: (snapshotData as any)?.mac || [],
     };
 
     const totalPoints = Object.values(ventParams).reduce((sum, arr) => sum + arr.length, 0);
@@ -372,6 +377,26 @@ export function useTimelineDataSync(
         point.value,
       ] as [number, number]),
       fiO2: ventParams.fiO2.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      sevofluranInsp: ventParams.sevofluranInsp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      sevofluranExp: ventParams.sevofluranExp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      desfluranInsp: ventParams.desfluranInsp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      desfluranExp: ventParams.desfluranExp.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      mac: ventParams.mac.map((point: any) => [
         new Date(point.timestamp).getTime(),
         point.value,
       ] as [number, number]),
