@@ -214,15 +214,14 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
         const isOthersParent = lane.id === "others";
         const isVentChild = lane.id.startsWith("ventilation-");
         const isOutputChild = lane.id.startsWith("output-");
-        const isOthersChild = lane.id === "bis";
-        const isTofLane = lane.id === "tof";
+        const isOthersChild = lane.id === "bis" || lane.id === "tof" || lane.id === "pk-prediction";
 
         // Only the main parent swimlanes are collapsible
         const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
 
         // Determine styling based on hierarchyLevel field
         let labelClass = "";
-        if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || isTofLane || lane.id === "herzrhythmus" || lane.id === "position") {
+        if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
           // Level 1: Main parent swimlanes (collapsible)
           labelClass = "text-sm font-semibold";
         } else if (swimlaneConfig?.hierarchyLevel === 'group') {
