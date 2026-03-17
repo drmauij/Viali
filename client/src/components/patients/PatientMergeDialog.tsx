@@ -89,7 +89,7 @@ const TABLE_LABELS: Record<string, string> = {
   inventory_commits: "Inventory",
 };
 
-const MERGEABLE_FIELDS = new Set(["allergies", "internalNotes", "otherAllergies"]);
+const MERGEABLE_FIELDS = new Set(["allergies", "internalNotes"]);
 
 function formatFieldValue(value: any): string {
   if (value == null || value === "") return "(empty)";

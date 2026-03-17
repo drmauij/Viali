@@ -32,6 +32,18 @@ const via = (fk: string, parent: string): HospitalFilter => ({
   parent,
 });
 
+const via2 = (
+  fk: string,
+  mid: string,
+  midFk: string,
+  parent: string,
+): HospitalFilter => ({
+  via2: fk,
+  mid,
+  midVia: midFk,
+  parent,
+});
+
 export const PATIENT_FK_REFS: FkRef[] = [
   // Cascade FK (notNull)
   { table: "patient_documents", column: "patient_id", filter: "direct" },
@@ -41,7 +53,7 @@ export const PATIENT_FK_REFS: FkRef[] = [
     column: "patient_id",
     filter: "direct",
   },
-  { table: "patient_notes", column: "patient_id", filter: "direct" },
+  { table: "patient_notes", column: "patient_id", filter: null },
   { table: "patient_messages", column: "patient_id", filter: "direct" },
   { table: "patient_chat_archives", column: "patient_id", filter: "direct" },
   {
@@ -55,12 +67,12 @@ export const PATIENT_FK_REFS: FkRef[] = [
   {
     table: "chat_mentions",
     column: "mentioned_patient_id",
-    filter: via("conversation_id", "chat_conversations"),
+    filter: via2("message_id", "chat_messages", "conversation_id", "chat_conversations"),
   },
   {
     table: "chat_attachments",
     column: "saved_to_patient_id",
-    filter: via("conversation_id", "chat_conversations"),
+    filter: via2("message_id", "chat_messages", "conversation_id", "chat_conversations"),
   },
   { table: "clinic_invoices", column: "patient_id", filter: "direct" },
   {
@@ -560,7 +572,7 @@ export async function undoPatientMerge(
       try {
         // Re-insert using raw SQL to preserve all original columns
         await tx.execute(
-          sql`INSERT INTO "patient_chat_archives" (id, patient_id, hospital_id, conversation_id, messages, archived_at, created_at) VALUES (${row.id}, ${row.patient_id}, ${row.hospital_id}, ${row.conversation_id}, ${row.messages}::jsonb, ${row.archived_at}, ${row.created_at})`
+          sql`INSERT INTO "patient_chat_archives" (id, hospital_id, patient_id, archived_by, archived_at) VALUES (${row.id}, ${row.hospital_id}, ${row.patient_id}, ${row.archived_by}, ${row.archived_at})`
         );
       } catch (err) {
         logger.warn(
