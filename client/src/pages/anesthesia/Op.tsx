@@ -1249,16 +1249,17 @@ export default function Op() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <UnifiedTimeline 
+                <UnifiedTimeline
                   ref={timelineRef}
-                  data={timelineData} 
-                  now={new Date().getTime()} 
+                  data={timelineData}
+                  now={new Date().getTime()}
                   patientWeight={patientWeight}
                   anesthesiaRecordId={anesthesiaRecord?.id}
                   anesthesiaRecord={anesthesiaRecord}
                   openEventsPanel={openEventsPanel}
                   onEventsPanelChange={setOpenEventsPanel}
                   isPacuMode={isPacuMode}
+                  patientData={patient ? { birthday: (patient as any).birthday, sex: (patient as any).sex } : null}
                 />
               )}
             </div>

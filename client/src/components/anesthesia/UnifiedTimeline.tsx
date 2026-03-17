@@ -138,6 +138,8 @@ import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 import { BISSwimlane } from "./swimlanes/BISSwimlane";
 import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
+import { usePKSimulation } from "@/hooks/usePKSimulation";
+import { PKPredictionSwimlane } from "./swimlanes/PKPredictionSwimlane";
 import { VASSwimlane } from "./swimlanes/VASSwimlane";
 import { ScoresSwimlane } from "./swimlanes/ScoresSwimlane";
 import { VASDialog } from "./dialogs/VASDialog";
@@ -159,6 +161,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   openEventsPanel?: boolean;
   onEventsPanelChange?: (open: boolean) => void;
   isPacuMode?: boolean;
+  patientData?: { birthday?: string | null; sex?: string | null } | null;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -170,6 +173,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   openEventsPanel, // External trigger to open events panel
   onEventsPanelChange, // Callback when events panel state changes
   isPacuMode = false, // PACU mode: show VAS and Scores instead of TOF
+  patientData, // Patient birthday/sex for PK simulation
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -650,7 +654,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setOutputData,
     resetOutputData,
   } = useOutputState();
-  
+
   // Refs for edit mode to avoid recreating event listeners
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
@@ -1638,6 +1642,27 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return grouped;
   }, [anesthesiaItems]);
 
+  // PK Simulation for TIVA cases (auto-detects TCI medications)
+  const swimlaneRateUnits = useMemo(() => {
+    const units: Record<string, string | null | undefined> = {};
+    for (const [groupId, items] of Object.entries(itemsByAdminGroup)) {
+      for (const item of items) {
+        const swimlaneId = `admingroup-${groupId}-item-${item.id}`;
+        units[swimlaneId] = item.rateUnit ?? null;
+      }
+    }
+    return units;
+  }, [itemsByAdminGroup]);
+
+  const pkSimulation = usePKSimulation(
+    patientData ?? null,
+    anesthesiaRecord ?? null,
+    rateInfusionSessions,
+    swimlaneRateUnits,
+    anesthesiaRecordId ?? null,
+    data.startTime,
+  );
+
   // Calculate max tracks needed for each free-flow swimlane
   const swimlaneTrackCounts = useMemo(() => {
     const trackCounts: Record<string, number> = {};
@@ -1748,16 +1773,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
-    // Monitoring (was "Others") — moved up after Events for BIS + PK visibility
+    // Monitoring (was "Others") — contains BIS, TOF, PK Predict
     { id: "others", label: t("anesthesia.timeline.monitoring", "Monitoring"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
-    // Conditionally show TOF (OR mode) or VAS/Scores (PACU mode)
+    // PACU mode: VAS/Scores after Monitoring
     ...(isPacuMode ? [
       { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
       { id: "scores", label: t("anesthesia.timeline.scoresLabel", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
-    ] : [
-      { id: "tof", label: "TOF", height: 38, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
-    ]),
-    // Administration group lanes will be inserted dynamically after TOF or Scores
+    ] : []),
+    // Administration group lanes will be inserted dynamically
     { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm.label"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
     { id: "position", label: t("anesthesia.timeline.position.label"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation.label"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
@@ -1775,9 +1798,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert single "Medications" parent lane after TOF/Scores (before Heart Rhythm)
-      // In PACU mode, insert after Scores; in OR mode, insert after TOF
-      if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "tof")) {
+      // Insert single "Medications" parent lane after Monitoring/Scores (before Heart Rhythm)
+      // In PACU mode, insert after Scores; in OR mode, insert after Monitoring (others)
+      if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "others")) {
         // Add single "Medications" parent lane
         lanes.push({
           id: "medikamente",
@@ -1867,26 +1890,41 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         });
       }
 
-      // Insert BIS child after Others parent (if not collapsed)
-      // Note: TOF is now a standalone swimlane after Events
+      // Insert Monitoring children: BIS, TOF, PK Predict (if not collapsed)
       if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
         const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
-        const othersParams = ["BIS"];
-        othersParams.forEach((paramName) => {
+        // BIS — always shown
+        lanes.push({
+          id: "bis",
+          label: "  BIS",
+          height: 38,
+          ...othersColor,
+        });
+        // TOF — shown in OR mode only
+        if (!isPacuMode) {
           lanes.push({
-            id: paramName.toLowerCase(),
-            label: `  ${paramName}`,
+            id: "tof",
+            label: "  TOF",
             height: 38,
             ...othersColor,
           });
-        });
+        }
+        // PK Predict — only when TCI active and not dismissed
+        if (pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0) {
+          lanes.push({
+            id: "pk-prediction",
+            label: "  PK Predict",
+            height: 55,
+            ...othersColor,
+          });
+        }
       }
     }
     
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.isActive, pkSimulation.isDismissed, pkSimulation.missingFields.length]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
@@ -5775,7 +5813,29 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setPendingBIS(null);
           setShowBISDialog(true);
         }}
+        eBISTimeSeries={
+          pkSimulation.isActive && !pkSimulation.isDismissed
+            ? pkSimulation.pkTimeSeries
+                .filter(pt => pt.eBIS !== null)
+                .map(pt => ({ timestamp: pt.timestamp, value: pt.eBIS! }))
+            : undefined
+        }
+        visibleStart={currentZoomStart ?? data.startTime}
+        visibleEnd={currentZoomEnd ?? data.endTime}
       />
+
+      {/* PKPredictionSwimlane - PK curves for TIVA cases */}
+      {pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0 && (
+        <PKPredictionSwimlane
+          swimlanePositions={swimlanePositions}
+          pkTimeSeries={pkSimulation.pkTimeSeries}
+          currentValues={pkSimulation.currentValues}
+          visibleStart={currentZoomStart ?? data.startTime}
+          visibleEnd={currentZoomEnd ?? data.endTime}
+          isDark={isDark}
+          onDismiss={pkSimulation.dismiss}
+        />
+      )}
 
       {/* TOFSwimlane Component - Interactive layer and rendering for TOF monitoring (OR mode only) */}
       {!isPacuMode && (

@@ -9,12 +9,15 @@ export interface BISSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
   isTouchDevice: boolean;
   onBISDialogOpen: (pending: { time: number }) => void;
-  onBISEditDialogOpen: (editing: { 
-    id: string; 
-    time: number; 
-    value: number; 
+  onBISEditDialogOpen: (editing: {
+    id: string;
+    time: number;
+    value: number;
     index: number;
   }) => void;
+  eBISTimeSeries?: Array<{ timestamp: number; value: number }>;
+  visibleStart?: number;
+  visibleEnd?: number;
 }
 
 export function BISSwimlane({
@@ -22,6 +25,9 @@ export function BISSwimlane({
   isTouchDevice,
   onBISDialogOpen,
   onBISEditDialogOpen,
+  eBISTimeSeries,
+  visibleStart: propVisibleStart,
+  visibleEnd: propVisibleEnd,
 }: BISSwimlaneProps) {
   const { t } = useTranslation();
   const {
@@ -148,6 +154,51 @@ export function BISSwimlane({
           </div>
         );
       })}
+
+      {/* eBIS prediction overlay — dashed red line */}
+      {eBISTimeSeries && eBISTimeSeries.length > 0 && bisLane && (() => {
+        const vStart = propVisibleStart ?? visibleStart;
+        const vEnd = propVisibleEnd ?? visibleEnd;
+        const range = vEnd - vStart;
+        if (range <= 0) return null;
+
+        const points = eBISTimeSeries
+          .filter(pt => pt.timestamp >= vStart && pt.timestamp <= vEnd)
+          .map(pt => {
+            const xFrac = (pt.timestamp - vStart) / range;
+            const yFrac = 1 - (pt.value / 100);
+            return `${xFrac * 100},${yFrac * 100}`;
+          })
+          .join(" ");
+
+        if (!points) return null;
+
+        return (
+          <svg
+            style={{
+              position: "absolute",
+              top: `${bisLane.top}px`,
+              left: "200px",
+              right: "10px",
+              height: `${bisLane.height}px`,
+              pointerEvents: "none",
+              overflow: "visible",
+            }}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <polyline
+              points={points}
+              stroke="#f87171"
+              strokeWidth="1.5"
+              fill="none"
+              strokeDasharray="4,3"
+              opacity={0.6}
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        );
+      })()}
     </>
   );
 }
