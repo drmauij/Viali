@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, activities, chopProcedures, hinArticles, items, itemCodes, supplierCodes } from "@shared/schema";
+import { users, userHospitalRoles, activities, chopProcedures, hinArticles, items, itemCodes, supplierCodes, patientMerges } from "@shared/schema";
 import { importChopProcedures } from "../scripts/importChop";
 import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
 import * as XLSX from 'xlsx';
@@ -2078,6 +2078,33 @@ router.post('/api/admin/:hospitalId/patient-merge/execute', isAuthenticated, isA
   } catch (error: any) {
     logger.error("[Admin] Patient merge execution error:", error);
     res.status(500).json({ message: "Failed to execute patient merge", error: error.message });
+  }
+});
+
+// GET /api/admin/:hospitalId/patient-merges -- Look up merge records (by secondaryPatientId)
+router.get('/api/admin/:hospitalId/patient-merges', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { secondaryPatientId } = req.query;
+    if (!secondaryPatientId) {
+      return res.status(400).json({ message: "secondaryPatientId query param required" });
+    }
+    const merges = await db
+      .select()
+      .from(patientMerges)
+      .where(
+        and(
+          eq(patientMerges.hospitalId, hospitalId),
+          eq(patientMerges.secondaryPatientId, secondaryPatientId as string),
+          eq(patientMerges.status, "completed"),
+        )
+      )
+      .orderBy(desc(patientMerges.createdAt))
+      .limit(1);
+    res.json(merges);
+  } catch (error: any) {
+    logger.error("[Admin] Patient merges lookup error:", error);
+    res.status(500).json({ message: "Failed to look up patient merges", error: error.message });
   }
 });
 

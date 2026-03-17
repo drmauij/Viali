@@ -197,6 +197,7 @@ export default function PatientDetail() {
   const isAdmin = activeHospital?.role === "admin";
   const [archiveSurgeryConfirmText, setArchiveSurgeryConfirmText] = useState("");
   const [archivePatientConfirmText, setArchivePatientConfirmText] = useState("");
+  const [undoingMerge, setUndoingMerge] = useState(false);
 
   // Keep preOpSurgery query here so derivedPatientId can be computed before usePatientQueries
   const { data: preOpSurgery, isLoading: isLoadingPreOpSurgery } = useQuery<Surgery>({
@@ -1940,6 +1941,48 @@ export default function PatientDetail() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Merge Undo Banner — shown to admins when this patient was involved in a merge */}
+            {isAdmin && patient.internalNotes && /\[Merged into .+\(([a-f0-9-]+)\) on .+\]/.test(patient.internalNotes) && (
+              <div className="flex items-center gap-3 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30">
+                <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-500">This patient was merged into another record</p>
+                  <p className="text-xs text-muted-foreground">Associated data was moved to the primary patient. You can undo this merge to restore both records.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={undoingMerge}
+                  onClick={async () => {
+                    try {
+                      setUndoingMerge(true);
+                      // Find the merge record for this patient (as secondary)
+                      const hospitalId = activeHospital?.id;
+                      if (!hospitalId) return;
+                      const res = await apiRequest("GET", `/api/admin/${hospitalId}/patient-merges?secondaryPatientId=${patient.id}`);
+                      const merges = await res.json();
+                      if (!merges?.length) {
+                        toast({ title: "No merge record found", description: "The merge audit record could not be found.", variant: "destructive" });
+                        return;
+                      }
+                      const merge = merges[0];
+                      await apiRequest("POST", `/api/admin/${hospitalId}/patient-merge/undo/${merge.id}`);
+                      toast({ title: "Merge undone", description: "Both patient records have been restored." });
+                      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] });
+                      queryClient.invalidateQueries({ queryKey: [`/api/patients`] });
+                    } catch (err: any) {
+                      toast({ title: "Undo failed", description: err.message || "Could not undo the merge.", variant: "destructive" });
+                    } finally {
+                      setUndoingMerge(false);
+                    }
+                  }}
+                >
+                  {undoingMerge ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Undo Merge
+                </Button>
               </div>
             )}
 
