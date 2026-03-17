@@ -1797,9 +1797,40 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
-      
-      // Insert single "Medications" parent lane after Monitoring/Scores (before Heart Rhythm)
-      // In PACU mode, insert after Scores; in OR mode, insert after Monitoring (others)
+
+      // Insert Monitoring children: BIS, TOF, PK Predict (if not collapsed)
+      // Must come BEFORE Medications insertion so children appear under Monitoring parent
+      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
+        const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
+        // BIS — always shown
+        lanes.push({
+          id: "bis",
+          label: "  BIS",
+          height: 38,
+          ...othersColor,
+        });
+        // TOF — shown in OR mode only
+        if (!isPacuMode) {
+          lanes.push({
+            id: "tof",
+            label: "  TOF",
+            height: 38,
+            ...othersColor,
+          });
+        }
+        // PK Predict — only when TCI active and not dismissed
+        if (pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0) {
+          lanes.push({
+            id: "pk-prediction",
+            label: "  PK Predict",
+            height: 55,
+            ...othersColor,
+          });
+        }
+      }
+
+      // Insert single "Medications" parent lane after Monitoring children/Scores (before Heart Rhythm)
+      // In PACU mode, insert after Scores; in OR mode, insert after Monitoring (others) + its children
       if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "others")) {
         // Add single "Medications" parent lane
         lanes.push({
@@ -1890,35 +1921,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         });
       }
 
-      // Insert Monitoring children: BIS, TOF, PK Predict (if not collapsed)
-      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
-        const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
-        // BIS — always shown
-        lanes.push({
-          id: "bis",
-          label: "  BIS",
-          height: 38,
-          ...othersColor,
-        });
-        // TOF — shown in OR mode only
-        if (!isPacuMode) {
-          lanes.push({
-            id: "tof",
-            label: "  TOF",
-            height: 38,
-            ...othersColor,
-          });
-        }
-        // PK Predict — only when TCI active and not dismissed
-        if (pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0) {
-          lanes.push({
-            id: "pk-prediction",
-            label: "  PK Predict",
-            height: 55,
-            ...othersColor,
-          });
-        }
-      }
     }
     
     return lanes;
