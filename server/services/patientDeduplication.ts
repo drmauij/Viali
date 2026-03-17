@@ -279,7 +279,7 @@ export async function findPatientDuplicates(
         seen.add(pairKey);
 
         const reasons: string[] = ["Exact name match", "Different birthday — verify"];
-        let confidence = 0.75; // lower than same-birthday match
+        let confidence = 0.55; // low — same name across clinics isn't rare, but worth checking
 
         // Boost signals
         if (pi.phone && pj.phone && pi.phone.replace(/\s+/g, "") === pj.phone.replace(/\s+/g, "")) {
@@ -315,7 +315,7 @@ export async function findPatientDuplicates(
       seen.add(pairKey);
 
       const reasons: string[] = ["Name/surname swapped", "Different birthday — verify"];
-      let confidence = 0.7;
+      let confidence = 0.5;
 
       if (p.phone && other.phone && p.phone.replace(/\s+/g, "") === other.phone.replace(/\s+/g, "")) {
         confidence = Math.min(1.0, confidence + 0.05);
