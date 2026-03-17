@@ -274,7 +274,9 @@ export async function findPatientDuplicates(
     if (group.length < 2) continue;
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
-        const pairKey = [group[i].id, group[j].id].sort().join(":");
+        const pi = group[i]!;
+        const pj = group[j]!;
+        const pairKey = [pi.id, pj.id].sort().join(":");
         if (seen.has(pairKey)) continue;
         seen.add(pairKey);
 
@@ -287,8 +289,8 @@ export async function findPatientDuplicates(
         reasons.push(`Matching ${label}`);
 
         // Boost signals
-        const phoneI = group[i].phone;
-        const phoneJ = group[j].phone;
+        const phoneI = pi.phone;
+        const phoneJ = pj.phone;
         if (
           phoneI &&
           phoneJ &&
@@ -299,8 +301,8 @@ export async function findPatientDuplicates(
           reasons.push("Matching phone number");
         }
 
-        const emailI = group[i].email;
-        const emailJ = group[j].email;
+        const emailI = pi.email;
+        const emailJ = pj.email;
         if (
           emailI &&
           emailJ &&
@@ -311,8 +313,8 @@ export async function findPatientDuplicates(
         }
 
         pairs.push({
-          patient1: toSummary(group[i]),
-          patient2: toSummary(group[j]),
+          patient1: toSummary(pi),
+          patient2: toSummary(pj),
           confidence: Math.round(confidence * 100) / 100,
           reasons,
         });
