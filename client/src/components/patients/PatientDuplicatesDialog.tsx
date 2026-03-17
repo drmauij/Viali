@@ -179,32 +179,28 @@ export default function PatientDuplicatesDialog({
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 flex items-center gap-1">
-                        <PatientLabel patient={pair.patient1} isPrimary={patient1IsPrimary} />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                          title={`Archive ${pair.patient1.surname} ${pair.patient1.firstName}`}
-                          onClick={() => setDeleteTarget(pair.patient1)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <PatientLabel patient={pair.patient1} isPrimary={patient1IsPrimary} />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        title={`Archive ${pair.patient1.surname} ${pair.patient1.firstName}`}
+                        onClick={() => setDeleteTarget(pair.patient1)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 flex items-center gap-1">
-                        <PatientLabel patient={pair.patient2} isPrimary={!patient1IsPrimary} />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                          title={`Archive ${pair.patient2.surname} ${pair.patient2.firstName}`}
-                          onClick={() => setDeleteTarget(pair.patient2)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <PatientLabel patient={pair.patient2} isPrimary={!patient1IsPrimary} />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        title={`Archive ${pair.patient2.surname} ${pair.patient2.firstName}`}
+                        onClick={() => setDeleteTarget(pair.patient2)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {pair.reasons.map((r, i) => (
