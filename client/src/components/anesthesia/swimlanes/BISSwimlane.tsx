@@ -155,23 +155,27 @@ export function BISSwimlane({
         );
       })}
 
-      {/* eBIS prediction overlay — dashed red line */}
+      {/* eBIS prediction overlay — dashed red line, uses SAME positioning as BIS dots */}
       {eBISTimeSeries && eBISTimeSeries.length > 0 && bisLane && (() => {
-        const vStart = propVisibleStart ?? visibleStart;
-        const vEnd = propVisibleEnd ?? visibleEnd;
-        const range = vEnd - vStart;
+        // Use exact same coordinate system as BIS measured dots (lines 120-155)
+        const range = visibleRange;
         if (range <= 0) return null;
 
-        const points = eBISTimeSeries
-          .filter(pt => pt.timestamp >= vStart && pt.timestamp <= vEnd)
+        const visible = eBISTimeSeries.filter(pt => {
+          const xFrac = (pt.timestamp - visibleStart) / range;
+          return xFrac >= -0.02 && xFrac <= 1.02;
+        });
+
+        if (visible.length < 2) return null;
+
+        // Build SVG points using same xFraction formula as BIS dots
+        const svgPoints = visible
           .map(pt => {
-            const xFrac = (pt.timestamp - vStart) / range;
-            const yFrac = 1 - (pt.value / 100);
-            return `${xFrac * 100},${yFrac * 100}`;
+            const xFrac = (pt.timestamp - visibleStart) / range;
+            const yFrac = 1 - (pt.value / 100); // 0=top (BIS 100), 1=bottom (BIS 0)
+            return `${(xFrac * 100).toFixed(3)},${(yFrac * 100).toFixed(3)}`;
           })
           .join(" ");
-
-        if (!points) return null;
 
         return (
           <svg
@@ -179,21 +183,21 @@ export function BISSwimlane({
               position: "absolute",
               top: `${bisLane.top}px`,
               left: "200px",
-              right: "10px",
+              width: "calc(100% - 210px)",
               height: `${bisLane.height}px`,
               pointerEvents: "none",
-              overflow: "visible",
+              overflow: "hidden",
             }}
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
             <polyline
-              points={points}
+              points={svgPoints}
               stroke="#f87171"
-              strokeWidth="1.5"
+              strokeWidth="2.5"
               fill="none"
-              strokeDasharray="4,3"
-              opacity={0.6}
+              strokeDasharray="6,3"
+              opacity={0.9}
               vectorEffect="non-scaling-stroke"
             />
           </svg>

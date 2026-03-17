@@ -62,6 +62,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
@@ -138,7 +139,7 @@ import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 import { BISSwimlane } from "./swimlanes/BISSwimlane";
 import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
-import { usePKSimulation } from "@/hooks/usePKSimulation";
+import { usePKSimulation, type SwimlaneMetadata } from "@/hooks/usePKSimulation";
 import { PKPredictionSwimlane } from "./swimlanes/PKPredictionSwimlane";
 import { VASSwimlane } from "./swimlanes/VASSwimlane";
 import { ScoresSwimlane } from "./swimlanes/ScoresSwimlane";
@@ -149,6 +150,110 @@ import type { EventComment, AnesthesiaTimeMarker } from "@/hooks/useEventState";
 
 export type { VitalPoint, TimelineVitals, TimelineEvent, InfusionSegment, InfusionSession, UnifiedTimelineData, SwimlaneConfig, ChartExportResult, SwimlaneExportResult, UnifiedTimelineRef } from "./unifiedTimeline";
 export { ANESTHESIA_TIME_MARKERS } from "./unifiedTimeline";
+
+// ── PK Covariate Quick-Entry Dialog ─────────────────────
+function PKCovariateDialog({
+  open,
+  onOpenChange,
+  missingFields,
+  currentWeight,
+  currentHeight,
+  onSave,
+  t,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  missingFields: string[];
+  currentWeight: string | null;
+  currentHeight: string | null;
+  onSave: (data: { weight?: string; height?: string }) => Promise<void>;
+  t: TFunction;
+}) {
+  const [weight, setWeight] = useState(currentWeight ?? "");
+  const [height, setHeight] = useState(currentHeight ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const needsWeight = missingFields.includes("weight");
+  const needsHeight = missingFields.includes("height");
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const data: { weight?: string; height?: string } = {};
+      if (needsWeight && weight) data.weight = weight;
+      if (needsHeight && height) data.height = height;
+      await onSave(data);
+      onOpenChange(false);
+    } catch {
+      // error handled by parent
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSave = (needsWeight ? !!weight : true) && (needsHeight ? !!height : true);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[320px]">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            {t("anesthesia.pk.covariateDialogTitle", "Patient data for PK")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {needsWeight && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="pk-weight" className="text-sm">
+                {t("anesthesia.pk.weight", "Weight (kg)")}
+              </Label>
+              <Input
+                id="pk-weight"
+                type="number"
+                min="1"
+                max="300"
+                step="0.1"
+                placeholder="70"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                autoFocus={needsWeight}
+                onKeyDown={(e) => e.key === "Enter" && canSave && handleSave()}
+              />
+            </div>
+          )}
+          {needsHeight && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="pk-height" className="text-sm">
+                {t("anesthesia.pk.height", "Height (cm)")}
+              </Label>
+              <Input
+                id="pk-height"
+                type="number"
+                min="50"
+                max="250"
+                step="1"
+                placeholder="170"
+                value={height}
+                onChange={(e) => setHeight(e.target.value)}
+                autoFocus={!needsWeight && needsHeight}
+                onKeyDown={(e) => e.key === "Enter" && canSave && handleSave()}
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            {t("common.cancel", "Cancel")}
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={!canSave || saving}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {t("common.save", "Save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   data: UnifiedTimelineData;
@@ -162,6 +267,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   onEventsPanelChange?: (open: boolean) => void;
   isPacuMode?: boolean;
   patientData?: { birthday?: string | null; sex?: string | null } | null;
+  patientCovariateData?: { weight?: string | null; height?: string | null } | null;
+  onSaveCovariates?: (data: { weight?: string; height?: string }) => Promise<void>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -174,6 +281,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   onEventsPanelChange, // Callback when events panel state changes
   isPacuMode = false, // PACU mode: show VAS and Scores instead of TOF
   patientData, // Patient birthday/sex for PK simulation
+  patientCovariateData, // Patient weight/height from preOp assessment for PK simulation
+  onSaveCovariates, // Callback to save missing weight/height to preOp assessment
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -494,6 +603,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   
   // State for medication reorder mode
   const [isReorderMode, setIsReorderMode] = useState(false);
+
+  // State for PK covariate quick-entry dialog
+  const [showPKCovariateDialog, setShowPKCovariateDialog] = useState(false);
   
   // Use custom hook for medication state management
   const {
@@ -1642,23 +1754,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return grouped;
   }, [anesthesiaItems]);
 
-  // PK Simulation for TIVA cases (auto-detects TCI medications)
-  const swimlaneRateUnits = useMemo(() => {
-    const units: Record<string, string | null | undefined> = {};
+  // PK Simulation — build metadata map (rateUnit + ampuleTotalContent per swimlane)
+  const swimlaneMetadata = useMemo(() => {
+    const meta: Record<string, SwimlaneMetadata> = {};
     for (const [groupId, items] of Object.entries(itemsByAdminGroup)) {
       for (const item of items) {
         const swimlaneId = `admingroup-${groupId}-item-${item.id}`;
-        units[swimlaneId] = item.rateUnit ?? null;
+        meta[swimlaneId] = {
+          rateUnit: item.rateUnit ?? null,
+          ampuleTotalContent: item.ampuleTotalContent ?? null,
+        };
       }
     }
-    return units;
+    return meta;
   }, [itemsByAdminGroup]);
 
   const pkSimulation = usePKSimulation(
     patientData ?? null,
-    anesthesiaRecord ?? null,
+    patientCovariateData ?? null,
     rateInfusionSessions,
-    swimlaneRateUnits,
+    swimlaneMetadata,
     anesthesiaRecordId ?? null,
     data.startTime,
   );
@@ -1769,19 +1884,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   ];
 
   // Default swimlane configuration - can be overridden via props
-  // In PACU mode, show VAS and Scores instead of TOF
+  // Order: Times → Events → (PACU: VAS, Scores) → Medications → Monitoring (BIS, TOF, PK, Heart Rhythm) → Position → Ventilation → Output
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
-    // Monitoring (was "Others") — contains BIS, TOF, PK Predict
-    { id: "others", label: t("anesthesia.timeline.monitoring", "Monitoring"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
-    // PACU mode: VAS/Scores after Monitoring
+    // PACU mode: VAS/Scores after Events
     ...(isPacuMode ? [
       { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
       { id: "scores", label: t("anesthesia.timeline.scoresLabel", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
     ] : []),
-    // Administration group lanes will be inserted dynamically
-    { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm.label"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
+    // Medications inserted dynamically after Events/Scores, before Monitoring
+    // Monitoring — contains BIS, TOF, PK Predict, Heart Rhythm
+    { id: "others", label: t("anesthesia.timeline.monitoring", "Monitoring"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
     { id: "position", label: t("anesthesia.timeline.position.label"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation.label"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: t("anesthesia.timeline.output.label"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
@@ -1798,8 +1912,60 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
 
-      // Insert Monitoring children: BIS, TOF, PK Predict (if not collapsed)
-      // Must come BEFORE Medications insertion so children appear under Monitoring parent
+      // Insert Medications after Events (OR mode) or Scores (PACU mode), before Monitoring
+      if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "ereignisse")) {
+        // Add single "Medications" parent lane
+        lanes.push({
+          id: "medikamente",
+          label: t("anesthesia.timeline.medications"),
+          height: 48,
+          ...medGroupColor,
+          hierarchyLevel: 'parent',
+        });
+
+        // Add administration groups and their items (if Medications is not collapsed)
+        if (!collapsedSwimlanes.has("medikamente")) {
+          const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
+
+          sortedGroups.forEach((group) => {
+            lanes.push({
+              id: `admingroup-${group.id}`,
+              label: group.name.toUpperCase(),
+              height: 40,
+              ...medGroupColor,
+              hierarchyLevel: 'group',
+            });
+
+            const groupItems = itemsByAdminGroup[group.id] || [];
+            groupItems.forEach((item) => {
+              const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
+
+              let laneHeight = 38;
+              const isFreeFlow = item.rateUnit === 'free';
+              if (isFreeFlow) {
+                const trackCount = swimlaneTrackCounts[swimlaneId] || 1;
+                const TRACK_HEIGHT = 30;
+                laneHeight = Math.max(38, trackCount * TRACK_HEIGHT);
+              }
+
+              lanes.push({
+                id: swimlaneId,
+                label: formatItemDisplayName(item),
+                height: laneHeight,
+                ...medGroupColor,
+                rateUnit: item.rateUnit ?? null,
+                defaultDose: item.defaultDose ?? null,
+                administrationUnit: item.administrationUnit ?? null,
+                ampuleTotalContent: item.ampuleTotalContent ?? null,
+                itemId: item.id,
+                hierarchyLevel: 'item',
+              });
+            });
+          });
+        }
+      }
+
+      // Insert Monitoring children: BIS, TOF, PK Predict, Heart Rhythm (if not collapsed)
       if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
         const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
         // BIS — always shown
@@ -1818,8 +1984,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             ...othersColor,
           });
         }
-        // PK Predict — only when TCI active and not dismissed
-        if (pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0) {
+        // PK Predict — only in TIVA mode (TCI pumps already show Cp/Ce)
+        if (pkSimulation.mode === "tiva" && pkSimulation.missingFields.length === 0) {
           lanes.push({
             id: "pk-prediction",
             label: "  PK Predict",
@@ -1827,64 +1993,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             ...othersColor,
           });
         }
-      }
-
-      // Insert single "Medications" parent lane after Monitoring children/Scores (before Heart Rhythm)
-      // In PACU mode, insert after Scores; in OR mode, insert after Monitoring (others) + its children
-      if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "others")) {
-        // Add single "Medications" parent lane
+        // Heart Rhythm — child of Monitoring
         lanes.push({
-          id: "medikamente",
-          label: t("anesthesia.timeline.medications"),
-          height: 48,
-          ...medGroupColor,
-          hierarchyLevel: 'parent',
+          id: "herzrhythmus",
+          label: "  " + t("anesthesia.timeline.heartRhythm.label"),
+          height: 38,
+          ...othersColor,
         });
-        
-        // Add administration groups and their items (if Medications is not collapsed)
-        if (!collapsedSwimlanes.has("medikamente")) {
-          // Sort administration groups by sortOrder
-          const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
-          
-          sortedGroups.forEach((group) => {
-            // Add administration group header (non-collapsible, just a label)
-            lanes.push({
-              id: `admingroup-${group.id}`,
-              label: group.name.toUpperCase(),
-              height: 40,
-              ...medGroupColor,
-              hierarchyLevel: 'group',
-            });
-            
-            // Add child lanes for items in this group
-            const groupItems = itemsByAdminGroup[group.id] || [];
-            groupItems.forEach((item) => {
-              const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
-              
-              // Calculate dynamic height for free-flow infusions based on parallel tracks
-              let laneHeight = 38; // Default height
-              const isFreeFlow = item.rateUnit === 'free';
-              if (isFreeFlow) {
-                const trackCount = swimlaneTrackCounts[swimlaneId] || 1;
-                const TRACK_HEIGHT = 30; // Height per track
-                laneHeight = Math.max(38, trackCount * TRACK_HEIGHT);
-              }
-              
-              lanes.push({
-                id: swimlaneId,
-                label: formatItemDisplayName(item),
-                height: laneHeight,
-                ...medGroupColor,
-                rateUnit: item.rateUnit ?? null,
-                defaultDose: item.defaultDose ?? null,
-                administrationUnit: item.administrationUnit ?? null,
-                ampuleTotalContent: item.ampuleTotalContent ?? null,
-                itemId: item.id,
-                hierarchyLevel: 'item',
-              });
-            });
-          });
-        }
       }
 
       // Insert ventilation children after Ventilation parent (if not collapsed)
@@ -1926,7 +2041,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.isActive, pkSimulation.isDismissed, pkSimulation.missingFields.length]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
@@ -5023,7 +5138,34 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setRateManageInput("");
   };
 
+  // Handle mid-infusion bolus (give bolus while infusion is running)
+  const handleGiveMidBolus = (dose: string, unit: string) => {
+    if (!managingRate || !anesthesiaRecordId) return;
+    const { itemId, label, sessionId } = managingRate;
+    if (!itemId) return;
 
+    // Use the clicked time position (rateManageTime), not now
+    createMedication.mutate({
+      anesthesiaRecordId,
+      itemId,
+      timestamp: new Date(rateManageTime),
+      type: 'bolus',
+      dose: `${dose} ${unit}`,
+      unit,
+      infusionSessionId: sessionId || undefined,
+    });
+
+    toast({
+      title: t("anesthesia.timeline.bolusGiven", "Bolus given"),
+      description: `${label}: ${dose} ${unit}`,
+    });
+
+    // Close dialog after bolus
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
+  };
 
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
@@ -5457,6 +5599,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         anesthesiaRecordId={anesthesiaRecordId}
         administrationGroups={administrationGroups}
         anesthesiaItems={anesthesiaItems}
+        pkMissingFields={pkSimulation.missingFields}
+        pkMode={pkSimulation.mode}
+        pkCurrentValues={pkSimulation.currentValues}
+        onOpenPKCovariateDialog={onSaveCovariates ? () => setShowPKCovariateDialog(true) : undefined}
         t={t}
       />
 
@@ -5816,7 +5962,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setShowBISDialog(true);
         }}
         eBISTimeSeries={
-          pkSimulation.isActive && !pkSimulation.isDismissed
+          pkSimulation.isActive
             ? pkSimulation.pkTimeSeries
                 .filter(pt => pt.eBIS !== null)
                 .map(pt => ({ timestamp: pt.timestamp, value: pt.eBIS! }))
@@ -5826,16 +5972,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         visibleEnd={currentZoomEnd ?? data.endTime}
       />
 
-      {/* PKPredictionSwimlane - PK curves for TIVA cases */}
-      {pkSimulation.isActive && !pkSimulation.isDismissed && pkSimulation.missingFields.length === 0 && (
+      {/* PKPredictionSwimlane - Cp/Ce curves for TIVA mode only (TCI pumps show Cp/Ce natively) */}
+      {pkSimulation.mode === "tiva" && pkSimulation.missingFields.length === 0 && (
         <PKPredictionSwimlane
           swimlanePositions={swimlanePositions}
           pkTimeSeries={pkSimulation.pkTimeSeries}
-          currentValues={pkSimulation.currentValues}
-          visibleStart={currentZoomStart ?? data.startTime}
-          visibleEnd={currentZoomEnd ?? data.endTime}
           isDark={isDark}
-          onDismiss={pkSimulation.dismiss}
         />
       )}
 
@@ -7193,6 +7335,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onRateSelection={handleRateSelection}
         onCustomRateEntry={handleCustomRateEntry}
         administrationUnit={pendingRateSelection?.administrationUnit}
+        rateUnit={pendingRateSelection ? swimlaneMetadata[pendingRateSelection.swimlaneId]?.rateUnit : null}
       />
 
       {/* Rate Management Dialog (edit/stop/change existing rate) */}
@@ -7208,6 +7351,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onRateStartNew={handleRateStartNew}
         onRateChange={handleRateChange}
         onTciStop={handleTciStop}
+        onGiveBolus={handleGiveMidBolus}
         isRunning={managingRate?.isRunning}
         administrationUnit={managingRate?.administrationUnit}
         ampuleUnit={managingRate?.ampuleUnit}
@@ -8224,6 +8368,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PK Covariate Quick-Entry Dialog — fill missing weight/height for PK simulation */}
+      {showPKCovariateDialog && onSaveCovariates && (
+        <PKCovariateDialog
+          open={showPKCovariateDialog}
+          onOpenChange={setShowPKCovariateDialog}
+          missingFields={pkSimulation.missingFields}
+          currentWeight={patientCovariateData?.weight ?? null}
+          currentHeight={patientCovariateData?.height ?? null}
+          onSave={onSaveCovariates}
+          t={t}
+        />
+      )}
 
       {/* Friendly reminder dialog for inventory commit after X2 */}
       <AlertDialog open={showCommitReminder} onOpenChange={setShowCommitReminder}>

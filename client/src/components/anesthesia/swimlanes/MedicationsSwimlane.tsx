@@ -7,6 +7,7 @@ import { RateChangeEditDialog } from "../dialogs/RateChangeEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import { assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import { useTranslation } from "react-i18next";
+import { deriveBolusUnit } from "@/lib/pharmacokinetics/rate-conversion";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -39,6 +40,7 @@ type UnifiedInfusionProps = {
   visibleEnd: number;
   segments?: Array<{ startTime: number; rate: string; rateUnit?: string }>; // For rendering rate change markers
   administrationUnit?: string | null; // Unit for start dose display (e.g., ml, mg)
+  rateUnit?: string | null; // Rate unit for deriving bolus unit (e.g., mg/kg/h → mg)
 };
 
 const UnifiedInfusion = ({
@@ -64,6 +66,7 @@ const UnifiedInfusion = ({
   visibleEnd,
   segments,
   administrationUnit,
+  rateUnit,
 }: UnifiedInfusionProps) => {
   const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -84,19 +87,8 @@ const UnifiedInfusion = ({
   const unit = administrationUnit || '';
   const doseWithUnit = unit ? `${startDose} ${unit}` : startDose;
   
-  // Extract base unit for bolus from rate unit (e.g., mg/kg/h → mg, mcg/min → mcg)
-  const getBolusUnit = (rateUnit: string): string => {
-    const unitLower = (rateUnit || '').toLowerCase();
-    if (unitLower.includes('mcg') || unitLower.includes('µg') || unitLower.includes('μg') || unitLower.includes('ug')) {
-      return 'mcg';
-    } else if (unitLower.includes('mg')) {
-      return 'mg';
-    } else if (unitLower.includes('ml')) {
-      return 'ml';
-    }
-    return '';
-  };
-  const bolusUnit = getBolusUnit(unit);
+  // Derive bolus unit from the swimlane's rateUnit (not administrationUnit)
+  const bolusUnit = deriveBolusUnit(rateUnit, administrationUnit);
   
   // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <baseUnit>"
   const bolusDisplay = initialBolus ? ` - ${initialBolus} ${bolusUnit}` : '';
@@ -332,8 +324,10 @@ const BolusPill = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   // Build display text with unit and optional note in parentheses
+  // If dose already contains a unit (e.g., "50 mcg" from mid-infusion bolus), don't append lane unit
+  const doseHasUnit = /[a-zA-Zμµ]/.test(dose);
   const unit = administrationUnit || '';
-  const doseWithUnit = unit ? `${dose} ${unit}` : dose;
+  const doseWithUnit = doseHasUnit ? dose : (unit ? `${dose} ${unit}` : dose);
   const displayText = note ? `${doseWithUnit} (${note})` : doseWithUnit;
 
   return (
@@ -726,6 +720,7 @@ export function MedicationsSwimlane({
               visibleEnd={visibleEnd}
               segments={session.segments}
               administrationUnit={isTciMode ? "Tc" : (session.segments?.[0]?.rateUnit || lane.rateUnit || lane.administrationUnit)}
+              rateUnit={lane.rateUnit}
               onClick={() => {
                 // If session is running (no endTime), open the simplified RateManageDialog
                 // If session is stopped (has endTime), allow resuming or show appropriate dialog

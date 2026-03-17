@@ -192,6 +192,15 @@ export function transformRateInfusions(
         segments: segments.map(s => ({ startTime: s.startTime, rate: s.rate }))
       });
       
+      // Find mid-infusion boluses linked to this session
+      const midBoluses = medications
+        .filter(med => med.type === 'bolus' && med.infusionSessionId === startRecord.id)
+        .map(med => ({
+          timestamp: new Date(med.timestamp).getTime(),
+          dose: med.dose || '0',
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+
       sessions[swimlaneId].push({
         id: startRecord.id, // Store medication record ID for editing/deleting
         swimlaneId,
@@ -207,6 +216,7 @@ export function transformRateInfusions(
         // TCI: Store actual amount used from infusion_stop record for display and inventory
         actualAmountUsed: stopRecord?.dose || null,
         stopRecordId: stopRecord?.id || null, // For editing the stop record
+        midBoluses: midBoluses.length > 0 ? midBoluses : undefined,
       });
     });
   });

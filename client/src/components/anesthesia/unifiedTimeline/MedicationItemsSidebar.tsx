@@ -58,6 +58,18 @@ export interface MedicationItemsSidebarProps {
   administrationGroups: AdministrationGroup[];
   anesthesiaItems: AnesthesiaItem[];
 
+  // PK simulation status
+  pkMissingFields?: string[];
+  pkMode?: "tiva" | "tci" | null;
+  onOpenPKCovariateDialog?: () => void;
+  pkCurrentValues?: {
+    propofolCp: number | null;
+    propofolCe: number | null;
+    remiCp: number | null;
+    remiCe: number | null;
+    eBIS: number | null;
+  } | null;
+
   // i18n
   t: TFunction;
 }
@@ -88,6 +100,10 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
   anesthesiaRecordId,
   administrationGroups,
   anesthesiaItems,
+  pkMissingFields,
+  pkMode,
+  onOpenPKCovariateDialog,
+  pkCurrentValues,
   t,
 }: MedicationItemsSidebarProps) {
   return (
@@ -214,14 +230,14 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
         const isOthersParent = lane.id === "others";
         const isVentChild = lane.id.startsWith("ventilation-");
         const isOutputChild = lane.id.startsWith("output-");
-        const isOthersChild = lane.id === "bis" || lane.id === "tof" || lane.id === "pk-prediction";
+        const isOthersChild = lane.id === "bis" || lane.id === "tof" || lane.id === "pk-prediction" || lane.id === "herzrhythmus";
 
         // Only the main parent swimlanes are collapsible
         const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
 
         // Determine styling based on hierarchyLevel field
         let labelClass = "";
-        if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
+        if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "position") {
           // Level 1: Main parent swimlanes (collapsible)
           labelClass = "text-sm font-semibold";
         } else if (swimlaneConfig?.hierarchyLevel === 'group') {
@@ -347,6 +363,22 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                     )}
                   </>
                 )}
+                {/* PK missing-fields hint on Monitoring row */}
+                {isOthersParent && pkMode && pkMissingFields && pkMissingFields.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenPKCovariateDialog?.();
+                    }}
+                    className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 rounded px-1.5 py-0.5 ml-1 pointer-events-auto transition-colors truncate"
+                    title={t("anesthesia.pk.missingFieldsHint", "Enter patient data to enable PK prediction")}
+                  >
+                    <Plus className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
+                      {pkMissingFields.map(f => f === "weight" ? t("anesthesia.pk.weightShort", "kg") : f === "height" ? t("anesthesia.pk.heightShort", "cm") : f).join(" / ")}
+                    </span>
+                  </button>
+                )}
               </div>
             ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
               // For administration group headers, make entire label area clickable to configure medications (admin only)
@@ -455,6 +487,40 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                   </div>
                 )}
               </>
+            ) : lane.id === "pk-prediction" && pkCurrentValues ? (
+              // PK Predict sidebar — show Ce (effect-site) prominently, Cp smaller
+              <div className="flex flex-col justify-center gap-0 flex-1 min-w-0 overflow-hidden">
+                {pkCurrentValues.propofolCe !== null && (
+                  <div className="flex items-baseline gap-1.5 leading-tight truncate">
+                    <span className="text-sm font-mono font-bold" style={{ color: "#2dd4bf" }}>
+                      Prop Ce {pkCurrentValues.propofolCe.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-50" style={{ color: "#2dd4bf" }}>
+                      Cp {(pkCurrentValues.propofolCp ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                {pkCurrentValues.remiCe !== null && (
+                  <div className="flex items-baseline gap-1.5 leading-tight truncate">
+                    <span className="text-sm font-mono font-bold" style={{ color: "#f472b6" }}>
+                      Remi Ce {pkCurrentValues.remiCe.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-50" style={{ color: "#f472b6" }}>
+                      Cp {(pkCurrentValues.remiCp ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : lane.id === "bis" && pkCurrentValues?.eBIS !== null && pkCurrentValues?.eBIS !== undefined ? (
+              // BIS sidebar — show label + eBIS value
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className={`${labelClass} text-black dark:text-white`}>
+                  {lane.label}
+                </span>
+                <span className="text-sm font-mono font-bold" style={{ color: "#f87171" }}>
+                  eBIS {Math.round(pkCurrentValues.eBIS)}
+                </span>
+              </div>
             ) : (
               <div className="flex items-center gap-1 flex-1">
                 {isCollapsibleParent && (

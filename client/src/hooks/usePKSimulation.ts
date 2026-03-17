@@ -1,17 +1,23 @@
 // client/src/hooks/usePKSimulation.ts
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { simulate, parsePatientCovariates } from "@/lib/pharmacokinetics";
-import type { PKTimePoint, TargetEvent } from "@/lib/pharmacokinetics";
+import { useMemo, useState, useEffect, useRef } from "react";
+import {
+  simulate,
+  simulateForward,
+  parsePatientCovariates,
+  convertToMassPerMin,
+  parseDrugConcentration,
+  deriveBolusUnit,
+  convertBolusToSegment,
+  BOLUS_DURATION_MS,
+} from "@/lib/pharmacokinetics";
+import type { PKTimePoint, TargetEvent, RateSegment } from "@/lib/pharmacokinetics";
 
 // ── Constants ────────────────────────────────────────────
 
-const TICK_INTERVAL_MS = 120_000; // 2 minutes
-const DISMISS_KEY_PREFIX = "pk-dismiss-";
-const DISMISS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const TICK_INTERVAL_MS = 15_000; // 15 seconds — keeps curves in sync with NOW line
 
 // ── Local type (mirrors RateInfusionSession from useMedicationState) ──────────
-// Defined locally to avoid circular dependency concerns.
 
 export interface RateInfusionSession {
   id: string;
@@ -27,9 +33,19 @@ export interface RateInfusionSession {
   endTime?: number | null;
   actualAmountUsed?: string | null;
   stopRecordId?: string | null;
+  midBoluses?: Array<{ timestamp: number; dose: string }>;
+}
+
+// ── Swimlane metadata passed from UnifiedTimeline ───────
+
+export interface SwimlaneMetadata {
+  rateUnit: string | null;
+  ampuleTotalContent: string | null;
 }
 
 // ── Types ────────────────────────────────────────────────
+
+export type PKMode = "tiva" | "tci" | null;
 
 export interface PKSimulationResult {
   pkTimeSeries: PKTimePoint[];
@@ -41,11 +57,9 @@ export interface PKSimulationResult {
     eBIS: number | null;
   } | null;
   isActive: boolean;
-  isDismissed: boolean;
   missingFields: string[];
   sexDefaultApplied: boolean;
-  dismiss: () => void;
-  restore: () => void;
+  mode: PKMode;
 }
 
 // ── Drug identification ───────────────────────────────────
@@ -54,9 +68,8 @@ const PROPOFOL_NAMES = ["propofol", "diprivan"];
 const REMI_NAMES = ["remifentanil", "remi", "ultiva"];
 
 /**
- * Identify the TCI drug from a medication label.
+ * Identify the PK drug from a medication label.
  * Handles generic names, concentrations ("propofol 1%"), and brand names.
- * Returns null for unknown drugs.
  */
 export function identifyTCIDrug(label: string): "propofol" | "remifentanil" | null {
   const lower = label.toLowerCase();
@@ -65,12 +78,10 @@ export function identifyTCIDrug(label: string): "propofol" | "remifentanil" | nu
   return null;
 }
 
-// ── Target extraction ────────────────────────────────────
+// ── Target extraction (TCI mode) ────────────────────────
 
 /**
- * Convert RateInfusionSession[] to TargetEvent[] for the PK engine.
- * Each session contributes: a start event, optional rate_change events
- * (from segments[1+]), and a stop event if the session has ended.
+ * Convert RateInfusionSession[] to TargetEvent[] for the TCI PK engine.
  */
 export function extractTCITargets(
   sessions: RateInfusionSession[],
@@ -81,7 +92,6 @@ export function extractTCITargets(
   for (const session of sessions) {
     if (!session.startTime) continue;
 
-    // Start event (use startDose as initial target concentration)
     const startConc = parseFloat(session.startDose);
     if (!isNaN(startConc) && startConc > 0) {
       events.push({
@@ -91,7 +101,6 @@ export function extractTCITargets(
       });
     }
 
-    // Rate change segments — skip index 0 (that's the start event above)
     for (let i = 1; i < session.segments.length; i++) {
       const seg = session.segments[i];
       const conc = parseFloat(seg.rate);
@@ -104,7 +113,6 @@ export function extractTCITargets(
       }
     }
 
-    // Stop event
     if (session.endTime && session.state === "stopped") {
       events.push({
         type: "stop",
@@ -117,119 +125,231 @@ export function extractTCITargets(
   return events.sort((a, b) => a.timestamp - b.timestamp);
 }
 
-// ── Dismiss key cleanup ───────────────────────────────────
+// ── Rate segment extraction (TIVA mode) ─────────────────
 
-function cleanupDismissKeys(): void {
-  const now = Date.now();
-  const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(DISMISS_KEY_PREFIX)) {
-      try {
-        const ts = parseInt(localStorage.getItem(key) || "0", 10);
-        if (now - ts > DISMISS_TTL_MS) {
-          keysToRemove.push(key);
+/**
+ * Convert RateInfusionSession[] to RateSegment[] for forward simulation.
+ * Each segment in a session maps to a RateSegment with converted mass/min rate.
+ */
+export function extractRateSegments(
+  sessions: RateInfusionSession[],
+  drug: "propofol" | "remifentanil",
+  weightKg: number,
+  swimlaneMetadata: Record<string, SwimlaneMetadata>,
+  nowMs: number,
+): RateSegment[] {
+  const segments: RateSegment[] = [];
+
+  for (const session of sessions) {
+    if (!session.startTime) continue;
+
+    // Get concentration from ampule content + syringe volume
+    const meta = swimlaneMetadata[session.swimlaneId];
+    const syringeVol = parseFloat(session.syringeQuantity) || 0;
+    const concentrationMgPerMl = parseDrugConcentration(
+      meta?.ampuleTotalContent,
+      syringeVol,
+    );
+    const bolusUnit = deriveBolusUnit(meta?.rateUnit);
+
+    // Initial bolus → short high-rate segment
+    let hasBolus = false;
+    if (session.initialBolus) {
+      const bolusValue = parseFloat(session.initialBolus);
+      if (!isNaN(bolusValue) && bolusValue > 0) {
+        const bolusSeg = convertBolusToSegment(
+          bolusValue, bolusUnit, drug, concentrationMgPerMl, session.startTime,
+        );
+        if (bolusSeg) {
+          segments.push(bolusSeg);
+          hasBolus = true;
         }
-      } catch { /* ignore */ }
+      }
+    }
+
+    // Mid-infusion boluses
+    if (session.midBoluses) {
+      for (const bolus of session.midBoluses) {
+        const bolusValue = parseFloat(bolus.dose);
+        if (!isNaN(bolusValue) && bolusValue > 0) {
+          const bolusSeg = convertBolusToSegment(
+            bolusValue, bolusUnit, drug, concentrationMgPerMl, bolus.timestamp,
+          );
+          if (bolusSeg) segments.push(bolusSeg);
+        }
+      }
+    }
+
+    // Continuous rate segments
+    for (let i = 0; i < session.segments.length; i++) {
+      const seg = session.segments[i];
+      const rateValue = parseFloat(seg.rate);
+      if (isNaN(rateValue) || rateValue <= 0) continue;
+
+      const massPerMin = convertToMassPerMin(
+        rateValue,
+        seg.rateUnit,
+        drug,
+        weightKg,
+        concentrationMgPerMl,
+      );
+      if (massPerMin === null) continue;
+
+      // Offset first segment by bolus duration to avoid overlap
+      const segStartTime = (i === 0 && hasBolus)
+        ? seg.startTime + BOLUS_DURATION_MS
+        : seg.startTime;
+
+      // Segment end: next segment start, or session end, or now
+      const nextSegStart = i + 1 < session.segments.length
+        ? session.segments[i + 1].startTime
+        : null;
+      const endTime = nextSegStart
+        ?? (session.endTime && session.state === "stopped" ? session.endTime : nowMs);
+
+      if (segStartTime < endTime) {
+        segments.push({
+          startTime: segStartTime,
+          endTime,
+          rateMassPerMin: massPerMin,
+        });
+      }
     }
   }
-  keysToRemove.forEach(k => localStorage.removeItem(k));
+
+  return segments.sort((a, b) => a.startTime - b.startTime);
+}
+
+// ── Rate unit classification ────────────────────────────
+
+/** Rate units that indicate a manual/TIVA pump (not TCI, not bolus, not free-flow). */
+const TIVA_RATE_UNITS = new Set([
+  "mg/kg/h", "mg/kg/min", "mg/h", "mg/min",
+  "μg/kg/min", "μg/kg/h", "μg/min", "μg/h",
+  "ml/h", "ml/min",
+]);
+
+function isTivaRateUnit(rateUnit: string | null | undefined): boolean {
+  if (!rateUnit) return false;
+  // Normalize unicode variations
+  const normalized = rateUnit
+    .replace(/µ/g, "μ")
+    .replace(/ug/gi, "μg")
+    .replace(/mcg/gi, "μg")
+    .trim();
+  return TIVA_RATE_UNITS.has(normalized);
 }
 
 // ── Hook ─────────────────────────────────────────────────
 
 export function usePKSimulation(
   patientData: { birthday?: string | null; sex?: string | null } | null,
-  anesthesiaRecord: { weight?: string | null; height?: string | null } | null,
+  covariateData: { weight?: string | null; height?: string | null } | null,
   rateInfusionSessions: Record<string, RateInfusionSession[]>,
-  swimlaneRateUnits: Record<string, string | null | undefined>,
+  swimlaneMetadata: Record<string, SwimlaneMetadata>,
   caseId: string | null,
   caseStartTime: number,
 ): PKSimulationResult {
-  const [isDismissed, setIsDismissed] = useState(() => {
-    if (!caseId) return false;
-    return localStorage.getItem(`${DISMISS_KEY_PREFIX}${caseId}`) !== null;
-  });
-
-  // Cleanup old dismiss keys on mount
-  useEffect(() => { cleanupDismissKeys(); }, []);
-
   const tickRef = useRef(0);
   const [tick, setTick] = useState(0);
 
-  // Parse patient covariates from raw patient/record data
+  // Parse patient covariates
   const parsed = useMemo(() => {
-    if (!patientData || !anesthesiaRecord) {
+    if (!patientData || !covariateData) {
       return { covariates: null, missingFields: ["age", "weight", "height"], sexDefaultApplied: false };
     }
     return parsePatientCovariates({
       birthday: patientData.birthday ?? null,
       sex: patientData.sex ?? null,
-      weight: anesthesiaRecord.weight ?? null,
-      height: anesthesiaRecord.height ?? null,
+      weight: covariateData.weight ?? null,
+      height: covariateData.height ?? null,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientData?.birthday, patientData?.sex, anesthesiaRecord?.weight, anesthesiaRecord?.height]);
+  }, [patientData?.birthday, patientData?.sex, covariateData?.weight, covariateData?.height]);
 
-  // Identify TCI sessions by swimlane rate unit and drug label
-  const tciSessions = useMemo(() => {
-    const propofol: RateInfusionSession[] = [];
-    const remi: RateInfusionSession[] = [];
+  // Classify sessions: TCI vs TIVA
+  const classified = useMemo(() => {
+    const tciPropofol: RateInfusionSession[] = [];
+    const tciRemi: RateInfusionSession[] = [];
+    const tivaPropofol: RateInfusionSession[] = [];
+    const tivaRemi: RateInfusionSession[] = [];
 
     for (const [swimlaneId, sessions] of Object.entries(rateInfusionSessions)) {
-      const rateUnit = swimlaneRateUnits[swimlaneId];
-      if (rateUnit !== "TCI") continue;
+      const meta = swimlaneMetadata[swimlaneId];
+      const rateUnit = meta?.rateUnit;
+
+      const isTCI = rateUnit === "TCI";
+      const isTIVA = isTivaRateUnit(rateUnit);
+      if (!isTCI && !isTIVA) continue;
 
       for (const session of sessions) {
         const drug = identifyTCIDrug(session.label);
-        if (drug === "propofol") {
-          propofol.push(session);
-        } else if (drug === "remifentanil") {
-          remi.push(session);
+        if (!drug) continue;
+
+        if (isTCI) {
+          if (drug === "propofol") tciPropofol.push(session);
+          else tciRemi.push(session);
+        } else {
+          if (drug === "propofol") tivaPropofol.push(session);
+          else tivaRemi.push(session);
         }
       }
     }
 
-    return { propofol, remi };
-  }, [rateInfusionSessions, swimlaneRateUnits]);
+    return { tciPropofol, tciRemi, tivaPropofol, tivaRemi };
+  }, [rateInfusionSessions, swimlaneMetadata]);
 
-  const isActive = tciSessions.propofol.length > 0 || tciSessions.remi.length > 0;
+  // Determine mode: TIVA takes priority (it shows more info), then TCI, then null
+  const mode: PKMode = useMemo(() => {
+    if (classified.tivaPropofol.length > 0 || classified.tivaRemi.length > 0) return "tiva";
+    if (classified.tciPropofol.length > 0 || classified.tciRemi.length > 0) return "tci";
+    return null;
+  }, [classified]);
 
-  // Extract TargetEvent arrays for each drug
+  const isActive = mode !== null;
+
+  // TCI targets (only used in TCI mode)
   const propofolTargets = useMemo(
-    () => extractTCITargets(tciSessions.propofol, caseStartTime),
-    [tciSessions.propofol, caseStartTime],
+    () => mode === "tci" ? extractTCITargets(classified.tciPropofol, caseStartTime) : [],
+    [mode, classified.tciPropofol, caseStartTime],
   );
   const remiTargets = useMemo(
-    () => extractTCITargets(tciSessions.remi, caseStartTime),
-    [tciSessions.remi, caseStartTime],
+    () => mode === "tci" ? extractTCITargets(classified.tciRemi, caseStartTime) : [],
+    [mode, classified.tciRemi, caseStartTime],
   );
 
-  // Background tick so Ce equilibration updates every 2 minutes
+  // Background tick for periodic refresh
   useEffect(() => {
-    if (!isActive || isDismissed) return;
+    if (!isActive) return;
     const interval = setInterval(() => {
       tickRef.current++;
       setTick(tickRef.current);
     }, TICK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [isActive, isDismissed]);
+  }, [isActive]);
 
-  // Run PK simulation; re-runs on target changes and periodic tick
+  // Run PK simulation — segments + simulation computed together so Date.now() is fresh
   const pkTimeSeries = useMemo(() => {
     if (!isActive || !parsed.covariates) return [];
-    if (propofolTargets.length === 0 && remiTargets.length === 0) return [];
 
     const now = Date.now();
-    return simulate(parsed.covariates, propofolTargets, remiTargets, {
-      start: caseStartTime,
-      end: now,
-    });
-    // `tick` is included so the series refreshes on the background interval
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsed.covariates, propofolTargets, remiTargets, caseStartTime, isActive, tick]);
+    const timeRange = { start: caseStartTime, end: now };
 
-  // Most-recent values (last time point)
+    if (mode === "tci") {
+      if (propofolTargets.length === 0 && remiTargets.length === 0) return [];
+      return simulate(parsed.covariates, propofolTargets, remiTargets, timeRange);
+    } else if (mode === "tiva") {
+      const propSegs = extractRateSegments(classified.tivaPropofol, "propofol", parsed.covariates.weight, swimlaneMetadata, now);
+      const remiSegs = extractRateSegments(classified.tivaRemi, "remifentanil", parsed.covariates.weight, swimlaneMetadata, now);
+      if (propSegs.length === 0 && remiSegs.length === 0) return [];
+      return simulateForward(parsed.covariates, propSegs, remiSegs, timeRange);
+    }
+
+    return [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsed.covariates, propofolTargets, remiTargets, classified.tivaPropofol, classified.tivaRemi, swimlaneMetadata, caseStartTime, isActive, mode, tick]);
+
+  // Most-recent values
   const currentValues = useMemo(() => {
     if (pkTimeSeries.length === 0) return null;
     const last = pkTimeSeries[pkTimeSeries.length - 1];
@@ -242,28 +362,12 @@ export function usePKSimulation(
     };
   }, [pkTimeSeries]);
 
-  const dismiss = useCallback(() => {
-    setIsDismissed(true);
-    if (caseId) {
-      localStorage.setItem(`${DISMISS_KEY_PREFIX}${caseId}`, String(Date.now()));
-    }
-  }, [caseId]);
-
-  const restore = useCallback(() => {
-    setIsDismissed(false);
-    if (caseId) {
-      localStorage.removeItem(`${DISMISS_KEY_PREFIX}${caseId}`);
-    }
-  }, [caseId]);
-
   return {
     pkTimeSeries,
     currentValues,
     isActive,
-    isDismissed,
     missingFields: parsed.missingFields,
     sexDefaultApplied: parsed.sexDefaultApplied,
-    dismiss,
-    restore,
+    mode,
   };
 }

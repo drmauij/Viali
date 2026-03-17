@@ -1,21 +1,12 @@
 // client/src/components/anesthesia/swimlanes/PKPredictionSwimlane.tsx
 import { useMemo } from "react";
 import type { PKTimePoint } from "@/lib/pharmacokinetics";
+import { useTimelineContext } from "../TimelineContext";
 
 export interface PKPredictionSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
   pkTimeSeries: PKTimePoint[];
-  currentValues: {
-    propofolCp: number | null;
-    propofolCe: number | null;
-    remiCp: number | null;
-    remiCe: number | null;
-    eBIS: number | null;
-  } | null;
-  visibleStart: number;
-  visibleEnd: number;
   isDark: boolean;
-  onDismiss: () => void;
 }
 
 const COLORS = {
@@ -34,12 +25,12 @@ function buildPolylinePoints(
 export function PKPredictionSwimlane({
   swimlanePositions,
   pkTimeSeries,
-  currentValues,
-  visibleStart,
-  visibleEnd,
   isDark,
-  onDismiss,
 }: PKPredictionSwimlaneProps) {
+  // Read viewport from context (same source as echarts chart) — props can be stale during auto-scroll
+  const { currentZoomStart, currentZoomEnd, data } = useTimelineContext();
+  const visibleStart = currentZoomStart ?? data.startTime;
+  const visibleEnd = currentZoomEnd ?? data.endTime;
   const lane = swimlanePositions.find((l) => l.id === "pk-prediction");
   if (!lane) return null;
 
@@ -106,8 +97,6 @@ export function PKPredictionSwimlane({
     [visiblePoints, visibleStart, visibleRange],
   );
 
-  const textColor = isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)";
-  const bgColor = isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.7)";
 
   return (
     <div
@@ -121,26 +110,6 @@ export function PKPredictionSwimlane({
         zIndex: 30,
       }}
     >
-      {/* Dismiss button */}
-      <button
-        className="absolute z-40 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
-        style={{
-          right: 4,
-          top: 4,
-          width: 16,
-          height: 16,
-          background: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)",
-          color: textColor,
-          lineHeight: 1,
-          border: "none",
-          cursor: "pointer",
-        }}
-        onClick={onDismiss}
-        title="Hide PK prediction"
-      >
-        ×
-      </button>
-
       {/* SVG curves */}
       <svg
         className="absolute inset-0"
@@ -196,35 +165,8 @@ export function PKPredictionSwimlane({
         )}
       </svg>
 
-      {/* Current values label at right edge */}
-      {currentValues && (
-        <div
-          className="absolute flex flex-col gap-0.5 pointer-events-none"
-          style={{
-            right: 20,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 35,
-            background: bgColor,
-            borderRadius: 4,
-            padding: "2px 5px",
-            fontFamily: "monospace",
-            fontSize: 10,
-            lineHeight: 1.4,
-          }}
-        >
-          {currentValues.propofolCp !== null && (
-            <span style={{ color: COLORS.propofolCp }}>
-              Prop {currentValues.propofolCp.toFixed(1)} / {(currentValues.propofolCe ?? 0).toFixed(1)} μg/ml
-            </span>
-          )}
-          {currentValues.remiCp !== null && (
-            <span style={{ color: COLORS.remiCp }}>
-              Remi {currentValues.remiCp.toFixed(1)} / {(currentValues.remiCe ?? 0).toFixed(1)} ng/ml
-            </span>
-          )}
-        </div>
-      )}
+      {/* Values are shown in the sidebar (MedicationItemsSidebar) for better readability */}
+
     </div>
   );
 }

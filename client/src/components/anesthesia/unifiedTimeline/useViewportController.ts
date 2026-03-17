@@ -382,9 +382,12 @@ export function useViewportController({
       }
     };
     setTimeout(updateZoomState, 50);
+    // Periodic sync: auto-scroll changes echarts viewport without firing datazoom events
+    const syncInterval = setInterval(updateZoomState, 5000);
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) chart.on('datazoom', updateZoomState);
     return () => {
+      clearInterval(syncInterval);
       if (!isMountedRef.current) return;
       try {
         const chart = chartRef.current?.getEchartsInstance();

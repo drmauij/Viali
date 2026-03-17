@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import { useTranslation } from "react-i18next";
+import { deriveBolusUnit } from "@/lib/pharmacokinetics/rate-conversion";
 
 interface EditingMedicationDose {
   swimlaneId: string;
@@ -20,6 +21,7 @@ interface SwimlaneConfig {
   label: string;
   defaultDose?: string | null;
   administrationUnit?: string | null;
+  rateUnit?: string | null;
 }
 
 interface MedicationEditDialogProps {
@@ -155,7 +157,7 @@ export function MedicationEditDialog({
                   data-testid={`button-dose-preset-${dose}`}
                   disabled={readOnly}
                 >
-                  {dose}{swimlane?.administrationUnit ? ` ${swimlane.administrationUnit}` : ''}
+                  {dose}{swimlane?.administrationUnit ? ` ${swimlane.rateUnit && swimlane.rateUnit !== 'free' ? deriveBolusUnit(swimlane.rateUnit, swimlane.administrationUnit) : swimlane.administrationUnit}` : ''}
                 </Button>
               ))}
             </div>
@@ -173,33 +175,46 @@ export function MedicationEditDialog({
         )}
 
         {/* Dose Input */}
-        <div className="grid gap-2">
-          <Label htmlFor="dose-edit-value">
-            {t('dialogs.dose')}{swimlane?.administrationUnit ? ` (${swimlane.administrationUnit})` : ''}
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              ref={inputRef}
-              id="dose-edit-value"
-              data-testid="input-dose-edit-value"
-              value={medicationEditInput}
-              onChange={(e) => setMedicationEditInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !readOnly) {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 5, 100, 2"
-              autoFocus
-              disabled={readOnly}
-            />
-            {swimlane?.administrationUnit && (
-              <span className="text-sm text-muted-foreground min-w-fit">
-                {swimlane.administrationUnit}
-              </span>
-            )}
-          </div>
-        </div>
+        {(() => {
+          // For rate-controlled lanes, derive unit from rateUnit (not administrationUnit)
+          // If the dose already contains a unit (e.g., "50 μg" from mid-infusion bolus), don't show unit suffix
+          const doseHasUnit = /[a-zA-Zμµ]/.test(editingMedicationDose?.dose || '');
+          const displayUnit = doseHasUnit
+            ? '' // dose already includes its unit
+            : (swimlane?.rateUnit && swimlane.rateUnit !== 'free'
+              ? deriveBolusUnit(swimlane.rateUnit, swimlane.administrationUnit)
+              : swimlane?.administrationUnit || '');
+
+          return (
+            <div className="grid gap-2">
+              <Label htmlFor="dose-edit-value">
+                {t('dialogs.dose')}{displayUnit ? ` (${displayUnit})` : ''}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  ref={inputRef}
+                  id="dose-edit-value"
+                  data-testid="input-dose-edit-value"
+                  value={medicationEditInput}
+                  onChange={(e) => setMedicationEditInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !readOnly) {
+                      handleSave();
+                    }
+                  }}
+                  placeholder="e.g., 5, 100, 2"
+                  autoFocus
+                  disabled={readOnly}
+                />
+                {displayUnit && (
+                  <span className="text-sm text-muted-foreground min-w-fit">
+                    {displayUnit}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Note Input */}
         <div className="grid gap-2">

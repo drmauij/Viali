@@ -1260,6 +1260,19 @@ export default function Op() {
                   onEventsPanelChange={setOpenEventsPanel}
                   isPacuMode={isPacuMode}
                   patientData={patient ? { birthday: (patient as any).birthday, sex: (patient as any).sex } : null}
+                  patientCovariateData={{ weight: (preOpAssessment as any)?.weight ?? null, height: (preOpAssessment as any)?.height ?? null }}
+                  onSaveCovariates={async (data) => {
+                    if (!surgeryId) return;
+                    const payload: Record<string, string> = {};
+                    if (data.weight) payload.weight = data.weight;
+                    if (data.height) payload.height = data.height;
+                    if (preOpAssessment?.id) {
+                      await apiRequest('PATCH', `/api/anesthesia/preop/${preOpAssessment.id}`, payload);
+                    } else {
+                      await apiRequest('POST', '/api/anesthesia/preop', { surgeryId, ...payload });
+                    }
+                    queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
+                  }}
                 />
               )}
             </div>

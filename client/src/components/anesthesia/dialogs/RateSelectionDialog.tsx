@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { deriveBolusUnit } from "@/lib/pharmacokinetics/rate-conversion";
 
 interface PendingRateSelection {
   swimlaneId: string;
@@ -20,6 +21,7 @@ interface RateSelectionDialogProps {
   onRateSelection: (selectedRate: string, initialBolus?: string) => void;
   onCustomRateEntry: (customRate: string, initialBolus?: string) => void;
   administrationUnit?: string | null;
+  rateUnit?: string | null;
 }
 
 export function RateSelectionDialog({
@@ -29,11 +31,15 @@ export function RateSelectionDialog({
   onRateSelection,
   onCustomRateEntry,
   administrationUnit,
+  rateUnit,
 }: RateSelectionDialogProps) {
   const [customRateInput, setCustomRateInput] = useState("");
   const [initialBolusInput, setInitialBolusInput] = useState("");
   const { toast } = useToast();
   const { t } = useTranslation();
+
+  const isTCI = rateUnit === "TCI";
+  const bolusUnit = deriveBolusUnit(rateUnit, administrationUnit);
 
   // Reset inputs when dialog closes
   useEffect(() => {
@@ -43,7 +49,8 @@ export function RateSelectionDialog({
     }
   }, [open]);
 
-  const handleCustomRate = () => {
+  // Unified start handler for non-TCI
+  const handleStart = () => {
     const rate = customRateInput.trim();
     if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
       toast({
@@ -54,14 +61,27 @@ export function RateSelectionDialog({
       return;
     }
     const bolus = initialBolusInput.trim();
-    onCustomRateEntry(rate, bolus || undefined);
+    if (bolus && (isNaN(Number(bolus)) || Number(bolus) <= 0)) {
+      toast({
+        title: t('dialogs.invalidBolus', 'Invalid bolus'),
+        description: t('dialogs.enterValidPositiveNumber'),
+        variant: "destructive",
+      });
+      return;
+    }
+    onRateSelection(rate, bolus || undefined);
     handleClose();
   };
 
   const handlePresetRate = (rate: string) => {
-    const bolus = initialBolusInput.trim();
-    onRateSelection(rate, bolus || undefined);
-    handleClose();
+    if (isTCI) {
+      // TCI: immediate start (current behavior) — pump manages everything
+      onRateSelection(rate);
+      handleClose();
+    } else {
+      // Non-TCI: fill custom field so user can review + optionally add bolus
+      setCustomRateInput(rate);
+    }
   };
 
   const handleClose = () => {
@@ -89,9 +109,9 @@ export function RateSelectionDialog({
       }}
       showDelete={false}
       onCancel={handleClose}
-      onSave={handleCustomRate}
-      saveDisabled={!customRateInput.trim()}
-      saveLabel={t('dialogs.setCustom')}
+      onSave={handleStart}
+      saveDisabled={!customRateInput.trim() || isNaN(Number(customRateInput)) || Number(customRateInput) <= 0}
+      saveLabel={isTCI ? t('dialogs.setCustom') : t('anesthesia.timeline.startInfusion', 'Start Infusion')}
     >
       <div className="grid gap-4 py-4">
         <div className="text-sm font-medium">{t('dialogs.choosePresetRates')}</div>
@@ -100,7 +120,7 @@ export function RateSelectionDialog({
             <Button
               key={idx}
               onClick={() => handlePresetRate(rate)}
-              variant="outline"
+              variant={!isTCI && customRateInput === rate ? "default" : "outline"}
               className="h-12"
               data-testid={`button-rate-option-${rate}`}
             >
@@ -129,31 +149,33 @@ export function RateSelectionDialog({
             onChange={(e) => setCustomRateInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                handleCustomRate();
+                handleStart();
               }
             }}
             placeholder="e.g., 8"
           />
         </div>
 
-        {/* Initial Bolus (optional) */}
-        <div className="grid gap-2 pt-2">
-          <Label htmlFor="initial-bolus" className="text-sm">
-            {t('dialogs.initialBolus')} {administrationUnit ? `(${administrationUnit})` : ''} <span className="text-muted-foreground">({t('common.optional')})</span>
-          </Label>
-          <Input
-            id="initial-bolus"
-            type="number"
-            inputMode="decimal"
-            data-testid="input-initial-bolus"
-            value={initialBolusInput}
-            onChange={(e) => setInitialBolusInput(e.target.value)}
-            placeholder="e.g., 150"
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('dialogs.initialBolusHint')}
-          </p>
-        </div>
+        {/* Initial Bolus (optional) — hidden for TCI (pump manages boluses) */}
+        {!isTCI && (
+          <div className="grid gap-2 pt-2">
+            <Label htmlFor="initial-bolus" className="text-sm">
+              {t('dialogs.initialBolus')} ({bolusUnit}) <span className="text-muted-foreground">({t('common.optional')})</span>
+            </Label>
+            <Input
+              id="initial-bolus"
+              type="number"
+              inputMode="decimal"
+              data-testid="input-initial-bolus"
+              value={initialBolusInput}
+              onChange={(e) => setInitialBolusInput(e.target.value)}
+              placeholder="e.g., 150"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('dialogs.initialBolusHint')}
+            </p>
+          </div>
+        )}
       </div>
     </BaseTimelineDialog>
   );
