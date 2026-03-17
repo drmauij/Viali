@@ -516,13 +516,25 @@ export function MedicationConfigDialog({
               {/* Administration Route */}
               <div className="grid gap-2">
                 <Label htmlFor="config-route">{t("anesthesia.timeline.administrationRoute")}</Label>
-                <Input
-                  id="config-route"
-                  value={configAdministrationRoute}
-                  onChange={(e) => setConfigAdministrationRoute(e.target.value)}
-                  placeholder={t("anesthesia.timeline.routePlaceholder")}
-                  data-testid="input-config-route"
-                />
+                <Select value={configAdministrationRoute} onValueChange={setConfigAdministrationRoute}>
+                  <SelectTrigger id="config-route" data-testid="select-config-route">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {configAdministrationRoute && !["i.v.", "p.o.", "s.c.", "i.m.", "i.n.", "rectal", "sublingual", "topical", "inhalativ"].includes(configAdministrationRoute) && (
+                      <SelectItem value={configAdministrationRoute}>{configAdministrationRoute}</SelectItem>
+                    )}
+                    <SelectItem value="i.v.">i.v.</SelectItem>
+                    <SelectItem value="p.o.">p.o.</SelectItem>
+                    <SelectItem value="s.c.">s.c.</SelectItem>
+                    <SelectItem value="i.m.">i.m.</SelectItem>
+                    <SelectItem value="i.n.">i.n. (intranasal)</SelectItem>
+                    <SelectItem value="rectal">rectal</SelectItem>
+                    <SelectItem value="sublingual">sublingual</SelectItem>
+                    <SelectItem value="topical">topical</SelectItem>
+                    <SelectItem value="inhalativ">inhalativ</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Type-specific fields */}
@@ -534,10 +546,14 @@ export function MedicationConfigDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {configAdministrationUnit && !["μg", "mg", "g", "ml", "IE", "Tbl"].includes(configAdministrationUnit) && (
+                        <SelectItem value={configAdministrationUnit}>{configAdministrationUnit}</SelectItem>
+                      )}
                       <SelectItem value="μg">μg ({t("anesthesia.timeline.micrograms")})</SelectItem>
                       <SelectItem value="mg">mg ({t("anesthesia.timeline.milligrams")})</SelectItem>
                       <SelectItem value="g">g ({t("anesthesia.timeline.grams")})</SelectItem>
                       <SelectItem value="ml">ml ({t("anesthesia.timeline.milliliters")})</SelectItem>
+                      <SelectItem value="IE">IE ({t("anesthesia.timeline.internationalUnits", "International Units")})</SelectItem>
                       <SelectItem value="Tbl">Tbl ({t("anesthesia.timeline.tablet")})</SelectItem>
                     </SelectContent>
                   </Select>
