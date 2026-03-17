@@ -287,20 +287,24 @@ export async function findPatientDuplicates(
         reasons.push(`Matching ${label}`);
 
         // Boost signals
+        const phoneI = group[i].phone;
+        const phoneJ = group[j].phone;
         if (
-          group[i].phone &&
-          group[j].phone &&
-          group[i].phone.replace(/\s+/g, "") ===
-            group[j].phone.replace(/\s+/g, "")
+          phoneI &&
+          phoneJ &&
+          phoneI.replace(/\s+/g, "") ===
+            phoneJ.replace(/\s+/g, "")
         ) {
           confidence = Math.min(1.0, confidence + 0.05);
           reasons.push("Matching phone number");
         }
 
+        const emailI = group[i].email;
+        const emailJ = group[j].email;
         if (
-          group[i].email &&
-          group[j].email &&
-          group[i].email.toLowerCase() === group[j].email.toLowerCase()
+          emailI &&
+          emailJ &&
+          emailI.toLowerCase() === emailJ.toLowerCase()
         ) {
           confidence = Math.min(1.0, confidence + 0.05);
           reasons.push("Matching email");

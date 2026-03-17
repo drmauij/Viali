@@ -1934,6 +1934,8 @@ router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, isAdmi
 
 import { findDuplicates } from "../services/staffDeduplication";
 import { previewStaffMerge, executeStaffMerge, undoStaffMerge } from "../services/staffMerge";
+import { findPatientDuplicates, scorePatient } from "../services/patientDeduplication";
+import { previewPatientMerge, executePatientMerge, undoPatientMerge } from "../services/patientMerge";
 
 // GET /api/admin/:hospitalId/staff-duplicates -- Find duplicate staff candidates
 router.get('/api/admin/:hospitalId/staff-duplicates', isAuthenticated, isAdmin, async (req, res) => {
@@ -2008,6 +2010,88 @@ router.post('/api/admin/:hospitalId/staff-merge/undo/:mergeId', isAuthenticated,
   } catch (error: any) {
     logger.error("[Admin] Merge undo error:", error);
     res.status(500).json({ message: "Failed to undo merge", error: error.message });
+  }
+});
+
+// ============================================================
+// Patient Merge
+// ============================================================
+
+// GET /api/admin/:hospitalId/patient-duplicates -- Find duplicate patient candidates
+router.get('/api/admin/:hospitalId/patient-duplicates', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const pairs = await findPatientDuplicates(req.params.hospitalId);
+    // Enrich each pair with scores for primary recommendation
+    for (const pair of pairs) {
+      (pair as any).patient1Score = await scorePatient(pair.patient1.id, req.params.hospitalId);
+      (pair as any).patient2Score = await scorePatient(pair.patient2.id, req.params.hospitalId);
+    }
+    res.json(pairs);
+  } catch (error: any) {
+    logger.error("[Admin] Patient duplicate detection error:", error);
+    res.status(500).json({ message: "Failed to find patient duplicates", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/patient-merge/preview -- Dry run merge preview
+router.post('/api/admin/:hospitalId/patient-merge/preview', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { primaryPatientId, secondaryPatientId } = req.body;
+
+    if (!primaryPatientId || !secondaryPatientId) {
+      return res.status(400).json({ message: "primaryPatientId and secondaryPatientId are required" });
+    }
+    if (primaryPatientId === secondaryPatientId) {
+      return res.status(400).json({ message: "Cannot merge a patient with themselves" });
+    }
+
+    const preview = await previewPatientMerge(primaryPatientId, secondaryPatientId, req.params.hospitalId);
+    res.json(preview);
+  } catch (error: any) {
+    logger.error("[Admin] Patient merge preview error:", error);
+    res.status(500).json({ message: "Failed to generate patient merge preview", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/patient-merge/execute -- Execute patient merge
+router.post('/api/admin/:hospitalId/patient-merge/execute', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { primaryPatientId, secondaryPatientId, fieldChoices } = req.body;
+    const mergedBy = (req as any).user.id;
+
+    if (!primaryPatientId || !secondaryPatientId) {
+      return res.status(400).json({ message: "primaryPatientId and secondaryPatientId are required" });
+    }
+    if (primaryPatientId === secondaryPatientId) {
+      return res.status(400).json({ message: "Cannot merge a patient with themselves" });
+    }
+
+    const result = await executePatientMerge(
+      primaryPatientId,
+      secondaryPatientId,
+      fieldChoices ?? {},
+      mergedBy,
+      req.params.hospitalId
+    );
+
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    logger.error("[Admin] Patient merge execution error:", error);
+    res.status(500).json({ message: "Failed to execute patient merge", error: error.message });
+  }
+});
+
+// POST /api/admin/:hospitalId/patient-merge/undo/:mergeId -- Undo a completed patient merge
+router.post('/api/admin/:hospitalId/patient-merge/undo/:mergeId', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { mergeId } = req.params;
+    const undoneBy = (req as any).user.id;
+
+    await undoPatientMerge(mergeId, undoneBy);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error("[Admin] Patient merge undo error:", error);
+    res.status(500).json({ message: "Failed to undo patient merge", error: error.message });
   }
 });
 
