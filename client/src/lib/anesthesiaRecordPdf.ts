@@ -8,6 +8,9 @@ import type {
   ClinicalSnapshot,
 } from "@shared/schema";
 import { formatDate, formatTime, formatDateTime } from "@/lib/dateUtils";
+import { simulate, parsePatientCovariates } from "@/lib/pharmacokinetics";
+import type { TargetEvent, PKTimePoint } from "@/lib/pharmacokinetics";
+import { identifyTCIDrug } from "@/hooks/usePKSimulation";
 
 interface AnesthesiaEvent {
   id: string;
@@ -750,6 +753,164 @@ function drawLandscapeTimelineChart(
 }
 
 // Landscape medication timeline
+// ── PK Simulation helpers ─────────────────────────────────
+
+/**
+ * Convert medication administrations for a single TCI drug into TargetEvent[].
+ * We treat each infusion record as a "start" or "rate_change" event using the
+ * `rate` field (which holds the TCI target concentration).  A record without
+ * an endTimestamp that appears after a previous infusion is treated as a rate
+ * change.  Records with endTimestamp produce a trailing "stop" event.
+ */
+function extractPKTargetsFromMedications(
+  medications: MedicationAdministration[],
+  anesthesiaItems: AnesthesiaItem[],
+  drug: "propofol" | "remifentanil",
+): TargetEvent[] {
+  const itemMap = new Map(anesthesiaItems.map(item => [item.id, item]));
+  const events: TargetEvent[] = [];
+
+  // Filter to infusion records that match the drug and have a rate value
+  const tciMeds = medications.filter(med => {
+    if (med.type === "bolus") return false;
+    const item = itemMap.get(med.itemId);
+    if (!item) return false;
+    return identifyTCIDrug(item.name) === drug;
+  });
+
+  if (tciMeds.length === 0) return [];
+
+  // Sort by timestamp
+  const sorted = [...tciMeds].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+
+  sorted.forEach((med, idx) => {
+    const ts = new Date(med.timestamp).getTime();
+    const conc = parseFloat(med.rate || med.dose || "");
+    if (isNaN(conc) || conc <= 0) return;
+
+    events.push({
+      type: idx === 0 ? "start" : "rate_change",
+      timestamp: ts,
+      targetConcentration: conc,
+    });
+
+    if (med.endTimestamp) {
+      events.push({
+        type: "stop",
+        timestamp: new Date(med.endTimestamp).getTime(),
+        targetConcentration: 0,
+      });
+    }
+  });
+
+  return events.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * Render a PK simulation summary table onto the current PDF page.
+ * Shows Propofol Cp/Ce, Remifentanil Cp/Ce, and eBIS at every 15 minutes.
+ * Returns the updated yPos.
+ */
+function drawPKSummaryTable(
+  doc: jsPDF,
+  pkPoints: PKTimePoint[],
+  yPos: number,
+  intervalMinutes: number = 15,
+): number {
+  const intervalMs = intervalMinutes * 60 * 1000;
+
+  if (pkPoints.length === 0) return yPos;
+
+  const startTs = pkPoints[0].timestamp;
+  const endTs = pkPoints[pkPoints.length - 1].timestamp;
+
+  // Collect sample points every `intervalMinutes`
+  const rows: Array<{
+    time: string;
+    propCp: string;
+    propCe: string;
+    remiCp: string;
+    remiCe: string;
+    eBIS: string;
+  }> = [];
+
+  for (let ts = startTs; ts <= endTs; ts += intervalMs) {
+    // Find closest point
+    const closestIdx = pkPoints.reduce((best, pt, idx) => {
+      return Math.abs(pt.timestamp - ts) < Math.abs(pkPoints[best].timestamp - ts) ? idx : best;
+    }, 0);
+    const pt = pkPoints[closestIdx];
+
+    const minutesSinceStart = Math.round((ts - startTs) / 60000);
+    const hours = Math.floor(minutesSinceStart / 60);
+    const mins = minutesSinceStart % 60;
+    const timeLabel = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+
+    rows.push({
+      time: timeLabel,
+      propCp: pt.propofolCp !== null ? pt.propofolCp.toFixed(2) : "—",
+      propCe: pt.propofolCe !== null ? pt.propofolCe.toFixed(2) : "—",
+      remiCp: pt.remiCp !== null ? pt.remiCp.toFixed(2) : "—",
+      remiCe: pt.remiCe !== null ? pt.remiCe.toFixed(2) : "—",
+      eBIS: pt.eBIS !== null ? Math.round(pt.eBIS).toString() : "—",
+    });
+  }
+
+  if (rows.length === 0) return yPos;
+
+  // Table header
+  const colWidths = [20, 32, 32, 32, 32, 22]; // mm
+  const colHeaders = ["T (hh:mm)", "Prop Cp (µg/ml)", "Prop Ce (µg/ml)", "Remi Cp (ng/ml)", "Remi Ce (ng/ml)", "eBIS"];
+  const tableX = 20;
+  const rowH = 5.5;
+
+  // Section header row
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setFillColor(79, 70, 229); // indigo-600
+  doc.rect(tableX, yPos - 4, colWidths.reduce((s, w) => s + w, 0), 6, "F");
+  doc.setTextColor(255, 255, 255);
+  let x = tableX;
+  colHeaders.forEach((h, i) => {
+    doc.text(h, x + colWidths[i] / 2, yPos, { align: "center" });
+    x += colWidths[i];
+  });
+  doc.setTextColor(0, 0, 0);
+  yPos += 2;
+
+  // Data rows
+  doc.setFontSize(8);
+  rows.forEach((row, rowIdx) => {
+    yPos += rowH;
+
+    // Alternating background
+    if (rowIdx % 2 === 0) {
+      doc.setFillColor(245, 245, 255);
+      doc.rect(tableX, yPos - rowH + 0.5, colWidths.reduce((s, w) => s + w, 0), rowH, "F");
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+
+    const cells = [row.time, row.propCp, row.propCe, row.remiCp, row.remiCe, row.eBIS];
+    let cx = tableX;
+    cells.forEach((cell, i) => {
+      doc.text(cell, cx + colWidths[i] / 2, yPos, { align: "center" });
+      cx += colWidths[i];
+    });
+  });
+
+  // Bottom border
+  yPos += 2;
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(tableX, yPos, tableX + colWidths.reduce((s, w) => s + w, 0), yPos);
+
+  return yPos + 6;
+}
+
 function drawLandscapeMedicationTimeline(
   doc: jsPDF,
   title: string,
@@ -2193,6 +2354,75 @@ export async function generateAnesthesiaRecordPDF(data: ExportData) {
       );
     }
     
+    // ========== SECTION 6: PK SIMULATION SUMMARY (Portrait page) ==========
+    // Try to run a PK simulation if patient covariates + TCI medications are available.
+    {
+      const pkParseResult = parsePatientCovariates({
+        birthday: data.patient.birthday ?? null,
+        sex: data.patient.sex ?? null,
+        weight: (data.anesthesiaRecord as any)?.weight ?? null,
+        height: (data.anesthesiaRecord as any)?.height ?? null,
+      });
+
+      const meds = data.medications ?? [];
+      const items = data.anesthesiaItems ?? [];
+      const propofolTargets = extractPKTargetsFromMedications(meds, items, "propofol");
+      const remiTargets = extractPKTargetsFromMedications(meds, items, "remifentanil");
+      const hasTCIData = propofolTargets.length > 0 || remiTargets.length > 0;
+
+      if (pkParseResult.covariates && hasTCIData) {
+        // Determine time range from TCI events
+        const allTs = [...propofolTargets, ...remiTargets].map(e => e.timestamp);
+        const rangeStart = Math.min(...allTs);
+        // End at last stop event or last event + 30 min
+        const stopEvents = [...propofolTargets, ...remiTargets].filter(e => e.type === "stop");
+        const rangeEnd = stopEvents.length > 0
+          ? Math.max(...stopEvents.map(e => e.timestamp))
+          : Math.max(...allTs) + 30 * 60 * 1000;
+
+        const pkPoints = simulate(
+          pkParseResult.covariates,
+          propofolTargets,
+          remiTargets,
+          { start: rangeStart, end: rangeEnd },
+        );
+
+        if (pkPoints.length > 0) {
+          // Add a dedicated portrait page for the PK summary
+          doc.addPage('a4', 'portrait');
+          yPos = 20;
+
+          // Section header
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.setFillColor(79, 70, 229);
+          doc.rect(20, yPos - 5, 170, 9, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.text("PK Simulation Summary (Eleveld / Minto)", 22, yPos + 1);
+          doc.setTextColor(0, 0, 0);
+          yPos += 10;
+
+          // Patient covariates note
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "italic");
+          const { age, weight, height, sex } = pkParseResult.covariates;
+          doc.text(
+            `Model inputs: age ${age} yr, weight ${weight} kg, height ${height} cm, sex ${sex}${pkParseResult.sexDefaultApplied ? " (default)" : ""}`,
+            20,
+            yPos,
+          );
+          yPos += 8;
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text("Concentrations every 15 min. Cp = plasma, Ce = effect-site. eBIS estimated from Eleveld Ce model.", 20, yPos);
+          yPos += 8;
+
+          yPos = drawPKSummaryTable(doc, pkPoints, yPos, 15);
+        }
+      }
+    }
+
     // Add portrait page for remaining content (post-op, staff, etc.)
     doc.addPage('a4', 'portrait');
     yPos = 20;
