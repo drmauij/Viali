@@ -82,7 +82,6 @@ export default function AddressAutocomplete({
         q: query,
         access_token: accessToken,
         language: 'de',
-        country: 'CH',
         types: 'address,street',
         session_token: sessionToken,
         limit: '5',
