@@ -4855,7 +4855,12 @@
       "surgeryScheduled": "OP geplant",
       "surgeryScheduledDesc": "Der Termin wurde erfolgreich geplant.",
       "declined": "Abgelehnt",
-      "declinedDesc": "Die Anfrage wurde abgelehnt."
+      "declinedDesc": "Die Anfrage wurde abgelehnt.",
+      "possibleExistingPatients": "Mögliche bestehende Patienten gefunden",
+      "createNewPatient": "Neuen Patienten erstellen",
+      "matchHigh": "Hoch",
+      "matchMedium": "Mittel",
+      "matchLow": "Niedrig"
     },
     "externalRequest": {
       "invalidLink": "Ungültiger Link",

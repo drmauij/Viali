@@ -4774,7 +4774,12 @@
       "surgeryScheduled": "Surgery scheduled",
       "surgeryScheduledDesc": "The appointment has been scheduled successfully.",
       "declined": "Declined",
-      "declinedDesc": "The request has been declined."
+      "declinedDesc": "The request has been declined.",
+      "possibleExistingPatients": "Possible existing patients found",
+      "createNewPatient": "Create new patient",
+      "matchHigh": "High",
+      "matchMedium": "Medium",
+      "matchLow": "Low"
     },
     "externalRequest": {
       "invalidLink": "Invalid Link",
