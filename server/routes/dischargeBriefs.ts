@@ -1018,7 +1018,7 @@ Return ONLY valid JSON, no markdown fences.`,
       const isAdmin = role === "admin";
       const template = await createDischargeBriefTemplate({
         hospitalId,
-        briefType: parsed.briefType || briefType || "surgery_discharge",
+        briefType: briefType || parsed.briefType || "surgery_discharge",
         name: parsed.name || fileName.replace(/\.[^.]+$/, ""),
         description: parsed.description || null,
         templateContent: parsed.content || rawText,

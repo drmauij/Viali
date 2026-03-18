@@ -43,7 +43,7 @@ import { formatDate, formatDateForInput } from "@/lib/dateUtils";
 import { DischargeBriefTemplateManager } from "./DischargeBriefTemplateManager";
 
 // ---------------------------------------------------------------------------
-// Types (shared with DischargeBriefWizard)
+// Types
 // ---------------------------------------------------------------------------
 
 type BlockKey =

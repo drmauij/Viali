@@ -147,7 +147,7 @@ export async function getDischargeBriefTemplates(
   briefType?: string,
   userId?: string,
   userUnitIds?: string[],
-): Promise<DischargeBriefTemplate[]> {
+): Promise<(DischargeBriefTemplate & { creatorName: string | null })[]> {
   const conditions = [
     eq(dischargeBriefTemplates.hospitalId, hospitalId),
   ];
@@ -161,11 +161,21 @@ export async function getDischargeBriefTemplates(
     );
   }
 
-  const templates = await db
-    .select()
+  const rows = await db
+    .select({
+      template: dischargeBriefTemplates,
+      creatorFirstName: users.firstName,
+      creatorLastName: users.lastName,
+    })
     .from(dischargeBriefTemplates)
+    .leftJoin(users, eq(dischargeBriefTemplates.createdBy, users.id))
     .where(and(...conditions))
     .orderBy(desc(dischargeBriefTemplates.createdAt));
+
+  const templates = rows.map((r) => ({
+    ...r.template,
+    creatorName: [r.creatorFirstName, r.creatorLastName].filter(Boolean).join(" ") || null,
+  }));
 
   // Filter by visibility: hospital-wide, unit-level, or personal
   if (userId) {

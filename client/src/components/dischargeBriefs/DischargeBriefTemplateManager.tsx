@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,9 @@ import {
   Heading3,
   List,
   ListOrdered,
+  User,
+  Eye,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +75,7 @@ interface DischargeBriefTemplate {
   sharedWithUnitId: string | null;
   createdBy: string;
   createdAt: string;
+  creatorName: string | null;
 }
 
 interface UnitInfo {
@@ -96,6 +101,9 @@ const BRIEF_TYPES = [
   { value: "generic", label: "Generic" },
 ];
 
+// Brief types for assignment (excludes _all)
+const ASSIGNABLE_BRIEF_TYPES = BRIEF_TYPES.filter((bt) => bt.value !== "_all");
+
 const BRIEF_TYPE_LABELS: Record<string, string> = {
   surgery_discharge: "Surgery",
   anesthesia_discharge: "Anesthesia",
@@ -111,6 +119,8 @@ const VISIBILITY_LABELS: Record<string, string> = {
   unit: "Unit",
   hospital: "Hospital",
 };
+
+type BulkAction = "delete" | "changeBriefType" | "changeVisibility";
 
 export function DischargeBriefTemplateManager({
   hospitalId,
@@ -131,8 +141,16 @@ export function DischargeBriefTemplateManager({
     useState<DischargeBriefTemplate | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkActionValue, setBulkActionValue] = useState("");
+  const [bulkActionPending, setBulkActionPending] = useState(false);
+
   // Bulk import state
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkImportBriefType, setBulkImportBriefType] = useState("_auto");
+  const [pendingBulkFiles, setPendingBulkFiles] = useState<File[]>([]);
   const [bulkFiles, setBulkFiles] = useState<
     Array<{
       name: string;
@@ -179,7 +197,6 @@ export function DischargeBriefTemplateManager({
   });
 
   // Sync editor content when form.templateContent changes externally
-  // (editing existing template, file import, or dialog reset)
   useEffect(() => {
     if (templateEditor && form.templateContent !== lastExternalContent.current) {
       const currentHtml = templateEditor.getHTML();
@@ -196,6 +213,15 @@ export function DischargeBriefTemplateManager({
     queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
     enabled: !!hospitalId,
   });
+
+  // Clear selection when templates change
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const validIds = new Set(templates.map((t) => t.id));
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [templates]);
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof form) => {
@@ -326,7 +352,6 @@ export function DischargeBriefTemplateManager({
   };
 
   const handleSave = () => {
-    // Strip HTML tags to check if there's actual text content
     const textContent = form.templateContent.replace(/<[^>]*>/g, "").trim();
     if (!form.name.trim() || !textContent) return;
     if (editingTemplate) {
@@ -340,12 +365,10 @@ export function DischargeBriefTemplateManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset input so the same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     setIsExtracting(true);
     try {
-      // Convert file to base64
       const buffer = await file.arrayBuffer();
       const base64 = btoa(
         new Uint8Array(buffer).reduce(
@@ -366,7 +389,6 @@ export function DischargeBriefTemplateManager({
       const data = await res.json();
 
       if (data.text) {
-        // Convert plain text to simple HTML paragraphs for the WYSIWYG editor
         const html = data.text
           .split(/\n\n+/)
           .map((p: string) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
@@ -394,28 +416,32 @@ export function DischargeBriefTemplateManager({
     }
   };
 
+  // ---- Bulk import (two-step: select files → configure → start) ----
+
   const handleBulkFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
     if (bulkInputRef.current) bulkInputRef.current.value = "";
+    setPendingBulkFiles(fileList);
     setBulkFiles(
       fileList.map((f) => ({ name: f.name, status: "pending" as const })),
     );
+    setBulkImportBriefType("_auto");
     setBulkImportOpen(true);
-
-    // Start processing
-    processBulkImport(fileList);
   };
 
-  const processBulkImport = async (files: File[]) => {
+  const startBulkImport = () => {
+    processBulkImport(pendingBulkFiles, bulkImportBriefType);
+  };
+
+  const processBulkImport = async (files: File[], briefTypeOverride: string) => {
     setBulkImporting(true);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // Mark current as processing
       setBulkFiles((prev) =>
         prev.map((f, idx) =>
           idx === i ? { ...f, status: "processing" } : f,
@@ -431,15 +457,20 @@ export function DischargeBriefTemplateManager({
           ),
         );
 
+        const body: Record<string, string> = {
+          fileData: base64,
+          fileName: file.name,
+          mimeType: file.type,
+          hospitalId,
+        };
+        if (briefTypeOverride !== "_auto") {
+          body.briefType = briefTypeOverride;
+        }
+
         const res = await apiRequest(
           "POST",
           "/api/discharge-brief-templates/import-file",
-          {
-            fileData: base64,
-            fileName: file.name,
-            mimeType: file.type,
-            hospitalId,
-          },
+          body,
         );
         const template = await res.json();
 
@@ -466,9 +497,99 @@ export function DischargeBriefTemplateManager({
     }
 
     setBulkImporting(false);
+    setPendingBulkFiles([]);
     queryClient.invalidateQueries({
       queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
     });
+  };
+
+  // ---- Selection helpers ----
+
+  const selectableTemplates = templates.filter(
+    (tpl) => isAdmin || tpl.assignedUserId === userId,
+  );
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === selectableTemplates.length) return new Set();
+      return new Set(selectableTemplates.map((t) => t.id));
+    });
+  }, [selectableTemplates]);
+
+  const hasSelection = selectedIds.size > 0;
+  const allSelected = selectableTemplates.length > 0 && selectedIds.size === selectableTemplates.length;
+
+  // ---- Bulk operations ----
+
+  const executeBulkAction = async () => {
+    if (!bulkAction || selectedIds.size === 0) return;
+    setBulkActionPending(true);
+
+    const ids = [...selectedIds];
+
+    try {
+      if (bulkAction === "delete") {
+        for (const id of ids) {
+          await apiRequest("DELETE", `/api/discharge-brief-templates/${id}`);
+        }
+        toast({
+          description: t(
+            "dischargeBriefs.templates.bulkDeleted",
+            "{{count}} templates deleted",
+            { count: ids.length },
+          ),
+        });
+      } else if (bulkAction === "changeBriefType") {
+        for (const id of ids) {
+          await apiRequest("PATCH", `/api/discharge-brief-templates/${id}`, {
+            briefType: bulkActionValue === "_all" ? null : bulkActionValue,
+          });
+        }
+        toast({
+          description: t(
+            "dischargeBriefs.templates.bulkUpdated",
+            "{{count}} templates updated",
+            { count: ids.length },
+          ),
+        });
+      } else if (bulkAction === "changeVisibility") {
+        for (const id of ids) {
+          await apiRequest("PATCH", `/api/discharge-brief-templates/${id}`, {
+            visibility: bulkActionValue,
+          });
+        }
+        toast({
+          description: t(
+            "dischargeBriefs.templates.bulkUpdated",
+            "{{count}} templates updated",
+            { count: ids.length },
+          ),
+        });
+      }
+
+      queryClient.invalidateQueries({
+        queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+      });
+      setSelectedIds(new Set());
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        description: error.message,
+      });
+    } finally {
+      setBulkActionPending(false);
+      setBulkAction(null);
+      setBulkActionValue("");
+    }
   };
 
   const bulkDoneCount = bulkFiles.filter(
@@ -476,6 +597,7 @@ export function DischargeBriefTemplateManager({
   ).length;
   const bulkProgress =
     bulkFiles.length > 0 ? (bulkDoneCount / bulkFiles.length) * 100 : 0;
+  const bulkNotStarted = bulkFiles.length > 0 && !bulkImporting && bulkDoneCount === 0;
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -512,6 +634,58 @@ export function DischargeBriefTemplateManager({
         </div>
       </div>
 
+      {/* Bulk operations toolbar */}
+      {hasSelection && (
+        <div className="flex items-center gap-2 flex-wrap p-2 rounded-lg border bg-muted/50">
+          <span className="text-sm font-medium">
+            {t("dischargeBriefs.templates.selected", "{{count}} selected", { count: selectedIds.size })}
+          </span>
+          <div className="w-px h-5 bg-border" />
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              setBulkAction("delete");
+              setBulkActionValue("");
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            {t("common.delete", "Delete")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setBulkAction("changeBriefType");
+              setBulkActionValue("surgery_discharge");
+            }}
+          >
+            <Tag className="h-3.5 w-3.5 mr-1" />
+            {t("dischargeBriefs.templates.changeBriefType", "Change Type")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setBulkAction("changeVisibility");
+              setBulkActionValue("hospital");
+            }}
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            {t("dischargeBriefs.templates.changeVisibility", "Change Visibility")}
+          </Button>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            {t("common.clearSelection", "Clear")}
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-6">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -532,37 +706,68 @@ export function DischargeBriefTemplateManager({
         </div>
       ) : (
         <div className="space-y-2">
+          {/* Select all row */}
+          {selectableTemplates.length > 0 && (
+            <div className="flex items-center gap-2 px-4 py-1">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={toggleSelectAll}
+              />
+              <span className="text-xs text-muted-foreground">
+                {t("dischargeBriefs.templates.selectAll", "Select all")}
+              </span>
+            </div>
+          )}
           {templates.map((tpl) => {
             const canModify = isAdmin || tpl.assignedUserId === userId;
+            const isSelected = selectedIds.has(tpl.id);
             return (
               <div
                 key={tpl.id}
-                className="bg-card border border-border rounded-lg p-4"
+                className={cn(
+                  "bg-card border rounded-lg p-4",
+                  isSelected ? "border-primary bg-primary/5" : "border-border",
+                )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground break-words">{tpl.name}</h3>
-                      <Badge variant="outline" className="text-xs">
-                        {BRIEF_TYPE_LABELS[tpl.briefType ?? "_all"] || tpl.briefType || "All Types"}
-                      </Badge>
-                      <Badge
-                        variant={tpl.visibility === "hospital" ? "default" : tpl.visibility === "unit" ? "secondary" : "outline"}
-                        className="text-xs"
-                      >
-                        {VISIBILITY_LABELS[tpl.visibility] || tpl.visibility}
-                      </Badge>
-                      {tpl.procedureType && (
-                        <Badge variant="secondary" className="text-xs">
-                          {tpl.procedureType}
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {canModify && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(tpl.id)}
+                        className="mt-1 shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground break-words">{tpl.name}</h3>
+                        <Badge variant="outline" className="text-xs">
+                          {BRIEF_TYPE_LABELS[tpl.briefType ?? "_all"] || tpl.briefType || "All Types"}
                         </Badge>
+                        <Badge
+                          variant={tpl.visibility === "hospital" ? "default" : tpl.visibility === "unit" ? "secondary" : "outline"}
+                          className="text-xs"
+                        >
+                          {VISIBILITY_LABELS[tpl.visibility] || tpl.visibility}
+                        </Badge>
+                        {tpl.procedureType && (
+                          <Badge variant="secondary" className="text-xs">
+                            {tpl.procedureType}
+                          </Badge>
+                        )}
+                        {tpl.creatorName && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground gap-1">
+                            <User className="h-3 w-3" />
+                            {tpl.creatorName}
+                          </Badge>
+                        )}
+                      </div>
+                      {tpl.description && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {tpl.description}
+                        </p>
                       )}
                     </div>
-                    {tpl.description && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {tpl.description}
-                      </p>
-                    )}
                   </div>
                   {canModify && (
                     <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -901,13 +1106,14 @@ export function DischargeBriefTemplateManager({
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Import Progress Dialog */}
+      {/* Bulk Import Dialog (two-step: configure then import) */}
       <Dialog
         open={bulkImportOpen}
         onOpenChange={(open) => {
           if (!open && !bulkImporting) {
             setBulkImportOpen(false);
             setBulkFiles([]);
+            setPendingBulkFiles([]);
           }
         }}
       >
@@ -918,22 +1124,65 @@ export function DischargeBriefTemplateManager({
               {t("dischargeBriefs.templates.bulkImportTitle", "Importing Templates")}
             </DialogTitle>
             <DialogDescription>
-              {bulkImporting
+              {bulkNotStarted
                 ? t(
-                    "dischargeBriefs.templates.bulkImportProcessing",
-                    "Extracting text and generating metadata with AI...",
+                    "dischargeBriefs.templates.bulkImportConfigure",
+                    "Configure import settings, then start.",
                   )
-                : t(
-                    "dischargeBriefs.templates.bulkImportDone",
-                    "Import complete.",
-                  )}
+                : bulkImporting
+                  ? t(
+                      "dischargeBriefs.templates.bulkImportProcessing",
+                      "Extracting text and generating metadata with AI...",
+                    )
+                  : t(
+                      "dischargeBriefs.templates.bulkImportDone",
+                      "Import complete.",
+                    )}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Brief type selector (shown before import starts) */}
+          {bulkNotStarted && (
+            <div className="space-y-2">
+              <Label>
+                {t("dischargeBriefs.templates.bulkImportBriefType", "Brief Type for all files")}
+              </Label>
+              <Select
+                value={bulkImportBriefType}
+                onValueChange={setBulkImportBriefType}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_auto">
+                    {t("dischargeBriefs.templates.bulkImportAutoDetect", "Auto-detect (AI)")}
+                  </SelectItem>
+                  {ASSIGNABLE_BRIEF_TYPES.map((bt) => (
+                    <SelectItem key={bt.value} value={bt.value}>
+                      {bt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "dischargeBriefs.templates.bulkImportBriefTypeHelp",
+                  "Choose a type to assign to all imported templates, or let AI auto-detect (less reliable).",
+                )}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3">
-            <Progress value={bulkProgress} className="h-2" />
-            <p className="text-xs text-muted-foreground text-right">
-              {bulkDoneCount} / {bulkFiles.length}
-            </p>
+            {!bulkNotStarted && (
+              <>
+                <Progress value={bulkProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-right">
+                  {bulkDoneCount} / {bulkFiles.length}
+                </p>
+              </>
+            )}
             <div className="max-h-60 overflow-y-auto space-y-2">
               {bulkFiles.map((file, idx) => (
                 <div
@@ -967,22 +1216,41 @@ export function DischargeBriefTemplateManager({
               ))}
             </div>
           </div>
-          {!bulkImporting && (
-            <DialogFooter>
+
+          <DialogFooter>
+            {bulkNotStarted ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBulkImportOpen(false);
+                    setBulkFiles([]);
+                    setPendingBulkFiles([]);
+                  }}
+                >
+                  {t("common.cancel", "Cancel")}
+                </Button>
+                <Button onClick={startBulkImport}>
+                  <Upload className="h-4 w-4 mr-1" />
+                  {t("dischargeBriefs.templates.startImport", "Start Import")}
+                </Button>
+              </>
+            ) : !bulkImporting ? (
               <Button
                 onClick={() => {
                   setBulkImportOpen(false);
                   setBulkFiles([]);
+                  setPendingBulkFiles([]);
                 }}
               >
                 {t("common.close", "Close")}
               </Button>
-            </DialogFooter>
-          )}
+            ) : null}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Single Delete Confirmation */}
       <AlertDialog
         open={!!deleteTemplate}
         onOpenChange={() => setDeleteTemplate(null)}
@@ -1014,6 +1282,170 @@ export function DischargeBriefTemplateManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Action Confirmation Dialog */}
+      <AlertDialog
+        open={bulkAction === "delete"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkAction(null);
+            setBulkActionValue("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("dischargeBriefs.templates.bulkDeleteTitle", "Delete {{count}} templates?", { count: selectedIds.size })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "dischargeBriefs.templates.bulkDeleteConfirm",
+                "This will permanently delete all selected templates. This action cannot be undone.",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkActionPending}>
+              {t("common.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeBulkAction}
+              disabled={bulkActionPending}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {bulkActionPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t("common.delete", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Change Brief Type Dialog */}
+      <Dialog
+        open={bulkAction === "changeBriefType"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkAction(null);
+            setBulkActionValue("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {t("dischargeBriefs.templates.bulkChangeBriefTypeTitle", "Change Brief Type")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "dischargeBriefs.templates.bulkChangeBriefTypeDesc",
+                "Set the brief type for {{count}} selected templates.",
+                { count: selectedIds.size },
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <Select
+            value={bulkActionValue}
+            onValueChange={setBulkActionValue}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BRIEF_TYPES.map((bt) => (
+                <SelectItem key={bt.value} value={bt.value}>
+                  {bt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkAction(null);
+                setBulkActionValue("");
+              }}
+              disabled={bulkActionPending}
+            >
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button
+              onClick={executeBulkAction}
+              disabled={bulkActionPending || !bulkActionValue}
+            >
+              {bulkActionPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t("common.apply", "Apply")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Change Visibility Dialog */}
+      <Dialog
+        open={bulkAction === "changeVisibility"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkAction(null);
+            setBulkActionValue("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {t("dischargeBriefs.templates.bulkChangeVisibilityTitle", "Change Visibility")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "dischargeBriefs.templates.bulkChangeVisibilityDesc",
+                "Set the visibility for {{count}} selected templates.",
+                { count: selectedIds.size },
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <Select
+            value={bulkActionValue}
+            onValueChange={setBulkActionValue}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="personal">
+                {t("dischargeBriefs.templates.visibilityPersonal", "Personal (only me)")}
+              </SelectItem>
+              <SelectItem value="unit">
+                {t("dischargeBriefs.templates.visibilityUnit", "Unit (shared with unit)")}
+              </SelectItem>
+              {isAdmin && (
+                <SelectItem value="hospital">
+                  {t("dischargeBriefs.templates.visibilityHospital", "Hospital (everyone)")}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkAction(null);
+                setBulkActionValue("");
+              }}
+              disabled={bulkActionPending}
+            >
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button
+              onClick={executeBulkAction}
+              disabled={bulkActionPending || !bulkActionValue}
+            >
+              {bulkActionPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t("common.apply", "Apply")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
