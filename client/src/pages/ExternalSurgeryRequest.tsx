@@ -838,6 +838,11 @@ export default function ExternalSurgeryRequest() {
                       onChange={(e) => updateField('surgeryDurationMinutes', parseInt(e.target.value) || 60)}
                       data-testid="input-surgery-duration"
                     />
+                    {formData.surgeryDurationMinutes < 15 && (
+                      <p className="text-xs text-destructive">
+                        {t('surgery.externalRequest.durationMin', 'Minimum 15 minutes')}
+                      </p>
+                    )}
                   </div>
                 </div>
 
