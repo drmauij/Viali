@@ -79,6 +79,7 @@ export default function QuickCreateSurgeryDialog({
   const [surgeonId, setSurgeonId] = useState("");
   const [assistantIds, setAssistantIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
@@ -251,6 +252,7 @@ export default function QuickCreateSurgeryDialog({
     setSurgeonId("");
     setAssistantIds([]);
     setNotes("");
+    setDiagnosis("");
     setImplantDetails("");
     setNoPreOpRequired(false);
     setSurgerySide("");
@@ -342,6 +344,7 @@ export default function QuickCreateSurgeryDialog({
       surgeon: matchedSurgeon?.name || undefined,
       surgeonId: surgeonId || undefined,
       notes: notes.trim() || undefined,
+      diagnosis: diagnosis.trim() || undefined,
       admissionTime: admissionTimeISO,
       implantDetails: implantDetails.trim() || undefined,
       noPreOpRequired: noPreOpRequired,
@@ -585,6 +588,7 @@ export default function QuickCreateSurgeryDialog({
             selectedChopCode={selectedChopCode}
             surgeonId={surgeonId}
             notes={notes}
+            diagnosis={diagnosis}
             implantDetails={implantDetails}
             surgerySide={surgerySide}
             noPreOpRequired={noPreOpRequired}
@@ -601,6 +605,7 @@ export default function QuickCreateSurgeryDialog({
             onSelectedChopCodeChange={setSelectedChopCode}
             onSurgeonIdChange={setSurgeonId}
             onNotesChange={setNotes}
+            onDiagnosisChange={setDiagnosis}
             onImplantDetailsChange={setImplantDetails}
             onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
             onNoPreOpRequiredChange={setNoPreOpRequired}

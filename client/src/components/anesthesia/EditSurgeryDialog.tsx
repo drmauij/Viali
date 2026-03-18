@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
@@ -53,8 +54,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [surgeonId, setSurgeonId] = useState("");
   const [assistantIds, setAssistantIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
+  const [surgeryStatus, setSurgeryStatus] = useState<"planned" | "in-progress" | "completed" | "cancelled">("planned");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
   const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
@@ -201,8 +204,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
+      setDiagnosis(surgery.diagnosis || "");
       setImplantDetails(surgery.implantDetails || "");
       setPlanningStatus(surgery.planningStatus || "pre-registered");
+      setSurgeryStatus(surgery.status || "planned");
       setNoPreOpRequired(surgery.noPreOpRequired || false);
       setSurgerySide(surgery.surgerySide || "");
       setAntibioseProphylaxe(surgery.antibioseProphylaxe || false);
@@ -251,8 +256,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         surgeon: matchedSurgeon?.name || null,
         surgeonId: surgeonId || null,
         notes: notes || null,
+        diagnosis: diagnosis || null,
         admissionTime: admissionTimeISO,
         implantDetails: implantDetails || null,
+        status: surgeryStatus,
         planningStatus,
         noPreOpRequired,
         surgerySide: surgerySide || null,
@@ -561,6 +568,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               ) : null}
 
+              {/* Surgery Status */}
+              {surgery?.status === 'cancelled' || surgeryStatus !== surgery?.status ? (
+                <div className="space-y-2">
+                  <Label>{t('anesthesia.editSurgery.status', 'Status')}</Label>
+                  <Select value={surgeryStatus} onValueChange={(v) => setSurgeryStatus(v as typeof surgeryStatus)}>
+                    <SelectTrigger data-testid="select-surgery-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planned">{t('anesthesia.editSurgery.statusPlanned', 'Planned')}</SelectItem>
+                      <SelectItem value="cancelled">{t('anesthesia.editSurgery.statusCancelled', 'Cancelled')}</SelectItem>
+                      <SelectItem value="in-progress">{t('anesthesia.editSurgery.statusInProgress', 'In Progress')}</SelectItem>
+                      <SelectItem value="completed">{t('anesthesia.editSurgery.statusCompleted', 'Completed')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+
               {/* Shared Surgery Form Fields */}
               <SurgeryFormFields
                 surgeryRoomId={surgeryRoomId}
@@ -572,6 +597,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 selectedChopCode={selectedChopCode}
                 surgeonId={surgeonId}
                 notes={notes}
+                diagnosis={diagnosis}
                 implantDetails={implantDetails}
                 surgerySide={surgerySide}
                 noPreOpRequired={noPreOpRequired}
@@ -588,6 +614,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onSelectedChopCodeChange={setSelectedChopCode}
                 onSurgeonIdChange={setSurgeonId}
                 onNotesChange={setNotes}
+                onDiagnosisChange={setDiagnosis}
                 onImplantDetailsChange={setImplantDetails}
                 onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
                 onNoPreOpRequiredChange={setNoPreOpRequired}

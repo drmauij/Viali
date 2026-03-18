@@ -964,6 +964,7 @@ export const surgeries = pgTable("surgeries", {
   surgeon: varchar("surgeon"), // Display name / fallback for unmatched surgeons
   surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
+  diagnosis: text("diagnosis"), // Optional diagnosis (ICD-10 or free text)
   anesthesiaNotes: text("anesthesia_notes"), // Notes for the anesthesiologist (copied from external request)
 
   // Scheduling

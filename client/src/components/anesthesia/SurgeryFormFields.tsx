@@ -30,6 +30,7 @@ export interface SurgeryFormFieldsProps {
   selectedChopCode: string;
   surgeonId: string;
   notes: string;
+  diagnosis: string;
   implantDetails: string;
   surgerySide: string;
   noPreOpRequired: boolean;
@@ -48,6 +49,7 @@ export interface SurgeryFormFieldsProps {
   onSelectedChopCodeChange: (v: string) => void;
   onSurgeonIdChange: (v: string) => void;
   onNotesChange: (v: string) => void;
+  onDiagnosisChange: (v: string) => void;
   onImplantDetailsChange: (v: string) => void;
   onSurgerySideChange: (v: string) => void;
   onNoPreOpRequiredChange: (v: boolean) => void;
@@ -70,12 +72,12 @@ export interface SurgeryFormFieldsProps {
 
 export function SurgeryFormFields({
   surgeryRoomId, surgeryDate, startTime, duration, admissionTime,
-  plannedSurgery, selectedChopCode, surgeonId, notes, implantDetails,
+  plannedSurgery, selectedChopCode, surgeonId, notes, diagnosis, implantDetails,
   surgerySide, noPreOpRequired, antibioseProphylaxe,
   patientPosition, leftArmPosition, rightArmPosition,
   onSurgeryRoomIdChange, onSurgeryDateChange, onStartTimeChange,
   onDurationChange, onAdmissionTimeChange, onPlannedSurgeryChange,
-  onSelectedChopCodeChange, onSurgeonIdChange, onNotesChange,
+  onSelectedChopCodeChange, onSurgeonIdChange, onNotesChange, onDiagnosisChange,
   onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
   onAntibioseProphylaxeChange, onPatientPositionChange,
   onLeftArmPositionChange, onRightArmPositionChange,
@@ -731,6 +733,20 @@ export function SurgeryFormFields({
           rows={3}
         />
       </div>
+
+      {/* Diagnosis - hidden in slot reservation mode */}
+      {!isSlotReservation && (
+        <div className="space-y-2">
+          <Label>{t('anesthesia.quickSchedule.diagnosis', 'Diagnosis')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+          <Input
+            placeholder={t('anesthesia.quickSchedule.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
+            value={diagnosis}
+            onChange={(e) => onDiagnosisChange(e.target.value)}
+            disabled={disabled}
+            data-testid={tid("input-diagnosis")}
+          />
+        </div>
+      )}
 
       {/* Implant Details - hidden in slot reservation mode */}
       {!isSlotReservation && (

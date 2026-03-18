@@ -1,0 +1,1 @@
+ALTER TABLE "surgeries" ADD COLUMN IF NOT EXISTS "diagnosis" text;
