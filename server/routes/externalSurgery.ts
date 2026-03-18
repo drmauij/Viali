@@ -190,6 +190,7 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
 
     const parsed = externalSurgeryRequestSchema.safeParse(req.body);
     if (!parsed.success) {
+      logger.warn('[ExternalSurgery] Validation failed:', JSON.stringify(parsed.error.errors));
       return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
     }
 

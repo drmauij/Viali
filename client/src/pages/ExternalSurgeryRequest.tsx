@@ -308,11 +308,12 @@ export default function ExternalSurgeryRequest() {
       case 'surgery': {
         // Block if selected date is in a closure
         const dateIsValid = formData.wishedDate && !getClosureNameForDate(formData.wishedDate);
+        const durationValid = formData.surgeryDurationMinutes >= 15 && formData.surgeryDurationMinutes <= 720;
         // In reservation mode, surgery name is optional
         if (isReservationOnly) {
-          return formData.surgeryDurationMinutes > 0 && dateIsValid;
+          return durationValid && dateIsValid;
         }
-        return formData.surgeryName && formData.surgeryDurationMinutes > 0 && dateIsValid;
+        return formData.surgeryName && durationValid && dateIsValid;
       }
       case 'patient':
         return formData.patientFirstName && formData.patientLastName &&
