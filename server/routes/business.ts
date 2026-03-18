@@ -1834,4 +1834,41 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusine
   }
 });
 
+// Referral source time-series (monthly, full history — no date filter)
+router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const rows = await db
+      .select({
+        month: sql<string>`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`,
+        referralSource: patientQuestionnaireResponses.referralSource,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(patientQuestionnaireResponses)
+      .innerJoin(
+        patientQuestionnaireLinks,
+        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
+      )
+      .where(
+        and(
+          eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+          eq(patientQuestionnaireLinks.status, 'submitted'),
+          isNotNull(patientQuestionnaireResponses.referralSource),
+          isNotNull(patientQuestionnaireLinks.submittedAt),
+        )
+      )
+      .groupBy(
+        sql`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`,
+        patientQuestionnaireResponses.referralSource,
+      )
+      .orderBy(sql`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`);
+
+    res.json(rows);
+  } catch (error: any) {
+    logger.error('Error fetching referral timeseries:', error);
+    res.status(500).json({ message: 'Failed to fetch referral timeseries' });
+  }
+});
+
 export default router;

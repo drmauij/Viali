@@ -490,6 +490,41 @@ export default function CostAnalytics() {
     enabled: !!activeHospital?.id && activeSubTab === 'referrals',
   });
 
+  // Fetch referral time-series (full history, no date filter)
+  const { data: referralTimeseries, isLoading: referralTimeseriesLoading } = useQuery<
+    Array<{ month: string; referralSource: string; count: number }>
+  >({
+    queryKey: [`/api/business/${activeHospital?.id}/referral-timeseries`],
+    enabled: !!activeHospital?.id && activeSubTab === 'referrals',
+  });
+
+  // Transform time-series into line chart format: [{ month, social: N, search_engine: N, ... }]
+  const referralLineData = useMemo(() => {
+    if (!referralTimeseries?.length) return [];
+    const monthMap: Record<string, Record<string, number>> = {};
+    const allSources = new Set<string>();
+    for (const row of referralTimeseries) {
+      if (!monthMap[row.month]) monthMap[row.month] = {};
+      monthMap[row.month][row.referralSource] = (monthMap[row.month][row.referralSource] || 0) + row.count;
+      allSources.add(row.referralSource);
+    }
+    return Object.keys(monthMap).sort().map((month) => {
+      const entry: Record<string, any> = { month };
+      for (const src of allSources) {
+        entry[src] = monthMap[month][src] || 0;
+      }
+      return entry;
+    });
+  }, [referralTimeseries]);
+
+  // Collect unique sources from the time-series data
+  const referralLineSources = useMemo(() => {
+    if (!referralTimeseries?.length) return [];
+    const s = new Set<string>();
+    for (const row of referralTimeseries) s.add(row.referralSource);
+    return Array.from(s);
+  }, [referralTimeseries]);
+
   const referralPieData = useMemo(() => {
     if (!referralData?.breakdown) return [];
     const grouped: Record<string, number> = {};
@@ -1701,6 +1736,44 @@ export default function CostAnalytics() {
               )}
             </ChartCard>
           </div>
+
+          {/* Referral progress over time — line chart */}
+          <ChartCard
+            title={t('business.referrals.progressOverTime')}
+            helpText={t('business.referrals.progressOverTimeHelp')}
+          >
+            {referralTimeseriesLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : referralLineData.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-muted-foreground">
+                {t('business.referrals.noData')}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={referralLineData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <RechartsTooltip />
+                  <Legend />
+                  {referralLineSources.map((src) => (
+                    <Line
+                      key={src}
+                      type="monotone"
+                      dataKey={src}
+                      name={REFERRAL_LABELS[src] || src}
+                      stroke={REFERRAL_COLORS[src] || "#6b7280"}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </ChartCard>
         </TabsContent>
       </Tabs>
 

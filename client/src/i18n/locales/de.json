@@ -5348,7 +5348,9 @@
       "selectSlice": "Klicken Sie auf ein Segment für Details",
       "noDetail": "Keine Detailaufschlüsselung für diese Quelle",
       "responses": "Antworten",
-      "detail": "Detail"
+      "detail": "Detail",
+      "progressOverTime": "Empfehlungsquellen im Zeitverlauf",
+      "progressOverTimeHelp": "Zeigt die monatliche Entwicklung jeder Empfehlungsquelle über den gesamten verfügbaren Zeitraum"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

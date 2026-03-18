@@ -5252,7 +5252,9 @@
       "selectSlice": "Click a slice to see details",
       "noDetail": "No detail breakdown for this source",
       "responses": "Responses",
-      "detail": "Detail"
+      "detail": "Detail",
+      "progressOverTime": "Referral Sources Over Time",
+      "progressOverTimeHelp": "Shows how each referral source has evolved month by month across the entire available time range"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",
