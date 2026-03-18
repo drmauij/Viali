@@ -22,6 +22,7 @@ import { users, userHospitalRoles, units } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import logger from "../logger";
 import { getClinicClosuresInRange, isDateInClosure } from "../storage/clinicClosures";
+import { findFuzzyPatientMatches } from "../services/patientDeduplication";
 
 const router = Router();
 
@@ -607,11 +608,53 @@ router.get('/api/external-surgery-requests/:id/surgeon-match', isAuthenticated, 
   }
 });
 
+router.get('/api/external-surgery-requests/:id/patient-matches', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const request = await storage.getExternalSurgeryRequest(id);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const unitId = await getUserUnitForHospital(userId, request.hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Skip matching if patient already linked, reservation-only, or missing required fields
+    if (request.patientId || request.isReservationOnly ||
+        !request.patientFirstName || !request.patientLastName || !request.patientBirthday) {
+      return res.json([]);
+    }
+
+    const matches = await findFuzzyPatientMatches(
+      request.hospitalId,
+      request.patientFirstName,
+      request.patientLastName,
+      request.patientBirthday,
+      request.patientEmail || undefined,
+      request.patientPhone || undefined,
+    );
+
+    res.json(matches);
+  } catch (error) {
+    logger.error("Error finding patient matches:", error);
+    res.status(500).json({ message: "Failed to find patient matches" });
+  }
+});
+
 router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon, surgeryDurationMinutes } = req.body;
+    const { plannedDate, surgeryRoomId, admissionTime, sendConfirmation, surgeonId: overrideSurgeonId, createNewSurgeon, surgeryDurationMinutes, existingPatientId } = req.body;
     const userId = req.user.id;
+
+    // Validate existingPatientId format if provided
+    if (existingPatientId && !z.string().uuid().safeParse(existingPatientId).success) {
+      return res.status(400).json({ message: "Invalid patient ID format" });
+    }
     
     const request = await storage.getExternalSurgeryRequest(id);
     
@@ -631,40 +674,58 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     // Create or find patient (skip for reservation-only requests)
     let patientId = request.patientId;
     if (!patientId && !request.isReservationOnly && request.patientFirstName && request.patientLastName && request.patientBirthday) {
-      // Dedup: reuse existing patient if name+birthday matches
-      const existing = await storage.findPatientByNameAndBirthday(
-        request.hospitalId,
-        request.patientLastName,
-        request.patientFirstName,
-        request.patientBirthday,
-      );
-
-      if (existing) {
-        patientId = existing.id;
-        // Back-fill address fields that are blank on the existing patient record
-        const addressPatch: Partial<{ street: string; postalCode: string; city: string }> = {};
-        if (!existing.street && request.patientStreet) addressPatch.street = request.patientStreet;
-        if (!existing.postalCode && request.patientPostalCode) addressPatch.postalCode = request.patientPostalCode;
-        if (!existing.city && request.patientCity) addressPatch.city = request.patientCity;
-        if (Object.keys(addressPatch).length > 0) {
-          await storage.updatePatient(existing.id, addressPatch);
+      if (existingPatientId) {
+        // User explicitly selected an existing patient from fuzzy matches
+        const selectedPatient = await storage.getPatient(existingPatientId);
+        if (!selectedPatient || selectedPatient.hospitalId !== request.hospitalId || selectedPatient.deletedAt || selectedPatient.isArchived) {
+          return res.status(400).json({ message: "Selected patient not found or not available" });
+        }
+        patientId = selectedPatient.id;
+        // Backfill missing fields
+        const patch: Partial<{ street: string; postalCode: string; city: string; email: string; phone: string }> = {};
+        if (!selectedPatient.street && request.patientStreet) patch.street = request.patientStreet;
+        if (!selectedPatient.postalCode && request.patientPostalCode) patch.postalCode = request.patientPostalCode;
+        if (!selectedPatient.city && request.patientCity) patch.city = request.patientCity;
+        if (!selectedPatient.email && request.patientEmail) patch.email = request.patientEmail;
+        if (!selectedPatient.phone && request.patientPhone) patch.phone = request.patientPhone;
+        if (Object.keys(patch).length > 0) {
+          await storage.updatePatient(selectedPatient.id, patch);
         }
       } else {
-        const patientNumber = await storage.generatePatientNumber(request.hospitalId);
-        const patient = await storage.createPatient({
-          hospitalId: request.hospitalId,
-          firstName: request.patientFirstName,
-          surname: request.patientLastName,
-          birthday: request.patientBirthday,
-          patientNumber,
-          sex: 'O',
-          email: request.patientEmail || undefined,
-          phone: request.patientPhone || undefined,
-          street: request.patientStreet || undefined,
-          postalCode: request.patientPostalCode || undefined,
-          city: request.patientCity || undefined,
-        });
-        patientId = patient.id;
+        // Dedup: reuse existing patient if name+birthday matches (existing fallback)
+        const existing = await storage.findPatientByNameAndBirthday(
+          request.hospitalId,
+          request.patientLastName,
+          request.patientFirstName,
+          request.patientBirthday,
+        );
+
+        if (existing) {
+          patientId = existing.id;
+          const addressPatch: Partial<{ street: string; postalCode: string; city: string }> = {};
+          if (!existing.street && request.patientStreet) addressPatch.street = request.patientStreet;
+          if (!existing.postalCode && request.patientPostalCode) addressPatch.postalCode = request.patientPostalCode;
+          if (!existing.city && request.patientCity) addressPatch.city = request.patientCity;
+          if (Object.keys(addressPatch).length > 0) {
+            await storage.updatePatient(existing.id, addressPatch);
+          }
+        } else {
+          const patientNumber = await storage.generatePatientNumber(request.hospitalId);
+          const patient = await storage.createPatient({
+            hospitalId: request.hospitalId,
+            firstName: request.patientFirstName,
+            surname: request.patientLastName,
+            birthday: request.patientBirthday,
+            patientNumber,
+            sex: 'O',
+            email: request.patientEmail || undefined,
+            phone: request.patientPhone || undefined,
+            street: request.patientStreet || undefined,
+            postalCode: request.patientPostalCode || undefined,
+            city: request.patientCity || undefined,
+          });
+          patientId = patient.id;
+        }
       }
     }
     
