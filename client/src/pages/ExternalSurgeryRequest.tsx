@@ -310,7 +310,7 @@ export default function ExternalSurgeryRequest() {
       case 'surgery': {
         // Block if selected date is in a closure
         const dateIsValid = formData.wishedDate && !getClosureNameForDate(formData.wishedDate);
-        const durationValid = formData.surgeryDurationMinutes >= 10 && formData.surgeryDurationMinutes <= 720;
+        const durationValid = formData.surgeryDurationMinutes >= 5 && formData.surgeryDurationMinutes <= 720;
         // In reservation mode, surgery name is optional
         if (isReservationOnly) {
           return durationValid && dateIsValid;
@@ -848,15 +848,15 @@ export default function ExternalSurgeryRequest() {
                     <Input
                       id="surgeryDuration"
                       type="number"
-                      min={10}
+                      min={5}
                       max={720}
                       value={formData.surgeryDurationMinutes}
                       onChange={(e) => updateField('surgeryDurationMinutes', parseInt(e.target.value) || 60)}
                       data-testid="input-surgery-duration"
                     />
-                    {formData.surgeryDurationMinutes < 10 && (
+                    {formData.surgeryDurationMinutes < 5 && (
                       <p className="text-xs text-destructive">
-                        {t('surgery.externalRequest.durationMin', 'Minimum 10 minutes')}
+                        {t('surgery.externalRequest.durationMin', 'Minimum 5 minutes')}
                       </p>
                     )}
                   </div>
