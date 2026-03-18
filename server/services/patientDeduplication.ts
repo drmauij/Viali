@@ -37,6 +37,18 @@ interface PatientSummary {
   phone: string | null;
 }
 
+export interface PatientMatchCandidate {
+  id: string;
+  firstName: string;
+  surname: string;
+  birthday: string | null;
+  patientNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  confidence: number;
+  reasons: string[];
+}
+
 // ============================================================
 // Name normalization & similarity
 // ============================================================
@@ -192,6 +204,129 @@ function matchPatients(
     confidence: Math.round(confidence * 100) / 100,
     reasons,
   };
+}
+
+// ============================================================
+// Single-patient fuzzy matching (for external surgery scheduling)
+// ============================================================
+
+/**
+ * Match a single input (from external surgery request) against an existing patient candidate.
+ * Returns null if confidence < 0.6. Pure function — no DB access.
+ */
+export function matchPatientCandidate(
+  input: { firstName: string; lastName: string; birthday?: string; email?: string; phone?: string },
+  candidate: { id: string; firstName: string; surname: string; birthday: string | null; patientNumber: string | null; email: string | null; phone: string | null },
+): PatientMatchCandidate | null {
+  const fullNameInput = `${input.firstName} ${input.lastName}`.trim();
+  const fullNameCandidate = `${candidate.firstName} ${candidate.surname}`.trim();
+
+  if (!fullNameInput || !fullNameCandidate) return null;
+
+  const reasons: string[] = [];
+  let confidence = 0;
+
+  const normInput = normalizeName(fullNameInput);
+  const normCandidate = normalizeName(fullNameCandidate);
+
+  // Tier 1: Exact normalized full name match
+  if (normInput === normCandidate) {
+    confidence = 1.0;
+    reasons.push("Exact name match");
+  } else {
+    // Tier 2: First/Last name swapped
+    const normFirstIn = normalizeName(input.firstName);
+    const normLastIn = normalizeName(input.lastName);
+    const normFirstCand = normalizeName(candidate.firstName);
+    const normLastCand = normalizeName(candidate.surname);
+
+    if (normFirstIn && normLastIn && normFirstCand && normLastCand &&
+        normFirstIn === normLastCand && normLastIn === normFirstCand) {
+      confidence = 0.95;
+      reasons.push("First/last name swapped");
+    } else {
+      // Tier 3: Fuzzy match
+      const sim = calculateNameSimilarity(fullNameInput, fullNameCandidate);
+      if (sim >= 0.6) {
+        confidence = 0.7 + (sim - 0.6) * 0.375;
+        reasons.push(`Fuzzy name match (${Math.round(sim * 100)}% similarity)`);
+      }
+    }
+  }
+
+  if (confidence === 0) return null;
+
+  // Check birthday match explicitly
+  if (input.birthday && candidate.birthday && input.birthday === candidate.birthday) {
+    reasons.push("Same birthday");
+  }
+
+  // Boost signals
+  if (input.phone && candidate.phone &&
+      input.phone.replace(/\s+/g, "") === candidate.phone.replace(/\s+/g, "")) {
+    confidence = Math.min(1.0, confidence + 0.05);
+    reasons.push("Matching phone number");
+  }
+
+  if (input.email && candidate.email &&
+      input.email.toLowerCase() === candidate.email.toLowerCase()) {
+    confidence = Math.min(1.0, confidence + 0.05);
+    reasons.push("Matching email");
+  }
+
+  return {
+    ...candidate,
+    confidence: Math.round(confidence * 100) / 100,
+    reasons,
+  };
+}
+
+/**
+ * Find existing patients that fuzzy-match the given name+birthday.
+ * Used by the external surgery scheduling flow to prevent duplicates.
+ */
+export async function findFuzzyPatientMatches(
+  hospitalId: string,
+  firstName: string,
+  lastName: string,
+  birthday: string,
+  email?: string,
+  phone?: string,
+): Promise<PatientMatchCandidate[]> {
+  // Query candidates with same birthday (strong pre-filter)
+  const candidates = await db
+    .select()
+    .from(patients)
+    .where(
+      and(
+        eq(patients.hospitalId, hospitalId),
+        eq(patients.birthday, birthday),
+        eq(patients.isArchived, false),
+        isNull(patients.deletedAt),
+      )
+    );
+
+  const input = { firstName, lastName, birthday, email, phone };
+  const matches: PatientMatchCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const match = matchPatientCandidate(input, {
+      id: candidate.id,
+      firstName: candidate.firstName,
+      surname: candidate.surname,
+      birthday: candidate.birthday ?? null,
+      patientNumber: candidate.patientNumber ?? null,
+      email: candidate.email ?? null,
+      phone: candidate.phone ?? null,
+    });
+    if (match) {
+      matches.push(match);
+    }
+  }
+
+  // Sort by confidence descending, cap at 10
+  matches.sort((a, b) => b.confidence - a.confidence);
+  return matches.slice(0, 10);
 }
 
 // ============================================================
