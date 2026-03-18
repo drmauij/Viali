@@ -287,6 +287,7 @@ export async function findPatientByNameAndBirthday(hospitalId: string, surname: 
       ilike(patients.surname, surname),
       ilike(patients.firstName, firstName),
       eq(patients.birthday, birthday),
+      eq(patients.isArchived, false),
       isNull(patients.deletedAt)
     ))
     .limit(1);
