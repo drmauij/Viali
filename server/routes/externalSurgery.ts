@@ -1040,8 +1040,36 @@ router.post('/api/hospitals/:hospitalId/surgeon-action-requests/:reqId/accept', 
         await storage.updateSurgery(actionRequest.surgeryId, { status: 'cancelled' });
       } else if (actionRequest.type === 'suspension') {
         await storage.updateSurgery(actionRequest.surgeryId, { isSuspended: true });
+      } else if (actionRequest.type === 'reschedule' && actionRequest.proposedDate) {
+        // Move surgery to the proposed date/time
+        const surgery = await storage.getSurgery(actionRequest.surgeryId);
+        if (surgery) {
+          const [year, month, day] = actionRequest.proposedDate.split('-').map(Number);
+
+          // Use proposed start time or keep original time
+          let startHour = new Date(surgery.plannedDate).getHours();
+          let startMin = new Date(surgery.plannedDate).getMinutes();
+          if (actionRequest.proposedTimeFrom != null) {
+            startHour = Math.floor(actionRequest.proposedTimeFrom / 60);
+            startMin = actionRequest.proposedTimeFrom % 60;
+          }
+
+          const newStart = new Date(year, month - 1, day, startHour, startMin);
+
+          // Calculate duration from original surgery to preserve it
+          const origStart = new Date(surgery.plannedDate);
+          const origEnd = surgery.actualEndTime ? new Date(surgery.actualEndTime) : null;
+          const durationMs = origEnd ? origEnd.getTime() - origStart.getTime() : 60 * 60 * 1000; // default 1h
+          const newEnd = new Date(newStart.getTime() + durationMs);
+
+          await storage.updateSurgery(actionRequest.surgeryId, {
+            plannedDate: newStart,
+            actualEndTime: newEnd,
+            status: 'planned',
+            isSuspended: false,
+          });
+        }
       }
-      // For reschedule: just mark as accepted; frontend handles creating the new surgery
 
       await updateSurgeonActionRequest(reqId, {
         status: 'accepted',
