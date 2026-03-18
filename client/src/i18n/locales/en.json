@@ -4809,7 +4809,7 @@
       "clear": "Clear",
       "scheduling": "Scheduling",
       "durationMinutes": "Duration (minutes)",
-      "durationMin": "Minimum 15 minutes",
+      "durationMin": "Minimum 10 minutes",
       "wishedDate": "Wished Date",
       "clinicClosedWarning": "The clinic is closed on this date ({{name}}). Please select a different date.",
       "requirements": "Requirements",

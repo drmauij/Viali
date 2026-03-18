@@ -4890,7 +4890,7 @@
       "clear": "Löschen",
       "scheduling": "Terminplanung",
       "durationMinutes": "Dauer (Minuten)",
-      "durationMin": "Mindestens 15 Minuten",
+      "durationMin": "Mindestens 10 Minuten",
       "wishedDate": "Wunschdatum",
       "clinicClosedWarning": "Die Klinik ist an diesem Datum geschlossen ({{name}}). Bitte wählen Sie ein anderes Datum.",
       "requirements": "Anforderungen",

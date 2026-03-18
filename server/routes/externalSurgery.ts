@@ -99,7 +99,7 @@ const externalSurgeryRequestSchema = z.object({
   surgeonEmail: z.string().email("Valid email is required"),
   surgeonPhone: z.string().min(5, "Surgeon phone is required"),
   surgeryName: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  surgeryDurationMinutes: z.number().min(15).max(720),
+  surgeryDurationMinutes: z.number().min(10).max(720),
   withAnesthesia: z.boolean(),
   anesthesiaNotes: z.string().optional().nullable().transform(v => v === '' ? null : v),
   surgeryNotes: z.string().optional(),
