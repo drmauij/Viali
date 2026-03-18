@@ -103,6 +103,7 @@ const externalSurgeryRequestSchema = z.object({
   withAnesthesia: z.boolean(),
   anesthesiaNotes: z.string().optional().nullable().transform(v => v === '' ? null : v),
   surgeryNotes: z.string().optional(),
+  diagnosis: z.string().optional().nullable().transform(v => v === '' ? null : v),
   wishedDate: z.string().min(1, "Wished date is required"),
   wishedTimeFrom: z.number().int().min(0).max(1440).optional().nullable(),
   wishedTimeTo: z.number().int().min(0).max(1440).optional().nullable(),

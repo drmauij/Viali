@@ -4971,6 +4971,7 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
   anesthesiaNotes: text("anesthesia_notes"), // Surgeon's notes for the anesthesiologist
   surgeryNotes: text("surgery_notes"),
+  diagnosis: text("diagnosis"),
   wishedDate: date("wished_date").notNull(),
   wishedTimeFrom: integer("wished_time_from"), // Minutes since midnight, e.g. 480 = 08:00
   wishedTimeTo: integer("wished_time_to"), // Minutes since midnight, e.g. 840 = 14:00

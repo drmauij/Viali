@@ -56,6 +56,7 @@ interface FormData {
   withAnesthesia: boolean;
   anesthesiaNotes: string;
   surgeryNotes: string;
+  diagnosis: string;
   wishedDate: string;
   wishedTimeFrom: number | null;
   wishedTimeTo: number | null;
@@ -132,6 +133,7 @@ export default function ExternalSurgeryRequest() {
     withAnesthesia: true,
     anesthesiaNotes: '',
     surgeryNotes: '',
+    diagnosis: '',
     wishedDate: '',
     wishedTimeFrom: null,
     wishedTimeTo: null,
@@ -797,6 +799,20 @@ export default function ExternalSurgeryRequest() {
                 />
                 </>
                 )}
+
+                {/* Diagnosis (optional) */}
+                <div className="space-y-2">
+                  <Label htmlFor="diagnosis">
+                    {t('surgery.externalRequest.diagnosis')}
+                  </Label>
+                  <Input
+                    id="diagnosis"
+                    value={formData.diagnosis}
+                    onChange={(e) => updateField('diagnosis', e.target.value)}
+                    placeholder={t('surgery.externalRequest.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
+                    data-testid="input-diagnosis"
+                  />
+                </div>
 
                 {/* Section Divider: Scheduling */}
                 <div className="flex items-center gap-2 pt-2">

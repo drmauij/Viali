@@ -235,6 +235,11 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" /> {request.surgeryDurationMinutes} min
             </p>
+            {request.diagnosis && (
+              <p className="text-sm text-muted-foreground">
+                {t('surgery.externalRequests.diagnosis')}: {request.diagnosis}
+              </p>
+            )}
             {request.surgeryNotes && (
               <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
             )}
@@ -941,6 +946,15 @@ export function ExternalReservationsPanel({
                     </span>
                   </div>
                 </div>
+
+                {request.diagnosis && (
+                  <div className="text-sm">
+                    <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                      {t('surgery.externalRequests.diagnosis')}
+                    </p>
+                    <p className="text-muted-foreground">{request.diagnosis}</p>
+                  </div>
+                )}
 
                 {request.surgeryNotes && (
                   <div className="text-sm">
