@@ -97,6 +97,9 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
   // or a specific user ID selected from the doctor dropdown
   const [surgeonChoice, setSurgeonChoice] = useState<"email" | "request" | string>("email");
 
+  // Patient match selection: "new" = create new patient, or an existing patient ID
+  const [selectedPatientId, setSelectedPatientId] = useState<string | "new">("new");
+
   useEffect(() => {
     setPlannedDate(initialDate ?? request.wishedDate);
     setPlannedTime(initialTime ?? "08:00");
@@ -113,6 +116,22 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
   }>({
     queryKey: [`/api/external-surgery-requests/${request.id}/surgeon-match`],
     enabled: open,
+  });
+
+  // Find fuzzy patient matches to prevent duplicates
+  const { data: patientMatches } = useQuery<Array<{
+    id: string;
+    firstName: string;
+    surname: string;
+    birthday: string | null;
+    patientNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    confidence: number;
+    reasons: string[];
+  }>>({
+    queryKey: [`/api/external-surgery-requests/${request.id}/patient-matches`],
+    enabled: open && !request.isReservationOnly && !request.patientId,
   });
 
   // Fetch hospital doctors for the "choose different surgeon" dropdown
@@ -138,6 +157,15 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
     }
   }, [request.id, surgeonMatch?.matched, surgeonMatch?.nameMatch?.id]);
 
+  // Pre-select the existing patient if there's exactly one high-confidence match
+  useEffect(() => {
+    if (patientMatches && patientMatches.length === 1 && patientMatches[0].confidence >= 0.9) {
+      setSelectedPatientId(patientMatches[0].id);
+    } else {
+      setSelectedPatientId("new");
+    }
+  }, [patientMatches]);
+
   const scheduleMutation = useMutation({
     mutationFn: async () => {
       const dateTime = new Date(`${plannedDate}T${plannedTime}`);
@@ -161,6 +189,7 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
         sendConfirmation,
         ...(surgeonId ? { surgeonId } : {}),
         ...(createNew ? { createNewSurgeon: true } : {}),
+        ...(selectedPatientId !== "new" ? { existingPatientId: selectedPatientId } : {}),
       });
     },
     onSuccess: () => {
@@ -223,6 +252,74 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
                   <Phone className="h-3 w-3" /> {request.patientPhone}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Fuzzy patient matches */}
+          {patientMatches && patientMatches.length > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-lg space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  {t('surgery.externalRequests.possibleExistingPatients')}
+                </p>
+              </div>
+              <div className="space-y-1.5 pl-6">
+                {patientMatches.map((match) => {
+                  const badgeVariant = match.confidence >= 0.9 ? "destructive" as const : match.confidence >= 0.7 ? "default" as const : "secondary" as const;
+                  const badgeText = match.confidence >= 0.9
+                    ? t('surgery.externalRequests.matchHigh')
+                    : match.confidence >= 0.7
+                      ? t('surgery.externalRequests.matchMedium')
+                      : t('surgery.externalRequests.matchLow');
+                  return (
+                    <label key={match.id} className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="patient-match"
+                        checked={selectedPatientId === match.id}
+                        onChange={() => setSelectedPatientId(match.id)}
+                        className="accent-amber-600 mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium">
+                            {match.surname}, {match.firstName}
+                          </span>
+                          {match.birthday && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(match.birthday)}
+                            </span>
+                          )}
+                          {match.patientNumber && (
+                            <span className="text-xs text-muted-foreground">
+                              #{match.patientNumber}
+                            </span>
+                          )}
+                          <Badge variant={badgeVariant} className="text-[10px] px-1.5 py-0">
+                            {badgeText}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {match.reasons.join(", ")}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="patient-match"
+                    checked={selectedPatientId === "new"}
+                    onChange={() => setSelectedPatientId("new")}
+                    className="accent-amber-600"
+                  />
+                  <span className="text-sm">
+                    {t('surgery.externalRequests.createNewPatient')}
+                  </span>
+                </label>
+              </div>
             </div>
           )}
 
