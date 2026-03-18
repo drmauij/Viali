@@ -573,10 +573,23 @@ export default function SurgerySummaryDialog({
               </button>
               {extRequestExpanded && (
                 <div className="mt-1 px-3 py-2.5 rounded-b-lg border border-t-0 border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10 text-xs space-y-1.5">
+                  {externalRequest.withAnesthesia === false && (
+                    <div className="mb-2 px-2 py-1.5 rounded bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-300 font-semibold text-xs">
+                      {t('anesthesia.surgerySummary.extReqNoAnesthesia', 'Ohne Anästhesie angemeldet (nur Lokalanästhesie)')}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <div>
                       <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqSurgeon', 'Surgeon')}:</span>{' '}
                       <span className="font-medium">Dr. {externalRequest.surgeonLastName}, {externalRequest.surgeonFirstName}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqAnesthesia', 'Anesthesia')}:</span>{' '}
+                      <span className={`font-medium ${externalRequest.withAnesthesia === false ? 'text-red-600 dark:text-red-400' : ''}`}>
+                        {externalRequest.withAnesthesia === false
+                          ? t('anesthesia.surgerySummary.extReqWithoutAnesthesia', 'Ohne Anästhesie')
+                          : t('anesthesia.surgerySummary.extReqWithAnesthesia', 'Mit Anästhesie')}
+                      </span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">{t('anesthesia.surgerySummary.extReqDate', 'Wished Date')}:</span>{' '}

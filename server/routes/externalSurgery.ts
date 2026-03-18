@@ -765,6 +765,8 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       leftArmPosition: request.leftArmPosition || null,
       rightArmPosition: request.rightArmPosition || null,
       actualEndTime,
+      noPreOpRequired: request.withAnesthesia === false,
+      diagnosis: request.diagnosis || null,
     });
     
     await storage.updateExternalSurgeryRequest(id, {
