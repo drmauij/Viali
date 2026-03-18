@@ -5194,6 +5194,7 @@
       "avgPaidPerHour": "Avg Paid/Hour",
       "surgeries": "Surgeries",
       "inventories": "Inventories",
+      "referrals": "Referrals",
       "inventoriesTitle": "Unit Inventory Values",
       "inventoriesDesc": "Current inventory value per clinic unit based on stock levels and supplier prices",
       "totalInventoryValue": "Total Inventory Value",
@@ -5238,6 +5239,20 @@
       "pastTotal": "Past total",
       "plannedTotal": "Planned total",
       "planned": "Planned"
+    },
+    "referrals": {
+      "dateRange": "Date range",
+      "of": "of",
+      "questionnairesAnswered": "questionnaires answered",
+      "sourceBreakdown": "How patients found us",
+      "sourceBreakdownHelp": "Shows how patients heard about the clinic based on questionnaire responses",
+      "noData": "No referral data available",
+      "clickToExplore": "Detail Breakdown",
+      "detailHelp": "Click a slice in the pie chart to see the detail breakdown",
+      "selectSlice": "Click a slice to see details",
+      "noDetail": "No detail breakdown for this source",
+      "responses": "Responses",
+      "detail": "Detail"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

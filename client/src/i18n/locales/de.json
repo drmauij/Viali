@@ -5290,6 +5290,7 @@
       "avgPaidPerHour": "Ø Bezahlt/Std",
       "surgeries": "Operationen",
       "inventories": "Inventar",
+      "referrals": "Empfehlungen",
       "inventoriesTitle": "Inventarwerte pro Abteilung",
       "inventoriesDesc": "Aktueller Inventarwert pro Klinikabteilung basierend auf Lagerbestand und Lieferantenpreisen",
       "totalInventoryValue": "Gesamtinventarwert",
@@ -5334,6 +5335,20 @@
       "pastTotal": "Total vergangen",
       "plannedTotal": "Total geplant",
       "planned": "Geplant"
+    },
+    "referrals": {
+      "dateRange": "Zeitraum",
+      "of": "von",
+      "questionnairesAnswered": "Fragebögen beantwortet",
+      "sourceBreakdown": "Wie Patienten uns gefunden haben",
+      "sourceBreakdownHelp": "Zeigt, wie Patienten auf die Klinik aufmerksam wurden, basierend auf Fragebogenantworten",
+      "noData": "Keine Empfehlungsdaten verfügbar",
+      "clickToExplore": "Detailansicht",
+      "detailHelp": "Klicken Sie auf ein Segment im Kreisdiagramm, um die Details anzuzeigen",
+      "selectSlice": "Klicken Sie auf ein Segment für Details",
+      "noDetail": "Keine Detailaufschlüsselung für diese Quelle",
+      "responses": "Antworten",
+      "detail": "Detail"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

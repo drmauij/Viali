@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff } from "@shared/schema";
-import { eq, and, inArray, ne, desc, gte, lte, isNull } from "drizzle-orm";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks } from "@shared/schema";
+import { eq, and, inArray, ne, desc, gte, lte, isNull, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
@@ -1775,6 +1775,62 @@ router.patch("/api/business/:hospitalId/time-off/:timeOffId/approve", isAuthenti
   } catch (error) {
     logger.error("Error approving/declining time-off:", error);
     res.status(500).json({ message: "Failed to update time-off status" });
+  }
+});
+
+// Referral source statistics
+router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { from, to } = req.query;
+
+    const dateFilters = [
+      eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+      eq(patientQuestionnaireLinks.status, 'submitted'),
+    ];
+    if (from) dateFilters.push(gte(patientQuestionnaireLinks.submittedAt, new Date(from as string)));
+    if (to) dateFilters.push(lte(patientQuestionnaireLinks.submittedAt, new Date(to as string)));
+
+    const rows = await db
+      .select({
+        referralSource: patientQuestionnaireResponses.referralSource,
+        referralSourceDetail: patientQuestionnaireResponses.referralSourceDetail,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(patientQuestionnaireResponses)
+      .innerJoin(
+        patientQuestionnaireLinks,
+        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
+      )
+      .where(
+        and(
+          ...dateFilters,
+          isNotNull(patientQuestionnaireResponses.referralSource),
+        )
+      )
+      .groupBy(
+        patientQuestionnaireResponses.referralSource,
+        patientQuestionnaireResponses.referralSourceDetail,
+      );
+
+    // Total questionnaire count (including those without referral source)
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(patientQuestionnaireResponses)
+      .innerJoin(
+        patientQuestionnaireLinks,
+        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
+      )
+      .where(and(...dateFilters));
+
+    res.json({
+      breakdown: rows,
+      totalQuestionnaires: totalResult?.count || 0,
+      answeredReferral: rows.reduce((sum, r) => sum + r.count, 0),
+    });
+  } catch (error: any) {
+    logger.error('Error fetching referral stats:', error);
+    res.status(500).json({ message: 'Failed to fetch referral stats' });
   }
 });
 

@@ -317,6 +317,32 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
   );
 }
 
+const REFERRAL_COLORS: Record<string, string> = {
+  social: "#3b82f6",
+  search_engine: "#10b981",
+  llm: "#8b5cf6",
+  word_of_mouth: "#f59e0b",
+  belegarzt: "#ec4899",
+  other: "#6b7280",
+};
+
+const REFERRAL_LABELS: Record<string, string> = {
+  social: "Social Media",
+  search_engine: "Search Engine",
+  llm: "AI Assistant",
+  word_of_mouth: "Personal Recommendation",
+  belegarzt: "Referring Doctor",
+  other: "Other",
+};
+
+const REFERRAL_DETAIL_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  google: "Google",
+  bing: "Bing",
+};
+
 export default function CostAnalytics() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -328,6 +354,9 @@ export default function CostAnalytics() {
   const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [showNurseHoursDialog, setShowNurseHoursDialog] = useState(false);
+  const [referralFrom, setReferralFrom] = useState("");
+  const [referralTo, setReferralTo] = useState("");
+  const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
   // Chart unit filter removed - now showing all units as separate lines
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
@@ -446,6 +475,44 @@ export default function CostAnalytics() {
     queryKey: [`/api/business/${activeHospital?.id}/inventory-snapshots?days=30`],
     enabled: !!activeHospital?.id && activeSubTab === 'inventories',
   });
+
+  // Fetch referral source statistics
+  const referralParams = new URLSearchParams();
+  if (referralFrom) referralParams.set("from", referralFrom);
+  if (referralTo) referralParams.set("to", referralTo);
+
+  const { data: referralData, isLoading: referralLoading } = useQuery<{
+    breakdown: Array<{ referralSource: string; referralSourceDetail: string | null; count: number }>;
+    totalQuestionnaires: number;
+    answeredReferral: number;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/referral-stats?${referralParams.toString()}`],
+    enabled: !!activeHospital?.id && activeSubTab === 'referrals',
+  });
+
+  const referralPieData = useMemo(() => {
+    if (!referralData?.breakdown) return [];
+    const grouped: Record<string, number> = {};
+    referralData.breakdown.forEach((r) => {
+      grouped[r.referralSource] = (grouped[r.referralSource] || 0) + r.count;
+    });
+    return Object.entries(grouped).map(([source, count]) => ({
+      name: REFERRAL_LABELS[source] || source,
+      value: count,
+      source,
+      color: REFERRAL_COLORS[source] || "#6b7280",
+    }));
+  }, [referralData]);
+
+  const referralDetailData = useMemo(() => {
+    if (!referralData?.breakdown || !selectedReferralSource) return [];
+    return referralData.breakdown
+      .filter((r) => r.referralSource === selectedReferralSource && r.referralSourceDetail)
+      .map((r) => ({
+        name: REFERRAL_DETAIL_LABELS[r.referralSourceDetail!] || r.referralSourceDetail!,
+        value: r.count,
+      }));
+  }, [referralData, selectedReferralSource]);
 
   // Calculate inventory values per unit
   interface ItemWithValue {
@@ -623,7 +690,7 @@ export default function CostAnalytics() {
 
       {/* Subtabs for Surgeries and Inventories */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-costs-surgeries">
             <List className="h-4 w-4" />
             {t('business.costs.surgeries')}
@@ -631,6 +698,10 @@ export default function CostAnalytics() {
           <TabsTrigger value="inventories" className="flex items-center gap-2" data-testid="tab-costs-inventories">
             <Package className="h-4 w-4" />
             {t('business.costs.inventories')}
+          </TabsTrigger>
+          <TabsTrigger value="referrals" className="flex items-center gap-2" data-testid="tab-costs-referrals">
+            <Users className="h-4 w-4" />
+            {t('business.costs.referrals')}
           </TabsTrigger>
         </TabsList>
 
@@ -1494,6 +1565,142 @@ export default function CostAnalytics() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Referrals Tab */}
+        <TabsContent value="referrals" className="space-y-4 mt-6">
+          {/* Date range filter */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('business.referrals.dateRange')}:</span>
+                </div>
+                <Input
+                  type="date"
+                  value={referralFrom}
+                  onChange={(e) => setReferralFrom(e.target.value)}
+                  className="w-40"
+                />
+                <span className="text-muted-foreground">—</span>
+                <Input
+                  type="date"
+                  value={referralTo}
+                  onChange={(e) => setReferralTo(e.target.value)}
+                  className="w-40"
+                />
+                {(referralFrom || referralTo) && (
+                  <button
+                    onClick={() => { setReferralFrom(""); setReferralTo(""); }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sample size indicator */}
+          {referralData && (
+            <div className="text-sm text-muted-foreground px-1">
+              {referralData.answeredReferral} {t('business.referrals.of')} {referralData.totalQuestionnaires} {t('business.referrals.questionnairesAnswered')}
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Main pie chart */}
+            <ChartCard
+              title={t('business.referrals.sourceBreakdown')}
+              helpText={t('business.referrals.sourceBreakdownHelp')}
+            >
+              {referralLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : referralPieData.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  {t('business.referrals.noData')}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={referralPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      dataKey="value"
+                      onClick={(entry) => setSelectedReferralSource(
+                        selectedReferralSource === entry.source ? null : entry.source
+                      )}
+                      cursor="pointer"
+                    >
+                      {referralPieData.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={entry.color}
+                          opacity={selectedReferralSource && selectedReferralSource !== entry.source ? 0.4 : 1}
+                          stroke={selectedReferralSource === entry.source ? entry.color : "transparent"}
+                          strokeWidth={selectedReferralSource === entry.source ? 3 : 0}
+                        />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      formatter={(value: number) => [value, t('business.referrals.responses')]}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            {/* Detail drill-down */}
+            <ChartCard
+              title={selectedReferralSource
+                ? `${REFERRAL_LABELS[selectedReferralSource] || selectedReferralSource} — ${t('business.referrals.detail')}`
+                : t('business.referrals.clickToExplore')
+              }
+              helpText={t('business.referrals.detailHelp')}
+            >
+              {!selectedReferralSource ? (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  {t('business.referrals.selectSlice')}
+                </div>
+              ) : referralDetailData.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  {t('business.referrals.noDetail')}
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {referralDetailData.map((item, i) => {
+                    const total = referralDetailData.reduce((s, d) => s + d.value, 0);
+                    const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span>{item.name}</span>
+                          <span className="text-muted-foreground">{item.value} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: REFERRAL_COLORS[selectedReferralSource] || "#6b7280",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ChartCard>
+          </div>
         </TabsContent>
       </Tabs>
 
