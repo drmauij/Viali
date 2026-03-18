@@ -1556,6 +1556,8 @@ export default function PatientQuestionnaire() {
           || (formData.noSmokingAlcohol && Object.values(formData.drugUse).some(v => v))
           || (formData.noDrugUse && (!!formData.smokingStatus || !!formData.alcoholStatus))
           || (!!formData.smokingStatus || !!formData.alcoholStatus || Object.values(formData.drugUse).some(v => v));
+      case 'referral':
+        return true;
       default:
         return true;
     }
@@ -1849,7 +1851,10 @@ export default function PatientQuestionnaire() {
                 t={t}
               />
             )}
-            {currentStep === 1 && config && (
+            {currentStep === 1 && (
+              <ReferralStep formData={formData} updateField={updateField} t={t} />
+            )}
+            {currentStep === 2 && config && (
               <AllergiesStep
                 formData={formData}
                 updateField={updateField}
@@ -1859,7 +1864,7 @@ export default function PatientQuestionnaire() {
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 2 && config && (
+            {currentStep === 3 && config && (
               <ConditionsStep
                 formData={formData}
                 updateField={updateField}
@@ -1869,7 +1874,7 @@ export default function PatientQuestionnaire() {
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <MedicationsStep
                 formData={formData}
                 updateField={updateField}
@@ -1878,7 +1883,7 @@ export default function PatientQuestionnaire() {
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <LifestyleStep
                 formData={formData}
                 updateField={updateField}
@@ -1886,7 +1891,7 @@ export default function PatientQuestionnaire() {
                 onNoneChecked={() => handleAutoAdvance()}
               />
             )}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <UploadsStep
                 uploads={uploads}
                 uploadError={uploadError}
@@ -1895,14 +1900,14 @@ export default function PatientQuestionnaire() {
                 t={t}
               />
             )}
-            {currentStep === 6 && (
+            {currentStep === 7 && (
               <NotesStep
                 formData={formData}
                 updateField={updateField}
                 t={t}
               />
             )}
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <SummaryStep
                 formData={formData}
                 t={t}
@@ -1913,7 +1918,7 @@ export default function PatientQuestionnaire() {
                 language={language}
               />
             )}
-            {currentStep === 8 && (
+            {currentStep === 9 && (
               <SubmitStep
                 formData={formData}
                 updateField={updateField}
@@ -3336,7 +3341,11 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
               {[formData.patientStreet, [formData.patientPostalCode, formData.patientCity].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
             </p>
           )}
-          {formData.referralSource && (
+        </div>
+
+        {formData.referralSource && (
+          <div className="border rounded-lg p-3 space-y-1">
+            <SectionHeader title={t("questionnaire.steps.referral")} stepIndex={1} />
             <p className="text-sm text-gray-500">
               {t("questionnaire.summary.referralSource")}: {t(`questionnaire.personal.referral.${
                 formData.referralSource === "search_engine" ? "searchEngine" :
@@ -3348,11 +3357,11 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
                   : t(`questionnaire.personal.referral.${formData.referralSourceDetail}`)
               }`}
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="border rounded-lg p-3 space-y-1">
-          <SectionHeader title={t("questionnaire.steps.allergies")} stepIndex={1} />
+          <SectionHeader title={t("questionnaire.steps.allergies")} stepIndex={2} />
           {formData.noAllergies ? (
             <NoneBadge />
           ) : selectedAllergies.length > 0 || formData.allergiesNotes ? (
@@ -3374,7 +3383,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-2">
-          <SectionHeader title={t("questionnaire.steps.conditions")} stepIndex={2} />
+          <SectionHeader title={t("questionnaire.steps.conditions")} stepIndex={3} />
           {formData.noConditions ? (
             <NoneBadge />
           ) : checkedConditions.length > 0 ? (
@@ -3427,7 +3436,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-1">
-          <SectionHeader title={t("questionnaire.steps.medications")} stepIndex={3} />
+          <SectionHeader title={t("questionnaire.steps.medications")} stepIndex={4} />
           {formData.noMedications ? (
             <NoneBadge />
           ) : formData.medications.length > 0 ? (
@@ -3444,7 +3453,7 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
         </div>
 
         <div className="border rounded-lg p-3 space-y-2">
-          <SectionHeader title={t("questionnaire.steps.lifestyle")} stepIndex={4} />
+          <SectionHeader title={t("questionnaire.steps.lifestyle")} stepIndex={5} />
           <div>
             <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.smoking")}</p>
             {formData.noSmokingAlcohol ? <NoneBadge /> : formData.smokingStatus ? (
@@ -3473,14 +3482,14 @@ function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditions
 
         {uploads.length > 0 && (
           <div className="border rounded-lg p-3 space-y-1">
-            <SectionHeader title={t("questionnaire.summary.documents")} stepIndex={5} />
+            <SectionHeader title={t("questionnaire.summary.documents")} stepIndex={6} />
             <p className="text-sm">{uploads.length} {language === "de" ? "Dokument(e)" : "document(s)"}</p>
           </div>
         )}
 
         {(formData.additionalNotes || formData.questionsForDoctor) && (
           <div className="border rounded-lg p-3 space-y-1">
-            <SectionHeader title={t("questionnaire.summary.additionalNotes")} stepIndex={6} />
+            <SectionHeader title={t("questionnaire.summary.additionalNotes")} stepIndex={7} />
             {formData.additionalNotes && <p className="text-sm">{formData.additionalNotes}</p>}
             {formData.questionsForDoctor && (
               <p className="text-sm text-gray-500">{t("questionnaire.summary.questionsForDoctor")}: {formData.questionsForDoctor}</p>
