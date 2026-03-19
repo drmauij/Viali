@@ -27,6 +27,7 @@ type BookingData = {
     logoUrl: string | null;
     timezone: string;
     language: string;
+    noShowFeeMessage?: string | null;
   };
   bookingSettings: {
     slotDurationMinutes?: number;
@@ -152,6 +153,7 @@ export default function BookAppointment() {
   const [phone, setPhone] = useState(prefillPhone || "");
   const [notes, setNotes] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [noShowFeeAcknowledged, setNoShowFeeAcknowledged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [slotTaken, setSlotTaken] = useState(false);
@@ -381,6 +383,7 @@ export default function BookAppointment() {
           utmTerm,
           utmContent,
           refParam,
+          noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
         }),
       });
 
@@ -400,7 +403,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, noShowFeeAcknowledged]);
 
   // ─── Render helpers ───────────────────────────────────────────
 
@@ -903,11 +906,32 @@ export default function BookAppointment() {
                 </span>
               </label>
 
+              {/* No-show fee acknowledgment */}
+              {data?.hospital?.noShowFeeMessage && (
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={noShowFeeAcknowledged}
+                    onChange={(e) => setNoShowFeeAcknowledged(e.target.checked)}
+                    className={cn(
+                      "mt-0.5 h-4 w-4 rounded border shrink-0 accent-gray-900",
+                      isDark ? "border-white/20" : "border-gray-300"
+                    )}
+                  />
+                  <span className={cn(
+                    "text-xs leading-relaxed",
+                    isDark ? "text-white/50" : "text-gray-500"
+                  )}>
+                    {data.hospital.noShowFeeMessage} *
+                  </span>
+                </label>
+              )}
+
               <Button
                 onClick={showReferralStep ? () => setStep("referral") : handleSubmit}
                 disabled={showReferralStep
-                  ? (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted)
-                  : (submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted)}
+                  ? (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged))
+                  : (submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged))}
                 className={cn(
                   "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                   isDark
