@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
+import { ReferralSourcePicker } from "@/components/ReferralSourcePicker";
+import { resolveReferralFromParams } from "@shared/referralMapping";
 import { de } from "date-fns/locale";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -32,11 +34,77 @@ type BookingData = {
     minAdvanceHours?: number;
   };
   providers: Provider[];
+  enableReferralOnBooking?: boolean;
 };
 
 type Slot = { startTime: string; endTime: string };
 
-type Step = "provider" | "datetime" | "details" | "done";
+type Step = "provider" | "datetime" | "details" | "referral" | "done";
+
+// ─── Referral Labels ─────────────────────────────────────────────────
+
+const BOOKING_REFERRAL_LABELS: Record<string, {
+  title: string; hint: string; social: string; searchEngine: string; llm: string;
+  wordOfMouth: string; belegarzt: string; other: string; whichOne: string;
+  facebook: string; instagram: string; tiktok: string; google: string; bing: string;
+  wordOfMouthPlaceholder: string; otherPlaceholder: string;
+}> = {
+  de: {
+    title: "Wie haben Sie uns gefunden?",
+    hint: "Damit helfen Sie uns, unseren Service zu verbessern.",
+    social: "Social Media", searchEngine: "Suchmaschine", llm: "KI-Assistent",
+    wordOfMouth: "Empfehlung", belegarzt: "Zuweisender Arzt", other: "Andere",
+    whichOne: "Welche Plattform?",
+    facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
+    google: "Google", bing: "Bing",
+    wordOfMouthPlaceholder: "Wer hat uns empfohlen?",
+    otherPlaceholder: "Bitte beschreiben...",
+  },
+  en: {
+    title: "How did you find us?",
+    hint: "This helps us improve our service.",
+    social: "Social Media", searchEngine: "Search Engine", llm: "AI Assistant",
+    wordOfMouth: "Word of Mouth", belegarzt: "Referring Doctor", other: "Other",
+    whichOne: "Which platform?",
+    facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
+    google: "Google", bing: "Bing",
+    wordOfMouthPlaceholder: "Who recommended us?",
+    otherPlaceholder: "Please describe...",
+  },
+  it: {
+    title: "Come ci ha trovati?",
+    hint: "Questo ci aiuta a migliorare il servizio.",
+    social: "Social Media", searchEngine: "Motore di ricerca", llm: "Assistente IA",
+    wordOfMouth: "Passaparola", belegarzt: "Medico referente", other: "Altro",
+    whichOne: "Quale piattaforma?",
+    facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
+    google: "Google", bing: "Bing",
+    wordOfMouthPlaceholder: "Chi ci ha raccomandato?",
+    otherPlaceholder: "Per favore descrivi...",
+  },
+  es: {
+    title: "¿Cómo nos encontró?",
+    hint: "Esto nos ayuda a mejorar nuestro servicio.",
+    social: "Redes Sociales", searchEngine: "Buscador", llm: "Asistente IA",
+    wordOfMouth: "Recomendación", belegarzt: "Médico referente", other: "Otro",
+    whichOne: "¿Qué plataforma?",
+    facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
+    google: "Google", bing: "Bing",
+    wordOfMouthPlaceholder: "¿Quién nos recomendó?",
+    otherPlaceholder: "Por favor describa...",
+  },
+  fr: {
+    title: "Comment nous avez-vous trouvés?",
+    hint: "Cela nous aide à améliorer notre service.",
+    social: "Réseaux Sociaux", searchEngine: "Moteur de recherche", llm: "Assistant IA",
+    wordOfMouth: "Bouche à oreille", belegarzt: "Médecin référent", other: "Autre",
+    whichOne: "Quelle plateforme?",
+    facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
+    google: "Google", bing: "Bing",
+    wordOfMouthPlaceholder: "Qui nous a recommandés?",
+    otherPlaceholder: "Veuillez décrire...",
+  },
+};
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -50,6 +118,16 @@ export default function BookAppointment() {
   const prefillSurname = searchParams.get("surname");
   const prefillEmail = searchParams.get("email");
   const prefillPhone = searchParams.get("phone");
+  const utmSource = searchParams.get("utm_source");
+  const utmMedium = searchParams.get("utm_medium");
+  const utmCampaign = searchParams.get("utm_campaign");
+  const utmTerm = searchParams.get("utm_term");
+  const utmContent = searchParams.get("utm_content");
+  const refParam = searchParams.get("ref");
+
+  const autoReferral = useMemo(() => resolveReferralFromParams({
+    utmSource, utmMedium, utmCampaign, utmTerm, utmContent, ref: refParam,
+  }), [utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam]);
 
   // Theme state
   const [isDark, setIsDark] = useState(false);
@@ -77,6 +155,8 @@ export default function BookAppointment() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [slotTaken, setSlotTaken] = useState(false);
+  const [referralSource, setReferralSource] = useState("");
+  const [referralDetail, setReferralDetail] = useState("");
 
   // ─── Load booking data ────────────────────────────────────────
 
@@ -225,6 +305,8 @@ export default function BookAppointment() {
       .finally(() => setSlotsLoading(false));
   }, [selectedProvider, selectedDate, token]);
 
+  const showReferralStep = data?.enableReferralOnBooking && !autoReferral;
+
   // ─── Handlers ─────────────────────────────────────────────────
 
   const handleProviderSelect = useCallback((provider: Provider) => {
@@ -256,6 +338,8 @@ export default function BookAppointment() {
       setStep("datetime");
       setSubmitError(null);
       setSlotTaken(false);
+    } else if (step === "referral") {
+      setStep("details");
     }
   }, [step, canGoBackToProviders]);
 
@@ -266,6 +350,12 @@ export default function BookAppointment() {
     setSubmitting(true);
     setSubmitError(null);
     setSlotTaken(false);
+
+    const referral = autoReferral || (referralSource ? {
+      source: referralSource,
+      sourceDetail: referralDetail || null,
+      captureMethod: "manual" as const,
+    } : null);
 
     try {
       const res = await fetch(`/api/public/booking/${token}/book`, {
@@ -281,6 +371,15 @@ export default function BookAppointment() {
           email: email.trim(),
           phone: phone.trim(),
           notes: notes.trim(),
+          referralSource: referral?.source,
+          referralSourceDetail: referral?.sourceDetail,
+          captureMethod: referral?.captureMethod,
+          utmSource,
+          utmMedium,
+          utmCampaign,
+          utmTerm,
+          utmContent,
+          refParam,
         }),
       });
 
@@ -300,7 +399,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam]);
 
   // ─── Render helpers ───────────────────────────────────────────
 
@@ -367,6 +466,7 @@ export default function BookAppointment() {
         current={step}
         isDark={isDark}
         hasMultipleProviders={data.providers.length > 1}
+        showReferralStep={!!showReferralStep}
       />
 
       {/* Content */}
@@ -803,8 +903,10 @@ export default function BookAppointment() {
               </label>
 
               <Button
-                onClick={handleSubmit}
-                disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted}
+                onClick={showReferralStep ? () => setStep("referral") : handleSubmit}
+                disabled={showReferralStep
+                  ? (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted)
+                  : (submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted)}
                 className={cn(
                   "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                   isDark
@@ -817,6 +919,8 @@ export default function BookAppointment() {
                     <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                     Wird gebucht...
                   </span>
+                ) : showReferralStep ? (
+                  "Weiter"
                 ) : (
                   "Termin buchen"
                 )}
@@ -830,6 +934,47 @@ export default function BookAppointment() {
                 <br />Der Termin kann jederzeit über den Link in der E-Mail abgesagt werden.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* ── Step: Referral ── */}
+        {step === "referral" && (
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={handleBack}
+              className={cn(
+                "flex items-center gap-1 text-sm mb-4 transition-colors",
+                isDark ? "text-white/50 hover:text-white/80" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 19l-7-7 7-7" />
+              </svg>
+              Zurück
+            </button>
+            <ReferralSourcePicker
+              value={referralSource}
+              detail={referralDetail}
+              onChange={(source, detail) => { setReferralSource(source); setReferralDetail(detail); }}
+              labels={BOOKING_REFERRAL_LABELS[data?.hospital?.language || "de"]}
+            />
+            <Button
+              onClick={handleSubmit}
+              disabled={!referralSource || submitting}
+              className={cn(
+                "w-full h-12 rounded-xl text-sm font-semibold mt-6 transition-all duration-200",
+                isDark
+                  ? "bg-blue-500 hover:bg-blue-400 text-white disabled:bg-white/10 disabled:text-white/30"
+                  : "bg-gray-900 hover:bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-400"
+              )}
+            >
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Wird gebucht...
+                </span>
+              ) : "Termin buchen"}
+            </Button>
           </div>
         )}
 
@@ -1018,8 +1163,8 @@ function ProviderAvatar({ provider, isDark, size = "md" }: { provider: Provider;
   );
 }
 
-function StepIndicator({ current, isDark, hasMultipleProviders }: { current: Step; isDark: boolean; hasMultipleProviders: boolean }) {
-  const steps = hasMultipleProviders
+function StepIndicator({ current, isDark, hasMultipleProviders, showReferralStep }: { current: Step; isDark: boolean; hasMultipleProviders: boolean; showReferralStep: boolean }) {
+  const baseSteps = hasMultipleProviders
     ? [
         { key: "provider", label: "Arzt" },
         { key: "datetime", label: "Termin" },
@@ -1029,6 +1174,9 @@ function StepIndicator({ current, isDark, hasMultipleProviders }: { current: Ste
         { key: "datetime", label: "Termin" },
         { key: "details", label: "Daten" },
       ];
+  const steps = showReferralStep
+    ? [...baseSteps, { key: "referral", label: "Referenz" }]
+    : baseSteps;
 
   const currentIdx = current === "done"
     ? steps.length
