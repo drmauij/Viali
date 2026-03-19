@@ -474,8 +474,23 @@ router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticate
     // Associate the link with the patient
     const updatedLink = await storage.associateQuestionnaireWithPatient(link.id, patientId);
 
-    res.json({ 
-      success: true, 
+    // Fill in patient address from questionnaire if the patient doesn't have one yet
+    const addressUpdates: Record<string, string> = {};
+    if (!patient.street && response.patientStreet) {
+      addressUpdates.street = response.patientStreet.trim();
+    }
+    if (!patient.postalCode && response.patientPostalCode) {
+      addressUpdates.postalCode = response.patientPostalCode.trim();
+    }
+    if (!patient.city && response.patientCity) {
+      addressUpdates.city = response.patientCity.trim();
+    }
+    if (Object.keys(addressUpdates).length > 0) {
+      await storage.updatePatient(patientId, addressUpdates);
+    }
+
+    res.json({
+      success: true,
       link: updatedLink,
       patient: {
         id: patient.id,

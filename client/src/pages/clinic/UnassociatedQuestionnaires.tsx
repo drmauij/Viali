@@ -287,6 +287,9 @@ export default function UnassociatedQuestionnaires() {
         sex: selectedSex,
         email: (selectedResponse.patientEmail || '').trim() || undefined,
         phone: (selectedResponse.patientPhone || '').trim() || undefined,
+        street: (selectedResponse.patientStreet || '').trim() || undefined,
+        postalCode: (selectedResponse.patientPostalCode || '').trim() || undefined,
+        city: (selectedResponse.patientCity || '').trim() || undefined,
       });
       const newPatient = await patientRes.json() as Patient;
 
