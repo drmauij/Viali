@@ -2569,7 +2569,6 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
   const lang = (hospital.defaultLanguage as string) || 'de';
   const isGerman = lang === 'de';
   const hospitalName = hospital.name;
-  const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
 
   for (const appt of eligibleAppointments) {
     processedCount++;
@@ -2591,34 +2590,6 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
       // Mark as reminded BEFORE sending (optimistic lock)
       await storage.markMorningReminderSent(appt.appointmentId);
 
-      // Check for existing unused cancel token from day-before reminder
-      const existingTokens = await db
-        .select()
-        .from(appointmentActionTokens)
-        .where(and(
-          eq(appointmentActionTokens.appointmentId, appt.appointmentId),
-          eq(appointmentActionTokens.action, 'cancel'),
-          eq(appointmentActionTokens.used, false),
-        ))
-        .limit(1);
-
-      let manageToken: string;
-      if (existingTokens.length > 0) {
-        manageToken = existingTokens[0].token;
-      } else {
-        manageToken = randomUUID();
-        const tokenExpiresAt = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
-        await storage.createAppointmentActionToken({
-          appointmentId: appt.appointmentId,
-          hospitalId,
-          token: manageToken,
-          action: 'cancel',
-          used: false,
-          expiresAt: tokenExpiresAt,
-        });
-      }
-
-      const manageUrl = `${baseUrl}/manage-appointment/${manageToken}`;
       const formattedTime = appt.startTime;
 
       let sendSuccess = false;
@@ -2627,8 +2598,8 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
 
       // Try SMS first
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
-        const smsDe = `Erinnerung: Ihr Termin heute bei ${hospitalName} um ${formattedTime}. Verwalten/Absagen: ${manageUrl}`;
-        const smsEn = `Reminder: Your appointment today at ${hospitalName} at ${formattedTime}. Manage/Cancel: ${manageUrl}`;
+        const smsDe = `Erinnerung: Ihr Termin heute bei ${hospitalName} um ${formattedTime}.`;
+        const smsEn = `Reminder: Your appointment today at ${hospitalName} at ${formattedTime}.`;
         const smsMessage = isGerman ? smsDe : smsEn;
 
         const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
@@ -2650,8 +2621,9 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
           hospitalName,
           todayLabel,
           formattedTime,
-          manageUrl,
+          '',
           lang,
+          'info-only',
         );
         if (emailResult.success) {
           sendSuccess = true;
