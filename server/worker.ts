@@ -2389,8 +2389,9 @@ async function processAppointmentReminder(job: any): Promise<void> {
 
       // Try SMS first
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
-        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Verwalten/Absagen: ${manageUrl}`;
-        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Manage/Cancel: ${manageUrl}`;
+        const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
+        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Absagen: ${manageUrl}${feeNotice}`;
+        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Cancel: ${manageUrl}${feeNotice}`;
         const smsMessage = isGerman ? smsDe : smsEn;
 
         const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
@@ -2413,6 +2414,8 @@ async function processAppointmentReminder(job: any): Promise<void> {
           formattedTime,
           manageUrl,
           lang,
+          'cancel-only',
+          hospital.noShowFeeMessage,
         );
         if (emailResult.success) {
           sendSuccess = true;
