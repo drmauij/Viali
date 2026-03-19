@@ -208,6 +208,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         logoUrl: hospital.companyLogoUrl,
         timezone: hospital.timezone,
         language: hospital.defaultLanguage,
+        noShowFeeMessage: hospital.noShowFeeMessage || null,
       },
       bookingSettings: hospital.bookingSettings || {},
       providers: providers.map(p => ({
@@ -376,6 +377,7 @@ const bookingSchema = z.object({
   utmTerm: z.string().max(500).nullish(),
   utmContent: z.string().max(500).nullish(),
   refParam: z.string().max(500).nullish(),
+  noShowFeeAcknowledged: z.boolean().optional(),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
@@ -454,6 +456,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         status: 'scheduled',
         calcomSource: 'local',
         notes: notes || null,
+        noShowFeeAcknowledgedAt: parsed.data.noShowFeeAcknowledged ? new Date() : null,
       });
 
       // Save referral event if any referral data present
