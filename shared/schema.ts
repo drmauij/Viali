@@ -124,6 +124,7 @@ export const hospitals = pgTable("hospitals", {
   // Vision AI provider selection for image analysis (inventory items, monitor OCR)
   visionAiProvider: varchar("vision_ai_provider", { enum: ["openai", "pixtral"] }).default("openai"),
   enableReferralOnBooking: boolean("enable_referral_on_booking").default(false),
+  noShowFeeMessage: text("no_show_fee_message"), // When set, enables no-show fee notice at booking + in 24h reminder
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -4344,6 +4345,7 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   reminderSentAt: timestamp("reminder_sent_at"),
   morningReminderSent: boolean("morning_reminder_sent").default(false),
   morningReminderSentAt: timestamp("morning_reminder_sent_at"),
+  noShowFeeAcknowledgedAt: timestamp("no_show_fee_acknowledged_at"), // When patient acknowledged no-show fee policy during booking
 
   // Cal.com sync tracking
   calcomBookingUid: varchar("calcom_booking_uid"), // Cal.com booking UID for sync

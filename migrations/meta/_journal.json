@@ -1282,6 +1282,13 @@
       "when": 1773926487241,
       "tag": "0182_mixed_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1773941769608,
+      "tag": "0183_shocking_inhumans",
+      "breakpoints": true
     }
   ]
 }
