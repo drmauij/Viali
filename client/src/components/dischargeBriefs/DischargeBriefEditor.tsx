@@ -46,6 +46,8 @@ import {
   Plus,
   Minus,
   Trash2,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
 
@@ -93,6 +95,7 @@ export function DischargeBriefEditor({
   }> | null>(null);
 
   // Tiptap editor
+  const [undoRedoState, setUndoRedoState] = useState({ canUndo: false, canRedo: false });
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -108,6 +111,9 @@ export function DischargeBriefEditor({
         class:
           "prose prose-sm max-w-none dark:prose-invert focus:outline-none min-h-[300px] px-4 py-3",
       },
+    },
+    onTransaction: ({ editor: e }) => {
+      setUndoRedoState({ canUndo: e.can().undo(), canRedo: e.can().redo() });
     },
   });
 
@@ -312,6 +318,27 @@ export function DischargeBriefEditor({
       {/* Tiptap toolbar - hidden when locked */}
       {!brief?.isLocked && editor && (
         <div className="flex items-center gap-1 px-4 py-2 border-b">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!undoRedoState.canUndo}
+            title={t("dischargeBrief.undo", "Undo")}
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!undoRedoState.canRedo}
+            title={t("dischargeBrief.redo", "Redo")}
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+          <div className="w-px h-5 bg-border mx-1" />
           <Button
             variant="ghost"
             size="icon"
