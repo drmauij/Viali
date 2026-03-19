@@ -20,7 +20,10 @@ import type { InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { UnifiedBarcodeScanner } from "@/components/UnifiedBarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DirectItemCamera } from "@/components/DirectItemCamera";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 import {
@@ -130,6 +133,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     itemLots, setItemLots,
     isLoadingLots, setIsLoadingLots,
     lotsScanner, setLotsScanner,
+    lotsBarcodeScanner, setLotsBarcodeScanner,
+    isAnalyzingLot, setIsAnalyzingLot,
     newLot, setNewLot,
     addItemScanner, setAddItemScanner,
     addItemStage, setAddItemStage,
@@ -3729,16 +3734,29 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           <h3 className="font-semibold">Lot Tracking</h3>
                         </div>
                         {canWrite && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setLotsScanner(true)}
-                            data-testid="button-scan-lot"
-                          >
-                            <i className="fas fa-qrcode mr-2"></i>
-                            Scan Lot
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLotsScanner(true)}
+                              disabled={isAnalyzingLot}
+                              data-testid="button-scan-lot"
+                            >
+                              <i className={`fas ${isAnalyzingLot ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                              {isAnalyzingLot ? t('items.analyzing', 'Analyzing...') : t('items.scanLotPhoto', 'Scan Lot')}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLotsBarcodeScanner(true)}
+                              title={t('items.scanBarcode', 'Scan barcode')}
+                              data-testid="button-scan-lot-barcode"
+                            >
+                              <i className="fas fa-barcode"></i>
+                            </Button>
+                          </div>
                         )}
                       </div>
                       
@@ -3823,12 +3841,35 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                   onChange={(e) => setNewLot(prev => ({ ...prev, lotNumber: e.target.value }))}
                                   data-testid="input-new-lot-number"
                                 />
-                                <FlexibleDateInput
-                                  placeholder="Expiry date"
-                                  value={newLot.expiryDate}
-                                  onChange={(value) => setNewLot(prev => ({ ...prev, expiryDate: value }))}
-                                  data-testid="input-new-lot-expiry"
-                                />
+                                <div className="flex gap-1">
+                                  <FlexibleDateInput
+                                    placeholder="Expiry date"
+                                    value={newLot.expiryDate}
+                                    onChange={(value) => setNewLot(prev => ({ ...prev, expiryDate: value }))}
+                                    data-testid="input-new-lot-expiry"
+                                  />
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button type="button" variant="outline" size="icon" className="shrink-0 h-10 w-10">
+                                        <i className="fas fa-calendar-alt text-muted-foreground"></i>
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="end">
+                                      <Calendar
+                                        mode="single"
+                                        selected={newLot.expiryDate ? new Date(newLot.expiryDate) : undefined}
+                                        onSelect={(date) => {
+                                          if (date) {
+                                            const iso = date.toISOString().split('T')[0];
+                                            setNewLot(prev => ({ ...prev, expiryDate: iso }));
+                                          }
+                                        }}
+                                        defaultMonth={newLot.expiryDate ? new Date(newLot.expiryDate) : new Date()}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
                               </div>
                               <Button
                                 type="button"
@@ -4946,25 +4987,81 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }}
       />
       
-      {/* GS1/DataMatrix Scanner for Lot Tracking */}
-      <BarcodeScanner
+      {/* AI/OCR Scanner for Lot Tracking (primary) */}
+      <UnifiedBarcodeScanner
         isOpen={lotsScanner}
         onClose={() => setLotsScanner(false)}
-        onScan={(code) => {
+        hint={t('items.scanLotHint', 'Take a photo of the lot label (LOT / EXP)')}
+        onBarcodeDetected={(code) => {
           setLotsScanner(false);
-          
           if (isGS1Code(code)) {
             const parsed = parseGS1Code(code);
-            
             if (parsed.lotNumber) {
-              // GS1 parser already returns dates in YYYY-MM-DD format
-              const expiryDate = parsed.expiryDate || "";
-              
               setNewLot({
                 lotNumber: parsed.lotNumber,
-                expiryDate: expiryDate,
+                expiryDate: parsed.expiryDate || "",
               });
-              
+              toast({
+                title: "Lot Scanned",
+                description: `LOT: ${parsed.lotNumber}${parsed.expiryDate ? `, EXP: ${parsed.expiryDate}` : ''}`,
+              });
+            } else {
+              setNewLot(prev => ({ ...prev, lotNumber: code }));
+              toast({ title: "Code Scanned", description: `Value: ${code}` });
+            }
+          } else {
+            setNewLot(prev => ({ ...prev, lotNumber: code }));
+            toast({ title: "Code Scanned", description: `Value: ${code}` });
+          }
+        }}
+        onImageCapture={async (photo) => {
+          setLotsScanner(false);
+          setIsAnalyzingLot(true);
+          try {
+            const response = await apiRequest('POST', '/api/items/analyze-codes', { image: photo });
+            const result: any = await response.json();
+
+            if (result.lotNumber || result.expiryDate) {
+              setNewLot({
+                lotNumber: result.lotNumber || "",
+                expiryDate: result.expiryDate || "",
+              });
+              toast({
+                title: t('items.lotDetected', 'Lot Detected'),
+                description: `${result.lotNumber ? `LOT: ${result.lotNumber}` : ''}${result.lotNumber && result.expiryDate ? ', ' : ''}${result.expiryDate ? `EXP: ${result.expiryDate}` : ''}`,
+              });
+            } else {
+              toast({
+                title: t('items.noLotFound', 'No Lot Found'),
+                description: t('items.noLotFoundDescription', 'Could not detect lot information from the photo. Try again or enter manually.'),
+                variant: "destructive",
+              });
+            }
+          } catch (error: any) {
+            toast({
+              title: t('common.error'),
+              description: error.message || t('items.failedToAnalyzeLot', 'Failed to analyze lot photo'),
+              variant: "destructive",
+            });
+          } finally {
+            setIsAnalyzingLot(false);
+          }
+        }}
+      />
+
+      {/* Fallback barcode scanner for Lot Tracking */}
+      <BarcodeScanner
+        isOpen={lotsBarcodeScanner}
+        onClose={() => setLotsBarcodeScanner(false)}
+        onScan={(code) => {
+          setLotsBarcodeScanner(false);
+          if (isGS1Code(code)) {
+            const parsed = parseGS1Code(code);
+            if (parsed.lotNumber) {
+              setNewLot({
+                lotNumber: parsed.lotNumber,
+                expiryDate: parsed.expiryDate || "",
+              });
               toast({
                 title: "Lot Scanned",
                 description: `LOT: ${parsed.lotNumber}${parsed.expiryDate ? `, EXP: ${parsed.expiryDate}` : ''}`,
@@ -4977,18 +5074,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               });
             }
           } else {
-            setNewLot(prev => ({
-              ...prev,
-              lotNumber: code,
-            }));
-            toast({
-              title: "Code Scanned",
-              description: `Value: ${code}`,
-            });
+            setNewLot(prev => ({ ...prev, lotNumber: code }));
+            toast({ title: "Code Scanned", description: `Value: ${code}` });
           }
         }}
         onManualEntry={() => {
-          setLotsScanner(false);
+          setLotsBarcodeScanner(false);
         }}
       />
 

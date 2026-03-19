@@ -316,6 +316,8 @@ export function useItemsState() {
   const [itemLots, setItemLots] = useState<Lot[]>([]);
   const [isLoadingLots, setIsLoadingLots] = useState(false);
   const [lotsScanner, setLotsScanner] = useState(false);
+  const [lotsBarcodeScanner, setLotsBarcodeScanner] = useState(false);
+  const [isAnalyzingLot, setIsAnalyzingLot] = useState(false);
   const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
   const [addItemScanner, setAddItemScanner] = useState(false);
 
@@ -463,6 +465,8 @@ export function useItemsState() {
     itemLots, setItemLots,
     isLoadingLots, setIsLoadingLots,
     lotsScanner, setLotsScanner,
+    lotsBarcodeScanner, setLotsBarcodeScanner,
+    isAnalyzingLot, setIsAnalyzingLot,
     newLot, setNewLot,
     addItemScanner, setAddItemScanner,
 

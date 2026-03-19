@@ -145,7 +145,7 @@ router.patch('/api/folders/bulk-sort', isAuthenticated, requireWriteAccess, asyn
         continue;
       }
 
-      const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
+      const unitId = await getUserUnitForHospital(userId, folder.hospitalId, folder.unitId);
       if (!unitId || unitId !== folder.unitId) {
         // Allow logistics users to sort folders in any unit of their hospital
         const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
@@ -176,7 +176,7 @@ router.patch('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asyn
       return res.status(404).json({ message: "Folder not found" });
     }
     
-    const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
+    const unitId = await getUserUnitForHospital(userId, folder.hospitalId, folder.unitId);
     if (!unitId || unitId !== folder.unitId) {
       // Allow logistics users to update folders in any unit of their hospital
       const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
@@ -184,7 +184,7 @@ router.patch('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asyn
         return res.status(403).json({ message: "Access denied to this folder" });
       }
     }
-    
+
     const updated = await storage.updateFolder(folderId, updates);
     res.json(updated);
   } catch (error) {
@@ -203,7 +203,7 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
       return res.status(404).json({ message: "Folder not found" });
     }
     
-    const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
+    const unitId = await getUserUnitForHospital(userId, folder.hospitalId, folder.unitId);
     if (!unitId || unitId !== folder.unitId) {
       // Allow logistics users to delete folders in any unit of their hospital
       const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
@@ -211,7 +211,7 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
         return res.status(403).json({ message: "Access denied to this folder" });
       }
     }
-    
+
     await storage.deleteFolder(folderId);
     res.json({ message: "Folder deleted successfully" });
   } catch (error) {
