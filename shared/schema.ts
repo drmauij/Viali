@@ -123,6 +123,7 @@ export const hospitals = pgTable("hospitals", {
   smsProvider: varchar("sms_provider", { enum: ["auto", "aspsms", "vonage"] }).default("auto"),
   // Vision AI provider selection for image analysis (inventory items, monitor OCR)
   visionAiProvider: varchar("vision_ai_provider", { enum: ["openai", "pixtral"] }).default("openai"),
+  enableReferralOnBooking: boolean("enable_referral_on_booking").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -6222,3 +6223,25 @@ export const insertAppointmentActionTokenSchema = createInsertSchema(appointment
 
 export type AppointmentActionToken = typeof appointmentActionTokens.$inferSelect;
 export type InsertAppointmentActionToken = z.infer<typeof insertAppointmentActionTokenSchema>;
+
+// Referral events — tracks how patients found the clinic (captured at booking time)
+export const referralEvents = pgTable("referral_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),
+  source: varchar("source", { enum: ["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"] }).notNull(),
+  sourceDetail: varchar("source_detail"),
+  utmSource: varchar("utm_source"),
+  utmMedium: varchar("utm_medium"),
+  utmCampaign: varchar("utm_campaign"),
+  utmTerm: varchar("utm_term"),
+  utmContent: varchar("utm_content"),
+  refParam: varchar("ref_param"),
+  captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref"] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("referral_events_hospital_created").on(table.hospitalId, table.createdAt),
+  index("referral_events_appointment_id").on(table.appointmentId),
+  index("referral_events_patient_id").on(table.patientId),
+]);
