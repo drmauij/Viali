@@ -1629,7 +1629,9 @@ export async function sendAppointmentReminderEmail(
   appointmentDate: string,
   appointmentTime: string,
   manageUrl: string,
-  language: string = 'de'
+  language: string = 'de',
+  mode: 'cancel-only' | 'info-only' = 'cancel-only',
+  noShowFeeMessage?: string | null,
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1646,14 +1648,17 @@ export async function sendAppointmentReminderEmail(
         <p>${isGerman
           ? `Wir möchten Sie an Ihren Termin am <strong>${appointmentDate}</strong> um <strong>${appointmentTime}</strong> erinnern.`
           : `This is a reminder for your appointment on <strong>${appointmentDate}</strong> at <strong>${appointmentTime}</strong>.`}</p>
-        <p>${isGerman
-          ? 'Falls Sie den Termin verschieben oder absagen möchten:'
-          : 'If you need to reschedule or cancel this appointment:'}</p>
-        <p style="text-align: center; margin: 24px 0;">
-          <a href="${manageUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-            ${isGerman ? 'Termin verwalten' : 'Manage Appointment'}
-          </a>
-        </p>
+        ${mode === 'cancel-only' ? `
+          <p>${isGerman
+            ? 'Falls Sie den Termin absagen möchten:'
+            : 'If you need to cancel this appointment:'}</p>
+          <p style="text-align: center; margin: 24px 0;">
+            <a href="${manageUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              ${isGerman ? 'Termin absagen' : 'Cancel Appointment'}
+            </a>
+          </p>
+          ${noShowFeeMessage ? `<p style="color: #6b7280; font-size: 14px; margin-top: 16px;">${noShowFeeMessage}</p>` : ''}
+        ` : ''}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
     `;
