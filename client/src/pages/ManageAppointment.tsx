@@ -88,34 +88,6 @@ export default function ManageAppointment() {
     }
   };
 
-  const handleReschedule = () => {
-    if (!info?.bookingToken) return;
-    if (!token) return;
-    setCancelling(true);
-    fetch("/api/clinic/appointments/cancel-by-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, reason: "Rescheduled by patient" }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          setError(data.message || "cancel_failed");
-          return;
-        }
-        const params = new URLSearchParams();
-        if (info.providerId) params.set("provider", info.providerId);
-        if (info.patientFirstName) params.set("firstName", info.patientFirstName);
-        if (info.patientSurname) params.set("surname", info.patientSurname);
-        if (info.patientEmail) params.set("email", info.patientEmail);
-        if (info.patientPhone) params.set("phone", info.patientPhone);
-        params.set("reschedule", "true");
-        window.location.href = `/book/${info.bookingToken}?${params.toString()}`;
-      })
-      .catch(() => setError("network"))
-      .finally(() => setCancelling(false));
-  };
-
   const isGerman = info?.language === "de";
 
   if (loading) {
@@ -200,7 +172,7 @@ export default function ManageAppointment() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">
-            {isGerman ? "Ihren Termin verwalten" : "Manage Your Appointment"}
+            {isGerman ? "Termin absagen" : "Cancel Appointment"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -221,23 +193,11 @@ export default function ManageAppointment() {
 
           <p className="text-center text-gray-500 text-sm">
             {isGerman
-              ? "Was m\u00F6chten Sie mit diesem Termin tun?"
-              : "What would you like to do with this appointment?"}
+              ? "M\u00F6chten Sie diesen Termin absagen?"
+              : "Would you like to cancel this appointment?"}
           </p>
 
           <div className="space-y-3">
-            {info.bookingToken && (
-              <Button
-                className="w-full"
-                onClick={handleReschedule}
-                disabled={cancelling}
-              >
-                {cancelling
-                  ? (isGerman ? "Wird bearbeitet..." : "Processing...")
-                  : (isGerman ? "Termin verschieben" : "Reschedule Appointment")}
-              </Button>
-            )}
-
             <Button
               variant="destructive"
               className="w-full"
