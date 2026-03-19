@@ -3970,10 +3970,6 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   height: varchar("height"),
   weight: varchar("weight"),
 
-  // Referral source tracking
-  referralSource: varchar("referral_source"),
-  referralSourceDetail: varchar("referral_source_detail"),
-
   // Previous surgeries/anesthesia
   previousSurgeries: text("previous_surgeries"),
   previousAnesthesiaProblems: text("previous_anesthesia_problems"),
