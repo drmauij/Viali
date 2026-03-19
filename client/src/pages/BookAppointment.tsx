@@ -340,6 +340,7 @@ export default function BookAppointment() {
       setSlotTaken(false);
     } else if (step === "referral") {
       setStep("details");
+      setSubmitError(null);
     }
   }, [step, canGoBackToProviders]);
 
@@ -952,6 +953,11 @@ export default function BookAppointment() {
               </svg>
               Zurück
             </button>
+            {submitError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                {submitError}
+              </div>
+            )}
             <ReferralSourcePicker
               value={referralSource}
               detail={referralDetail}

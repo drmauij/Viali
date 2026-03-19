@@ -367,15 +367,15 @@ const bookingSchema = z.object({
   phone: z.string().min(1).max(30),
   notes: z.string().min(1).max(1000),
   // Referral fields
-  referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"]).optional(),
-  referralSourceDetail: z.string().max(500).optional(),
-  captureMethod: z.enum(["manual", "utm", "ref"]).optional(),
-  utmSource: z.string().max(500).optional(),
-  utmMedium: z.string().max(500).optional(),
-  utmCampaign: z.string().max(500).optional(),
-  utmTerm: z.string().max(500).optional(),
-  utmContent: z.string().max(500).optional(),
-  refParam: z.string().max(500).optional(),
+  referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"]).nullish(),
+  referralSourceDetail: z.string().max(500).nullish(),
+  captureMethod: z.enum(["manual", "utm", "ref"]).nullish(),
+  utmSource: z.string().max(500).nullish(),
+  utmMedium: z.string().max(500).nullish(),
+  utmCampaign: z.string().max(500).nullish(),
+  utmTerm: z.string().max(500).nullish(),
+  utmContent: z.string().max(500).nullish(),
+  refParam: z.string().max(500).nullish(),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
