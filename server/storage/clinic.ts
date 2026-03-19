@@ -1130,7 +1130,9 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     .where(and(
       eq(surgeries.surgeonId, providerId),
       sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${hospitalTz}) = ${date}`,
-      sql`${surgeries.status} NOT IN ('cancelled')`
+      sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`,
+      eq(surgeries.isSuspended, false),
+      eq(surgeries.isArchived, false)
     ));
 
   // Also block slots when provider is booked as an assistant surgeon
@@ -1146,7 +1148,9 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
     .where(and(
       eq(surgeryAssistants.userId, providerId),
       sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${hospitalTz}) = ${date}`,
-      sql`${surgeries.status} NOT IN ('cancelled')`
+      sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`,
+      eq(surgeries.isSuspended, false),
+      eq(surgeries.isArchived, false)
     ));
 
   const allSurgeryConflicts = [...surgeryList, ...assistantSurgeryList];
