@@ -1314,7 +1314,7 @@ router.get('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, asy
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
     if (!hospital) return res.status(404).json({ message: "Hospital not found" });
-    res.json({ bookingToken: hospital.bookingToken || null, bookingSettings: hospital.bookingSettings || {} });
+    res.json({ bookingToken: hospital.bookingToken || null, bookingSettings: hospital.bookingSettings || {}, enableReferralOnBooking: hospital.enableReferralOnBooking ?? false });
   } catch (error) {
     logger.error("Error fetching booking token:", error);
     res.status(500).json({ message: "Failed to fetch booking token" });
@@ -1348,11 +1348,12 @@ router.delete('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, 
 router.put('/api/admin/:hospitalId/booking-settings', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { slotDurationMinutes, maxAdvanceDays, minAdvanceHours } = req.body;
+    const { slotDurationMinutes, maxAdvanceDays, minAdvanceHours, enableReferralOnBooking } = req.body;
     const hospital = await storage.updateHospital(hospitalId, {
       bookingSettings: { slotDurationMinutes, maxAdvanceDays, minAdvanceHours },
+      ...(enableReferralOnBooking !== undefined && { enableReferralOnBooking }),
     });
-    res.json({ bookingSettings: hospital.bookingSettings });
+    res.json({ bookingSettings: hospital.bookingSettings, enableReferralOnBooking: hospital.enableReferralOnBooking ?? false });
   } catch (error) {
     logger.error("Error updating booking settings:", error);
     res.status(500).json({ message: "Failed to update booking settings" });

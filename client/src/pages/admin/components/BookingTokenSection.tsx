@@ -15,8 +15,9 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
   const [slotDuration, setSlotDuration] = useState<string>("30");
   const [maxDays, setMaxDays] = useState<string>("90");
   const [minHours, setMinHours] = useState<string>("2");
+  const [enableReferral, setEnableReferral] = useState(false);
 
-  const { data: tokenData } = useQuery<{ bookingToken: string | null; bookingSettings: any }>({
+  const { data: tokenData } = useQuery<{ bookingToken: string | null; bookingSettings: any; enableReferralOnBooking?: boolean }>({
     queryKey: [`/api/admin/${hospitalId}/booking-token`],
     enabled: !!hospitalId && isAdmin,
   });
@@ -28,7 +29,8 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
       if (s.maxAdvanceDays) setMaxDays(String(s.maxAdvanceDays));
       if (s.minAdvanceHours) setMinHours(String(s.minAdvanceHours));
     }
-  }, [tokenData?.bookingSettings]);
+    if (tokenData?.enableReferralOnBooking !== undefined) setEnableReferral(tokenData.enableReferralOnBooking);
+  }, [tokenData?.bookingSettings, tokenData?.enableReferralOnBooking]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -57,6 +59,7 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
         slotDurationMinutes: parseInt(slotDuration) || 30,
         maxAdvanceDays: parseInt(maxDays) || 90,
         minAdvanceHours: parseInt(minHours) || 2,
+        enableReferralOnBooking: enableReferral,
       });
     },
     onSuccess: () => {
@@ -162,6 +165,18 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
                     className="mt-1"
                   />
                 </div>
+              </div>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enableReferral"
+                  checked={enableReferral}
+                  onChange={(e) => setEnableReferral(e.target.checked)}
+                  className="rounded"
+                />
+                <Label htmlFor="enableReferral" className="text-xs text-muted-foreground">
+                  Ask patients how they found you when booking
+                </Label>
               </div>
               <Button size="sm" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
                 {saveSettingsMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
