@@ -57,6 +57,7 @@ export default function SettingsPage() {
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
     appointmentReminderDisabled: false,
+    noShowFeeMessage: "" as string,
     addonPatientChat: false,
     currency: "CHF" as string,
     dateFormat: "european" as string,
@@ -147,6 +148,7 @@ export default function SettingsPage() {
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
         appointmentReminderDisabled: fullHospitalData.appointmentReminderDisabled ?? false,
+        noShowFeeMessage: fullHospitalData.noShowFeeMessage || "",
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
         currency: fullHospitalData.currency || "CHF",
         dateFormat: fullHospitalData.dateFormat || "european",
@@ -239,6 +241,28 @@ export default function SettingsPage() {
     onError: (error: any) => {
       setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !prev.appointmentReminderDisabled }));
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
+    },
+  });
+
+  const updateNoShowFeeMessageMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { noShowFeeMessage: message || null });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: t("common.success"),
+        description: t("admin.noShowFeeMessageSaved", "No-show fee notice saved"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -1258,6 +1282,53 @@ export default function SettingsPage() {
                 disabled={updateAppointmentReminderDisabledMutation.isPending}
                 data-testid="switch-appointment-reminder-enabled"
               />
+            </div>
+          </div>
+
+          {/* No-Show Fee Notice Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                  <i className="fas fa-exclamation-triangle text-amber-500"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {t("admin.noShowFeeNotice", "No-Show Fee Notice")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.noShowFeeNoticeDescription", "When set, patients must acknowledge this message when booking online. It is also included in the 24h appointment reminder. Leave empty to disable.")}
+                  </p>
+                </div>
+              </div>
+              {hospitalForm.noShowFeeMessage && hospitalForm.appointmentReminderDisabled && (
+                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-md p-3">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.noShowFeeReminderWarning", "Note: Appointment reminders are currently disabled — the fee notice will only appear during booking, not in reminders.")}
+                </div>
+              )}
+              <textarea
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder={hospitalForm.defaultLanguage === "en"
+                  ? "Please note that appointments not cancelled at least 24 hours in advance may be subject to a CHF 150 fee."
+                  : "Bitte beachten Sie, dass Termine, die nicht mindestens 24 Stunden im Voraus abgesagt werden, mit CHF 150 in Rechnung gestellt werden können."}
+                value={hospitalForm.noShowFeeMessage}
+                onChange={(e) => setHospitalForm(prev => ({ ...prev, noShowFeeMessage: e.target.value }))}
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.noShowFeeSmsNote", "Note: Long messages may be sent as multiple SMS segments, increasing costs.")}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => updateNoShowFeeMessageMutation.mutate(hospitalForm.noShowFeeMessage)}
+                  disabled={updateNoShowFeeMessageMutation.isPending}
+                >
+                  {updateNoShowFeeMessageMutation.isPending
+                    ? t("common.saving", "Saving...")
+                    : t("common.save", "Save")}
+                </Button>
+              </div>
             </div>
           </div>
 
