@@ -218,6 +218,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         bookingServiceName: p.bookingServiceName,
         bookingLocation: p.bookingLocation,
       })),
+      enableReferralOnBooking: hospital.enableReferralOnBooking ?? false,
     });
   } catch (error) {
     logger.error('Error fetching booking page data:', error);
@@ -365,6 +366,16 @@ const bookingSchema = z.object({
   email: z.string().email().max(255),
   phone: z.string().min(1).max(30),
   notes: z.string().min(1).max(1000),
+  // Referral fields
+  referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"]).optional(),
+  referralSourceDetail: z.string().max(500).optional(),
+  captureMethod: z.enum(["manual", "utm", "ref"]).optional(),
+  utmSource: z.string().max(500).optional(),
+  utmMedium: z.string().max(500).optional(),
+  utmCampaign: z.string().max(500).optional(),
+  utmTerm: z.string().max(500).optional(),
+  utmContent: z.string().max(500).optional(),
+  refParam: z.string().max(500).optional(),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
@@ -377,6 +388,11 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
     const parsed = bookingSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: 'Invalid booking data', errors: parsed.error.errors });
+    }
+
+    // Require referral source when hospital has referral enabled and no auto-capture data
+    if (hospital.enableReferralOnBooking && !parsed.data.utmSource && !parsed.data.refParam && !parsed.data.referralSource) {
+      return res.status(400).json({ message: "Referral source is required" });
     }
 
     const { providerId, date, startTime, endTime, firstName, surname, email, phone, notes } = parsed.data;
@@ -439,6 +455,25 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         calcomSource: 'local',
         notes: notes || null,
       });
+
+      // Save referral event if any referral data present
+      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam) {
+        const { referralEvents } = await import("@shared/schema");
+        await db.insert(referralEvents).values({
+          hospitalId: hospital.id,
+          patientId: patient.id,
+          appointmentId: appointment.id,
+          source: parsed.data.referralSource || "other",
+          sourceDetail: parsed.data.referralSourceDetail || null,
+          utmSource: parsed.data.utmSource || null,
+          utmMedium: parsed.data.utmMedium || null,
+          utmCampaign: parsed.data.utmCampaign || null,
+          utmTerm: parsed.data.utmTerm || null,
+          utmContent: parsed.data.utmContent || null,
+          refParam: parsed.data.refParam || null,
+          captureMethod: parsed.data.captureMethod || "manual",
+        });
+      }
 
       // Send confirmation email asynchronously
       (async () => {
