@@ -31,6 +31,7 @@ const updateHospitalSchema = z.object({
   questionnaireDisabled: z.boolean().optional(),
   preSurgeryReminderDisabled: z.boolean().optional(),
   appointmentReminderDisabled: z.boolean().optional(),
+  noShowFeeMessage: z.string().nullable().optional(),
   addonPatientChat: z.boolean().optional(),
   currency: z.enum(["CHF", "EUR", "USD"]).optional(),
   dateFormat: z.enum(["european", "american"]).optional(),
