@@ -36,6 +36,7 @@ import { OnDemandMedicationDialog } from "./dialogs/OnDemandMedicationDialog";
 import { EventDialog } from "./dialogs/EventDialog";
 import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
 import { BISDialog } from "./dialogs/BISDialog";
+import { TemperaturDialog } from "./dialogs/TemperaturDialog";
 import { TOFDialog } from "./dialogs/TOFDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
@@ -138,6 +139,7 @@ import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 import { BISSwimlane } from "./swimlanes/BISSwimlane";
+import { TemperaturSwimlane } from "./swimlanes/TemperaturSwimlane";
 import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
 import { usePKSimulation, type SwimlaneMetadata } from "@/hooks/usePKSimulation";
 import { PKPredictionSwimlane } from "./swimlanes/PKPredictionSwimlane";
@@ -568,6 +570,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const deleteOutput = useDeleteOutput(anesthesiaRecordId);
   const setUrineModeMutation = useSetUrineMode(anesthesiaRecordId);
   
+  // State for monitoring swimlane visibility (hidden by default, persisted)
+  const [showMonitoring, setShowMonitoring] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showMonitoring');
+    return saved === 'true';
+  });
+  const handleMonitoringToggle = () => {
+    setShowMonitoring(prev => {
+      localStorage.setItem('showMonitoring', String(!prev));
+      return !prev;
+    });
+  };
+
   // State for collapsible parent swimlanes
   // Initialize with all parent swimlanes expanded to ensure BIS/TOF are visible
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(() => {
@@ -892,12 +906,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // No need to process data.apiEvents separately for now
   }, [data.medications, anesthesiaItems, administrationGroups, anesthesiaRecordId, resetMedicationData]);
 
-  // Event state management hook (heart rhythm, staff, position, BIS, TOF, VAS, Scores, events, time markers)
+  // Event state management hook (heart rhythm, staff, position, BIS, Temperature, TOF, VAS, Scores, events, time markers)
   const {
     heartRhythmData,
     staffData,
     positionData,
     bisData,
+    temperaturData,
     tofData,
     vasData,
     scoresData,
@@ -907,6 +922,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setStaffData,
     setPositionData,
     setBisData,
+    setTemperaturData,
     setTofData,
     setVasData,
     setScoresData,
@@ -916,6 +932,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     addStaffEntry,
     addPosition,
     addBIS,
+    addTemperatur,
     addTOF,
     addVAS,
     addScore,
@@ -982,6 +999,25 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       setBisData([]);
     }
   }, [clinicalSnapshot, setBisData]);
+
+  // Sync Temperature data from clinical snapshot
+  useEffect(() => {
+    if (clinicalSnapshot === undefined) return;
+
+    const snapshotData = clinicalSnapshot?.data as any;
+    const temp = snapshotData?.temp || [];
+
+    if (temp.length > 0) {
+      const tempEntries = temp.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+      }));
+      setTemperaturData(tempEntries);
+    } else {
+      setTemperaturData([]);
+    }
+  }, [clinicalSnapshot, setTemperaturData]);
 
   // NEW: Sync TOF data from clinical snapshot
   useEffect(() => {
@@ -1254,6 +1290,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [showBISDialog, setShowBISDialog] = useState(false);
   const [pendingBIS, setPendingBIS] = useState<{ time: number } | null>(null);
   const [editingBIS, setEditingBIS] = useState<{ id: string; time: number; value: number; index: number } | null>(null);
+
+  // UI state for Temperature dialogs and interactions
+  const [showTemperaturDialog, setShowTemperaturDialog] = useState(false);
+  const [pendingTemperatur, setPendingTemperatur] = useState<{ time: number } | null>(null);
+  const [editingTemperatur, setEditingTemperatur] = useState<{ id: string; time: number; value: number; index: number } | null>(null);
 
   // UI state for TOF dialogs and interactions
   const [showTOFDialog, setShowTOFDialog] = useState(false);
@@ -1925,7 +1966,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   ];
 
   // Default swimlane configuration - can be overridden via props
-  // Order: Times → Events → (PACU: VAS, Scores) → Medications → Monitoring (BIS, TOF, PK, Heart Rhythm) → Position → Ventilation → Output
+  // Order: Monitoring (when visible) → Times → Events → (PACU: VAS, Scores) → Medications → Position → Ventilation → Output
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
@@ -1934,9 +1975,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
       { id: "scores", label: t("anesthesia.timeline.scoresLabel", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
     ] : []),
-    // Medications inserted dynamically after Events/Scores, before Monitoring
-    // Monitoring — contains BIS, TOF, PK Predict, Heart Rhythm
-    { id: "others", label: t("anesthesia.timeline.monitoring", "Monitoring"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
+    // Medications inserted dynamically after Events/Scores
+    // Monitoring (others) is conditionally inserted at the start of buildActiveSwimlanes() when showMonitoring is true
     { id: "position", label: t("anesthesia.timeline.position.label"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation.label"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: t("anesthesia.timeline.output.label"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
@@ -1949,7 +1989,34 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const lanes: SwimlaneConfig[] = [];
     const ventColor = { colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" };
     const medGroupColor = { colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" };
-    
+    const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
+
+    // Conditionally insert Monitoring swimlane at the very start (directly below vitals chart)
+    if (showMonitoring) {
+      lanes.push({
+        id: "others",
+        label: t("anesthesia.timeline.monitoring", "Monitoring"),
+        height: 48,
+        ...othersColor,
+      });
+      if (!collapsedSwimlanes.has("others")) {
+        // BIS — always shown
+        lanes.push({ id: "bis", label: "  BIS", height: 38, ...othersColor });
+        // TOF — shown in OR mode only
+        if (!isPacuMode) {
+          lanes.push({ id: "tof", label: "  TOF", height: 38, ...othersColor });
+        }
+        // PK Predict — only in TIVA mode
+        if (pkSimulation.mode === "tiva" && pkSimulation.missingFields.length === 0) {
+          lanes.push({ id: "pk-prediction", label: "  PK Predict", height: 55, ...othersColor });
+        }
+        // Heart Rhythm
+        lanes.push({ id: "herzrhythmus", label: "  " + t("anesthesia.timeline.heartRhythm.label"), height: 38, ...othersColor });
+        // Temperature
+        lanes.push({ id: "temperatur", label: "  " + t("anesthesia.timeline.temperature.label", "Temperature"), height: 38, ...othersColor });
+      }
+    }
+
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
 
@@ -2006,43 +2073,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }
       }
 
-      // Insert Monitoring children: BIS, TOF, PK Predict, Heart Rhythm (if not collapsed)
-      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
-        const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
-        // BIS — always shown
-        lanes.push({
-          id: "bis",
-          label: "  BIS",
-          height: 38,
-          ...othersColor,
-        });
-        // TOF — shown in OR mode only
-        if (!isPacuMode) {
-          lanes.push({
-            id: "tof",
-            label: "  TOF",
-            height: 38,
-            ...othersColor,
-          });
-        }
-        // PK Predict — only in TIVA mode (TCI pumps already show Cp/Ce)
-        if (pkSimulation.mode === "tiva" && pkSimulation.missingFields.length === 0) {
-          lanes.push({
-            id: "pk-prediction",
-            label: "  PK Predict",
-            height: 55,
-            ...othersColor,
-          });
-        }
-        // Heart Rhythm — child of Monitoring
-        lanes.push({
-          id: "herzrhythmus",
-          label: "  " + t("anesthesia.timeline.heartRhythm.label"),
-          height: 38,
-          ...othersColor,
-        });
-      }
-
       // Insert ventilation children after Ventilation parent (if not collapsed)
       if (lane.id === "ventilation" && !collapsedSwimlanes.has("ventilation")) {
         // Add the Parameter Entry Lane first (for quick bulk entry of ventilation values)
@@ -2082,7 +2112,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [showMonitoring, collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
@@ -5275,6 +5305,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     staffData,
     positionData,
     bisData,
+    temperaturData,
     tofData,
     vasData,
     scoresData,
@@ -5284,6 +5315,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setStaffData,
     setPositionData,
     setBisData,
+    setTemperaturData,
     setTofData,
     setVasData,
     setScoresData,
@@ -5293,6 +5325,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     addStaffEntry,
     addPosition,
     addBIS,
+    addTemperatur,
     addTOF,
     addVAS,
     addScore,
@@ -5646,6 +5679,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         pkMode={pkSimulation.mode}
         pkCurrentValues={pkSimulation.currentValues}
         onOpenPKCovariateDialog={onSaveCovariates ? () => setShowPKCovariateDialog(true) : undefined}
+        showMonitoring={showMonitoring}
+        onMonitoringToggle={handleMonitoringToggle}
         t={t}
       />
 
@@ -6013,6 +6048,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }
         visibleStart={currentZoomStart ?? data.startTime}
         visibleEnd={currentZoomEnd ?? data.endTime}
+      />
+
+      {/* TemperaturSwimlane Component - Interactive layer and rendering for temperature monitoring */}
+      <TemperaturSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onTemperaturDialogOpen={(pending) => {
+          setPendingTemperatur(pending);
+          setEditingTemperatur(null);
+          setShowTemperaturDialog(true);
+        }}
+        onTemperaturEditDialogOpen={(editing) => {
+          setEditingTemperatur(editing);
+          setPendingTemperatur(null);
+          setShowTemperaturDialog(true);
+        }}
       />
 
       {/* PKPredictionSwimlane - Cp/Ce curves for TIVA mode only (TCI pumps show Cp/Ce natively) */}
@@ -8185,6 +8236,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         onBISDeleted={() => {
           setEditingBIS(null);
+        }}
+        readOnly={!canWrite}
+      />
+
+      {/* Temperature Dialog */}
+      <TemperaturDialog
+        open={showTemperaturDialog}
+        onOpenChange={setShowTemperaturDialog}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
+        editingTemperatur={editingTemperatur}
+        pendingTemperatur={pendingTemperatur}
+        onTemperaturCreated={() => {
+          setPendingTemperatur(null);
+          setEditingTemperatur(null);
+        }}
+        onTemperaturUpdated={() => {
+          setEditingTemperatur(null);
+        }}
+        onTemperaturDeleted={() => {
+          setEditingTemperatur(null);
         }}
         readOnly={!canWrite}
       />

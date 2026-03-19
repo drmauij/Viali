@@ -26,6 +26,12 @@ export interface BISPoint {
   value: number;
 }
 
+export interface TemperaturPoint {
+  id: string;
+  timestamp: number;
+  value: number;
+}
+
 export interface TOFPoint {
   id: string;
   timestamp: number;
@@ -92,6 +98,7 @@ export interface UseEventStateReturn {
   staffData: StaffData;
   positionData: PositionPoint[];
   bisData: BISPoint[];
+  temperaturData: TemperaturPoint[];
   tofData: TOFPoint[];
   vasData: VASPoint[];
   scoresData: ScorePoint[];
@@ -101,6 +108,7 @@ export interface UseEventStateReturn {
   setStaffData: React.Dispatch<React.SetStateAction<StaffData>>;
   setPositionData: React.Dispatch<React.SetStateAction<PositionPoint[]>>;
   setBisData: React.Dispatch<React.SetStateAction<BISPoint[]>>;
+  setTemperaturData: React.Dispatch<React.SetStateAction<TemperaturPoint[]>>;
   setTofData: React.Dispatch<React.SetStateAction<TOFPoint[]>>;
   setVasData: React.Dispatch<React.SetStateAction<VASPoint[]>>;
   setScoresData: React.Dispatch<React.SetStateAction<ScorePoint[]>>;
@@ -110,6 +118,7 @@ export interface UseEventStateReturn {
   addStaffEntry: (role: keyof StaffData, point: StaffPoint) => void;
   addPosition: (point: PositionPoint) => void;
   addBIS: (point: BISPoint) => void;
+  addTemperatur: (point: TemperaturPoint) => void;
   addTOF: (point: TOFPoint) => void;
   addVAS: (point: VASPoint) => void;
   addScore: (point: ScorePoint) => void;
@@ -119,6 +128,7 @@ export interface UseEventStateReturn {
     staff?: StaffData;
     position?: PositionPoint[];
     bis?: BISPoint[];
+    temperatur?: TemperaturPoint[];
     tof?: TOFPoint[];
     vas?: VASPoint[];
     scores?: ScorePoint[];
@@ -132,6 +142,7 @@ export function useEventState(initialData?: {
   staff?: StaffData;
   position?: PositionPoint[];
   bis?: BISPoint[];
+  temperatur?: TemperaturPoint[];
   tof?: TOFPoint[];
   vas?: VASPoint[];
   scores?: ScorePoint[];
@@ -156,6 +167,10 @@ export function useEventState(initialData?: {
 
   const [bisData, setBisData] = useState<BISPoint[]>(
     initialData?.bis || []
+  );
+
+  const [temperaturData, setTemperaturData] = useState<TemperaturPoint[]>(
+    initialData?.temperatur || []
   );
 
   const [tofData, setTofData] = useState<TOFPoint[]>(
@@ -197,6 +212,10 @@ export function useEventState(initialData?: {
     setBisData(prev => [...prev, point]);
   }, []);
 
+  const addTemperatur = useCallback((point: TemperaturPoint) => {
+    setTemperaturData(prev => [...prev, point]);
+  }, []);
+
   const addTOF = useCallback((point: TOFPoint) => {
     setTofData(prev => [...prev, point]);
   }, []);
@@ -218,6 +237,7 @@ export function useEventState(initialData?: {
     staff?: StaffData;
     position?: PositionPoint[];
     bis?: BISPoint[];
+    temperatur?: TemperaturPoint[];
     tof?: TOFPoint[];
     vas?: VASPoint[];
     scores?: ScorePoint[];
@@ -228,6 +248,7 @@ export function useEventState(initialData?: {
     if (data.staff !== undefined) setStaffData(data.staff);
     if (data.position !== undefined) setPositionData(data.position);
     if (data.bis !== undefined) setBisData(data.bis);
+    if (data.temperatur !== undefined) setTemperaturData(data.temperatur);
     if (data.tof !== undefined) setTofData(data.tof);
     if (data.vas !== undefined) setVasData(data.vas);
     if (data.scores !== undefined) setScoresData(data.scores);
@@ -240,6 +261,7 @@ export function useEventState(initialData?: {
     staffData,
     positionData,
     bisData,
+    temperaturData,
     tofData,
     vasData,
     scoresData,
@@ -249,6 +271,7 @@ export function useEventState(initialData?: {
     setStaffData,
     setPositionData,
     setBisData,
+    setTemperaturData,
     setTofData,
     setVasData,
     setScoresData,
@@ -258,6 +281,7 @@ export function useEventState(initialData?: {
     addStaffEntry,
     addPosition,
     addBIS,
+    addTemperatur,
     addTOF,
     addVAS,
     addScore,

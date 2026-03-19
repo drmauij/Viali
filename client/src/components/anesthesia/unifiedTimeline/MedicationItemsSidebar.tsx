@@ -10,6 +10,7 @@ import {
   Pencil,
   ChevronsDownUp,
   ArrowUpDown,
+  Activity,
 } from "lucide-react";
 import type { SwimlaneConfig, AdministrationGroup, AnesthesiaItem } from "./types";
 import type { AnesthesiaTimeMarker } from "@/hooks/useEventState";
@@ -70,6 +71,10 @@ export interface MedicationItemsSidebarProps {
     eBIS: number | null;
   } | null;
 
+  // Monitoring toggle
+  showMonitoring: boolean;
+  onMonitoringToggle: () => void;
+
   // i18n
   t: TFunction;
 }
@@ -104,6 +109,8 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
   pkMode,
   onOpenPKCovariateDialog,
   pkCurrentValues,
+  showMonitoring,
+  onMonitoringToggle,
   t,
 }: MedicationItemsSidebarProps) {
   return (
@@ -215,6 +222,18 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
         >
           <Pencil className={`w-5 h-5 transition-colors ${activeToolMode === 'edit' ? 'text-amber-500' : 'hover:text-amber-500'}`} />
         </button>
+        <button
+          onClick={onMonitoringToggle}
+          className={`mt-6 p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+            showMonitoring
+              ? 'border-purple-500 bg-purple-500/20'
+              : 'border-border bg-background hover:border-purple-500 hover:bg-purple-500/10'
+          }`}
+          data-testid="button-toggle-monitoring"
+          title={t('anesthesia.timeline.monitoring', 'Monitoring')}
+        >
+          <Activity className={`w-5 h-5 transition-colors ${showMonitoring ? 'text-purple-500' : 'hover:text-purple-500'}`} />
+        </button>
       </div>
 
       {/* Swimlane labels */}
@@ -230,7 +249,7 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
         const isOthersParent = lane.id === "others";
         const isVentChild = lane.id.startsWith("ventilation-");
         const isOutputChild = lane.id.startsWith("output-");
-        const isOthersChild = lane.id === "bis" || lane.id === "tof" || lane.id === "pk-prediction" || lane.id === "herzrhythmus";
+        const isOthersChild = lane.id === "bis" || lane.id === "tof" || lane.id === "pk-prediction" || lane.id === "herzrhythmus" || lane.id === "temperatur";
 
         // Only the main parent swimlanes are collapsible
         const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
