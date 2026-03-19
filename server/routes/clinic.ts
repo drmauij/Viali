@@ -16,6 +16,7 @@ import {
   units,
   hospitals,
   ProviderTimeOff,
+  clinicDayNotes,
 } from "@shared/schema";
 import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -3122,11 +3123,13 @@ router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, requireStri
           eq(surgeries.hospitalId, hospitalId),
           sql`${surgeries.plannedDate} >= ${start}`,
           sql`${surgeries.plannedDate} <= ${end}`,
-          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`
+          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`,
+          eq(surgeries.isSuspended, false),
+          eq(surgeries.isArchived, false)
         )
       )
       .orderBy(surgeries.plannedDate);
-    
+
     // For surgeries with surgeonId, get surgeon names from users table
     const surgeonIds = result
       .map(s => s.surgeonId)
@@ -3243,8 +3246,10 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, requir
           eq(surgeries.hospitalId, hospitalId),
           sql`${surgeries.plannedDate} >= ${start}`,
           sql`${surgeries.plannedDate} <= ${end}`,
-          // Only non-cancelled and non-archived surgeries
+          // Only non-cancelled, non-archived, non-suspended surgeries
           sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`,
+          eq(surgeries.isSuspended, false),
+          eq(surgeries.isArchived, false),
           // Match by surgeonId OR by surgeon name (for legacy data)
           or(
             inArray(surgeries.surgeonId, ids),
@@ -5112,6 +5117,63 @@ router.get('/api/admin/:hospitalId/integrations/sms-provider', isAuthenticated, 
   } catch (error) {
     logger.error("Error fetching SMS provider:", error);
     res.status(500).json({ message: "Failed to fetch SMS provider" });
+  }
+});
+
+// ========================================
+// Clinic Day Notes Endpoints
+// ========================================
+
+router.get('/api/clinic/:hospitalId/day-notes/:date', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+
+    const [note] = await db
+      .select()
+      .from(clinicDayNotes)
+      .where(
+        and(
+          eq(clinicDayNotes.hospitalId, hospitalId),
+          eq(clinicDayNotes.date, date)
+        )
+      );
+
+    res.json(note || { notes: '' });
+  } catch (error) {
+    logger.error("Error fetching clinic day notes:", error);
+    res.status(500).json({ message: "Failed to fetch clinic day notes" });
+  }
+});
+
+router.put('/api/clinic/:hospitalId/day-notes/:date', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+    const { notes } = req.body;
+    const userId = req.user.id;
+
+    const [result] = await db
+      .insert(clinicDayNotes)
+      .values({
+        hospitalId,
+        date,
+        notes: notes ?? '',
+        createdBy: userId,
+        updatedBy: userId,
+      })
+      .onConflictDoUpdate({
+        target: [clinicDayNotes.hospitalId, clinicDayNotes.date],
+        set: {
+          notes: notes ?? '',
+          updatedBy: userId,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    res.json(result);
+  } catch (error) {
+    logger.error("Error saving clinic day notes:", error);
+    res.status(500).json({ message: "Failed to save clinic day notes" });
   }
 });
 

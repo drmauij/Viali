@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft, Video } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, ToggleRight, ToggleLeft, Video, FileText, X } from "lucide-react";
 import { formatDateForInput, formatTime, formatMonthYear, formatDate as formatDateUtil, formatDateHeader, getDateFnsTimeFormat } from "@/lib/dateUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ import AppointmentsWeekView from "./AppointmentsWeekView";
 import AppointmentsMonthView from "./AppointmentsMonthView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
+import ClinicDayNotesPanel, { useClinicDayNotes } from "./ClinicDayNotesPanel";
 import SaalStaffPopover from "./SaalStaffPopover";
 import { TIME_OFF_TYPE_ICONS } from "./ManageAvailabilityDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -235,6 +236,8 @@ export default function ClinicCalendar({
   const [selectedTimeOff, setSelectedTimeOff] = useState<ProviderTimeOff | null>(null);
   const [selectedTimeOffProviderName, setSelectedTimeOffProviderName] = useState<string>("");
   const [hoverTime, setHoverTime] = useState<{ y: number; time: string } | null>(null);
+  const [dayNotesDialogOpen, setDayNotesDialogOpen] = useState(false);
+  const [notesBannerHidden, setNotesBannerHidden] = useState(() => sessionStorage.getItem('clinic_notes_banner_hidden') === 'true');
   const calendarContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -361,6 +364,8 @@ export default function ClinicCalendar({
     enabled: !!hospitalId,
     refetchInterval: 60000,
   });
+
+  const { data: dayNotesData } = useClinicDayNotes(hospitalId, selectedDate);
 
   useEffect(() => {
     if (providers.length > 0 && !hasLoadedPreferences) {
@@ -1447,8 +1452,53 @@ export default function ClinicCalendar({
             <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">{t('opCalendar.month', 'Month')}</span>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (notesBannerHidden && dayNotesData?.notes?.trim()) {
+                setNotesBannerHidden(false);
+                sessionStorage.removeItem('clinic_notes_banner_hidden');
+              } else {
+                setDayNotesDialogOpen(true);
+              }
+            }}
+            data-testid="button-clinic-day-notes"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm relative"
+          >
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">{t('dayNotes.title', 'Day Notes')}</span>
+            {notesBannerHidden && dayNotesData?.notes?.trim() && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500" />
+            )}
+          </Button>
         </div>
       </div>
+
+      {/* Day Notes Banner */}
+      {currentView === "day" && dayNotesData?.notes?.trim() && !notesBannerHidden && (
+        <div
+          className="mx-4 mt-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 cursor-pointer relative group"
+          onClick={() => setDayNotesDialogOpen(true)}
+          data-testid="clinic-day-notes-card"
+        >
+          <div className="flex items-start gap-2">
+            <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-900 dark:text-amber-200 line-clamp-3 whitespace-pre-wrap flex-1">{dayNotesData.notes}</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setNotesBannerHidden(true);
+                sessionStorage.setItem('clinic_notes_banner_hidden', 'true');
+              }}
+              className="flex-shrink-0 text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
+              data-testid="clinic-day-notes-card-close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Calendar */}
       <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
@@ -1659,6 +1709,17 @@ export default function ClinicCalendar({
         unitId={unitId}
         providerName={selectedTimeOffProviderName}
       />
+
+      {/* Day Notes dialog */}
+      <Dialog open={dayNotesDialogOpen} onOpenChange={setDayNotesDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('dayNotes.title', 'Day Notes')}</DialogTitle>
+            <DialogDescription>{formatDateHeader(selectedDate)}</DialogDescription>
+          </DialogHeader>
+          <ClinicDayNotesPanel hospitalId={hospitalId} selectedDate={selectedDate} />
+        </DialogContent>
+      </Dialog>
 
       {/* Reschedule confirmation dialog */}
       <Dialog open={!!pendingReschedule} onOpenChange={(open) => { if (!open) handleCancelReschedule(); }}>

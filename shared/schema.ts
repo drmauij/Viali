@@ -2202,6 +2202,22 @@ export const dailyRoomStaff = pgTable("daily_room_staff", {
   unique("idx_daily_room_staff_unique").on(table.dailyStaffPoolId, table.surgeryRoomId, table.date),
 ]);
 
+// Clinic Day Notes (day-level notes per hospital per date, for appointments calendar)
+export const clinicDayNotes = pgTable("clinic_day_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  date: date("date").notNull(),
+  notes: text("notes").notNull().default(''),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_day_notes_hospital").on(table.hospitalId),
+  index("idx_clinic_day_notes_date").on(table.date),
+  unique("idx_clinic_day_notes_hospital_date").on(table.hospitalId, table.date),
+]);
+
 // OP Day Notes (day-level notes per hospital per date)
 export const opDayNotes = pgTable("op_day_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
