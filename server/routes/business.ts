@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks } from "@shared/schema";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents } from "@shared/schema";
 import { eq, and, inArray, ne, desc, gte, lte, isNull, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
@@ -1784,49 +1784,28 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusine
     const { hospitalId } = req.params;
     const { from, to } = req.query;
 
-    const dateFilters = [
-      eq(patientQuestionnaireLinks.hospitalId, hospitalId),
-      eq(patientQuestionnaireLinks.status, 'submitted'),
-    ];
-    if (from) dateFilters.push(gte(patientQuestionnaireLinks.submittedAt, new Date(from as string)));
-    if (to) dateFilters.push(lte(patientQuestionnaireLinks.submittedAt, new Date(to as string)));
+    const filters = [eq(referralEvents.hospitalId, hospitalId)];
+    if (from) filters.push(gte(referralEvents.createdAt, new Date(from as string)));
+    if (to) filters.push(lte(referralEvents.createdAt, new Date(to as string)));
 
-    const rows = await db
+    const breakdown = await db
       .select({
-        referralSource: patientQuestionnaireResponses.referralSource,
-        referralSourceDetail: patientQuestionnaireResponses.referralSourceDetail,
+        referralSource: referralEvents.source,
+        referralSourceDetail: referralEvents.sourceDetail,
         count: sql<number>`count(*)::int`,
       })
-      .from(patientQuestionnaireResponses)
-      .innerJoin(
-        patientQuestionnaireLinks,
-        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
-      )
-      .where(
-        and(
-          ...dateFilters,
-          isNotNull(patientQuestionnaireResponses.referralSource),
-        )
-      )
-      .groupBy(
-        patientQuestionnaireResponses.referralSource,
-        patientQuestionnaireResponses.referralSourceDetail,
-      );
+      .from(referralEvents)
+      .where(and(...filters))
+      .groupBy(referralEvents.source, referralEvents.sourceDetail);
 
-    // Total questionnaire count (including those without referral source)
     const [totalResult] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(patientQuestionnaireResponses)
-      .innerJoin(
-        patientQuestionnaireLinks,
-        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
-      )
-      .where(and(...dateFilters));
+      .from(referralEvents)
+      .where(and(...filters));
 
     res.json({
-      breakdown: rows,
-      totalQuestionnaires: totalResult?.count || 0,
-      answeredReferral: rows.reduce((sum, r) => sum + r.count, 0),
+      breakdown,
+      totalReferrals: totalResult?.count || 0,
     });
   } catch (error: any) {
     logger.error('Error fetching referral stats:', error);
@@ -1841,28 +1820,14 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isB
 
     const rows = await db
       .select({
-        month: sql<string>`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`,
-        referralSource: patientQuestionnaireResponses.referralSource,
+        month: sql<string>`to_char(${referralEvents.createdAt}, 'YYYY-MM')`,
+        referralSource: referralEvents.source,
         count: sql<number>`count(*)::int`,
       })
-      .from(patientQuestionnaireResponses)
-      .innerJoin(
-        patientQuestionnaireLinks,
-        eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id)
-      )
-      .where(
-        and(
-          eq(patientQuestionnaireLinks.hospitalId, hospitalId),
-          eq(patientQuestionnaireLinks.status, 'submitted'),
-          isNotNull(patientQuestionnaireResponses.referralSource),
-          isNotNull(patientQuestionnaireLinks.submittedAt),
-        )
-      )
-      .groupBy(
-        sql`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`,
-        patientQuestionnaireResponses.referralSource,
-      )
-      .orderBy(sql`to_char(${patientQuestionnaireLinks.submittedAt}, 'YYYY-MM')`);
+      .from(referralEvents)
+      .where(eq(referralEvents.hospitalId, hospitalId))
+      .groupBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`, referralEvents.source)
+      .orderBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`);
 
     res.json(rows);
   } catch (error: any) {

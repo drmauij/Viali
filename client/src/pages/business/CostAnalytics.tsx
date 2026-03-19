@@ -341,6 +341,11 @@ const REFERRAL_DETAIL_LABELS: Record<string, string> = {
   tiktok: "TikTok",
   google: "Google",
   bing: "Bing",
+  "Google Maps": "Google Maps",
+  "Google Ads": "Google Ads",
+  ChatGPT: "ChatGPT",
+  Claude: "Claude",
+  Perplexity: "Perplexity",
 };
 
 export default function CostAnalytics() {
@@ -483,8 +488,7 @@ export default function CostAnalytics() {
 
   const { data: referralData, isLoading: referralLoading } = useQuery<{
     breakdown: Array<{ referralSource: string; referralSourceDetail: string | null; count: number }>;
-    totalQuestionnaires: number;
-    answeredReferral: number;
+    totalReferrals: number;
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/referral-stats?${referralParams.toString()}`],
     enabled: !!activeHospital?.id && activeSubTab === 'referrals',
@@ -1640,7 +1644,7 @@ export default function CostAnalytics() {
           {/* Sample size indicator */}
           {referralData && (
             <div className="text-sm text-muted-foreground px-1">
-              {referralData.answeredReferral} {t('business.referrals.of')} {referralData.totalQuestionnaires} {t('business.referrals.questionnairesAnswered')}
+              {referralData.totalReferrals} {t('business.referrals.totalBookingReferrals')}
             </div>
           )}
 

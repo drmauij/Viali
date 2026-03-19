@@ -5253,6 +5253,7 @@
       "dateRange": "Date range",
       "of": "of",
       "questionnairesAnswered": "questionnaires answered",
+      "totalBookingReferrals": "total booking referrals",
       "sourceBreakdown": "How patients found us",
       "sourceBreakdownHelp": "Shows how patients heard about the clinic based on questionnaire responses",
       "noData": "No referral data available",
