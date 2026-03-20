@@ -570,16 +570,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const deleteOutput = useDeleteOutput(anesthesiaRecordId);
   const setUrineModeMutation = useSetUrineMode(anesthesiaRecordId);
   
-  // State for monitoring swimlane visibility (hidden by default, persisted)
-  const [showMonitoring, setShowMonitoring] = useState<boolean>(() => {
-    const saved = localStorage.getItem('showMonitoring');
-    return saved === 'true';
-  });
+  // State for monitoring swimlane visibility (always hidden by default on open)
+  const [showMonitoring, setShowMonitoring] = useState(false);
   const handleMonitoringToggle = () => {
-    setShowMonitoring(prev => {
-      localStorage.setItem('showMonitoring', String(!prev));
-      return !prev;
-    });
+    setShowMonitoring(prev => !prev);
   };
 
   // State for collapsible parent swimlanes

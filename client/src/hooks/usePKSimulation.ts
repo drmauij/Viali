@@ -378,10 +378,15 @@ export function usePKSimulation(
     if (latestStop === 0) return null;
 
     const CP_CUTOFF = 0.1;
+    const MAX_POST_STOP_MS = 4 * 60 * 60 * 1000; // hard cutoff 4 h after last pump stop
+    const hardCutoff = latestStop + MAX_POST_STOP_MS;
+
     for (const pt of pkTimeSeries) {
       if (pt.timestamp < latestStop) continue;
-      const propCpBelow = pt.propofolCp === null || pt.propofolCp < CP_CUTOFF;
-      const remiCpBelow = pt.remiCp === null || pt.remiCp < CP_CUTOFF;
+      // Hard time-based cutoff: residual Cp is clinically irrelevant after 4 h
+      if (pt.timestamp >= hardCutoff) return pt.timestamp;
+      const propCpBelow = pt.propofolCp === null || pt.propofolCp <= CP_CUTOFF;
+      const remiCpBelow = pt.remiCp === null || pt.remiCp <= CP_CUTOFF;
       if (propCpBelow && remiCpBelow) return pt.timestamp;
     }
     return null;
