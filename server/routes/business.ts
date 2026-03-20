@@ -1977,10 +1977,7 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
         totalLeads: leads.length,
         matchedPatients: 0,
         withAppointment: 0,
-        withCompletedAppointment: 0,
-        withQuestionnaire: 0,
         withSurgeryPlanned: 0,
-        withSurgeryCompleted: 0,
         matchedDetails: [],
       });
     }
@@ -2001,34 +1998,13 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       ));
 
     const patientsWithAppointment = new Set<string>();
-    const patientsWithCompletedAppointment = new Set<string>(); // arrived, in_progress, completed
     for (const a of appointmentData) {
       if (a.patientId) {
         patientsWithAppointment.add(a.patientId);
-        if (['arrived', 'in_progress', 'completed'].includes(a.status)) {
-          patientsWithCompletedAppointment.add(a.patientId);
-        }
       }
     }
 
-    // 4. Check questionnaire submissions for matched patients
-    const questionnaireData = await db
-      .select({
-        patientId: patientQuestionnaireLinks.patientId,
-      })
-      .from(patientQuestionnaireLinks)
-      .where(and(
-        eq(patientQuestionnaireLinks.hospitalId, hospitalId),
-        inArray(patientQuestionnaireLinks.patientId, matchedIds),
-        sql`${patientQuestionnaireLinks.status} IN ('submitted', 'reviewed')`,
-      ));
-
-    const patientsWithQuestionnaire = new Set<string>();
-    for (const q of questionnaireData) {
-      if (q.patientId) patientsWithQuestionnaire.add(q.patientId);
-    }
-
-    // 5. Check surgeries for matched patients
+    // 4. Check surgeries for matched patients
     const surgeryData = await db
       .select({
         patientId: surgeries.patientId,
@@ -2043,32 +2019,22 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       ));
 
     const patientsWithSurgeryPlanned = new Set<string>();
-    const patientsWithSurgeryCompleted = new Set<string>();
     for (const s of surgeryData) {
       if (s.patientId) {
         patientsWithSurgeryPlanned.add(s.patientId);
-        if (s.status === 'completed') {
-          patientsWithSurgeryCompleted.add(s.patientId);
-        }
       }
     }
 
-    // 6. Build per-lead details (for the table)
+    // 5. Build per-lead details (for the table)
     const matchedDetails = matchedLeads.map(ml => {
       const hasAppointment = ml.matchedPatientIds.some(id => patientsWithAppointment.has(id));
-      const hasShowedUp = ml.matchedPatientIds.some(id => patientsWithCompletedAppointment.has(id));
-      const hasQuestionnaire = ml.matchedPatientIds.some(id => patientsWithQuestionnaire.has(id));
       const hasSurgeryPlanned = ml.matchedPatientIds.some(id => patientsWithSurgeryPlanned.has(id));
-      const hasSurgeryCompleted = ml.matchedPatientIds.some(id => patientsWithSurgeryCompleted.has(id));
 
       return {
         leadName: [ml.lead.firstName, ml.lead.lastName].filter(Boolean).join(' ') || ml.lead.email || ml.lead.phone || 'Unknown',
         matchMethod: ml.matchMethod,
         hasAppointment,
-        hasShowedUp,
-        hasQuestionnaire,
         hasSurgeryPlanned,
-        hasSurgeryCompleted,
       };
     });
 
@@ -2076,10 +2042,7 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       totalLeads: leads.length,
       matchedPatients: allMatchedPatientIds.size,
       withAppointment: patientsWithAppointment.size,
-      withCompletedAppointment: patientsWithCompletedAppointment.size,
-      withQuestionnaire: patientsWithQuestionnaire.size,
       withSurgeryPlanned: patientsWithSurgeryPlanned.size,
-      withSurgeryCompleted: patientsWithSurgeryCompleted.size,
       matchedDetails,
     });
   } catch (error: any) {

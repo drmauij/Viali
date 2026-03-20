@@ -6,27 +6,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Upload, Users, Calendar, ClipboardCheck, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type LeadDetail = {
   leadName: string;
   matchMethod: string;
   hasAppointment: boolean;
-  hasShowedUp: boolean;
-  hasQuestionnaire: boolean;
   hasSurgeryPlanned: boolean;
-  hasSurgeryCompleted: boolean;
 };
 
 type ConversionResult = {
   totalLeads: number;
   matchedPatients: number;
   withAppointment: number;
-  withCompletedAppointment: number;
-  withQuestionnaire: number;
   withSurgeryPlanned: number;
-  withSurgeryCompleted: number;
   matchedDetails: LeadDetail[];
 };
 
@@ -35,30 +29,23 @@ function parseLeads(text: string): Array<{ firstName?: string; lastName?: string
   const leads: Array<{ firstName?: string; lastName?: string; email?: string; phone?: string }> = [];
 
   for (const line of lines) {
-    // Split by comma, semicolon, or tab
     const parts = line.split(/[,;\t]+/).map(p => p.trim()).filter(p => p.length > 0);
     if (parts.length === 0) continue;
 
     const lead: { firstName?: string; lastName?: string; email?: string; phone?: string } = {};
 
     for (const part of parts) {
-      // Detect email
       if (part.includes('@') && part.includes('.')) {
         lead.email = part;
-      }
-      // Detect phone (starts with + or 0, mostly digits)
-      else if (/^[\+0][\d\s\-\(\)\.]{6,}$/.test(part)) {
+      } else if (/^[\+0][\d\s\-\(\)\.]{6,}$/.test(part)) {
         lead.phone = part;
-      }
-      // Otherwise treat as name
-      else if (!lead.firstName) {
+      } else if (!lead.firstName) {
         lead.firstName = part;
       } else if (!lead.lastName) {
         lead.lastName = part;
       }
     }
 
-    // If only one name part provided, try to split it
     if (lead.firstName && !lead.lastName && lead.firstName.includes(' ')) {
       const nameParts = lead.firstName.split(/\s+/);
       lead.firstName = nameParts[0];
@@ -73,7 +60,7 @@ function parseLeads(text: string): Array<{ firstName?: string; lastName?: string
   return leads;
 }
 
-function FunnelBar({ label, count, total, icon, color }: { label: string; count: number; total: number; icon: React.ReactNode; color: string }) {
+function FunnelBar({ label, helpText, count, total, icon, color }: { label: string; helpText?: string; count: number; total: number; icon: React.ReactNode; color: string }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   const widthPct = total > 0 ? Math.max(8, (count / total) * 100) : 8;
 
@@ -91,6 +78,9 @@ function FunnelBar({ label, count, total, icon, color }: { label: string; count:
             style={{ width: `${widthPct}%` }}
           />
         </div>
+        {helpText && (
+          <p className="text-xs text-muted-foreground mt-1">{helpText}</p>
+        )}
       </div>
     </div>
   );
@@ -134,14 +124,14 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            {t("business.pasteLeads", "Paste Leads")}
+            {t("business.leads.pasteLeads", "Paste Leads")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              {t("business.leadConversionPrivacy", "This analysis runs a one-time comparison. No lead data is stored. The action is logged for audit purposes.")}
+              {t("business.leads.leadConversionPrivacy", "This analysis runs a one-time comparison. No lead data is stored. The action is logged for audit purposes.")}
             </p>
           </div>
           <Textarea
@@ -153,7 +143,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
           />
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              {t("business.leadFormatHint", "One lead per line. Format: name, surname, email, phone (any order, comma/semicolon/tab separated)")}
+              {t("business.leads.leadFormatHint", "One lead per line. Format: name, surname, email, phone (any order, comma/semicolon/tab separated — paste directly from Excel)")}
             </p>
             <Button
               onClick={handleAnalyze}
@@ -167,7 +157,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
               ) : (
                 <>
                   <Users className="h-4 w-4 mr-2" />
-                  {t("business.analyzeLeads", "Analyze Leads")}
+                  {t("business.leads.analyzeLeads", "Analyze Leads")}
                 </>
               )}
             </Button>
@@ -181,11 +171,12 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
           {/* Funnel visualization */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("business.conversionFunnel", "Conversion Funnel")}</CardTitle>
+              <CardTitle className="text-base">{t("business.leads.conversionFunnel", "Conversion Funnel")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <FunnelBar
-                label={t("business.totalLeads", "Total Leads")}
+                label={t("business.leads.totalLeads", "Total Leads")}
+                helpText={t("business.leads.totalLeadsHelp", "Number of pasted rows recognized as valid leads")}
                 count={result.totalLeads}
                 total={result.totalLeads}
                 icon={<Upload className="h-5 w-5 text-slate-500" />}
@@ -193,7 +184,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
               />
               <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
               <FunnelBar
-                label={t("business.matchedAsPatient", "Matched as Patient")}
+                label={t("business.leads.matchedAsPatient", "Matched as Patient")}
+                helpText={t("business.leads.matchedAsPatientHelp", "Leads matched to an existing patient record by name, email, or phone number")}
                 count={result.matchedPatients}
                 total={result.totalLeads}
                 icon={<Users className="h-5 w-5 text-blue-500" />}
@@ -201,7 +193,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
               />
               <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
               <FunnelBar
-                label={t("business.hadAppointment", "Had Appointment")}
+                label={t("business.leads.hadAppointment", "Had Appointment")}
+                helpText={t("business.leads.hadAppointmentHelp", "Matched patients who had at least one non-cancelled appointment at the clinic")}
                 count={result.withAppointment}
                 total={result.totalLeads}
                 icon={<Calendar className="h-5 w-5 text-indigo-500" />}
@@ -209,56 +202,29 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
               />
               <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
               <FunnelBar
-                label={t("business.showedUp", "Showed Up (arrived/completed)")}
-                count={result.withCompletedAppointment}
-                total={result.totalLeads}
-                icon={<CheckCircle2 className="h-5 w-5 text-teal-500" />}
-                color="bg-teal-500"
-              />
-              <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
-              <FunnelBar
-                label={t("business.questionnaireCompleted", "Questionnaire Filled")}
-                count={result.withQuestionnaire}
-                total={result.totalLeads}
-                icon={<ClipboardCheck className="h-5 w-5 text-purple-500" />}
-                color="bg-purple-500"
-              />
-              <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
-              <FunnelBar
-                label={t("business.surgeryPlanned", "Surgery Planned")}
+                label={t("business.leads.surgeryPlanned", "Surgery Planned")}
+                helpText={t("business.leads.surgeryPlannedHelp", "Matched patients who have at least one planned surgery")}
                 count={result.withSurgeryPlanned}
                 total={result.totalLeads}
                 icon={<Scissors className="h-5 w-5 text-orange-500" />}
                 color="bg-orange-500"
               />
-              <div className="flex justify-center"><ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" /></div>
-              <FunnelBar
-                label={t("business.surgeryCompleted", "Surgery Completed")}
-                count={result.withSurgeryCompleted}
-                total={result.totalLeads}
-                icon={<Scissors className="h-5 w-5 text-green-600" />}
-                color="bg-green-600"
-              />
             </CardContent>
           </Card>
 
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Card className="p-3">
-              <p className="text-xs text-muted-foreground">Leads → Patient</p>
+              <p className="text-xs text-muted-foreground">{t("business.leads.leadsToPatient", "Leads → Patient")}</p>
               <p className="text-xl font-bold">{result.totalLeads > 0 ? Math.round((result.matchedPatients / result.totalLeads) * 100) : 0}%</p>
             </Card>
             <Card className="p-3">
-              <p className="text-xs text-muted-foreground">Patient → Appointment</p>
+              <p className="text-xs text-muted-foreground">{t("business.leads.patientToAppointment", "Patient → Appointment")}</p>
               <p className="text-xl font-bold">{result.matchedPatients > 0 ? Math.round((result.withAppointment / result.matchedPatients) * 100) : 0}%</p>
             </Card>
             <Card className="p-3">
-              <p className="text-xs text-muted-foreground">Appointment → Surgery</p>
-              <p className="text-xl font-bold">{result.withAppointment > 0 ? Math.round((result.withSurgeryPlanned / result.withAppointment) * 100) : 0}%</p>
-            </Card>
-            <Card className="p-3">
-              <p className="text-xs text-muted-foreground">Lead → Surgery (overall)</p>
-              <p className="text-xl font-bold">{result.totalLeads > 0 ? Math.round((result.withSurgeryCompleted / result.totalLeads) * 100) : 0}%</p>
+              <p className="text-xs text-muted-foreground">{t("business.leads.leadToSurgery", "Lead → Surgery (overall)")}</p>
+              <p className="text-xl font-bold">{result.totalLeads > 0 ? Math.round((result.withSurgeryPlanned / result.totalLeads) * 100) : 0}%</p>
             </Card>
           </div>
 
@@ -267,9 +233,9 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center justify-between">
-                  <span>{t("business.matchedLeadsDetail", "Matched Leads Detail")} ({matchedDetails.length})</span>
+                  <span>{t("business.leads.matchedLeadsDetail", "Matched Leads Detail")} ({matchedDetails.length})</span>
                   <span className="text-sm font-normal text-muted-foreground">
-                    {result.totalLeads - matchedDetails.length} {t("business.unmatched", "unmatched")}
+                    {result.totalLeads - matchedDetails.length} {t("business.leads.unmatched", "unmatched")}
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -279,12 +245,9 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("common.name", "Name")}</TableHead>
-                        <TableHead className="text-center">{t("business.matchedVia", "Match")}</TableHead>
+                        <TableHead className="text-center">{t("business.leads.matchedVia", "Match")}</TableHead>
                         <TableHead className="text-center"><Calendar className="h-4 w-4 mx-auto" /></TableHead>
-                        <TableHead className="text-center"><CheckCircle2 className="h-4 w-4 mx-auto" /></TableHead>
-                        <TableHead className="text-center"><ClipboardCheck className="h-4 w-4 mx-auto" /></TableHead>
                         <TableHead className="text-center"><Scissors className="h-4 w-4 mx-auto" /></TableHead>
-                        <TableHead className="text-center">Done</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -298,16 +261,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                             {d.hasAppointment ? <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
                           </TableCell>
                           <TableCell className="text-center">
-                            {d.hasShowedUp ? <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {d.hasQuestionnaire ? <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
-                          </TableCell>
-                          <TableCell className="text-center">
                             {d.hasSurgeryPlanned ? <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {d.hasSurgeryCompleted ? <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" /> : <XCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
                           </TableCell>
                         </TableRow>
                       ))}
