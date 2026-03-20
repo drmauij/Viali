@@ -337,6 +337,11 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
                 {t('surgery.externalRequests.diagnosis')}: {request.diagnosis}
               </p>
             )}
+            {request.coverageType && (
+              <p className="text-sm text-muted-foreground">
+                {t('surgery.externalRequests.coverageType')}: {request.coverageType}
+              </p>
+            )}
             {request.surgeryNotes && (
               <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
             )}

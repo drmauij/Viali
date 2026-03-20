@@ -2031,6 +2031,7 @@ export function SurgeryPlanningTable({
                             <h4 className="font-semibold mb-2">{t("surgeryPlanning.paymentInfo")}</h4>
                             <div className="space-y-1">
                               <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
+                              <p><span className="text-muted-foreground">{t("surgeryPlanning.coverageType")}:</span> {surgery.coverageType ?? "-"}</p>
                               <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
                             </div>
                           </div>
