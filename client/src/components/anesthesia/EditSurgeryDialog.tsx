@@ -55,6 +55,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [assistantIds, setAssistantIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
+  const [coverageType, setCoverageType] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
   const [surgeryStatus, setSurgeryStatus] = useState<"planned" | "in-progress" | "completed" | "cancelled">("planned");
@@ -598,6 +599,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 surgeonId={surgeonId}
                 notes={notes}
                 diagnosis={diagnosis}
+                coverageType={coverageType}
                 implantDetails={implantDetails}
                 surgerySide={surgerySide}
                 noPreOpRequired={noPreOpRequired}
@@ -615,6 +617,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onSurgeonIdChange={setSurgeonId}
                 onNotesChange={setNotes}
                 onDiagnosisChange={setDiagnosis}
+                onCoverageTypeChange={setCoverageType}
                 onImplantDetailsChange={setImplantDetails}
                 onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
                 onNoPreOpRequiredChange={setNoPreOpRequired}

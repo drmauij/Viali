@@ -31,6 +31,7 @@ export interface SurgeryFormFieldsProps {
   surgeonId: string;
   notes: string;
   diagnosis: string;
+  coverageType: string;
   implantDetails: string;
   surgerySide: string;
   noPreOpRequired: boolean;
@@ -50,6 +51,7 @@ export interface SurgeryFormFieldsProps {
   onSurgeonIdChange: (v: string) => void;
   onNotesChange: (v: string) => void;
   onDiagnosisChange: (v: string) => void;
+  onCoverageTypeChange: (v: string) => void;
   onImplantDetailsChange: (v: string) => void;
   onSurgerySideChange: (v: string) => void;
   onNoPreOpRequiredChange: (v: boolean) => void;
@@ -72,13 +74,13 @@ export interface SurgeryFormFieldsProps {
 
 export function SurgeryFormFields({
   surgeryRoomId, surgeryDate, startTime, duration, admissionTime,
-  plannedSurgery, selectedChopCode, surgeonId, notes, diagnosis, implantDetails,
+  plannedSurgery, selectedChopCode, surgeonId, notes, diagnosis, coverageType, implantDetails,
   surgerySide, noPreOpRequired, antibioseProphylaxe,
   patientPosition, leftArmPosition, rightArmPosition,
   onSurgeryRoomIdChange, onSurgeryDateChange, onStartTimeChange,
   onDurationChange, onAdmissionTimeChange, onPlannedSurgeryChange,
   onSelectedChopCodeChange, onSurgeonIdChange, onNotesChange, onDiagnosisChange,
-  onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
+  onCoverageTypeChange, onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
   onAntibioseProphylaxeChange, onPatientPositionChange,
   onLeftArmPositionChange, onRightArmPositionChange,
   assistantIds, onAssistantIdsChange,
@@ -745,6 +747,42 @@ export function SurgeryFormFields({
             disabled={disabled}
             data-testid={tid("input-diagnosis")}
           />
+        </div>
+      )}
+
+      {/* Coverage Type (Kostenträger) - hidden in slot reservation mode */}
+      {!isSlotReservation && (
+        <div className="space-y-2">
+          <Label>{t('anesthesia.quickSchedule.coverageType')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+          <Select
+            value={coverageType || undefined}
+            onValueChange={(value) => {
+              if (value === '__other__') {
+                onCoverageTypeChange('');
+              } else {
+                onCoverageTypeChange(value);
+              }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger data-testid={tid("select-coverage-type")}>
+              <SelectValue placeholder={t('anesthesia.quickSchedule.coverageTypePlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Selbstzahler">{t('anesthesia.quickSchedule.coverageTypeSelbstzahler')}</SelectItem>
+              <SelectItem value="Krankenkasse">{t('anesthesia.quickSchedule.coverageTypeKrankenkasse')}</SelectItem>
+              <SelectItem value="__other__">{t('anesthesia.quickSchedule.coverageTypeOther')}</SelectItem>
+            </SelectContent>
+          </Select>
+          {coverageType !== '' && coverageType !== 'Selbstzahler' && coverageType !== 'Krankenkasse' && coverageType && (
+            <Input
+              value={coverageType}
+              onChange={(e) => onCoverageTypeChange(e.target.value)}
+              placeholder={t('anesthesia.quickSchedule.coverageTypePlaceholder')}
+              disabled={disabled}
+              data-testid={tid("input-coverage-type-custom")}
+            />
+          )}
         </div>
       )}
 
