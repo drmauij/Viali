@@ -206,6 +206,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
       setDiagnosis(surgery.diagnosis || "");
+      setCoverageType(surgery.coverageType || "");
       setImplantDetails(surgery.implantDetails || "");
       setPlanningStatus(surgery.planningStatus || "pre-registered");
       setSurgeryStatus(surgery.status || "planned");
@@ -258,6 +259,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         surgeonId: surgeonId || null,
         notes: notes || null,
         diagnosis: diagnosis || null,
+        coverageType: coverageType || null,
         admissionTime: admissionTimeISO,
         implantDetails: implantDetails || null,
         status: surgeryStatus,
