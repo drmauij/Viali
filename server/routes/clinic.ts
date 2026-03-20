@@ -1621,6 +1621,7 @@ export async function sendAppointmentNotification(
     let channel: 'sms' | 'email' | null = null;
     let recipient = '';
     let success = false;
+    let sentMessageText = '';
 
     if (patient.phone) {
       const { isSmsConfiguredForHospital, sendSms } = await import('../sms');
@@ -1653,6 +1654,7 @@ export async function sendAppointmentNotification(
           channel = 'sms';
           recipient = patient.phone;
           success = true;
+          sentMessageText = smsText;
         }
       }
     }
@@ -1662,7 +1664,7 @@ export async function sendAppointmentNotification(
       const { sendAppointmentConfirmationEmail, sendAppointmentRescheduleEmail, sendAppointmentCancellationEmail } = await import('../resend');
       if (type === 'cancellation') {
         const result = await sendAppointmentCancellationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang);
-        if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
+        if (result.success) { channel = 'email'; recipient = patient.email; success = true; sentMessageText = isGerman ? `Terminabsage: ${formattedDate} um ${formattedTime}` : `Appointment cancelled: ${formattedDate} at ${formattedTime}`; }
       } else {
         // For confirmation and reschedule, use versions with manage link + video link
         const videoLink = (appointment.isVideoAppointment && appointment.videoMeetingLink) ? appointment.videoMeetingLink : '';
@@ -1670,7 +1672,7 @@ export async function sendAppointmentNotification(
         const result = type === 'reschedule'
           ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg)
           : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg);
-        if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
+        if (result.success) { channel = 'email'; recipient = patient.email; success = true; sentMessageText = isGerman ? `[E-Mail] Terminbestätigung: ${formattedDate} um ${formattedTime}` : `[Email] Appointment confirmation: ${formattedDate} at ${formattedTime}`; }
       }
     }
 
@@ -1678,12 +1680,6 @@ export async function sendAppointmentNotification(
     if (success && channel) {
       const messageTypes = { confirmation: 'appointment_confirmation', reschedule: 'appointment_reschedule', cancellation: 'appointment_cancellation' };
       const messageType = messageTypes[type];
-      const messageTexts: Record<string, { de: string; en: string }> = {
-        confirmation: { de: `Terminbestätigung: ${formattedDate} um ${formattedTime}`, en: `Appointment confirmation: ${formattedDate} at ${formattedTime}` },
-        reschedule: { de: `Terminverschiebung: ${formattedDate} um ${formattedTime}`, en: `Appointment rescheduled: ${formattedDate} at ${formattedTime}` },
-        cancellation: { de: `Terminabsage: ${formattedDate} um ${formattedTime}`, en: `Appointment cancelled: ${formattedDate} at ${formattedTime}` },
-      };
-      const messageText = messageTexts[type][isGerman ? 'de' : 'en'];
 
       await storage.createPatientMessage({
         hospitalId,
@@ -1691,7 +1687,7 @@ export async function sendAppointmentNotification(
         sentBy: null,
         channel,
         recipient,
-        message: messageText,
+        message: sentMessageText,
         status: 'sent',
         isAutomatic: true,
         messageType,
