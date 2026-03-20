@@ -204,7 +204,8 @@ export default function AppointmentDetailDialog({
         </DialogHeader>
 
         {appointment && (
-          <div className="space-y-3">
+          <>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
             {/* Patient / Colleague Card */}
             {appointment.appointmentType === 'internal' ? (
               <div className="rounded-lg border bg-muted/30 p-3">
@@ -412,7 +413,8 @@ export default function AppointmentDetailDialog({
               ) : null}
             </div>
 
-            <DialogFooter className="flex-col gap-2 sm:flex-row">
+            </div>
+            <DialogFooter className="flex-col gap-2 sm:flex-row flex-wrap">
               {editMode ? (
                 <>
                   <Button
@@ -498,7 +500,7 @@ export default function AppointmentDetailDialog({
                 </>
               )}
             </DialogFooter>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
