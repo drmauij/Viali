@@ -254,6 +254,7 @@ export default function QuickCreateSurgeryDialog({
     setAssistantIds([]);
     setNotes("");
     setDiagnosis("");
+    setCoverageType("");
     setImplantDetails("");
     setNoPreOpRequired(false);
     setSurgerySide("");
@@ -346,6 +347,7 @@ export default function QuickCreateSurgeryDialog({
       surgeonId: surgeonId || undefined,
       notes: notes.trim() || undefined,
       diagnosis: diagnosis.trim() || undefined,
+      coverageType: coverageType.trim() || undefined,
       admissionTime: admissionTimeISO,
       implantDetails: implantDetails.trim() || undefined,
       noPreOpRequired: noPreOpRequired,
