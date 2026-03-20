@@ -1614,6 +1614,9 @@ export async function sendAppointmentNotification(
       }
     }
 
+    // No-show fee notice (appended to confirmation & reschedule messages)
+    const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
+
     // Try SMS first, then email fallback
     let channel: 'sms' | 'email' | null = null;
     let recipient = '';
@@ -1631,12 +1634,12 @@ export async function sendAppointmentNotification(
           : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${feeNotice}`,
+            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${feeNotice}`,
           },
           reschedule: {
-            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
+            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${feeNotice}`,
+            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${feeNotice}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
@@ -1663,9 +1666,10 @@ export async function sendAppointmentNotification(
       } else {
         // For confirmation and reschedule, use versions with manage link + video link
         const videoLink = (appointment.isVideoAppointment && appointment.videoMeetingLink) ? appointment.videoMeetingLink : '';
+        const noShowFeeMsg = hospital.noShowFeeMessage || '';
         const result = type === 'reschedule'
-          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink)
-          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink);
+          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg)
+          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; }
       }
     }

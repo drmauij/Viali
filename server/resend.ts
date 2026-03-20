@@ -1246,7 +1246,8 @@ export async function sendAppointmentConfirmationEmail(
   language: string = 'de',
   manageUrl: string = '',
   providerName: string = '',
-  videoMeetingLink: string = ''
+  videoMeetingLink: string = '',
+  noShowFeeMessage: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1270,6 +1271,11 @@ export async function sendAppointmentConfirmationEmail(
           <a href="${videoMeetingLink}" style="color: #2563eb; word-break: break-all;">${isGerman ? 'Hier beitreten' : 'Join here'}: ${videoMeetingLink}</a>
         </p>` : '';
 
+    const feeSection = noShowFeeMessage ? `
+        <p style="margin-top: 12px; padding: 12px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; font-size: 13px; color: #92400e;">
+          ${noShowFeeMessage}
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1278,6 +1284,7 @@ export async function sendAppointmentConfirmationEmail(
           ? `Ihr Termin am ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment on ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. For questions, please contact us directly.`}</p>
         ${videoSection}
+        ${feeSection}
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
@@ -1312,7 +1319,8 @@ export async function sendAppointmentRescheduleEmail(
   language: string = 'de',
   manageUrl: string = '',
   providerName: string = '',
-  videoMeetingLink: string = ''
+  videoMeetingLink: string = '',
+  noShowFeeMessage: string = ''
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1336,6 +1344,11 @@ export async function sendAppointmentRescheduleEmail(
           <a href="${videoMeetingLink}" style="color: #2563eb; word-break: break-all;">${isGerman ? 'Hier beitreten' : 'Join here'}: ${videoMeetingLink}</a>
         </p>` : '';
 
+    const feeSection = noShowFeeMessage ? `
+        <p style="margin-top: 12px; padding: 12px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; font-size: 13px; color: #92400e;">
+          ${noShowFeeMessage}
+        </p>` : '';
+
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${clinicName}</h2>
@@ -1344,6 +1357,7 @@ export async function sendAppointmentRescheduleEmail(
           ? `Ihr Termin wurde verschoben auf ${appointmentDate} um ${appointmentTime}${providerName ? ` bei ${providerName}` : ''}. Bei Fragen kontaktieren Sie uns bitte direkt.`
           : `Your appointment has been rescheduled to ${appointmentDate} at ${appointmentTime}${providerName ? ` with ${providerName}` : ''}. For questions, please contact us directly.`}</p>
         ${videoSection}
+        ${feeSection}
         ${cancelSection}
         <p>${isGerman ? 'Freundliche Grüsse' : 'Kind regards'},<br/>${clinicName}</p>
       </div>
