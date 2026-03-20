@@ -974,6 +974,7 @@ export const surgeries = pgTable("surgeries", {
   
   // Business/Billing
   price: decimal("price", { precision: 10, scale: 2 }), // Surgery price
+  coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
   quoteSentDate: date("quote_sent_date"), // Offerte verschickt
   invoiceSentDate: date("invoice_sent_date"), // Rechnung verschickt
   paymentStatus: varchar("payment_status", { enum: ["pending", "partial", "paid", "overdue", "cancelled"] }), // Payment state
@@ -4988,6 +4989,7 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   anesthesiaNotes: text("anesthesia_notes"), // Surgeon's notes for the anesthesiologist
   surgeryNotes: text("surgery_notes"),
   diagnosis: text("diagnosis"),
+  coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
   wishedDate: date("wished_date").notNull(),
   wishedTimeFrom: integer("wished_time_from"), // Minutes since midnight, e.g. 480 = 08:00
   wishedTimeTo: integer("wished_time_to"), // Minutes since midnight, e.g. 840 = 14:00
