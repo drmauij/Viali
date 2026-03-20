@@ -43,6 +43,7 @@ interface PlannedStaffBoxProps {
   hospitalId: string;
   isOpen?: boolean;
   onToggle?: () => void;
+  isAdmin?: boolean;
 }
 
 export interface StaffPoolEntry {
@@ -77,7 +78,7 @@ interface StaffAvailability {
   timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }>;
 }
 
-function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability; onClick?: (staff: StaffPoolEntry) => void }) {
+function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability; onClick?: (staff: StaffPoolEntry) => void; readOnly?: boolean }) {
   const { t } = useTranslation();
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
@@ -93,6 +94,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
       type: 'staff',
       staff,
     },
+    disabled: readOnly,
   });
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -116,7 +118,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
-    cursor: 'grab',
+    cursor: readOnly ? 'default' : 'grab',
   };
 
   return (
@@ -125,14 +127,13 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
       style={style}
       className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${
         config?.bgClass || 'bg-gray-100 dark:bg-gray-800'
-      } border ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''} touch-none`}
+      } border ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''} ${readOnly ? '' : 'touch-none'}`}
       data-testid={`planned-staff-chip-${staff.id}`}
-      {...attributes}
-      {...listeners}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
+      {...(readOnly ? {} : { ...attributes, ...listeners })}
+      onPointerDown={readOnly ? undefined : handlePointerDown}
+      onPointerUp={readOnly ? undefined : handlePointerUp}
     >
-      <GripVertical className="h-3 w-3 text-muted-foreground" />
+      {!readOnly && <GripVertical className="h-3 w-3 text-muted-foreground" />}
       {staff.ruleId && <Repeat className="h-3 w-3 text-muted-foreground" />}
       <Icon className={`h-3 w-3 ${config?.colorClass}`} />
       <span className="font-medium">
@@ -195,7 +196,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
       {hasSurgeryAssignments && !hasRoomAssignments && (
         <span className="text-[10px]">({staff.assignedSurgeryIds.length})</span>
       )}
-      {!hasRoomAssignments && (
+      {!hasRoomAssignments && !readOnly && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -215,7 +216,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick }: { staff:
 
 const STAFF_FILTER_KEY = 'oplist_staff_filter_unassigned';
 
-export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle }: PlannedStaffBoxProps) {
+export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle, isAdmin }: PlannedStaffBoxProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -350,7 +351,8 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
               staff={staff}
               onRemove={handleRemoveStaff}
               availability={staffAvailability[staff.userId || '']}
-              onClick={handleStaffClick}
+              onClick={isAdmin ? handleStaffClick : undefined}
+              readOnly={!isAdmin}
             />
           ))}
         </div>

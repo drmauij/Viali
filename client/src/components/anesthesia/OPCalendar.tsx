@@ -1434,7 +1434,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               <span className="hidden sm:inline">{t('opCalendar.pdf')}</span>
             </Button>
           )}
-          {activeHospital && currentView === "day" && (
+          {activeHospital && currentView === "day" && activeHospital.role === 'admin' && (
             <Button
               variant="outline"
               size="sm"
@@ -1516,6 +1516,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             hospitalId={activeHospital.id}
             isOpen={staffBoxOpen}
             onToggle={() => setStaffBoxOpen(o => !o)}
+            isAdmin={activeHospital.role === 'admin'}
           />
         </div>
       )}
