@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { DateInput } from "@/components/ui/date-input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
@@ -57,6 +58,7 @@ interface FormData {
   anesthesiaNotes: string;
   surgeryNotes: string;
   diagnosis: string;
+  coverageType: string;
   wishedDate: string;
   wishedTimeFrom: number | null;
   wishedTimeTo: number | null;
@@ -134,6 +136,7 @@ export default function ExternalSurgeryRequest() {
     anesthesiaNotes: '',
     surgeryNotes: '',
     diagnosis: '',
+    coverageType: '',
     wishedDate: '',
     wishedTimeFrom: null,
     wishedTimeTo: null,
@@ -812,6 +815,42 @@ export default function ExternalSurgeryRequest() {
                     placeholder={t('surgery.externalRequest.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
                     data-testid="input-diagnosis"
                   />
+                </div>
+
+                {/* Coverage Type (Kostenträger) */}
+                <div className="space-y-2">
+                  <Label htmlFor="coverageType">
+                    {t('surgery.externalRequest.coverageType')}
+                  </Label>
+                  <Select
+                    value={formData.coverageType || undefined}
+                    onValueChange={(value) => {
+                      if (value === '__other__') {
+                        updateField('coverageType', '');
+                        setTimeout(() => document.getElementById('coverageTypeCustom')?.focus(), 0);
+                      } else {
+                        updateField('coverageType', value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-coverage-type">
+                      <SelectValue placeholder={t('surgery.externalRequest.coverageTypePlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Selbstzahler">{t('surgery.externalRequest.coverageTypeSelbstzahler')}</SelectItem>
+                      <SelectItem value="Krankenkasse">{t('surgery.externalRequest.coverageTypeKrankenkasse')}</SelectItem>
+                      <SelectItem value="__other__">{t('surgery.externalRequest.coverageTypeOther')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.coverageType !== '' && formData.coverageType !== 'Selbstzahler' && formData.coverageType !== 'Krankenkasse' && (
+                    <Input
+                      id="coverageTypeCustom"
+                      value={formData.coverageType}
+                      onChange={(e) => updateField('coverageType', e.target.value)}
+                      placeholder={t('surgery.externalRequest.coverageTypePlaceholder')}
+                      data-testid="input-coverage-type-custom"
+                    />
+                  )}
                 </div>
 
                 {/* Section Divider: Scheduling */}
