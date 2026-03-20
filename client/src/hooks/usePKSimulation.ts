@@ -60,6 +60,8 @@ export interface PKSimulationResult {
   missingFields: string[];
   sexDefaultApplied: boolean;
   mode: PKMode;
+  /** Timestamp where both Cp fall below 0.1 after all perfusors stopped — visualization cutoff */
+  pkCutoffTime: number | null;
 }
 
 // ── Drug identification ───────────────────────────────────
@@ -362,12 +364,42 @@ export function usePKSimulation(
     };
   }, [pkTimeSeries]);
 
+  // Cutoff: when both Cp < 0.1 after ALL perfusors are stopped
+  const pkCutoffTime = useMemo(() => {
+    const allSessions = [
+      ...classified.tivaPropofol, ...classified.tivaRemi,
+      ...classified.tciPropofol, ...classified.tciRemi,
+    ];
+    if (allSessions.length === 0) return null;
+    const allStopped = allSessions.every(s => s.state === "stopped");
+    if (!allStopped) return null;
+
+    const latestStop = Math.max(...allSessions.map(s => s.endTime ?? 0));
+    if (latestStop === 0) return null;
+
+    const CP_CUTOFF = 0.1;
+    for (const pt of pkTimeSeries) {
+      if (pt.timestamp < latestStop) continue;
+      const propCpBelow = pt.propofolCp === null || pt.propofolCp < CP_CUTOFF;
+      const remiCpBelow = pt.remiCp === null || pt.remiCp < CP_CUTOFF;
+      if (propCpBelow && remiCpBelow) return pt.timestamp;
+    }
+    return null;
+  }, [pkTimeSeries, classified]);
+
+  // After cutoff, null out sidebar values — concentrations are clinically irrelevant
+  const displayValues = useMemo(() => {
+    if (pkCutoffTime != null) return null;
+    return currentValues;
+  }, [currentValues, pkCutoffTime]);
+
   return {
     pkTimeSeries,
-    currentValues,
+    currentValues: displayValues,
     isActive,
     missingFields: parsed.missingFields,
     sexDefaultApplied: parsed.sexDefaultApplied,
     mode,
+    pkCutoffTime,
   };
 }

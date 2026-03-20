@@ -6048,6 +6048,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }
         visibleStart={currentZoomStart ?? data.startTime}
         visibleEnd={currentZoomEnd ?? data.endTime}
+        cutoffTime={pkSimulation.pkCutoffTime}
       />
 
       {/* TemperaturSwimlane Component - Interactive layer and rendering for temperature monitoring */}
@@ -6072,6 +6073,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           swimlanePositions={swimlanePositions}
           pkTimeSeries={pkSimulation.pkTimeSeries}
           isDark={isDark}
+          cutoffTime={pkSimulation.pkCutoffTime}
         />
       )}
 

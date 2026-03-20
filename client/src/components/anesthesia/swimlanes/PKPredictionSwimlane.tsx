@@ -7,6 +7,8 @@ export interface PKPredictionSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
   pkTimeSeries: PKTimePoint[];
   isDark: boolean;
+  /** When set, visualization stops at this timestamp with an end marker */
+  cutoffTime?: number | null;
 }
 
 const COLORS = {
@@ -26,6 +28,7 @@ export function PKPredictionSwimlane({
   swimlanePositions,
   pkTimeSeries,
   isDark,
+  cutoffTime,
 }: PKPredictionSwimlaneProps) {
   // Read viewport from context (same source as echarts chart) — props can be stale during auto-scroll
   const { currentZoomStart, currentZoomEnd, data } = useTimelineContext();
@@ -37,13 +40,15 @@ export function PKPredictionSwimlane({
   const visibleRange = visibleEnd - visibleStart;
 
   // Filter to only visible points (with a small margin on each side for smooth entry/exit)
+  // When cutoffTime is set, also truncate at that point
   const visiblePoints = useMemo(() => {
     if (!pkTimeSeries.length || visibleRange <= 0) return [];
     const margin = visibleRange * 0.02;
+    const upperBound = cutoffTime != null ? Math.min(visibleEnd + margin, cutoffTime) : visibleEnd + margin;
     return pkTimeSeries.filter(
-      (pt) => pt.timestamp >= visibleStart - margin && pt.timestamp <= visibleEnd + margin,
+      (pt) => pt.timestamp >= visibleStart - margin && pt.timestamp <= upperBound,
     );
-  }, [pkTimeSeries, visibleStart, visibleEnd, visibleRange]);
+  }, [pkTimeSeries, visibleStart, visibleEnd, visibleRange, cutoffTime]);
 
   // Separate Y-axis scales: propofol in μg/ml (0–8), remi in ng/ml (0–12)
   const PROPOFOL_MAX = 8;
@@ -162,6 +167,28 @@ export function PKPredictionSwimlane({
             vectorEffect="non-scaling-stroke"
             opacity={0.9}
           />
+        )}
+
+        {/* End markers when cutoff is active */}
+        {cutoffTime != null && (
+          <>
+            {propofolCpPoints.length > 0 && (() => {
+              const last = propofolCpPoints[propofolCpPoints.length - 1];
+              return <circle cx={last.x} cy={last.y} r="3" fill={COLORS.propofolCp} opacity={0.9} vectorEffect="non-scaling-stroke" />;
+            })()}
+            {propofolCePoints.length > 0 && (() => {
+              const last = propofolCePoints[propofolCePoints.length - 1];
+              return <circle cx={last.x} cy={last.y} r="3" fill={COLORS.propofolCe} opacity={0.9} vectorEffect="non-scaling-stroke" />;
+            })()}
+            {remiCpPoints.length > 0 && (() => {
+              const last = remiCpPoints[remiCpPoints.length - 1];
+              return <circle cx={last.x} cy={last.y} r="3" fill={COLORS.remiCp} opacity={0.9} vectorEffect="non-scaling-stroke" />;
+            })()}
+            {remiCePoints.length > 0 && (() => {
+              const last = remiCePoints[remiCePoints.length - 1];
+              return <circle cx={last.x} cy={last.y} r="3" fill={COLORS.remiCe} opacity={0.9} vectorEffect="non-scaling-stroke" />;
+            })()}
+          </>
         )}
       </svg>
 

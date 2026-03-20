@@ -18,6 +18,8 @@ export interface BISSwimlaneProps {
   eBISTimeSeries?: Array<{ timestamp: number; value: number }>;
   visibleStart?: number;
   visibleEnd?: number;
+  /** When set, eBIS visualization stops at this timestamp with an end marker */
+  cutoffTime?: number | null;
 }
 
 export function BISSwimlane({
@@ -28,6 +30,7 @@ export function BISSwimlane({
   eBISTimeSeries,
   visibleStart: propVisibleStart,
   visibleEnd: propVisibleEnd,
+  cutoffTime,
 }: BISSwimlaneProps) {
   const { t } = useTranslation();
   const {
@@ -161,7 +164,12 @@ export function BISSwimlane({
         const range = visibleRange;
         if (range <= 0) return null;
 
-        const visible = eBISTimeSeries.filter(pt => {
+        // Truncate at cutoff if set
+        const seriesForRender = cutoffTime != null
+          ? eBISTimeSeries.filter(pt => pt.timestamp <= cutoffTime)
+          : eBISTimeSeries;
+
+        const visible = seriesForRender.filter(pt => {
           const xFrac = (pt.timestamp - visibleStart) / range;
           return xFrac >= -0.02 && xFrac <= 1.02;
         });
@@ -176,6 +184,11 @@ export function BISSwimlane({
             return `${(xFrac * 100).toFixed(3)},${(yFrac * 100).toFixed(3)}`;
           })
           .join(" ");
+
+        // End marker position (last visible point)
+        const lastPt = visible[visible.length - 1];
+        const lastX = ((lastPt.timestamp - visibleStart) / range) * 100;
+        const lastY = (1 - lastPt.value / 100) * 100;
 
         return (
           <svg
@@ -200,6 +213,16 @@ export function BISSwimlane({
               opacity={0.9}
               vectorEffect="non-scaling-stroke"
             />
+            {cutoffTime != null && (
+              <circle
+                cx={lastX}
+                cy={lastY}
+                r="3"
+                fill="#f87171"
+                opacity={0.9}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
           </svg>
         );
       })()}
