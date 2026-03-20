@@ -105,6 +105,7 @@ const externalSurgeryRequestSchema = z.object({
   anesthesiaNotes: z.string().optional().nullable().transform(v => v === '' ? null : v),
   surgeryNotes: z.string().optional(),
   diagnosis: z.string().optional().nullable().transform(v => v === '' ? null : v),
+  coverageType: z.string().optional().nullable().transform(v => v === '' ? null : v),
   wishedDate: z.string().min(1, "Wished date is required"),
   wishedTimeFrom: z.number().int().min(0).max(1440).optional().nullable(),
   wishedTimeTo: z.number().int().min(0).max(1440).optional().nullable(),
@@ -828,6 +829,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       actualEndTime,
       noPreOpRequired: request.withAnesthesia === false,
       diagnosis: request.diagnosis || null,
+      coverageType: request.coverageType || null,
     });
     
     await storage.updateExternalSurgeryRequest(id, {
