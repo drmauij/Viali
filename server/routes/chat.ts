@@ -660,7 +660,9 @@ router.get('/api/chat/attachments/:attachmentId/download', isAuthenticated, asyn
     
     const objectStorageService = new ObjectStorageService();
     
-    res.setHeader('Content-Disposition', `inline; filename="${attachment.filename}"`);
+    const safeFilename = attachment.filename.replace(/[^\x20-\x7E]/g, '_');
+    const encodedFilename = encodeURIComponent(attachment.filename);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`);
     if (attachment.mimeType) {
       res.setHeader('Content-Type', attachment.mimeType);
     }

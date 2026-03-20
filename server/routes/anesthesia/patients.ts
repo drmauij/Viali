@@ -924,9 +924,13 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
       Key: key,
     }));
 
+    // Sanitize filename for Content-Disposition header (non-ASCII chars are invalid in headers)
+    const safeFileName = fileName.replace(/[^\x20-\x7E]/g, '_');
+    const encodedFileName = encodeURIComponent(fileName);
+
     res.set({
       "Content-Type": mimeType || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Content-Disposition": `inline; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
       "Cache-Control": "private, max-age=3600",
     });
 

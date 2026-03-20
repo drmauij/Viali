@@ -1886,7 +1886,7 @@ router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, require
     // Set response headers
     res.set({
       'Content-Type': upload.mimeType || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${upload.fileName}"`,
+      'Content-Disposition': `inline; filename="${upload.fileName.replace(/[^\x20-\x7E]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(upload.fileName)}`,
       'Cache-Control': 'private, max-age=3600',
     });
 
