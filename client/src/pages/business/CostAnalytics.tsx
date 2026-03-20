@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { LeadConversionTab } from "./LeadConversion";
 import { formatCurrency, formatCurrencyLocale, getCurrencySymbol, formatDate, formatShortDate } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -729,7 +730,7 @@ export default function CostAnalytics() {
 
       {/* Subtabs for Surgeries and Inventories */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-costs-surgeries">
             <List className="h-4 w-4" />
             {t('business.costs.surgeries')}
@@ -741,6 +742,10 @@ export default function CostAnalytics() {
           <TabsTrigger value="referrals" className="flex items-center gap-2" data-testid="tab-costs-referrals">
             <Users className="h-4 w-4" />
             {t('business.costs.referrals')}
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="flex items-center gap-2" data-testid="tab-costs-leads">
+            <TrendingUp className="h-4 w-4" />
+            {t('business.costs.leads', 'Leads')}
           </TabsTrigger>
         </TabsList>
 
@@ -1778,6 +1783,11 @@ export default function CostAnalytics() {
               </ResponsiveContainer>
             )}
           </ChartCard>
+        </TabsContent>
+
+        {/* Leads Tab */}
+        <TabsContent value="leads" className="mt-6">
+          <LeadConversionTab hospitalId={activeHospital?.id} />
         </TabsContent>
       </Tabs>
 

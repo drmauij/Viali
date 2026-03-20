@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents } from "@shared/schema";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments } from "@shared/schema";
 import { eq, and, inArray, ne, desc, gte, lte, isNull, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
@@ -10,6 +10,7 @@ import crypto from "crypto";
 import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
 import { expandRecurringTimeOff } from "../utils/timeoff";
 import logger from "../logger";
+import { z } from "zod";
 
 const router = Router();
 
@@ -1833,6 +1834,260 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isB
   } catch (error: any) {
     logger.error('Error fetching referral timeseries:', error);
     res.status(500).json({ message: 'Failed to fetch referral timeseries' });
+  }
+});
+
+// ========================================
+// Lead Conversion Analysis (manager-only)
+// ========================================
+
+const leadConversionSchema = z.object({
+  leads: z.array(z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+  })).min(1).max(5000),
+});
+
+
+// Normalize phone: strip spaces, dashes, leading +41/0041 → 0
+function normalizePhone(phone: string): string {
+  let p = phone.replace(/[\s\-\(\)\.]/g, '');
+  p = p.replace(/^(\+41|0041)/, '0');
+  return p.toLowerCase();
+}
+
+// Normalize name: trim, lowercase
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const parsed = leadConversionSchema.parse(req.body);
+    const { leads } = parsed;
+
+    logger.warn(`[AUDIT] Lead conversion analysis by user=${req.user.id} email=${req.user.email} hospital=${hospitalId} leads=${leads.length}`);
+
+    // 1. Fetch all non-archived patients for this hospital
+    const allPatients = await db
+      .select({
+        id: patients.id,
+        firstName: patients.firstName,
+        surname: patients.surname,
+        email: patients.email,
+        phone: patients.phone,
+      })
+      .from(patients)
+      .where(and(
+        eq(patients.hospitalId, hospitalId),
+        eq(patients.isArchived, false),
+      ));
+
+    // Build lookup indexes for fuzzy matching
+    const patientsByNameKey = new Map<string, typeof allPatients>();
+    const patientsByEmail = new Map<string, typeof allPatients>();
+    const patientsByPhone = new Map<string, typeof allPatients>();
+
+    for (const p of allPatients) {
+      // Name key: "firstname|surname"
+      const nameKey = `${normalizeName(p.firstName)}|${normalizeName(p.surname)}`;
+      if (!patientsByNameKey.has(nameKey)) patientsByNameKey.set(nameKey, []);
+      patientsByNameKey.get(nameKey)!.push(p);
+
+      if (p.email) {
+        const emailKey = p.email.trim().toLowerCase();
+        if (!patientsByEmail.has(emailKey)) patientsByEmail.set(emailKey, []);
+        patientsByEmail.get(emailKey)!.push(p);
+      }
+
+      if (p.phone) {
+        const phoneKey = normalizePhone(p.phone);
+        if (phoneKey.length >= 8) {
+          if (!patientsByPhone.has(phoneKey)) patientsByPhone.set(phoneKey, []);
+          patientsByPhone.get(phoneKey)!.push(p);
+        }
+      }
+    }
+
+    // 2. Match each lead to patients
+    type MatchedLead = {
+      lead: typeof leads[0];
+      matchedPatientIds: string[];
+      matchMethod: string;
+    };
+
+    const matchedLeads: MatchedLead[] = [];
+    const allMatchedPatientIds = new Set<string>();
+
+    for (const lead of leads) {
+      const candidates = new Set<string>();
+      let matchMethod = '';
+
+      // Try email match first (strongest)
+      if (lead.email) {
+        const emailKey = lead.email.trim().toLowerCase();
+        const matches = patientsByEmail.get(emailKey);
+        if (matches) {
+          matches.forEach(p => candidates.add(p.id));
+          matchMethod = 'email';
+        }
+      }
+
+      // Try phone match
+      if (lead.phone) {
+        const phoneKey = normalizePhone(lead.phone);
+        if (phoneKey.length >= 8) {
+          const matches = patientsByPhone.get(phoneKey);
+          if (matches) {
+            matches.forEach(p => candidates.add(p.id));
+            matchMethod = matchMethod ? `${matchMethod}+phone` : 'phone';
+          }
+        }
+      }
+
+      // Try name match (first+last)
+      if (lead.firstName && lead.lastName) {
+        const nameKey = `${normalizeName(lead.firstName)}|${normalizeName(lead.lastName)}`;
+        const matches = patientsByNameKey.get(nameKey);
+        if (matches) {
+          matches.forEach(p => candidates.add(p.id));
+          matchMethod = matchMethod ? `${matchMethod}+name` : 'name';
+        }
+        // Also try swapped (some people enter surname first)
+        const swappedKey = `${normalizeName(lead.lastName)}|${normalizeName(lead.firstName)}`;
+        const swappedMatches = patientsByNameKey.get(swappedKey);
+        if (swappedMatches) {
+          swappedMatches.forEach(p => candidates.add(p.id));
+          matchMethod = matchMethod ? `${matchMethod}+name(swapped)` : 'name(swapped)';
+        }
+      }
+
+      if (candidates.size > 0) {
+        const ids = Array.from(candidates);
+        matchedLeads.push({ lead, matchedPatientIds: ids, matchMethod });
+        ids.forEach(id => allMatchedPatientIds.add(id));
+      }
+    }
+
+    if (allMatchedPatientIds.size === 0) {
+      return res.json({
+        totalLeads: leads.length,
+        matchedPatients: 0,
+        withAppointment: 0,
+        withCompletedAppointment: 0,
+        withQuestionnaire: 0,
+        withSurgeryPlanned: 0,
+        withSurgeryCompleted: 0,
+        matchedDetails: [],
+      });
+    }
+
+    const matchedIds = Array.from(allMatchedPatientIds);
+
+    // 3. Check appointments for matched patients
+    const appointmentData = await db
+      .select({
+        patientId: clinicAppointments.patientId,
+        status: clinicAppointments.status,
+      })
+      .from(clinicAppointments)
+      .where(and(
+        eq(clinicAppointments.hospitalId, hospitalId),
+        inArray(clinicAppointments.patientId, matchedIds),
+        sql`${clinicAppointments.status} != 'cancelled'`,
+      ));
+
+    const patientsWithAppointment = new Set<string>();
+    const patientsWithCompletedAppointment = new Set<string>(); // arrived, in_progress, completed
+    for (const a of appointmentData) {
+      if (a.patientId) {
+        patientsWithAppointment.add(a.patientId);
+        if (['arrived', 'in_progress', 'completed'].includes(a.status)) {
+          patientsWithCompletedAppointment.add(a.patientId);
+        }
+      }
+    }
+
+    // 4. Check questionnaire submissions for matched patients
+    const questionnaireData = await db
+      .select({
+        patientId: patientQuestionnaireLinks.patientId,
+      })
+      .from(patientQuestionnaireLinks)
+      .where(and(
+        eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+        inArray(patientQuestionnaireLinks.patientId, matchedIds),
+        sql`${patientQuestionnaireLinks.status} IN ('submitted', 'reviewed')`,
+      ));
+
+    const patientsWithQuestionnaire = new Set<string>();
+    for (const q of questionnaireData) {
+      if (q.patientId) patientsWithQuestionnaire.add(q.patientId);
+    }
+
+    // 5. Check surgeries for matched patients
+    const surgeryData = await db
+      .select({
+        patientId: surgeries.patientId,
+        status: surgeries.status,
+      })
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        inArray(surgeries.patientId, matchedIds),
+        eq(surgeries.isArchived, false),
+        sql`${surgeries.status} != 'cancelled'`,
+      ));
+
+    const patientsWithSurgeryPlanned = new Set<string>();
+    const patientsWithSurgeryCompleted = new Set<string>();
+    for (const s of surgeryData) {
+      if (s.patientId) {
+        patientsWithSurgeryPlanned.add(s.patientId);
+        if (s.status === 'completed') {
+          patientsWithSurgeryCompleted.add(s.patientId);
+        }
+      }
+    }
+
+    // 6. Build per-lead details (for the table)
+    const matchedDetails = matchedLeads.map(ml => {
+      const hasAppointment = ml.matchedPatientIds.some(id => patientsWithAppointment.has(id));
+      const hasShowedUp = ml.matchedPatientIds.some(id => patientsWithCompletedAppointment.has(id));
+      const hasQuestionnaire = ml.matchedPatientIds.some(id => patientsWithQuestionnaire.has(id));
+      const hasSurgeryPlanned = ml.matchedPatientIds.some(id => patientsWithSurgeryPlanned.has(id));
+      const hasSurgeryCompleted = ml.matchedPatientIds.some(id => patientsWithSurgeryCompleted.has(id));
+
+      return {
+        leadName: [ml.lead.firstName, ml.lead.lastName].filter(Boolean).join(' ') || ml.lead.email || ml.lead.phone || 'Unknown',
+        matchMethod: ml.matchMethod,
+        hasAppointment,
+        hasShowedUp,
+        hasQuestionnaire,
+        hasSurgeryPlanned,
+        hasSurgeryCompleted,
+      };
+    });
+
+    res.json({
+      totalLeads: leads.length,
+      matchedPatients: allMatchedPatientIds.size,
+      withAppointment: patientsWithAppointment.size,
+      withCompletedAppointment: patientsWithCompletedAppointment.size,
+      withQuestionnaire: patientsWithQuestionnaire.size,
+      withSurgeryPlanned: patientsWithSurgeryPlanned.size,
+      withSurgeryCompleted: patientsWithSurgeryCompleted.size,
+      matchedDetails,
+    });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid lead data', details: error.errors });
+    }
+    logger.error('[Business] Error in lead conversion analysis:', error);
+    res.status(500).json({ message: 'Failed to analyze lead conversion' });
   }
 });
 
