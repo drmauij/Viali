@@ -106,7 +106,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
 
   // Fetch ALL inventory items from the hospital based on module type
   // The backend will find the correct unit based on the module flag
-  const { data: items = [] } = useQuery<Item[]>({
+  const { data: items = [], isLoading: isLoadingItems } = useQuery<Item[]>({
     queryKey: [`/api/items/${activeHospital?.id}?module=${moduleType}`, moduleType],
     enabled: !!activeHospital?.id,
   });
@@ -692,7 +692,14 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         )}
       </div>
 
-      {sortedFolderIds.length === 0 ? (
+      {isLoadingItems ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Loader2 className="h-8 w-8 mx-auto mb-3 text-muted-foreground animate-spin" />
+            <p className="text-sm text-muted-foreground">{t('common.loading', 'Loading...')}</p>
+          </CardContent>
+        </Card>
+      ) : sortedFolderIds.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
