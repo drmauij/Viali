@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar, ClipboardCheck } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar, CalendarCheck, ClipboardCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 interface ModuleCard {
@@ -201,7 +201,17 @@ export default function ModuleDrawer() {
         url: `${baseUrl}/external-surgery/${activeHospital.externalSurgeryToken}`,
       });
     }
-    
+
+    // Public booking page link (if hospital has a booking token)
+    if (activeHospital?.bookingToken) {
+      links.push({
+        id: 'booking',
+        icon: <CalendarCheck className="w-4 h-4" />,
+        label: t('quickLinks.bookingPage', 'Online-Terminbuchung'),
+        url: `${baseUrl}/book/${activeHospital.bookingToken}`,
+      });
+    }
+
     return links;
   }, [activeHospital, addons.questionnaire, hasSurgeryAccess, hasAnesthesiaAccess, t]);
 

@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +44,12 @@ import type { ClinicService, Unit } from "@shared/schema";
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
+  providerIds?: string[];
+}
+
+interface BookableProvider {
+  userId: string;
+  user: { firstName: string; lastName: string };
 }
 
 export default function ClinicServices() {
@@ -69,6 +75,8 @@ export default function ClinicServices() {
     durationMinutes: "",
     isShared: false,
     isInvoiceable: false,
+    code: "",
+    providerIds: [] as string[],
   });
 
   const activeHospital = useMemo(() => {
@@ -114,8 +122,29 @@ export default function ClinicServices() {
     enabled: !!hospitalId,
   });
 
+  // Fetch bookable providers for the provider picker
+  const { data: bookableProviders = [] } = useQuery<BookableProvider[]>({
+    queryKey: ['/api/clinic', hospitalId, 'bookable-providers'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/bookable-providers`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch providers');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  // Fetch booking token for building the booking URL
+  const { data: bookingTokenData } = useQuery<{ bookingToken: string | null }>({
+    queryKey: [`/api/admin/${hospitalId}/booking-token`],
+    enabled: !!hospitalId,
+  });
+
+  const [copiedBookingUrl, setCopiedBookingUrl] = useState(false);
+
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean }) => {
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; providerIds: string[] }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
@@ -130,7 +159,7 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; providerIds: string[] }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
@@ -242,7 +271,7 @@ export default function ClinicServices() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false });
+    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", providerIds: [] });
   };
 
   const handleOpenCreate = () => {
@@ -260,6 +289,8 @@ export default function ClinicServices() {
       durationMinutes: service.durationMinutes?.toString() || "",
       isShared: service.isShared || false,
       isInvoiceable: (service as any).isInvoiceable || false,
+      code: service.code || "",
+      providerIds: service.providerIds || [],
     });
     setDialogOpen(true);
   };
@@ -273,6 +304,8 @@ export default function ClinicServices() {
     const durationMinutes = formData.durationMinutes ? parseInt(formData.durationMinutes, 10) : null;
     const price = formData.price ? formData.price : null;
 
+    const code = formData.code.trim() || null;
+
     if (editingService) {
       updateMutation.mutate({
         id: editingService.id,
@@ -282,6 +315,8 @@ export default function ClinicServices() {
         durationMinutes,
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
+        code,
+        providerIds: formData.providerIds,
       });
     } else {
       createMutation.mutate({
@@ -291,6 +326,8 @@ export default function ClinicServices() {
         durationMinutes,
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
+        code,
+        providerIds: formData.providerIds,
       });
     }
   };
@@ -502,13 +539,13 @@ export default function ClinicServices() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               {editingService ? t('clinic.services.edit') : t('clinic.services.create')}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto min-h-0 flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="name">{t('clinic.services.name')} *</Label>
               <Input
@@ -557,6 +594,45 @@ export default function ClinicServices() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="code">{t('clinic.services.bookingCode', 'Booking Code')}</Label>
+              <Input
+                id="code"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                placeholder={t('clinic.services.bookingCodePlaceholder', 'e.g. breast-augmentation')}
+                maxLength={50}
+                data-testid="input-service-code"
+              />
+              {formData.code && bookingTokenData?.bookingToken ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+                  onClick={() => {
+                    const url = `${window.location.origin}/book/${bookingTokenData.bookingToken}?service=${formData.code}`;
+                    navigator.clipboard.writeText(url);
+                    setCopiedBookingUrl(true);
+                    setTimeout(() => setCopiedBookingUrl(false), 2000);
+                  }}
+                >
+                  {copiedBookingUrl ? (
+                    <Check className="h-3 w-3 text-green-500 shrink-0" />
+                  ) : (
+                    <Copy className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100" />
+                  )}
+                  <span>
+                    .../book/...?service={formData.code}
+                  </span>
+                  <span className="text-muted-foreground/50">
+                    {copiedBookingUrl ? '— copied!' : '— click to copy'}
+                  </span>
+                </button>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t('clinic.services.bookingCodeHint', 'Alphanumeric code used for direct booking links')}
+                </p>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="isInvoiceable">{t('clinic.services.availableForInvoicing', 'Available for Invoicing')}</Label>
@@ -571,13 +647,44 @@ export default function ClinicServices() {
                 data-testid="switch-service-invoiceable"
               />
             </div>
+            {bookableProviders.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('clinic.services.bookableProviders', 'Bookable Providers')}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('clinic.services.bookableProvidersHint', 'Select providers that offer this service for online booking')}
+                </p>
+                <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                  {bookableProviders.map((provider) => (
+                    <label
+                      key={provider.userId}
+                      className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={formData.providerIds.includes(provider.userId)}
+                        onCheckedChange={(checked) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            providerIds: checked
+                              ? [...prev.providerIds, provider.userId]
+                              : prev.providerIds.filter(id => id !== provider.userId),
+                          }));
+                        }}
+                      />
+                      <span className="text-sm">
+                        {provider.user.firstName} {provider.user.lastName}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-service"
             >

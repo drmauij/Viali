@@ -19,6 +19,7 @@ type Provider = {
   profileImageUrl: string | null;
   bookingServiceName: string | null;
   bookingLocation: string | null;
+  role: string | null;
 };
 
 type BookingData = {
@@ -107,6 +108,11 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
   },
 };
 
+function formatProviderName(provider: Provider): string {
+  const prefix = provider.role === 'doctor' ? 'Dr. ' : '';
+  return `${prefix}${provider.firstName} ${provider.lastName}`;
+}
+
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function BookAppointment() {
@@ -115,6 +121,7 @@ export default function BookAppointment() {
   const searchParams = new URLSearchParams(searchString);
   const isEmbed = searchParams.get("embed") === "true";
   const preselectedProviderId = searchParams.get("provider");
+  const serviceCode = searchParams.get("service");
   const prefillFirstName = searchParams.get("firstName");
   const prefillSurname = searchParams.get("surname");
   const prefillEmail = searchParams.get("email");
@@ -160,6 +167,10 @@ export default function BookAppointment() {
   const [referralSource, setReferralSource] = useState("");
   const [referralDetail, setReferralDetail] = useState("");
 
+  // Service-based booking state
+  const [serviceInfo, setServiceInfo] = useState<{ id: string; name: string; description: string | null; durationMinutes: number | null } | null>(null);
+  const [bestProviderLoading, setBestProviderLoading] = useState(false);
+
   // ─── Load booking data ────────────────────────────────────────
 
   useEffect(() => {
@@ -172,7 +183,7 @@ export default function BookAppointment() {
         }
         const d: BookingData = await res.json();
         setData(d);
-        // Auto-skip provider selection if deep-linked or only 1 provider
+        // Auto-skip provider selection if deep-linked
         const preselected = preselectedProviderId
           ? d.providers.find(p => p.id === preselectedProviderId)
           : null;
@@ -181,16 +192,66 @@ export default function BookAppointment() {
           setStep("datetime");
           setAvailableDatesLoading(true);
           setSeekingAvailableMonth(true);
-        } else if (d.providers.length === 1) {
-          setSelectedProvider(d.providers[0]);
-          setStep("datetime");
-          setAvailableDatesLoading(true);
-          setSeekingAvailableMonth(true);
         }
       })
       .catch(() => setError("network"))
       .finally(() => setLoading(false));
   }, [token]);
+
+  // ─── Auto-select best provider (service-based or default) ───
+  useEffect(() => {
+    if (!token || !data) return;
+    // Skip if provider was pre-selected via URL param
+    if (preselectedProviderId) return;
+    // Skip if provider already selected (e.g. from single-provider case)
+    if (selectedProvider) return;
+
+    setBestProviderLoading(true);
+    const url = serviceCode
+      ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(serviceCode)}`
+      : `/api/public/booking/${token}/best-provider`;
+
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) {
+          // If service not found, fall back to provider list
+          if (res.status === 404 && data.providers.length > 0) {
+            // If only one provider, auto-select them
+            if (data.providers.length === 1) {
+              setSelectedProvider(data.providers[0]);
+              setStep("datetime");
+              setAvailableDatesLoading(true);
+              setSeekingAvailableMonth(true);
+            }
+            return;
+          }
+          return;
+        }
+        const result = await res.json();
+        if (result.service) {
+          setServiceInfo(result.service);
+          const serviceName = result.service.name;
+          const serviceDesc = result.service.description;
+          setNotes(serviceName + (serviceDesc ? ` - ${serviceDesc}` : ''));
+        }
+        if (result.provider) {
+          // Find provider in the already-loaded list, or use the returned info
+          const provider = data.providers.find(p => p.id === result.provider.id) || result.provider;
+          setSelectedProvider(provider);
+          setStep("datetime");
+          setAvailableDatesLoading(true);
+          setSeekingAvailableMonth(true);
+        } else if (data.providers.length === 1) {
+          // Fallback: if best-provider returns null but there's only one provider
+          setSelectedProvider(data.providers[0]);
+          setStep("datetime");
+          setAvailableDatesLoading(true);
+          setSeekingAvailableMonth(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBestProviderLoading(false));
+  }, [token, data, preselectedProviderId]);
 
   // ─── Clinic closures ─────────────────────────────────────────
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
@@ -328,7 +389,7 @@ export default function BookAppointment() {
     setSlotTaken(false);
   }, []);
 
-  const canGoBackToProviders = data && data.providers.length > 1 && !preselectedProviderId;
+  const canGoBackToProviders = data && data.providers.length > 1 && !preselectedProviderId && !serviceCode;
 
   const handleBack = useCallback(() => {
     if (step === "datetime") {
@@ -384,6 +445,7 @@ export default function BookAppointment() {
           utmContent,
           refParam,
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
+          serviceId: serviceInfo?.id || undefined,
         }),
       });
 
@@ -419,7 +481,7 @@ export default function BookAppointment() {
 
   // ─── Loading / Error states ───────────────────────────────────
 
-  if (loading) {
+  if (loading || bestProviderLoading) {
     return (
       <PageShell isDark={isDark} isEmbed={isEmbed}>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -491,7 +553,7 @@ export default function BookAppointment() {
               </h2>
               <p className={cn(
                 "text-sm mb-6",
-                isDark ? "text-white/50" : "text-gray-400"
+                isDark ? "text-white/50" : "text-gray-500"
               )}>
                 Wählen Sie Ihren behandelnden Arzt
               </p>
@@ -505,7 +567,7 @@ export default function BookAppointment() {
                       "group flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200",
                       isDark
                         ? "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
-                        : "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
+                        : "bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md"
                     )}
                   >
                     <ProviderAvatar provider={provider} isDark={isDark} />
@@ -514,13 +576,13 @@ export default function BookAppointment() {
                         "font-medium truncate",
                         isDark ? "text-white" : "text-gray-900"
                       )}>
-                        {provider.firstName} {provider.lastName}
+                        {formatProviderName(provider)}
                       </p>
                     </div>
                     <svg
                       className={cn(
                         "w-5 h-5 transition-transform duration-200 group-hover:translate-x-1",
-                        isDark ? "text-white/30" : "text-gray-300"
+                        isDark ? "text-white/30" : "text-gray-400"
                       )}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
                     >
@@ -541,7 +603,7 @@ export default function BookAppointment() {
                 onClick={handleBack}
                 className={cn(
                   "flex items-center gap-1 text-sm mb-4 transition-colors",
-                  isDark ? "text-white/50 hover:text-white/80" : "text-gray-400 hover:text-gray-600"
+                  isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
                 )}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -551,49 +613,94 @@ export default function BookAppointment() {
               </button>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-[200px_auto_1fr] gap-0 md:gap-6 items-start">
-              {/* Clinic + provider info panel (Cal.com style left column) */}
-              <div className={cn(
-                "mb-4 md:mb-0 md:border-r md:pr-6",
-                isDark ? "border-white/10" : "border-gray-100"
-              )}>
-                <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
-                <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-2 mt-4 md:mt-5">
-                  <ProviderAvatar provider={selectedProvider} isDark={isDark} />
-                  <div>
+            <div className="grid grid-cols-1 md:grid-cols-[200px_auto_1fr] gap-4 md:gap-6 items-start">
+              {/* Left column: Clinic, Doctor, Treatment cards — hidden on small screens */}
+              <div className="hidden md:block space-y-3">
+                {/* Card 1: Clinic info + theme toggle */}
+                <div className={cn(
+                  "rounded-xl p-3",
+                  isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
+                )}>
+                  <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+                </div>
+
+                {/* Card 2: Doctor info */}
+                <div className={cn(
+                  "rounded-xl p-3",
+                  isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
+                )}>
+                  <p className={cn(
+                    "text-[10px] font-semibold uppercase tracking-wider mb-2",
+                    isDark ? "text-white/30" : "text-gray-500"
+                  )}>
+                    Arzt
+                  </p>
+                  <div className="flex items-center gap-2.5">
+                    <ProviderAvatar provider={selectedProvider} isDark={isDark} />
+                    <div className="min-w-0">
+                      <p className={cn(
+                        "text-sm font-semibold truncate",
+                        isDark ? "text-white/80" : "text-gray-900"
+                      )}>
+                        {formatProviderName(selectedProvider)}
+                      </p>
+                      {selectedProvider.bookingServiceName && (
+                        <p className={cn(
+                          "text-xs truncate",
+                          isDark ? "text-white/50" : "text-gray-500"
+                        )}>
+                          {selectedProvider.bookingServiceName}
+                        </p>
+                      )}
+                      {selectedProvider.bookingLocation && (
+                        <p className={cn(
+                          "flex items-center gap-1 text-xs mt-0.5",
+                          isDark ? "text-white/40" : "text-gray-500"
+                        )}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                          <span className="truncate">{selectedProvider.bookingLocation}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 3: Treatment info (only when service is set) */}
+                {serviceInfo && (
+                  <div className={cn(
+                    "rounded-xl p-3",
+                    isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
+                  )}>
                     <p className={cn(
-                      "text-sm font-semibold",
+                      "text-[10px] font-semibold uppercase tracking-wider mb-1.5",
+                      isDark ? "text-white/30" : "text-gray-500"
+                    )}>
+                      Behandlung
+                    </p>
+                    <p className={cn(
+                      "text-sm font-medium",
                       isDark ? "text-white/80" : "text-gray-900"
                     )}>
-                      {selectedProvider.firstName} {selectedProvider.lastName}
+                      {serviceInfo.name}
                     </p>
-                    {selectedProvider.bookingServiceName && (
+                    {serviceInfo.description && (
                       <p className={cn(
-                        "text-xs mt-1",
+                        "text-xs mt-0.5",
                         isDark ? "text-white/50" : "text-gray-500"
                       )}>
-                        {selectedProvider.bookingServiceName}
-                      </p>
-                    )}
-                    {selectedProvider.bookingLocation && (
-                      <p className={cn(
-                        "flex items-center gap-1 text-xs mt-1",
-                        isDark ? "text-white/40" : "text-gray-400"
-                      )}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                        {selectedProvider.bookingLocation}
+                        {serviceInfo.description}
                       </p>
                     )}
                   </div>
-                </div>
+                )}
               </div>
               {/* Calendar */}
               <div className={cn(
                 "rounded-2xl p-1 mx-auto md:mx-0 shrink-0",
-                isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-100 shadow-sm"
+                isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
               )}>
                 <Calendar
                   mode="single"
@@ -659,7 +766,7 @@ export default function BookAppointment() {
                 {!selectedDate ? (
                   <div className={cn(
                     "text-center py-12 text-sm",
-                    isDark ? "text-white/40" : "text-gray-400"
+                    isDark ? "text-white/40" : "text-gray-500"
                   )}>
                     Bitte wählen Sie ein Datum
                   </div>
@@ -673,7 +780,7 @@ export default function BookAppointment() {
                 ) : slots.length === 0 ? (
                   <div className={cn(
                     "text-center py-12",
-                    isDark ? "text-white/40" : "text-gray-400"
+                    isDark ? "text-white/40" : "text-gray-500"
                   )}>
                     <p className="text-sm font-medium mb-1">Keine freien Termine</p>
                     <p className="text-xs opacity-70">
@@ -685,7 +792,7 @@ export default function BookAppointment() {
                   <div>
                     <p className={cn(
                       "text-xs font-medium uppercase tracking-wider mb-3",
-                      isDark ? "text-white/40" : "text-gray-400"
+                      isDark ? "text-white/40" : "text-gray-500"
                     )}>
                       Verfügbare Zeiten — {formattedSelectedDate}
                     </p>
@@ -698,7 +805,7 @@ export default function BookAppointment() {
                             "py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-150",
                             isDark
                               ? "bg-white/5 border border-white/10 text-white/80 hover:bg-blue-500/20 hover:border-blue-400/40 hover:text-white"
-                              : "bg-white border border-gray-150 text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 shadow-sm"
+                              : "bg-white border border-gray-200 text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 shadow-sm"
                           )}
                         >
                           {slot.startTime}
@@ -719,7 +826,7 @@ export default function BookAppointment() {
               onClick={handleBack}
               className={cn(
                 "flex items-center gap-1 text-sm mb-4 transition-colors",
-                isDark ? "text-white/50 hover:text-white/80" : "text-gray-400 hover:text-gray-600"
+                isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
               )}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -739,7 +846,7 @@ export default function BookAppointment() {
                   "text-sm font-medium truncate",
                   isDark ? "text-white/80" : "text-gray-800"
                 )}>
-                  {selectedProvider.firstName} {selectedProvider.lastName}
+                  {formatProviderName(selectedProvider)}
                 </p>
                 <p className={cn(
                   "text-xs",
@@ -953,7 +1060,7 @@ export default function BookAppointment() {
 
               <p className={cn(
                 "text-[11px] text-center leading-relaxed",
-                isDark ? "text-white/30" : "text-gray-400"
+                isDark ? "text-white/30" : "text-gray-500"
               )}>
                 Sie erhalten eine Bestätigung per E-Mail.
                 <br />Der Termin kann jederzeit über den Link in der E-Mail abgesagt werden.
@@ -969,7 +1076,7 @@ export default function BookAppointment() {
               onClick={handleBack}
               className={cn(
                 "flex items-center gap-1 text-sm mb-4 transition-colors",
-                isDark ? "text-white/50 hover:text-white/80" : "text-gray-400 hover:text-gray-600"
+                isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
               )}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1038,9 +1145,9 @@ export default function BookAppointment() {
 
             <div className={cn(
               "rounded-2xl p-5 text-left space-y-3 mb-6",
-              isDark ? "bg-white/5 border border-white/10" : "bg-gray-50 border border-gray-100"
+              isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200"
             )}>
-              <SummaryRow label="Arzt" value={`${selectedProvider.firstName} ${selectedProvider.lastName}`} isDark={isDark} />
+              <SummaryRow label="Arzt" value={formatProviderName(selectedProvider)} isDark={isDark} />
               <SummaryRow label="Datum" value={formattedSelectedDate} isDark={isDark} />
               <SummaryRow label="Uhrzeit" value={`${selectedSlot.startTime} Uhr`} isDark={isDark} />
               <SummaryRow label="Klinik" value={data.hospital.name} isDark={isDark} />
@@ -1048,7 +1155,7 @@ export default function BookAppointment() {
 
             <p className={cn(
               "text-xs",
-              isDark ? "text-white/30" : "text-gray-400"
+              isDark ? "text-white/30" : "text-gray-500"
             )}>
               Zum Absagen nutzen Sie den Link in Ihrer Bestätigungs-E-Mail.
             </p>
@@ -1060,7 +1167,7 @@ export default function BookAppointment() {
       {!isEmbed && (
         <footer className={cn(
           "mt-12 pt-4 border-t text-center text-[11px]",
-          isDark ? "border-white/5 text-white/20" : "border-gray-100 text-gray-300"
+          isDark ? "border-white/5 text-white/20" : "border-gray-200 text-gray-400"
         )}>
           Powered by Viali
         </footer>
@@ -1098,7 +1205,7 @@ function ClinicInfoPanel({ data, isDark, onToggleTheme }: { data: BookingData; i
           "mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-300",
           isDark
             ? "bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/70"
-            : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
+            : "bg-gray-200 text-gray-500 hover:bg-gray-300 hover:text-gray-600"
         )}
       >
         {isDark ? (
@@ -1127,7 +1234,7 @@ function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; i
   useEffect(() => {
     const prev = document.documentElement.getAttribute("data-theme");
     document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
-    document.body.style.background = isDark ? "#0c0c14" : "#f9fafb";
+    document.body.style.background = isDark ? "#0c0c14" : "#f0f1f3";
     return () => {
       if (prev) document.documentElement.setAttribute("data-theme", prev);
       else document.documentElement.removeAttribute("data-theme");
@@ -1140,7 +1247,7 @@ function PageShell({ children, isDark, isEmbed }: { children: React.ReactNode; i
       "min-h-screen transition-colors duration-500",
       isDark
         ? "bg-[#0c0c14] text-white"
-        : "bg-gradient-to-b from-gray-50 via-white to-gray-50",
+        : "bg-[#f0f1f3]",
       isEmbed && "!min-h-0"
     )}>
       <div className={cn(
@@ -1186,7 +1293,7 @@ function ProviderAvatar({ provider, isDark, size = "md" }: { provider: Provider;
     <div className={cn(
       dim, textSize,
       "rounded-full flex items-center justify-center font-semibold shrink-0",
-      isDark ? "bg-white/10 text-white/60" : "bg-gray-100 text-gray-500"
+      isDark ? "bg-white/10 text-white/60" : "bg-gray-200 text-gray-600"
     )}>
       {initials}
     </div>
@@ -1220,7 +1327,7 @@ function StepIndicator({ current, isDark, hasMultipleProviders, showReferralStep
             "flex items-center gap-1.5 text-xs font-medium transition-colors duration-300",
             i <= currentIdx
               ? (isDark ? "text-white/80" : "text-gray-800")
-              : (isDark ? "text-white/20" : "text-gray-300")
+              : (isDark ? "text-white/20" : "text-gray-400")
           )}>
             <div className={cn(
               "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300",
@@ -1228,7 +1335,7 @@ function StepIndicator({ current, isDark, hasMultipleProviders, showReferralStep
                 ? (isDark ? "bg-blue-500 text-white" : "bg-gray-900 text-white")
                 : i === currentIdx
                   ? (isDark ? "bg-white/15 text-white" : "bg-gray-200 text-gray-700")
-                  : (isDark ? "bg-white/5 text-white/20" : "bg-gray-100 text-gray-300")
+                  : (isDark ? "bg-white/5 text-white/20" : "bg-gray-200 text-gray-400")
             )}>
               {i < currentIdx ? "✓" : i + 1}
             </div>
@@ -1239,7 +1346,7 @@ function StepIndicator({ current, isDark, hasMultipleProviders, showReferralStep
               "w-8 h-px transition-colors duration-300",
               i < currentIdx
                 ? (isDark ? "bg-blue-500/50" : "bg-gray-400")
-                : (isDark ? "bg-white/10" : "bg-gray-200")
+                : (isDark ? "bg-white/10" : "bg-gray-300")
             )} />
           )}
         </div>
@@ -1253,7 +1360,7 @@ function SummaryRow({ label, value, isDark }: { label: string; value: string; is
     <div className="flex justify-between items-start gap-4">
       <span className={cn(
         "text-xs shrink-0",
-        isDark ? "text-white/40" : "text-gray-400"
+        isDark ? "text-white/40" : "text-gray-500"
       )}>
         {label}
       </span>

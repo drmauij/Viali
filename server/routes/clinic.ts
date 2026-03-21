@@ -82,13 +82,71 @@ router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
     const dateObj = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
     const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+    // Fetch provider info
+    let providerName: string | null = null;
+    let providerRole: string | null = null;
+    let providerImageUrl: string | null = null;
+    if (appointment.providerId) {
+      const provider = await storage.getUser(appointment.providerId);
+      if (provider) {
+        providerName = `${provider.firstName} ${provider.lastName}`;
+        providerImageUrl = provider.profileImageUrl ? `/api/public/profile-image/${provider.id}` : null;
+      }
+      // Get role from hospital roles
+      const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+      const [role] = await db.select({ role: rolesTable.role, bookingLocation: rolesTable.bookingLocation })
+        .from(rolesTable)
+        .where(and(
+          eq(rolesTable.userId, appointment.providerId),
+          eq(rolesTable.hospitalId, hospital.id)
+        ))
+        .limit(1);
+      if (role) {
+        providerRole = role.role;
+      }
+    }
+
+    // Fetch service info if linked
+    let serviceName: string | null = null;
+    let serviceDescription: string | null = null;
+    if (appointment.serviceId) {
+      const { clinicServices: servicesTable } = await import("@shared/schema");
+      const [service] = await db.select({ name: servicesTable.name, description: servicesTable.description })
+        .from(servicesTable)
+        .where(eq(servicesTable.id, appointment.serviceId))
+        .limit(1);
+      if (service) {
+        serviceName = service.name;
+        serviceDescription = service.description;
+      }
+    }
+
+    // Build address for Google Maps
+    const addressParts = [hospital.companyStreet, hospital.companyPostalCode, hospital.companyCity].filter(Boolean);
+    const clinicAddress = addressParts.length > 0 ? addressParts.join(', ') : (hospital.address || null);
+
     res.json({
       appointmentDate: formattedDate,
+      appointmentRawDate: appointment.appointmentDate,
       appointmentTime: appointment.startTime,
+      appointmentEndTime: appointment.endTime,
       clinicName: hospital.name,
+      clinicAddress,
+      clinicPhone: hospital.companyPhone || null,
       patientName: appointment.patient?.firstName || '',
       status: appointment.status,
       language: lang,
+      notes: appointment.notes || null,
+      // Provider info
+      providerName,
+      providerRole,
+      providerImageUrl,
+      // Service info
+      serviceName,
+      serviceDescription,
+      // Video appointment
+      isVideoAppointment: appointment.isVideoAppointment || false,
+      videoMeetingLink: appointment.videoMeetingLink || null,
       // Fields for manage-appointment page (reschedule + pre-fill)
       bookingToken: hospital.bookingToken || null,
       providerId: appointment.providerId || null,
@@ -100,6 +158,84 @@ router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
   } catch (error) {
     logger.error('Error fetching cancel info:', error);
     res.status(500).json({ message: 'Failed to fetch appointment info' });
+  }
+});
+
+// Download ICS calendar file for appointment
+router.get('/api/clinic/appointments/ics/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const tokenData = await storage.getAppointmentActionToken(token);
+    if (!tokenData || !tokenData.appointment || !tokenData.hospital) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    const appointment = tokenData.appointment;
+    const hospital = tokenData.hospital;
+    const tz = hospital.timezone || 'Europe/Zurich';
+
+    // Build start/end times
+    const startDate = `${appointment.appointmentDate}T${appointment.startTime}:00`;
+    const endDate = `${appointment.appointmentDate}T${appointment.endTime}:00`;
+
+    // Format to ICS datetime (YYYYMMDDTHHMMSS)
+    const formatICS = (dateStr: string) => dateStr.replace(/[-:]/g, '');
+
+    // Get provider name
+    let providerName = '';
+    if (appointment.providerId) {
+      const provider = await storage.getUser(appointment.providerId);
+      if (provider) {
+        const { userHospitalRoles: rolesTable } = await import("@shared/schema");
+        const [role] = await db.select({ role: rolesTable.role })
+          .from(rolesTable)
+          .where(and(eq(rolesTable.userId, appointment.providerId), eq(rolesTable.hospitalId, hospital.id)))
+          .limit(1);
+        const prefix = role?.role === 'doctor' ? 'Dr. ' : '';
+        providerName = `${prefix}${provider.firstName} ${provider.lastName}`;
+      }
+    }
+
+    const addressParts = [hospital.companyStreet, hospital.companyPostalCode, hospital.companyCity].filter(Boolean);
+    const location = addressParts.join(', ') || hospital.address || hospital.name;
+
+    const summary = appointment.notes || `Termin bei ${hospital.name}`;
+    const description = [
+      providerName ? `Arzt: ${providerName}` : '',
+      appointment.isVideoAppointment && appointment.videoMeetingLink ? `Video: ${appointment.videoMeetingLink}` : '',
+      hospital.companyPhone ? `Tel: ${hospital.companyPhone}` : '',
+    ].filter(Boolean).join('\\n');
+
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Viali//Appointment//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `DTSTART;TZID=${tz}:${formatICS(startDate)}`,
+      `DTEND;TZID=${tz}:${formatICS(endDate)}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${description}`,
+      `LOCATION:${location}`,
+      `UID:${appointment.id}@viali.app`,
+      `DTSTAMP:${formatICS(new Date().toISOString().replace(/\.\d{3}Z$/, ''))}Z`,
+      'STATUS:CONFIRMED',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT60M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Terminerinnerung',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="appointment.ics"');
+    res.send(ics);
+  } catch (error) {
+    logger.error('Error generating ICS:', error);
+    res.status(500).json({ message: 'Failed to generate calendar file' });
   }
 });
 
@@ -215,9 +351,10 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         id: p.userId,
         firstName: p.user.firstName,
         lastName: p.user.lastName,
-        profileImageUrl: p.user.profileImageUrl,
+        profileImageUrl: p.user.profileImageUrl ? `/api/public/profile-image/${p.userId}` : null,
         bookingServiceName: p.bookingServiceName,
         bookingLocation: p.bookingLocation,
+        role: p.role || null,
       })),
       enableReferralOnBooking: hospital.enableReferralOnBooking ?? false,
     });
@@ -301,6 +438,86 @@ router.get('/api/public/booking/:bookingToken/closures', async (req, res) => {
   }
 });
 
+// 3b-best: Get the best available provider (earliest next slot), optionally filtered by service code
+router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const serviceCode = req.query.service as string | undefined;
+    let service: any = null;
+    let candidateProviderIds: string[];
+
+    if (serviceCode) {
+      // Look up service by code
+      service = await storage.getServiceByCode(hospital.id, serviceCode);
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found for this clinic' });
+      }
+
+      // Get providers mapped to this service
+      const serviceProviderIds = await storage.getProvidersByServiceId(service.id);
+      if (serviceProviderIds.length === 0) {
+        return res.status(404).json({ message: 'No providers available for this service' });
+      }
+
+      // Filter to only bookable providers
+      const bookableProviders = await storage.getBookableProvidersByHospital(hospital.id);
+      const bookableIds = new Set(bookableProviders.map(p => p.userId));
+      candidateProviderIds = serviceProviderIds.filter(id => bookableIds.has(id));
+
+      if (candidateProviderIds.length === 0) {
+        return res.status(404).json({ message: 'No providers available for this service' });
+      }
+    } else {
+      // No service code — get all bookable providers
+      const bookableProviders = await storage.getBookableProvidersByHospital(hospital.id);
+      candidateProviderIds = bookableProviders.map(p => p.userId);
+
+      if (candidateProviderIds.length === 0) {
+        return res.status(404).json({ message: 'No providers available' });
+      }
+    }
+
+    const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
+    const slotDuration = service?.durationMinutes || settings?.slotDurationMinutes || 30;
+
+    const best = await storage.getBestAvailableProvider(hospital.id, candidateProviderIds, slotDuration);
+
+    if (!best) {
+      return res.json({ provider: null, service: service ? { id: service.id, name: service.name, description: service.description, durationMinutes: service.durationMinutes } : null });
+    }
+
+    // Get full provider info
+    const allProviders = await storage.getBookableProvidersByHospital(hospital.id);
+    const providerInfo = allProviders.find(p => p.userId === best.providerId);
+
+    res.json({
+      provider: providerInfo ? {
+        id: providerInfo.userId,
+        firstName: providerInfo.user.firstName,
+        lastName: providerInfo.user.lastName,
+        profileImageUrl: providerInfo.user.profileImageUrl ? `/api/public/profile-image/${providerInfo.userId}` : null,
+        bookingServiceName: providerInfo.bookingServiceName,
+        bookingLocation: providerInfo.bookingLocation,
+        role: providerInfo.role || null,
+      } : null,
+      service: service ? {
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        durationMinutes: service.durationMinutes,
+      } : null,
+      nextSlot: { date: best.date, startTime: best.startTime },
+    });
+  } catch (error) {
+    logger.error('Error fetching best provider:', error);
+    res.status(500).json({ message: 'Failed to find available provider' });
+  }
+});
+
 // 3c: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {
@@ -378,6 +595,7 @@ const bookingSchema = z.object({
   utmContent: z.string().max(500).nullish(),
   refParam: z.string().max(500).nullish(),
   noShowFeeAcknowledged: z.boolean().optional(),
+  serviceId: z.string().nullish(),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
@@ -457,6 +675,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         calcomSource: 'local',
         notes: notes || null,
         noShowFeeAcknowledgedAt: parsed.data.noShowFeeAcknowledged ? new Date() : null,
+        serviceId: parsed.data.serviceId || null,
       });
 
       // Save referral event if any referral data present
@@ -600,6 +819,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
         durationMinutes: clinicServices.durationMinutes,
         isShared: clinicServices.isShared,
         isInvoiceable: clinicServices.isInvoiceable,
+        code: clinicServices.code,
         sortOrder: clinicServices.sortOrder,
         createdAt: clinicServices.createdAt,
         updatedAt: clinicServices.updatedAt,
@@ -609,8 +829,16 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
       .leftJoin(units, eq(clinicServices.unitId, units.id))
       .where(and(...conditions))
       .orderBy(clinicServices.sortOrder, clinicServices.name);
-    
-    res.json(services);
+
+    // Fetch provider IDs for each service
+    const servicesWithProviders = await Promise.all(
+      services.map(async (s) => ({
+        ...s,
+        providerIds: await storage.getProvidersByServiceId(s.id),
+      }))
+    );
+
+    res.json(servicesWithProviders);
   } catch (error) {
     logger.error("Error fetching services:", error);
     res.status(500).json({ message: "Failed to fetch services" });
@@ -636,8 +864,9 @@ router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requi
     if (result.length === 0) {
       return res.status(404).json({ message: "Service not found" });
     }
-    
-    res.json(result[0]);
+
+    const providerIds = await storage.getProvidersByServiceId(result[0].id);
+    res.json({ ...result[0], providerIds });
   } catch (error) {
     logger.error("Error fetching service:", error);
     res.status(500).json({ message: "Failed to fetch service" });
@@ -649,17 +878,35 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHo
   try {
     const { hospitalId } = req.params;
     
+    const { providerIds: providerIdsInput, ...serviceData } = req.body;
+
+    // Validate code format if provided
+    if (serviceData.code && !/^[a-z0-9-]+$/.test(serviceData.code)) {
+      return res.status(400).json({ message: "Code must be lowercase alphanumeric with hyphens only" });
+    }
+    if (serviceData.code && serviceData.code.length > 50) {
+      return res.status(400).json({ message: "Code must be 50 characters or fewer" });
+    }
+    // Treat empty string as null
+    if (serviceData.code === '') serviceData.code = null;
+
     const validatedData = insertClinicServiceSchema.parse({
-      ...req.body,
+      ...serviceData,
       hospitalId,
     });
-    
+
     const [service] = await db
       .insert(clinicServices)
       .values(validatedData)
       .returning();
-    
-    res.status(201).json(service);
+
+    // Set provider mappings if provided
+    if (Array.isArray(providerIdsInput) && providerIdsInput.length > 0) {
+      await storage.setServiceProviders(service.id, providerIdsInput);
+    }
+
+    const providerIds = await storage.getProvidersByServiceId(service.id);
+    res.status(201).json({ ...service, providerIds });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -690,8 +937,18 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable } = req.body;
-    
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, providerIds: providerIdsInput } = req.body;
+
+    // Validate code format if provided
+    if (code !== undefined && code !== null && code !== '') {
+      if (!/^[a-z0-9-]+$/.test(code)) {
+        return res.status(400).json({ message: "Code must be lowercase alphanumeric with hyphens only" });
+      }
+      if (code.length > 50) {
+        return res.status(400).json({ message: "Code must be 50 characters or fewer" });
+      }
+    }
+
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
@@ -700,14 +957,21 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
     if (isShared !== undefined) updateData.isShared = isShared;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
-    
+    if (code !== undefined) updateData.code = code === '' ? null : code;
+
     const [updated] = await db
       .update(clinicServices)
       .set(updateData)
       .where(eq(clinicServices.id, serviceId))
       .returning();
-    
-    res.json(updated);
+
+    // Update provider mappings if provided
+    if (Array.isArray(providerIdsInput)) {
+      await storage.setServiceProviders(serviceId, providerIdsInput);
+    }
+
+    const providerIds = await storage.getProvidersByServiceId(serviceId);
+    res.json({ ...updated, providerIds });
   } catch (error) {
     logger.error("Error updating service:", error);
     res.status(500).json({ message: "Failed to update service" });
@@ -1628,7 +1892,7 @@ export async function sendAppointmentNotification(
       const smsAvailable = await isSmsConfiguredForHospital(hospitalId);
       if (smsAvailable) {
         const manageSuffix = manageUrl
-          ? (isGerman ? `\nVerwalten/Absagen: ${manageUrl}` : `\nManage/Cancel: ${manageUrl}`)
+          ? (isGerman ? `\nTermininfo & Verwaltung: ${manageUrl}` : `\nAppointment Info: ${manageUrl}`)
           : '';
         const videoSuffix = (appointment.isVideoAppointment && appointment.videoMeetingLink)
           ? (isGerman ? `\n📹 Video-Termin: ${appointment.videoMeetingLink}` : `\n📹 Video call: ${appointment.videoMeetingLink}`)

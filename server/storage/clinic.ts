@@ -16,6 +16,7 @@ import {
   providerAvailabilityWindows,
   clinicAppointments,
   clinicServices,
+  clinicServiceProviders,
   timebutlerConfig,
   calcomConfig,
   calcomProviderMappings,
@@ -75,6 +76,7 @@ function roleToClinicProvider(role: UserHospitalRole): ClinicProvider {
     hospitalId: role.hospitalId,
     unitId: role.unitId,
     userId: role.userId,
+    role: role.role,
     isBookable: role.isBookable ?? false,
     availabilityMode: (role.availabilityMode as 'always_available' | 'windows_required') ?? 'always_available',
     bookingServiceName: role.bookingServiceName ?? null,
@@ -1554,6 +1556,107 @@ export async function getClinicServices(unitId: string): Promise<ClinicService[]
     .from(clinicServices)
     .where(eq(clinicServices.unitId, unitId))
     .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
+}
+
+export async function getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined> {
+  const [service] = await db
+    .select()
+    .from(clinicServices)
+    .where(and(
+      eq(clinicServices.hospitalId, hospitalId),
+      eq(clinicServices.code, code)
+    ))
+    .limit(1);
+  return service;
+}
+
+export async function getProvidersByServiceId(serviceId: string): Promise<string[]> {
+  const rows = await db
+    .select({ providerId: clinicServiceProviders.providerId })
+    .from(clinicServiceProviders)
+    .where(eq(clinicServiceProviders.serviceId, serviceId));
+  return rows.map(r => r.providerId);
+}
+
+export async function setServiceProviders(serviceId: string, providerIds: string[]): Promise<void> {
+  await db.delete(clinicServiceProviders).where(eq(clinicServiceProviders.serviceId, serviceId));
+  if (providerIds.length > 0) {
+    await db.insert(clinicServiceProviders).values(
+      providerIds.map(providerId => ({ serviceId, providerId }))
+    );
+  }
+}
+
+/**
+ * Find the provider with the earliest next available slot.
+ * Searches up to 2 months ahead across all candidate providers in parallel.
+ */
+export async function getBestAvailableProvider(
+  hospitalId: string,
+  candidateProviderIds: string[],
+  durationMinutes: number = 30
+): Promise<{ providerId: string; date: string; startTime: string } | null> {
+  if (candidateProviderIds.length === 0) return null;
+
+  // Get provider details to find their unitId
+  const providers = await db
+    .select({ userId: userHospitalRoles.userId, unitId: userHospitalRoles.unitId })
+    .from(userHospitalRoles)
+    .where(and(
+      eq(userHospitalRoles.hospitalId, hospitalId),
+      inArray(userHospitalRoles.userId, candidateProviderIds),
+      eq(userHospitalRoles.isBookable, true)
+    ));
+
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const nextMonth1 = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextMonthStr = `${nextMonth1.getFullYear()}-${String(nextMonth1.getMonth() + 1).padStart(2, '0')}`;
+  const nextMonth2 = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  const nextMonth2Str = `${nextMonth2.getFullYear()}-${String(nextMonth2.getMonth() + 1).padStart(2, '0')}`;
+
+  const months = [currentMonth, nextMonthStr, nextMonth2Str];
+
+  // For each provider, find their earliest available slot
+  const results = await Promise.allSettled(
+    providers.map(async (provider) => {
+      const unitId = provider.unitId;
+      if (!unitId) return null;
+
+      for (const month of months) {
+        const dates = await getAvailableDatesForMonth(
+          provider.userId, unitId, hospitalId, month, durationMinutes, true
+        );
+        // Filter out past dates
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const futureDates = dates.filter(d => d >= todayStr);
+
+        if (futureDates.length > 0) {
+          const slots = await getAvailableSlots(
+            provider.userId, unitId, futureDates[0], durationMinutes, hospitalId, true
+          );
+          if (slots.length > 0) {
+            return { providerId: provider.userId, date: futureDates[0], startTime: slots[0].startTime };
+          }
+        }
+      }
+      return null;
+    })
+  );
+
+  // Find the earliest result
+  let best: { providerId: string; date: string; startTime: string } | null = null;
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value) {
+      const candidate = result.value;
+      if (!best || candidate.date < best.date || (candidate.date === best.date && candidate.startTime < best.startTime)) {
+        best = candidate;
+      }
+    }
+  }
+
+  return best;
 }
 
 // ========== SCHEDULED JOBS ==========

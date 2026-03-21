@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
+import { Camera, Trash2, Loader2 } from "lucide-react";
 
 interface PersonalSettingsDialogProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface PersonalSettingsDialogProps {
   currentPhone?: string | null;
   currentBriefSignature?: string | null;
   currentTimebutlerUrl?: string | null;
+  currentProfileImageUrl?: string | null;
   hasKioskPin?: boolean;
 }
 
@@ -24,6 +26,7 @@ export default function PersonalSettingsDialog({
   currentPhone,
   currentBriefSignature,
   currentTimebutlerUrl,
+  currentProfileImageUrl,
 }: PersonalSettingsDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -32,14 +35,81 @@ export default function PersonalSettingsDialog({
   const [briefSignature, setBriefSignature] = useState(currentBriefSignature || "");
   const [timebutlerUrl, setTimebutlerUrl] = useState(currentTimebutlerUrl || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [pendingImageStorageKey, setPendingImageStorageKey] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setPhone(currentPhone || "");
       setBriefSignature(currentBriefSignature || "");
       setTimebutlerUrl(currentTimebutlerUrl || "");
+      setPendingImageStorageKey(null);
+      setRemoveImage(false);
+      // Show existing image if available
+      if (currentProfileImageUrl) {
+        setProfileImagePreview(`/api/user/profile-image?t=${Date.now()}`);
+      } else {
+        setProfileImagePreview(null);
+      }
     }
-  }, [open, currentPhone, currentBriefSignature, currentTimebutlerUrl]);
+  }, [open, currentPhone, currentBriefSignature, currentTimebutlerUrl, currentProfileImageUrl]);
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast({ title: t("common.error"), description: "Please select an image file", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: t("common.error"), description: "Image must be under 5MB", variant: "destructive" });
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      // Get signed upload URL
+      const urlRes = await fetch('/api/user/profile-image/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filename: file.name }),
+      });
+      if (!urlRes.ok) throw new Error('Failed to get upload URL');
+      const { uploadUrl, storageKey } = await urlRes.json();
+
+      // Upload to S3
+      const s3Res = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+      if (!s3Res.ok) throw new Error('Failed to upload image');
+
+      // Show preview and store key for save
+      setProfileImagePreview(URL.createObjectURL(file));
+      setPendingImageStorageKey(storageKey);
+      setRemoveImage(false);
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      toast({ title: t("common.error"), description: "Failed to upload image", variant: "destructive" });
+    } finally {
+      setImageUploading(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImagePreview(null);
+    setPendingImageStorageKey(null);
+    setRemoveImage(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,11 +126,20 @@ export default function PersonalSettingsDialog({
     setIsLoading(true);
 
     try {
-      await apiRequest("PATCH", "/api/user/profile", {
+      const profileData: Record<string, any> = {
         phone: phone || null,
         briefSignature: briefSignature || null,
         timebutlerIcsUrl: timebutlerUrl || null,
-      });
+      };
+
+      // Include image changes
+      if (pendingImageStorageKey) {
+        profileData.profileImageUrl = pendingImageStorageKey;
+      } else if (removeImage) {
+        profileData.profileImageUrl = null;
+      }
+
+      await apiRequest("PATCH", "/api/user/profile", profileData);
 
       // Invalidate user query so TopBar/other components pick up the new values
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -82,17 +161,77 @@ export default function PersonalSettingsDialog({
     }
   };
 
+  const hasImage = profileImagePreview && !removeImage;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="personal-settings-dialog">
-        <DialogHeader>
+      <DialogContent data-testid="personal-settings-dialog" className="max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("settings.personalSettings", "Personal Settings")}</DialogTitle>
           <DialogDescription>
             {t("settings.personalSettingsDesc", "Update your personal information and integrations.")}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto min-h-0 flex-1 pr-2">
+          {/* Profile Image */}
+          <div>
+            <Label>{t("settings.profileImage", "Profile Image")}</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              {t("settings.profileImageHint", "Shown on your public booking page")}
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="relative h-16 w-16 shrink-0">
+                {hasImage ? (
+                  <img
+                    src={profileImagePreview!}
+                    alt=""
+                    className="h-16 w-16 rounded-full object-cover border"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center border">
+                    <Camera className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                {imageUploading && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={imageUploading}
+                >
+                  {hasImage ? t("common.change", "Change") : t("common.upload", "Upload")}
+                </Button>
+                {hasImage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={handleRemoveImage}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    {t("common.remove", "Remove")}
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+            </div>
+          </div>
+
           {/* Phone */}
           <div>
             <Label htmlFor="personal-phone">{t("settings.phone", "Phone Number")}</Label>

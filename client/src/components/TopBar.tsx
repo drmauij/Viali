@@ -419,6 +419,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         currentPhone={(user as any)?.phone}
         currentBriefSignature={(user as any)?.briefSignature}
         currentTimebutlerUrl={(user as any)?.timebutlerIcsUrl}
+        currentProfileImageUrl={(user as any)?.profileImageUrl}
         hasKioskPin={(user as any)?.hasKioskPin ?? false}
       />
 

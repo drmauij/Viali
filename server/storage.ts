@@ -906,6 +906,10 @@ export interface IStorage {
 
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;
+  getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined>;
+  getProvidersByServiceId(serviceId: string): Promise<string[]>;
+  setServiceProviders(serviceId: string, providerIds: string[]): Promise<void>;
+  getBestAvailableProvider(hospitalId: string, candidateProviderIds: string[], durationMinutes?: number): Promise<{ providerId: string; date: string; startTime: string } | null>;
   
   // ========== SCHEDULED JOBS ==========
   getNextScheduledJob(): Promise<ScheduledJob | undefined>;
@@ -1564,6 +1568,10 @@ export class DatabaseStorage implements IStorage {
   getAvailableSlots = clinicStorage.getAvailableSlots;
   getAvailableDatesForMonth = clinicStorage.getAvailableDatesForMonth;
   getClinicServices = clinicStorage.getClinicServices;
+  getServiceByCode = clinicStorage.getServiceByCode;
+  getProvidersByServiceId = clinicStorage.getProvidersByServiceId;
+  setServiceProviders = clinicStorage.setServiceProviders;
+  getBestAvailableProvider = clinicStorage.getBestAvailableProvider;
   getNextScheduledJob = clinicStorage.getNextScheduledJob;
   createScheduledJob = clinicStorage.createScheduledJob;
   updateScheduledJob = clinicStorage.updateScheduledJob;

@@ -3714,7 +3714,9 @@ export const clinicServices = pgTable("clinic_services", {
 }, (table) => [
   index("idx_clinic_services_hospital").on(table.hospitalId),
   index("idx_clinic_services_unit").on(table.unitId),
-  uniqueIndex("idx_clinic_services_hospital_code").on(table.hospitalId, table.code),
+  uniqueIndex("idx_clinic_services_hospital_code")
+    .on(table.hospitalId, table.code)
+    .where(sql`code IS NOT NULL`),
 ]);
 
 // Clinic Service Providers - Maps services to bookable providers
@@ -4178,6 +4180,7 @@ export interface ClinicProvider {
   hospitalId: string | null;
   unitId: string | null;
   userId: string;
+  role: string;
   isBookable: boolean;
   availabilityMode: "always_available" | "windows_required";
   bookingServiceName: string | null;

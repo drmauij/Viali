@@ -1262,7 +1262,7 @@ export async function sendAppointmentConfirmationEmail(
           ? 'Falls Sie den Termin verschieben oder absagen möchten:'
           : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
-          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termin verwalten' : 'Manage Appointment'}</a>
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo & Verwaltung' : 'Appointment Info & Management'}</a>
         </p>` : '';
 
     const videoSection = videoMeetingLink ? `
@@ -1335,7 +1335,7 @@ export async function sendAppointmentRescheduleEmail(
           ? 'Falls Sie den Termin verschieben oder absagen möchten:'
           : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
-          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termin verwalten' : 'Manage Appointment'}</a>
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo & Verwaltung' : 'Appointment Info & Management'}</a>
         </p>` : '';
 
     const videoSection = videoMeetingLink ? `

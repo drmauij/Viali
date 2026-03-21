@@ -1296,6 +1296,13 @@
       "when": 1774022922940,
       "tag": "0184_real_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1774094872681,
+      "tag": "0185_normal_frog_thor",
+      "breakpoints": true
     }
   ]
 }

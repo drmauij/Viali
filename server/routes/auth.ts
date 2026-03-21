@@ -7,6 +7,7 @@ import type { InsertLoginAuditLog } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z, ZodError } from "zod";
 import logger from "../logger";
+import { ObjectStorageService } from "../objectStorage";
 
 const router = Router();
 
@@ -485,6 +486,7 @@ router.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
       phone: z.string().nullable().optional(),
       briefSignature: z.string().nullable().optional(),
       timebutlerIcsUrl: z.string().nullable().optional(),
+      profileImageUrl: z.string().nullable().optional(),
     });
 
     const data = profileSchema.parse(req.body);
@@ -499,6 +501,7 @@ router.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
     if ('phone' in data) updateFields.phone = data.phone || null;
     if ('briefSignature' in data) updateFields.briefSignature = data.briefSignature || null;
     if ('timebutlerIcsUrl' in data) updateFields.timebutlerIcsUrl = data.timebutlerIcsUrl || null;
+    if ('profileImageUrl' in data) updateFields.profileImageUrl = data.profileImageUrl || null;
 
     await db.update(users)
       .set(updateFields)
@@ -511,6 +514,75 @@ router.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
     }
     logger.error("Error updating user profile:", error);
     res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
+// Profile image upload URL
+router.post('/api/user/profile-image/upload-url', isAuthenticated, async (req: any, res) => {
+  try {
+    const objectStorageService = new ObjectStorageService();
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const { filename } = req.body;
+    const result = await objectStorageService.getUploadURLForFolder('uploads/profile-images', filename || 'profile.jpg');
+    res.json({ uploadUrl: result.uploadURL, storageKey: result.storageKey });
+  } catch (error) {
+    logger.error("Error generating profile image upload URL:", error);
+    res.status(500).json({ message: "Failed to generate upload URL" });
+  }
+});
+
+// Get own profile image (authenticated, for settings preview)
+router.get('/api/user/profile-image', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const [user] = await db.select({ profileImageUrl: users.profileImageUrl })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user?.profileImageUrl) {
+      return res.status(404).json({ message: "No profile image" });
+    }
+
+    const objectStorageService = new ObjectStorageService();
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const downloadUrl = await objectStorageService.getObjectDownloadURL(user.profileImageUrl, 3600);
+    res.redirect(downloadUrl);
+  } catch (error) {
+    logger.error("Error serving own profile image:", error);
+    res.status(500).json({ message: "Failed to load profile image" });
+  }
+});
+
+// Public proxy for profile images (serves S3 objects without auth for booking page)
+router.get('/api/public/profile-image/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [user] = await db.select({ profileImageUrl: users.profileImageUrl })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user?.profileImageUrl) {
+      return res.status(404).json({ message: "No profile image" });
+    }
+
+    const objectStorageService = new ObjectStorageService();
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const downloadUrl = await objectStorageService.getObjectDownloadURL(user.profileImageUrl, 3600);
+    res.redirect(downloadUrl);
+  } catch (error) {
+    logger.error("Error serving profile image:", error);
+    res.status(500).json({ message: "Failed to load profile image" });
   }
 });
 
