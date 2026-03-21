@@ -439,6 +439,10 @@ router.get('/api/public/booking/:bookingToken/closures', async (req, res) => {
 });
 
 // 3b-best: Get the best available provider (earliest next slot), optionally filtered by service code
+// Fallback chain:
+//   1. If service code → try providers assigned to that service
+//   2. If no slot found / no providers assigned / service not found → try ALL bookable providers
+//   3. If still no slot → return provider: null
 router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
@@ -448,51 +452,43 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
 
     const serviceCode = req.query.service as string | undefined;
     let service: any = null;
-    let candidateProviderIds: string[];
+    const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
+    const allBookable = await storage.getBookableProvidersByHospital(hospital.id);
+    const allBookableIds = allBookable.map(p => p.userId);
 
-    if (serviceCode) {
-      // Look up service by code
-      service = await storage.getServiceByCode(hospital.id, serviceCode);
-      if (!service) {
-        return res.status(404).json({ message: 'Service not found for this clinic' });
-      }
-
-      // Get providers mapped to this service
-      const serviceProviderIds = await storage.getProvidersByServiceId(service.id);
-      if (serviceProviderIds.length === 0) {
-        return res.status(404).json({ message: 'No providers available for this service' });
-      }
-
-      // Filter to only bookable providers
-      const bookableProviders = await storage.getBookableProvidersByHospital(hospital.id);
-      const bookableIds = new Set(bookableProviders.map(p => p.userId));
-      candidateProviderIds = serviceProviderIds.filter(id => bookableIds.has(id));
-
-      if (candidateProviderIds.length === 0) {
-        return res.status(404).json({ message: 'No providers available for this service' });
-      }
-    } else {
-      // No service code — get all bookable providers
-      const bookableProviders = await storage.getBookableProvidersByHospital(hospital.id);
-      candidateProviderIds = bookableProviders.map(p => p.userId);
-
-      if (candidateProviderIds.length === 0) {
-        return res.status(404).json({ message: 'No providers available' });
-      }
+    if (allBookableIds.length === 0) {
+      return res.json({ provider: null, service: null });
     }
 
-    const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
-    const slotDuration = service?.durationMinutes || settings?.slotDurationMinutes || 30;
+    let best: { providerId: string; date: string; startTime: string } | null = null;
 
-    const best = await storage.getBestAvailableProvider(hospital.id, candidateProviderIds, slotDuration);
+    // Step 1: If service code passed, try service-specific providers first
+    if (serviceCode) {
+      service = await storage.getServiceByCode(hospital.id, serviceCode);
+      if (service) {
+        const serviceProviderIds = await storage.getProvidersByServiceId(service.id);
+        const bookableServiceProviders = serviceProviderIds.filter(id =>
+          allBookableIds.includes(id)
+        );
+        if (bookableServiceProviders.length > 0) {
+          const slotDuration = service.durationMinutes || settings?.slotDurationMinutes || 30;
+          best = await storage.getBestAvailableProvider(hospital.id, bookableServiceProviders, slotDuration);
+        }
+      }
+      // If service not found, no providers assigned, or no slots → fall through
+    }
+
+    // Step 2: Fallback to ALL bookable providers
+    if (!best) {
+      const slotDuration = settings?.slotDurationMinutes || 30;
+      best = await storage.getBestAvailableProvider(hospital.id, allBookableIds, slotDuration);
+    }
 
     if (!best) {
       return res.json({ provider: null, service: service ? { id: service.id, name: service.name, description: service.description, durationMinutes: service.durationMinutes } : null });
     }
 
-    // Get full provider info
-    const allProviders = await storage.getBookableProvidersByHospital(hospital.id);
-    const providerInfo = allProviders.find(p => p.userId === best.providerId);
+    const providerInfo = allBookable.find(p => p.userId === best!.providerId);
 
     res.json({
       provider: providerInfo ? {

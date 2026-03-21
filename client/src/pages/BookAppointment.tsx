@@ -201,10 +201,15 @@ export default function BookAppointment() {
   // ─── Auto-select best provider (service-based or default) ───
   useEffect(() => {
     if (!token || !data) return;
-    // Skip if provider was pre-selected via URL param
     if (preselectedProviderId) return;
-    // Skip if provider already selected (e.g. from single-provider case)
     if (selectedProvider) return;
+
+    const autoSelect = (provider: Provider) => {
+      setSelectedProvider(provider);
+      setStep("datetime");
+      setAvailableDatesLoading(true);
+      setSeekingAvailableMonth(true);
+    };
 
     setBestProviderLoading(true);
     const url = serviceCode
@@ -214,17 +219,8 @@ export default function BookAppointment() {
     fetch(url)
       .then(async (res) => {
         if (!res.ok) {
-          // If service not found, fall back to provider list
-          if (res.status === 404 && data.providers.length > 0) {
-            // If only one provider, auto-select them
-            if (data.providers.length === 1) {
-              setSelectedProvider(data.providers[0]);
-              setStep("datetime");
-              setAvailableDatesLoading(true);
-              setSeekingAvailableMonth(true);
-            }
-            return;
-          }
+          // API error — fall back to first provider in list
+          if (data.providers.length >= 1) autoSelect(data.providers[0]);
           return;
         }
         const result = await res.json();
@@ -235,21 +231,17 @@ export default function BookAppointment() {
           setNotes(serviceName + (serviceDesc ? ` - ${serviceDesc}` : ''));
         }
         if (result.provider) {
-          // Find provider in the already-loaded list, or use the returned info
           const provider = data.providers.find(p => p.id === result.provider.id) || result.provider;
-          setSelectedProvider(provider);
-          setStep("datetime");
-          setAvailableDatesLoading(true);
-          setSeekingAvailableMonth(true);
-        } else if (data.providers.length === 1) {
-          // Fallback: if best-provider returns null but there's only one provider
-          setSelectedProvider(data.providers[0]);
-          setStep("datetime");
-          setAvailableDatesLoading(true);
-          setSeekingAvailableMonth(true);
+          autoSelect(provider);
+        } else if (data.providers.length >= 1) {
+          // No available slots found — fall back to first provider
+          autoSelect(data.providers[0]);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        // Network failure — fall back to first provider
+        if (data.providers.length >= 1) autoSelect(data.providers[0]);
+      })
       .finally(() => setBestProviderLoading(false));
   }, [token, data, preselectedProviderId]);
 
