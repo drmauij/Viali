@@ -762,6 +762,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
+                                  loading="lazy"
                                   className="w-full h-full object-cover"
                                 />
                               </button>
