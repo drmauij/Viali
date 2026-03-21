@@ -5,6 +5,14 @@ import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { useCreateOutput } from "@/hooks/useOutputQuery";
 import { useTranslation } from "react-i18next";
 
+interface DrainageInfo {
+  id: string;
+  type: string;
+  typeOther?: string;
+  size: string;
+  position: string;
+}
+
 interface PendingOutputBulk {
   time: number;
 }
@@ -14,8 +22,17 @@ interface OutputBulkDialogProps {
   onOpenChange: (open: boolean) => void;
   anesthesiaRecordId: string | null;
   pendingOutputBulk: PendingOutputBulk | null;
+  intraOpDrainages?: DrainageInfo[];
   onOutputBulkCreated?: () => void;
   readOnly?: boolean;
+}
+
+/** Get the display label for a drainage */
+function getDrainageLabel(drainage: DrainageInfo): string {
+  const typeName = drainage.type === 'Other' && drainage.typeOther
+    ? drainage.typeOther
+    : drainage.type;
+  return drainage.position ? `${typeName} — ${drainage.position}` : typeName;
 }
 
 export function OutputBulkDialog({
@@ -23,11 +40,12 @@ export function OutputBulkDialog({
   onOpenChange,
   anesthesiaRecordId,
   pendingOutputBulk,
+  intraOpDrainages = [],
   onOutputBulkCreated,
   readOnly = false,
 }: OutputBulkDialogProps) {
   const { t } = useTranslation();
-  const [bulkOutputParams, setBulkOutputParams] = useState({
+  const [bulkOutputParams, setBulkOutputParams] = useState<Record<string, string>>({
     urine: "",
     blood: "",
     gastricTube: "",
@@ -36,18 +54,26 @@ export function OutputBulkDialog({
   });
 
   const createOutput = useCreateOutput(anesthesiaRecordId || undefined);
+  const hasDrainages = intraOpDrainages.length > 0;
 
   useEffect(() => {
     if (!open) {
-      setBulkOutputParams({
+      const initial: Record<string, string> = {
         urine: "",
         blood: "",
         gastricTube: "",
-        drainage: "",
         vomit: "",
-      });
+      };
+      if (hasDrainages) {
+        for (const drainage of intraOpDrainages) {
+          initial[`drainage_${drainage.id}`] = "";
+        }
+      } else {
+        initial.drainage = "";
+      }
+      setBulkOutputParams(initial);
     }
-  }, [open]);
+  }, [open, hasDrainages, intraOpDrainages]);
 
   const handleSave = () => {
     if (readOnly) return;
@@ -57,24 +83,33 @@ export function OutputBulkDialog({
     const { time } = pendingOutputBulk;
     const timestamp = new Date(time).toISOString();
 
-    // Add all filled parameters using createOutput mutation
-    const parameterMappings = [
-      { key: 'urine', paramKey: 'urine' as const },
-      { key: 'blood', paramKey: 'blood' as const },
-      { key: 'gastricTube', paramKey: 'gastricTube' as const },
-      { key: 'drainage', paramKey: 'drainage' as const },
-      { key: 'vomit', paramKey: 'vomit' as const },
+    // Static params (always present)
+    const staticMappings: Array<{ key: string; paramKey: string }> = [
+      { key: 'urine', paramKey: 'urine' },
+      { key: 'blood', paramKey: 'blood' },
+      { key: 'gastricTube', paramKey: 'gastricTube' },
+      { key: 'vomit', paramKey: 'vomit' },
     ];
 
-    parameterMappings.forEach(({ key, paramKey }) => {
-      const valueStr = bulkOutputParams[key as keyof typeof bulkOutputParams];
+    // Add drainage: either individual drainages or the single generic one
+    if (hasDrainages) {
+      for (const drainage of intraOpDrainages) {
+        const key = `drainage_${drainage.id}`;
+        staticMappings.push({ key, paramKey: key });
+      }
+    } else {
+      staticMappings.push({ key: 'drainage', paramKey: 'drainage' });
+    }
+
+    staticMappings.forEach(({ key, paramKey }) => {
+      const valueStr = bulkOutputParams[key];
       if (valueStr) {
         const value = parseFloat(valueStr);
         if (!isNaN(value)) {
           createOutput.mutate({
             anesthesiaRecordId,
             timestamp,
-            paramKey,
+            paramKey: paramKey as any,
             value,
           });
         }
@@ -98,9 +133,7 @@ export function OutputBulkDialog({
       className="sm:max-w-[550px]"
       testId="dialog-output-bulk"
       time={pendingOutputBulk?.time}
-      onTimeChange={(newTime) => {
-        // This is a controlled component update - parent should handle this
-      }}
+      onTimeChange={() => {}}
       showDelete={false}
       onCancel={handleClose}
       onSave={!readOnly ? handleSave : undefined}
@@ -148,19 +181,46 @@ export function OutputBulkDialog({
               disabled={readOnly}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="bulk-drainage">{t('dialogs.outputDrainage')}</Label>
-            <Input
-              id="bulk-drainage"
-              type="number"
-              step="1"
-              value={bulkOutputParams.drainage}
-              onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
-              data-testid="input-bulk-drainage"
-              placeholder={t('common.optional')}
-              disabled={readOnly}
-            />
-          </div>
+
+          {/* Drainage fields: individual per drainage or single generic */}
+          {hasDrainages ? (
+            intraOpDrainages.map((drainage) => {
+              const key = `drainage_${drainage.id}`;
+              const label = getDrainageLabel(drainage);
+              return (
+                <div key={key} className="grid gap-2">
+                  <Label htmlFor={`bulk-${key}`} className="text-xs leading-tight" title={label}>
+                    {label} (ml)
+                  </Label>
+                  <Input
+                    id={`bulk-${key}`}
+                    type="number"
+                    step="1"
+                    value={bulkOutputParams[key] || ""}
+                    onChange={(e) => setBulkOutputParams(prev => ({ ...prev, [key]: e.target.value }))}
+                    data-testid={`input-bulk-${key}`}
+                    placeholder={t('common.optional')}
+                    disabled={readOnly}
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-drainage">{t('dialogs.outputDrainage')}</Label>
+              <Input
+                id="bulk-drainage"
+                type="number"
+                step="1"
+                value={bulkOutputParams.drainage}
+                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
+                data-testid="input-bulk-drainage"
+                placeholder={t('common.optional')}
+                disabled={readOnly}
+              />
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="bulk-vomit">{t('dialogs.outputVomit')}</Label>
             <Input

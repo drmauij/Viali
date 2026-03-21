@@ -2,8 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ClinicalSnapshot } from '@shared/schema';
 
-// Valid output parameter keys
-export type OutputParamKey = 'urine' | 'blood' | 'gastricTube' | 'drainage' | 'vomit';
+// Valid output parameter keys (includes dynamic drainage_<id> keys)
+export type OutputParamKey = 'urine' | 'blood' | 'gastricTube' | 'drainage' | 'vomit' | `drainage_${string}`;
 
 // Hook to create an output point
 export function useCreateOutput(anesthesiaRecordId: string | undefined) {

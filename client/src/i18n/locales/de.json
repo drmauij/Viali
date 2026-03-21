@@ -3792,7 +3792,8 @@
         "label": "Ausscheidung",
         "clickForBulkEntry": "Klicken fuer Sammel-Eingabe",
         "clickToEdit": "Klicken um Wert zu bearbeiten",
-        "clickToAdd": "Klicken um Wert hinzuzufuegen"
+        "clickToAdd": "Klicken um Wert hinzuzufuegen",
+        "drainageTotal": "Drainage Gesamt (ml)"
       },
       "others": "Sonstiges",
       "reorderMedications": "Medikamente sortieren",

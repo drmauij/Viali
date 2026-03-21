@@ -3271,14 +3271,20 @@ export const updateVentilationModePointSchema = z.object({
 
 export const addOutputPointSchema = z.object({
   anesthesiaRecordId: z.string(),
-  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  paramKey: z.union([
+    z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+    z.string().regex(/^drainage_/),
+  ]),
   timestamp: z.string(),
   value: z.number(),
 });
 
 export const updateOutputPointSchema = z.object({
   anesthesiaRecordId: z.string(),
-  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  paramKey: z.union([
+    z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+    z.string().regex(/^drainage_/),
+  ]),
   pointId: z.string(),
   value: z.number().optional(),
   timestamp: z.string().optional(),
@@ -3286,7 +3292,10 @@ export const updateOutputPointSchema = z.object({
 
 export const deleteOutputPointSchema = z.object({
   anesthesiaRecordId: z.string(),
-  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  paramKey: z.union([
+    z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+    z.string().regex(/^drainage_/),
+  ]),
   pointId: z.string(),
 });
 
@@ -3698,12 +3707,26 @@ export const clinicServices = pgTable("clinic_services", {
   durationMinutes: integer("duration_minutes"),
   isShared: boolean("is_shared").default(false).notNull(),
   isInvoiceable: boolean("is_invoiceable").default(false), // Whether service appears in invoice service picker
+  code: varchar("code"), // Alphanumeric booking code for public website linking
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_clinic_services_hospital").on(table.hospitalId),
   index("idx_clinic_services_unit").on(table.unitId),
+  uniqueIndex("idx_clinic_services_hospital_code").on(table.hospitalId, table.code),
+]);
+
+// Clinic Service Providers - Maps services to bookable providers
+export const clinicServiceProviders = pgTable("clinic_service_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull().references(() => clinicServices.id, { onDelete: 'cascade' }),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_clinic_service_providers_unique").on(table.serviceId, table.providerId),
+  index("idx_clinic_service_providers_service").on(table.serviceId),
+  index("idx_clinic_service_providers_provider").on(table.providerId),
 ]);
 
 // Clinic Invoice Items - Line items for each invoice (supports both items and services)
@@ -3744,9 +3767,17 @@ export const insertClinicInvoiceItemSchema = createInsertSchema(clinicInvoiceIte
   id: true,
 });
 
+// Clinic Service Providers Insert Schema
+export const insertClinicServiceProviderSchema = createInsertSchema(clinicServiceProviders).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Clinic Services Types
 export type ClinicService = typeof clinicServices.$inferSelect;
 export type InsertClinicService = z.infer<typeof insertClinicServiceSchema>;
+export type ClinicServiceProvider = typeof clinicServiceProviders.$inferSelect;
+export type InsertClinicServiceProvider = z.infer<typeof insertClinicServiceProviderSchema>;
 
 // Clinic Invoice Types
 export type ClinicInvoice = typeof clinicInvoices.$inferSelect;

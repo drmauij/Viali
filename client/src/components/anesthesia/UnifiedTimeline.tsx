@@ -1194,22 +1194,31 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     const snapshotData = clinicalSnapshot?.data as any;
     
-    // Extract all output parameters
-    const outputParams = {
+    // Extract all output parameters (including dynamic drainage_* keys)
+    const outputEntries: Record<string, any[]> = {
       urine: snapshotData?.urine || [],
       blood: snapshotData?.blood || [],
       gastricTube: snapshotData?.gastricTube || [],
       drainage: snapshotData?.drainage || [],
       vomit: snapshotData?.vomit || [],
     };
-    
-    const totalPoints = Object.values(outputParams).reduce((sum, arr) => sum + arr.length, 0);
-    
+
+    // Also extract individual drainage keys (drainage_<id>)
+    if (snapshotData) {
+      for (const key of Object.keys(snapshotData)) {
+        if (key.startsWith('drainage_')) {
+          outputEntries[key] = snapshotData[key] || [];
+        }
+      }
+    }
+
+    const totalPoints = Object.values(outputEntries).reduce((sum, arr) => sum + arr.length, 0);
+
     if (totalPoints > 0) {
       console.log('[OUTPUT-SYNC] Loading output data from snapshot:', totalPoints, 'points');
       const outputDataEntries: any = {};
-      
-      for (const [key, points] of Object.entries(outputParams)) {
+
+      for (const [key, points] of Object.entries(outputEntries)) {
         if (points.length > 0) {
           // Store as objects with ID to enable proper CRUD operations
           outputDataEntries[key] = points.map((point: any) => ({
@@ -1219,7 +1228,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           }));
         }
       }
-      
+
       setOutputData(outputDataEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -1959,6 +1968,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     "Vomit (ml)",
   ];
 
+  // Extract documented drainages from intraOpData
+  const intraOpDrainages: Array<{ id: string; type: string; typeOther?: string; size: string; position: string }> =
+    (anesthesiaRecord?.intraOpData as any)?.drainages ?? [];
+
   // Default swimlane configuration - can be overridden via props
   // Order: Monitoring (when visible) → Times → Events → (PACU: VAS, Scores) → Medications → Position → Ventilation → Output
   const baseSwimlanes: SwimlaneConfig[] = [
@@ -2092,12 +2105,35 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       if (lane.id === "output" && !collapsedSwimlanes.has("output")) {
         const outputColor = { colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" };
         outputParams.forEach((paramName, index) => {
-          lanes.push({
-            id: `output-${index}`,
-            label: `  ${paramName}`,
-            height: 38,
-            ...outputColor,
-          });
+          // For the Drainage lane (index 3), insert individual drainage swimlanes before it
+          if (index === 3 && intraOpDrainages.length > 0) {
+            intraOpDrainages.forEach((drainage) => {
+              const drainageLabel = drainage.type === 'Other' && drainage.typeOther
+                ? drainage.typeOther
+                : drainage.type;
+              const posLabel = drainage.position ? ` — ${drainage.position}` : '';
+              lanes.push({
+                id: `output-drainage-${drainage.id}`,
+                label: `    ${drainageLabel}${posLabel}`,
+                height: 34,
+                ...outputColor,
+              });
+            });
+            // Drainage total lane (read-only sum when individual drainages exist)
+            lanes.push({
+              id: `output-${index}`,
+              label: `  ${t('anesthesia.timeline.output.drainageTotal', 'Drainage Total (ml)')}`,
+              height: 38,
+              ...outputColor,
+            });
+          } else {
+            lanes.push({
+              id: `output-${index}`,
+              label: `  ${paramName}`,
+              height: 38,
+              ...outputColor,
+            });
+          }
         });
       }
 
@@ -2106,7 +2142,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [showMonitoring, collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [showMonitoring, collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode, pkSimulation.mode, pkSimulation.missingFields.length, intraOpDrainages]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
@@ -6168,6 +6204,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <OutputSwimlane
         swimlanePositions={swimlanePositions}
         isTouchDevice={isTouchDevice}
+        intraOpDrainages={intraOpDrainages}
         onOutputDialogOpen={(pending) => {
           setPendingOutputValue(pending);
           setShowOutputDialog(true);
@@ -8366,6 +8403,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onOpenChange={setShowOutputBulkDialog}
         anesthesiaRecordId={anesthesiaRecordId ?? null}
         pendingOutputBulk={pendingOutputBulk}
+        intraOpDrainages={intraOpDrainages}
         onOutputBulkCreated={() => {
           setPendingOutputBulk(null);
         }}

@@ -8,6 +8,7 @@ export interface OutputData {
   gastricTube: OutputPoint[];
   drainage: OutputPoint[];
   vomit: OutputPoint[];
+  [key: `drainage_${string}`]: OutputPoint[];
 }
 
 export type UrineMode = 'partial' | 'total'; // partial = urometer (incremental), total = bag (absolute)

@@ -3711,7 +3711,8 @@
         "label": "Output",
         "clickForBulkEntry": "Click for bulk entry",
         "clickToEdit": "Click to edit value",
-        "clickToAdd": "Click to add value"
+        "clickToAdd": "Click to add value",
+        "drainageTotal": "Drainage Total (ml)"
       },
       "others": "Others",
       "reorderMedications": "Reorder Medications",
