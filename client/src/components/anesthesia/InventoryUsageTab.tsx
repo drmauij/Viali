@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Loader2 } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Loader2, ImageIcon } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/dateUtils";
 import type { Module } from "@/contexts/ModuleContext";
 
@@ -33,6 +34,7 @@ interface Item {
   controlled: boolean;
   trackExactQuantity: boolean;
   unit?: string | null;
+  imageUrl?: string | null;
 }
 
 interface FolderType {
@@ -67,6 +69,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   // State for tracking which commits are expanded to show details
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(() => new Set());
   
@@ -739,6 +742,23 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
                           data-testid={`inventory-item-${item.id}`}
                         >
                           <div className="flex-1 flex items-center gap-3">
+                            {item.imageUrl && (
+                              <button
+                                type="button"
+                                className="relative w-8 h-8 rounded border border-border overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setZoomImageUrl(item.imageUrl!);
+                                }}
+                                title={t('inventory.viewImage', 'View image')}
+                              >
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                            )}
                             <p className="font-medium text-sm">{item.name}</p>
                             {autoCalc > 0 && (
                               <span className="text-xs text-muted-foreground">
@@ -819,6 +839,18 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         patientName={patient ? `${patient.surname}, ${patient.firstName}` : null}
         patientBirthday={patient?.birthday}
       />
+
+      <Dialog open={!!zoomImageUrl} onOpenChange={() => setZoomImageUrl(null)}>
+        <DialogContent className="max-w-lg p-2">
+          {zoomImageUrl && (
+            <img
+              src={zoomImageUrl}
+              alt=""
+              className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
