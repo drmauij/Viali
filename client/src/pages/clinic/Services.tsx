@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check, Upload } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +62,10 @@ export default function ClinicServices() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<ServiceWithUnit | null>(null);
   
+  // Bulk import state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+
   // Bulk move state
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
@@ -245,6 +249,56 @@ export default function ClinicServices() {
     },
   });
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (lines: { code: string; name: string; description: string }[]) => {
+      const providerIds = bookableProviders.map(p => p.userId);
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-import`, {
+        unitId,
+        lines,
+        providerIds,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      setImportDialogOpen(false);
+      setImportText("");
+      const msg = `${data.created} service(s) imported`;
+      const errMsg = data.errors?.length ? `\n${data.errors.join('\n')}` : '';
+      toast({
+        title: msg,
+        description: errMsg || undefined,
+        variant: data.errors?.length ? "default" : "default",
+      });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), variant: "destructive" });
+    },
+  });
+
+  const handleBulkImport = () => {
+    const rawLines = importText.trim().split('\n').filter(l => l.trim());
+    if (rawLines.length === 0) {
+      toast({ title: "No lines to import", variant: "destructive" });
+      return;
+    }
+
+    const parsed = rawLines.map(line => {
+      // Try tab-separated first, fall back to comma-separated
+      let parts = line.split('\t');
+      if (parts.length < 2) {
+        parts = line.split(',');
+      }
+      return {
+        code: parts[0]?.trim() || '',
+        name: parts[1]?.trim() || parts[0]?.trim() || '',
+        description: parts[2]?.trim() || '',
+      };
+    });
+
+    bulkImportMutation.mutate(parsed);
+  };
+
   const toggleServiceSelection = (serviceId: string) => {
     setSelectedServices(prev => {
       const next = new Set(prev);
@@ -384,6 +438,10 @@ export default function ClinicServices() {
             >
               <CheckSquare className="h-4 w-4 mr-2" />
               {t('clinic.services.bulkActions', 'Bulk Actions')}
+            </Button>
+            <Button variant="outline" onClick={() => setImportDialogOpen(true)} data-testid="button-import-services">
+              <Upload className="h-4 w-4 mr-2" />
+              {t('clinic.services.import', 'Import')}
             </Button>
             <Button onClick={handleOpenCreate} data-testid="button-create-service">
               <Plus className="h-4 w-4 mr-2" />
@@ -714,6 +772,46 @@ export default function ClinicServices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Import Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => {
+        setImportDialogOpen(open);
+        if (!open) setImportText("");
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('clinic.services.importTitle', 'Import Services')}</DialogTitle>
+            <DialogDescription>
+              {t('clinic.services.importDesc', 'Paste a list of services — one per line. Each line: code, name, description (separated by tab or comma). All bookable providers will be assigned automatically.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={"breast-aug\tBreast Augmentation\tCosmetic breast surgery\nrhino\tRhinoplasty\tNose reshaping procedure"}
+              rows={10}
+              className="font-mono text-sm"
+              data-testid="textarea-import-services"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('clinic.services.importHint', 'Format: code, name, description (tab or comma separated). Lines with only one value will use it as the name.')}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={!importText.trim() || bulkImportMutation.isPending}
+              data-testid="button-confirm-import"
+            >
+              {bulkImportMutation.isPending ? t('common.importing', 'Importing...') : t('clinic.services.importButton', 'Import')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Move Dialog */}
       <Dialog open={bulkMoveDialogOpen} onOpenChange={(open) => {

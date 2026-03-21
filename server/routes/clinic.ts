@@ -1090,6 +1090,63 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
   }
 });
 
+// Bulk import services from pasted text (tab or comma separated: code, name, description)
+router.post('/api/clinic/:hospitalId/services/bulk-import', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId, lines, providerIds } = req.body;
+
+    if (!unitId || !Array.isArray(lines) || lines.length === 0) {
+      return res.status(400).json({ message: "unitId and non-empty lines array are required" });
+    }
+
+    const created: any[] = [];
+    const errors: string[] = [];
+
+    for (const line of lines) {
+      const { code, name, description } = line;
+      if (!name || !name.trim()) {
+        errors.push(`Skipped line with empty name${code ? ` (code: ${code})` : ''}`);
+        continue;
+      }
+
+      const cleanCode = code?.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || null;
+      if (cleanCode && cleanCode.length > 50) {
+        errors.push(`Skipped "${name}": code exceeds 50 characters`);
+        continue;
+      }
+
+      try {
+        const validatedData = insertClinicServiceSchema.parse({
+          hospitalId,
+          unitId,
+          name: name.trim(),
+          description: description?.trim() || null,
+          code: cleanCode || null,
+        });
+
+        const [service] = await db
+          .insert(clinicServices)
+          .values(validatedData)
+          .returning();
+
+        if (Array.isArray(providerIds) && providerIds.length > 0) {
+          await storage.setServiceProviders(service.id, providerIds);
+        }
+
+        created.push(service);
+      } catch (err: any) {
+        errors.push(`Failed to create "${name}": ${err.message}`);
+      }
+    }
+
+    res.status(201).json({ created: created.length, errors });
+  } catch (error) {
+    logger.error("Error bulk importing services:", error);
+    res.status(500).json({ message: "Failed to bulk import services" });
+  }
+});
+
 // ========================================
 // Invoice Number
 // ========================================
