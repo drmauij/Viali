@@ -185,15 +185,17 @@ export async function getBookableProvidersByHospital(hospitalId: string): Promis
     ))
     .orderBy(asc(users.lastName), asc(users.firstName));
 
-  const seen = new Set<string>();
-  const unique: (ClinicProvider & { user: User })[] = [];
+  const byUser = new Map<string, (ClinicProvider & { user: User })>();
   for (const r of results) {
-    if (!seen.has(r.role.userId)) {
-      seen.add(r.role.userId);
-      unique.push({ ...roleToClinicProvider(r.role), user: r.user });
+    const existing = byUser.get(r.role.userId);
+    if (!existing) {
+      byUser.set(r.role.userId, { ...roleToClinicProvider(r.role), user: r.user });
+    } else if (r.role.role === 'doctor' && existing.role !== 'doctor') {
+      // Prefer doctor role so the Dr. prefix is applied
+      byUser.set(r.role.userId, { ...existing, role: 'doctor' });
     }
   }
-  return unique;
+  return Array.from(byUser.values());
 }
 
 export async function getBookableProvidersByUnit(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
@@ -210,15 +212,17 @@ export async function getBookableProvidersByUnit(unitId: string): Promise<(Clini
     ))
     .orderBy(asc(users.lastName), asc(users.firstName));
 
-  const seen = new Set<string>();
-  const unique: (ClinicProvider & { user: User })[] = [];
+  const byUser = new Map<string, (ClinicProvider & { user: User })>();
   for (const r of results) {
-    if (!seen.has(r.role.userId)) {
-      seen.add(r.role.userId);
-      unique.push({ ...roleToClinicProvider(r.role), user: r.user });
+    const existing = byUser.get(r.role.userId);
+    if (!existing) {
+      byUser.set(r.role.userId, { ...roleToClinicProvider(r.role), user: r.user });
+    } else if (r.role.role === 'doctor' && existing.role !== 'doctor') {
+      // Prefer doctor role so the Dr. prefix is applied
+      byUser.set(r.role.userId, { ...existing, role: 'doctor' });
     }
   }
-  return unique;
+  return Array.from(byUser.values());
 }
 
 export async function getProviderAvailability(providerId: string, unitId: string | null, hospitalId?: string): Promise<ProviderAvailability[]> {
