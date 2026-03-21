@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ type SurgerySetData = {
   intraOpData: Record<string, any> | null;
   isActive: boolean;
   createdAt: string;
-  inventoryItems: { id: string; itemId: string; quantity: number; sortOrder: number; itemName: string }[];
+  inventoryItems: { id: string; itemId: string; quantity: number; sortOrder: number; itemName: string; imageUrl?: string | null }[];
 };
 
 interface SurgerySetDetailDialogProps {
@@ -24,6 +25,7 @@ interface SurgerySetDetailDialogProps {
 
 export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDetailDialogProps) {
   const { t } = useTranslation();
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   if (!set) return null;
 
@@ -376,6 +378,7 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="w-[95vw] max-w-4xl h-[90vh] flex flex-col p-0"
@@ -504,7 +507,23 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
                               key={item.id}
                               className="flex items-center gap-3 p-3 rounded-lg border bg-card"
                             >
-                              <Package className="h-5 w-5 text-muted-foreground shrink-0" />
+                              {item.imageUrl ? (
+                                <button
+                                  type="button"
+                                  className="relative w-8 h-8 rounded border border-border overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                                  onClick={() => setZoomImageUrl(item.imageUrl!)}
+                                  title={t('inventory.viewImage', 'View image')}
+                                >
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.itemName}
+                                    loading="lazy"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </button>
+                              ) : (
+                                <Package className="h-5 w-5 text-muted-foreground shrink-0" />
+                              )}
                               <span className="flex-1 text-base font-medium truncate">{item.itemName}</span>
                               <Badge variant="secondary" className="text-sm px-2.5 py-0.5 font-semibold">
                                 x{item.quantity}
@@ -522,5 +541,20 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    {/* Image zoom dialog */}
+    <Dialog open={!!zoomImageUrl} onOpenChange={() => setZoomImageUrl(null)}>
+      <DialogContent className="max-w-lg p-2">
+        <DialogTitle className="sr-only">Image</DialogTitle>
+        {zoomImageUrl && (
+          <img
+            src={zoomImageUrl}
+            alt=""
+            className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

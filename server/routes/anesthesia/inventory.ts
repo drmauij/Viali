@@ -337,7 +337,7 @@ router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, requireStrictHos
         const inventoryItems = await Promise.all(
           rawInventoryItems.map(async (inv) => {
             const item = await storage.getItem(inv.itemId);
-            return { ...inv, itemName: item?.name || 'Unknown' };
+            return { ...inv, itemName: item?.name || 'Unknown', imageUrl: item?.imageUrl || null };
           })
         );
 
@@ -1084,8 +1084,8 @@ router.get('/api/surgery-sets/:hospitalId', isAuthenticated, requireStrictHospit
     const setsWithDetails = await Promise.all(sets.map(async (set) => {
       const inventoryItems = await storage.getSurgerySetInventory(set.id);
       const inventoryWithNames = await Promise.all(inventoryItems.map(async (inv) => {
-        const [item] = await db.select({ name: items.name }).from(items).where(eq(items.id, inv.itemId));
-        return { ...inv, itemName: item?.name || 'Unknown' };
+        const [item] = await db.select({ name: items.name, imageUrl: items.imageUrl }).from(items).where(eq(items.id, inv.itemId));
+        return { ...inv, itemName: item?.name || 'Unknown', imageUrl: item?.imageUrl || null };
       }));
       return { ...set, inventoryItems: inventoryWithNames };
     }));
