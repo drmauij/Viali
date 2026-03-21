@@ -41,6 +41,7 @@ interface SurgerySetsDialogProps {
   recordId?: string;
   isAdmin: boolean;
   onSetApplied?: () => void;
+  initialInventoryItems?: { itemId: string; quantity: number; itemName?: string }[];
 }
 
 export function SurgerySetsDialog({
@@ -50,6 +51,7 @@ export function SurgerySetsDialog({
   recordId,
   isAdmin,
   onSetApplied,
+  initialInventoryItems,
 }: SurgerySetsDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -60,6 +62,15 @@ export function SurgerySetsDialog({
       setActiveTab("apply");
     }
   }, [open, recordId]);
+
+  useEffect(() => {
+    if (open && initialInventoryItems?.length) {
+      resetForm();
+      setActiveTab("manage");
+      setIsCreating(true);
+      setFormInventoryItems(initialInventoryItems);
+    }
+  }, [open]);
 
   const [applySearch, setApplySearch] = useState("");
   const [detailDialogSet, setDetailDialogSet] = useState<SurgerySetData | null>(null);

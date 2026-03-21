@@ -84,6 +84,7 @@ interface UnifiedAnesthesiaSetsDialogProps {
   recordId?: string;
   isAdmin: boolean;
   onSetApplied?: () => void;
+  initialInventoryItems?: { itemId: string; itemName: string; quantity: number }[];
 }
 
 const TECHNIQUE_CATEGORIES = [
@@ -216,16 +217,26 @@ export function UnifiedAnesthesiaSetsDialog({
   recordId,
   isAdmin,
   onSetApplied,
+  initialInventoryItems,
 }: UnifiedAnesthesiaSetsDialogProps) {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"apply" | "manage">(recordId ? "apply" : (isAdmin ? "manage" : "apply"));
-  
+
   useEffect(() => {
     if (open && recordId) {
       setActiveTab("apply");
     }
   }, [open, recordId]);
+
+  useEffect(() => {
+    if (open && initialInventoryItems?.length) {
+      resetForm();
+      setActiveTab("manage");
+      setShowCreateForm(true);
+      setPendingInventory(initialInventoryItems);
+    }
+  }, [open]);
 
   const [editingSet, setEditingSet] = useState<AnesthesiaSetWithDetails | null>(null);
   const [newSetName, setNewSetName] = useState("");

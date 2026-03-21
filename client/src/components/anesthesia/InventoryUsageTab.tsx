@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Loader2, ImageIcon } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Loader2, ImageIcon, Layers } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
+import { SurgerySetsDialog } from "./dialogs/SurgerySetsDialog";
+import { UnifiedAnesthesiaSetsDialog } from "./dialogs/UnifiedAnesthesiaSetsDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/dateUtils";
@@ -72,7 +74,8 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   // State for tracking which commits are expanded to show details
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(() => new Set());
-  
+  const [showCreateSetFromCommits, setShowCreateSetFromCommits] = useState(false);
+
   const isAdmin = activeHospital?.role === 'admin';
 
   // Toggle folder expansion
@@ -136,6 +139,23 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     },
     enabled: !!anesthesiaRecordId,
   });
+
+  // Aggregate all committed items from non-rolled-back batches, merging duplicates by itemId
+  const aggregatedCommittedItems = useMemo(() => {
+    const itemMap = new Map<string, { itemId: string; itemName: string; quantity: number }>();
+    for (const commit of commits) {
+      if (commit.rolledBackAt) continue;
+      for (const item of commit.items) {
+        const existing = itemMap.get(item.itemId);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          itemMap.set(item.itemId, { itemId: item.itemId, itemName: item.itemName, quantity: item.quantity });
+        }
+      }
+    }
+    return Array.from(itemMap.values());
+  }, [commits]);
 
   // Fetch medications to detect running infusions
   const { data: medications = [] } = useQuery<any[]>({
@@ -670,6 +690,20 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         </Card>
       )}
 
+      {/* Create Set from Committed Items */}
+      {commits.length > 0 && isAdmin && aggregatedCommittedItems.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCreateSetFromCommits(true)}
+          >
+            <Layers className="h-4 w-4 mr-2" />
+            {t('anesthesia.op.createSetFromCommits', 'Create set from committed items')}
+          </Button>
+        </div>
+      )}
+
       {/* Search Field */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -859,6 +893,24 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
           )}
         </DialogContent>
       </Dialog>
+
+      {activeModule === 'surgery' ? (
+        <SurgerySetsDialog
+          open={showCreateSetFromCommits}
+          onOpenChange={setShowCreateSetFromCommits}
+          hospitalId={activeHospital?.id || ''}
+          isAdmin={isAdmin}
+          initialInventoryItems={aggregatedCommittedItems}
+        />
+      ) : (
+        <UnifiedAnesthesiaSetsDialog
+          open={showCreateSetFromCommits}
+          onOpenChange={setShowCreateSetFromCommits}
+          hospitalId={activeHospital?.id || ''}
+          isAdmin={isAdmin}
+          initialInventoryItems={aggregatedCommittedItems}
+        />
+      )}
     </div>
   );
 }
