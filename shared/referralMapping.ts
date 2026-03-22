@@ -61,6 +61,15 @@ export function mapRefToReferral(refParam: string): MappedReferral {
   return { source: "belegarzt", sourceDetail: refParam, captureMethod: "ref" };
 }
 
+const CLICK_ID_MAP: Record<string, { source: ReferralSource; detail: string }> = {
+  gclid: { source: "search_engine", detail: "Google Ads" },
+  gbraid: { source: "search_engine", detail: "Google Ads" },
+  wbraid: { source: "search_engine", detail: "Google Ads" },
+  fbclid: { source: "social", detail: "Meta Ads" },
+  ttclid: { source: "social", detail: "TikTok Ads" },
+  msclkid: { source: "search_engine", detail: "Bing Ads" },
+};
+
 export function resolveReferralFromParams(params: {
   utmSource?: string | null;
   utmMedium?: string | null;
@@ -68,6 +77,12 @@ export function resolveReferralFromParams(params: {
   utmTerm?: string | null;
   utmContent?: string | null;
   ref?: string | null;
+  gclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
+  fbclid?: string | null;
+  ttclid?: string | null;
+  msclkid?: string | null;
 }): (MappedReferral & { utmParams?: UtmParams; refParam?: string }) | null {
   const utmResult = mapUtmToReferral(params);
   if (utmResult) {
@@ -85,6 +100,13 @@ export function resolveReferralFromParams(params: {
 
   if (params.ref) {
     return { ...mapRefToReferral(params.ref), refParam: params.ref };
+  }
+
+  // Infer source from ad click IDs when no UTM params are present
+  for (const [key, mapped] of Object.entries(CLICK_ID_MAP)) {
+    if (params[key as keyof typeof params]) {
+      return { source: mapped.source, sourceDetail: mapped.detail, captureMethod: "utm" };
+    }
   }
 
   return null;

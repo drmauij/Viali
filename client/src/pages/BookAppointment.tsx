@@ -142,7 +142,8 @@ export default function BookAppointment() {
 
   const autoReferral = useMemo(() => resolveReferralFromParams({
     utmSource, utmMedium, utmCampaign, utmTerm, utmContent, ref: refParam,
-  }), [utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam]);
+    gclid, gbraid, wbraid, fbclid, ttclid, msclkid,
+  }), [utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid]);
 
   // Theme state
   const [isDark, setIsDark] = useState(false);

@@ -684,12 +684,26 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       // Save referral event if any referral data present
       if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid) {
         const { referralEvents } = await import("@shared/schema");
+        // Infer source from click IDs when no explicit source provided
+        let inferredSource = parsed.data.referralSource || "other";
+        let inferredDetail = parsed.data.referralSourceDetail || null;
+        if (!parsed.data.referralSource && !parsed.data.utmSource) {
+          if (parsed.data.gclid || parsed.data.gbraid || parsed.data.wbraid) {
+            inferredSource = "search_engine"; inferredDetail = "Google Ads";
+          } else if (parsed.data.fbclid) {
+            inferredSource = "social"; inferredDetail = "Meta Ads";
+          } else if (parsed.data.ttclid) {
+            inferredSource = "social"; inferredDetail = "TikTok Ads";
+          } else if (parsed.data.msclkid) {
+            inferredSource = "search_engine"; inferredDetail = "Bing Ads";
+          }
+        }
         await db.insert(referralEvents).values({
           hospitalId: hospital.id,
           patientId: patient.id,
           appointmentId: appointment.id,
-          source: parsed.data.referralSource || "other",
-          sourceDetail: parsed.data.referralSourceDetail || null,
+          source: inferredSource,
+          sourceDetail: inferredDetail,
           utmSource: parsed.data.utmSource || null,
           utmMedium: parsed.data.utmMedium || null,
           utmCampaign: parsed.data.utmCampaign || null,
