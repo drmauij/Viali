@@ -23,6 +23,7 @@ const UTM_SOURCE_MAP: Record<string, { source: ReferralSource; detail: string }>
   instagram: { source: "social", detail: "Instagram" },
   ig: { source: "social", detail: "Instagram" },
   tiktok: { source: "social", detail: "TikTok" },
+  linkedin: { source: "social", detail: "LinkedIn" },
   chatgpt: { source: "llm", detail: "ChatGPT" },
   openai: { source: "llm", detail: "ChatGPT" },
   claude: { source: "llm", detail: "Claude" },
