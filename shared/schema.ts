@@ -6272,6 +6272,13 @@ export const referralEvents = pgTable("referral_events", {
   utmTerm: varchar("utm_term"),
   utmContent: varchar("utm_content"),
   refParam: varchar("ref_param"),
+  // Ad platform click IDs for offline conversion tracking
+  gclid: varchar("gclid"),
+  gbraid: varchar("gbraid"),
+  wbraid: varchar("wbraid"),
+  fbclid: varchar("fbclid"),
+  ttclid: varchar("ttclid"),
+  msclkid: varchar("msclkid"),
   captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [

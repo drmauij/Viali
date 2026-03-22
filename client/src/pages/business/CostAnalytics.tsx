@@ -503,6 +503,31 @@ export default function CostAnalytics() {
     enabled: !!activeHospital?.id && activeSubTab === 'referrals',
   });
 
+  // Fetch recent referral events (individual rows with click IDs)
+  const { data: referralEventsList, isLoading: referralEventsLoading } = useQuery<
+    Array<{
+      id: string;
+      source: string;
+      sourceDetail: string | null;
+      utmSource: string | null;
+      utmMedium: string | null;
+      utmCampaign: string | null;
+      gclid: string | null;
+      gbraid: string | null;
+      wbraid: string | null;
+      fbclid: string | null;
+      ttclid: string | null;
+      msclkid: string | null;
+      captureMethod: string;
+      createdAt: string;
+      patientFirstName: string | null;
+      patientLastName: string | null;
+    }>
+  >({
+    queryKey: [`/api/business/${activeHospital?.id}/referral-events?limit=50`],
+    enabled: !!activeHospital?.id && activeSubTab === 'referrals',
+  });
+
   // Transform time-series into line chart format: [{ month, social: N, search_engine: N, ... }]
   const referralLineData = useMemo(() => {
     if (!referralTimeseries?.length) return [];
@@ -1783,6 +1808,119 @@ export default function CostAnalytics() {
               </ResponsiveContainer>
             )}
           </ChartCard>
+
+          {/* Recent referral events table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <List className="h-4 w-4" />
+                {t('business.referrals.recentEvents', 'Recent Referral Events')}
+              </CardTitle>
+              <CardDescription>
+                {t('business.referrals.recentEventsHelp', 'Last 50 booking referrals with ad click IDs for tracking verification')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {referralEventsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : !referralEventsList?.length ? (
+                <div className="text-center text-muted-foreground py-8">
+                  {t('business.referrals.noData')}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('common.date', 'Date')}</TableHead>
+                        <TableHead>{t('common.patient', 'Patient')}</TableHead>
+                        <TableHead>{t('business.referrals.source', 'Source')}</TableHead>
+                        <TableHead>{t('business.referrals.detail', 'Detail')}</TableHead>
+                        <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
+                        <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {referralEventsList.map((ev) => {
+                        const clickIds = [
+                          ev.gclid && `gclid`,
+                          ev.gbraid && `gbraid`,
+                          ev.wbraid && `wbraid`,
+                          ev.fbclid && `fbclid`,
+                          ev.ttclid && `ttclid`,
+                          ev.msclkid && `msclkid`,
+                        ].filter(Boolean);
+                        return (
+                          <TableRow key={ev.id}>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {new Date(ev.createdAt).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ') || '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="secondary"
+                                style={{ backgroundColor: `${REFERRAL_COLORS[ev.source] || '#6b7280'}20`, color: REFERRAL_COLORS[ev.source] || '#6b7280' }}
+                              >
+                                {REFERRAL_LABELS[ev.source] || ev.source}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {ev.sourceDetail || '—'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {ev.utmCampaign || '—'}
+                            </TableCell>
+                            <TableCell>
+                              {clickIds.length > 0 ? (
+                                <div className="flex gap-1 flex-wrap">
+                                  {ev.gclid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.gclid}>
+                                      gclid
+                                    </Badge>
+                                  )}
+                                  {ev.gbraid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.gbraid}>
+                                      gbraid
+                                    </Badge>
+                                  )}
+                                  {ev.wbraid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.wbraid}>
+                                      wbraid
+                                    </Badge>
+                                  )}
+                                  {ev.fbclid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.fbclid}>
+                                      fbclid
+                                    </Badge>
+                                  )}
+                                  {ev.ttclid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.ttclid}>
+                                      ttclid
+                                    </Badge>
+                                  )}
+                                  {ev.msclkid && (
+                                    <Badge variant="outline" className="text-xs font-mono" title={ev.msclkid}>
+                                      msclkid
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Leads Tab */}

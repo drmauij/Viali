@@ -1837,6 +1837,44 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isB
   }
 });
 
+// Recent referral events list (for verifying click ID tracking)
+router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
+    const rows = await db
+      .select({
+        id: referralEvents.id,
+        source: referralEvents.source,
+        sourceDetail: referralEvents.sourceDetail,
+        utmSource: referralEvents.utmSource,
+        utmMedium: referralEvents.utmMedium,
+        utmCampaign: referralEvents.utmCampaign,
+        gclid: referralEvents.gclid,
+        gbraid: referralEvents.gbraid,
+        wbraid: referralEvents.wbraid,
+        fbclid: referralEvents.fbclid,
+        ttclid: referralEvents.ttclid,
+        msclkid: referralEvents.msclkid,
+        captureMethod: referralEvents.captureMethod,
+        createdAt: referralEvents.createdAt,
+        patientFirstName: patients.firstName,
+        patientLastName: patients.surname,
+      })
+      .from(referralEvents)
+      .innerJoin(patients, eq(referralEvents.patientId, patients.id))
+      .where(eq(referralEvents.hospitalId, hospitalId))
+      .orderBy(desc(referralEvents.createdAt))
+      .limit(limit);
+
+    res.json(rows);
+  } catch (error: any) {
+    logger.error('Error fetching referral events:', error);
+    res.status(500).json({ message: 'Failed to fetch referral events' });
+  }
+});
+
 // ========================================
 // Lead Conversion Analysis (manager-only)
 // ========================================

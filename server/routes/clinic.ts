@@ -590,6 +590,13 @@ const bookingSchema = z.object({
   utmTerm: z.string().max(500).nullish(),
   utmContent: z.string().max(500).nullish(),
   refParam: z.string().max(500).nullish(),
+  // Ad platform click IDs
+  gclid: z.string().max(500).nullish(),
+  gbraid: z.string().max(500).nullish(),
+  wbraid: z.string().max(500).nullish(),
+  fbclid: z.string().max(500).nullish(),
+  ttclid: z.string().max(500).nullish(),
+  msclkid: z.string().max(500).nullish(),
   noShowFeeAcknowledged: z.boolean().optional(),
   serviceId: z.string().nullish(),
 });
@@ -675,7 +682,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       });
 
       // Save referral event if any referral data present
-      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam) {
+      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid) {
         const { referralEvents } = await import("@shared/schema");
         await db.insert(referralEvents).values({
           hospitalId: hospital.id,
@@ -689,6 +696,12 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           utmTerm: parsed.data.utmTerm || null,
           utmContent: parsed.data.utmContent || null,
           refParam: parsed.data.refParam || null,
+          gclid: parsed.data.gclid || null,
+          gbraid: parsed.data.gbraid || null,
+          wbraid: parsed.data.wbraid || null,
+          fbclid: parsed.data.fbclid || null,
+          ttclid: parsed.data.ttclid || null,
+          msclkid: parsed.data.msclkid || null,
           captureMethod: parsed.data.captureMethod || "manual",
         });
       }

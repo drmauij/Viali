@@ -132,6 +132,13 @@ export default function BookAppointment() {
   const utmTerm = searchParams.get("utm_term");
   const utmContent = searchParams.get("utm_content");
   const refParam = searchParams.get("ref");
+  // Ad platform click IDs
+  const gclid = searchParams.get("gclid");
+  const gbraid = searchParams.get("gbraid");
+  const wbraid = searchParams.get("wbraid");
+  const fbclid = searchParams.get("fbclid");
+  const ttclid = searchParams.get("ttclid");
+  const msclkid = searchParams.get("msclkid");
 
   const autoReferral = useMemo(() => resolveReferralFromParams({
     utmSource, utmMedium, utmCampaign, utmTerm, utmContent, ref: refParam,
@@ -436,6 +443,12 @@ export default function BookAppointment() {
           utmTerm,
           utmContent,
           refParam,
+          gclid,
+          gbraid,
+          wbraid,
+          fbclid,
+          ttclid,
+          msclkid,
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
           serviceId: serviceInfo?.id || undefined,
         }),
@@ -457,7 +470,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, noShowFeeAcknowledged]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, noShowFeeAcknowledged]);
 
   // ─── Render helpers ───────────────────────────────────────────
 
