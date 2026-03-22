@@ -735,6 +735,12 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             logger.error('Failed to generate cancel token for booking:', tokenErr);
           }
 
+          const provider = await storage.getUser(providerId);
+          const providerName = provider
+            ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
+            : '';
+          const noShowFeeMsg = hospital.noShowFeeMessage || '';
+
           const { sendAppointmentConfirmationEmail } = await import('../resend');
           await sendAppointmentConfirmationEmail(
             email,
@@ -744,16 +750,15 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             startTime,
             lang,
             manageUrl,
+            providerName,
+            '',
+            noShowFeeMsg,
           );
 
           // Notify clinic staff about new booking
           const clinicEmail = hospital.companyEmail || (hospital as any).externalSurgeryNotificationEmail;
           if (clinicEmail) {
             try {
-              const provider = await storage.getUser(providerId);
-              const providerName = provider
-                ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
-                : '';
               const patientName = `${firstName} ${surname}`.trim();
               const { sendNewBookingAlertEmail } = await import('../resend');
               await sendNewBookingAlertEmail(
