@@ -29,6 +29,7 @@ type AppointmentInfo = {
   patientSurname: string;
   patientEmail: string | null;
   patientPhone: string | null;
+  noShowFeeMessage: string | null;
 };
 
 type CancelResult = {
@@ -346,6 +347,17 @@ export default function ManageAppointment() {
                 {t("Anmerkungen", "Notes")}
               </p>
               <p className="text-gray-700">{info.notes}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No-Show Fee Notice */}
+        {info.noShowFeeMessage && (
+          <Card className="border-amber-200 bg-amber-50/50">
+            <CardContent className="p-4">
+              <p className="text-sm text-amber-800 font-medium">
+                {info.noShowFeeMessage}
+              </p>
             </CardContent>
           </Card>
         )}

@@ -154,6 +154,7 @@ router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
       patientSurname: appointment.patient?.surname || '',
       patientEmail: appointment.patient?.email || null,
       patientPhone: appointment.patient?.phone || null,
+      noShowFeeMessage: hospital.noShowFeeMessage || null,
     });
   } catch (error) {
     logger.error('Error fetching cancel info:', error);
