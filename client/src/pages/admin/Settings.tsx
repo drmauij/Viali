@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Settings, Download, Loader2, Clock, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDateLong } from "@/lib/dateUtils";
@@ -87,6 +87,11 @@ export default function SettingsPage() {
   // External surgery notification email state
   const [notificationEmail, setNotificationEmail] = useState('');
 
+  // Alias state
+  const [aliasInput, setAliasInput] = useState("");
+  const [aliasAvailable, setAliasAvailable] = useState<boolean | null>(null);
+  const [aliasChecking, setAliasChecking] = useState(false);
+
   // --- Queries ---
 
   // Fetch full hospital data
@@ -117,6 +122,16 @@ export default function SettingsPage() {
   const { data: kioskTokenData } = useQuery<{ kioskToken: string | null }>({
     queryKey: [`/api/admin/${activeHospital?.id}/kiosk-token`],
     enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Questionnaire alias query
+  const { data: aliasData } = useQuery({
+    queryKey: [`/api/admin/${activeHospital?.id}/questionnaire-alias`],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/${activeHospital?.id}/questionnaire-alias`);
+      return res.json();
+    },
+    enabled: !!activeHospital?.id,
   });
 
   // --- Effects ---
@@ -407,6 +422,33 @@ export default function SettingsPage() {
     },
   });
 
+  // Alias mutations
+  const setAliasMutation = useMutation({
+    mutationFn: async (alias: string) => {
+      const res = await apiRequest("PUT", `/api/admin/${activeHospital?.id}/questionnaire-alias`, { alias });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/questionnaire-alias`] });
+      toast({ title: t("common.success"), description: "Alias saved" });
+      setAliasInput("");
+      setAliasAvailable(null);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to save alias", variant: "destructive" });
+    },
+  });
+
+  const deleteAliasMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/admin/${activeHospital?.id}/questionnaire-alias`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/questionnaire-alias`] });
+      toast({ title: t("common.success"), description: "Alias removed" });
+    },
+  });
+
   // Seed hospital mutation
   const seedHospitalMutation = useMutation({
     mutationFn: async () => {
@@ -528,6 +570,12 @@ export default function SettingsPage() {
     return `${baseUrl}/questionnaire/hospital/${questionnaireTokenData.questionnaireToken}`;
   };
 
+  const getQuestionnaireAliasUrl = () => {
+    if (!aliasData?.questionnaireAlias) return null;
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/q/${aliasData.questionnaireAlias}`;
+  };
+
   const getExternalSurgeryUrl = () => {
     if (!externalSurgeryTokenData?.token) return null;
     const baseUrl = window.location.origin;
@@ -589,6 +637,33 @@ export default function SettingsPage() {
       }
     }
   };
+
+  // Alias availability check
+  const checkAliasAvailability = useCallback(async (alias: string) => {
+    if (alias.length < 3) {
+      setAliasAvailable(null);
+      return;
+    }
+    setAliasChecking(true);
+    try {
+      const res = await apiRequest("GET", `/api/admin/${activeHospital?.id}/questionnaire-alias/check?alias=${encodeURIComponent(alias)}`);
+      const data = await res.json();
+      setAliasAvailable(data.available);
+    } catch {
+      setAliasAvailable(null);
+    } finally {
+      setAliasChecking(false);
+    }
+  }, [activeHospital?.id]);
+
+  useEffect(() => {
+    if (!aliasInput || aliasInput.length < 3) {
+      setAliasAvailable(null);
+      return;
+    }
+    const timer = setTimeout(() => checkAliasAvailability(aliasInput), 500);
+    return () => clearTimeout(timer);
+  }, [aliasInput, checkAliasAvailability]);
 
   // --- Guards ---
 
@@ -1215,6 +1290,86 @@ export default function SettingsPage() {
                           <Download className="h-4 w-4 mr-2" />
                           {t("admin.downloadQrPoster", "Download QR Poster")}
                         </Button>
+                      </div>
+
+                      {/* Alias URL */}
+                      <div className="border-t border-border pt-3 space-y-2">
+                        <Label className="text-sm font-medium">
+                          {t("admin.questionnaireAlias", "Short URL Alias")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t("admin.questionnaireAliasDescription", "Set a short, memorable URL for patients (e.g. /q/your-clinic-name)")}
+                        </p>
+
+                        {aliasData?.questionnaireAlias ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                              <Input
+                                value={getQuestionnaireAliasUrl() || ""}
+                                readOnly
+                                className="flex-1 bg-background text-sm font-mono"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const url = getQuestionnaireAliasUrl();
+                                  if (url) {
+                                    await navigator.clipboard.writeText(url);
+                                    toast({ title: t("common.success"), description: "Alias URL copied" });
+                                  }
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                                onClick={() => {
+                                  if (confirm(t("admin.deleteAliasConfirm", "Remove this alias? The short URL will stop working."))) {
+                                    deleteAliasMutation.mutate();
+                                  }
+                                }}
+                                disabled={deleteAliasMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">/q/</span>
+                              <Input
+                                value={aliasInput}
+                                onChange={(e) => setAliasInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                placeholder="your-clinic-name"
+                                className="pl-10 text-sm font-mono"
+                                maxLength={50}
+                              />
+                              {aliasChecking && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                              {!aliasChecking && aliasAvailable === true && aliasInput.length >= 3 && (
+                                <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                              )}
+                              {!aliasChecking && aliasAvailable === false && (
+                                <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => setAliasMutation.mutate(aliasInput)}
+                              disabled={!aliasAvailable || aliasInput.length < 3 || setAliasMutation.isPending}
+                            >
+                              {setAliasMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              {t("common.save", "Save")}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
