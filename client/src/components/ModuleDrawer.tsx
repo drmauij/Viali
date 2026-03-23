@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar, CalendarCheck, ClipboardCheck } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar, CalendarCheck, ClipboardCheck, Download } from "lucide-react";
+import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
 import { useQuery } from "@tanstack/react-query";
 
 interface ModuleCard {
@@ -184,11 +185,14 @@ export default function ModuleDrawer() {
     
     // Clinic questionnaire link (if hospital has a questionnaire token and questionnaire addon is enabled)
     if (activeHospital?.questionnaireToken && addons.questionnaire) {
+      const questionnaireUrl = activeHospital.questionnaireAlias
+        ? `${baseUrl}/q/${activeHospital.questionnaireAlias}`
+        : `${baseUrl}/questionnaire/hospital/${activeHospital.questionnaireToken}`;
       links.push({
         id: 'questionnaire',
         icon: <FileText className="w-4 h-4" />,
         label: t('quickLinks.clinicQuestionnaire'),
-        url: `${baseUrl}/questionnaire/hospital/${activeHospital.questionnaireToken}`,
+        url: questionnaireUrl,
       });
     }
 
@@ -353,18 +357,37 @@ export default function ModuleDrawer() {
                       </div>
                       <span className="text-sm font-medium text-foreground">{link.label}</span>
                     </div>
-                    <button
-                      onClick={() => copyToClipboard(link.url, link.id)}
-                      className="p-2 rounded-lg hover:bg-background transition-colors"
-                      title={t('quickLinks.copyLink')}
-                      data-testid={`copy-link-${link.id}`}
-                    >
-                      {copiedLink === link.id ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      {link.id === 'questionnaire' && (
+                        <button
+                          onClick={() => {
+                            generateQuestionnairePosterPdf({
+                              questionnaireUrl: link.url,
+                              hospitalName: activeHospital?.name || "",
+                              companyLogoUrl: activeHospital?.companyLogoUrl || undefined,
+                              language: activeHospital?.defaultLanguage || "de",
+                            });
+                          }}
+                          className="p-2 rounded-lg hover:bg-background transition-colors"
+                          title={t('quickLinks.downloadPoster', 'Download QR Poster')}
+                          data-testid="download-poster-questionnaire"
+                        >
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </button>
                       )}
-                    </button>
+                      <button
+                        onClick={() => copyToClipboard(link.url, link.id)}
+                        className="p-2 rounded-lg hover:bg-background transition-colors"
+                        title={t('quickLinks.copyLink')}
+                        data-testid={`copy-link-${link.id}`}
+                      >
+                        {copiedLink === link.id ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
