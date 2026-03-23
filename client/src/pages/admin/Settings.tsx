@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDateLong } from "@/lib/dateUtils";
 import { generateQuestionnairePosterPdf } from "@/lib/questionnairePosterPdf";
+import QRCode from "qrcode";
 import { LoginAuditLogTab } from "./LoginAuditLog";
 import { BookingTokenSection } from "./components/BookingTokenSection";
 
@@ -537,6 +538,18 @@ export default function SettingsPage() {
     if (!kioskTokenData?.kioskToken) return null;
     const baseUrl = window.location.origin;
     return `${baseUrl}/kiosk/${kioskTokenData.kioskToken}`;
+  };
+
+  const downloadQrCode = async (url: string, filename: string) => {
+    const dataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: 'M',
+      width: 400,
+      margin: 2,
+    });
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    link.click();
   };
 
   const handleCopyLink = async () => {
@@ -1405,6 +1418,18 @@ export default function SettingsPage() {
                       )}
                       {t("admin.disableLink", "Disable Link")}
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = getExternalSurgeryUrl();
+                        if (url) downloadQrCode(url, 'external-surgery-qr-code.png');
+                      }}
+                      data-testid="button-download-external-surgery-qr"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {t("admin.downloadQrCode", "Download QR Code")}
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -1529,6 +1554,18 @@ export default function SettingsPage() {
                         <Trash2 className="h-4 w-4 mr-2" />
                       )}
                       {t("admin.disableLink", "Disable Link")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = getKioskUrl();
+                        if (url) downloadQrCode(url, 'kiosk-qr-code.png');
+                      }}
+                      data-testid="button-download-kiosk-qr"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {t("admin.downloadQrCode", "Download QR Code")}
                     </Button>
                   </div>
                 </div>
