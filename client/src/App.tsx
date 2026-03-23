@@ -71,6 +71,7 @@ const ClinicServices = React.lazy(() => import("@/pages/clinic/Services"));
 const ClinicQuestionnaires = React.lazy(() => import("@/pages/clinic/UnassociatedQuestionnaires"));
 const ClinicAppointments = React.lazy(() => import("@/pages/clinic/Appointments"));
 const PatientQuestionnaire = React.lazy(() => import("@/pages/PatientQuestionnaire"));
+const QuestionnaireAliasResolver = React.lazy(() => import("@/pages/QuestionnaireAliasResolver"));
 const PatientPortal = React.lazy(() => import("@/pages/PatientPortal"));
 const PatientRedirect = React.lazy(() => import("@/pages/PatientRedirect"));
 const ExternalSurgeryRequest = React.lazy(() => import("@/pages/ExternalSurgeryRequest"));
@@ -165,8 +166,9 @@ function Router() {
         <Switch>
           {/* Public routes accessible regardless of auth */}
           <Route path="/patient/:token" component={PatientPortal} />
-          <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
-          <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
+          <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire as any} />
+          <Route path="/questionnaire/:token" component={PatientQuestionnaire as any} />
+          <Route path="/q/:alias" component={QuestionnaireAliasResolver} />
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
           <Route path="/surgeon-portal/:token" component={SurgeonPortal} />
           <Route path="/contract/:token" component={WorkerContractForm} />

@@ -1099,10 +1099,11 @@ const translations: Record<string, Record<string, string>> = {
   },
 };
 
-export default function PatientQuestionnaire() {
-  const { token } = useParams<{ token: string }>();
+export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: { resolvedToken?: string; isHospitalLink?: boolean } = {}) {
+  const { token: urlToken } = useParams<{ token: string }>();
+  const token = resolvedToken || urlToken;
   const [location] = useLocation();
-  const isHospitalToken = location.includes('/questionnaire/hospital/');
+  const isHospitalToken = isHospitalLink || location.includes('/questionnaire/hospital/');
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState(false);
