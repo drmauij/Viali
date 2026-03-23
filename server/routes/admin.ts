@@ -82,6 +82,8 @@ interface AuthenticatedRequest extends Request {
 
 const router = Router();
 
+const ALIAS_REGEX = /^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/;
+
 async function isAdmin(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user.id;
@@ -1250,13 +1252,76 @@ router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticat
 router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    
+
     await storage.setHospitalQuestionnaireToken(hospitalId, null);
-    
+
     res.json({ success: true });
   } catch (error) {
     logger.error("Error deleting questionnaire token:", error);
     res.status(500).json({ message: "Failed to delete questionnaire token" });
+  }
+});
+
+// Questionnaire alias management
+router.get('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    res.json({ questionnaireAlias: hospital.questionnaireAlias || null });
+  } catch (error) {
+    logger.error("Error fetching questionnaire alias:", error);
+    res.status(500).json({ message: "Failed to fetch questionnaire alias" });
+  }
+});
+
+router.get('/api/admin/:hospitalId/questionnaire-alias/check', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const alias = (req.query.alias as string || '').toLowerCase().trim();
+    if (!alias || !ALIAS_REGEX.test(alias)) {
+      return res.json({ available: false, reason: "invalid_format" });
+    }
+    const available = await storage.checkQuestionnaireAliasAvailable(alias, hospitalId);
+    res.json({ available });
+  } catch (error) {
+    logger.error("Error checking questionnaire alias:", error);
+    res.status(500).json({ message: "Failed to check alias availability" });
+  }
+});
+
+router.put('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const alias = (req.body.alias as string || '').toLowerCase().trim();
+    if (!alias || !ALIAS_REGEX.test(alias)) {
+      return res.status(400).json({ message: "Invalid alias format. Use 3-50 characters: lowercase letters, numbers, and hyphens. Must start and end with a letter or number." });
+    }
+    const available = await storage.checkQuestionnaireAliasAvailable(alias, hospitalId);
+    if (!available) {
+      return res.status(409).json({ message: "This alias is already taken" });
+    }
+    const hospital = await storage.setHospitalQuestionnaireAlias(hospitalId, alias);
+    res.json({ questionnaireAlias: hospital.questionnaireAlias });
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(409).json({ message: "This alias is already taken" });
+    }
+    logger.error("Error setting questionnaire alias:", error);
+    res.status(500).json({ message: "Failed to set questionnaire alias" });
+  }
+});
+
+router.delete('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    await storage.setHospitalQuestionnaireAlias(hospitalId, null);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Error deleting questionnaire alias:", error);
+    res.status(500).json({ message: "Failed to delete questionnaire alias" });
   }
 });
 
