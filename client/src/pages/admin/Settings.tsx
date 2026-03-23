@@ -1283,6 +1283,7 @@ export default function SettingsPage() {
                               questionnaireUrl: url,
                               hospitalName: hospitalForm.name || activeHospital?.name || "",
                               companyLogoUrl: hospitalForm.companyLogoUrl || undefined,
+                              language: activeHospital?.defaultLanguage || "de",
                             });
                           }}
                           data-testid="button-download-qr-poster"

@@ -5,6 +5,7 @@ interface QuestionnairePosterOptions {
   questionnaireUrl: string;
   hospitalName: string;
   companyLogoUrl?: string;
+  language?: string;
 }
 
 /**
@@ -14,7 +15,13 @@ interface QuestionnairePosterOptions {
 export async function generateQuestionnairePosterPdf(
   options: QuestionnairePosterOptions
 ): Promise<void> {
-  const { questionnaireUrl, hospitalName, companyLogoUrl } = options;
+  const { questionnaireUrl, hospitalName, companyLogoUrl, language } = options;
+
+  // Temporarily switch language for PDF generation, then restore
+  const previousLanguage = i18next.language;
+  if (language && language !== previousLanguage) {
+    await i18next.changeLanguage(language);
+  }
   const t = (key: string) => i18next.t(key);
 
   const { jsPDF } = await import("jspdf");
@@ -118,4 +125,9 @@ export async function generateQuestionnairePosterPdf(
 
   // --- Download ---
   doc.save("questionnaire-qr-poster.pdf");
+
+  // Restore previous language
+  if (language && language !== previousLanguage) {
+    await i18next.changeLanguage(previousLanguage);
+  }
 }
