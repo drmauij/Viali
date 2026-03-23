@@ -968,8 +968,29 @@ const hospitalLinkFetchLimiter = createRateLimiter({
   keyPrefix: 'hlink'
 });
 
+// Rate limiter for alias resolution (uses alias param instead of token)
+const aliasLinkFetchLimiter = (req: Request, res: Response, next: NextFunction) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const alias = req.params.alias;
+  if (!alias || alias.length < 3) {
+    return res.status(400).json({ error: "invalid_alias" });
+  }
+  const key = `alias:${ip}:${alias}`;
+  const now = Date.now();
+  const existing = rateLimitStore.get(key);
+  if (!existing || now > existing.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + 60000 });
+  } else {
+    existing.count++;
+    if (existing.count > 30) {
+      return res.status(429).json({ error: "Too many requests" });
+    }
+  }
+  next();
+};
+
 // Resolve questionnaire alias to hospital token (public)
-router.get('/api/public/questionnaire/by-alias/:alias', hospitalLinkFetchLimiter, async (req: Request, res: Response) => {
+router.get('/api/public/questionnaire/by-alias/:alias', aliasLinkFetchLimiter, async (req: Request, res: Response) => {
   try {
     const { alias } = req.params;
 
