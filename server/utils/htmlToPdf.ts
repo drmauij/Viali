@@ -280,6 +280,12 @@ function collectTextSegments(
   if (node.nodeType !== NodeType.ELEMENT_NODE) return [];
   const el = node as HTMLElement;
   const tag = el.tagName?.toUpperCase();
+
+  // Handle <br> as a line-break marker
+  if (tag === "BR") {
+    return [{ text: "\n", fontStyle: "normal" }];
+  }
+
   const isBold = parentBold || tag === "STRONG" || tag === "B";
   const isItalic = parentItalic || tag === "EM" || tag === "I";
   const segments: TextSegment[] = [];
@@ -311,51 +317,69 @@ function renderParagraph(
     }
   }
 
-  const allText = merged.map((s) => s.text).join("").trim();
-  if (!allText) {
+  // Split merged segments into lines at \n boundaries (from <br> tags)
+  const lines: TextSegment[][] = [[]];
+  for (const seg of merged) {
+    const parts = seg.text.split("\n");
+    for (let i = 0; i < parts.length; i++) {
+      if (i > 0) lines.push([]); // start a new line
+      if (parts[i]) {
+        lines[lines.length - 1].push({ text: parts[i], fontStyle: seg.fontStyle });
+      }
+    }
+  }
+
+  const totalText = lines.flat().map((s) => s.text).join("").trim();
+  if (!totalText) {
     state.y += 3;
     return;
   }
 
-  // If all segments share the same style, render as a simple block
-  const uniqueStyles = new Set(merged.map((s) => s.fontStyle));
-  if (uniqueStyles.size === 1) {
-    const style = merged[0].fontStyle;
-    renderParagraphText(pdf, allText, margin, maxTextWidth, state, style);
-    state.y += 2;
-    return;
-  }
+  // Render each line (separated by <br>)
+  for (const lineSegs of lines) {
+    const lineText = lineSegs.map((s) => s.text).join("").trim();
+    if (!lineText) {
+      // Empty line from consecutive <br> tags
+      state.y += 3;
+      continue;
+    }
 
-  // Mixed styles: render segment by segment, wrapping across lines
-  pdf.setFontSize(10);
-  const lineHeight = 5;
-  let curX = margin;
+    const uniqueStyles = new Set(lineSegs.map((s) => s.fontStyle));
+    if (uniqueStyles.size <= 1) {
+      const style = lineSegs[0]?.fontStyle || "normal";
+      renderParagraphText(pdf, lineText, margin, maxTextWidth, state, style);
+    } else {
+      // Mixed styles: render segment by segment, wrapping across lines
+      pdf.setFontSize(10);
+      const lineHeight = 5;
+      let curX = margin;
 
-  for (const seg of merged) {
-    const text = seg.text;
-    if (!text) continue;
+      for (const seg of lineSegs) {
+        const text = seg.text;
+        if (!text) continue;
 
-    pdf.setFont("helvetica", seg.fontStyle);
+        pdf.setFont("helvetica", seg.fontStyle);
 
-    // Split into words for wrapping
-    const words = text.split(/(\s+)/);
-    for (const word of words) {
-      if (!word) continue;
-      const wordWidth = pdf.getTextWidth(word);
+        const words = text.split(/(\s+)/);
+        for (const word of words) {
+          if (!word) continue;
+          const wordWidth = pdf.getTextWidth(word);
 
-      // Wrap to next line if word doesn't fit (unless we're at line start)
-      if (curX + wordWidth > margin + maxTextWidth && curX > margin) {
-        state.y += lineHeight;
-        checkNewPage(pdf, lineHeight, state);
-        curX = margin;
+          if (curX + wordWidth > margin + maxTextWidth && curX > margin) {
+            state.y += lineHeight;
+            checkNewPage(pdf, lineHeight, state);
+            curX = margin;
+          }
+
+          pdf.setFont("helvetica", seg.fontStyle);
+          pdf.text(word, curX, state.y);
+          curX += wordWidth;
+        }
       }
-
-      pdf.setFont("helvetica", seg.fontStyle);
-      pdf.text(word, curX, state.y);
-      curX += wordWidth;
+      state.y += lineHeight;
     }
   }
-  state.y += lineHeight + 2; // finish last line + inter-paragraph spacing
+  state.y += 2; // inter-paragraph spacing
 }
 
 // TODO: Support nested lists (depth parameter + increased indent) once users start nesting in WYSIWYG
