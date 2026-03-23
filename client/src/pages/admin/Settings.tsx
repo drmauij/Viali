@@ -1277,7 +1277,7 @@ export default function SettingsPage() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            const url = getQuestionnaireUrl();
+                            const url = getQuestionnaireAliasUrl() || getQuestionnaireUrl();
                             if (!url) return;
                             await generateQuestionnairePosterPdf({
                               questionnaireUrl: url,
