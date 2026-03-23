@@ -107,11 +107,13 @@ export async function generateQuestionnairePosterPdf(
 
   // --- URL for reference ---
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(14);
+  doc.setTextColor(100, 100, 100);
   doc.text(t("admin.qrPosterUrlLabel"), centerX, yPos, { align: "center" });
-  yPos += 6;
-  doc.setFontSize(9);
+  yPos += 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
   doc.text(questionnaireUrl, centerX, yPos, { align: "center" });
 
   // --- Download ---
