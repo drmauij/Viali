@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import * as Sentry from "@sentry/react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -383,6 +384,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.error.notFound": "Questionnaire not found",
     "questionnaire.error.save": "Failed to save progress",
     "questionnaire.error.submit": "Failed to submit questionnaire",
+    "questionnaire.error.submitFailed": "Submission failed. Please check your internet connection and try again.",
     "questionnaire.success.title": "Thank You!",
     "questionnaire.success.message": "Your questionnaire has been submitted successfully. Your medical team will review your information before your procedure.",
     "questionnaire.success.close": "You can close this page now.",
@@ -558,6 +560,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.error.notFound": "Fragebogen nicht gefunden",
     "questionnaire.error.save": "Fortschritt konnte nicht gespeichert werden",
     "questionnaire.error.submit": "Fragebogen konnte nicht gesendet werden",
+    "questionnaire.error.submitFailed": "Senden fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
     "questionnaire.success.title": "Vielen Dank!",
     "questionnaire.success.message": "Ihr Fragebogen wurde erfolgreich übermittelt. Ihr medizinisches Team wird Ihre Informationen vor Ihrem Eingriff überprüfen.",
     "questionnaire.success.close": "Sie können diese Seite jetzt schließen.",
@@ -733,6 +736,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.error.notFound": "Questionario non trovato",
     "questionnaire.error.save": "Impossibile salvare i progressi",
     "questionnaire.error.submit": "Impossibile inviare il questionario",
+    "questionnaire.error.submitFailed": "Invio non riuscito. Verifichi la connessione internet e riprovi.",
     "questionnaire.success.title": "Grazie!",
     "questionnaire.success.message": "Il Suo questionario è stato inviato con successo. Il Suo team medico esaminerà le Sue informazioni prima dell'intervento.",
     "questionnaire.success.close": "Può chiudere questa pagina.",
@@ -908,6 +912,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.error.notFound": "Cuestionario no encontrado",
     "questionnaire.error.save": "No se pudo guardar el progreso",
     "questionnaire.error.submit": "No se pudo enviar el cuestionario",
+    "questionnaire.error.submitFailed": "Error al enviar. Por favor verifique su conexión a internet e inténtelo de nuevo.",
     "questionnaire.success.title": "¡Gracias!",
     "questionnaire.success.message": "Su cuestionario ha sido enviado con éxito. Su equipo médico revisará su información antes del procedimiento.",
     "questionnaire.success.close": "Puede cerrar esta página.",
@@ -1083,6 +1088,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.error.notFound": "Questionnaire non trouvé",
     "questionnaire.error.save": "Impossible de sauvegarder la progression",
     "questionnaire.error.submit": "Impossible d'envoyer le questionnaire",
+    "questionnaire.error.submitFailed": "Échec de l'envoi. Veuillez vérifier votre connexion internet et réessayer.",
     "questionnaire.success.title": "Merci !",
     "questionnaire.success.message": "Votre questionnaire a été envoyé avec succès. Votre équipe médicale examinera vos informations avant votre intervention.",
     "questionnaire.success.close": "Vous pouvez fermer cette page.",
@@ -1099,6 +1105,7 @@ export default function PatientQuestionnaire() {
   const isHospitalToken = location.includes('/questionnaire/hospital/');
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [language, setLanguageState] = useState<string>(() => {
     const saved = localStorage.getItem('patient-portal-language');
@@ -1316,11 +1323,19 @@ export default function PatientQuestionnaire() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        throw new Error("Failed to submit");
+        const errorText = await res.text().catch(() => "Unknown error");
+        throw new Error(`Failed to submit: ${res.status} ${errorText}`);
       }
       return res.json();
     },
     onSuccess: () => setIsSubmitted(true),
+    onError: (error: Error) => {
+      setSubmitError(true);
+      Sentry.captureException(error, {
+        tags: { component: 'questionnaire-submit' },
+        extra: { token: activeToken },
+      });
+    },
   });
 
   const handleFileUpload = useCallback(async (file: File, category: FileUpload['category'] = 'other') => {
@@ -1483,6 +1498,7 @@ export default function PatientQuestionnaire() {
     if (!formData.patientPhone) {
       return;
     }
+    setSubmitError(false);
     submitMutation.mutate(formData);
   }, [formData, submitMutation]);
 
@@ -1804,6 +1820,7 @@ export default function PatientQuestionnaire() {
                 updateField={updateField}
                 t={t}
                 onOpenSignature={() => setSignatureOpen(true)}
+                submitError={submitError}
               />
             )}
           </CardContent>
@@ -3291,9 +3308,10 @@ function NotesStep({ formData, updateField, t }: StepProps) {
 
 interface SubmitStepProps extends StepProps {
   onOpenSignature: () => void;
+  submitError: boolean;
 }
 
-function SubmitStep({ formData, updateField, t, onOpenSignature }: SubmitStepProps) {
+function SubmitStep({ formData, updateField, t, onOpenSignature, submitError }: SubmitStepProps) {
   return (
     <div className="space-y-6">
       <div className="text-center mb-4">
@@ -3388,6 +3406,14 @@ function SubmitStep({ formData, updateField, t, onOpenSignature }: SubmitStepPro
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{t("questionnaire.submit.phoneRequired")}</AlertDescription>
+        </Alert>
+      )}
+      {submitError && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {t("questionnaire.error.submitFailed")}
+          </AlertDescription>
         </Alert>
       )}
     </div>
