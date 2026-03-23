@@ -95,6 +95,7 @@ export const hospitals = pgTable("hospitals", {
   companyBankIban: varchar("company_bank_iban"), // IBAN for QR-bill on Tiers Garant invoices
   companyBankName: varchar("company_bank_name"), // Bank name for payment details
   questionnaireToken: varchar("questionnaire_token").unique(),
+  questionnaireAlias: varchar("questionnaire_alias").unique(), // Short URL alias for questionnaire (e.g. /q/praxis-mueller)
   contractToken: varchar("contract_token").unique(), // Token for public contract form links
   externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
   externalSurgeryNotificationEmail: varchar("external_surgery_notification_email"), // Email to notify on new external surgery requests (fallback: OR admins)
