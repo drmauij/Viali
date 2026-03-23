@@ -968,6 +968,35 @@ const hospitalLinkFetchLimiter = createRateLimiter({
   keyPrefix: 'hlink'
 });
 
+// Resolve questionnaire alias to hospital token (public)
+router.get('/api/public/questionnaire/by-alias/:alias', hospitalLinkFetchLimiter, async (req: Request, res: Response) => {
+  try {
+    const { alias } = req.params;
+
+    if (!alias || alias.length < 3) {
+      return res.status(400).json({ error: "invalid_alias" });
+    }
+
+    const hospital = await storage.getHospitalByQuestionnaireAlias(alias.toLowerCase());
+    if (!hospital) {
+      return res.status(404).json({ error: "not_found" });
+    }
+
+    if (!hospital.questionnaireToken) {
+      return res.status(404).json({ error: "questionnaire_disabled" });
+    }
+
+    if (hospital.questionnaireDisabled) {
+      return res.status(404).json({ error: "questionnaire_disabled" });
+    }
+
+    res.json({ token: hospital.questionnaireToken });
+  } catch (error) {
+    logger.error("Error resolving questionnaire alias:", error);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
 // Get hospital info for open questionnaire (public)
 router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res: Response) => {
   try {
