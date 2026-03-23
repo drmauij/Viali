@@ -222,6 +222,9 @@ export interface IStorage {
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined>;
   setHospitalQuestionnaireToken(hospitalId: string, token: string | null): Promise<Hospital>;
+  getHospitalByQuestionnaireAlias(alias: string): Promise<Hospital | undefined>;
+  setHospitalQuestionnaireAlias(hospitalId: string, alias: string | null): Promise<Hospital>;
+  checkQuestionnaireAliasAvailable(alias: string, excludeHospitalId?: string): Promise<boolean>;
   getHospitalByKioskToken(token: string): Promise<Hospital | undefined>;
   setHospitalKioskToken(hospitalId: string, token: string | null): Promise<Hospital>;
   getHospitalByCardReaderToken(token: string): Promise<Hospital | undefined>;
@@ -1104,6 +1107,9 @@ export class DatabaseStorage implements IStorage {
   updateHospital = hospitalStorage.updateHospital;
   getHospitalByQuestionnaireToken = hospitalStorage.getHospitalByQuestionnaireToken;
   setHospitalQuestionnaireToken = hospitalStorage.setHospitalQuestionnaireToken;
+  getHospitalByQuestionnaireAlias = hospitalStorage.getHospitalByQuestionnaireAlias;
+  setHospitalQuestionnaireAlias = hospitalStorage.setHospitalQuestionnaireAlias;
+  checkQuestionnaireAliasAvailable = hospitalStorage.checkQuestionnaireAliasAvailable;
   getHospitalByKioskToken = hospitalStorage.getHospitalByKioskToken;
   setHospitalKioskToken = hospitalStorage.setHospitalKioskToken;
   getHospitalByCardReaderToken = hospitalStorage.getHospitalByCardReaderToken;

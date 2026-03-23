@@ -74,6 +74,32 @@ export async function setHospitalQuestionnaireToken(hospitalId: string, token: s
   return updated;
 }
 
+export async function getHospitalByQuestionnaireAlias(alias: string): Promise<Hospital | undefined> {
+  const [hospital] = await db
+    .select()
+    .from(hospitals)
+    .where(eq(hospitals.questionnaireAlias, alias.toLowerCase()));
+  return hospital;
+}
+
+export async function setHospitalQuestionnaireAlias(hospitalId: string, alias: string | null): Promise<Hospital> {
+  const [updated] = await db
+    .update(hospitals)
+    .set({ questionnaireAlias: alias ? alias.toLowerCase() : null, updatedAt: new Date() })
+    .where(eq(hospitals.id, hospitalId))
+    .returning();
+  return updated;
+}
+
+export async function checkQuestionnaireAliasAvailable(alias: string, excludeHospitalId?: string): Promise<boolean> {
+  const [existing] = await db
+    .select({ id: hospitals.id })
+    .from(hospitals)
+    .where(eq(hospitals.questionnaireAlias, alias.toLowerCase()));
+  if (!existing) return true;
+  return excludeHospitalId ? existing.id === excludeHospitalId : false;
+}
+
 export async function getHospitalByKioskToken(token: string): Promise<Hospital | undefined> {
   const [hospital] = await db
     .select()
