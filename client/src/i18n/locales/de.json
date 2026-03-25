@@ -6845,7 +6845,8 @@
       "inProgress": "Laufend",
       "completed": "Abgeschlossen",
       "cancelled": "Abgesagt",
-      "noShow": "Nicht erschienen"
+      "noShow": "Nicht erschienen",
+      "arrived": "Eingetroffen"
     },
     "statusLabel": "Status",
     "internalMeeting": "Internes Meeting",
@@ -6920,7 +6921,10 @@
     "selectReferralSource": "Keine",
     "videoAppointment": "Videotermin",
     "videoMeetingLink": "Meeting-Link",
-    "syncAbsences": "Abwesenheiten synchronisieren"
+    "syncAbsences": "Abwesenheiten synchronisieren",
+    "arrived": "Eingetroffen",
+    "noShowConfirm": "Diesen Termin als No-Show markieren? Der Patient ist nicht erschienen.",
+    "undoNoShow": "No-Show rückgängig"
   },
   "dischargeMedications": {
     "addNew": "Entlassungsmedikation hinzufügen",

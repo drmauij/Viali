@@ -37,6 +37,7 @@ import {
   Video,
   UserX,
   Undo2,
+  LogIn,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -54,6 +55,7 @@ export type AppointmentWithDetails = ClinicAppointment & {
 export const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   scheduled: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-800 dark:text-blue-300", border: "border-blue-300 dark:border-blue-700" },
   confirmed: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-800 dark:text-green-300", border: "border-green-300 dark:border-green-700" },
+  arrived: { bg: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-800 dark:text-teal-300", border: "border-teal-300 dark:border-teal-700" },
   in_progress: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-800 dark:text-orange-300", border: "border-orange-300 dark:border-orange-700" },
   completed: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600" },
   cancelled: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-800 dark:text-red-300", border: "border-red-300 dark:border-red-700" },
@@ -64,6 +66,7 @@ export function getStatusLabel(status: string, t: (key: string, fallback: string
   const labels: Record<string, string> = {
     scheduled: t('appointments.status.scheduled', 'Scheduled'),
     confirmed: t('appointments.status.confirmed', 'Confirmed'),
+    arrived: t('appointments.status.arrived', 'Arrived'),
     in_progress: t('appointments.status.inProgress', 'In Progress'),
     completed: t('appointments.status.completed', 'Completed'),
     cancelled: t('appointments.status.cancelled', 'Cancelled'),
@@ -277,7 +280,7 @@ export default function AppointmentDetailDialog({
             <div className="rounded-lg border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-muted-foreground">{t('appointments.details', 'Appointment Details')}</p>
-                {!editMode && (appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                {!editMode && (appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={enterEditMode}>
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -439,9 +442,9 @@ export default function AppointmentDetailDialog({
             </div>
 
             </div>
-            <DialogFooter className="flex-col gap-2 sm:flex-row flex-wrap">
+            <DialogFooter className="flex-col gap-2">
               {editMode ? (
-                <>
+                <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
                     size="sm"
@@ -458,23 +461,37 @@ export default function AppointmentDetailDialog({
                     {saveAppointmentMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                     {t('common.save', 'Save')}
                   </Button>
-                </>
+                </div>
               ) : (
                 <>
-                  {appointment.status === 'scheduled' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-confirm-appointment"
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      {t('appointments.confirm', 'Confirm')}
-                    </Button>
-                  )}
-                  {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                    <>
+                  {/* Primary action row */}
+                  <div className="flex flex-wrap gap-2">
+                    {appointment.status === 'scheduled' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-confirm-appointment"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        {t('appointments.confirm', 'Confirm')}
+                      </Button>
+                    )}
+                    {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-600"
+                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'arrived' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-arrived-appointment"
+                      >
+                        <LogIn className="h-4 w-4 mr-1" />
+                        {t('appointments.arrived', 'Arrived')}
+                      </Button>
+                    )}
+                    {(appointment.status === 'arrived') && (
                       <Button
                         variant="default"
                         size="sm"
@@ -483,6 +500,49 @@ export default function AppointmentDetailDialog({
                         data-testid="button-start-appointment"
                       >
                         {t('appointments.start', 'Start')}
+                      </Button>
+                    )}
+                    {appointment.status === 'in_progress' && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'completed' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-complete-appointment"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        {t('appointments.complete', 'Complete')}
+                      </Button>
+                    )}
+                    {appointment.status === 'no_show' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'scheduled' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-undo-no-show"
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        {t('appointments.undoNoShow', 'Undo No-Show')}
+                      </Button>
+                    )}
+                  </div>
+                  {/* Secondary actions row */}
+                  {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
+                        onClick={() => {
+                          if (window.confirm(t('appointments.noShowConfirm', 'Mark this appointment as No-Show? The patient did not attend.'))) {
+                            updateAppointmentMutation.mutate({ id: appointment.id, status: 'no_show' });
+                          }
+                        }}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-no-show-appointment"
+                      >
+                        <UserX className="h-4 w-4 mr-1" />
+                        {t('appointments.noShow', 'No-Show')}
                       </Button>
                       <Button
                         variant="destructive"
@@ -494,63 +554,26 @@ export default function AppointmentDetailDialog({
                         <X className="h-4 w-4 mr-1" />
                         {t('appointments.cancel', 'Cancel')}
                       </Button>
-                    </>
+                    </div>
                   )}
-                  {appointment.status === 'in_progress' && (
+                  {/* Delete always at bottom */}
+                  <div className="flex justify-end">
                     <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'completed' })}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-complete-appointment"
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      {t('appointments.complete', 'Complete')}
-                    </Button>
-                  )}
-                  {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => {
-                        if (window.confirm(t('appointments.noShowConfirm', 'Mark this appointment as No-Show? The patient did not attend.'))) {
-                          updateAppointmentMutation.mutate({ id: appointment.id, status: 'no_show' });
+                        if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
+                          deleteAppointmentMutation.mutate(appointment.id);
                         }
                       }}
                       disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-no-show-appointment"
+                      data-testid="button-delete-appointment"
                     >
-                      <UserX className="h-4 w-4 mr-1" />
-                      {t('appointments.noShow', 'No-Show')}
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {t('appointments.delete', 'Delete')}
                     </Button>
-                  )}
-                  {appointment.status === 'no_show' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'scheduled' })}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-undo-no-show"
-                    >
-                      <Undo2 className="h-4 w-4 mr-1" />
-                      {t('appointments.undoNoShow', 'Undo No-Show')}
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
-                        deleteAppointmentMutation.mutate(appointment.id);
-                      }
-                    }}
-                    disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                    data-testid="button-delete-appointment"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    {t('appointments.delete', 'Delete')}
-                  </Button>
+                  </div>
                 </>
               )}
             </DialogFooter>

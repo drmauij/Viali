@@ -6744,7 +6744,8 @@
       "inProgress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
-      "noShow": "No Show"
+      "noShow": "No Show",
+      "arrived": "Arrived"
     },
     "statusLabel": "Status",
     "internalMeeting": "Internal Meeting",
@@ -6819,7 +6820,10 @@
     "selectReferralSource": "None",
     "videoAppointment": "Video Appointment",
     "videoMeetingLink": "Meeting Link",
-    "syncAbsences": "Sync Absences"
+    "syncAbsences": "Sync Absences",
+    "arrived": "Arrived",
+    "noShowConfirm": "Mark this appointment as No-Show? The patient did not attend.",
+    "undoNoShow": "Undo No-Show"
   },
   "dischargeMedications": {
     "addNew": "Add Discharge Medications",
