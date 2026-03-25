@@ -42,6 +42,25 @@ const BRIEF_TYPE_LABELS: Record<string, Record<string, string>> = {
   prescription: { de: "Rezept", en: "Prescription" },
 };
 
+/** Replace Unicode characters unsupported by jsPDF's default WinAnsi encoding with ASCII equivalents. */
+function sanitizeForPdf(text: string): string {
+  return text
+    .replace(/\u2192/g, "->")   // → RIGHTWARDS ARROW
+    .replace(/\u2190/g, "<-")   // ← LEFTWARDS ARROW
+    .replace(/\u2194/g, "<->")  // ↔ LEFT RIGHT ARROW
+    .replace(/\u2013/g, "-")    // – EN DASH
+    .replace(/\u2014/g, "--")   // — EM DASH
+    .replace(/\u2018/g, "'")    // ' LEFT SINGLE QUOTATION MARK
+    .replace(/\u2019/g, "'")    // ' RIGHT SINGLE QUOTATION MARK
+    .replace(/\u201C/g, '"')    // " LEFT DOUBLE QUOTATION MARK
+    .replace(/\u201D/g, '"')    // " RIGHT DOUBLE QUOTATION MARK
+    .replace(/\u2026/g, "...")  // … HORIZONTAL ELLIPSIS
+    .replace(/\u00B2/g, "2")    // ² SUPERSCRIPT TWO
+    .replace(/\u00B3/g, "3")    // ³ SUPERSCRIPT THREE
+    .replace(/\u2265/g, ">=")   // ≥ GREATER-THAN OR EQUAL TO
+    .replace(/\u2264/g, "<=");  // ≤ LESS-THAN OR EQUAL TO
+}
+
 // Layout constants (mm)
 const MARGIN = 15;
 const HEADER_HEIGHT = 32; // reserved space at top for header
@@ -177,7 +196,7 @@ function renderPageFooter(
  */
 function getPlainText(node: Node): string {
   if (node.nodeType === NodeType.TEXT_NODE) {
-    return node.text;
+    return sanitizeForPdf(node.text);
   }
   if (node.nodeType === NodeType.ELEMENT_NODE) {
     return (node as HTMLElement).childNodes.map(getPlainText).join("");
@@ -269,7 +288,7 @@ function collectTextSegments(
   parentItalic: boolean,
 ): TextSegment[] {
   if (node.nodeType === NodeType.TEXT_NODE) {
-    const text = node.text;
+    const text = sanitizeForPdf(node.text);
     if (!text) return [];
     let fontStyle = "normal";
     if (parentBold && parentItalic) fontStyle = "bolditalic";
@@ -594,7 +613,7 @@ function renderNode(
 ): void {
   // Text nodes (outside of any tag)
   if (node.nodeType === NodeType.TEXT_NODE) {
-    const text = node.text.trim();
+    const text = sanitizeForPdf(node.text).trim();
     if (text) {
       renderParagraphText(pdf, text, margin, maxTextWidth, state);
     }
