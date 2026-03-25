@@ -81,7 +81,7 @@ interface IntraOpData {
     contrast?: boolean;
     ointments?: boolean;
     other?: string;
-    customMedications?: Array<{ itemId: string; name: string; volume: string }>;
+    customMedications?: Array<{ itemId: string; name: string; volume?: string }>;
     [key: string]: boolean | string | undefined | Array<any>;
   };
   dressing?: {
