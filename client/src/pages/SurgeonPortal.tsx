@@ -29,6 +29,7 @@ import {
   Clock,
   Plus,
   LogOut,
+  Download,
 } from "lucide-react";
 import {
   startOfMonth,
@@ -44,6 +45,7 @@ import {
   format,
 } from "date-fns";
 import { de, enUS } from "date-fns/locale";
+import { generateSurgeonSummaryPDF } from "@/lib/surgeonSummaryPdf";
 
 // ========== TRANSLATIONS ==========
 
@@ -94,6 +96,9 @@ const translations: Record<string, Record<string, string>> = {
     cancellationPending: "Absage angefragt",
     reschedulePending: "Verschiebung angefragt",
     suspensionPending: "Sistierung angefragt",
+    downloadSummary: "OP-Zusammenfassung herunterladen",
+    downloadingSummary: "Wird heruntergeladen...",
+    downloadFailed: "Fehler beim Herunterladen. Bitte versuchen Sie es erneut.",
     newRequest: "Neue OP-Anfrage stellen",
     logout: "Abmelden",
   },
@@ -143,6 +148,9 @@ const translations: Record<string, Record<string, string>> = {
     cancellationPending: "Cancellation requested",
     reschedulePending: "Reschedule requested",
     suspensionPending: "Suspension requested",
+    downloadSummary: "Download Surgery Summary",
+    downloadingSummary: "Downloading...",
+    downloadFailed: "Download failed. Please try again.",
     newRequest: "Submit new surgery request",
     logout: "Logout",
   },
@@ -615,6 +623,38 @@ function SurgeonPortalContent({ token }: { token: string }) {
     surgery: Surgery | null;
   }>({ open: false, type: "cancellation", surgery: null });
 
+  const [downloadingSurgeryId, setDownloadingSurgeryId] = useState<string | null>(null);
+
+  const handleDownloadSummary = async (surgery: Surgery) => {
+    setDownloadingSurgeryId(surgery.id);
+    try {
+      const res = await fetch(`/api/surgeon-portal/${token}/surgeries/${surgery.id}/summary-data`);
+      if (!res.ok) throw new Error("Failed to fetch summary data");
+      const data = await res.json();
+
+      if (!data.patient) throw new Error("Patient data not available");
+
+      const doc = await generateSurgeonSummaryPDF({
+        patient: data.patient,
+        surgery: data.surgery,
+        anesthesiaRecord: data.anesthesiaRecord,
+        staffMembers: data.staffMembers,
+        noPreOpRequired: data.surgery.noPreOpRequired,
+        language: data.language,
+      });
+
+      const dateStr = new Date(surgery.plannedDate).toLocaleDateString("de-CH", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+      }).replace(/\//g, "-");
+      doc.save(`Surgery_Summary_${surgery.patientLastName || "Unknown"}_${dateStr}.pdf`);
+    } catch (error) {
+      console.error("Failed to download surgery summary:", error);
+      alert(t.downloadFailed);
+    } finally {
+      setDownloadingSurgeryId(null);
+    }
+  };
+
   const fetchSurgeries = useCallback(async (month: Date) => {
     setIsLoading(true);
     try {
@@ -901,6 +941,31 @@ function SurgeonPortalContent({ token }: { token: string }) {
                               >
                                 <PauseCircle className="w-3 h-3 mr-1" />
                                 {t.requestSuspension}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Download summary for completed surgeries */}
+                          {surgery.status === "completed" && (
+                            <div className="pt-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => handleDownloadSummary(surgery)}
+                                disabled={downloadingSurgeryId === surgery.id}
+                              >
+                                {downloadingSurgeryId === surgery.id ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    {t.downloadingSummary}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-3 h-3 mr-1" />
+                                    {t.downloadSummary}
+                                  </>
+                                )}
                               </Button>
                             </div>
                           )}
