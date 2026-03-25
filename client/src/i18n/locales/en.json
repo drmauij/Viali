@@ -4711,7 +4711,13 @@
       "signatures": "Signatures",
       "signatureZudienung": "Circulating Nurse (Zudienung)",
       "signatureInstrum": "Scrub Nurse (Instrumenteur)",
-      "tapToSign": "Tap to sign"
+      "tapToSign": "Tap to sign",
+      "addCustomMedication": "Add medication...",
+      "searchInventoryMedication": "Search inventory...",
+      "noMedicationFound": "No medication found",
+      "customMedicationAdded": "Medication added",
+      "customMedicationRemoved": "Medication removed",
+      "customMedications": "Additional Medications"
     },
     "counts": {
       "title": "Surgical Counts",

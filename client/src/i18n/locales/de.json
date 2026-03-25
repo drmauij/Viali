@@ -4792,7 +4792,13 @@
       "signatures": "Unterschriften",
       "signatureZudienung": "Zudienung",
       "signatureInstrum": "Instrumenteur",
-      "tapToSign": "Tippen zum Unterschreiben"
+      "tapToSign": "Tippen zum Unterschreiben",
+      "addCustomMedication": "Medikament hinzufügen...",
+      "searchInventoryMedication": "Inventar durchsuchen...",
+      "noMedicationFound": "Kein Medikament gefunden",
+      "customMedicationAdded": "Medikament hinzugefügt",
+      "customMedicationRemoved": "Medikament entfernt",
+      "customMedications": "Zusätzliche Medikamente"
     },
     "counts": {
       "title": "Zählkontrolle",
