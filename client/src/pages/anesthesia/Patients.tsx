@@ -346,7 +346,7 @@ export default function Patients() {
         <div className="flex gap-2">
           {isAdmin && (
             <Button variant="outline" onClick={() => setShowDuplicates(true)}>
-              Find Duplicates
+              {t('anesthesia.patients.findDuplicates', 'Find Duplicates')}
             </Button>
           )}
           {canWrite && (

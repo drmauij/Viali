@@ -44,55 +44,59 @@ interface PatientMergeDialogProps {
 
 type Step = "review" | "confirm";
 
-const FIELD_LABELS: Record<string, string> = {
-  email: "Email",
-  phone: "Phone",
-  sex: "Sex",
-  address: "Address",
-  street: "Street",
-  postalCode: "Postal Code",
-  city: "City",
-  insuranceProvider: "Insurance Provider",
-  insuranceNumber: "Insurance Number",
-  healthInsuranceNumber: "Health Insurance Number",
-  insurerGln: "Insurer GLN",
-  emergencyContact: "Emergency Contact",
-  otherAllergies: "Other Allergies",
-  allergies: "Allergies",
-  internalNotes: "Internal Notes",
-  idCardFrontUrl: "ID Card (Front)",
-  idCardBackUrl: "ID Card (Back)",
-  insuranceCardFrontUrl: "Insurance Card (Front)",
-  insuranceCardBackUrl: "Insurance Card (Back)",
-};
+function getFieldLabels(t: (key: string, fallback: string) => string): Record<string, string> {
+  return {
+    email: t("anesthesia.patients.merge.fieldEmail", "Email"),
+    phone: t("anesthesia.patients.merge.fieldPhone", "Phone"),
+    sex: t("anesthesia.patients.merge.fieldSex", "Sex"),
+    address: t("anesthesia.patients.merge.fieldAddress", "Address"),
+    street: t("anesthesia.patients.merge.fieldStreet", "Street"),
+    postalCode: t("anesthesia.patients.merge.fieldPostalCode", "Postal Code"),
+    city: t("anesthesia.patients.merge.fieldCity", "City"),
+    insuranceProvider: t("anesthesia.patients.merge.fieldInsuranceProvider", "Insurance Provider"),
+    insuranceNumber: t("anesthesia.patients.merge.fieldInsuranceNumber", "Insurance Number"),
+    healthInsuranceNumber: t("anesthesia.patients.merge.fieldHealthInsuranceNumber", "Health Insurance Number"),
+    insurerGln: t("anesthesia.patients.merge.fieldInsurerGln", "Insurer GLN"),
+    emergencyContact: t("anesthesia.patients.merge.fieldEmergencyContact", "Emergency Contact"),
+    otherAllergies: t("anesthesia.patients.merge.fieldOtherAllergies", "Other Allergies"),
+    allergies: t("anesthesia.patients.merge.fieldAllergies", "Allergies"),
+    internalNotes: t("anesthesia.patients.merge.fieldInternalNotes", "Internal Notes"),
+    idCardFrontUrl: t("anesthesia.patients.merge.fieldIdCardFront", "ID Card (Front)"),
+    idCardBackUrl: t("anesthesia.patients.merge.fieldIdCardBack", "ID Card (Back)"),
+    insuranceCardFrontUrl: t("anesthesia.patients.merge.fieldInsuranceCardFront", "Insurance Card (Front)"),
+    insuranceCardBackUrl: t("anesthesia.patients.merge.fieldInsuranceCardBack", "Insurance Card (Back)"),
+  };
+}
 
-const TABLE_LABELS: Record<string, string> = {
-  surgeries: "Surgeries",
-  cases: "Cases",
-  patient_documents: "Documents",
-  patient_episodes: "Episodes",
-  patient_document_folders: "Document Folders",
-  patient_notes: "Notes",
-  patient_messages: "Messages",
-  patient_chat_archives: "Chat Archives",
-  patient_discharge_medications: "Discharge Medications",
-  chat_conversations: "Chat Conversations",
-  chat_mentions: "Chat Mentions",
-  chat_attachments: "Chat Attachments",
-  clinic_invoices: "Invoices",
-  patient_questionnaire_links: "Questionnaires",
-  clinic_appointments: "Appointments",
-  external_surgery_requests: "External Requests",
-  discharge_briefs: "Discharge Briefs",
-  tardoc_invoices: "TARDOC Invoices",
-  activities: "Activities",
-  inventory_commits: "Inventory",
-};
+function getTableLabels(t: (key: string, fallback: string) => string): Record<string, string> {
+  return {
+    surgeries: t("anesthesia.patients.merge.tableSurgeries", "Surgeries"),
+    cases: t("anesthesia.patients.merge.tableCases", "Cases"),
+    patient_documents: t("anesthesia.patients.merge.tableDocuments", "Documents"),
+    patient_episodes: t("anesthesia.patients.merge.tableEpisodes", "Episodes"),
+    patient_document_folders: t("anesthesia.patients.merge.tableDocumentFolders", "Document Folders"),
+    patient_notes: t("anesthesia.patients.merge.tableNotes", "Notes"),
+    patient_messages: t("anesthesia.patients.merge.tableMessages", "Messages"),
+    patient_chat_archives: t("anesthesia.patients.merge.tableChatArchives", "Chat Archives"),
+    patient_discharge_medications: t("anesthesia.patients.merge.tableDischargeMedications", "Discharge Medications"),
+    chat_conversations: t("anesthesia.patients.merge.tableChatConversations", "Chat Conversations"),
+    chat_mentions: t("anesthesia.patients.merge.tableChatMentions", "Chat Mentions"),
+    chat_attachments: t("anesthesia.patients.merge.tableChatAttachments", "Chat Attachments"),
+    clinic_invoices: t("anesthesia.patients.merge.tableInvoices", "Invoices"),
+    patient_questionnaire_links: t("anesthesia.patients.merge.tableQuestionnaires", "Questionnaires"),
+    clinic_appointments: t("anesthesia.patients.merge.tableAppointments", "Appointments"),
+    external_surgery_requests: t("anesthesia.patients.merge.tableExternalRequests", "External Requests"),
+    discharge_briefs: t("anesthesia.patients.merge.tableDischargeBriefs", "Discharge Briefs"),
+    tardoc_invoices: t("anesthesia.patients.merge.tableTardocInvoices", "TARDOC Invoices"),
+    activities: t("anesthesia.patients.merge.tableActivities", "Activities"),
+    inventory_commits: t("anesthesia.patients.merge.tableInventory", "Inventory"),
+  };
+}
 
 const MERGEABLE_FIELDS = new Set(["allergies", "internalNotes"]);
 
-function formatFieldValue(value: any): string {
-  if (value == null || value === "") return "(empty)";
+function formatFieldValue(value: any, emptyLabel: string = "(empty)"): string {
+  if (value == null || value === "") return emptyLabel;
   if (Array.isArray(value)) return value.join(", ");
   return String(value);
 }
@@ -106,6 +110,9 @@ export default function PatientMergeDialog({
 }: PatientMergeDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const FIELD_LABELS = useMemo(() => getFieldLabels(t), [t]);
+  const TABLE_LABELS = useMemo(() => getTableLabels(t), [t]);
+  const emptyLabel = t("anesthesia.patients.merge.empty", "(empty)");
 
   const [step, setStep] = useState<Step>("review");
   const [primaryId, setPrimaryId] = useState(initialPatient1Id);
@@ -200,10 +207,10 @@ export default function PatientMergeDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/patient-duplicates`] });
       onOpenChange(false);
       toast({
-        title: t("patients.mergeSuccess", "Patients merged successfully"),
-        description: t("patients.mergeSuccessDescription", "All records have been updated."),
+        title: t("anesthesia.patients.merge.mergeSuccess", "Patients merged successfully"),
+        description: t("anesthesia.patients.merge.mergeSuccessDescription", "All records have been updated."),
         action: (
-          <ToastAction altText="Undo merge" onClick={() => handleUndo(data.mergeId)}>
+          <ToastAction altText={t("anesthesia.patients.merge.undoMerge", "Undo merge")} onClick={() => handleUndo(data.mergeId)}>
             <Undo2 className="h-3 w-3 mr-1" />
             {t("common.undo", "Undo")}
           </ToastAction>
@@ -212,8 +219,8 @@ export default function PatientMergeDialog({
     },
     onError: (error: any) => {
       toast({
-        title: t("patients.mergeError", "Merge failed"),
-        description: error.message || "An error occurred during merge",
+        title: t("anesthesia.patients.merge.mergeError", "Merge failed"),
+        description: error.message || t("anesthesia.patients.merge.errorDesc", "An error occurred during merge"),
         variant: "destructive",
       });
     },
@@ -228,13 +235,13 @@ export default function PatientMergeDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/patients`] });
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/patient-duplicates`] });
       toast({
-        title: t("patients.mergeUndone", "Merge undone"),
-        description: t("patients.mergeUndoneDescription", "Both patients have been restored."),
+        title: t("anesthesia.patients.merge.mergeUndone", "Merge undone"),
+        description: t("anesthesia.patients.merge.mergeUndoneDescription", "Both patients have been restored."),
       });
     } catch (error: any) {
       toast({
-        title: t("patients.undoError", "Undo failed"),
-        description: error.message || "Failed to undo merge",
+        title: t("anesthesia.patients.merge.undoError", "Undo failed"),
+        description: error.message || t("anesthesia.patients.merge.undoErrorDesc", "Failed to undo merge"),
         variant: "destructive",
       });
     }
@@ -303,13 +310,13 @@ export default function PatientMergeDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5" />
-            {t("patients.mergePatients", "Merge Patients")}
+            {t("anesthesia.patients.merge.title", "Merge Patients")}
           </DialogTitle>
           <DialogDescription>
             {step === "review" &&
-              t("patients.mergeReviewDesc", "Review conflicts and choose which field values to keep.")}
+              t("anesthesia.patients.merge.reviewDesc", "Review conflicts and choose which field values to keep.")}
             {step === "confirm" &&
-              t("patients.mergeConfirmDesc", "Review the changes and confirm the merge.")}
+              t("anesthesia.patients.merge.confirmDesc", "Review the changes and confirm the merge.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -333,7 +340,7 @@ export default function PatientMergeDialog({
           </div>
         ) : !preview ? (
           <div className="text-center py-12 text-sm text-muted-foreground">
-            Unable to load merge preview.
+            {t("anesthesia.patients.merge.unableToLoad", "Unable to load merge preview.")}
           </div>
         ) : (
           <ScrollArea className="max-h-[50vh]">
@@ -345,13 +352,13 @@ export default function PatientMergeDialog({
                   <div className="flex items-center gap-3">
                     <div className="flex-1 border rounded-lg p-3">
                       <Label className="text-xs text-muted-foreground">
-                        {t("patients.primaryKeep", "Keep (Primary)")}
+                        {t("anesthesia.patients.merge.primaryKeep", "Keep (Primary)")}
                       </Label>
                       <div className="font-semibold text-sm mt-1 flex items-center gap-2">
                         {primaryName}
                         {recommendedPrimaryIsCurrent && (
                           <Badge variant="default" className="text-[10px] px-1 py-0">
-                            {t("patients.recommended", "Recommended")}
+                            {t("anesthesia.patients.merge.recommended", "Recommended")}
                           </Badge>
                         )}
                       </div>
@@ -364,13 +371,13 @@ export default function PatientMergeDialog({
                     </Button>
                     <div className="flex-1 border rounded-lg p-3">
                       <Label className="text-xs text-muted-foreground">
-                        {t("patients.secondaryArchive", "Archive (Secondary)")}
+                        {t("anesthesia.patients.merge.secondaryArchive", "Archive (Secondary)")}
                       </Label>
                       <div className="font-semibold text-sm mt-1 flex items-center gap-2">
                         {secondaryName}
                         {!recommendedPrimaryIsCurrent && (
                           <Badge variant="default" className="text-[10px] px-1 py-0">
-                            {t("patients.recommended", "Recommended")}
+                            {t("anesthesia.patients.merge.recommended", "Recommended")}
                           </Badge>
                         )}
                       </div>
@@ -384,7 +391,7 @@ export default function PatientMergeDialog({
                   {preview.fieldConflicts.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">
-                        {t("patients.fieldConflicts", "Field Conflicts")}
+                        {t("anesthesia.patients.merge.fieldConflicts", "Field Conflicts")}
                       </h4>
                       {preview.fieldConflicts.map((fc) => (
                         <div key={fc.field} className="border rounded-lg p-3">
@@ -407,9 +414,9 @@ export default function PatientMergeDialog({
                                 htmlFor={`${fc.field}-primary`}
                                 className="text-xs font-normal flex-1 cursor-pointer"
                               >
-                                <span className="font-medium">Primary: </span>
+                                <span className="font-medium">{t("anesthesia.patients.merge.primaryLabel", "Primary:")} </span>
                                 <span>
-                                  {formatFieldValue(fc.primaryValue)}
+                                  {formatFieldValue(fc.primaryValue, emptyLabel)}
                                 </span>
                               </Label>
                             </div>
@@ -419,9 +426,9 @@ export default function PatientMergeDialog({
                                 htmlFor={`${fc.field}-secondary`}
                                 className="text-xs font-normal flex-1 cursor-pointer"
                               >
-                                <span className="font-medium">Secondary: </span>
+                                <span className="font-medium">{t("anesthesia.patients.merge.secondaryLabel", "Secondary:")} </span>
                                 <span>
-                                  {formatFieldValue(fc.secondaryValue)}
+                                  {formatFieldValue(fc.secondaryValue, emptyLabel)}
                                 </span>
                               </Label>
                             </div>
@@ -433,7 +440,7 @@ export default function PatientMergeDialog({
                                   className="text-xs font-normal flex-1 cursor-pointer"
                                 >
                                   <span className="font-medium">
-                                    {t("patients.mergeBoth", "Merge both")}
+                                    {t("anesthesia.patients.merge.mergeBoth", "Merge both")}
                                   </span>
                                 </Label>
                               </div>
@@ -448,7 +455,7 @@ export default function PatientMergeDialog({
                   {fkSummary.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">
-                        {t("patients.recordsToMove", "Records to Move")}
+                        {t("anesthesia.patients.merge.recordsToMove", "Records to Move")}
                       </h4>
                       <div className="border rounded-lg divide-y text-sm">
                         {fkSummary.map(({ table, label, count }) => (
@@ -458,7 +465,7 @@ export default function PatientMergeDialog({
                           </div>
                         ))}
                         <div className="px-3 py-2 flex justify-between font-medium">
-                          <span>{t("patients.total", "Total")}</span>
+                          <span>{t("anesthesia.patients.merge.total", "Total")}</span>
                           <span>{preview.totalAffectedRecords}</span>
                         </div>
                       </div>
@@ -493,7 +500,7 @@ export default function PatientMergeDialog({
                   <div className="border rounded-lg divide-y text-sm">
                     <div className="p-3">
                       <span className="text-muted-foreground">
-                        {t("patients.mergeAction", "Merge {{secondary}} into {{primary}}", {
+                        {t("anesthesia.patients.merge.mergeAction", "Merge {{secondary}} into {{primary}}", {
                           secondary: secondaryName,
                           primary: primaryName,
                         })}
@@ -501,18 +508,18 @@ export default function PatientMergeDialog({
                     </div>
                     <div className="p-3 flex justify-between">
                       <span className="text-muted-foreground">
-                        {t("patients.secondaryWillBeArchived", "Secondary patient will be archived")}
+                        {t("anesthesia.patients.merge.secondaryWillBeArchived", "Secondary patient will be archived")}
                       </span>
                     </div>
                     <div className="p-3 flex justify-between">
                       <span className="text-muted-foreground">
-                        {t("patients.recordsAffected", "Records affected")}
+                        {t("anesthesia.patients.merge.recordsAffected", "Records affected")}
                       </span>
                       <span className="font-medium">{preview.totalAffectedRecords}</span>
                     </div>
                     <div className="p-3 flex justify-between">
                       <span className="text-muted-foreground">
-                        {t("patients.fieldConflictsResolved", "Field conflicts resolved")}
+                        {t("anesthesia.patients.merge.fieldConflictsResolved", "Field conflicts resolved")}
                       </span>
                       <span className="font-medium">{preview.fieldConflicts.length}</span>
                     </div>
@@ -522,7 +529,7 @@ export default function PatientMergeDialog({
                   {nonDefaultChoices.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">
-                        {t("patients.overriddenFields", "Overridden Fields")}
+                        {t("anesthesia.patients.merge.overriddenFields", "Overridden Fields")}
                       </h4>
                       <div className="border rounded-lg divide-y text-sm">
                         {nonDefaultChoices.map(([field, choice]) => (
@@ -532,8 +539,8 @@ export default function PatientMergeDialog({
                             </span>
                             <Badge variant="secondary" className="text-xs">
                               {choice.chosen === "merge"
-                                ? t("patients.merged", "Merged")
-                                : t("patients.fromSecondary", "From secondary")}
+                                ? t("anesthesia.patients.merge.merged", "Merged")
+                                : t("anesthesia.patients.merge.fromSecondary", "From secondary")}
                             </Badge>
                           </div>
                         ))}
@@ -572,12 +579,12 @@ export default function PatientMergeDialog({
               {mergeMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  {t("patients.merging", "Merging...")}
+                  {t("anesthesia.patients.merge.merging", "Merging...")}
                 </>
               ) : (
                 <>
                   <UserCheck className="h-4 w-4 mr-1" />
-                  {t("patients.confirmMerge", "Confirm Merge")}
+                  {t("anesthesia.patients.merge.confirmMerge", "Confirm Merge")}
                 </>
               )}
             </Button>

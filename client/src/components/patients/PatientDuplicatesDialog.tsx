@@ -36,10 +36,10 @@ interface PatientDuplicatesDialogProps {
   onMerge: (patient1Id: string, patient2Id: string) => void;
 }
 
-function confidenceLabel(confidence: number): { text: string; variant: "destructive" | "default" | "secondary" | "outline" } {
-  if (confidence >= 0.9) return { text: "High", variant: "destructive" };
-  if (confidence >= 0.7) return { text: "Medium", variant: "default" };
-  return { text: "Low", variant: "secondary" };
+function confidenceLabel(confidence: number, t: (key: string, fallback: string) => string): { text: string; variant: "destructive" | "default" | "secondary" | "outline" } {
+  if (confidence >= 0.9) return { text: t("anesthesia.patients.duplicates.confidenceHigh", "High"), variant: "destructive" };
+  if (confidence >= 0.7) return { text: t("anesthesia.patients.duplicates.confidenceMedium", "Medium"), variant: "default" };
+  return { text: t("anesthesia.patients.duplicates.confidenceLow", "Low"), variant: "secondary" };
 }
 
 function formatBirthday(birthday: string | null): string {
@@ -51,7 +51,7 @@ function formatBirthday(birthday: string | null): string {
   }
 }
 
-function PatientLabel({ patient, isPrimary }: { patient: DuplicatePatient; isPrimary: boolean }) {
+function PatientLabel({ patient, isPrimary, t }: { patient: DuplicatePatient; isPrimary: boolean; t: (key: string, fallback: string) => string }) {
   return (
     <div className="flex-1 min-w-0">
       <div className="font-medium text-sm truncate flex items-center gap-1">
@@ -59,7 +59,7 @@ function PatientLabel({ patient, isPrimary }: { patient: DuplicatePatient; isPri
         {isPrimary && (
           <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-amber-400 text-amber-600">
             <Star className="h-2.5 w-2.5 mr-0.5 fill-amber-400" />
-            Primary
+            {t("anesthesia.patients.duplicates.primary", "Primary")}
           </Badge>
         )}
       </div>
@@ -68,7 +68,7 @@ function PatientLabel({ patient, isPrimary }: { patient: DuplicatePatient; isPri
         {patient.patientNumber && ` \u00B7 #${patient.patientNumber}`}
       </div>
       <div className="text-xs text-muted-foreground truncate">
-        {patient.phone || patient.email || "No contact info"}
+        {patient.phone || patient.email || t("anesthesia.patients.duplicates.noContactInfo", "No contact info")}
       </div>
     </div>
   );
@@ -90,13 +90,13 @@ export default function PatientDuplicatesDialog({
       await apiRequest("POST", `/api/patients/${patientId}/archive`);
     },
     onSuccess: () => {
-      toast({ title: "Patient archived", description: `${deleteTarget?.surname} ${deleteTarget?.firstName} has been permanently archived.` });
+      toast({ title: t("anesthesia.patients.duplicates.patientArchived", "Patient archived"), description: t("anesthesia.patients.duplicates.patientArchivedDesc", "{{name}} has been permanently archived.", { name: `${deleteTarget?.surname} ${deleteTarget?.firstName}` }) });
       setDeleteTarget(null);
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/patient-duplicates`] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
     },
     onError: (err: any) => {
-      toast({ title: "Archive failed", description: err.message || "Could not archive the patient.", variant: "destructive" });
+      toast({ title: t("anesthesia.patients.duplicates.archiveFailed", "Archive failed"), description: err.message || t("anesthesia.patients.duplicates.archiveFailedDesc", "Could not archive the patient."), variant: "destructive" });
     },
   });
 
@@ -121,10 +121,10 @@ export default function PatientDuplicatesDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {t("admin.findPatientDuplicates", "Find Patient Duplicates")}
+            {t("anesthesia.patients.duplicates.title", "Find Patient Duplicates")}
           </DialogTitle>
           <DialogDescription>
-            {t("admin.findPatientDuplicatesDescription", "Patients with similar names or details that may be duplicates. Review each pair and merge if they are the same person.")}
+            {t("anesthesia.patients.duplicates.description", "Patients with similar names or details that may be duplicates. Review each pair and merge if they are the same person.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -137,15 +137,15 @@ export default function PatientDuplicatesDialog({
             <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
               {pairs.length > 0
-                ? t("admin.allPatientDuplicatesDismissed", "All duplicate pairs have been dismissed.")
-                : t("admin.noPatientDuplicatesFound", "No duplicate patients found.")}
+                ? t("anesthesia.patients.duplicates.allDismissed", "All duplicate pairs have been dismissed.")
+                : t("anesthesia.patients.duplicates.noneFound", "No duplicate patients found.")}
             </p>
           </div>
         ) : (
           <ScrollArea className="max-h-[55vh]">
             <div className="space-y-3 pr-4">
               {visiblePairs.map((pair, idx) => {
-                const badge = confidenceLabel(pair.confidence);
+                const badge = confidenceLabel(pair.confidence, t);
                 const patient1IsPrimary = pair.patient1Score >= pair.patient2Score;
                 return (
                   <div
@@ -167,7 +167,7 @@ export default function PatientDuplicatesDialog({
                           onClick={() => handleDismiss(pair)}
                         >
                           <X className="h-3 w-3 mr-1" />
-                          {t("admin.dismiss", "Dismiss")}
+                          {t("anesthesia.patients.duplicates.dismiss", "Dismiss")}
                         </Button>
                         <Button
                           size="sm"
@@ -175,28 +175,28 @@ export default function PatientDuplicatesDialog({
                           onClick={() => onMerge(pair.patient1.id, pair.patient2.id)}
                         >
                           <ArrowRightLeft className="h-3 w-3 mr-1" />
-                          {t("admin.merge", "Merge")}
+                          {t("anesthesia.patients.duplicates.merge", "Merge")}
                         </Button>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <PatientLabel patient={pair.patient1} isPrimary={patient1IsPrimary} />
+                      <PatientLabel patient={pair.patient1} isPrimary={patient1IsPrimary} t={t} />
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                        title={`Archive ${pair.patient1.surname} ${pair.patient1.firstName}`}
+                        title={t("anesthesia.patients.duplicates.archivePatient", "Archive {{name}}", { name: `${pair.patient1.surname} ${pair.patient1.firstName}` })}
                         onClick={() => setDeleteTarget(pair.patient1)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                       <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <PatientLabel patient={pair.patient2} isPrimary={!patient1IsPrimary} />
+                      <PatientLabel patient={pair.patient2} isPrimary={!patient1IsPrimary} t={t} />
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                        title={`Archive ${pair.patient2.surname} ${pair.patient2.firstName}`}
+                        title={t("anesthesia.patients.duplicates.archivePatient", "Archive {{name}}", { name: `${pair.patient2.surname} ${pair.patient2.firstName}` })}
                         onClick={() => setDeleteTarget(pair.patient2)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -226,30 +226,30 @@ export default function PatientDuplicatesDialog({
                 <AlertTriangle className="h-7 w-7 text-destructive" />
               </div>
               <AlertDialogTitle className="text-xl text-destructive">
-                Archive Patient Permanently
+                {t("anesthesia.patients.duplicates.archiveTitle", "Archive Patient Permanently")}
               </AlertDialogTitle>
             </div>
             <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 my-3">
               <p className="text-base font-bold text-destructive text-center">
-                WARNING: This will archive the patient and hide them from all lists.
+                {t("anesthesia.patients.duplicates.archiveWarning", "WARNING: This will archive the patient and hide them from all lists.")}
               </p>
               <p className="text-sm text-destructive/80 text-center mt-1">
-                Any surgeries, documents, notes, questionnaires, and invoices associated with this patient will become inaccessible.
+                {t("anesthesia.patients.duplicates.archiveWarningDetail", "Any surgeries, documents, notes, questionnaires, and invoices associated with this patient will become inaccessible.")}
               </p>
             </div>
             <AlertDialogDescription className="text-base">
-              You are about to archive:
+              {t("anesthesia.patients.duplicates.aboutToArchive", "You are about to archive:")}
               <span className="font-bold block mt-2 text-foreground text-lg">
                 {deleteTarget?.surname}, {deleteTarget?.firstName}
               </span>
               <span className="text-sm text-muted-foreground block">
-                {deleteTarget?.birthday ? formatBirthday(deleteTarget.birthday) : "No birthday"}
+                {deleteTarget?.birthday ? formatBirthday(deleteTarget.birthday) : t("anesthesia.patients.duplicates.noBirthday", "No birthday")}
                 {deleteTarget?.patientNumber ? ` \u00B7 ${deleteTarget.patientNumber}` : ""}
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold"
               disabled={archiveMutation.isPending}
@@ -263,7 +263,7 @@ export default function PatientDuplicatesDialog({
               ) : (
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
-              Yes, Archive This Patient
+              {t("anesthesia.patients.duplicates.confirmArchive", "Yes, Archive This Patient")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
