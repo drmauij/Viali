@@ -2304,7 +2304,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
 
 // Schema for updating appointments - only allow safe fields
 const updateAppointmentSchema = z.object({
-  status: z.enum(["scheduled", "confirmed", "in_progress", "completed", "cancelled", "no_show"]).optional(),
+  status: z.enum(["scheduled", "confirmed", "arrived", "in_progress", "completed", "cancelled", "no_show"]).optional(),
   appointmentDate: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
