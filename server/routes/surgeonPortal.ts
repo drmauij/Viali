@@ -11,6 +11,13 @@ import {
 import { revokePortalSessionBySessionToken } from "../storage/portalOtp";
 import { sendSurgeonActionRequestNotification } from "../resend";
 import { isDateInClosure } from "../storage/clinicClosures";
+import {
+  getAnesthesiaRecord,
+  getSurgeryStaff,
+  getGeneralTechnique,
+  getNeuraxialBlocks,
+  getPeripheralBlocks,
+} from "../storage/anesthesia";
 
 const router = Router();
 
@@ -82,6 +89,103 @@ router.get("/api/surgeon-portal/:token/surgeries", requireSurgeonSession, async 
     });
   } catch (error) {
     logger.error("[SurgeonPortal] Error fetching surgeries:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+/**
+ * GET /api/surgeon-portal/:token/surgeries/:surgeryId/summary-data
+ * Returns all data needed to generate the Surgery Summary PDF.
+ * Only available for completed surgeries.
+ */
+router.get("/api/surgeon-portal/:token/surgeries/:surgeryId/summary-data", requireSurgeonSession, async (req: Request, res: Response) => {
+  try {
+    const surgeonEmail = (req as any).surgeonEmail;
+    const { token, surgeryId } = req.params;
+
+    const hospital = await getHospitalByExternalSurgeryToken(token);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    // Verify the surgeon owns this surgery
+    const surgeriesList = await getSurgeriesForSurgeon(hospital.id, surgeonEmail);
+    const surgery = surgeriesList.find((s) => s.id === surgeryId);
+    if (!surgery) {
+      return res.status(403).json({ message: "You do not have access to this surgery" });
+    }
+
+    if (surgery.status !== "completed") {
+      return res.status(400).json({ message: "Summary is only available for completed surgeries" });
+    }
+
+    // Fetch full surgery + patient data
+    const fullSurgery = await storage.getSurgery(surgeryId);
+    if (!fullSurgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const patient = fullSurgery.patientId
+      ? await storage.getPatient(fullSurgery.patientId)
+      : null;
+
+    // Fetch anesthesia data
+    const anesthesiaRecord = await getAnesthesiaRecord(surgeryId);
+
+    let staffMembers: any[] = [];
+    let generalTechniqueData: any = null;
+    let neuraxialBlocksData: any[] = [];
+    let peripheralBlocksData: any[] = [];
+
+    if (anesthesiaRecord) {
+      [staffMembers, generalTechniqueData, neuraxialBlocksData, peripheralBlocksData] = await Promise.all([
+        getSurgeryStaff(anesthesiaRecord.id),
+        getGeneralTechnique(anesthesiaRecord.id),
+        getNeuraxialBlocks(anesthesiaRecord.id),
+        getPeripheralBlocks(anesthesiaRecord.id),
+      ]);
+    }
+
+    return res.json({
+      patient: patient ? {
+        firstName: patient.firstName,
+        surname: patient.surname,
+        birthday: patient.birthday,
+        patientNumber: patient.patientNumber,
+      } : null,
+      surgery: {
+        plannedSurgery: fullSurgery.plannedSurgery,
+        chopCode: fullSurgery.chopCode,
+        surgeon: fullSurgery.surgeon,
+        plannedDate: fullSurgery.plannedDate,
+        actualStartTime: fullSurgery.actualStartTime,
+        actualEndTime: fullSurgery.actualEndTime,
+        status: fullSurgery.status,
+        anesthesiaType: anesthesiaRecord?.anesthesiaType ?? null,
+        noPreOpRequired: fullSurgery.noPreOpRequired,
+      },
+      anesthesiaRecord: anesthesiaRecord ? {
+        anesthesiaStartTime: anesthesiaRecord.anesthesiaStartTime,
+        anesthesiaEndTime: anesthesiaRecord.anesthesiaEndTime,
+        timeMarkers: anesthesiaRecord.timeMarkers,
+        anesthesiaOverview: {
+          general: !!(generalTechniqueData?.approach && generalTechniqueData.approach !== "sedation") || !!generalTechniqueData?.rsi,
+          sedation: generalTechniqueData?.approach === "sedation",
+          regionalSpinal: neuraxialBlocksData.some((b: any) => b.blockType === "spinal"),
+          regionalEpidural: neuraxialBlocksData.some((b: any) => b.blockType === "epidural"),
+          regionalPeripheral: peripheralBlocksData.length > 0,
+        },
+      } : null,
+      staffMembers: staffMembers.map((s) => ({
+        id: s.id,
+        role: s.role,
+        name: s.name,
+        timestamp: s.createdAt,
+      })),
+      language: hospital.defaultLanguage || "de",
+    });
+  } catch (error) {
+    logger.error("[SurgeonPortal] Error fetching summary data:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
