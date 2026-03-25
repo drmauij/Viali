@@ -147,6 +147,7 @@ type ViewType = "day" | "week" | "month";
 const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   scheduled: { bg: '#3b82f6', border: '#2563eb' },
   confirmed: { bg: '#10b981', border: '#059669' },
+  arrived: { bg: '#0d9488', border: '#0f766e' },
   in_progress: { bg: '#f59e0b', border: '#d97706' },
   completed: { bg: '#6b7280', border: '#4b5563' },
   cancelled: { bg: '#ef4444', border: '#dc2626' },
@@ -1306,11 +1307,23 @@ export default function ClinicCalendar({
     }
     
     const isCancelled = event.status === 'cancelled';
+    const statusShort: Record<string, string> = {
+      scheduled: t('appointments.status.scheduled', 'Scheduled'),
+      confirmed: t('appointments.status.confirmed', 'Confirmed'),
+      arrived: t('appointments.status.arrived', 'Arrived'),
+      in_progress: t('appointments.status.inProgress', 'In Progress'),
+      completed: t('appointments.status.completed', 'Completed'),
+      cancelled: t('appointments.status.cancelled', 'Cancelled'),
+      no_show: t('appointments.status.noShow', 'No Show'),
+    };
     return (
       <div className="flex flex-col h-full p-1 overflow-hidden" data-testid={`appointment-event-${event.appointmentId}`}>
         <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''} flex items-center gap-1`}>
           {event.isVideoAppointment && <Video className="w-3 h-3 flex-shrink-0" />}
-          {event.serviceName || t('appointments.appointment', 'Appointment')}
+          <span className="truncate flex-1">{event.serviceName || t('appointments.appointment', 'Appointment')}</span>
+          <span className="text-[9px] font-medium bg-white/20 rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
+            {statusShort[event.status] || event.status}
+          </span>
         </div>
         <div className={`text-xs ${isCancelled ? 'line-through' : ''}`}>
           {event.patientName}
