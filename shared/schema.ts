@@ -6292,7 +6292,7 @@ export const referralEvents = pgTable("referral_events", {
   fbclid: varchar("fbclid"),
   ttclid: varchar("ttclid"),
   msclkid: varchar("msclkid"),
-  captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref"] }).notNull(),
+  captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref", "staff"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("referral_events_hospital_created").on(table.hospitalId, table.createdAt),

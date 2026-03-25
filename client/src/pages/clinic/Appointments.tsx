@@ -434,6 +434,8 @@ export function BookingDialog({
   const [newPatientDOB, setNewPatientDOB] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
   const [birthdayInput, setBirthdayInput] = useState("");
+  const [referralSource, setReferralSource] = useState<string>("");
+  const [referralSourceDetail, setReferralSourceDetail] = useState<string>("");
 
   // Update state when defaults change (from calendar slot selection or patient pre-fill)
   useMemo(() => {
@@ -606,6 +608,8 @@ export function BookingDialog({
     setNewPatientDOB("");
     setNewPatientPhone("");
     setBirthdayInput("");
+    setReferralSource("");
+    setReferralSourceDetail("");
   };
 
   const handleSubmit = () => {
@@ -625,6 +629,7 @@ export function BookingDialog({
       notes: notes || null,
       isVideoAppointment,
       videoMeetingLink: videoMeetingLink || null,
+      ...(referralSource ? { referralSource, referralSourceDetail: referralSourceDetail || null } : {}),
     });
   };
 
@@ -823,6 +828,67 @@ export function BookingDialog({
               rows={2}
               data-testid="input-booking-notes"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>{t('appointments.referralSource', 'Referral Source')}</Label>
+              <Select value={referralSource} onValueChange={(v) => { setReferralSource(v); setReferralSourceDetail(""); }}>
+                <SelectTrigger data-testid="select-referral-source">
+                  <SelectValue placeholder={t('appointments.selectReferralSource', 'None')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="social">{t('referral.social', 'Social Media')}</SelectItem>
+                  <SelectItem value="search_engine">{t('referral.searchEngine', 'Search Engine')}</SelectItem>
+                  <SelectItem value="llm">{t('referral.llm', 'AI / ChatGPT')}</SelectItem>
+                  <SelectItem value="word_of_mouth">{t('referral.wordOfMouth', 'Word of Mouth')}</SelectItem>
+                  <SelectItem value="belegarzt">{t('referral.belegarzt', 'Belegarzt')}</SelectItem>
+                  <SelectItem value="other">{t('referral.other', 'Other')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {referralSource === "social" && (
+              <div>
+                <Label>{t('referral.whichOne', 'Which one?')}</Label>
+                <Select value={referralSourceDetail} onValueChange={setReferralSourceDetail}>
+                  <SelectTrigger data-testid="select-referral-detail">
+                    <SelectValue placeholder={t('referral.selectPlatform', 'Select...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="facebook">{t('referral.facebook', 'Facebook')}</SelectItem>
+                    <SelectItem value="instagram">{t('referral.instagram', 'Instagram')}</SelectItem>
+                    <SelectItem value="tiktok">{t('referral.tiktok', 'TikTok')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {referralSource === "search_engine" && (
+              <div>
+                <Label>{t('referral.whichOne', 'Which one?')}</Label>
+                <Select value={referralSourceDetail} onValueChange={setReferralSourceDetail}>
+                  <SelectTrigger data-testid="select-referral-detail">
+                    <SelectValue placeholder={t('referral.selectEngine', 'Select...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="google">{t('referral.google', 'Google')}</SelectItem>
+                    <SelectItem value="bing">{t('referral.bing', 'Bing')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(referralSource === "word_of_mouth" || referralSource === "other") && (
+              <div>
+                <Label>{t('referral.detail', 'Detail')}</Label>
+                <Input
+                  value={referralSourceDetail}
+                  onChange={(e) => setReferralSourceDetail(e.target.value)}
+                  placeholder={referralSource === "word_of_mouth"
+                    ? t('referral.wordOfMouthPlaceholder', 'Who referred them?')
+                    : t('referral.otherPlaceholder', 'Please specify...')}
+                  data-testid="input-referral-detail"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between">

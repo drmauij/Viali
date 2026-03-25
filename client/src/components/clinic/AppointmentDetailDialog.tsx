@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -102,6 +102,12 @@ export default function AppointmentDetailDialog({
   const [editIsVideo, setEditIsVideo] = useState(false);
   const [editVideoLink, setEditVideoLink] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editServiceId, setEditServiceId] = useState('');
+
+  const { data: services = [] } = useQuery<ClinicService[]>({
+    queryKey: [`/api/clinic/${hospitalId}/services?unitId=${unitId}`],
+    enabled: !!hospitalId && !!unitId && editMode,
+  });
 
   const updateAppointmentMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -170,6 +176,7 @@ export default function AppointmentDetailDialog({
     setEditIsVideo(appointment.isVideoAppointment || false);
     setEditVideoLink(appointment.videoMeetingLink || '');
     setEditNotes(appointment.notes || '');
+    setEditServiceId(appointment.serviceId || '');
     setEditMode(true);
   };
 
@@ -180,6 +187,7 @@ export default function AppointmentDetailDialog({
     if (editStartTime !== appointment.startTime) changes.startTime = editStartTime;
     if (editEndTime !== appointment.endTime) changes.endTime = editEndTime;
     if (editProviderId !== (appointment.providerId || '')) changes.providerId = editProviderId;
+    if (editServiceId !== (appointment.serviceId || '')) changes.serviceId = editServiceId || null;
     if (editIsVideo !== (appointment.isVideoAppointment || false)) changes.isVideoAppointment = editIsVideo;
     if (editVideoLink !== (appointment.videoMeetingLink || '')) changes.videoMeetingLink = editVideoLink || null;
     if (editNotes !== (appointment.notes || '')) changes.notes = editNotes || null;
@@ -341,11 +349,26 @@ export default function AppointmentDetailDialog({
                       ? t('appointments.subject', 'Subject')
                       : t('appointments.service', 'Service')}
                   </p>
-                  <p className="font-medium">
-                    {appointment.appointmentType === 'internal'
-                      ? (appointment.internalSubject || '-')
-                      : (appointment.service?.name || '-')}
-                  </p>
+                  {editMode && appointment.appointmentType !== 'internal' ? (
+                    <Select value={editServiceId} onValueChange={setEditServiceId}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {services.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium">
+                      {appointment.appointmentType === 'internal'
+                        ? (appointment.internalSubject || '-')
+                        : (appointment.service?.name || '-')}
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -585,7 +585,7 @@ const bookingSchema = z.object({
   // Referral fields
   referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"]).nullish(),
   referralSourceDetail: z.string().max(500).nullish(),
-  captureMethod: z.enum(["manual", "utm", "ref"]).nullish(),
+  captureMethod: z.enum(["manual", "utm", "ref", "staff"]).nullish(),
   utmSource: z.string().max(500).nullish(),
   utmMedium: z.string().max(500).nullish(),
   utmCampaign: z.string().max(500).nullish(),
@@ -2244,17 +2244,39 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
       }
     }
     
+    // Extract referral fields before passing to appointment schema
+    const { referralSource, referralSourceDetail, ...appointmentBody } = req.body;
+
     const validatedData = insertClinicAppointmentSchema.parse({
-      ...req.body,
+      ...appointmentBody,
       hospitalId,
       unitId,
       durationMinutes,
       createdBy: userId,
       status: 'confirmed',
     });
-    
+
     const appointment = await storage.createClinicAppointment(validatedData);
-    
+
+    // Create referral event if staff selected a referral source
+    if (referralSource) {
+      try {
+        const { referralEvents } = await import("@shared/schema");
+        if (appointment.patientId) {
+          await db.insert(referralEvents).values({
+            hospitalId,
+            patientId: appointment.patientId,
+            appointmentId: appointment.id,
+            source: referralSource as "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "other",
+            sourceDetail: referralSourceDetail || undefined,
+            captureMethod: "staff",
+          });
+        }
+      } catch (err) {
+        logger.error(`Failed to create referral event for appointment ${appointment.id}:`, err);
+      }
+    }
+
     // Async sync to Cal.com (don't block response)
     (async () => {
       try {
