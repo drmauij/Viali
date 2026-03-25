@@ -126,6 +126,7 @@ export const hospitals = pgTable("hospitals", {
   visionAiProvider: varchar("vision_ai_provider", { enum: ["openai", "pixtral"] }).default("openai"),
   enableReferralOnBooking: boolean("enable_referral_on_booking").default(false),
   noShowFeeMessage: text("no_show_fee_message"), // When set, enables no-show fee notice at booking + in 24h reminder
+  hidePatientCancel: boolean("hide_patient_cancel").default(false), // When true, hides cancel option from patient-facing appointment page + softens SMS/email wording
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

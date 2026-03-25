@@ -58,6 +58,7 @@ export default function SettingsPage() {
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
     appointmentReminderDisabled: false,
+    hidePatientCancel: false,
     noShowFeeMessage: "" as string,
     addonPatientChat: false,
     currency: "CHF" as string,
@@ -164,6 +165,7 @@ export default function SettingsPage() {
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
         appointmentReminderDisabled: fullHospitalData.appointmentReminderDisabled ?? false,
+        hidePatientCancel: fullHospitalData.hidePatientCancel ?? false,
         noShowFeeMessage: fullHospitalData.noShowFeeMessage || "",
         addonPatientChat: fullHospitalData.addonPatientChat ?? false,
         currency: fullHospitalData.currency || "CHF",
@@ -256,6 +258,28 @@ export default function SettingsPage() {
     },
     onError: (error: any) => {
       setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !prev.appointmentReminderDisabled }));
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
+    },
+  });
+
+  // Update hide patient cancel mutation (for quick toggle)
+  const updateHidePatientCancelMutation = useMutation({
+    mutationFn: async (hidden: boolean) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { hidePatientCancel: hidden });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: t("common.success"),
+        description: hospitalForm.hidePatientCancel
+          ? t("admin.hidePatientCancelEnabled", "Patient cancel option is now hidden")
+          : t("admin.hidePatientCancelDisabled", "Patient cancel option is now visible")
+      });
+    },
+    onError: (error: any) => {
+      setHospitalForm(prev => ({ ...prev, hidePatientCancel: !prev.hidePatientCancel }));
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
     },
   });
@@ -1194,6 +1218,34 @@ export default function SettingsPage() {
           <div className="space-y-4">
             {/* Patient Booking Page Section */}
             <BookingTokenSection hospitalId={activeHospital?.id} isAdmin={isAdmin} />
+
+            {/* Hide Patient Cancel Card */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <i className="fas fa-eye-slash text-red-500"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground text-lg">
+                      {t("admin.hidePatientCancel", "Hide Patient Cancel Option")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.hidePatientCancelDescription", "When enabled, patients cannot cancel their appointment from the appointment page. SMS and email links will show as 'view appointment' instead of 'cancel'.")}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={hospitalForm.hidePatientCancel}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, hidePatientCancel: checked }));
+                    updateHidePatientCancelMutation.mutate(checked);
+                  }}
+                  disabled={updateHidePatientCancelMutation.isPending}
+                  data-testid="switch-hide-patient-cancel"
+                />
+              </div>
+            </div>
 
             {/* Appointment Reminder Card */}
             <div className="bg-card border border-border rounded-lg p-4">

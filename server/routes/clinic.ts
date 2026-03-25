@@ -155,6 +155,7 @@ router.get('/api/clinic/appointments/cancel-info/:token', async (req, res) => {
       patientEmail: appointment.patient?.email || null,
       patientPhone: appointment.patient?.phone || null,
       noShowFeeMessage: hospital.noShowFeeMessage || null,
+      hidePatientCancel: hospital.hidePatientCancel || false,
     });
   } catch (error) {
     logger.error('Error fetching cancel info:', error);
@@ -768,6 +769,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             providerName,
             '',
             noShowFeeMsg,
+            hospital.hidePatientCancel || false,
           );
 
           // Notify clinic staff about new booking
@@ -2019,9 +2021,10 @@ export async function sendAppointmentNotification(
         // For confirmation and reschedule, use versions with manage link + video link
         const videoLink = (appointment.isVideoAppointment && appointment.videoMeetingLink) ? appointment.videoMeetingLink : '';
         const noShowFeeMsg = hospital.noShowFeeMessage || '';
+        const hideCancel = hospital.hidePatientCancel || false;
         const result = type === 'reschedule'
-          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg)
-          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg);
+          ? await sendAppointmentRescheduleEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg, hideCancel)
+          : await sendAppointmentConfirmationEmail(patient.email, patientName, clinicName, formattedDate, formattedTime, lang, manageUrl, providerName, videoLink, noShowFeeMsg, hideCancel);
         if (result.success) { channel = 'email'; recipient = patient.email; success = true; sentMessageText = isGerman ? `[E-Mail] Terminbestätigung: ${formattedDate} um ${formattedTime}` : `[Email] Appointment confirmation: ${formattedDate} at ${formattedTime}`; }
       }
     }

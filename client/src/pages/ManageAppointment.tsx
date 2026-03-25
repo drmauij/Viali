@@ -30,6 +30,7 @@ type AppointmentInfo = {
   patientEmail: string | null;
   patientPhone: string | null;
   noShowFeeMessage: string | null;
+  hidePatientCancel: boolean;
 };
 
 type CancelResult = {
@@ -374,44 +375,46 @@ export default function ManageAppointment() {
             {t("Zum Kalender hinzufügen", "Add to Calendar")}
           </a>
 
-          {/* Cancel */}
-          {!showCancelConfirm ? (
-            <button
-              onClick={() => setShowCancelConfirm(true)}
-              className="w-full text-center text-sm text-gray-400 hover:text-red-500 transition-colors py-2"
-            >
-              {t("Termin absagen", "Cancel Appointment")}
-            </button>
-          ) : (
-            <Card className="border-red-200 bg-red-50/50">
-              <CardContent className="p-4 text-center space-y-3">
-                <p className="text-sm text-gray-700">
-                  {t(
-                    "Möchten Sie diesen Termin wirklich absagen?",
-                    "Are you sure you want to cancel this appointment?"
-                  )}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setShowCancelConfirm(false)}
-                  >
-                    {t("Nein", "No")}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={handleCancel}
-                    disabled={cancelling}
-                  >
-                    {cancelling
-                      ? t("Wird abgesagt...", "Cancelling...")
-                      : t("Ja, absagen", "Yes, cancel")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Cancel — hidden when hospital has hidePatientCancel enabled */}
+          {!info.hidePatientCancel && (
+            !showCancelConfirm ? (
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="w-full text-center text-sm text-gray-400 hover:text-red-500 transition-colors py-2"
+              >
+                {t("Termin absagen", "Cancel Appointment")}
+              </button>
+            ) : (
+              <Card className="border-red-200 bg-red-50/50">
+                <CardContent className="p-4 text-center space-y-3">
+                  <p className="text-sm text-gray-700">
+                    {t(
+                      "Möchten Sie diesen Termin wirklich absagen?",
+                      "Are you sure you want to cancel this appointment?"
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowCancelConfirm(false)}
+                    >
+                      {t("Nein", "No")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={handleCancel}
+                      disabled={cancelling}
+                    >
+                      {cancelling
+                        ? t("Wird abgesagt...", "Cancelling...")
+                        : t("Ja, absagen", "Yes, cancel")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
           )}
         </div>
 

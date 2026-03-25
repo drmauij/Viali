@@ -35,6 +35,8 @@ import {
   Loader2,
   Pencil,
   Video,
+  UserX,
+  Undo2,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -480,6 +482,35 @@ export default function AppointmentDetailDialog({
                     >
                       <Check className="h-4 w-4 mr-1" />
                       {t('appointments.complete', 'Complete')}
+                    </Button>
+                  )}
+                  {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
+                      onClick={() => {
+                        if (window.confirm(t('appointments.noShowConfirm', 'Mark this appointment as No-Show? The patient did not attend.'))) {
+                          updateAppointmentMutation.mutate({ id: appointment.id, status: 'no_show' });
+                        }
+                      }}
+                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                      data-testid="button-no-show-appointment"
+                    >
+                      <UserX className="h-4 w-4 mr-1" />
+                      {t('appointments.noShow', 'No-Show')}
+                    </Button>
+                  )}
+                  {appointment.status === 'no_show' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'scheduled' })}
+                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                      data-testid="button-undo-no-show"
+                    >
+                      <Undo2 className="h-4 w-4 mr-1" />
+                      {t('appointments.undoNoShow', 'Undo No-Show')}
                     </Button>
                   )}
                   <Button

@@ -2390,8 +2390,12 @@ async function processAppointmentReminder(job: any): Promise<void> {
       // Try SMS first
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
-        const smsDe = `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Absagen: ${manageUrl}${feeNotice}`;
-        const smsEn = `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Cancel: ${manageUrl}${feeNotice}`;
+        const smsDe = hospital.hidePatientCancel
+          ? `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Termininfo: ${manageUrl}${feeNotice}`
+          : `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Absagen: ${manageUrl}${feeNotice}`;
+        const smsEn = hospital.hidePatientCancel
+          ? `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Details: ${manageUrl}${feeNotice}`
+          : `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Cancel: ${manageUrl}${feeNotice}`;
         const smsMessage = isGerman ? smsDe : smsEn;
 
         const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
@@ -2414,7 +2418,7 @@ async function processAppointmentReminder(job: any): Promise<void> {
           formattedTime,
           manageUrl,
           lang,
-          'cancel-only',
+          hospital.hidePatientCancel ? 'info-only' : 'cancel-only',
           hospital.noShowFeeMessage,
         );
         if (emailResult.success) {

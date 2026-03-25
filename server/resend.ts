@@ -1247,7 +1247,8 @@ export async function sendAppointmentConfirmationEmail(
   manageUrl: string = '',
   providerName: string = '',
   videoMeetingLink: string = '',
-  noShowFeeMessage: string = ''
+  noShowFeeMessage: string = '',
+  hidePatientCancel: boolean = false,
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1257,13 +1258,19 @@ export async function sendAppointmentConfirmationEmail(
       ? `Terminbestätigung – ${clinicName}`
       : `Appointment Confirmation – ${clinicName}`;
 
-    const cancelSection = manageUrl ? `
+    const cancelSection = manageUrl ? (hidePatientCancel ? `
+        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
+          ? 'Ihre Termindetails:'
+          : 'Your appointment details:'}</p>
+        <p style="text-align: center; margin: 12px 0;">
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo ansehen' : 'View Appointment Info'}</a>
+        </p>` : `
         <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
           ? 'Falls Sie den Termin verschieben oder absagen möchten:'
           : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
           <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo & Verwaltung' : 'Appointment Info & Management'}</a>
-        </p>` : '';
+        </p>`) : '';
 
     const videoSection = videoMeetingLink ? `
         <p style="margin-top: 12px; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
@@ -1320,7 +1327,8 @@ export async function sendAppointmentRescheduleEmail(
   manageUrl: string = '',
   providerName: string = '',
   videoMeetingLink: string = '',
-  noShowFeeMessage: string = ''
+  noShowFeeMessage: string = '',
+  hidePatientCancel: boolean = false,
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1330,13 +1338,19 @@ export async function sendAppointmentRescheduleEmail(
       ? `Terminverschiebung – ${clinicName}`
       : `Appointment Rescheduled – ${clinicName}`;
 
-    const cancelSection = manageUrl ? `
+    const cancelSection = manageUrl ? (hidePatientCancel ? `
+        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
+          ? 'Ihre Termindetails:'
+          : 'Your appointment details:'}</p>
+        <p style="text-align: center; margin: 12px 0;">
+          <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo ansehen' : 'View Appointment Info'}</a>
+        </p>` : `
         <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${isGerman
           ? 'Falls Sie den Termin verschieben oder absagen möchten:'
           : 'If you need to reschedule or cancel this appointment:'}</p>
         <p style="text-align: center; margin: 12px 0;">
           <a href="${manageUrl}" style="color: #2563eb; font-size: 14px;">${isGerman ? 'Termininfo & Verwaltung' : 'Appointment Info & Management'}</a>
-        </p>` : '';
+        </p>`) : '';
 
     const videoSection = videoMeetingLink ? `
         <p style="margin-top: 12px; padding: 12px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
