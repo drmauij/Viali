@@ -31,7 +31,8 @@ import {
   CalendarPlus,
   X,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  Navigation
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -1019,7 +1020,7 @@ function PatientPortalContent({ token }: { token: string }) {
     const summary = data.surgery.procedure
       ? `${t.step3Title} – ${data.surgery.procedure}`
       : t.step3Title;
-    const location = [data.surgery.roomName, data.hospital.name].filter(Boolean).join(', ');
+    const location = [data.hospital.name, data.hospital.address].filter(Boolean).join(', ');
 
     const ics = [
       'BEGIN:VCALENDAR',
@@ -2177,12 +2178,20 @@ function PatientPortalContent({ token }: { token: string }) {
                       </div>
                     )}
 
-                    {data.surgery.roomName && (
+                    {data.hospital.address && (
                       <div className="flex items-start gap-3">
                         <MapPin className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
                         <div>
                           <p className="text-xs text-muted-foreground dark:text-gray-400">{t.location}</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.surgery.roomName}</p>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.hospital.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                          >
+                            {data.hospital.address}
+                            <Navigation className="h-3.5 w-3.5 shrink-0" />
+                          </a>
                         </div>
                       </div>
                     )}

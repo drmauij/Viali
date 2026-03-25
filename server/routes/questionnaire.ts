@@ -2334,7 +2334,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       patientId: link.patientId,
       hospital: {
         name: hospital.name,
-        address: hospital.address,
+        address: hospital.address || [hospital.companyStreet, [hospital.companyPostalCode, hospital.companyCity].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
         phone: hospital.companyPhone,
       },
       patient: patientInfo,
