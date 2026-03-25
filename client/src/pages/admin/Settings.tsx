@@ -1178,7 +1178,102 @@ export default function SettingsPage() {
 
         {/* Links Tab Content */}
         <TabsContent value="links">
-        <div className="space-y-4">
+        <Tabs defaultValue="booking" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="booking">
+              <i className="fas fa-calendar-check mr-2"></i>
+              {t("admin.bookingAndAppointments", "Booking & Appointments")}
+            </TabsTrigger>
+            <TabsTrigger value="other-links">
+              <i className="fas fa-link mr-2"></i>
+              {t("admin.otherLinks", "Other Links")}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="booking">
+          <div className="space-y-4">
+            {/* Patient Booking Page Section */}
+            <BookingTokenSection hospitalId={activeHospital?.id} isAdmin={isAdmin} />
+
+            {/* Appointment Reminder Card */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <i className="fas fa-calendar-check text-blue-500"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground text-lg">
+                      {t("admin.appointmentReminderEnabled", "Appointment Reminder")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.appointmentReminderEnabledDescription", "When enabled, patients receive a reminder the evening before their clinic appointment with a cancel link")}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={!hospitalForm.appointmentReminderDisabled}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !checked }));
+                    updateAppointmentReminderDisabledMutation.mutate(!checked);
+                  }}
+                  disabled={updateAppointmentReminderDisabledMutation.isPending}
+                  data-testid="switch-appointment-reminder-enabled"
+                />
+              </div>
+            </div>
+
+            {/* No-Show Fee Notice Card */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <i className="fas fa-exclamation-triangle text-amber-500"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground text-lg">
+                      {t("admin.noShowFeeNotice", "No-Show Fee Notice")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("admin.noShowFeeNoticeDescription", "When set, patients must acknowledge this message when booking online. It is also included in the 24h appointment reminder. Leave empty to disable.")}
+                    </p>
+                  </div>
+                </div>
+                {hospitalForm.noShowFeeMessage && hospitalForm.appointmentReminderDisabled && (
+                  <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-md p-3">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    {t("admin.noShowFeeReminderWarning", "Note: Appointment reminders are currently disabled — the fee notice will only appear during booking, not in reminders.")}
+                  </div>
+                )}
+                <textarea
+                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder={hospitalForm.defaultLanguage === "en"
+                    ? "Please note that appointments not cancelled at least 24 hours in advance may be subject to a CHF 150 fee."
+                    : "Bitte beachten Sie, dass Termine, die nicht mindestens 24 Stunden im Voraus abgesagt werden, mit CHF 150 in Rechnung gestellt werden können."}
+                  value={hospitalForm.noShowFeeMessage}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, noShowFeeMessage: e.target.value }))}
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.noShowFeeSmsNote", "Note: Long messages may be sent as multiple SMS segments, increasing costs.")}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => updateNoShowFeeMessageMutation.mutate(hospitalForm.noShowFeeMessage)}
+                    disabled={updateNoShowFeeMessageMutation.isPending}
+                  >
+                    {updateNoShowFeeMessageMutation.isPending
+                      ? t("common.saving", "Saving...")
+                      : t("common.save", "Save")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </TabsContent>
+
+          <TabsContent value="other-links">
+          <div className="space-y-4">
           {/* Open Questionnaire Link Section */}
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="space-y-4">
@@ -1423,81 +1518,6 @@ export default function SettingsPage() {
                 disabled={updatePreSurgeryReminderDisabledMutation.isPending}
                 data-testid="switch-pre-surgery-reminder-enabled"
               />
-            </div>
-          </div>
-
-          {/* Appointment Reminder Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <i className="fas fa-calendar-check text-blue-500"></i>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-foreground text-lg">
-                    {t("admin.appointmentReminderEnabled", "Appointment Reminder")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.appointmentReminderEnabledDescription", "When enabled, patients receive a reminder the evening before their clinic appointment with a cancel link")}
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={!hospitalForm.appointmentReminderDisabled}
-                onCheckedChange={(checked) => {
-                  setHospitalForm(prev => ({ ...prev, appointmentReminderDisabled: !checked }));
-                  updateAppointmentReminderDisabledMutation.mutate(!checked);
-                }}
-                disabled={updateAppointmentReminderDisabledMutation.isPending}
-                data-testid="switch-appointment-reminder-enabled"
-              />
-            </div>
-          </div>
-
-          {/* No-Show Fee Notice Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <i className="fas fa-exclamation-triangle text-amber-500"></i>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-foreground text-lg">
-                    {t("admin.noShowFeeNotice", "No-Show Fee Notice")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.noShowFeeNoticeDescription", "When set, patients must acknowledge this message when booking online. It is also included in the 24h appointment reminder. Leave empty to disable.")}
-                  </p>
-                </div>
-              </div>
-              {hospitalForm.noShowFeeMessage && hospitalForm.appointmentReminderDisabled && (
-                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-md p-3">
-                  <i className="fas fa-info-circle mr-1"></i>
-                  {t("admin.noShowFeeReminderWarning", "Note: Appointment reminders are currently disabled — the fee notice will only appear during booking, not in reminders.")}
-                </div>
-              )}
-              <textarea
-                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder={hospitalForm.defaultLanguage === "en"
-                  ? "Please note that appointments not cancelled at least 24 hours in advance may be subject to a CHF 150 fee."
-                  : "Bitte beachten Sie, dass Termine, die nicht mindestens 24 Stunden im Voraus abgesagt werden, mit CHF 150 in Rechnung gestellt werden können."}
-                value={hospitalForm.noShowFeeMessage}
-                onChange={(e) => setHospitalForm(prev => ({ ...prev, noShowFeeMessage: e.target.value }))}
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {t("admin.noShowFeeSmsNote", "Note: Long messages may be sent as multiple SMS segments, increasing costs.")}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => updateNoShowFeeMessageMutation.mutate(hospitalForm.noShowFeeMessage)}
-                  disabled={updateNoShowFeeMessageMutation.isPending}
-                >
-                  {updateNoShowFeeMessageMutation.isPending
-                    ? t("common.saving", "Saving...")
-                    : t("common.save", "Save")}
-                </Button>
-              </div>
             </div>
           </div>
 
@@ -1746,9 +1766,9 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
-          {/* Patient Booking Page Section */}
-          <BookingTokenSection hospitalId={activeHospital?.id} isAdmin={isAdmin} />
-        </div>
+          </div>
+          </TabsContent>
+        </Tabs>
         </TabsContent>
 
         {/* Data Tab Content */}
