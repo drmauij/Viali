@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +81,8 @@ interface IntraOpData {
     contrast?: boolean;
     ointments?: boolean;
     other?: string;
-    [key: string]: boolean | string | undefined;
+    customMedications?: Array<{ itemId: string; name: string; volume: string }>;
+    [key: string]: boolean | string | undefined | Array<any>;
   };
   dressing?: {
     elasticBandage?: boolean;
@@ -147,6 +148,39 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
   // Intraoperative Data state
   const [intraOpData, setIntraOpData] = useState<IntraOpData>({});
 
+  // Custom medications state
+  const [medSearchOpen, setMedSearchOpen] = useState(false);
+  const [medSearchQuery, setMedSearchQuery] = useState("");
+
+  const hospitalId = activeHospital?.id;
+  const unitId = activeHospital?.unitId;
+
+  // Fetch inventory items for search
+  const { data: inventoryItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`, unitId],
+    enabled: !!hospitalId && !!unitId,
+  });
+
+  // Fetch current inventory usage to find IDs for removal
+  const { data: inventoryUsageItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Filter items for the search combobox
+  const filteredMedItems = useMemo(() => {
+    const existing = intraOpData.medications?.customMedications?.map((m: any) => m.itemId) ?? [];
+    const available = inventoryItems.filter((item: any) => !existing.includes(item.id));
+    if (!medSearchQuery.trim()) return available.slice(0, 50);
+    const query = medSearchQuery.toLowerCase();
+    return available
+      .filter((item: any) =>
+        item.name?.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+      )
+      .slice(0, 50);
+  }, [inventoryItems, medSearchQuery, intraOpData.medications?.customMedications]);
+
   // Collapsible section state for intraop cards
   const [expandedIntraOpSections, setExpandedIntraOpSections] = useState<Record<string, boolean>>({
     surgeryTimes: false,
@@ -189,7 +223,8 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
         return !!(intraOpData.irrigation && Object.values(intraOpData.irrigation).some(v => v));
       case 'infiltrationMedications':
         return !!(intraOpData.infiltration && Object.values(intraOpData.infiltration).some(v => v)) ||
-               !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v));
+               !!(intraOpData.medications && Object.values(intraOpData.medications).some(v => v && !(Array.isArray(v) && v.length === 0))) ||
+               !!(intraOpData.medications?.customMedications && intraOpData.medications.customMedications.length > 0);
       case 'dressing':
         return !!(intraOpData.dressing && Object.values(intraOpData.dressing).some(v => v));
       case 'drainage':
@@ -214,6 +249,85 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
     debounceMs: 800,
   });
+
+  // Add a custom medication from inventory.
+  // Note: inventory_usage has a unique constraint on (anesthesiaRecordId, itemId).
+  // If the same item is already tracked via anesthesia drug doses, the manual endpoint
+  // will upsert and overwrite the calculated qty with overrideQty: 1.
+  const addCustomMedication = async (item: any) => {
+    const newEntry = { itemId: item.id, name: item.name, volume: '' };
+    const currentCustom = intraOpData.medications?.customMedications ?? [];
+    const updated = {
+      ...intraOpData,
+      medications: {
+        ...intraOpData.medications,
+        customMedications: [...currentCustom, newEntry],
+      },
+    };
+    setIntraOpData(updated);
+    intraOpAutoSave.mutate(updated);
+    setMedSearchOpen(false);
+    setMedSearchQuery("");
+
+    // Add to inventory usage (qty=1)
+    if (anesthesiaRecordId) {
+      try {
+        await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/manual`, {
+          itemId: item.id,
+          qty: 1,
+          reason: 'Infiltration medication',
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
+      } catch (err) {
+        console.error('Failed to add inventory usage:', err);
+      }
+    }
+  };
+
+  // Remove a custom medication
+  const removeCustomMedication = async (itemId: string) => {
+    const currentCustom = intraOpData.medications?.customMedications ?? [];
+    const updated = {
+      ...intraOpData,
+      medications: {
+        ...intraOpData.medications,
+        customMedications: currentCustom.filter((m: any) => m.itemId !== itemId),
+      },
+    };
+    setIntraOpData(updated);
+    intraOpAutoSave.mutate(updated);
+
+    // Zero out inventory usage
+    if (anesthesiaRecordId) {
+      try {
+        const usageRow = inventoryUsageItems.find((u: any) => u.itemId === itemId);
+        if (usageRow) {
+          await apiRequest('PATCH', `/api/anesthesia/inventory/${usageRow.id}/override`, {
+            overrideQty: 0,
+            overrideReason: 'Removed from infiltration medications',
+          });
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
+        }
+      } catch (err) {
+        console.error('Failed to zero inventory usage:', err);
+      }
+    }
+  };
+
+  // Update volume for a custom medication
+  const updateCustomMedicationVolume = (itemId: string, volume: string) => {
+    const currentCustom = intraOpData.medications?.customMedications ?? [];
+    const updated = {
+      ...intraOpData,
+      medications: {
+        ...intraOpData.medications,
+        customMedications: currentCustom.map((m: any) =>
+          m.itemId === itemId ? { ...m, volume } : m
+        ),
+      },
+    };
+    setIntraOpData(updated);
+  };
 
   // Local state for surgery times (optimistic updates so duration shows immediately)
   const [localSurgeryStart, setLocalSurgeryStart] = useState<string | null>(null);
@@ -1540,6 +1654,76 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
               onBlur={() => intraOpAutoSave.mutate(intraOpData)}
             />
           </div>
+
+          {/* Custom Medications from Inventory */}
+          {(intraOpData.medications?.customMedications?.length ?? 0) > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.customMedications')}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {intraOpData.medications?.customMedications?.map((med: any) => (
+                  <div key={med.itemId} className="flex items-center gap-2">
+                    <span className="text-sm flex-1 truncate">{med.name}</span>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        className="h-7 w-20 text-sm"
+                        placeholder="0"
+                        value={med.volume ?? ''}
+                        onChange={(e) => updateCustomMedicationVolume(med.itemId, e.target.value)}
+                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      />
+                      <span className="text-xs text-muted-foreground">{t('surgery.intraop.mlUnit')}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeCustomMedication(med.itemId)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Medication from Inventory */}
+          <Popover open={medSearchOpen} onOpenChange={setMedSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!anesthesiaRecordId}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {t('surgery.intraop.addCustomMedication')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[350px] p-0" align="start">
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder={t('surgery.intraop.searchInventoryMedication')}
+                  value={medSearchQuery}
+                  onValueChange={setMedSearchQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>{t('surgery.intraop.noMedicationFound')}</CommandEmpty>
+                  <CommandGroup>
+                    {filteredMedItems.map((item: any) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.name}
+                        onSelect={() => addCustomMedication(item)}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <span className="truncate flex-1">{item.name}</span>
+                          {item.description && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{item.description}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           {/* Divider */}
           <hr className="border-border" />
