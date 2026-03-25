@@ -1266,6 +1266,25 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
       }
     }
 
+    // Create inventory usage for custom medications from intraOpData
+    const customMeds = (set.intraOpData as any)?.medications?.customMedications;
+    if (Array.isArray(customMeds)) {
+      for (const cm of customMeds) {
+        try {
+          await storage.createManualInventoryUsage(
+            anesthesiaRecordId,
+            cm.itemId,
+            1,
+            `Infiltration medication (set: ${set.name})`,
+            userId,
+          );
+          inventoryApplied++;
+        } catch (cmError) {
+          logger.error(`Error applying custom medication ${cm.itemId} from surgery set:`, cmError);
+        }
+      }
+    }
+
     res.json({
       message: "Surgery set applied successfully",
       intraOpApplied,

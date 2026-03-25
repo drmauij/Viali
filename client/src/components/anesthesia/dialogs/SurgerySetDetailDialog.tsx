@@ -175,6 +175,12 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
           }
         }
         if (meds.other) details.push({ label: t('surgery.intraop.medicationsOther'), value: meds.other });
+        // Custom medications from inventory
+        if (meds.customMedications && Array.isArray(meds.customMedications)) {
+          for (const cm of meds.customMedications) {
+            checkItems.push({ key: `custom-${cm.itemId}`, label: cm.name + (cm.volume ? ` ${cm.volume} ${t('surgery.intraop.mlUnit')}` : '') });
+          }
+        }
       }
 
       if (checkItems.length > 0 || details.length > 0) {

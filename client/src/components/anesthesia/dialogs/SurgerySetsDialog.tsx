@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,7 @@ export function SurgerySetsDialog({
   const [formIntraOpData, setFormIntraOpData] = useState<Record<string, any>>({});
   const [formInventoryItems, setFormInventoryItems] = useState<{ itemId: string; quantity: number; itemName?: string }[]>([]);
   const [inventorySearch, setInventorySearch] = useState("");
+  const [customMedSearch, setCustomMedSearch] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     positioning: true,
     disinfection: true,
@@ -170,6 +171,7 @@ export function SurgerySetsDialog({
     setFormIntraOpData({});
     setFormInventoryItems([]);
     setInventorySearch("");
+    setCustomMedSearch("");
     setApplySearch("");
   };
 
@@ -249,6 +251,41 @@ export function SurgerySetsDialog({
     item.name.toLowerCase().includes(inventorySearch.toLowerCase()) &&
     !formInventoryItems.some(fi => fi.itemId === item.id)
   );
+
+  // Custom medications for sets
+  const customMedications: Array<{ itemId: string; name: string; volume?: string }> = formIntraOpData.medications?.customMedications ?? [];
+
+  const filteredCustomMedItems = useMemo(() => {
+    const existingIds = customMedications.map((m: any) => m.itemId);
+    const available = inventoryItems.filter(item => !existingIds.includes(item.id));
+    if (!customMedSearch.trim()) return [];
+    const query = customMedSearch.toLowerCase();
+    return available
+      .filter(item => item.name.toLowerCase().includes(query))
+      .slice(0, 20);
+  }, [inventoryItems, customMedSearch, customMedications]);
+
+  const addCustomMedToSet = (item: InventoryItemOption) => {
+    const newEntry = { itemId: item.id, name: item.name, volume: '' };
+    setFormIntraOpData(prev => ({
+      ...prev,
+      medications: {
+        ...(prev.medications || {}),
+        customMedications: [...(prev.medications?.customMedications ?? []), newEntry],
+      },
+    }));
+    setCustomMedSearch("");
+  };
+
+  const removeCustomMedFromSet = (itemId: string) => {
+    setFormIntraOpData(prev => ({
+      ...prev,
+      medications: {
+        ...(prev.medications || {}),
+        customMedications: (prev.medications?.customMedications ?? []).filter((m: any) => m.itemId !== itemId),
+      },
+    }));
+  };
 
   const isFormMode = isCreating || !!editingSet;
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -599,6 +636,57 @@ export function SurgerySetsDialog({
                   {renderIntraOpCheckbox("medications", "vancomycinImplant", t('surgery.intraop.medicationOptions.vancomycinImplant'))}
                   {renderIntraOpCheckbox("medications", "contrast", t('surgery.intraop.medicationOptions.contrast'))}
                   {renderIntraOpCheckbox("medications", "ointments", t('surgery.intraop.medicationOptions.ointments'))}
+                </div>
+                <hr className="border-border" />
+                <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.customMedications')}</span>
+                {customMedications.length > 0 && (
+                  <div className="space-y-1">
+                    {customMedications.map((med: any) => (
+                      <div key={med.itemId} className="flex items-center gap-2 pl-1">
+                        <span className="text-sm flex-1 truncate">{med.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCustomMedFromSet(med.itemId)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={customMedSearch}
+                    onChange={e => setCustomMedSearch(e.target.value)}
+                    placeholder={t('surgery.intraop.searchInventoryMedication')}
+                    className="pl-7 h-8 text-sm"
+                  />
+                  {customMedSearch && filteredCustomMedItems.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md">
+                      <ScrollArea className="max-h-40">
+                        <div className="p-1">
+                          {filteredCustomMedItems.map(item => (
+                            <button
+                              key={item.id}
+                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted rounded flex items-center gap-2"
+                              onClick={() => addCustomMedToSet(item)}
+                            >
+                              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                              {item.name}
+                            </button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                  {customMedSearch && filteredCustomMedItems.length === 0 && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md p-3 text-center text-sm text-muted-foreground">
+                      {t('surgery.intraop.noMedicationFound')}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
