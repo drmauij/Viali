@@ -1283,6 +1283,12 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       contrast?: boolean;         // Kontrastmittel
       ointments?: boolean;        // Salben
       other?: string;             // Free text for custom entries
+      // Dynamic medications from inventory
+      customMedications?: Array<{
+        itemId: string;       // inventory item ID
+        name: string;         // snapshot of item name at selection time
+        volume?: string;      // optional volume in ml
+      }>;
     };
     // Enhanced: Verband (Dressing) section with checkboxes
     dressing?: {
@@ -2913,7 +2919,12 @@ export const updateIntraOpDataSchema = z.object({
     contrast: z.boolean().optional(),
     ointments: z.boolean().optional(),
     other: z.string().optional().nullable(),
-  }).optional(),
+    customMedications: z.array(z.object({
+      itemId: z.string(),
+      name: z.string(),
+      volume: z.string().optional().nullable(),
+    })).optional(),
+  }).passthrough().optional(),
   // New: Verband (Dressing) section with checkboxes
   dressing: z.object({
     elasticBandage: z.boolean().optional(),
