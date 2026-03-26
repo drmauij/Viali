@@ -821,6 +821,7 @@ export interface IStorage {
   // Clinic Providers (now sourced from user_hospital_roles)
   getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
+  getPublicBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   getBookableProvidersByUnit(unitId: string): Promise<(ClinicProvider & { user: User })[]>;
 
   // Provider Availability
@@ -1526,6 +1527,7 @@ export class DatabaseStorage implements IStorage {
   findOrCreatePatientForBooking = clinicStorage.findOrCreatePatientForBooking;
   getClinicProvidersByHospital = clinicStorage.getClinicProvidersByHospital;
   getBookableProvidersByHospital = clinicStorage.getBookableProvidersByHospital;
+  getPublicBookableProvidersByHospital = clinicStorage.getPublicBookableProvidersByHospital;
   getBookableProvidersByUnit = clinicStorage.getBookableProvidersByUnit;
   getProviderAvailability = clinicStorage.getProviderAvailability;
   setProviderAvailability = clinicStorage.setProviderAvailability;

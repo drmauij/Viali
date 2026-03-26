@@ -338,7 +338,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
       return res.status(404).json({ message: 'Booking page not found' });
     }
 
-    const providers = await storage.getBookableProvidersByHospital(hospital.id);
+    const providers = await storage.getPublicBookableProvidersByHospital(hospital.id);
 
     res.json({
       hospital: {
@@ -388,7 +388,8 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/available-da
       .where(and(
         eq(rolesTable.userId, providerId),
         eq(rolesTable.hospitalId, hospital.id),
-        eq(rolesTable.isBookable, true)
+        eq(rolesTable.isBookable, true),
+        eq(rolesTable.publicCalendarEnabled, true)
       ));
 
     if (roles.length === 0) {
@@ -455,7 +456,7 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
     const serviceCode = req.query.service as string | undefined;
     let service: any = null;
     const settings = hospital.bookingSettings as { slotDurationMinutes?: number } | null;
-    const allBookable = await storage.getBookableProvidersByHospital(hospital.id);
+    const allBookable = await storage.getPublicBookableProvidersByHospital(hospital.id);
     const allBookableIds = allBookable.map(p => p.userId);
 
     if (allBookableIds.length === 0) {
@@ -538,7 +539,8 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', asyn
       .where(and(
         eq(rolesTable.userId, providerId),
         eq(rolesTable.hospitalId, hospital.id),
-        eq(rolesTable.isBookable, true)
+        eq(rolesTable.isBookable, true),
+        eq(rolesTable.publicCalendarEnabled, true)
       ));
 
     if (roles.length === 0) {
@@ -633,7 +635,8 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       .where(and(
         eq(rolesTable.userId, providerId),
         eq(rolesTable.hospitalId, hospital.id),
-        eq(rolesTable.isBookable, true)
+        eq(rolesTable.isBookable, true),
+        eq(rolesTable.publicCalendarEnabled, true)
       ));
 
     if (roles.length === 0) {
