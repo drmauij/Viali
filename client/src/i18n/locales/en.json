@@ -5704,6 +5704,27 @@
     },
     "tabs": {
       "costs": "Costs"
+    },
+    "funnel": {
+      "title": "Conversion Funnel",
+      "totalReferrals": "Total Referrals",
+      "noShowRate": "No-Show Rate",
+      "cancellationRate": "Cancellation Rate",
+      "aptToSurgery": "Appointment → Surgery",
+      "surgeryToPaid": "Surgery → Paid",
+      "fullFunnel": "Full Funnel",
+      "revenue": "Revenue",
+      "avgDays": "Avg Days to Conversion",
+      "allProviders": "All Providers",
+      "allSources": "All Sources",
+      "source": "Source",
+      "referrals": "Referrals",
+      "appointments": "Appointments",
+      "kept": "Kept",
+      "surgeryPlanned": "Surgery Planned",
+      "paid": "Paid",
+      "noData": "No referral data for the selected period.",
+      "funnelStages": "Funnel Stages"
     }
   },
   "clinical": {

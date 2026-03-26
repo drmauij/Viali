@@ -5800,6 +5800,27 @@
     },
     "tabs": {
       "costs": "Kosten"
+    },
+    "funnel": {
+      "title": "Konversionstrichter",
+      "totalReferrals": "Empfehlungen gesamt",
+      "noShowRate": "No-Show-Rate",
+      "cancellationRate": "Stornierungsrate",
+      "aptToSurgery": "Termin → OP",
+      "surgeryToPaid": "OP → Bezahlt",
+      "fullFunnel": "Gesamte Konversion",
+      "revenue": "Umsatz",
+      "avgDays": "Ø Tage bis Konversion",
+      "allProviders": "Alle Ärzte",
+      "allSources": "Alle Quellen",
+      "source": "Quelle",
+      "referrals": "Empfehlungen",
+      "appointments": "Termine",
+      "kept": "Wahrgenommen",
+      "surgeryPlanned": "OP geplant",
+      "paid": "Bezahlt",
+      "noData": "Keine Empfehlungsdaten für den ausgewählten Zeitraum.",
+      "funnelStages": "Trichterstufen"
     }
   },
   "clinical": {

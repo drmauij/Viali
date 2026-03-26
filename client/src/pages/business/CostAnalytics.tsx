@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { LeadConversionTab } from "./LeadConversion";
+import ReferralFunnel from "./ReferralFunnel";
 import { formatCurrency, formatCurrencyLocale, getCurrencySymbol, formatDate, formatShortDate } from "@/lib/dateUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1921,6 +1922,9 @@ export default function CostAnalytics() {
               )}
             </CardContent>
           </Card>
+
+          {/* Conversion Funnel Analytics */}
+          <ReferralFunnel hospitalId={activeHospital?.id} />
         </TabsContent>
 
         {/* Leads Tab */}
