@@ -405,6 +405,7 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
       unitId: anesthesiaUnit.id,
       role: "admin",
       isBookable: false,
+      publicCalendarEnabled: false,
       isDefaultLogin: false,
       availabilityMode: "always_available",
       calcomUserId: null,

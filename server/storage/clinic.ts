@@ -78,6 +78,7 @@ function roleToClinicProvider(role: UserHospitalRole): ClinicProvider {
     userId: role.userId,
     role: role.role,
     isBookable: role.isBookable ?? false,
+    publicCalendarEnabled: role.publicCalendarEnabled ?? false,
     availabilityMode: (role.availabilityMode as 'always_available' | 'windows_required') ?? 'always_available',
     bookingServiceName: role.bookingServiceName ?? null,
     bookingLocation: role.bookingLocation ?? null,

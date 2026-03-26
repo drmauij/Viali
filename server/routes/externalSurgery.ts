@@ -752,6 +752,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           unitId: surgeryUnitId,
           role: 'doctor',
           isBookable: false,
+          publicCalendarEnabled: false,
           isDefaultLogin: false,
           availabilityMode: null,
           calcomUserId: null,

@@ -194,6 +194,7 @@ export async function seedHospitalData(
       unitId: anesthesiaUnit.id,
       role: "admin",
       isBookable: false,
+      publicCalendarEnabled: false,
       isDefaultLogin: false,
       availabilityMode: "always_available",
       calcomUserId: null,

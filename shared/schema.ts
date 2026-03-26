@@ -163,6 +163,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   unitId: varchar("unit_id").notNull().references(() => units.id),
   role: varchar("role").notNull(), // doctor, nurse, admin
   isBookable: boolean("is_bookable").default(false), // Whether user can be booked for appointments in this unit
+  publicCalendarEnabled: boolean("public_calendar_enabled").default(false), // Whether provider appears on public /book page (requires isBookable=true)
   isDefaultLogin: boolean("is_default_login").default(false), // Default unit/role to load on login
   // Availability Mode:
   // - "always_available" (default): Provider is bookable 24/7 except when blocked
@@ -4195,6 +4196,7 @@ export interface ClinicProvider {
   userId: string;
   role: string;
   isBookable: boolean;
+  publicCalendarEnabled: boolean;
   availabilityMode: "always_available" | "windows_required";
   bookingServiceName: string | null;
   bookingLocation: string | null;

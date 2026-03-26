@@ -1331,6 +1331,13 @@
       "when": 1774514523955,
       "tag": "0189_puzzling_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1774518919737,
+      "tag": "0190_absurd_redwing",
+      "breakpoints": true
     }
   ]
 }

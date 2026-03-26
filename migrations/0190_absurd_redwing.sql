@@ -1,0 +1,1 @@
+ALTER TABLE "user_hospital_roles" ADD COLUMN IF NOT EXISTS "public_calendar_enabled" boolean DEFAULT false;
