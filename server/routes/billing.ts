@@ -126,8 +126,11 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthRecords = await countSurgeriesForHospital(hospitalId, startOfMonth);
-    const currentMonthPreOpCount = await countPreOpAssessmentsForHospital(hospitalId, startOfMonth);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const currentMonthRecords = await countSurgeriesForHospital(hospitalId, startOfMonth, endOfMonth);
+    const currentMonthPreOpCount = await countPreOpAssessmentsForHospital(hospitalId, startOfMonth, endOfMonth);
+    const futureRecords = await countSurgeriesForHospital(hospitalId, endOfMonth);
+    const futurePreOpCount = await countPreOpAssessmentsForHospital(hospitalId, endOfMonth);
 
     // Flat base rate per record — all features included
     const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 6.00;
@@ -192,6 +195,8 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
           pricePerRecord,
           currentMonthRecords,
           currentMonthPreOpCount,
+          futureRecords,
+          futurePreOpCount,
           estimatedCost,
           billingRequired: false,
           trialEndsAt: null,
@@ -240,6 +245,8 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       pricePerRecord,
       currentMonthRecords,
       currentMonthPreOpCount,
+      futureRecords,
+      futurePreOpCount,
       estimatedCost,
       billingRequired,
       ...trialInfo,

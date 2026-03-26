@@ -57,6 +57,8 @@ interface BillingStatus {
   pricePerRecord: number;
   currentMonthRecords: number;
   currentMonthPreOpCount: number;
+  futureRecords: number;
+  futurePreOpCount: number;
   estimatedCost: number;
   billingRequired: boolean;
   trialEndsAt: string | null;
@@ -860,15 +862,15 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Usage</CardTitle>
-                      <CardDescription>Cases per month and cost</CardDescription>
+                      <CardTitle>{isGerman ? "Nutzung" : "Usage"}</CardTitle>
+                      <CardDescription>{isGerman ? "Fälle pro Monat und Kosten" : "Cases per month and cost"}</CardDescription>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setUsageFlipped(true)}
-                      title="Show Pre-Op Assessments"
+                      title={isGerman ? "Prä-OP Assessments anzeigen" : "Show Pre-Op Assessments"}
                     >
                       <ArrowLeftRight className="h-4 w-4" />
                     </Button>
@@ -877,36 +879,45 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <CardContent>
                   <Tabs defaultValue="current">
                     <TabsList className="mb-4">
-                      <TabsTrigger value="current">Current Month</TabsTrigger>
-                      <TabsTrigger value="history">History</TabsTrigger>
+                      <TabsTrigger value="current">{isGerman ? "Aktueller Monat" : "Current Month"}</TabsTrigger>
+                      <TabsTrigger value="history">{isGerman ? "Verlauf" : "History"}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="current">
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Plan</span>
+                          <span className="text-muted-foreground">{isGerman ? "Tarif" : "Plan"}</span>
                           <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
                             {billingStatus.licenseType === "free" ? "Free" :
-                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
+                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? (isGerman ? "Testphase abgelaufen" : "Trial Expired") : `Trial (${billingStatus.trialDaysRemaining}d)`) :
                              "Basic"}
                           </Badge>
                         </div>
+                        {billingStatus.futureRecords > 0 && (
+                          <>
+                            <Separator />
+                            <div className="flex justify-between items-center text-xs text-muted-foreground/70">
+                              <span>{isGerman ? "Geplante Fälle (zukünftig)" : "Scheduled cases (future)"}</span>
+                              <span>{billingStatus.futureRecords}</span>
+                            </div>
+                          </>
+                        )}
                         <Separator />
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Cases this month</span>
+                          <span className="text-muted-foreground">{isGerman ? "Fälle diesen Monat" : "Cases this month"}</span>
                           <span className="font-medium">{billingStatus.currentMonthRecords}</span>
                         </div>
                         {billingStatus.licenseType !== "free" && (
                           <>
                             <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Price per case</span>
+                              <span className="text-muted-foreground">{isGerman ? "Preis pro Fall" : "Price per case"}</span>
                               <span className="font-medium">
                                 {formatCurrency(billingStatus.pricePerRecord ?? 0)}
                               </span>
                             </div>
                             <Separator />
                             <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Estimated cost</span>
+                              <span className="text-muted-foreground">{isGerman ? "Geschätzte Kosten" : "Estimated cost"}</span>
                               <span className="font-bold text-lg">
                                 {formatCurrency(billingStatus.estimatedCost ?? 0)}
                               </span>
@@ -923,18 +934,18 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                         </div>
                       ) : usageHistoryError ? (
                         <p className="text-center text-muted-foreground py-8 text-destructive">
-                          Failed to load usage history
+                          {isGerman ? "Fehler beim Laden des Verlaufs" : "Failed to load usage history"}
                         </p>
                       ) : !usageHistory?.months?.length ? (
-                        <p className="text-center text-muted-foreground py-8">No usage history yet</p>
+                        <p className="text-center text-muted-foreground py-8">{isGerman ? "Noch kein Verlauf vorhanden" : "No usage history yet"}</p>
                       ) : (
                         <ScrollArea className="h-[250px]">
                           <div className="space-y-1">
                             <div className="grid grid-cols-4 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
-                              <span>Month</span>
-                              <span className="text-right">Cases</span>
-                              <span className="text-right">Price/Case</span>
-                              <span className="text-right">Total Cost</span>
+                              <span>{isGerman ? "Monat" : "Month"}</span>
+                              <span className="text-right">{isGerman ? "Fälle" : "Cases"}</span>
+                              <span className="text-right">{isGerman ? "Preis/Fall" : "Price/Case"}</span>
+                              <span className="text-right">{isGerman ? "Gesamtkosten" : "Total Cost"}</span>
                             </div>
                             {usageHistory.months.map((entry) => {
                               const [year, month] = entry.month.split("-");
@@ -984,15 +995,15 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Pre-Op Assessments</CardTitle>
-                      <CardDescription>Assessments per month</CardDescription>
+                      <CardTitle>{isGerman ? "Prä-OP Assessments" : "Pre-Op Assessments"}</CardTitle>
+                      <CardDescription>{isGerman ? "Assessments pro Monat" : "Assessments per month"}</CardDescription>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setUsageFlipped(false)}
-                      title="Show Usage"
+                      title={isGerman ? "Nutzung anzeigen" : "Show Usage"}
                     >
                       <ArrowLeftRight className="h-4 w-4" />
                     </Button>
@@ -1001,23 +1012,32 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <CardContent>
                   <Tabs defaultValue="current">
                     <TabsList className="mb-4">
-                      <TabsTrigger value="current">Current Month</TabsTrigger>
-                      <TabsTrigger value="history">History</TabsTrigger>
+                      <TabsTrigger value="current">{isGerman ? "Aktueller Monat" : "Current Month"}</TabsTrigger>
+                      <TabsTrigger value="history">{isGerman ? "Verlauf" : "History"}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="current">
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Plan</span>
+                          <span className="text-muted-foreground">{isGerman ? "Tarif" : "Plan"}</span>
                           <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
                             {billingStatus.licenseType === "free" ? "Free" :
-                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) :
+                             billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? (isGerman ? "Testphase abgelaufen" : "Trial Expired") : `Trial (${billingStatus.trialDaysRemaining}d)`) :
                              "Basic"}
                           </Badge>
                         </div>
+                        {billingStatus.futurePreOpCount > 0 && (
+                          <>
+                            <Separator />
+                            <div className="flex justify-between items-center text-xs text-muted-foreground/70">
+                              <span>{isGerman ? "Geplante Assessments (zukünftig)" : "Scheduled assessments (future)"}</span>
+                              <span>{billingStatus.futurePreOpCount}</span>
+                            </div>
+                          </>
+                        )}
                         <Separator />
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Assessments this month</span>
+                          <span className="text-muted-foreground">{isGerman ? "Assessments diesen Monat" : "Assessments this month"}</span>
                           <span className="font-medium">{billingStatus.currentMonthPreOpCount ?? 0}</span>
                         </div>
                       </div>
@@ -1030,16 +1050,16 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                         </div>
                       ) : preopUsageError ? (
                         <p className="text-center text-muted-foreground py-8 text-destructive">
-                          Failed to load pre-op usage history
+                          {isGerman ? "Fehler beim Laden der Prä-OP Verlaufsdaten" : "Failed to load pre-op usage history"}
                         </p>
                       ) : !preopUsageHistory?.months?.length ? (
-                        <p className="text-center text-muted-foreground py-8">No pre-op assessment history yet</p>
+                        <p className="text-center text-muted-foreground py-8">{isGerman ? "Noch kein Prä-OP Verlauf vorhanden" : "No pre-op assessment history yet"}</p>
                       ) : (
                         <ScrollArea className="h-[250px]">
                           <div className="space-y-1">
                             <div className="grid grid-cols-2 gap-2 px-2 pb-2 text-xs font-medium text-muted-foreground border-b">
-                              <span>Month</span>
-                              <span className="text-right">Assessments</span>
+                              <span>{isGerman ? "Monat" : "Month"}</span>
+                              <span className="text-right">{isGerman ? "Assessments" : "Assessments"}</span>
                             </div>
                             {preopUsageHistory.months.map((entry) => {
                               const [year, month] = entry.month.split("-");
