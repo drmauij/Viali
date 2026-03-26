@@ -5724,7 +5724,8 @@
       "surgeryPlanned": "Surgery Planned",
       "paid": "Paid",
       "noData": "No referral data for the selected period.",
-      "funnelStages": "Funnel Stages"
+      "funnelStages": "Funnel Stages",
+      "export": "Export CSV"
     }
   },
   "clinical": {

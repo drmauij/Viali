@@ -29,7 +29,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Loader2, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, TrendingUp, Download } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,57 @@ function pct(v: number): string {
 
 function colorForSource(source: string): string {
   return REFERRAL_COLORS[source] ?? REFERRAL_COLORS.other;
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+
+function exportAnonymizedCsv(rows: FunnelRow[]) {
+  const header = [
+    "referral_date", "source", "source_detail", "capture_method",
+    "appointment_status", "appointment_date", "provider_name",
+    "surgery_status", "payment_status", "price_chf", "payment_date",
+    "days_to_conversion",
+  ].join(",");
+
+  const csvRows = rows.map((r) => {
+    const daysToConversion =
+      r.payment_date && r.referral_date
+        ? Math.round(
+            (new Date(r.payment_date).getTime() -
+              new Date(r.referral_date).getTime()) /
+              (1000 * 60 * 60 * 24),
+          )
+        : "";
+    const providerName =
+      r.provider_first_name
+        ? `${r.provider_first_name} ${r.provider_last_name ?? ""}`.trim()
+        : "";
+    return [
+      r.referral_date?.slice(0, 10) ?? "",
+      r.source,
+      r.source_detail ?? "",
+      r.capture_method,
+      r.appointment_status ?? "",
+      r.appointment_date ?? "",
+      providerName,
+      r.surgery_status ?? "",
+      r.payment_status ?? "",
+      r.price ?? "",
+      r.payment_date ?? "",
+      daysToConversion,
+    ]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(",");
+  });
+
+  const csv = [header, ...csvRows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `referral-funnel-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -319,11 +371,23 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <div className="flex items-center gap-2">
-        <TrendingUp className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">
-          {t("business.funnel.title", "Conversion Funnel")}
-        </h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" />
+          <h2 className="text-xl font-semibold">
+            {t("business.funnel.title", "Conversion Funnel")}
+          </h2>
+        </div>
+        {filtered.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportAnonymizedCsv(filtered)}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            {t("business.funnel.export", "Export CSV")}
+          </Button>
+        )}
       </div>
 
       {/* ── Filter bar ──────────────────────────────────────────────────── */}

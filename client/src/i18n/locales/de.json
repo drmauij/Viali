@@ -5820,7 +5820,8 @@
       "surgeryPlanned": "OP geplant",
       "paid": "Bezahlt",
       "noData": "Keine Empfehlungsdaten für den ausgewählten Zeitraum.",
-      "funnelStages": "Trichterstufen"
+      "funnelStages": "Trichterstufen",
+      "export": "CSV exportieren"
     }
   },
   "clinical": {
