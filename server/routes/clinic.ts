@@ -2408,6 +2408,78 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
   }
 });
 
+// Get referral event for an appointment
+router.get('/api/clinic/:hospitalId/appointments/:appointmentId/referral', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId, appointmentId } = req.params;
+    const { referralEvents } = await import("@shared/schema");
+    const [event] = await db
+      .select()
+      .from(referralEvents)
+      .where(and(eq(referralEvents.appointmentId, appointmentId), eq(referralEvents.hospitalId, hospitalId)))
+      .limit(1);
+    res.json(event || null);
+  } catch (error) {
+    logger.error("Error fetching referral event:", error);
+    res.status(500).json({ message: "Failed to fetch referral event" });
+  }
+});
+
+// Upsert referral source for an appointment
+router.put('/api/clinic/:hospitalId/appointments/:appointmentId/referral', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, appointmentId } = req.params;
+    const { source, sourceDetail } = req.body;
+
+    if (!source || !["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"].includes(source)) {
+      return res.status(400).json({ message: "Invalid referral source" });
+    }
+
+    const existing = await storage.getClinicAppointment(appointmentId);
+    if (!existing || existing.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    const { referralEvents } = await import("@shared/schema");
+
+    // Check if referral event already exists for this appointment
+    const [existingEvent] = await db
+      .select()
+      .from(referralEvents)
+      .where(and(eq(referralEvents.appointmentId, appointmentId), eq(referralEvents.hospitalId, hospitalId)))
+      .limit(1);
+
+    if (existingEvent) {
+      const [updated] = await db
+        .update(referralEvents)
+        .set({ source, sourceDetail: sourceDetail || null })
+        .where(eq(referralEvents.id, existingEvent.id))
+        .returning();
+      return res.json(updated);
+    }
+
+    // Create new referral event
+    if (!existing.patientId) {
+      return res.status(400).json({ message: "Appointment has no patient" });
+    }
+    const [created] = await db
+      .insert(referralEvents)
+      .values({
+        hospitalId,
+        patientId: existing.patientId,
+        appointmentId,
+        source: source as any,
+        sourceDetail: sourceDetail || null,
+        captureMethod: "staff",
+      })
+      .returning();
+    res.json(created);
+  } catch (error) {
+    logger.error("Error upserting referral event:", error);
+    res.status(500).json({ message: "Failed to update referral source" });
+  }
+});
+
 // Delete appointment
 router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {

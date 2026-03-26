@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ import {
   UserX,
   Undo2,
   LogIn,
+  Megaphone,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -106,6 +107,46 @@ export default function AppointmentDetailDialog({
   const [editVideoLink, setEditVideoLink] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editServiceId, setEditServiceId] = useState('');
+
+  // Referral source state
+  const [editReferral, setEditReferral] = useState(false);
+  const [referralSource, setReferralSource] = useState('');
+  const [referralSourceDetail, setReferralSourceDetail] = useState('');
+
+  const { data: referralEvent } = useQuery<{
+    id: string;
+    source: string;
+    sourceDetail: string | null;
+  } | null>({
+    queryKey: [`/api/clinic/${hospitalId}/appointments/${appointment?.id}/referral`],
+    enabled: !!hospitalId && !!appointment?.id && appointment?.appointmentType !== 'internal',
+  });
+
+  useEffect(() => {
+    if (referralEvent) {
+      setReferralSource(referralEvent.source);
+      setReferralSourceDetail(referralEvent.sourceDetail || '');
+    } else {
+      setReferralSource('');
+      setReferralSourceDetail('');
+    }
+  }, [referralEvent]);
+
+  const saveReferralMutation = useMutation({
+    mutationFn: async ({ source, sourceDetail }: { source: string; sourceDetail: string }) => {
+      return apiRequest("PUT", `/api/clinic/${hospitalId}/appointments/${appointment?.id}/referral`, { source, sourceDetail });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/clinic/${hospitalId}/appointments/${appointment?.id}/referral`],
+      });
+      toast({ title: t('appointments.referralUpdated', 'Referral source updated') });
+      setEditReferral(false);
+    },
+    onError: () => {
+      toast({ title: t('appointments.referralUpdateError', 'Failed to update referral source'), variant: "destructive" });
+    },
+  });
 
   const { data: services = [] } = useQuery<ClinicService[]>({
     queryKey: [`/api/clinic/${hospitalId}/services?unitId=${unitId}`],
@@ -203,7 +244,10 @@ export default function AppointmentDetailDialog({
 
   const handleOpenChange = (isOpen: boolean) => {
     onOpenChange(isOpen);
-    if (!isOpen) setEditMode(false);
+    if (!isOpen) {
+      setEditMode(false);
+      setEditReferral(false);
+    }
   };
 
   return (
@@ -440,6 +484,121 @@ export default function AppointmentDetailDialog({
                 </div>
               ) : null}
             </div>
+
+            {/* Referral Source Card */}
+            {appointment.appointmentType !== 'internal' && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    {t('appointments.referralSource', 'Referral Source')}
+                  </p>
+                  {!editReferral && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setEditReferral(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {editReferral ? (
+                  <div className="space-y-2">
+                    <Select value={referralSource} onValueChange={(v) => { setReferralSource(v); setReferralSourceDetail(""); }}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder={t('appointments.selectReferralSource', 'Select...')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="social">{t('referral.social', 'Social Media')}</SelectItem>
+                        <SelectItem value="search_engine">{t('referral.searchEngine', 'Search Engine')}</SelectItem>
+                        <SelectItem value="llm">{t('referral.llm', 'AI / ChatGPT')}</SelectItem>
+                        <SelectItem value="word_of_mouth">{t('referral.wordOfMouth', 'Word of Mouth')}</SelectItem>
+                        <SelectItem value="belegarzt">{t('referral.belegarzt', 'Belegarzt')}</SelectItem>
+                        <SelectItem value="other">{t('referral.other', 'Other')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {referralSource === "social" && (
+                      <Select value={referralSourceDetail} onValueChange={setReferralSourceDetail}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder={t('referral.selectPlatform', 'Select...')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="facebook">{t('referral.facebook', 'Facebook')}</SelectItem>
+                          <SelectItem value="instagram">{t('referral.instagram', 'Instagram')}</SelectItem>
+                          <SelectItem value="tiktok">{t('referral.tiktok', 'TikTok')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {referralSource === "search_engine" && (
+                      <Select value={referralSourceDetail} onValueChange={setReferralSourceDetail}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder={t('referral.selectEngine', 'Select...')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="google">{t('referral.google', 'Google')}</SelectItem>
+                          <SelectItem value="bing">{t('referral.bing', 'Bing')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {(referralSource === "word_of_mouth" || referralSource === "other") && (
+                      <Input
+                        value={referralSourceDetail}
+                        onChange={(e) => setReferralSourceDetail(e.target.value)}
+                        placeholder={referralSource === "word_of_mouth"
+                          ? t('referral.wordOfMouthPlaceholder', 'Who referred them?')
+                          : t('referral.otherPlaceholder', 'Please specify...')}
+                        className="h-8"
+                      />
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7"
+                        onClick={() => {
+                          setEditReferral(false);
+                          setReferralSource(referralEvent?.source || '');
+                          setReferralSourceDetail(referralEvent?.sourceDetail || '');
+                        }}
+                        disabled={saveReferralMutation.isPending}
+                      >
+                        {t('common.cancel', 'Cancel')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7"
+                        onClick={() => saveReferralMutation.mutate({ source: referralSource, sourceDetail: referralSourceDetail })}
+                        disabled={!referralSource || saveReferralMutation.isPending}
+                      >
+                        {saveReferralMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                        {t('common.save', 'Save')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium">
+                    {referralEvent ? (
+                      <>
+                        {referralEvent.source === 'social' && t('referral.social', 'Social Media')}
+                        {referralEvent.source === 'search_engine' && t('referral.searchEngine', 'Search Engine')}
+                        {referralEvent.source === 'llm' && t('referral.llm', 'AI / ChatGPT')}
+                        {referralEvent.source === 'word_of_mouth' && t('referral.wordOfMouth', 'Word of Mouth')}
+                        {referralEvent.source === 'belegarzt' && t('referral.belegarzt', 'Belegarzt')}
+                        {referralEvent.source === 'other' && t('referral.other', 'Other')}
+                        {referralEvent.sourceDetail && (
+                          <span className="text-muted-foreground font-normal"> — {referralEvent.sourceDetail}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground font-normal">{t('appointments.noReferralSource', 'Not set')}</span>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
 
             </div>
             <DialogFooter className="flex-col gap-2">
