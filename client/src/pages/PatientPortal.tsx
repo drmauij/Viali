@@ -838,7 +838,7 @@ function PatientPortalContent({ token }: { token: string }) {
 
   const chatUnreadCount = chatMessages.filter(m => m.direction === 'outbound' && !m.readByPatientAt).length;
 
-  const { data: consentInfo } = useQuery<{
+  const { data: consentInfo, isLoading: isConsentLoading, error: consentFetchError } = useQuery<{
     consentData: {
       general: boolean;
       analgosedation: boolean;
@@ -1197,6 +1197,40 @@ function PatientPortalContent({ token }: { token: string }) {
   const surgeryStepActive = priorStepsDone && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
 
   if (showConsentSigning) {
+    if (isConsentLoading) {
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400 mb-4" />
+              <p className="text-muted-foreground dark:text-gray-400">{t.loading}</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    if (consentFetchError || !consentInfo) {
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertTriangle className="h-12 w-12 text-amber-500 dark:text-amber-400 mb-4" />
+              <p className="text-lg font-medium text-center text-gray-900 dark:text-gray-100 mb-2">
+                {t.error}
+              </p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400 text-center mb-4">
+                {(consentFetchError as Error)?.message || 'Could not load consent data. Please try again.'}
+              </p>
+              <Button onClick={() => setShowConsentSigning(false)} data-testid="button-consent-back-error">
+                {t.consentBackToPortal}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     if (consentAlreadySigned || consentSubmitted) {
       return (
         <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
