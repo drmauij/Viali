@@ -1876,6 +1876,67 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isBusin
 });
 
 // ========================================
+// Referral Funnel (conversion analytics)
+// ========================================
+
+router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { from, to } = req.query;
+
+    const conditions = [sql`re.hospital_id = ${hospitalId}`];
+    if (from) conditions.push(sql`re.created_at >= ${from}::timestamp`);
+    if (to) conditions.push(sql`re.created_at <= ${to}::timestamp`);
+
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const result = await db.execute(sql`
+      SELECT
+        re.id AS referral_id,
+        re.source,
+        re.source_detail,
+        re.created_at AS referral_date,
+        re.patient_id,
+        re.capture_method,
+        ca.id AS appointment_id,
+        ca.status AS appointment_status,
+        ca.provider_id,
+        ca.appointment_date,
+        u.first_name AS provider_first_name,
+        u.last_name AS provider_last_name,
+        s.id AS surgery_id,
+        s.status AS surgery_status,
+        s.payment_status,
+        s.price,
+        s.payment_date,
+        s.planned_date AS surgery_planned_date,
+        s.surgeon_id
+      FROM referral_events re
+      LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
+      LEFT JOIN users u ON u.id = ca.provider_id
+      LEFT JOIN LATERAL (
+        SELECT s2.id, s2.status, s2.payment_status, s2.price, s2.payment_date, s2.planned_date, s2.surgeon_id
+        FROM surgeries s2
+        WHERE s2.patient_id = re.patient_id
+          AND s2.hospital_id = re.hospital_id
+          AND s2.planned_date >= re.created_at
+          AND s2.is_archived = false
+          AND COALESCE(s2.is_suspended, false) = false
+        ORDER BY s2.planned_date ASC
+        LIMIT 1
+      ) s ON true
+      WHERE ${whereClause}
+      ORDER BY re.created_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error: any) {
+    logger.error('Error fetching referral funnel:', error);
+    res.status(500).json({ message: 'Failed to fetch referral funnel data' });
+  }
+});
+
+// ========================================
 // Lead Conversion Analysis (manager-only)
 // ========================================
 
