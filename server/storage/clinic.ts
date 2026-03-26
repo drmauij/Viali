@@ -159,11 +159,14 @@ export async function getClinicProvidersByHospital(hospitalId: string): Promise<
     const existing = userMap.get(r.role.userId);
     if (!existing) {
       userMap.set(r.role.userId, { role: r.role, user: r.user });
-    } else if (r.role.isBookable && !existing.role.isBookable) {
-      userMap.set(r.role.userId, { 
-        role: { ...existing.role, isBookable: true }, 
-        user: r.user 
-      });
+    } else {
+      // Merge bookable/public flags from multiple roles
+      const mergedRole = { ...existing.role };
+      if (r.role.isBookable && !existing.role.isBookable) mergedRole.isBookable = true;
+      if (r.role.publicCalendarEnabled && !existing.role.publicCalendarEnabled) mergedRole.publicCalendarEnabled = true;
+      if (mergedRole.isBookable !== existing.role.isBookable || mergedRole.publicCalendarEnabled !== existing.role.publicCalendarEnabled) {
+        userMap.set(r.role.userId, { role: mergedRole, user: r.user });
+      }
     }
   }
   return Array.from(userMap.values()).map(v => ({ 
@@ -193,6 +196,33 @@ export async function getBookableProvidersByHospital(hospitalId: string): Promis
       byUser.set(r.role.userId, { ...roleToClinicProvider(r.role), user: r.user });
     } else if (r.role.role === 'doctor' && existing.role !== 'doctor') {
       // Prefer doctor role so the Dr. prefix is applied
+      byUser.set(r.role.userId, { ...existing, role: 'doctor' });
+    }
+  }
+  return Array.from(byUser.values());
+}
+
+export async function getPublicBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]> {
+  const results = await db
+    .select({
+      role: userHospitalRoles,
+      user: users
+    })
+    .from(userHospitalRoles)
+    .innerJoin(users, eq(userHospitalRoles.userId, users.id))
+    .where(and(
+      eq(userHospitalRoles.hospitalId, hospitalId),
+      eq(userHospitalRoles.isBookable, true),
+      eq(userHospitalRoles.publicCalendarEnabled, true)
+    ))
+    .orderBy(asc(users.lastName), asc(users.firstName));
+
+  const byUser = new Map<string, (ClinicProvider & { user: User })>();
+  for (const r of results) {
+    const existing = byUser.get(r.role.userId);
+    if (!existing) {
+      byUser.set(r.role.userId, { ...roleToClinicProvider(r.role), user: r.user });
+    } else if (r.role.role === 'doctor' && existing.role !== 'doctor') {
       byUser.set(r.role.userId, { ...existing, role: 'doctor' });
     }
   }
