@@ -2580,8 +2580,8 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
     const { hospitalId, userId } = req.params;
     const { isBookable, publicCalendarEnabled, bookingServiceName, bookingLocation } = req.body;
 
-    if (typeof isBookable !== 'boolean' && typeof publicCalendarEnabled !== 'boolean') {
-      return res.status(400).json({ message: "isBookable or publicCalendarEnabled must be a boolean" });
+    if (typeof isBookable !== 'boolean' && typeof publicCalendarEnabled !== 'boolean' && bookingServiceName === undefined && bookingLocation === undefined) {
+      return res.status(400).json({ message: "At least one field to update must be provided" });
     }
 
     // Import userHospitalRoles to update directly
@@ -2596,6 +2596,22 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
 
     // If turning off isBookable, also turn off publicCalendarEnabled
     if (isBookable === false) updateSet.publicCalendarEnabled = false;
+
+    // Guard: cannot enable publicCalendarEnabled if isBookable is not (being set to) true
+    if (updateSet.publicCalendarEnabled === true && updateSet.isBookable !== true) {
+      // Check current isBookable in DB
+      const [currentRole] = await db
+        .select({ isBookable: userHospitalRoles.isBookable })
+        .from(userHospitalRoles)
+        .where(and(
+          eq(userHospitalRoles.hospitalId, hospitalId),
+          eq(userHospitalRoles.userId, userId)
+        ))
+        .limit(1);
+      if (!currentRole?.isBookable) {
+        return res.status(400).json({ message: "Provider must be bookable before enabling public calendar" });
+      }
+    }
 
     // Update all roles for this user in this hospital
     await db

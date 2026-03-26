@@ -687,10 +687,7 @@ export function ManageAvailabilityDialog({
                             checked={publicCalendarEnabled}
                             onCheckedChange={(checked) => {
                               updateProviderBookingMutation.mutate({
-                                isBookable: selectedFullProvider?.isBookable ?? false,
                                 publicCalendarEnabled: checked,
-                                bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
-                                bookingLocation: selectedFullProvider?.bookingLocation || undefined,
                               });
                             }}
                             disabled={updateProviderBookingMutation.isPending || !isBookable}
@@ -761,8 +758,6 @@ export function ManageAvailabilityDialog({
                                   onBlur={(e) => {
                                     if (e.target.value !== (selectedFullProvider?.bookingServiceName || '')) {
                                       updateProviderBookingMutation.mutate({
-                                        isBookable: true,
-                                        publicCalendarEnabled: true,
                                         bookingServiceName: e.target.value,
                                         bookingLocation: selectedFullProvider?.bookingLocation || undefined,
                                       });
@@ -781,8 +776,6 @@ export function ManageAvailabilityDialog({
                                   onBlur={(e) => {
                                     if (e.target.value !== (selectedFullProvider?.bookingLocation || '')) {
                                       updateProviderBookingMutation.mutate({
-                                        isBookable: true,
-                                        publicCalendarEnabled: true,
                                         bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
                                         bookingLocation: e.target.value,
                                       });
