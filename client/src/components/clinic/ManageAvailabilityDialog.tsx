@@ -133,7 +133,7 @@ export function ManageAvailabilityDialog({
   const [copiedLink, setCopiedLink] = useState(false);
 
   const updateProviderBookingMutation = useMutation({
-    mutationFn: async (data: { isBookable: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
+    mutationFn: async (data: { isBookable?: boolean; publicCalendarEnabled?: boolean; bookingServiceName?: string; bookingLocation?: string }) => {
       return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${selectedProviderId}`, data);
     },
     onSuccess: () => {
@@ -666,6 +666,7 @@ export function ManageAvailabilityDialog({
                 <TabsContent value="booking" className="space-y-4">
                   {(() => {
                     const isBookable = selectedFullProvider?.isBookable ?? false;
+                    const publicCalendarEnabled = selectedFullProvider?.publicCalendarEnabled ?? false;
                     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
                     const bookingUrl = bookingTokenData?.bookingToken ? `${baseUrl}/book/${bookingTokenData.bookingToken}` : null;
                     const providerUrl = bookingUrl ? `${bookingUrl}?provider=${selectedProviderId}` : null;
@@ -683,20 +684,29 @@ export function ManageAvailabilityDialog({
                             </p>
                           </div>
                           <Switch
-                            checked={isBookable}
+                            checked={publicCalendarEnabled}
                             onCheckedChange={(checked) => {
                               updateProviderBookingMutation.mutate({
-                                isBookable: checked,
+                                isBookable: selectedFullProvider?.isBookable ?? false,
+                                publicCalendarEnabled: checked,
                                 bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
                                 bookingLocation: selectedFullProvider?.bookingLocation || undefined,
                               });
                             }}
-                            disabled={updateProviderBookingMutation.isPending}
+                            disabled={updateProviderBookingMutation.isPending || !isBookable}
                           />
                         </div>
 
+                        {!isBookable && (
+                          <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <p className="text-sm text-amber-700 dark:text-amber-300">
+                              {t('availability.mustBeBookableFirst', 'This provider must be set as "Bookable" in User Management before enabling the public calendar.')}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Booking settings — always visible when enabled */}
-                        {isBookable && (
+                        {publicCalendarEnabled && (
                           <>
                             {/* Direct booking link */}
                             {providerUrl ? (
@@ -752,6 +762,7 @@ export function ManageAvailabilityDialog({
                                     if (e.target.value !== (selectedFullProvider?.bookingServiceName || '')) {
                                       updateProviderBookingMutation.mutate({
                                         isBookable: true,
+                                        publicCalendarEnabled: true,
                                         bookingServiceName: e.target.value,
                                         bookingLocation: selectedFullProvider?.bookingLocation || undefined,
                                       });
@@ -771,6 +782,7 @@ export function ManageAvailabilityDialog({
                                     if (e.target.value !== (selectedFullProvider?.bookingLocation || '')) {
                                       updateProviderBookingMutation.mutate({
                                         isBookable: true,
+                                        publicCalendarEnabled: true,
                                         bookingServiceName: selectedFullProvider?.bookingServiceName || undefined,
                                         bookingLocation: e.target.value,
                                       });
