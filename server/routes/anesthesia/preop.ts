@@ -2201,11 +2201,22 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
 
     const existingLinks = await storage.getQuestionnaireLinksForPatient(patient.id);
     const now = new Date();
+
+    // First priority: reuse a recently submitted/reviewed link (no need to create a new one)
     let activeLink = existingLinks.find(l =>
       l.hospitalId === hospitalId &&
-      l.status !== 'expired' &&
-      l.expiresAt && new Date(l.expiresAt) > now
+      (l.status === 'submitted' || l.status === 'reviewed') &&
+      l.submittedAt && new Date(l.submittedAt) > new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
     );
+
+    // Second priority: reuse a non-expired pending/started link
+    if (!activeLink) {
+      activeLink = existingLinks.find(l =>
+        l.hospitalId === hospitalId &&
+        (l.status === 'pending' || l.status === 'started') &&
+        l.expiresAt && new Date(l.expiresAt) > now
+      );
+    }
 
     if (!activeLink) {
       const token = nanoid(32);

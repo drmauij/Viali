@@ -413,15 +413,15 @@ export function PatientCommunicationContent({
       linkToken?: string;
     }> = [];
 
-    // First, collect all auto_questionnaire messages to know which questionnaire links are covered
+    // First, collect all messages that contain portal/questionnaire links to know which are covered
     const coveredLinkTokens = new Set<string>();
     if (patientMessages) {
       patientMessages.forEach(msg => {
         const msgAny = msg as any;
         const messageType = msgAny.messageType || 'manual';
-        if (messageType === 'auto_questionnaire' && msg.message) {
+        if ((messageType === 'auto_questionnaire' || messageType === 'auto_consent_invitation') && msg.message) {
           // Extract token from message content
-          const tokenMatch = msg.message.match(/\/questionnaire\/([a-zA-Z0-9_-]+)/);
+          const tokenMatch = msg.message.match(/\/(?:patient|questionnaire)\/([a-zA-Z0-9_-]+)/);
           if (tokenMatch) {
             coveredLinkTokens.add(tokenMatch[1]);
           }
@@ -481,10 +481,10 @@ export function PatientCommunicationContent({
           type = 'auto_callback_appointment';
         }
         
-        // Find link status for auto_questionnaire messages
+        // Find link status for messages that contain portal/questionnaire links
         let status: string | undefined;
-        if (messageType === 'auto_questionnaire' && msg.message) {
-          const tokenMatch = msg.message.match(/\/questionnaire\/([a-zA-Z0-9_-]+)/);
+        if ((messageType === 'auto_questionnaire' || messageType === 'auto_consent_invitation') && msg.message) {
+          const tokenMatch = msg.message.match(/\/(?:patient|questionnaire)\/([a-zA-Z0-9_-]+)/);
           if (tokenMatch && existingLinks) {
             const matchedLink = existingLinks.find((l: any) => l.token === tokenMatch[1]);
             if (matchedLink) {
