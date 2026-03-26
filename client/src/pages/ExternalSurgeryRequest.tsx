@@ -320,10 +320,16 @@ export default function ExternalSurgeryRequest() {
         }
         return formData.surgeryName && durationValid && dateIsValid;
       }
-      case 'patient':
-        return formData.patientFirstName && formData.patientLastName &&
+      case 'patient': {
+        const baseValid = formData.patientFirstName && formData.patientLastName &&
                formData.patientBirthday && formData.patientPhone &&
-               formData.patientStreet && formData.patientPostalCode && formData.patientCity;
+               formData.patientStreet && formData.patientPostalCode && formData.patientCity &&
+               formData.coverageType;
+        if (formData.coverageType === 'Krankenkasse') {
+          return baseValid && formData.diagnosis;
+        }
+        return baseValid;
+      }
       case 'documents':
         return true;
       default:
@@ -803,24 +809,10 @@ export default function ExternalSurgeryRequest() {
                 </>
                 )}
 
-                {/* Diagnosis (optional) */}
-                <div className="space-y-2">
-                  <Label htmlFor="diagnosis">
-                    {t('surgery.externalRequest.diagnosis')}
-                  </Label>
-                  <Input
-                    id="diagnosis"
-                    value={formData.diagnosis}
-                    onChange={(e) => updateField('diagnosis', e.target.value)}
-                    placeholder={t('surgery.externalRequest.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
-                    data-testid="input-diagnosis"
-                  />
-                </div>
-
                 {/* Coverage Type (Kostenträger) */}
                 <div className="space-y-2">
                   <Label htmlFor="coverageType">
-                    {t('surgery.externalRequest.coverageType')}
+                    {t('surgery.externalRequest.coverageType')} *
                   </Label>
                   <Select
                     value={formData.coverageType || undefined}
@@ -851,6 +843,20 @@ export default function ExternalSurgeryRequest() {
                       data-testid="input-coverage-type-custom"
                     />
                   )}
+                </div>
+
+                {/* Diagnosis */}
+                <div className="space-y-2">
+                  <Label htmlFor="diagnosis">
+                    {t('surgery.externalRequest.diagnosis')}{formData.coverageType === 'Krankenkasse' ? ' *' : ` (${t('surgery.externalRequest.optional', 'optional')})`}
+                  </Label>
+                  <Input
+                    id="diagnosis"
+                    value={formData.diagnosis}
+                    onChange={(e) => updateField('diagnosis', e.target.value)}
+                    placeholder={t('surgery.externalRequest.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
+                    data-testid="input-diagnosis"
+                  />
                 </div>
 
                 {/* Section Divider: Scheduling */}

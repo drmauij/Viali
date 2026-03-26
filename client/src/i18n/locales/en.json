@@ -4937,7 +4937,7 @@
       "wishedTimeSlot": "Wished Time Slot",
       "wishedTimeSlotAnyTime": "Any time",
       "surgeryNotes": "Surgery Notes",
-      "diagnosis": "Diagnosis (optional)",
+      "diagnosis": "Diagnosis",
       "coverageType": "Coverage Type",
       "coverageTypePlaceholder": "Please select...",
       "coverageTypeSelbstzahler": "Self-payer",
