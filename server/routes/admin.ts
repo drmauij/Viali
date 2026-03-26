@@ -1024,8 +1024,12 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
     }
 
     // Update the isBookable field in userHospitalRoles
+    // If turning off bookable, also turn off public calendar
+    const updateData: Record<string, any> = { isBookable };
+    if (!isBookable) updateData.publicCalendarEnabled = false;
+
     await db.update(userHospitalRoles)
-      .set({ isBookable })
+      .set(updateData)
       .where(eq(userHospitalRoles.id, roleId));
 
     // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists

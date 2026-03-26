@@ -2578,19 +2578,24 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
 router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
-    const { isBookable, bookingServiceName, bookingLocation } = req.body;
+    const { isBookable, publicCalendarEnabled, bookingServiceName, bookingLocation } = req.body;
 
-    if (typeof isBookable !== 'boolean') {
-      return res.status(400).json({ message: "isBookable must be a boolean" });
+    if (typeof isBookable !== 'boolean' && typeof publicCalendarEnabled !== 'boolean') {
+      return res.status(400).json({ message: "isBookable or publicCalendarEnabled must be a boolean" });
     }
 
     // Import userHospitalRoles to update directly
     const { userHospitalRoles } = await import("@shared/schema");
 
-    // Build update set — always update isBookable, optionally update service/location
-    const updateSet: Record<string, any> = { isBookable };
+    // Build update set — conditionally update isBookable and/or publicCalendarEnabled, optionally update service/location
+    const updateSet: Record<string, any> = {};
+    if (typeof isBookable === 'boolean') updateSet.isBookable = isBookable;
+    if (typeof publicCalendarEnabled === 'boolean') updateSet.publicCalendarEnabled = publicCalendarEnabled;
     if (bookingServiceName !== undefined) updateSet.bookingServiceName = bookingServiceName || null;
     if (bookingLocation !== undefined) updateSet.bookingLocation = bookingLocation || null;
+
+    // If turning off isBookable, also turn off publicCalendarEnabled
+    if (isBookable === false) updateSet.publicCalendarEnabled = false;
 
     // Update all roles for this user in this hospital
     await db
