@@ -599,6 +599,9 @@ const bookingSchema = z.object({
   fbclid: z.string().max(500).nullish(),
   ttclid: z.string().max(500).nullish(),
   msclkid: z.string().max(500).nullish(),
+  igshid: z.string().max(500).nullish(),
+  li_fat_id: z.string().max(500).nullish(),
+  twclid: z.string().max(500).nullish(),
   noShowFeeAcknowledged: z.boolean().optional(),
   serviceId: z.string().nullish(),
 });
@@ -684,7 +687,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       });
 
       // Save referral event if any referral data present
-      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid) {
+      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid || parsed.data.igshid || parsed.data.li_fat_id || parsed.data.twclid) {
         const { referralEvents } = await import("@shared/schema");
         // Infer source from click IDs when no explicit source provided
         let inferredSource = parsed.data.referralSource || "other";
@@ -698,6 +701,12 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             inferredSource = "social"; inferredDetail = "TikTok Ads";
           } else if (parsed.data.msclkid) {
             inferredSource = "search_engine"; inferredDetail = "Bing Ads";
+          } else if (parsed.data.igshid) {
+            inferredSource = "social"; inferredDetail = "Instagram";
+          } else if (parsed.data.li_fat_id) {
+            inferredSource = "social"; inferredDetail = "LinkedIn Ads";
+          } else if (parsed.data.twclid) {
+            inferredSource = "social"; inferredDetail = "Twitter/X Ads";
           }
         }
         await db.insert(referralEvents).values({
@@ -718,6 +727,9 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           fbclid: parsed.data.fbclid || null,
           ttclid: parsed.data.ttclid || null,
           msclkid: parsed.data.msclkid || null,
+          igshid: parsed.data.igshid || null,
+          li_fat_id: parsed.data.li_fat_id || null,
+          twclid: parsed.data.twclid || null,
           captureMethod: parsed.data.captureMethod || "manual",
         });
       }

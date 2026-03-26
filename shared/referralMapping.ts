@@ -69,6 +69,9 @@ const CLICK_ID_MAP: Record<string, { source: ReferralSource; detail: string }> =
   fbclid: { source: "social", detail: "Meta Ads" },
   ttclid: { source: "social", detail: "TikTok Ads" },
   msclkid: { source: "search_engine", detail: "Bing Ads" },
+  igshid: { source: "social", detail: "Instagram" },
+  li_fat_id: { source: "social", detail: "LinkedIn Ads" },
+  twclid: { source: "social", detail: "Twitter/X Ads" },
 };
 
 export function resolveReferralFromParams(params: {
@@ -84,6 +87,9 @@ export function resolveReferralFromParams(params: {
   fbclid?: string | null;
   ttclid?: string | null;
   msclkid?: string | null;
+  igshid?: string | null;
+  li_fat_id?: string | null;
+  twclid?: string | null;
 }): (MappedReferral & { utmParams?: UtmParams; refParam?: string }) | null {
   const utmResult = mapUtmToReferral(params);
   if (utmResult) {

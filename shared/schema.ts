@@ -6292,6 +6292,9 @@ export const referralEvents = pgTable("referral_events", {
   fbclid: varchar("fbclid"),
   ttclid: varchar("ttclid"),
   msclkid: varchar("msclkid"),
+  igshid: varchar("igshid"),
+  li_fat_id: varchar("li_fat_id"),
+  twclid: varchar("twclid"),
   captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref", "staff"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [

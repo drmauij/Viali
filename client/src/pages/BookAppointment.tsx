@@ -139,11 +139,14 @@ export default function BookAppointment() {
   const fbclid = searchParams.get("fbclid");
   const ttclid = searchParams.get("ttclid");
   const msclkid = searchParams.get("msclkid");
+  const igshid = searchParams.get("igshid");
+  const li_fat_id = searchParams.get("li_fat_id");
+  const twclid = searchParams.get("twclid");
 
   const autoReferral = useMemo(() => resolveReferralFromParams({
     utmSource, utmMedium, utmCampaign, utmTerm, utmContent, ref: refParam,
-    gclid, gbraid, wbraid, fbclid, ttclid, msclkid,
-  }), [utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid]);
+    gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid,
+  }), [utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid]);
 
   // Theme state
   const [isDark, setIsDark] = useState(false);
@@ -450,6 +453,9 @@ export default function BookAppointment() {
           fbclid,
           ttclid,
           msclkid,
+          igshid,
+          li_fat_id,
+          twclid,
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
           serviceId: serviceInfo?.id || undefined,
         }),
@@ -471,7 +477,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, noShowFeeAcknowledged]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged]);
 
   // ─── Render helpers ───────────────────────────────────────────
 

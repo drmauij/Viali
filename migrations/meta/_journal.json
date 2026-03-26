@@ -1324,6 +1324,13 @@
       "when": 1774427967010,
       "tag": "0188_blue_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1774514523955,
+      "tag": "0189_puzzling_firebrand",
+      "breakpoints": true
     }
   ]
 }
