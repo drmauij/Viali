@@ -231,6 +231,93 @@ function exportAnonymizedCsv(rows: FunnelRow[]) {
   URL.revokeObjectURL(url);
 }
 
+function classifyFunnel(r: FunnelRow): string {
+  if (r.has_click_id) {
+    // Determine specific ad funnel from source_detail or source
+    if (r.source === "search_engine") return "google_ads";
+    if (r.source === "social") return "meta_ads";
+    return "paid_other";
+  }
+  if (r.source === "social" && r.capture_method === "staff") return "meta_forms";
+  return "organic";
+}
+
+function exportAdPerformanceCsv(
+  adPerformance: any[],
+  rows: FunnelRow[],
+  from: string,
+  to: string,
+) {
+  const funnelLabels: Record<string, string> = {
+    google_ads: "Google Ads",
+    meta_ads: "Meta Ads",
+    meta_forms: "Meta Forms",
+  };
+
+  // Section 1: Summary
+  const summaryHeader = "funnel,budget_chf,leads,cpl_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
+  const summaryRows = adPerformance.map((r: any) => [
+    funnelLabels[r.funnel] || r.funnel,
+    r.budget,
+    r.leads,
+    r.cpl ?? "",
+    r.appointmentsKept,
+    r.cpk ?? "",
+    r.paidConversions,
+    r.cpa ?? "",
+    r.revenue,
+    r.roi ?? "",
+  ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+
+  // Section 2: Raw referral-level data with funnel classification
+  const detailHeader = "referral_date,funnel,source,source_detail,capture_method,has_click_id,appointment_status,appointment_date,provider,surgery_status,payment_status,price_chf,payment_date,days_to_conversion";
+  const detailRows = rows.map((r) => {
+    const funnel = classifyFunnel(r);
+    const daysToConversion = r.payment_date && r.referral_date
+      ? Math.round((new Date(r.payment_date).getTime() - new Date(r.referral_date).getTime()) / (1000 * 60 * 60 * 24))
+      : "";
+    const provider = r.provider_first_name
+      ? `${r.provider_first_name} ${r.provider_last_name ?? ""}`.trim()
+      : "";
+    return [
+      r.referral_date?.slice(0, 10) ?? "",
+      funnel,
+      r.source,
+      r.source_detail ?? "",
+      r.capture_method,
+      r.has_click_id ? "yes" : "no",
+      r.appointment_status ?? "",
+      r.appointment_date ?? "",
+      provider,
+      r.surgery_status ?? "",
+      r.payment_status ?? "",
+      r.price ?? "",
+      r.payment_date ?? "",
+      daysToConversion,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+  });
+
+  const csv = [
+    `"Ad Performance Report — ${from} to ${to}"`,
+    "",
+    "--- SUMMARY ---",
+    summaryHeader,
+    ...summaryRows,
+    "",
+    "--- DETAIL (per referral) ---",
+    detailHeader,
+    ...detailRows,
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `ad-performance-${from}-to-${to}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
@@ -798,10 +885,24 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
           {/* ── Ad Performance Table ────────────────────────────────────── */}
           <Card className="mt-6">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">{t("business.adPerformance.title", "Ad Performance")}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("business.adPerformance.help", "Cost and conversion metrics per advertising channel for the selected date range. Budgets are allocated per calendar month.")}
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">{t("business.adPerformance.title", "Ad Performance")}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {t("business.adPerformance.help", "Cost and conversion metrics per advertising channel for the selected date range. Budgets are allocated per calendar month.")}
+                  </p>
+                </div>
+                {adPerformance.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportAdPerformanceCsv(adPerformance, filtered, from, to)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    {t("business.funnel.export", "Export CSV")}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {adPerfLoading ? (
