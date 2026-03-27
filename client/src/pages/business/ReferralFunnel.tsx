@@ -53,6 +53,7 @@ type FunnelRow = {
   referral_date: string;
   patient_id: string;
   capture_method: string;
+  has_click_id: boolean;
   appointment_id: string | null;
   appointment_status: string | null;
   provider_id: string | null;
@@ -421,13 +422,26 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
     for (const r of filtered) {
       (bySource[r.source] ??= []).push(r);
     }
-    return Object.entries(bySource)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([src, srcRows]) => ({
-        source: src,
-        metrics: computeMetrics(srcRows),
-      }));
-  }, [filtered]);
+    const result: Array<{
+      source: string;
+      metrics: FunnelMetrics;
+      isSubRow?: boolean;
+      subLabel?: string;
+    }> = [];
+    for (const [src, srcRows] of Object.entries(bySource).sort(([a], [b]) => a.localeCompare(b))) {
+      // Aggregate row
+      result.push({ source: src, metrics: computeMetrics(srcRows) });
+      // Split into paid (has click ID) vs organic (no click ID)
+      const paid = srcRows.filter((r) => r.has_click_id);
+      const organic = srcRows.filter((r) => !r.has_click_id);
+      // Only show sub-rows if BOTH paid and organic exist for this source
+      if (paid.length > 0 && organic.length > 0) {
+        result.push({ source: src, metrics: computeMetrics(paid), isSubRow: true, subLabel: t("business.funnel.paid", "Paid") });
+        result.push({ source: src, metrics: computeMetrics(organic), isSubRow: true, subLabel: t("business.funnel.organic", "Organic") });
+      }
+    }
+    return result;
+  }, [filtered, t]);
 
   // ── Guard ──────────────────────────────────────────────────────────────
 
@@ -658,9 +672,11 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {matrixRows.map(({ source, metrics: m }) => (
-                    <TableRow key={source}>
-                      <TableCell className="font-medium">{source}</TableCell>
+                  {matrixRows.map(({ source, metrics: m, isSubRow, subLabel }, idx) => (
+                    <TableRow key={`${source}-${subLabel || 'agg'}-${idx}`} className={isSubRow ? "text-muted-foreground" : ""}>
+                      <TableCell className={isSubRow ? "pl-8 text-sm" : "font-medium"}>
+                        {isSubRow ? `↳ ${subLabel}` : source}
+                      </TableCell>
                       <TableCell className="text-right">
                         {m.totalReferrals}
                       </TableCell>

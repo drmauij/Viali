@@ -1901,6 +1901,7 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isBusin
         re.created_at AS referral_date,
         re.patient_id,
         re.capture_method,
+        CASE WHEN re.gclid IS NOT NULL OR re.gbraid IS NOT NULL OR re.wbraid IS NOT NULL OR re.fbclid IS NOT NULL OR re.igshid IS NOT NULL OR re.ttclid IS NOT NULL OR re.msclkid IS NOT NULL OR re.li_fat_id IS NOT NULL OR re.twclid IS NOT NULL THEN true ELSE false END AS has_click_id,
         ca.id AS appointment_id,
         ca.status AS appointment_status,
         ca.provider_id,
