@@ -36,7 +36,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Download, HelpCircle } from "lucide-react";
+import { Loader2, TrendingUp, Download, HelpCircle, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -380,14 +380,27 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
 
   const addMonthMutation = useMutation({
     mutationFn: async (month: string) => {
+      // Create with placeholder value 1 so the row persists (0 would delete)
       await apiRequest("PUT", `/api/business/${hospitalId}/ad-budgets`, {
         month,
-        budgets: { google_ads: 0, meta_ads: 0, meta_forms: 0 },
+        budgets: { google_ads: 1, meta_ads: 1, meta_forms: 1 },
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
-      toast({ title: t("business.adBudgets.monthAdded", "Month added") });
+      queryClient.invalidateQueries({ queryKey: ["ad-performance"] });
+      toast({ title: t("business.adBudgets.monthAdded", "Month added — click values to set budgets") });
+    },
+  });
+
+  const deleteMonthMutation = useMutation({
+    mutationFn: async (month: string) => {
+      await apiRequest("DELETE", `/api/business/${hospitalId}/ad-budgets/${month}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["ad-performance"] });
+      toast({ title: t("business.adBudgets.monthRemoved", "Month removed") });
     },
   });
 
@@ -404,12 +417,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   }, [allBudgets]);
 
   const { data: adPerformance = [], isLoading: adPerfLoading } = useQuery<any[]>({
-    queryKey: ["ad-performance", hospitalId, from, to],
+    queryKey: ["ad-performance", hospitalId],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      const res = await fetch(`/api/business/${hospitalId}/ad-performance?${params}`);
+      const res = await fetch(`/api/business/${hospitalId}/ad-performance`);
       if (!res.ok) throw new Error("Failed to fetch ad performance");
       return res.json();
     },
@@ -886,6 +896,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                         <TableHead className="text-right">Meta Ads</TableHead>
                         <TableHead className="text-right">Meta Forms</TableHead>
                         <TableHead className="text-right">{t("common.total", "Total")}</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -929,6 +940,16 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                               );
                             })}
                             <TableCell className="text-right font-medium">{CHF.format(total)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteMonthMutation.mutate(row.month)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -939,14 +960,14 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
             </CardContent>
           </Card>
 
-          {/* ── Ad Performance Table ────────────────────────────────────── */}
+          {/* ── Ad Performance by Month ────────────────────────────────── */}
           <Card className="mt-6">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">{t("business.adPerformance.title", "Ad Performance")}</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {t("business.adPerformance.help", "Cost and conversion metrics per advertising channel for the selected date range. Budgets are allocated per calendar month.")}
+                    {t("business.adPerformance.help", "Monthly cost and conversion metrics across all advertising channels. Each row shows aggregated performance for that month.")}
                   </p>
                 </div>
                 {adPerformance.length > 0 && (
@@ -964,24 +985,28 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
             <CardContent>
               {adPerfLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              ) : adPerformance.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {t("business.adPerformance.empty", "No data yet. Add budget months above to see performance metrics.")}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         {[
-                          { key: "funnel", label: t("business.adPerformance.funnel", "Funnel"), tip: t("business.adPerformance.funnelTip", "Advertising channel classified by tracking parameters") },
-                          { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend for the selected period") },
-                          { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to this channel") },
+                          { key: "month", label: t("business.adBudgets.month", "Month"), tip: t("business.adPerformance.monthTip", "Calendar month") },
+                          { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend across all channels") },
+                          { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
                           { key: "cpl", label: "CPL", tip: t("business.adPerformance.cplTip", "Cost per Lead — budget divided by number of leads") },
                           { key: "kept", label: t("business.adPerformance.kept", "Appts Kept"), tip: t("business.adPerformance.keptTip", "Appointments that were attended (not no-show or cancelled)") },
                           { key: "cpk", label: t("business.adPerformance.cpk", "Cost/Kept"), tip: t("business.adPerformance.cpkTip", "Budget divided by number of kept appointments") },
                           { key: "paid", label: t("business.adPerformance.paid", "Paid"), tip: t("business.adPerformance.paidTip", "Surgeries with confirmed payment") },
                           { key: "cpa", label: "CPA", tip: t("business.adPerformance.cpaTip", "Cost per Acquisition — budget divided by paid conversions") },
-                          { key: "revenue", label: t("business.adPerformance.revenue", "Revenue"), tip: t("business.adPerformance.revenueTip", "Total revenue from paid surgeries in this channel") },
+                          { key: "revenue", label: t("business.adPerformance.revenue", "Revenue"), tip: t("business.adPerformance.revenueTip", "Total revenue from paid surgeries") },
                           { key: "roi", label: "ROI", tip: t("business.adPerformance.roiTip", "Return on investment — (revenue - budget) / budget") },
                         ].map(({ key, label, tip }) => (
-                          <TableHead key={key} className={key !== "funnel" ? "text-right" : ""}>
+                          <TableHead key={key} className={key !== "month" ? "text-right" : ""}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-flex items-center gap-1 cursor-help">
@@ -996,55 +1021,48 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {adPerformance.map((row: any) => {
-                        const funnelLabels: Record<string, string> = {
-                          google_ads: "Google Ads",
-                          meta_ads: "Meta Ads",
-                          meta_forms: "Meta Forms",
-                        };
-                        return (
-                          <TableRow key={row.funnel}>
-                            <TableCell className="font-medium">{funnelLabels[row.funnel] || row.funnel}</TableCell>
-                            <TableCell className="text-right">{CHF.format(row.budget)}</TableCell>
-                            <TableCell className="text-right">{row.leads}</TableCell>
-                            <TableCell className="text-right">{row.cpl != null ? CHF.format(row.cpl) : "\u2014"}</TableCell>
-                            <TableCell className="text-right">{row.appointmentsKept}</TableCell>
-                            <TableCell className="text-right">{row.cpk != null ? CHF.format(row.cpk) : "\u2014"}</TableCell>
-                            <TableCell className="text-right">{row.paidConversions}</TableCell>
-                            <TableCell className="text-right">{row.cpa != null ? CHF.format(row.cpa) : "\u2014"}</TableCell>
-                            <TableCell className="text-right">{CHF.format(row.revenue)}</TableCell>
-                            <TableCell className="text-right">
-                              {row.roi != null ? (
-                                <span className={row.roi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                                  {row.roi >= 0 ? "+" : ""}{row.roi}x
-                                </span>
-                              ) : "\u2014"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {adPerformance.map((row: any) => (
+                        <TableRow key={row.month}>
+                          <TableCell className="font-medium">{row.month}</TableCell>
+                          <TableCell className="text-right">{CHF.format(row.totalBudget)}</TableCell>
+                          <TableCell className="text-right">{row.totalLeads}</TableCell>
+                          <TableCell className="text-right">{row.totalCpl != null ? CHF.format(row.totalCpl) : "\u2014"}</TableCell>
+                          <TableCell className="text-right">{row.totalKept}</TableCell>
+                          <TableCell className="text-right">{row.totalCpk != null ? CHF.format(row.totalCpk) : "\u2014"}</TableCell>
+                          <TableCell className="text-right">{row.totalPaid}</TableCell>
+                          <TableCell className="text-right">{row.totalCpa != null ? CHF.format(row.totalCpa) : "\u2014"}</TableCell>
+                          <TableCell className="text-right">{CHF.format(row.totalRevenue)}</TableCell>
+                          <TableCell className="text-right">
+                            {row.totalRoi != null ? (
+                              <span className={row.totalRoi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                {row.totalRoi >= 0 ? "+" : ""}{row.totalRoi}x
+                              </span>
+                            ) : "\u2014"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                       {/* Totals row */}
-                      {adPerformance.length > 0 && (() => {
+                      {adPerformance.length > 1 && (() => {
                         const totals = adPerformance.reduce((acc: any, row: any) => ({
-                          budget: acc.budget + row.budget,
-                          leads: acc.leads + row.leads,
-                          appointmentsKept: acc.appointmentsKept + row.appointmentsKept,
-                          paidConversions: acc.paidConversions + row.paidConversions,
-                          revenue: acc.revenue + row.revenue,
-                        }), { budget: 0, leads: 0, appointmentsKept: 0, paidConversions: 0, revenue: 0 });
+                          budget: acc.budget + row.totalBudget,
+                          leads: acc.leads + row.totalLeads,
+                          kept: acc.kept + row.totalKept,
+                          paid: acc.paid + row.totalPaid,
+                          revenue: acc.revenue + row.totalRevenue,
+                        }), { budget: 0, leads: 0, kept: 0, paid: 0, revenue: 0 });
                         return (
                           <TableRow className="font-semibold border-t-2">
                             <TableCell>{t("common.total", "Total")}</TableCell>
                             <TableCell className="text-right">{CHF.format(totals.budget)}</TableCell>
                             <TableCell className="text-right">{totals.leads}</TableCell>
                             <TableCell className="text-right">{totals.leads > 0 ? CHF.format(Math.round(totals.budget / totals.leads)) : "\u2014"}</TableCell>
-                            <TableCell className="text-right">{totals.appointmentsKept}</TableCell>
-                            <TableCell className="text-right">{totals.appointmentsKept > 0 ? CHF.format(Math.round(totals.budget / totals.appointmentsKept)) : "\u2014"}</TableCell>
-                            <TableCell className="text-right">{totals.paidConversions}</TableCell>
-                            <TableCell className="text-right">{totals.paidConversions > 0 ? CHF.format(Math.round(totals.budget / totals.paidConversions)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{totals.kept}</TableCell>
+                            <TableCell className="text-right">{totals.kept > 0 ? CHF.format(Math.round(totals.budget / totals.kept)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{totals.paid}</TableCell>
+                            <TableCell className="text-right">{totals.paid > 0 ? CHF.format(Math.round(totals.budget / totals.paid)) : "\u2014"}</TableCell>
                             <TableCell className="text-right">{CHF.format(totals.revenue)}</TableCell>
                             <TableCell className="text-right">
-                              {totals.budget > 0 && totals.paidConversions > 0 ? (
+                              {totals.budget > 0 && totals.paid > 0 ? (
                                 <span className={totals.revenue - totals.budget >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                                   {totals.revenue - totals.budget >= 0 ? "+" : ""}{Math.round(((totals.revenue - totals.budget) / totals.budget) * 100) / 100}x
                                 </span>
