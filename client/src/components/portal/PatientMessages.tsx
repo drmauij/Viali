@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2, Check, CheckCheck } from "lucide-react";
 import { usePortalSocket } from "@/hooks/usePortalSocket";
+import { usePortalSession } from "@/components/PortalVerificationGate";
 import { cn } from "@/lib/utils";
 
 export interface PatientMessage {
@@ -51,6 +52,7 @@ function formatMessageDate(dateStr: string, t: PatientMessagesProps['translation
 
 export default function PatientMessages({ token, hospitalId, patientId, isDark, className, messages: externalMessages, messagesLoading, translations: t }: PatientMessagesProps) {
   const queryClient = useQueryClient();
+  const { onSessionExpired } = usePortalSession();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,7 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
     queryKey: ['/api/patient-portal', token, 'messages'],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/messages`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
@@ -84,6 +87,7 @@ export default function PatientMessages({ token, hospitalId, patientId, isDark, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
       });
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
       if (!res.ok) throw new Error('Failed to send message');
       return res.json();
     },

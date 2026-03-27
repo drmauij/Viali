@@ -38,6 +38,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { CameraCapture } from "@/components/CameraCapture";
 import { Checkbox } from "@/components/ui/checkbox";
 import PatientMessages from "@/components/portal/PatientMessages";
+import { usePortalSession } from "@/components/PortalVerificationGate";
 import type { PatientMessage } from "@/components/portal/PatientMessages";
 import ChatFab from "@/components/portal/ChatFab";
 import { Label } from "@/components/ui/label";
@@ -749,6 +750,7 @@ export default function PatientPortal() {
 function PatientPortalContent({ token }: { token: string }) {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { onSessionExpired } = usePortalSession();
   const [lang, setLangState] = useState<Lang>(() => {
     const saved = localStorage.getItem('patient-portal-language');
     const supported: Lang[] = ['de', 'en', 'it', 'es', 'fr'];
@@ -812,6 +814,10 @@ function PatientPortalContent({ token }: { token: string }) {
     queryKey: ['/api/patient-portal', token],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}`);
+      if (res.status === 403) {
+        onSessionExpired();
+        throw new Error('Session expired');
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Error' }));
         if (err.debug) {
@@ -830,6 +836,7 @@ function PatientPortalContent({ token }: { token: string }) {
     queryKey: ['/api/patient-portal', token, 'messages'],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/messages`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
@@ -864,6 +871,10 @@ function PatientPortalContent({ token }: { token: string }) {
     queryKey: ['/api/patient-portal', token, 'consent'],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/consent-data`);
+      if (res.status === 403) {
+        onSessionExpired();
+        throw new Error('Session expired');
+      }
       if (!res.ok) return null;
       return res.json();
     },
@@ -880,6 +891,7 @@ function PatientPortalContent({ token }: { token: string }) {
     queryKey: ['/api/patient-portal', token, 'documents'],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}/documents`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
       if (!res.ok) return [];
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) return [];
@@ -914,6 +926,7 @@ function PatientPortalContent({ token }: { token: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
       });
+      if (urlRes.status === 403) { onSessionExpired(); return; }
       if (!urlRes.ok) {
         const err = await urlRes.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to get upload URL');
@@ -940,6 +953,7 @@ function PatientPortalContent({ token }: { token: string }) {
           fileSize: file.size,
         }),
       });
+      if (regRes.status === 403) { onSessionExpired(); return; }
       if (!regRes.ok) {
         const err = await regRes.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to register document');
@@ -958,6 +972,7 @@ function PatientPortalContent({ token }: { token: string }) {
     if (!token) return;
     try {
       const res = await fetch(`/api/patient-portal/${token}/documents/${docId}`, { method: 'DELETE' });
+      if (res.status === 403) { onSessionExpired(); return; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to delete');
@@ -972,6 +987,7 @@ function PatientPortalContent({ token }: { token: string }) {
     if (!token) return;
     try {
       const res = await fetch(`/api/patient-portal/${token}/create-update-link`, { method: 'POST' });
+      if (res.status === 403) { onSessionExpired(); return; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to create update link');
@@ -1085,6 +1101,7 @@ function PatientPortalContent({ token }: { token: string }) {
           idBackImage,
         }),
       });
+      if (res.status === 403) { onSessionExpired(); return; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Error' }));
         throw new Error(err.message || 'Failed to submit consent');

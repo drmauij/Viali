@@ -13,6 +13,7 @@ import { SocketProvider } from "@/contexts/SocketContext";
 import { useAuth } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import "@/i18n/config";
 
 const NotFound = React.lazy(() => import("@/pages/not-found"));
@@ -165,7 +166,7 @@ function Router() {
       <Suspense fallback={<PageLoader />}>
         <Switch>
           {/* Public routes accessible regardless of auth */}
-          <Route path="/patient/:token" component={PatientPortal} />
+          <Route path="/patient/:token">{(params) => <ErrorBoundary><PatientPortal /></ErrorBoundary>}</Route>
           <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire as any} />
           <Route path="/questionnaire/:token" component={PatientQuestionnaire as any} />
           <Route path="/q/:alias" component={QuestionnaireAliasResolver} />

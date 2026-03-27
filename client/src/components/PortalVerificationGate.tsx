@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -167,6 +167,15 @@ function getT(lang: Lang) {
   return gateTranslations[lang] || gateTranslations.de;
 }
 
+// Context so children can trigger re-verification when they get a 403
+const PortalSessionContext = createContext<{ onSessionExpired: () => void }>({
+  onSessionExpired: () => {},
+});
+
+export function usePortalSession() {
+  return useContext(PortalSessionContext);
+}
+
 export default function PortalVerificationGate({
   portalType,
   token,
@@ -256,6 +265,27 @@ export default function PortalVerificationGate({
     };
   }, [portalType, token, languages]);
 
+  // Called by children when an API call returns 403 (session expired)
+  const onSessionExpired = useCallback(async () => {
+    // Re-fetch hint so the verification UI is ready
+    try {
+      const hintRes = await fetch(
+        `/api/portal-auth/${portalType}/${token}/hint`,
+      );
+      if (hintRes.ok) {
+        const hintData = await hintRes.json();
+        setHint(hintData);
+      }
+    } catch {
+      // hint fetch failed — still show verification UI
+    }
+    setCodeSent(false);
+    setSentMethod(null);
+    setCode("");
+    setError(null);
+    setState("needs-verification");
+  }, [portalType, token]);
+
   // Cooldown timer
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -342,7 +372,11 @@ export default function PortalVerificationGate({
   }
 
   if (state === "verified") {
-    return <>{children}</>;
+    return (
+      <PortalSessionContext.Provider value={{ onSessionExpired }}>
+        {children}
+      </PortalSessionContext.Provider>
+    );
   }
 
   // needs-verification state
