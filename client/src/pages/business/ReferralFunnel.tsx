@@ -36,7 +36,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Download, HelpCircle, Trash2 } from "lucide-react";
+import { Loader2, TrendingUp, Download, HelpCircle, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -330,6 +330,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   const [sourceFilter, setSourceFilter] = useState("all");
 
   // Ad budget state
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [editingBudget, setEditingBudget] = useState<{ month: string; funnel: string; value: string } | null>(null);
   const [newMonth, setNewMonth] = useState(() => {
     const now = new Date();
@@ -1021,26 +1022,77 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {adPerformance.map((row: any) => (
-                        <TableRow key={row.month}>
-                          <TableCell className="font-medium">{row.month}</TableCell>
-                          <TableCell className="text-right">{CHF.format(row.totalBudget)}</TableCell>
-                          <TableCell className="text-right">{row.totalLeads}</TableCell>
-                          <TableCell className="text-right">{row.totalCpl != null ? CHF.format(row.totalCpl) : "\u2014"}</TableCell>
-                          <TableCell className="text-right">{row.totalKept}</TableCell>
-                          <TableCell className="text-right">{row.totalCpk != null ? CHF.format(row.totalCpk) : "\u2014"}</TableCell>
-                          <TableCell className="text-right">{row.totalPaid}</TableCell>
-                          <TableCell className="text-right">{row.totalCpa != null ? CHF.format(row.totalCpa) : "\u2014"}</TableCell>
-                          <TableCell className="text-right">{CHF.format(row.totalRevenue)}</TableCell>
-                          <TableCell className="text-right">
-                            {row.totalRoi != null ? (
-                              <span className={row.totalRoi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                                {row.totalRoi >= 0 ? "+" : ""}{row.totalRoi}x
+                      {adPerformance.flatMap((row: any) => {
+                        const isExpanded = expandedMonths.has(row.month);
+                        const funnelLabels: Record<string, string> = {
+                          google_ads: "Google Ads",
+                          meta_ads: "Meta Ads",
+                          meta_forms: "Meta Forms",
+                        };
+                        const toggleMonth = () => {
+                          setExpandedMonths(prev => {
+                            const next = new Set(prev);
+                            if (next.has(row.month)) next.delete(row.month);
+                            else next.add(row.month);
+                            return next;
+                          });
+                        };
+                        const rows = [
+                          <TableRow key={row.month} className="cursor-pointer hover:bg-muted/50" onClick={toggleMonth}>
+                            <TableCell className="font-medium">
+                              <span className="inline-flex items-center gap-1">
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                {row.month}
                               </span>
-                            ) : "\u2014"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell className="text-right">{CHF.format(row.totalBudget)}</TableCell>
+                            <TableCell className="text-right">{row.totalLeads}</TableCell>
+                            <TableCell className="text-right">{row.totalCpl != null ? CHF.format(row.totalCpl) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{row.totalKept}</TableCell>
+                            <TableCell className="text-right">{row.totalCpk != null ? CHF.format(row.totalCpk) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{row.totalPaid}</TableCell>
+                            <TableCell className="text-right">{row.totalCpa != null ? CHF.format(row.totalCpa) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{CHF.format(row.totalRevenue)}</TableCell>
+                            <TableCell className="text-right">
+                              {row.totalRoi != null ? (
+                                <span className={row.totalRoi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                  {row.totalRoi >= 0 ? "+" : ""}{row.totalRoi}x
+                                </span>
+                              ) : "\u2014"}
+                            </TableCell>
+                          </TableRow>,
+                        ];
+                        if (isExpanded) {
+                          for (const f of row.funnels) {
+                            const budget = f.budget;
+                            const cpl = f.leads > 0 ? Math.round(budget / f.leads) : null;
+                            const cpk = f.appointmentsKept > 0 ? Math.round(budget / f.appointmentsKept) : null;
+                            const cpa = f.paidConversions > 0 ? Math.round(budget / f.paidConversions) : null;
+                            const roi = budget > 0 && f.paidConversions > 0 ? Math.round(((f.revenue - budget) / budget) * 100) / 100 : null;
+                            rows.push(
+                              <TableRow key={`${row.month}-${f.funnel}`} className="text-muted-foreground">
+                                <TableCell className="pl-10 text-sm">↳ {funnelLabels[f.funnel] || f.funnel}</TableCell>
+                                <TableCell className="text-right text-sm">{CHF.format(budget)}</TableCell>
+                                <TableCell className="text-right text-sm">{f.leads}</TableCell>
+                                <TableCell className="text-right text-sm">{cpl != null ? CHF.format(cpl) : "\u2014"}</TableCell>
+                                <TableCell className="text-right text-sm">{f.appointmentsKept}</TableCell>
+                                <TableCell className="text-right text-sm">{cpk != null ? CHF.format(cpk) : "\u2014"}</TableCell>
+                                <TableCell className="text-right text-sm">{f.paidConversions}</TableCell>
+                                <TableCell className="text-right text-sm">{cpa != null ? CHF.format(cpa) : "\u2014"}</TableCell>
+                                <TableCell className="text-right text-sm">{CHF.format(f.revenue)}</TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {roi != null ? (
+                                    <span className={roi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                      {roi >= 0 ? "+" : ""}{roi}x
+                                    </span>
+                                  ) : "\u2014"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          }
+                        }
+                        return rows;
+                      })}
                       {/* Totals row */}
                       {adPerformance.length > 1 && (() => {
                         const totals = adPerformance.reduce((acc: any, row: any) => ({
