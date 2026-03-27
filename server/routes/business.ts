@@ -2237,4 +2237,120 @@ router.put('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessMa
   }
 });
 
+router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { from, to } = req.query;
+
+    const conditions = [sql`re.hospital_id = ${hospitalId}`];
+    if (from) conditions.push(sql`re.created_at >= ${from}::timestamp`);
+    if (to) conditions.push(sql`re.created_at <= ${to}::timestamp`);
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    // Classify referrals into funnels and compute metrics
+    const result = await db.execute(sql`
+      WITH classified AS (
+        SELECT
+          CASE
+            WHEN re.gclid IS NOT NULL OR re.gbraid IS NOT NULL OR re.wbraid IS NOT NULL THEN 'google_ads'
+            WHEN (re.fbclid IS NOT NULL OR re.igshid IS NOT NULL) AND re.capture_method != 'staff' THEN 'meta_ads'
+            WHEN re.source = 'social' AND re.capture_method = 'staff' AND re.fbclid IS NULL AND re.igshid IS NULL THEN 'meta_forms'
+            ELSE NULL
+          END AS funnel,
+          re.id AS referral_id,
+          re.created_at AS referral_date,
+          ca.status AS appointment_status,
+          s.id AS surgery_id,
+          s.payment_status,
+          COALESCE(s.price, 0) AS price
+        FROM referral_events re
+        LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
+        LEFT JOIN LATERAL (
+          SELECT s2.id, s2.status, s2.payment_status, s2.price
+          FROM surgeries s2
+          WHERE s2.patient_id = re.patient_id
+            AND s2.hospital_id = re.hospital_id
+            AND s2.planned_date >= re.created_at
+            AND s2.is_archived = false
+            AND COALESCE(s2.is_suspended, false) = false
+          ORDER BY s2.planned_date ASC
+          LIMIT 1
+        ) s ON true
+        WHERE ${whereClause}
+      ),
+      funnel_metrics AS (
+        SELECT
+          funnel,
+          COUNT(*) AS leads,
+          COUNT(*) FILTER (WHERE appointment_status IN ('arrived', 'in_progress', 'completed')) AS appointments_kept,
+          COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_conversions,
+          COALESCE(SUM(price) FILTER (WHERE payment_status = 'paid'), 0) AS revenue
+        FROM classified
+        WHERE funnel IS NOT NULL
+        GROUP BY funnel
+      )
+      SELECT
+        fm.funnel,
+        fm.leads,
+        fm.appointments_kept,
+        fm.paid_conversions,
+        fm.revenue
+      FROM funnel_metrics fm
+      ORDER BY fm.funnel
+    `);
+
+    // Fetch budgets for the months in the date range
+    const monthConditions = [sql`ab.hospital_id = ${hospitalId}`];
+    if (from) monthConditions.push(sql`ab.month >= ${(from as string).substring(0, 7)}`);
+    if (to) monthConditions.push(sql`ab.month <= ${(to as string).substring(0, 7)}`);
+    const monthWhere = sql.join(monthConditions, sql` AND `);
+
+    const budgetResult = await db.execute(sql`
+      SELECT funnel, COALESCE(SUM(amount_chf), 0) AS total_budget
+      FROM ad_budgets ab
+      WHERE ${monthWhere}
+      GROUP BY funnel
+    `);
+
+    const budgetMap: Record<string, number> = {};
+    for (const row of budgetResult.rows as any[]) {
+      budgetMap[row.funnel] = Number(row.total_budget);
+    }
+
+    // Merge metrics with budgets
+    const allFunnels = ['google_ads', 'meta_ads', 'meta_forms'];
+    const metricsMap: Record<string, any> = {};
+    for (const row of result.rows as any[]) {
+      metricsMap[row.funnel] = row;
+    }
+
+    const response = allFunnels.map(funnel => {
+      const m = metricsMap[funnel];
+      const leads = Number(m?.leads || 0);
+      const appointmentsKept = Number(m?.appointments_kept || 0);
+      const paidConversions = Number(m?.paid_conversions || 0);
+      const revenue = Number(m?.revenue || 0);
+      const budget = budgetMap[funnel] || 0;
+
+      return {
+        funnel,
+        budget,
+        leads,
+        appointmentsKept,
+        paidConversions,
+        revenue,
+        cpl: leads > 0 ? Math.round(budget / leads) : null,
+        cpk: appointmentsKept > 0 ? Math.round(budget / appointmentsKept) : null,
+        cpa: paidConversions > 0 ? Math.round(budget / paidConversions) : null,
+        roi: budget > 0 && paidConversions > 0 ? Math.round(((revenue - budget) / budget) * 100) / 100 : null,
+      };
+    });
+
+    res.json(response);
+  } catch (error: any) {
+    logger.error('Error fetching ad performance:', error);
+    res.status(500).json({ message: 'Failed to fetch ad performance data' });
+  }
+});
+
 export default router;
