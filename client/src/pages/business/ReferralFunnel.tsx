@@ -38,6 +38,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, TrendingUp, Download, HelpCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,7 @@ function exportAnonymizedCsv(rows: FunnelRow[]) {
 
 export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
@@ -299,6 +301,10 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
       queryClient.invalidateQueries({ queryKey: ["ad-performance"] });
+      toast({ title: t("business.adBudgets.saved", "Budgets saved") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("business.adBudgets.saveError", "Failed to save budgets"), description: error.message, variant: "destructive" });
     },
   });
 
