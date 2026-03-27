@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -18,7 +18,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   BarChart,
   Bar,
@@ -30,7 +36,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Download } from "lucide-react";
+import { Loader2, TrendingUp, Download, HelpCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -232,6 +239,19 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   const [providerFilter, setProviderFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
 
+  // Ad budget state
+  const [budgetMonth, setBudgetMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [budgetInputs, setBudgetInputs] = useState<Record<string, string>>({
+    google_ads: '',
+    meta_ads: '',
+    meta_forms: '',
+  });
+
+  const queryClient = useQueryClient();
+
   // ── Data fetching ──────────────────────────────────────────────────────
 
   const { data: rows = [], isLoading } = useQuery<FunnelRow[]>({
@@ -241,6 +261,55 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
         `/api/business/${hospitalId}/referral-funnel?from=${from}&to=${to}`,
       );
       if (!res.ok) throw new Error("Failed to fetch funnel data");
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: savedBudgets = [] } = useQuery<any[]>({
+    queryKey: ["ad-budgets", hospitalId, budgetMonth],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/${hospitalId}/ad-budgets?month=${budgetMonth}`);
+      if (!res.ok) throw new Error("Failed to fetch budgets");
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  // Sync saved budgets to input fields
+  useEffect(() => {
+    const inputs: Record<string, string> = { google_ads: '', meta_ads: '', meta_forms: '' };
+    for (const b of savedBudgets) {
+      inputs[b.funnel] = String(b.amountChf);
+    }
+    setBudgetInputs(inputs);
+  }, [savedBudgets]);
+
+  const saveBudgetsMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PUT", `/api/business/${hospitalId}/ad-budgets`, {
+        month: budgetMonth,
+        budgets: {
+          google_ads: budgetInputs.google_ads ? Number(budgetInputs.google_ads) : 0,
+          meta_ads: budgetInputs.meta_ads ? Number(budgetInputs.meta_ads) : 0,
+          meta_forms: budgetInputs.meta_forms ? Number(budgetInputs.meta_forms) : 0,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["ad-performance"] });
+    },
+  });
+
+  const { data: adPerformance = [], isLoading: adPerfLoading } = useQuery<any[]>({
+    queryKey: ["ad-performance", hospitalId, from, to],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const res = await fetch(`/api/business/${hospitalId}/ad-performance?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch ad performance");
       return res.json();
     },
     enabled: !!hospitalId,
@@ -642,6 +711,172 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                   </TableRow>
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+
+          {/* ── Ad Budget Input ─────────────────────────────────────────── */}
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">{t("business.adBudgets.title", "Ad Budgets")}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t("business.adBudgets.help", "Set your monthly advertising spend per channel to calculate cost-per-lead and cost-per-acquisition metrics below.")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="month"
+                    value={budgetMonth}
+                    onChange={(e) => setBudgetMonth(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {([
+                  { key: 'google_ads', label: 'Google Ads' },
+                  { key: 'meta_ads', label: 'Meta Ads' },
+                  { key: 'meta_forms', label: 'Meta Forms' },
+                ] as const).map(({ key, label }) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label className="text-sm">{label}</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={budgetInputs[key]}
+                        onChange={(e) => setBudgetInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                        className="pr-14"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">CHF</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button
+                  onClick={() => saveBudgetsMutation.mutate()}
+                  disabled={saveBudgetsMutation.isPending}
+                  size="sm"
+                >
+                  {saveBudgetsMutation.isPending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("common.saving", "Saving...")}</>
+                  ) : (
+                    t("common.save", "Save")
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Ad Performance Table ────────────────────────────────────── */}
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">{t("business.adPerformance.title", "Ad Performance")}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {t("business.adPerformance.help", "Cost and conversion metrics per advertising channel for the selected date range. Budgets are allocated per calendar month.")}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {adPerfLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {[
+                          { key: "funnel", label: t("business.adPerformance.funnel", "Funnel"), tip: t("business.adPerformance.funnelTip", "Advertising channel classified by tracking parameters") },
+                          { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend for the selected period") },
+                          { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to this channel") },
+                          { key: "cpl", label: "CPL", tip: t("business.adPerformance.cplTip", "Cost per Lead — budget divided by number of leads") },
+                          { key: "kept", label: t("business.adPerformance.kept", "Appts Kept"), tip: t("business.adPerformance.keptTip", "Appointments that were attended (not no-show or cancelled)") },
+                          { key: "cpk", label: t("business.adPerformance.cpk", "Cost/Kept"), tip: t("business.adPerformance.cpkTip", "Budget divided by number of kept appointments") },
+                          { key: "paid", label: t("business.adPerformance.paid", "Paid"), tip: t("business.adPerformance.paidTip", "Surgeries with confirmed payment") },
+                          { key: "cpa", label: "CPA", tip: t("business.adPerformance.cpaTip", "Cost per Acquisition — budget divided by paid conversions") },
+                          { key: "revenue", label: t("business.adPerformance.revenue", "Revenue"), tip: t("business.adPerformance.revenueTip", "Total revenue from paid surgeries in this channel") },
+                          { key: "roi", label: "ROI", tip: t("business.adPerformance.roiTip", "Return on investment — (revenue - budget) / budget") },
+                        ].map(({ key, label, tip }) => (
+                          <TableHead key={key} className={key !== "funnel" ? "text-right" : ""}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1 cursor-help">
+                                  {label}
+                                  <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="max-w-xs">{tip}</p></TooltipContent>
+                            </Tooltip>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adPerformance.map((row: any) => {
+                        const funnelLabels: Record<string, string> = {
+                          google_ads: "Google Ads",
+                          meta_ads: "Meta Ads",
+                          meta_forms: "Meta Forms",
+                        };
+                        return (
+                          <TableRow key={row.funnel}>
+                            <TableCell className="font-medium">{funnelLabels[row.funnel] || row.funnel}</TableCell>
+                            <TableCell className="text-right">{CHF.format(row.budget)}</TableCell>
+                            <TableCell className="text-right">{row.leads}</TableCell>
+                            <TableCell className="text-right">{row.cpl != null ? CHF.format(row.cpl) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{row.appointmentsKept}</TableCell>
+                            <TableCell className="text-right">{row.cpk != null ? CHF.format(row.cpk) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{row.paidConversions}</TableCell>
+                            <TableCell className="text-right">{row.cpa != null ? CHF.format(row.cpa) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{CHF.format(row.revenue)}</TableCell>
+                            <TableCell className="text-right">
+                              {row.roi != null ? (
+                                <span className={row.roi >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                  {row.roi >= 0 ? "+" : ""}{row.roi}x
+                                </span>
+                              ) : "\u2014"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {/* Totals row */}
+                      {adPerformance.length > 0 && (() => {
+                        const totals = adPerformance.reduce((acc: any, row: any) => ({
+                          budget: acc.budget + row.budget,
+                          leads: acc.leads + row.leads,
+                          appointmentsKept: acc.appointmentsKept + row.appointmentsKept,
+                          paidConversions: acc.paidConversions + row.paidConversions,
+                          revenue: acc.revenue + row.revenue,
+                        }), { budget: 0, leads: 0, appointmentsKept: 0, paidConversions: 0, revenue: 0 });
+                        return (
+                          <TableRow className="font-semibold border-t-2">
+                            <TableCell>{t("common.total", "Total")}</TableCell>
+                            <TableCell className="text-right">{CHF.format(totals.budget)}</TableCell>
+                            <TableCell className="text-right">{totals.leads}</TableCell>
+                            <TableCell className="text-right">{totals.leads > 0 ? CHF.format(Math.round(totals.budget / totals.leads)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{totals.appointmentsKept}</TableCell>
+                            <TableCell className="text-right">{totals.appointmentsKept > 0 ? CHF.format(Math.round(totals.budget / totals.appointmentsKept)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{totals.paidConversions}</TableCell>
+                            <TableCell className="text-right">{totals.paidConversions > 0 ? CHF.format(Math.round(totals.budget / totals.paidConversions)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{CHF.format(totals.revenue)}</TableCell>
+                            <TableCell className="text-right">
+                              {totals.budget > 0 && totals.paidConversions > 0 ? (
+                                <span className={totals.revenue - totals.budget >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                  {totals.revenue - totals.budget >= 0 ? "+" : ""}{Math.round(((totals.revenue - totals.budget) / totals.budget) * 100) / 100}x
+                                </span>
+                              ) : "\u2014"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
