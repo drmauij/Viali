@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -330,14 +330,10 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
   const [sourceFilter, setSourceFilter] = useState("all");
 
   // Ad budget state
-  const [budgetMonth, setBudgetMonth] = useState(() => {
+  const [editingBudget, setEditingBudget] = useState<{ month: string; funnel: string; value: string } | null>(null);
+  const [newMonth, setNewMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
-  const [budgetInputs, setBudgetInputs] = useState<Record<string, string>>({
-    google_ads: '',
-    meta_ads: '',
-    meta_forms: '',
   });
 
   const queryClient = useQueryClient();
@@ -356,45 +352,56 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
     enabled: !!hospitalId,
   });
 
-  const { data: savedBudgets = [] } = useQuery<any[]>({
-    queryKey: ["ad-budgets", hospitalId, budgetMonth],
+  const { data: allBudgets = [] } = useQuery<any[]>({
+    queryKey: ["ad-budgets", hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/business/${hospitalId}/ad-budgets?month=${budgetMonth}`);
+      const res = await fetch(`/api/business/${hospitalId}/ad-budgets`);
       if (!res.ok) throw new Error("Failed to fetch budgets");
       return res.json();
     },
     enabled: !!hospitalId,
   });
 
-  // Sync saved budgets to input fields
-  useEffect(() => {
-    const inputs: Record<string, string> = { google_ads: '', meta_ads: '', meta_forms: '' };
-    for (const b of savedBudgets) {
-      inputs[b.funnel] = String(b.amountChf);
-    }
-    setBudgetInputs(inputs);
-  }, [savedBudgets]);
-
-  const saveBudgetsMutation = useMutation({
-    mutationFn: async () => {
+  const saveBudgetMutation = useMutation({
+    mutationFn: async ({ month, funnel, value }: { month: string; funnel: string; value: number }) => {
       await apiRequest("PUT", `/api/business/${hospitalId}/ad-budgets`, {
-        month: budgetMonth,
-        budgets: {
-          google_ads: budgetInputs.google_ads ? Number(budgetInputs.google_ads) : 0,
-          meta_ads: budgetInputs.meta_ads ? Number(budgetInputs.meta_ads) : 0,
-          meta_forms: budgetInputs.meta_forms ? Number(budgetInputs.meta_forms) : 0,
-        },
+        month,
+        budgets: { [funnel]: value },
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
       queryClient.invalidateQueries({ queryKey: ["ad-performance"] });
-      toast({ title: t("business.adBudgets.saved", "Budgets saved") });
     },
     onError: (error: any) => {
       toast({ title: t("business.adBudgets.saveError", "Failed to save budgets"), description: error.message, variant: "destructive" });
     },
   });
+
+  const addMonthMutation = useMutation({
+    mutationFn: async (month: string) => {
+      await apiRequest("PUT", `/api/business/${hospitalId}/ad-budgets`, {
+        month,
+        budgets: { google_ads: 0, meta_ads: 0, meta_forms: 0 },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ad-budgets"] });
+      toast({ title: t("business.adBudgets.monthAdded", "Month added") });
+    },
+  });
+
+  // Group budgets by month for the table
+  const budgetsByMonth = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    for (const b of allBudgets) {
+      if (!map[b.month]) map[b.month] = { google_ads: 0, meta_ads: 0, meta_forms: 0 };
+      map[b.month][b.funnel] = b.amountChf;
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, funnels]) => ({ month, ...funnels }));
+  }, [allBudgets]);
 
   const { data: adPerformance = [], isLoading: adPerfLoading } = useQuery<any[]>({
     queryKey: ["ad-performance", hospitalId, from, to],
@@ -836,62 +843,99 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
             </CardContent>
           </Card>
 
-          {/* ── Ad Budget Input ─────────────────────────────────────────── */}
+          {/* ── Ad Budgets Table ─────────────────────────────────────────── */}
           <Card className="mt-6">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">{t("business.adBudgets.title", "Ad Budgets")}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {t("business.adBudgets.help", "Set your monthly advertising spend per channel to calculate cost-per-lead and cost-per-acquisition metrics below.")}
+                    {t("business.adBudgets.help", "Monthly advertising spend per channel. Click any value to edit. Total is auto-calculated.")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Input
                     type="month"
-                    value={budgetMonth}
-                    onChange={(e) => setBudgetMonth(e.target.value)}
+                    value={newMonth}
+                    onChange={(e) => setNewMonth(e.target.value)}
                     className="w-40"
                   />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={addMonthMutation.isPending || budgetsByMonth.some(b => b.month === newMonth)}
+                    onClick={() => addMonthMutation.mutate(newMonth)}
+                  >
+                    {t("business.adBudgets.addMonth", "+ Add Month")}
+                  </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {([
-                  { key: 'google_ads', label: 'Google Ads' },
-                  { key: 'meta_ads', label: 'Meta Ads' },
-                  { key: 'meta_forms', label: 'Meta Forms' },
-                ] as const).map(({ key, label }) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label className="text-sm">{label}</Label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={budgetInputs[key]}
-                        onChange={(e) => setBudgetInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                        className="pr-14"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">CHF</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex justify-end">
-                <Button
-                  onClick={() => saveBudgetsMutation.mutate()}
-                  disabled={saveBudgetsMutation.isPending}
-                  size="sm"
-                >
-                  {saveBudgetsMutation.isPending ? (
-                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("common.saving", "Saving...")}</>
-                  ) : (
-                    t("common.save", "Save")
-                  )}
-                </Button>
-              </div>
+              {budgetsByMonth.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {t("business.adBudgets.empty", "No budgets set yet. Select a month and click Add Month to start.")}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("business.adBudgets.month", "Month")}</TableHead>
+                        <TableHead className="text-right">Google Ads</TableHead>
+                        <TableHead className="text-right">Meta Ads</TableHead>
+                        <TableHead className="text-right">Meta Forms</TableHead>
+                        <TableHead className="text-right">{t("common.total", "Total")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {budgetsByMonth.map((row: any) => {
+                        const total = (row.google_ads || 0) + (row.meta_ads || 0) + (row.meta_forms || 0);
+                        return (
+                          <TableRow key={row.month}>
+                            <TableCell className="font-medium">{row.month}</TableCell>
+                            {(['google_ads', 'meta_ads', 'meta_forms'] as const).map((funnel) => {
+                              const isEditing = editingBudget?.month === row.month && editingBudget?.funnel === funnel;
+                              return (
+                                <TableCell key={funnel} className="text-right">
+                                  {isEditing ? (
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      autoFocus
+                                      className="w-28 ml-auto text-right h-8"
+                                      defaultValue={String(row[funnel] || 0)}
+                                      onBlur={(e) => {
+                                        const val = Math.round(Number(e.target.value) || 0);
+                                        if (val !== (row[funnel] || 0)) {
+                                          saveBudgetMutation.mutate({ month: row.month, funnel, value: val });
+                                        }
+                                        setEditingBudget(null);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                        if (e.key === 'Escape') setEditingBudget(null);
+                                      }}
+                                    />
+                                  ) : (
+                                    <span
+                                      className="cursor-pointer hover:underline"
+                                      onClick={() => setEditingBudget({ month: row.month, funnel, value: String(row[funnel] || 0) })}
+                                    >
+                                      {CHF.format(row[funnel] || 0)}
+                                    </span>
+                                  )}
+                                </TableCell>
+                              );
+                            })}
+                            <TableCell className="text-right font-medium">{CHF.format(total)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
 

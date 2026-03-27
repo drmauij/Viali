@@ -2166,16 +2166,25 @@ router.get('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessMa
     const { hospitalId } = req.params;
     const { month } = req.query;
 
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month as string)) {
-      return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM.' });
+    const { adBudgets } = await import("@shared/schema");
+
+    if (month) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month as string)) {
+        return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM.' });
+      }
+      const results = await db
+        .select()
+        .from(adBudgets)
+        .where(and(eq(adBudgets.hospitalId, hospitalId), eq(adBudgets.month, month as string)));
+      return res.json(results);
     }
 
-    const { adBudgets } = await import("@shared/schema");
+    // No month param: return all budgets for this hospital
     const results = await db
       .select()
       .from(adBudgets)
-      .where(and(eq(adBudgets.hospitalId, hospitalId), eq(adBudgets.month, month as string)));
-
+      .where(eq(adBudgets.hospitalId, hospitalId))
+      .orderBy(adBudgets.month);
     res.json(results);
   } catch (error: any) {
     logger.error('Error fetching ad budgets:', error);
