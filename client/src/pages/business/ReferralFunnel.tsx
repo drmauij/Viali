@@ -655,6 +655,10 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
               value={pct(metrics.cancellationRate)}
             />
             <KpiCard
+              label={t("business.funnel.kept", "Kept")}
+              value={`${metrics.kept} / ${metrics.withAppointment}`}
+            />
+            <KpiCard
               label={t(
                 "business.funnel.aptToSurgery",
                 "Appointment \u2192 Surgery",
@@ -730,6 +734,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                       {t("business.funnel.referrals", "Referrals")}
                     </TableHead>
                     <TableHead className="text-right">
+                      {t("business.funnel.kept", "Kept")}
+                    </TableHead>
+                    <TableHead className="text-right">
                       {t("business.funnel.noShowRate", "No-Show %")}
                     </TableHead>
                     <TableHead className="text-right">
@@ -768,6 +775,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                         {m.totalReferrals}
                       </TableCell>
                       <TableCell className="text-right">
+                        {m.kept}
+                      </TableCell>
+                      <TableCell className="text-right">
                         {pct(m.noShowRate)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -795,6 +805,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                     <TableCell>Total</TableCell>
                     <TableCell className="text-right">
                       {metrics.totalReferrals}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {metrics.kept}
                     </TableCell>
                     <TableCell className="text-right">
                       {pct(metrics.noShowRate)}
