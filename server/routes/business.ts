@@ -2156,4 +2156,85 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
   }
 });
 
+// ========================================
+// Ad Budget Management (manager-only)
+// ========================================
+
+router.get('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { month } = req.query;
+
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month as string)) {
+      return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM.' });
+    }
+
+    const { adBudgets } = await import("@shared/schema");
+    const results = await db
+      .select()
+      .from(adBudgets)
+      .where(and(eq(adBudgets.hospitalId, hospitalId), eq(adBudgets.month, month as string)));
+
+    res.json(results);
+  } catch (error: any) {
+    logger.error('Error fetching ad budgets:', error);
+    res.status(500).json({ message: 'Failed to fetch ad budgets' });
+  }
+});
+
+router.put('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { month, budgets } = req.body;
+
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return res.status(400).json({ message: 'Invalid month format. Use YYYY-MM.' });
+    }
+
+    const validFunnels = ['google_ads', 'meta_ads', 'meta_forms'] as const;
+    const { adBudgets } = await import("@shared/schema");
+    const results = [];
+
+    for (const funnel of validFunnels) {
+      const amount = budgets?.[funnel];
+      if (amount === undefined || amount === null) continue;
+
+      const amountChf = Math.round(Number(amount));
+      if (isNaN(amountChf) || amountChf < 0) continue;
+
+      if (amountChf === 0) {
+        // Delete budget entry if set to 0
+        await db
+          .delete(adBudgets)
+          .where(and(
+            eq(adBudgets.hospitalId, hospitalId),
+            eq(adBudgets.month, month),
+            eq(adBudgets.funnel, funnel),
+          ));
+        continue;
+      }
+
+      const [upserted] = await db
+        .insert(adBudgets)
+        .values({
+          hospitalId,
+          month,
+          funnel,
+          amountChf,
+        })
+        .onConflictDoUpdate({
+          target: [adBudgets.hospitalId, adBudgets.month, adBudgets.funnel],
+          set: { amountChf, updatedAt: new Date() },
+        })
+        .returning();
+      results.push(upserted);
+    }
+
+    res.json(results);
+  } catch (error: any) {
+    logger.error('Error upserting ad budgets:', error);
+    res.status(500).json({ message: 'Failed to save ad budgets' });
+  }
+});
+
 export default router;
