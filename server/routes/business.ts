@@ -2293,7 +2293,6 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
           LIMIT 1
         ) s ON true
         WHERE re.hospital_id = ${hospitalId}
-          AND funnel IS NOT NULL
       )
       SELECT
         month,
