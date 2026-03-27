@@ -6304,3 +6304,17 @@ export const referralEvents = pgTable("referral_events", {
   index("referral_events_appointment_id").on(table.appointmentId),
   index("referral_events_patient_id").on(table.patientId),
 ]);
+
+export const adFunnelEnum = pgEnum("ad_funnel", ["google_ads", "meta_ads", "meta_forms"]);
+
+export const adBudgets = pgTable("ad_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  month: varchar("month", { length: 7 }).notNull(),
+  funnel: adFunnelEnum("funnel").notNull(),
+  amountChf: integer("amount_chf").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("ad_budgets_hospital_month_funnel").on(table.hospitalId, table.month, table.funnel),
+]);

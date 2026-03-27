@@ -1338,6 +1338,13 @@
       "when": 1774518919737,
       "tag": "0190_absurd_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1774602213894,
+      "tag": "0191_legal_omega_red",
+      "breakpoints": true
     }
   ]
 }
