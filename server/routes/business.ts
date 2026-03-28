@@ -2391,6 +2391,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
             id: referralEvents.id,
             appointmentId: referralEvents.appointmentId,
             captureMethod: referralEvents.captureMethod,
+            createdAt: referralEvents.createdAt,
           })
           .from(referralEvents)
           .where(and(
@@ -2398,10 +2399,16 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
             inArray(referralEvents.appointmentId, allAppointmentIds),
           ))
       : [];
-    // Track which appointments have referrals and whether they're staff-backfilled (updatable)
-    const referralByAppointment = new Map<string, { id: string; captureMethod: string }>();
+    // Track which appointments have referrals and whether they're staff-backfilled today (safe to update)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const referralByAppointment = new Map<string, { id: string; captureMethod: string; isToday: boolean }>();
     for (const r of existingReferrals) {
-      if (r.appointmentId) referralByAppointment.set(r.appointmentId, { id: r.id, captureMethod: r.captureMethod });
+      if (r.appointmentId) {
+        const createdDate = r.createdAt ? new Date(r.createdAt) : null;
+        const isToday = createdDate ? createdDate >= today : false;
+        referralByAppointment.set(r.appointmentId, { id: r.id, captureMethod: r.captureMethod, isToday });
+      }
     }
 
     // 5. Create or update referral events
@@ -2454,8 +2461,8 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
               captureMethod: "staff",
               createdAt: leadDate,
             });
-          } else if (existing.captureMethod === 'staff') {
-            // Staff-backfilled referral — update with correct date & source
+          } else if (existing.captureMethod === 'staff' && existing.isToday) {
+            // Staff-backfilled referral created today — safe to update with correct date & source
             toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
           }
           // If captureMethod is manual/utm/ref, leave it alone
