@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { SurgerySetDetailDialog } from "./SurgerySetDetailDialog";
+import { cn } from "@/lib/utils";
 
 type SurgerySetData = {
   id: string;
@@ -89,6 +90,7 @@ export function SurgerySetsDialog({
     co2Pressure: false,
     tourniquet: false,
     irrigation: false,
+    orMedications: false,
     infiltrationMedications: false,
     dressing: false,
     drainage: false,
@@ -114,6 +116,57 @@ export function SurgerySetsDialog({
     },
     enabled: open && !!hospitalId,
   });
+
+  // OR medication groups and configured items
+  const { data: orGroups = [] } = useQuery<any[]>({
+    queryKey: [`/api/administration-groups/${hospitalId}?unitType=or`],
+    enabled: open && !!hospitalId,
+  });
+
+  const { data: orConfiguredItems = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/items/${hospitalId}?unitType=or`],
+    enabled: open && !!hospitalId,
+  });
+
+  const orItemsByGroup = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const item of orConfiguredItems) {
+      const groupName = item.administrationGroup;
+      if (!groupName) continue;
+      if (!map[groupName]) map[groupName] = [];
+      map[groupName].push(item);
+    }
+    return map;
+  }, [orConfiguredItems]);
+
+  const hasOrGroups = orGroups.length > 0;
+
+  // OR medications stored in formIntraOpData.orMedications: Array<{ itemId, groupId, quantity, unit }>
+  const formOrMedications: Array<{ itemId: string; groupId: string; quantity: string; unit: string }> = formIntraOpData.orMedications ?? [];
+
+  const toggleOrMedication = (itemId: string, groupId: string, unit: string, itemName: string) => {
+    setFormIntraOpData(prev => {
+      const existing: any[] = prev.orMedications ?? [];
+      const idx = existing.findIndex((m: any) => m.itemId === itemId && m.groupId === groupId);
+      if (idx >= 0) {
+        return { ...prev, orMedications: existing.filter((_: any, i: number) => i !== idx) };
+      } else {
+        return { ...prev, orMedications: [...existing, { itemId, groupId, quantity: '', unit, itemName }] };
+      }
+    });
+  };
+
+  const updateOrMedQuantity = (itemId: string, groupId: string, quantity: string) => {
+    setFormIntraOpData(prev => {
+      const existing: any[] = prev.orMedications ?? [];
+      return {
+        ...prev,
+        orMedications: existing.map((m: any) =>
+          m.itemId === itemId && m.groupId === groupId ? { ...m, quantity } : m
+        ),
+      };
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => apiRequest('POST', '/api/surgery-sets', data),
@@ -598,8 +651,77 @@ export function SurgerySetsDialog({
             )}
           </div>
 
+          {/* OR Medications (new configurable system) */}
           <div className="px-2">
-            {renderSectionHeader("infiltrationMedications", t('surgery.intraop.infiltrationMedications'))}
+            {renderSectionHeader("orMedications", t('surgery.intraop.orMedications'))}
+            {expandedSections.orMedications && (
+              <div className="pb-3 pl-2 space-y-3">
+                {!hasOrGroups ? (
+                  <div className="text-sm text-muted-foreground py-2">
+                    {t('surgery.intraop.configureGroups', 'Configure OR medication groups first in the Intraoperative tab')}
+                  </div>
+                ) : (
+                  orGroups.map((group: any) => {
+                    const groupItems = orItemsByGroup[group.name] || [];
+                    if (groupItems.length === 0) return null;
+                    return (
+                      <div key={group.id} className="space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">{group.name}</span>
+                        <div className="space-y-1">
+                          {groupItems.map((item: any) => {
+                            const isSelected = formOrMedications.some(
+                              (m: any) => m.itemId === item.id && m.groupId === group.id
+                            );
+                            const selectedEntry = formOrMedications.find(
+                              (m: any) => m.itemId === item.id && m.groupId === group.id
+                            );
+                            return (
+                              <div key={item.id} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`or-med-${group.id}-${item.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() =>
+                                    toggleOrMedication(item.id, group.id, item.administrationUnit || 'ml', item.name)
+                                  }
+                                />
+                                <Label
+                                  htmlFor={`or-med-${group.id}-${item.id}`}
+                                  className="text-sm cursor-pointer flex-1"
+                                >
+                                  {item.name}
+                                </Label>
+                                {isSelected && (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-20 h-7 text-xs"
+                                    placeholder={t('surgery.intraop.quantity', 'Qty')}
+                                    value={selectedEntry?.quantity ?? ''}
+                                    onChange={(e) =>
+                                      updateOrMedQuantity(item.id, group.id, e.target.value)
+                                    }
+                                  />
+                                )}
+                                {isSelected && (
+                                  <span className="text-xs text-muted-foreground w-8">
+                                    {item.administrationUnit || 'ml'}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Legacy Infiltration & Medications (dimmed) */}
+          <div className={cn("px-2", hasOrGroups && "opacity-40")}>
+            {renderSectionHeader("infiltrationMedications", hasOrGroups ? t('surgery.intraop.infiltrationLegacy') : t('surgery.intraop.infiltrationMedications'))}
             {expandedSections.infiltrationMedications && (
               <div className="pb-3 pl-2 space-y-3">
                 <span className="text-xs font-medium text-muted-foreground">{t('surgery.intraop.carrier')}</span>

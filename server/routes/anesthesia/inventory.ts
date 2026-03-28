@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { storage, db } from "../../storage";
+import { upsertOrMedication, calculateOrInventoryUsage } from "../../storage/anesthesia";
 import { anesthesiaRecordMedications, medicationConfigs, administrationGroups, anesthesiaRecords, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
@@ -1285,10 +1286,41 @@ router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticate
       }
     }
 
+    // Apply OR medications from intraOpData.orMedications
+    let orMedsApplied = 0;
+    const orMeds = (set.intraOpData as any)?.orMedications;
+    if (Array.isArray(orMeds) && orMeds.length > 0) {
+      for (const om of orMeds) {
+        try {
+          if (om.itemId && om.groupId && om.quantity) {
+            await upsertOrMedication({
+              anesthesiaRecordId,
+              itemId: om.itemId,
+              groupId: om.groupId,
+              quantity: String(om.quantity),
+              unit: om.unit || 'ml',
+            });
+            orMedsApplied++;
+          }
+        } catch (omError) {
+          logger.error(`Error applying OR medication ${om.itemId} from surgery set:`, omError);
+        }
+      }
+      // Recalculate inventory for all applied OR medications
+      if (orMedsApplied > 0) {
+        try {
+          await calculateOrInventoryUsage(anesthesiaRecordId);
+        } catch (calcError) {
+          logger.error("Error calculating OR inventory after set apply:", calcError);
+        }
+      }
+    }
+
     res.json({
       message: "Surgery set applied successfully",
       intraOpApplied,
       inventoryApplied,
+      orMedsApplied,
     });
   } catch (error) {
     logger.error("Error applying surgery set:", error);

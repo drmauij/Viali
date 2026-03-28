@@ -188,6 +188,18 @@ export function SurgerySetDetailDialog({ open, onOpenChange, set }: SurgerySetDe
       }
     }
 
+    // OR Medications (new configurable system)
+    if (intraOp.orMedications && Array.isArray(intraOp.orMedications) && intraOp.orMedications.length > 0) {
+      const orCheckItems: { key: string; label: string }[] = [];
+      for (const om of intraOp.orMedications) {
+        const label = (om.itemName || om.itemId) + (om.quantity ? ` ${om.quantity} ${om.unit || 'ml'}` : '');
+        orCheckItems.push({ key: `or-${om.itemId}`, label });
+      }
+      if (orCheckItems.length > 0) {
+        sections.push({ title: t('surgery.intraop.orMedications'), checkItems: orCheckItems, details: [] });
+      }
+    }
+
     // Dressing
     if (intraOp.dressing) {
       const items = getBooleanItems(intraOp.dressing, dressingLabels);
