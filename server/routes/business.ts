@@ -2156,16 +2156,18 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       }
     }
 
-    // Count leads eligible for referral backfill: has adSource, has matched appointment,
-    // appointment either lacks referral OR has a staff-backfilled-today referral (updatable)
+    // Count leads eligible for referral backfill: has adSource and either:
+    // - has appointment without fixed referral, OR
+    // - has no appointment at all (patient-level referral)
     let backfillEligibleCount = 0;
     for (const ml of matchedLeads) {
       if (!ml.lead.adSource) continue;
-      const hasEligibleAppointment = ml.matchedPatientIds.some(pid => {
+      const isEligible = ml.matchedPatientIds.some(pid => {
         const apptIds = appointmentIdsByPatient.get(pid) || [];
+        if (apptIds.length === 0) return true; // no appointments — eligible for patient-level referral
         return apptIds.some(aid => !appointmentsWithFixedReferral.has(aid));
       });
-      if (hasEligibleAppointment) backfillEligibleCount++;
+      if (isEligible) backfillEligibleCount++;
     }
 
     // 4. Check surgeries for matched patients
@@ -2444,10 +2446,36 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       return null;
     };
 
+    // 5b. Also check for existing patient-level referrals (no appointment) to avoid duplicates
+    const existingPatientReferrals = matchedIds.length > 0
+      ? await db
+          .select({
+            id: referralEvents.id,
+            patientId: referralEvents.patientId,
+            captureMethod: referralEvents.captureMethod,
+            createdAt: referralEvents.createdAt,
+          })
+          .from(referralEvents)
+          .where(and(
+            eq(referralEvents.hospitalId, hospitalId),
+            inArray(referralEvents.patientId, matchedIds),
+            sql`${referralEvents.appointmentId} IS NULL`,
+            eq(referralEvents.captureMethod, 'staff'),
+          ))
+      : [];
+    const patientLevelReferral = new Map<string, { id: string; isToday: boolean }>();
+    for (const r of existingPatientReferrals) {
+      if (r.patientId) {
+        const createdDate = r.createdAt ? new Date(r.createdAt) : null;
+        const isToday = createdDate ? createdDate >= today : false;
+        patientLevelReferral.set(r.patientId, { id: r.id, isToday });
+      }
+    }
+
     const toInsert: {
       hospitalId: string;
       patientId: string;
-      appointmentId: string;
+      appointmentId?: string;
       source: "social" | "search_engine";
       sourceDetail: string;
       captureMethod: "staff";
@@ -2455,6 +2483,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
     }[] = [];
     const toUpdate: { id: string; source: "social" | "search_engine"; sourceDetail: string; createdAt: Date }[] = [];
     const handledAppointments = new Set<string>();
+    const handledPatients = new Set<string>();
 
     for (const ml of matchedLeads) {
       const isGoogle = ml.lead.adSource === 'gg';
@@ -2463,27 +2492,47 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       const leadDate = parseLeadDate(ml.lead.leadDate) || new Date();
       for (const patientId of ml.matchedPatientIds) {
         const apptIds = appointmentIdsByPatient.get(patientId) || [];
-        for (const apptId of apptIds) {
-          if (handledAppointments.has(apptId)) continue;
-          handledAppointments.add(apptId);
 
-          const existing = referralByAppointment.get(apptId);
+        if (apptIds.length > 0) {
+          // Patient has appointments — create/update referral per appointment
+          for (const apptId of apptIds) {
+            if (handledAppointments.has(apptId)) continue;
+            handledAppointments.add(apptId);
+
+            const existing = referralByAppointment.get(apptId);
+            if (!existing) {
+              toInsert.push({
+                hospitalId,
+                patientId,
+                appointmentId: apptId,
+                source,
+                sourceDetail,
+                captureMethod: "staff",
+                createdAt: leadDate,
+              });
+            } else if (existing.captureMethod === 'staff' && existing.isToday) {
+              toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
+            }
+          }
+        } else {
+          // Patient has NO appointments — create patient-level referral (no appointmentId)
+          // so they still appear in the referral funnel with their surgery data
+          if (handledPatients.has(patientId)) continue;
+          handledPatients.add(patientId);
+
+          const existing = patientLevelReferral.get(patientId);
           if (!existing) {
-            // No referral yet — insert
             toInsert.push({
               hospitalId,
               patientId,
-              appointmentId: apptId,
               source,
               sourceDetail,
               captureMethod: "staff",
               createdAt: leadDate,
             });
-          } else if (existing.captureMethod === 'staff' && existing.isToday) {
-            // Staff-backfilled referral created today — safe to update with correct date & source
+          } else if (existing.isToday) {
             toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
           }
-          // If captureMethod is manual/utm/ref, leave it alone
         }
       }
     }
