@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -324,12 +323,9 @@ export function OrMedicationsCard({
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold">
-          {t("anesthesia.orMedications.title", "OR Medications")}
-        </CardTitle>
-        {isAdmin && (
+    <div className="space-y-4">
+      {isAdmin && (
+        <div className="flex justify-end">
           <Button
             variant={editMode ? "secondary" : "ghost"}
             size="sm"
@@ -340,10 +336,8 @@ export function OrMedicationsCard({
               ? t("anesthesia.orMedications.doneEditing", "Done")
               : t("anesthesia.orMedications.configure", "Configure")}
           </Button>
-        )}
-      </CardHeader>
-
-      <CardContent className="space-y-4">
+        </div>
+      )}
         {/* Dual-card warning */}
         {showDualCardWarning && (
           <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
@@ -419,7 +413,6 @@ export function OrMedicationsCard({
             {t("anesthesia.orMedications.addGroup", "+ Add Group")}
           </Button>
         )}
-      </CardContent>
 
       {/* Create/Edit Group Dialog */}
       <GroupDialog
@@ -439,7 +432,7 @@ export function OrMedicationsCard({
         groupName={groups.find((g) => g.id === addMedGroupId)?.name ?? ""}
         hospitalId={hospitalId}
       />
-    </Card>
+    </div>
   );
 }
 

@@ -191,6 +191,12 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
   const hasOrGroups = (orGroups?.length ?? 0) > 0;
   const isAdmin = activeHospital?.role === 'admin';
 
+  // Fetch OR medications for blue dot indicator
+  const { data: orMedications = [] } = useQuery<any[]>({
+    queryKey: [`/api/or-medications/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+
   // Legacy infiltration/medications data detection
   const hasLegacyData = !!(
     intraOpData.medications?.rapidocain1 ||
@@ -221,6 +227,7 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
     co2Pressure: false,
     tourniquet: false,
     irrigation: false,
+    orMedications: false,
     infiltrationMedications: false,
     dressing: false,
     drainage: false,
@@ -1494,12 +1501,32 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
 
       {/* Configurable OR Medications Card (new system) */}
       {hospitalId && anesthesiaRecordId && (
-        <OrMedicationsCard
-          anesthesiaRecordId={anesthesiaRecordId}
-          hospitalId={hospitalId}
-          isAdmin={isAdmin ?? false}
-          hasLegacyData={hasLegacyData}
-        />
+      <Card>
+        <CardHeader
+          className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => toggleIntraOpSection('orMedications')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>{t('surgery.intraop.orMedications')}</CardTitle>
+              {!expandedIntraOpSections.orMedications && orMedications.length > 0 && (
+                <div className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.orMedications ? '' : '-rotate-90'}`} />
+          </div>
+        </CardHeader>
+        {expandedIntraOpSections.orMedications && (
+          <CardContent>
+            <OrMedicationsCard
+              anesthesiaRecordId={anesthesiaRecordId}
+              hospitalId={hospitalId}
+              isAdmin={isAdmin ?? false}
+              hasLegacyData={hasLegacyData}
+            />
+          </CardContent>
+        )}
+      </Card>
       )}
 
       {/* Infiltration & Medications Section (Legacy) */}
