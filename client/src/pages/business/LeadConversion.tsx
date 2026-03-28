@@ -11,9 +11,18 @@ import { useToast } from "@/hooks/use-toast";
 
 type LeadDetail = {
   leadName: string;
+  leadStatus: string | null;
   matchMethod: string;
   hasAppointment: boolean;
   hasSurgeryPlanned: boolean;
+};
+
+type StatusBreakdown = {
+  status: string;
+  total: number;
+  matched: number;
+  withAppointment: number;
+  withSurgery: number;
 };
 
 type ConversionResult = {
@@ -22,20 +31,43 @@ type ConversionResult = {
   withAppointment: number;
   withSurgeryPlanned: number;
   matchedDetails: LeadDetail[];
+  statusBreakdown?: StatusBreakdown[];
 };
 
-function parseLeads(text: string): Array<{ firstName?: string; lastName?: string; email?: string; phone?: string }> {
+// Known status values from Excel lead trackers — these are NOT names
+const KNOWN_STATUS_PATTERNS = [
+  /^contacted\s*\d*$/i,
+  /^absage$/i,
+  /^sprechstunde$/i,
+  /^wünscht\s+rückruf$/i,
+  /^pat\.\s*(ruft\s+zurück|wird\s+überlegen)/i,
+  /^op$/i,
+  /^no\s*show$/i,
+  /^cancelled$/i,
+  /^booked$/i,
+  /^pending$/i,
+];
+
+function isKnownStatus(value: string): boolean {
+  return KNOWN_STATUS_PATTERNS.some(p => p.test(value.trim()));
+}
+
+type ParsedLead = { firstName?: string; lastName?: string; email?: string; phone?: string; status?: string };
+
+function parseLeads(text: string): ParsedLead[] {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const leads: Array<{ firstName?: string; lastName?: string; email?: string; phone?: string }> = [];
+  const leads: ParsedLead[] = [];
 
   for (const line of lines) {
     const parts = line.split(/[,;\t]+/).map(p => p.trim()).filter(p => p.length > 0);
     if (parts.length === 0) continue;
 
-    const lead: { firstName?: string; lastName?: string; email?: string; phone?: string } = {};
+    const lead: ParsedLead = {};
 
     for (const part of parts) {
-      if (part.includes('@') && part.includes('.')) {
+      if (isKnownStatus(part)) {
+        lead.status = part.trim();
+      } else if (part.includes('@') && part.includes('.')) {
         lead.email = part;
       } else if (/^[\+0][\d\s\-\(\)\.]{6,}$/.test(part)) {
         lead.phone = part;
@@ -228,6 +260,43 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
             </Card>
           </div>
 
+          {/* Status breakdown */}
+          {result.statusBreakdown && result.statusBreakdown.length > 0 && result.statusBreakdown.some(s => s.status !== '(no status)') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("business.leads.statusBreakdown", "Lead Status Breakdown")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("business.leads.status", "Status")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.totalLeads", "Total Leads")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.matchedAsPatient", "Matched")}</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-right">{t("business.leads.hadAppointment", "Appointment")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.surgeryPlanned", "Surgery")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.statusBreakdown.filter(s => s.status !== '(no status)').map((s) => (
+                        <TableRow key={s.status}>
+                          <TableCell className="font-medium">{s.status}</TableCell>
+                          <TableCell className="text-right">{s.total}</TableCell>
+                          <TableCell className="text-right">{s.matched}</TableCell>
+                          <TableCell className="text-right">{s.total > 0 ? Math.round((s.matched / s.total) * 100) : 0}%</TableCell>
+                          <TableCell className="text-right">{s.withAppointment}</TableCell>
+                          <TableCell className="text-right">{s.withSurgery}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Detail table */}
           {matchedDetails.length > 0 && (
             <Card>
@@ -245,6 +314,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("common.name", "Name")}</TableHead>
+                        <TableHead>{t("business.leads.status", "Status")}</TableHead>
                         <TableHead className="text-center">{t("business.leads.matchedVia", "Match")}</TableHead>
                         <TableHead className="text-center"><Calendar className="h-4 w-4 mx-auto" /></TableHead>
                         <TableHead className="text-center"><Scissors className="h-4 w-4 mx-auto" /></TableHead>
@@ -254,6 +324,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                       {matchedDetails.map((d, i) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">{d.leadName}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{d.leadStatus || "\u2014"}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className="text-xs">{d.matchMethod}</Badge>
                           </TableCell>

@@ -1950,6 +1950,7 @@ const leadConversionSchema = z.object({
     lastName: z.string().optional(),
     email: z.string().optional(),
     phone: z.string().optional(),
+    status: z.string().optional(),
   })).min(1).max(5000),
 });
 
@@ -2143,11 +2144,29 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
 
       return {
         leadName: [ml.lead.firstName, ml.lead.lastName].filter(Boolean).join(' ') || ml.lead.email || ml.lead.phone || 'Unknown',
+        leadStatus: ml.lead.status || null,
         matchMethod: ml.matchMethod,
         hasAppointment,
         hasSurgeryPlanned,
       };
     });
+
+    // 6. Build status breakdown
+    const statusCounts: Record<string, { total: number; matched: number; withAppointment: number; withSurgery: number }> = {};
+    for (const lead of leads) {
+      const status = lead.status || '(no status)';
+      if (!statusCounts[status]) statusCounts[status] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      statusCounts[status].total++;
+    }
+    for (const ml of matchedLeads) {
+      const status = ml.lead.status || '(no status)';
+      if (!statusCounts[status]) statusCounts[status] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      statusCounts[status].matched++;
+      const hasAppt = ml.matchedPatientIds.some(id => patientsWithAppointment.has(id));
+      const hasSurg = ml.matchedPatientIds.some(id => patientsWithSurgeryPlanned.has(id));
+      if (hasAppt) statusCounts[status].withAppointment++;
+      if (hasSurg) statusCounts[status].withSurgery++;
+    }
 
     res.json({
       totalLeads: leads.length,
@@ -2155,6 +2174,9 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       withAppointment: patientsWithAppointment.size,
       withSurgeryPlanned: patientsWithSurgeryPlanned.size,
       matchedDetails,
+      statusBreakdown: Object.entries(statusCounts)
+        .sort(([, a], [, b]) => b.total - a.total)
+        .map(([status, counts]) => ({ status, ...counts })),
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
