@@ -1951,6 +1951,9 @@ const leadConversionSchema = z.object({
     email: z.string().optional(),
     phone: z.string().optional(),
     status: z.string().optional(),
+    leadDate: z.string().optional(),
+    operation: z.string().optional(),
+    adSource: z.string().optional(),
   })).min(1).max(5000),
 });
 
@@ -2145,6 +2148,9 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       return {
         leadName: [ml.lead.firstName, ml.lead.lastName].filter(Boolean).join(' ') || ml.lead.email || ml.lead.phone || 'Unknown',
         leadStatus: ml.lead.status || null,
+        leadDate: ml.lead.leadDate || null,
+        operation: ml.lead.operation || null,
+        adSource: ml.lead.adSource || null,
         matchMethod: ml.matchMethod,
         hasAppointment,
         hasSurgeryPlanned,
@@ -2168,6 +2174,40 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       if (hasSurg) statusCounts[status].withSurgery++;
     }
 
+    // 7. Build operation breakdown (if operation data present)
+    const operationCounts: Record<string, { total: number; matched: number; withAppointment: number; withSurgery: number }> = {};
+    for (const lead of leads) {
+      if (!lead.operation) continue;
+      const op = lead.operation;
+      if (!operationCounts[op]) operationCounts[op] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      operationCounts[op].total++;
+    }
+    for (const ml of matchedLeads) {
+      if (!ml.lead.operation) continue;
+      const op = ml.lead.operation;
+      if (!operationCounts[op]) operationCounts[op] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      operationCounts[op].matched++;
+      if (ml.matchedPatientIds.some(id => patientsWithAppointment.has(id))) operationCounts[op].withAppointment++;
+      if (ml.matchedPatientIds.some(id => patientsWithSurgeryPlanned.has(id))) operationCounts[op].withSurgery++;
+    }
+
+    // 8. Build source breakdown (fb/ig, if present)
+    const sourceCounts: Record<string, { total: number; matched: number; withAppointment: number; withSurgery: number }> = {};
+    for (const lead of leads) {
+      if (!lead.adSource) continue;
+      const src = lead.adSource;
+      if (!sourceCounts[src]) sourceCounts[src] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      sourceCounts[src].total++;
+    }
+    for (const ml of matchedLeads) {
+      if (!ml.lead.adSource) continue;
+      const src = ml.lead.adSource;
+      if (!sourceCounts[src]) sourceCounts[src] = { total: 0, matched: 0, withAppointment: 0, withSurgery: 0 };
+      sourceCounts[src].matched++;
+      if (ml.matchedPatientIds.some(id => patientsWithAppointment.has(id))) sourceCounts[src].withAppointment++;
+      if (ml.matchedPatientIds.some(id => patientsWithSurgeryPlanned.has(id))) sourceCounts[src].withSurgery++;
+    }
+
     res.json({
       totalLeads: leads.length,
       matchedPatients: allMatchedPatientIds.size,
@@ -2177,6 +2217,16 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
       statusBreakdown: Object.entries(statusCounts)
         .sort(([, a], [, b]) => b.total - a.total)
         .map(([status, counts]) => ({ status, ...counts })),
+      operationBreakdown: Object.keys(operationCounts).length > 0
+        ? Object.entries(operationCounts)
+            .sort(([, a], [, b]) => b.total - a.total)
+            .map(([status, counts]) => ({ status, ...counts }))
+        : undefined,
+      sourceBreakdown: Object.keys(sourceCounts).length > 0
+        ? Object.entries(sourceCounts)
+            .sort(([, a], [, b]) => b.total - a.total)
+            .map(([status, counts]) => ({ status, ...counts }))
+        : undefined,
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {

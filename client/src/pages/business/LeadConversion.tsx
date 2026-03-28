@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 type LeadDetail = {
   leadName: string;
   leadStatus: string | null;
+  leadDate: string | null;
+  operation: string | null;
+  adSource: string | null;
   matchMethod: string;
   hasAppointment: boolean;
   hasSurgeryPlanned: boolean;
@@ -32,6 +35,8 @@ type ConversionResult = {
   withSurgeryPlanned: number;
   matchedDetails: LeadDetail[];
   statusBreakdown?: StatusBreakdown[];
+  operationBreakdown?: StatusBreakdown[];
+  sourceBreakdown?: StatusBreakdown[];
 };
 
 // Known status values from Excel lead trackers — these are NOT names
@@ -52,7 +57,35 @@ function isKnownStatus(value: string): boolean {
   return KNOWN_STATUS_PATTERNS.some(p => p.test(value.trim()));
 }
 
-type ParsedLead = { firstName?: string; lastName?: string; email?: string; phone?: string; status?: string };
+// Date in DD.MM.YYYY format
+function isDate(value: string): boolean {
+  return /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value.trim());
+}
+
+// Known operation/procedure names from Meta Forms
+function isOperation(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  // Underscore-separated German procedure names, or known procedure keywords
+  if (v.includes('_') && (v.includes('brust') || v.includes('augenlid') || v.includes('schamlipp') || v.includes('penis') || v.includes('po-') || v.includes('black_week') || v.includes('mommy'))) return true;
+  // Known single-word/short operations
+  return /^(mommy\s*makeover|augenlidstraffung|schamlippenverkleinerung|penisvergrösserung|po-vergrösserung|faltenbehandlung|filler|gesicht|hals\/dekolleté|anderes)$/i.test(v);
+}
+
+// fb/ig source indicator
+function isAdSource(value: string): boolean {
+  return /^(fb|ig)$/i.test(value.trim());
+}
+
+type ParsedLead = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  leadDate?: string;
+  operation?: string;
+  adSource?: string;
+};
 
 function parseLeads(text: string): ParsedLead[] {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -65,7 +98,13 @@ function parseLeads(text: string): ParsedLead[] {
     const lead: ParsedLead = {};
 
     for (const part of parts) {
-      if (isKnownStatus(part)) {
+      if (isDate(part)) {
+        lead.leadDate = part.trim();
+      } else if (isAdSource(part)) {
+        lead.adSource = part.trim().toLowerCase();
+      } else if (isOperation(part)) {
+        lead.operation = part.trim();
+      } else if (isKnownStatus(part)) {
         lead.status = part.trim();
       } else if (part.includes('@') && part.includes('.')) {
         lead.email = part;
@@ -221,8 +260,13 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                         surgeryRate: result.totalLeads > 0 ? Math.round((result.withSurgeryPlanned / result.totalLeads) * 1000) / 10 : 0,
                       },
                       statusBreakdown: result.statusBreakdown || [],
+                      operationBreakdown: result.operationBreakdown || [],
+                      sourceBreakdown: result.sourceBreakdown || [],
                       matchedDetails: result.matchedDetails.map(d => ({
                         name: d.leadName,
+                        date: d.leadDate || null,
+                        operation: d.operation || null,
+                        adSource: d.adSource || null,
                         status: d.leadStatus || null,
                         matchMethod: d.matchMethod,
                         hasAppointment: d.hasAppointment,
@@ -335,6 +379,80 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
             </Card>
           )}
 
+          {/* Operation breakdown */}
+          {result.operationBreakdown && result.operationBreakdown.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("business.leads.operationBreakdown", "Operation Breakdown")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("business.leads.operation", "Operation")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.totalLeads", "Total Leads")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.matchedAsPatient", "Matched")}</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-right">{t("business.leads.hadAppointment", "Appointment")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.surgeryPlanned", "Surgery")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.operationBreakdown.map((s) => (
+                        <TableRow key={s.status}>
+                          <TableCell className="font-medium">{s.status}</TableCell>
+                          <TableCell className="text-right">{s.total}</TableCell>
+                          <TableCell className="text-right">{s.matched}</TableCell>
+                          <TableCell className="text-right">{s.total > 0 ? Math.round((s.matched / s.total) * 100) : 0}%</TableCell>
+                          <TableCell className="text-right">{s.withAppointment}</TableCell>
+                          <TableCell className="text-right">{s.withSurgery}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ad Source breakdown (fb/ig) */}
+          {result.sourceBreakdown && result.sourceBreakdown.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("business.leads.sourceBreakdown", "Ad Source Breakdown (FB vs IG)")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("business.leads.source", "Source")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.totalLeads", "Total Leads")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.matchedAsPatient", "Matched")}</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-right">{t("business.leads.hadAppointment", "Appointment")}</TableHead>
+                        <TableHead className="text-right">{t("business.leads.surgeryPlanned", "Surgery")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.sourceBreakdown.map((s) => (
+                        <TableRow key={s.status}>
+                          <TableCell className="font-medium">{s.status === 'fb' ? 'Facebook' : s.status === 'ig' ? 'Instagram' : s.status}</TableCell>
+                          <TableCell className="text-right">{s.total}</TableCell>
+                          <TableCell className="text-right">{s.matched}</TableCell>
+                          <TableCell className="text-right">{s.total > 0 ? Math.round((s.matched / s.total) * 100) : 0}%</TableCell>
+                          <TableCell className="text-right">{s.withAppointment}</TableCell>
+                          <TableCell className="text-right">{s.withSurgery}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Detail table */}
           {matchedDetails.length > 0 && (
             <Card>
@@ -352,6 +470,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("common.name", "Name")}</TableHead>
+                        <TableHead>{t("business.leads.operation", "Operation")}</TableHead>
+                        <TableHead>{t("business.leads.source", "Source")}</TableHead>
                         <TableHead>{t("business.leads.status", "Status")}</TableHead>
                         <TableHead className="text-center">{t("business.leads.matchedVia", "Match")}</TableHead>
                         <TableHead className="text-center"><Calendar className="h-4 w-4 mx-auto" /></TableHead>
@@ -362,6 +482,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                       {matchedDetails.map((d, i) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">{d.leadName}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{d.operation || "\u2014"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{d.adSource === 'fb' ? 'Facebook' : d.adSource === 'ig' ? 'Instagram' : d.adSource || "\u2014"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{d.leadStatus || "\u2014"}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className="text-xs">{d.matchMethod}</Badge>
