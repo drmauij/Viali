@@ -83,16 +83,18 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     let staffMembers: any[] = [];
     let positions: any[] = [];
     let inventoryUsage: any[] = [];
+    let orMedications: any[] = [];
     let hasDataWarnings = false;
 
     if (anesthesiaRecord && anesthesiaRecord.id) {
-      const [eventsRes, medicationsRes, snapshotRes, staffRes, positionsRes, inventoryUsageRes] = await Promise.all([
+      const [eventsRes, medicationsRes, snapshotRes, staffRes, positionsRes, inventoryUsageRes, orMedicationsRes] = await Promise.all([
         fetch(`/api/anesthesia/events/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/medications/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/vitals/snapshot/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/positions/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}`, { credentials: "include" }),
+        fetch(`/api/or-medications/${anesthesiaRecord.id}`, { credentials: "include" }),
       ]);
 
       // Check for critical data failures
@@ -111,6 +113,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       staffMembers = staffRes.ok ? await staffRes.json() : [];
       positions = positionsRes.ok ? await positionsRes.json() : [];
       inventoryUsage = inventoryUsageRes.ok ? await inventoryUsageRes.json() : [];
+      orMedications = orMedicationsRes.ok ? await orMedicationsRes.json() : [];
 
       // Track if any non-critical data failed to load
       hasDataWarnings = !snapshotRes.ok || !staffRes.ok || !positionsRes.ok;
@@ -224,6 +227,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
       checklistSettings: anesthesiaSettings?.checklistItems || null,
       inventoryUsage,
+      orMedications,
     });
 
     return {

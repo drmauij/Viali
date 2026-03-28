@@ -98,6 +98,7 @@ interface ExportData {
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
   inventoryUsage?: InventoryUsageEntry[];
+  orMedications?: { itemName: string | null; groupName: string | null; quantity: string; unit: string }[];
   chartImage?: string | null;
 }
 
@@ -3191,7 +3192,35 @@ export async function generateAnesthesiaRecordPDF(data: ExportData) {
         }
       }
 
-      // Infiltration & Medications (merged section)
+      // OR Medications (new configurable system)
+      if (data.orMedications && data.orMedications.length > 0) {
+        // Group by groupName
+        const byGroup: Record<string, { itemName: string; quantity: string; unit: string }[]> = {};
+        for (const om of data.orMedications) {
+          const gn = om.groupName || "Other";
+          if (!byGroup[gn]) byGroup[gn] = [];
+          byGroup[gn].push({ itemName: om.itemName || om.quantity, quantity: om.quantity, unit: om.unit });
+        }
+
+        yPos = checkPageBreak(doc, yPos, 15);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("surgery.intraop.orMedications", "Infiltration & Medications")}: `, 25, yPos);
+        doc.setFont("helvetica", "normal");
+
+        const orParts: string[] = [];
+        for (const [groupName, items] of Object.entries(byGroup)) {
+          const itemStrs = items.map(i => {
+            if (i.quantity) return `${i.itemName} ${i.quantity} ${i.unit}`;
+            return i.itemName;
+          });
+          orParts.push(`[${groupName}] ${itemStrs.join(", ")}`);
+        }
+        const orTextLines = doc.splitTextToSize(orParts.join(" | "), 120);
+        doc.text(orTextLines, 75, yPos);
+        yPos += orTextLines.length * 5 + 2;
+      }
+
+      // Infiltration & Medications — Legacy (merged section)
       if (intraOpData.infiltration || intraOpData.medications) {
         const parts: string[] = [];
 
