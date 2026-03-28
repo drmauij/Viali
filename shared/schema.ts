@@ -218,7 +218,7 @@ export const administrationGroups = pgTable("administration_groups", {
 
 export const orMedications = pgTable("or_medications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
   itemId: varchar("item_id").notNull().references(() => items.id),
   groupId: varchar("group_id").notNull().references(() => administrationGroups.id, { onDelete: "cascade" }),
   quantity: varchar("quantity").notNull(),
@@ -2771,6 +2771,11 @@ export const insertAdministrationGroupSchema = createInsertSchema(administration
   createdAt: true,
 });
 
+export const insertOrMedicationSchema = createInsertSchema(orMedications).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertSurgeryRoomSchema = createInsertSchema(surgeryRooms).omit({
   id: true,
   createdAt: true,
@@ -3614,7 +3619,7 @@ export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 export type AdministrationGroup = typeof administrationGroups.$inferSelect;
 export type InsertAdministrationGroup = z.infer<typeof insertAdministrationGroupSchema>;
 export type OrMedication = typeof orMedications.$inferSelect;
-export type InsertOrMedication = typeof orMedications.$inferInsert;
+export type InsertOrMedication = z.infer<typeof insertOrMedicationSchema>;
 export type SurgeryRoom = typeof surgeryRooms.$inferSelect;
 export type InsertSurgeryRoom = z.infer<typeof insertSurgeryRoomSchema>;
 export type CameraDevice = typeof cameraDevices.$inferSelect;
