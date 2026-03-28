@@ -1792,12 +1792,12 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusine
     const breakdown = await db
       .select({
         referralSource: referralEvents.source,
-        referralSourceDetail: referralEvents.sourceDetail,
+        referralSourceDetail: sql<string>`INITCAP(${referralEvents.sourceDetail})`,
         count: sql<number>`count(*)::int`,
       })
       .from(referralEvents)
       .where(and(...filters))
-      .groupBy(referralEvents.source, referralEvents.sourceDetail);
+      .groupBy(referralEvents.source, sql`INITCAP(${referralEvents.sourceDetail})`);
 
     const [totalResult] = await db
       .select({ count: sql<number>`count(*)::int` })
