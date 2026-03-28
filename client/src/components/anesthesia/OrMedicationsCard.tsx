@@ -742,7 +742,7 @@ function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalI
 
   // Fetch inventory items for search
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: [`/api/items/${hospitalId}?module=anesthesia`],
+    queryKey: [`/api/items/${hospitalId}?module=surgery`],
     enabled: !!hospitalId && open,
   });
 
