@@ -209,10 +209,24 @@ export const administrationGroups = pgTable("administration_groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   name: varchar("name").notNull(),
+  unitType: varchar("unit_type").default("anesthesia"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_administration_groups_hospital").on(table.hospitalId),
+]);
+
+export const orMedications = pgTable("or_medications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  groupId: varchar("group_id").notNull().references(() => administrationGroups.id, { onDelete: "cascade" }),
+  quantity: varchar("quantity").notNull(),
+  unit: varchar("unit").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_or_medications_record_item_group").on(table.anesthesiaRecordId, table.itemId, table.groupId),
 ]);
 
 // Room types: OP = Operating Room (default), PACU = Post-Anesthesia Care Unit
@@ -3599,6 +3613,8 @@ export type MedicationGroup = typeof medicationGroups.$inferSelect;
 export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 export type AdministrationGroup = typeof administrationGroups.$inferSelect;
 export type InsertAdministrationGroup = z.infer<typeof insertAdministrationGroupSchema>;
+export type OrMedication = typeof orMedications.$inferSelect;
+export type InsertOrMedication = typeof orMedications.$inferInsert;
 export type SurgeryRoom = typeof surgeryRooms.$inferSelect;
 export type InsertSurgeryRoom = z.infer<typeof insertSurgeryRoomSchema>;
 export type CameraDevice = typeof cameraDevices.$inferSelect;
