@@ -63,13 +63,18 @@ One entry per item per group per record. If the user changes quantity, it update
 Triggered automatically on every medication entry save (PUT endpoint).
 
 ```
-For each orMedication entry:
-  1. Look up medicationConfig for the itemId
-  2. Get ampuleTotalContent (e.g., "1000 ml")
-  3. Parse numeric value
-  4. units = Math.ceil(quantity / ampuleTotalContent)
-  5. Upsert inventoryUsage: { anesthesiaRecordId, itemId, calculatedQty: units }
+1. Fetch all orMedications for the record
+2. Group entries by itemId (same item can appear in multiple groups)
+3. For each unique itemId:
+   a. Sum quantities across all groups for this item
+   b. Look up medicationConfig for the itemId
+   c. Get ampuleTotalContent (e.g., "1000 ml"), parse numeric value
+   d. units = Math.ceil(totalQuantity / ampuleTotalContent)
+   e. Upsert inventoryUsage: { anesthesiaRecordId, itemId, calculatedQty: units }
+4. Remove inventoryUsage rows for items no longer in any orMedication entry
 ```
+
+Note: `inventoryUsage` has a unique constraint on `(anesthesiaRecordId, itemId)` — only one row per item per record. The calculation must sum across groups before upserting.
 
 **Example:**
 - Ringer used: 2000 ml / config 1000 ml = **2 units**
