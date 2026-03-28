@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Download } from "lucide-react";
+import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Download, LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type LeadDetail = {
@@ -33,6 +33,7 @@ type ConversionResult = {
   matchedPatients: number;
   withAppointment: number;
   withSurgeryPlanned: number;
+  backfillEligibleCount: number;
   matchedDetails: LeadDetail[];
   statusBreakdown?: StatusBreakdown[];
   operationBreakdown?: StatusBreakdown[];
@@ -162,6 +163,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
   const { toast } = useToast();
   const [rawText, setRawText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillDone, setBackfillDone] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
 
   const handleAnalyze = async () => {
@@ -174,6 +177,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
     }
 
     setIsAnalyzing(true);
+    setBackfillDone(false);
     try {
       const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion`, { leads });
       const data = await res.json();
@@ -182,6 +186,32 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
       toast({ title: "Analysis failed", description: error.message || "Could not analyze leads", variant: "destructive" });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleBackfillReferrals = async () => {
+    if (!hospitalId || !rawText.trim()) return;
+
+    const leads = parseLeads(rawText);
+    if (leads.length === 0) return;
+
+    setIsBackfilling(true);
+    try {
+      const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion/backfill-referrals`, { leads });
+      const data = await res.json();
+      setBackfillDone(true);
+      toast({
+        title: t("business.leads.referralsBackfilled", "Referrals Backfilled"),
+        description: t("business.leads.referralsBackfilledDesc", "{{count}} referral events created. These appointments will now appear in the Referrals tab.", { count: data.created }),
+      });
+      // Update the result to reflect the backfill
+      if (result) {
+        setResult({ ...result, backfillEligibleCount: 0 });
+      }
+    } catch (error: any) {
+      toast({ title: "Backfill failed", description: error.message || "Could not backfill referrals", variant: "destructive" });
+    } finally {
+      setIsBackfilling(false);
     }
   };
 
@@ -325,6 +355,49 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
               />
             </CardContent>
           </Card>
+
+          {/* Referral backfill */}
+          {result.backfillEligibleCount > 0 && !backfillDone && (
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardContent className="py-4 flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <LinkIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {t("business.leads.backfillTitle", "{{count}} appointments missing referral source", { count: result.backfillEligibleCount })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("business.leads.backfillDesc", "Automatically set referral source (Social / Instagram or Facebook) on matched appointments that have no referral yet. They will then appear in the Referrals tab.")}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBackfillReferrals}
+                  disabled={isBackfilling}
+                  className="shrink-0"
+                >
+                  {isBackfilling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    t("business.leads.backfillButton", "Backfill Referrals")
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {backfillDone && (
+            <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+              <CardContent className="py-4 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                  {t("business.leads.backfillComplete", "Referral sources backfilled successfully. Check the Referrals tab to see the updated data.")}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
