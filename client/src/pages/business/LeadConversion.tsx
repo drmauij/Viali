@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type LeadDetail = {
@@ -203,7 +203,45 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
           {/* Funnel visualization */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("business.leads.conversionFunnel", "Conversion Funnel")}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">{t("business.leads.conversionFunnel", "Conversion Funnel")}</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const exportData = {
+                      exportDate: new Date().toISOString().slice(0, 10),
+                      summary: {
+                        totalLeads: result.totalLeads,
+                        matchedAsPatient: result.matchedPatients,
+                        matchRate: result.totalLeads > 0 ? Math.round((result.matchedPatients / result.totalLeads) * 1000) / 10 : 0,
+                        hadAppointment: result.withAppointment,
+                        appointmentRate: result.matchedPatients > 0 ? Math.round((result.withAppointment / result.matchedPatients) * 1000) / 10 : 0,
+                        surgeryPlanned: result.withSurgeryPlanned,
+                        surgeryRate: result.totalLeads > 0 ? Math.round((result.withSurgeryPlanned / result.totalLeads) * 1000) / 10 : 0,
+                      },
+                      statusBreakdown: result.statusBreakdown || [],
+                      matchedDetails: result.matchedDetails.map(d => ({
+                        name: d.leadName,
+                        status: d.leadStatus || null,
+                        matchMethod: d.matchMethod,
+                        hasAppointment: d.hasAppointment,
+                        hasSurgeryPlanned: d.hasSurgeryPlanned,
+                      })),
+                    };
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `lead-analysis-${exportData.exportDate}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  {t("business.leads.downloadAnalysis", "Download Analysis")}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <FunnelBar
