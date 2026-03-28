@@ -1851,6 +1851,8 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isBusin
         utmSource: referralEvents.utmSource,
         utmMedium: referralEvents.utmMedium,
         utmCampaign: referralEvents.utmCampaign,
+        utmTerm: referralEvents.utmTerm,
+        utmContent: referralEvents.utmContent,
         gclid: referralEvents.gclid,
         gbraid: referralEvents.gbraid,
         wbraid: referralEvents.wbraid,

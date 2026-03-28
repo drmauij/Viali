@@ -513,6 +513,8 @@ export default function CostAnalytics() {
       utmSource: string | null;
       utmMedium: string | null;
       utmCampaign: string | null;
+      utmTerm: string | null;
+      utmContent: string | null;
       gclid: string | null;
       gbraid: string | null;
       wbraid: string | null;
@@ -1840,6 +1842,7 @@ export default function CostAnalytics() {
                         <TableHead>{t('business.referrals.source', 'Source')}</TableHead>
                         <TableHead>{t('business.referrals.detail', 'Detail')}</TableHead>
                         <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
+                        <TableHead>{t('business.referrals.keyword', 'Keyword')}</TableHead>
                         <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1874,6 +1877,9 @@ export default function CostAnalytics() {
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {ev.utmCampaign || '—'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {ev.utmTerm || '—'}
                             </TableCell>
                             <TableCell>
                               {clickIds.length > 0 ? (
