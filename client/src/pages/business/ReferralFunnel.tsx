@@ -80,6 +80,7 @@ type FunnelMetrics = {
   paid: number;
   noShowRate: number;
   cancellationRate: number;
+  leadToSurgeryRate: number;
   aptToSurgeryRate: number;
   surgeryToPaidRate: number;
   fullFunnelRate: number;
@@ -150,6 +151,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     noShowRate: withAppt.length > 0 ? noShow.length / withAppt.length : 0,
     cancellationRate:
       withAppt.length > 0 ? cancelled.length / withAppt.length : 0,
+    leadToSurgeryRate: total > 0 ? surgeryPlanned.length / total : 0,
     aptToSurgeryRate:
       confirmed.length + kept.length > 0
         ? surgeryPlanned.length / (confirmed.length + kept.length)
@@ -689,6 +691,13 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
             />
             <KpiCard
               label={t(
+                "business.funnel.leadToSurgery",
+                "Lead \u2192 Surgery",
+              )}
+              value={pct(metrics.leadToSurgeryRate)}
+            />
+            <KpiCard
+              label={t(
                 "business.funnel.aptToSurgery",
                 "Appointment \u2192 Surgery",
               )}
@@ -776,6 +785,12 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                     </TableHead>
                     <TableHead className="text-right">
                       {t(
+                        "business.funnel.leadToSurgery",
+                        "Lead\u2192Surgery %",
+                      )}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t(
                         "business.funnel.aptToSurgery",
                         "Apt\u2192Surgery %",
                       )}
@@ -819,6 +834,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                         {pct(m.cancellationRate)}
                       </TableCell>
                       <TableCell className="text-right">
+                        {pct(m.leadToSurgeryRate)}
+                      </TableCell>
+                      <TableCell className="text-right">
                         {pct(m.aptToSurgeryRate)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -852,6 +870,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       {pct(metrics.cancellationRate)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {pct(metrics.leadToSurgeryRate)}
                     </TableCell>
                     <TableCell className="text-right">
                       {pct(metrics.aptToSurgeryRate)}
