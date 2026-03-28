@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { OrMedicationsCard } from "@/components/anesthesia/OrMedicationsCard";
 import SignaturePad from "@/components/SignaturePad";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -180,6 +182,35 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
       )
       .slice(0, 50);
   }, [inventoryItems, medSearchQuery, intraOpData.medications?.customMedications]);
+
+  // Check if OR medication groups are configured for this hospital
+  const { data: orGroups } = useQuery<any[]>({
+    queryKey: [`/api/administration-groups/${hospitalId}?unitType=or`],
+    enabled: !!hospitalId,
+  });
+  const hasOrGroups = (orGroups?.length ?? 0) > 0;
+  const isAdmin = activeHospital?.role === 'admin';
+
+  // Legacy infiltration/medications data detection
+  const hasLegacyData = !!(
+    intraOpData.medications?.rapidocain1 ||
+    intraOpData.medications?.ropivacainEpinephrine ||
+    intraOpData.medications?.ropivacain05 ||
+    intraOpData.medications?.ropivacain075 ||
+    intraOpData.medications?.ropivacain1 ||
+    intraOpData.medications?.bupivacain ||
+    intraOpData.medications?.bupivacain025 ||
+    intraOpData.medications?.bupivacain05 ||
+    intraOpData.medications?.vancomycinImplant ||
+    intraOpData.medications?.contrast ||
+    intraOpData.medications?.ointments ||
+    intraOpData.medications?.other ||
+    (intraOpData.medications?.customMedications?.length ?? 0) > 0 ||
+    intraOpData.infiltration?.tumorSolution ||
+    intraOpData.infiltration?.carrier ||
+    intraOpData.infiltration?.epinephrine ||
+    intraOpData.infiltration?.other
+  );
 
   // Collapsible section state for intraop cards
   const [expandedIntraOpSections, setExpandedIntraOpSections] = useState<Record<string, boolean>>({
@@ -1461,24 +1492,34 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
         )}
       </Card>
 
-      {/* Infiltration & Medications Section */}
-      <Card>
-        <CardHeader
-          className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => toggleIntraOpSection('infiltrationMedications')}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle>{t('surgery.intraop.infiltrationMedications')}</CardTitle>
-              {!expandedIntraOpSections.infiltrationMedications && hasIntraOpData('infiltrationMedications') && (
-                <div className="h-2 w-2 rounded-full bg-primary" />
-              )}
-            </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.infiltrationMedications ? '' : '-rotate-90'}`} />
-          </div>
-        </CardHeader>
-        {expandedIntraOpSections.infiltrationMedications && (
-        <CardContent className="space-y-4">
+      {/* Configurable OR Medications Card (new system) */}
+      {hospitalId && anesthesiaRecordId && (
+        <OrMedicationsCard
+          anesthesiaRecordId={anesthesiaRecordId}
+          hospitalId={hospitalId}
+          isAdmin={isAdmin ?? false}
+          hasLegacyData={hasLegacyData}
+        />
+      )}
+
+      {/* Infiltration & Medications Section (Legacy) */}
+      <Collapsible defaultOpen={!hasOrGroups}>
+        <Card className={cn(hasOrGroups && "opacity-50")}>
+          <CardHeader className="py-3">
+            <CollapsibleTrigger className="flex items-center justify-between w-full hover:bg-muted/50 transition-colors rounded-md">
+              <div className="flex items-center gap-2">
+                <CardTitle>
+                  {hasOrGroups ? t('surgery.intraop.infiltrationLegacy') : t('surgery.intraop.infiltrationMedications')}
+                </CardTitle>
+                {hasIntraOpData('infiltrationMedications') && (
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+          <CardContent className="space-y-4">
           {/* Tumescent / Infiltration Solution */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.tumescentSolution')}</h4>
@@ -1772,8 +1813,9 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
             />
           </div>
         </CardContent>
-        )}
-      </Card>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Dressing Section */}
       <Card>

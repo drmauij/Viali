@@ -4817,7 +4817,16 @@
       "noMedicationFound": "No medication found",
       "customMedicationAdded": "Medication added",
       "customMedicationRemoved": "Medication removed",
-      "customMedications": "Additional Medications"
+      "customMedications": "Additional Medications",
+      "orMedications": "Infiltration & Medications",
+      "orMedicationsNew": "Configurable Groups",
+      "infiltrationLegacy": "Infiltration & Medications (Legacy)",
+      "configureGroups": "Configure groups to get started",
+      "editMode": "Edit Mode",
+      "exitEditMode": "Exit Edit Mode",
+      "addGroup": "Add Group",
+      "addMedication": "Add Medication",
+      "dualCardWarning": "Medications have been recorded in both the new card and the legacy card for this record. Please use only one system per record to avoid duplicate inventory entries."
     },
     "counts": {
       "title": "Surgical Counts",

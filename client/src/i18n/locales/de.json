@@ -4898,7 +4898,16 @@
       "noMedicationFound": "Kein Medikament gefunden",
       "customMedicationAdded": "Medikament hinzugefügt",
       "customMedicationRemoved": "Medikament entfernt",
-      "customMedications": "Zusätzliche Medikamente"
+      "customMedications": "Zusätzliche Medikamente",
+      "orMedications": "Infiltration & Medikamente",
+      "orMedicationsNew": "Konfigurierbare Gruppen",
+      "infiltrationLegacy": "Infiltration & Medikamente (Legacy)",
+      "configureGroups": "Gruppen konfigurieren, um zu starten",
+      "editMode": "Bearbeitungsmodus",
+      "exitEditMode": "Bearbeitungsmodus beenden",
+      "addGroup": "Gruppe hinzufügen",
+      "addMedication": "Medikament hinzufügen",
+      "dualCardWarning": "In beiden Karten wurden Medikamente erfasst. Bitte verwenden Sie nur ein System pro Eingriff, um doppelte Bestandsbuchungen zu vermeiden."
     },
     "counts": {
       "title": "Zählkontrolle",
