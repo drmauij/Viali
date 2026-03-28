@@ -2298,6 +2298,7 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
         month,
         funnel,
         COUNT(*) AS leads,
+        COUNT(*) FILTER (WHERE appointment_status IN ('scheduled', 'confirmed')) AS appointments_confirmed,
         COUNT(*) FILTER (WHERE appointment_status IN ('arrived', 'in_progress', 'completed')) AS appointments_kept,
         COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_conversions,
         COALESCE(SUM(price) FILTER (WHERE payment_status = 'paid'), 0) AS revenue
@@ -2326,6 +2327,7 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
     const response = months.map(month => {
       let totalBudget = 0;
       let totalLeads = 0;
+      let totalConfirmed = 0;
       let totalKept = 0;
       let totalPaid = 0;
       let totalRevenue = 0;
@@ -2334,12 +2336,14 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
         const m = metricsMap[month]?.[funnel];
         const budget = budgetMap[month]?.[funnel] || 0;
         const leads = Number(m?.leads || 0);
+        const appointmentsConfirmed = Number(m?.appointments_confirmed || 0);
         const appointmentsKept = Number(m?.appointments_kept || 0);
         const paidConversions = Number(m?.paid_conversions || 0);
         const revenue = Number(m?.revenue || 0);
 
         totalBudget += budget;
         totalLeads += leads;
+        totalConfirmed += appointmentsConfirmed;
         totalKept += appointmentsKept;
         totalPaid += paidConversions;
         totalRevenue += revenue;
@@ -2348,6 +2352,7 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
           funnel,
           budget,
           leads,
+          appointmentsConfirmed,
           appointmentsKept,
           paidConversions,
           revenue,
@@ -2358,6 +2363,7 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
         month,
         totalBudget,
         totalLeads,
+        totalConfirmed,
         totalKept,
         totalPaid,
         totalRevenue,

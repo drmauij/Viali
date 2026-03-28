@@ -72,6 +72,7 @@ type FunnelRow = {
 type FunnelMetrics = {
   totalReferrals: number;
   withAppointment: number;
+  confirmed: number;
   kept: number;
   noShow: number;
   cancelled: number;
@@ -110,6 +111,9 @@ const CHF = new Intl.NumberFormat("de-CH", {
 function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
   const total = rows.length;
   const withAppt = rows.filter((r) => r.appointment_id);
+  const confirmed = withAppt.filter((r) =>
+    r.appointment_status === "confirmed" || r.appointment_status === "scheduled",
+  );
   const kept = withAppt.filter((r) =>
     KEPT_STATUSES.includes(r.appointment_status || ""),
   );
@@ -137,6 +141,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
   return {
     totalReferrals: total,
     withAppointment: withAppt.length,
+    confirmed: confirmed.length,
     kept: kept.length,
     noShow: noShow.length,
     cancelled: cancelled.length,
@@ -673,6 +678,10 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
               value={pct(metrics.cancellationRate)}
             />
             <KpiCard
+              label={t("business.funnel.confirmed", "Confirmed")}
+              value={`${metrics.confirmed}`}
+            />
+            <KpiCard
               label={t("business.funnel.kept", "Kept")}
               value={`${metrics.kept} / ${metrics.withAppointment}`}
             />
@@ -752,6 +761,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                       {t("business.funnel.referrals", "Referrals")}
                     </TableHead>
                     <TableHead className="text-right">
+                      {t("business.funnel.confirmed", "Confirmed")}
+                    </TableHead>
+                    <TableHead className="text-right">
                       {t("business.funnel.kept", "Kept")}
                     </TableHead>
                     <TableHead className="text-right">
@@ -793,6 +805,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                         {m.totalReferrals}
                       </TableCell>
                       <TableCell className="text-right">
+                        {m.confirmed}
+                      </TableCell>
+                      <TableCell className="text-right">
                         {m.kept}
                       </TableCell>
                       <TableCell className="text-right">
@@ -823,6 +838,9 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                     <TableCell>Total</TableCell>
                     <TableCell className="text-right">
                       {metrics.totalReferrals}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {metrics.confirmed}
                     </TableCell>
                     <TableCell className="text-right">
                       {metrics.kept}
@@ -1000,6 +1018,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                           { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend across all channels") },
                           { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
                           { key: "cpl", label: "CPL", tip: t("business.adPerformance.cplTip", "Cost per Lead — budget divided by number of leads") },
+                          { key: "confirmed", label: t("business.adPerformance.confirmed", "Confirmed"), tip: t("business.adPerformance.confirmedTip", "Appointments scheduled or confirmed but not yet attended") },
                           { key: "kept", label: t("business.adPerformance.kept", "Appts Kept"), tip: t("business.adPerformance.keptTip", "Appointments that were attended (not no-show or cancelled)") },
                           { key: "cpk", label: t("business.adPerformance.cpk", "Cost/Kept"), tip: t("business.adPerformance.cpkTip", "Budget divided by number of kept appointments") },
                           { key: "paid", label: t("business.adPerformance.paid", "Paid"), tip: t("business.adPerformance.paidTip", "Surgeries with confirmed payment") },
@@ -1048,6 +1067,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                             <TableCell className="text-right">{CHF.format(row.totalBudget)}</TableCell>
                             <TableCell className="text-right">{row.totalLeads}</TableCell>
                             <TableCell className="text-right">{row.totalCpl != null ? CHF.format(row.totalCpl) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{row.totalConfirmed}</TableCell>
                             <TableCell className="text-right">{row.totalKept}</TableCell>
                             <TableCell className="text-right">{row.totalCpk != null ? CHF.format(row.totalCpk) : "\u2014"}</TableCell>
                             <TableCell className="text-right">{row.totalPaid}</TableCell>
@@ -1075,6 +1095,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                                 <TableCell className="text-right text-sm">{CHF.format(budget)}</TableCell>
                                 <TableCell className="text-right text-sm">{f.leads}</TableCell>
                                 <TableCell className="text-right text-sm">{cpl != null ? CHF.format(cpl) : "\u2014"}</TableCell>
+                                <TableCell className="text-right text-sm">{f.appointmentsConfirmed}</TableCell>
                                 <TableCell className="text-right text-sm">{f.appointmentsKept}</TableCell>
                                 <TableCell className="text-right text-sm">{cpk != null ? CHF.format(cpk) : "\u2014"}</TableCell>
                                 <TableCell className="text-right text-sm">{f.paidConversions}</TableCell>
@@ -1098,16 +1119,18 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
                         const totals = adPerformance.reduce((acc: any, row: any) => ({
                           budget: acc.budget + row.totalBudget,
                           leads: acc.leads + row.totalLeads,
+                          confirmed: acc.confirmed + row.totalConfirmed,
                           kept: acc.kept + row.totalKept,
                           paid: acc.paid + row.totalPaid,
                           revenue: acc.revenue + row.totalRevenue,
-                        }), { budget: 0, leads: 0, kept: 0, paid: 0, revenue: 0 });
+                        }), { budget: 0, leads: 0, confirmed: 0, kept: 0, paid: 0, revenue: 0 });
                         return (
                           <TableRow className="font-semibold border-t-2">
                             <TableCell>{t("common.total", "Total")}</TableCell>
                             <TableCell className="text-right">{CHF.format(totals.budget)}</TableCell>
                             <TableCell className="text-right">{totals.leads}</TableCell>
                             <TableCell className="text-right">{totals.leads > 0 ? CHF.format(Math.round(totals.budget / totals.leads)) : "\u2014"}</TableCell>
+                            <TableCell className="text-right">{totals.confirmed}</TableCell>
                             <TableCell className="text-right">{totals.kept}</TableCell>
                             <TableCell className="text-right">{totals.kept > 0 ? CHF.format(Math.round(totals.budget / totals.kept)) : "\u2014"}</TableCell>
                             <TableCell className="text-right">{totals.paid}</TableCell>
