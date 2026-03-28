@@ -614,7 +614,7 @@ export function BookingDialog({
 
   const handleSubmit = () => {
     const [startTime, endTime] = selectedSlot.split('-');
-    if (!selectedPatientId || !selectedProviderId || !selectedDate || !startTime || !endTime) {
+    if (!selectedPatientId || !selectedProviderId || !selectedDate || !startTime || !endTime || !referralSource) {
       toast({ title: t('appointments.fillRequired', 'Please fill all required fields'), variant: "destructive" });
       return;
     }
@@ -832,7 +832,7 @@ export function BookingDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>{t('appointments.referralSource', 'Referral Source')}</Label>
+              <Label>{t('appointments.referralSource', 'Referral Source')} <span className="text-destructive">*</span></Label>
               <Select value={referralSource} onValueChange={(v) => { setReferralSource(v); setReferralSourceDetail(""); }}>
                 <SelectTrigger data-testid="select-referral-source">
                   <SelectValue placeholder={t('appointments.selectReferralSource', 'None')} />
