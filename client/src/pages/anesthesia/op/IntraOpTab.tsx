@@ -2067,30 +2067,10 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
                 <div className="h-2 w-2 rounded-full bg-primary" />
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <div onClick={e => e.stopPropagation()} className="flex items-center gap-2">
-                <Label htmlFor="xray-used" className="text-sm font-normal">
-                  {t('surgery.intraop.xrayUsed')}
-                </Label>
-                <Switch
-                  id="xray-used"
-                  data-testid="switch-xray-used"
-                  checked={intraOpData.xray?.used ?? false}
-                  onCheckedChange={(checked) => {
-                    const updated = {
-                      ...intraOpData,
-                      xray: { ...intraOpData.xray, used: checked }
-                    };
-                    setIntraOpData(updated);
-                    intraOpAutoSave.mutate(updated);
-                  }}
-                />
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.xray ? '' : '-rotate-90'}`} />
-            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIntraOpSections.xray ? '' : '-rotate-90'}`} />
           </div>
         </CardHeader>
-        {expandedIntraOpSections.xray && intraOpData.xray?.used && (
+        {expandedIntraOpSections.xray && (
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
