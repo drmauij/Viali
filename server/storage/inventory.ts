@@ -552,11 +552,12 @@ export async function deleteMedicationGroup(id: string): Promise<void> {
     .where(eq(medicationGroups.id, id));
 }
 
-export async function getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]> {
+export async function getAdministrationGroups(hospitalId: string, unitType?: string): Promise<AdministrationGroup[]> {
+  const effectiveUnitType = unitType ?? 'anesthesia';
   const groups = await db
     .select()
     .from(administrationGroups)
-    .where(eq(administrationGroups.hospitalId, hospitalId))
+    .where(and(eq(administrationGroups.hospitalId, hospitalId), eq(administrationGroups.unitType, effectiveUnitType)))
     .orderBy(asc(administrationGroups.sortOrder), asc(administrationGroups.name));
   return groups;
 }

@@ -62,6 +62,8 @@ import {
   patientDischargeMedicationItems,
   dischargeMedicationTemplates,
   dischargeMedicationTemplateItems,
+  orMedications,
+  administrationGroups,
   type User,
   type Hospital,
   type Item,
@@ -144,6 +146,7 @@ import {
   type InsertPatientDischargeMedicationItem,
   type DischargeMedicationTemplate,
   type DischargeMedicationTemplateItem,
+  type InsertOrMedication,
 } from "@shared/schema";
 import logger from "../logger";
 
@@ -4553,6 +4556,170 @@ export async function getInventoryUsageByItem(anesthesiaRecordId: string, itemId
       eq(inventoryUsage.itemId, itemId)
     ));
   return usage || null;
+}
+
+// ========== OR MEDICATIONS ==========
+
+export async function getOrMedications(anesthesiaRecordId: string) {
+  return db
+    .select({
+      id: orMedications.id,
+      anesthesiaRecordId: orMedications.anesthesiaRecordId,
+      itemId: orMedications.itemId,
+      itemName: items.name,
+      groupId: orMedications.groupId,
+      groupName: administrationGroups.name,
+      quantity: orMedications.quantity,
+      unit: orMedications.unit,
+      notes: orMedications.notes,
+      ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+      createdAt: orMedications.createdAt,
+    })
+    .from(orMedications)
+    .leftJoin(items, eq(orMedications.itemId, items.id))
+    .leftJoin(administrationGroups, eq(orMedications.groupId, administrationGroups.id))
+    // medicationConfigs.itemId has a unique constraint — one config per item regardless of group.
+    // ampuleTotalContent is the same whether this item is in an OR or anesthesia group.
+    .leftJoin(medicationConfigs, eq(orMedications.itemId, medicationConfigs.itemId))
+    .where(eq(orMedications.anesthesiaRecordId, anesthesiaRecordId))
+    .orderBy(administrationGroups.sortOrder, orMedications.createdAt);
+}
+
+export async function upsertOrMedication(data: InsertOrMedication) {
+  return db
+    .insert(orMedications)
+    .values(data)
+    .onConflictDoUpdate({
+      target: [orMedications.anesthesiaRecordId, orMedications.itemId, orMedications.groupId],
+      set: {
+        quantity: data.quantity,
+        unit: data.unit,
+        notes: data.notes,
+      },
+    })
+    .returning();
+}
+
+export async function deleteOrMedication(anesthesiaRecordId: string, itemId: string, groupId: string) {
+  return db
+    .delete(orMedications)
+    .where(
+      and(
+        eq(orMedications.anesthesiaRecordId, anesthesiaRecordId),
+        eq(orMedications.itemId, itemId),
+        eq(orMedications.groupId, groupId),
+      )
+    );
+}
+
+export async function calculateOrInventoryUsage(anesthesiaRecordId: string) {
+  // 1. Fetch all OR medications for this record
+  const meds = await db
+    .select()
+    .from(orMedications)
+    .where(eq(orMedications.anesthesiaRecordId, anesthesiaRecordId));
+
+  // 2. Group by itemId, sum quantities
+  const itemTotals = new Map<string, { totalQty: number; unit: string }>();
+  for (const med of meds) {
+    const existing = itemTotals.get(med.itemId);
+    const qty = parseFloat(med.quantity) || 0;
+    if (existing) {
+      existing.totalQty += qty;
+    } else {
+      itemTotals.set(med.itemId, { totalQty: qty, unit: med.unit });
+    }
+  }
+
+  // Batch-fetch medication configs and existing usage to avoid N+1 queries
+  const itemIds = [...itemTotals.keys()];
+  const configRows = itemIds.length > 0
+    ? await db.select().from(medicationConfigs).where(inArray(medicationConfigs.itemId, itemIds))
+    : [];
+  const configMap = new Map(configRows.map(c => [c.itemId, c]));
+
+  const existingUsageRows = await db
+    .select()
+    .from(inventoryUsage)
+    .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+  const usageMap = new Map(existingUsageRows.map(u => [u.itemId, u]));
+
+  // 3. For each unique item, calculate inventory units
+  const currentItemIds = new Set<string>();
+  for (const [itemId, { totalQty }] of itemTotals) {
+    if (totalQty <= 0) continue;
+    currentItemIds.add(itemId);
+
+    const config = configMap.get(itemId);
+
+    let units: number;
+    if (config?.ampuleTotalContent) {
+      const ampuleQty = parseFloat(config.ampuleTotalContent) || 0;
+      units = ampuleQty > 0 ? Math.ceil(totalQty / ampuleQty) : 1;
+    } else {
+      // No config — create as override so it shows in inventory tab.
+      // Use direct insert to avoid FK violation (no real userId for system operations).
+      const existingUsage = usageMap.get(itemId);
+      if (existingUsage) {
+        await db
+          .update(inventoryUsage)
+          .set({
+            overrideQty: String(Math.ceil(totalQty)),
+            overrideReason: "OR medication (no config)",
+            updatedAt: new Date(),
+          })
+          .where(eq(inventoryUsage.id, existingUsage.id));
+      } else {
+        await db.insert(inventoryUsage).values({
+          anesthesiaRecordId,
+          itemId,
+          calculatedQty: "0",
+          overrideQty: String(Math.ceil(totalQty)),
+          overrideReason: "OR medication (no config)",
+        });
+      }
+      continue;
+    }
+
+    // Upsert inventoryUsage with calculated qty
+    const existingUsage = usageMap.get(itemId);
+    if (existingUsage) {
+      await db
+        .update(inventoryUsage)
+        .set({ calculatedQty: String(units), updatedAt: new Date() })
+        .where(eq(inventoryUsage.id, existingUsage.id));
+    } else {
+      await db.insert(inventoryUsage).values({
+        anesthesiaRecordId,
+        itemId,
+        calculatedQty: String(units),
+      });
+    }
+  }
+
+  // 4. Clean up stale inventoryUsage rows for items no longer active in OR medications.
+  // Reuse the already-fetched usage rows instead of querying again.
+  for (const usage of existingUsageRows) {
+    if (currentItemIds.has(usage.itemId)) continue; // still active in OR — keep
+
+    // Don't delete anesthesia-owned rows
+    const [anesthesiaMed] = await db
+      .select({ id: anesthesiaMedications.id })
+      .from(anesthesiaMedications)
+      .where(and(
+        eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId),
+        eq(anesthesiaMedications.itemId, usage.itemId),
+      ))
+      .limit(1);
+    if (anesthesiaMed) continue; // Anesthesia owns this — leave alone
+
+    // Don't delete rows with manual overrides (user set these intentionally)
+    // unless the override was set by the OR system itself
+    if (usage.overrideQty !== null && !usage.overrideReason?.startsWith("OR medication")) continue;
+
+    // Stale OR-originated row — delete
+    await db.delete(inventoryUsage).where(eq(inventoryUsage.id, usage.id));
+  }
 }
 
 export async function createInventoryUsage(usage: InsertInventoryUsage): Promise<InventoryUsage> {

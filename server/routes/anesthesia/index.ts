@@ -11,6 +11,7 @@ import staffRouter from "./staff";
 import inventoryRouter from "./inventory";
 import installationsRouter from "./installations";
 import episodesRouter from "./episodes";
+import orMedicationsRouter from "./orMedications";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use(staffRouter);
 router.use(inventoryRouter);
 router.use(installationsRouter);
 router.use(episodesRouter);
+router.use(orMedicationsRouter);
 
 export default router;

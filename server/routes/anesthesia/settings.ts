@@ -55,6 +55,8 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
 
     const anesthesiaUnitId = anesthesiaUnits[0].id;
 
+    const unitType = (req.query.unitType as string) || undefined;
+
     const anesthesiaItems = await db
       .select({
         id: items.id,
@@ -98,6 +100,17 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
         )
       )
       .orderBy(medicationConfigs.sortOrder, items.name);
+
+    // If unitType is specified, filter items to only those whose administrationGroup
+    // belongs to administration groups of that unitType
+    if (unitType) {
+      const groups = await storage.getAdministrationGroups(hospitalId, unitType);
+      const groupNames = new Set(groups.map(g => g.name));
+      const filtered = anesthesiaItems.filter(item =>
+        item.administrationGroup && groupNames.has(item.administrationGroup)
+      );
+      return res.json(filtered);
+    }
 
     res.json(anesthesiaItems);
   } catch (error: any) {
@@ -278,7 +291,8 @@ router.delete('/api/medication-groups/:groupId', isAuthenticated, requireResourc
 router.get('/api/administration-groups/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const groups = await storage.getAdministrationGroups(hospitalId);
+    const unitType = (req.query.unitType as string) || undefined;
+    const groups = await storage.getAdministrationGroups(hospitalId, unitType);
     res.json(groups);
   } catch (error: any) {
     logger.error("Error fetching administration groups:", error);
@@ -288,17 +302,17 @@ router.get('/api/administration-groups/:hospitalId', isAuthenticated, async (req
 
 router.post('/api/administration-groups', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
-    const { hospitalId, name } = req.body;
-    
+    const { hospitalId, name, unitType } = req.body;
+
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "Hospital ID and name are required" });
     }
 
-    const existingGroups = await storage.getAdministrationGroups(hospitalId);
+    const existingGroups = await storage.getAdministrationGroups(hospitalId, unitType);
     const maxSortOrder = existingGroups.reduce((max, g) => Math.max(max, g.sortOrder ?? 0), -1);
     const nextSortOrder = maxSortOrder + 1;
 
-    const newGroup = await storage.createAdministrationGroup({ hospitalId, name, sortOrder: nextSortOrder });
+    const newGroup = await storage.createAdministrationGroup({ hospitalId, name, unitType, sortOrder: nextSortOrder });
     res.status(201).json(newGroup);
   } catch (error: any) {
     logger.error("Error creating administration group:", error);

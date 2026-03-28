@@ -388,7 +388,7 @@ export interface IStorage {
   deleteMedicationGroup(id: string): Promise<void>;
 
   // Administration Group operations
-  getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]>;
+  getAdministrationGroups(hospitalId: string, unitType?: string): Promise<AdministrationGroup[]>;
   getAdministrationGroupById(id: string): Promise<AdministrationGroup | undefined>;
   createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup>;
   updateAdministrationGroup(id: string, updates: { name: string }): Promise<AdministrationGroup>;
