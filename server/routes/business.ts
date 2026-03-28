@@ -1973,6 +1973,8 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
     const { leads } = parsed;
 
     logger.warn(`[AUDIT] Lead conversion analysis by user=${req.user.id} email=${req.user.email} hospital=${hospitalId} leads=${leads.length}`);
+    // Debug: log first 3 parsed leads to check parsing
+    logger.info(`[Lead Debug] First 3 leads: ${JSON.stringify(leads.slice(0, 3))}`);
 
     // 1. Fetch all non-archived patients for this hospital
     const allPatients = await db
@@ -2014,6 +2016,12 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
         }
       }
     }
+
+    // Debug: log patient count and sample name keys
+    logger.info(`[Lead Debug] Patients loaded: ${allPatients.length}, sample name keys: ${Array.from(patientsByNameKey.keys()).slice(0, 5).join(', ')}`);
+    // Debug: log first 3 lead name keys attempted
+    const debugLeadKeys = leads.slice(0, 3).map(l => l.firstName && l.lastName ? `${normalizeName(l.firstName)}|${normalizeName(l.lastName)}` : 'no-name');
+    logger.info(`[Lead Debug] First 3 lead name keys: ${debugLeadKeys.join(', ')}`);
 
     // 2. Match each lead to patients
     type MatchedLead = {
