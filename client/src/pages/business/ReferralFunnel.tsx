@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -172,9 +172,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function defaultFrom(): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 3);
-  return d.toISOString().slice(0, 10);
+  return ""; // empty = no filter, will show all referrals
 }
 
 function defaultTo(): string {
@@ -361,6 +359,17 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
     },
     enabled: !!hospitalId,
   });
+
+  // Auto-set "from" to earliest referral date on initial load
+  const initialFromSet = useRef(false);
+  useEffect(() => {
+    if (!initialFromSet.current && rows.length > 0 && !from) {
+      const earliest = rows.reduce((min, r) =>
+        r.referral_date < min ? r.referral_date : min, rows[0].referral_date);
+      setFrom(earliest.slice(0, 10));
+      initialFromSet.current = true;
+    }
+  }, [rows, from]);
 
   const { data: allBudgets = [] } = useQuery<any[]>({
     queryKey: ["ad-budgets", hospitalId],
