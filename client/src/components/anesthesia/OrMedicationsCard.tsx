@@ -45,7 +45,6 @@ import { cn } from "@/lib/utils";
 interface OrMedicationsCardProps {
   anesthesiaRecordId: string;
   hospitalId: string;
-  unitId: string;
   isAdmin: boolean;
   hasLegacyData: boolean;
 }
@@ -100,7 +99,6 @@ const UNIT_OPTIONS = ["ml", "mg", "mcg", "units", "mmol", "g", "IE", "pcs"];
 export function OrMedicationsCard({
   anesthesiaRecordId,
   hospitalId,
-  unitId,
   isAdmin,
   hasLegacyData,
 }: OrMedicationsCardProps) {
@@ -110,7 +108,6 @@ export function OrMedicationsCard({
   // ── State ────────────────────────────────────────────────────────────────
   const [editMode, setEditMode] = useState(false);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<AdministrationGroup | null>(null);
   const [groupFormName, setGroupFormName] = useState("");
   const [addMedDialogOpen, setAddMedDialogOpen] = useState(false);
   const [addMedGroupId, setAddMedGroupId] = useState<string | null>(null);
@@ -136,7 +133,7 @@ export function OrMedicationsCard({
   // Configured items for this hospital's OR groups (for admin edit mode)
   const { data: configuredItems = [] } = useQuery<ConfiguredItem[]>({
     queryKey: [`/api/anesthesia/items/${hospitalId}?unitType=or`],
-    enabled: !!hospitalId && editMode,
+    enabled: !!hospitalId,
   });
 
   // ── Initialize local quantities from server data ─────────────────────────
@@ -291,7 +288,7 @@ export function OrMedicationsCard({
         upsertMedMutation.mutate({ itemId, groupId, quantity: value.trim(), unit });
       }, 800);
     },
-    [anesthesiaRecordId, upsertMedMutation],
+    [upsertMedMutation],
   );
 
   // Cleanup timers on unmount
@@ -316,11 +313,7 @@ export function OrMedicationsCard({
   const handleGroupSave = () => {
     const name = groupFormName.trim();
     if (!name) return;
-    if (editingGroup) {
-      updateGroupMutation.mutate({ groupId: editingGroup.id, name });
-    } else {
-      createGroupMutation.mutate(name);
-    }
+    createGroupMutation.mutate(name);
   };
 
   // ── Dual-card warning check ──────────────────────────────────────────────
@@ -409,7 +402,6 @@ export function OrMedicationsCard({
             }}
             onRemoveConfig={(itemId) => removeConfigMutation.mutate(itemId)}
             onDeleteMed={(itemId, groupId) => deleteMedMutation.mutate({ itemId, groupId })}
-            t={t}
           />
         ))}
 
@@ -419,7 +411,6 @@ export function OrMedicationsCard({
             variant="outline"
             className="w-full"
             onClick={() => {
-              setEditingGroup(null);
               setGroupFormName("");
               setGroupDialogOpen(true);
             }}
@@ -434,12 +425,10 @@ export function OrMedicationsCard({
       <GroupDialog
         open={groupDialogOpen}
         onOpenChange={setGroupDialogOpen}
-        editingGroup={editingGroup}
         groupFormName={groupFormName}
         onNameChange={setGroupFormName}
         onSave={handleGroupSave}
-        isPending={createGroupMutation.isPending || updateGroupMutation.isPending}
-        t={t}
+        isPending={createGroupMutation.isPending}
       />
 
       {/* Add Medication Config Dialog */}
@@ -449,7 +438,6 @@ export function OrMedicationsCard({
         groupId={addMedGroupId}
         groupName={groups.find((g) => g.id === addMedGroupId)?.name ?? ""}
         hospitalId={hospitalId}
-        t={t}
       />
     </Card>
   );
@@ -477,7 +465,6 @@ interface GroupSectionProps {
   onAddMedication: (groupId: string) => void;
   onRemoveConfig: (itemId: string) => void;
   onDeleteMed: (itemId: string, groupId: string) => void;
-  t: (key: string, defaultValueOrOptions?: any) => string;
 }
 
 function GroupSection({
@@ -500,8 +487,8 @@ function GroupSection({
   onAddMedication,
   onRemoveConfig,
   onDeleteMed,
-  t,
 }: GroupSectionProps) {
+  const { t } = useTranslation();
   const isRenaming = renameGroupId === group.id;
 
   // In normal mode, show medications that have been recorded for this record.
@@ -645,6 +632,11 @@ function GroupSection({
                     placeholder="0"
                     value={localQty}
                     onChange={(e) => onQuantityChange(item.itemId, group.id, item.unit, e.target.value)}
+                    onBlur={() => {
+                      if (!localQty.trim() && item.hasEntry) {
+                        onDeleteMed(item.itemId, group.id);
+                      }
+                    }}
                   />
                   <span className="text-xs text-muted-foreground w-8">{item.unit}</span>
                 </div>
@@ -682,23 +674,21 @@ function GroupSection({
 interface GroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingGroup: AdministrationGroup | null;
   groupFormName: string;
   onNameChange: (name: string) => void;
   onSave: () => void;
   isPending: boolean;
-  t: (key: string, defaultValueOrOptions?: any) => string;
 }
 
-function GroupDialog({ open, onOpenChange, editingGroup, groupFormName, onNameChange, onSave, isPending, t }: GroupDialogProps) {
+function GroupDialog({ open, onOpenChange, groupFormName, onNameChange, onSave, isPending }: GroupDialogProps) {
+  const { t } = useTranslation();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>
-            {editingGroup
-              ? t("anesthesia.orMedications.editGroup", "Edit Group")
-              : t("anesthesia.orMedications.newGroup", "New Group")}
+            {t("anesthesia.orMedications.newGroup", "New Group")}
           </DialogTitle>
           <DialogDescription>
             {t("anesthesia.orMedications.groupDescription", "Groups organize medications on the OR card.")}
@@ -723,7 +713,7 @@ function GroupDialog({ open, onOpenChange, editingGroup, groupFormName, onNameCh
             {t("common.cancel", "Cancel")}
           </Button>
           <Button onClick={onSave} disabled={!groupFormName.trim() || isPending}>
-            {editingGroup ? t("common.save", "Save") : t("common.create", "Create")}
+            {t("common.create", "Create")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -739,15 +729,14 @@ interface AddMedicationDialogProps {
   groupId: string | null;
   groupName: string;
   hospitalId: string;
-  t: (key: string, defaultValueOrOptions?: any) => string;
 }
 
-function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalId, t }: AddMedicationDialogProps) {
+function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalId }: AddMedicationDialogProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItemId, setSelectedItemId] = useState("");
-  const [selectedItemName, setSelectedItemName] = useState("");
   const [ampuleContent, setAmpuleContent] = useState("");
   const [unit, setUnit] = useState("ml");
 
@@ -767,7 +756,6 @@ function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalI
   useEffect(() => {
     if (!open) {
       setSelectedItemId("");
-      setSelectedItemName("");
       setAmpuleContent("");
       setUnit("ml");
       setSearchQuery("");
@@ -846,7 +834,6 @@ function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalI
                           value={item.id}
                           onSelect={() => {
                             setSelectedItemId(item.id);
-                            setSelectedItemName(item.name);
                             setComboboxOpen(false);
                           }}
                         >
