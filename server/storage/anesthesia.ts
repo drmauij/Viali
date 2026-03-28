@@ -4694,9 +4694,22 @@ export async function calculateOrInventoryUsage(anesthesiaRecordId: string) {
 
   for (const usage of allUsage) {
     if (currentItemIds.has(usage.itemId)) continue;
-    // Check if this item exists in OR medications at all (might be from anesthesia)
+    // Check if this item exists in OR medications (might be from anesthesia system instead)
     const orMed = meds.find(m => m.itemId === usage.itemId);
     if (!orMed) continue; // Not from OR system — leave it alone
+
+    // Also check if anesthesia system owns this item — don't delete if so
+    const [anesthesiaMed] = await db
+      .select({ id: anesthesiaMedications.id })
+      .from(anesthesiaMedications)
+      .where(
+        and(
+          eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId),
+          eq(anesthesiaMedications.itemId, usage.itemId),
+        )
+      )
+      .limit(1);
+    if (anesthesiaMed) continue; // Anesthesia also uses this item — leave the row
     // Item was from OR but quantity is now 0 or item removed — delete usage row
     await db.delete(inventoryUsage).where(eq(inventoryUsage.id, usage.id));
   }
