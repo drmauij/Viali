@@ -368,10 +368,10 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                   <LinkIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium">
-                      {t("business.leads.backfillTitle", "{{count}} appointments missing referral source", { count: result.backfillEligibleCount })}
+                      {t("business.leads.backfillTitle", "{{count}} leads eligible for referral backfill", { count: result.backfillEligibleCount })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("business.leads.backfillDesc", "Automatically set referral source (Facebook, Instagram, or Google Ads) on matched appointments that have no referral yet. They will then appear in the Referrals tab.")}
+                      {t("business.leads.backfillDesc", "Set referral source (Facebook, Instagram, or Google Ads) on matched appointments. Creates new referrals or updates today's imports with the correct lead date.")}
                     </p>
                   </div>
                 </div>

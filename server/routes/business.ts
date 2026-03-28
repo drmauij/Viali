@@ -2130,22 +2130,40 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
     const allAppointmentIds = appointmentData.map(a => a.id);
     const existingReferrals = allAppointmentIds.length > 0
       ? await db
-          .select({ appointmentId: referralEvents.appointmentId })
+          .select({
+            appointmentId: referralEvents.appointmentId,
+            captureMethod: referralEvents.captureMethod,
+            createdAt: referralEvents.createdAt,
+          })
           .from(referralEvents)
           .where(and(
             eq(referralEvents.hospitalId, hospitalId),
             inArray(referralEvents.appointmentId, allAppointmentIds),
           ))
       : [];
-    const appointmentsWithReferral = new Set(existingReferrals.map(r => r.appointmentId).filter(Boolean));
+    // Staff-backfilled referrals created today are eligible for update
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const appointmentsWithFixedReferral = new Set<string>();
+    const appointmentsWithUpdatableReferral = new Set<string>();
+    for (const r of existingReferrals) {
+      if (!r.appointmentId) continue;
+      const isStaffToday = r.captureMethod === 'staff' && r.createdAt && new Date(r.createdAt) >= todayStart;
+      if (isStaffToday) {
+        appointmentsWithUpdatableReferral.add(r.appointmentId);
+      } else {
+        appointmentsWithFixedReferral.add(r.appointmentId);
+      }
+    }
 
-    // Count leads eligible for referral backfill: has adSource, has matched appointment, appointment lacks referral
+    // Count leads eligible for referral backfill: has adSource, has matched appointment,
+    // appointment either lacks referral OR has a staff-backfilled-today referral (updatable)
     let backfillEligibleCount = 0;
     for (const ml of matchedLeads) {
       if (!ml.lead.adSource) continue;
       const hasEligibleAppointment = ml.matchedPatientIds.some(pid => {
         const apptIds = appointmentIdsByPatient.get(pid) || [];
-        return apptIds.some(aid => !appointmentsWithReferral.has(aid));
+        return apptIds.some(aid => !appointmentsWithFixedReferral.has(aid));
       });
       if (hasEligibleAppointment) backfillEligibleCount++;
     }
