@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS or_medications (
   id VARCHAR PRIMARY KEY,
   anesthesia_record_id VARCHAR NOT NULL REFERENCES anesthesia_records(id),
   item_id VARCHAR NOT NULL REFERENCES items(id),
-  group_id VARCHAR NOT NULL REFERENCES administration_groups(id),
+  group_id VARCHAR NOT NULL REFERENCES administration_groups(id) ON DELETE CASCADE,
   quantity VARCHAR NOT NULL,
   unit VARCHAR NOT NULL,
   notes TEXT,
@@ -119,7 +119,9 @@ Side effect: triggers `calculateOrInventoryUsage()` for this item.
 
 **`DELETE /api/or-medications/:anesthesiaRecordId/:itemId?groupId=:groupId`**
 
-Removes medication entry and its corresponding `inventoryUsage` row. `groupId` query param is required since the same item can exist in multiple groups (unique constraint includes `group_id`).
+Removes medication entry. `groupId` query param is required since the same item can exist in multiple groups (unique constraint includes `group_id`).
+
+Side effect: triggers `calculateOrInventoryUsage()` to recalculate — the item may still exist in another group, so a simple row removal would be incorrect.
 
 ### Storage Functions
 
@@ -212,7 +214,7 @@ CREATE TABLE IF NOT EXISTS or_medications (
   id VARCHAR PRIMARY KEY,
   anesthesia_record_id VARCHAR NOT NULL REFERENCES anesthesia_records(id),
   item_id VARCHAR NOT NULL REFERENCES items(id),
-  group_id VARCHAR NOT NULL REFERENCES administration_groups(id),
+  group_id VARCHAR NOT NULL REFERENCES administration_groups(id) ON DELETE CASCADE,
   quantity VARCHAR NOT NULL,
   unit VARCHAR NOT NULL,
   notes TEXT,
