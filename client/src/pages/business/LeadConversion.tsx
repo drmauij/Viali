@@ -58,9 +58,11 @@ function isKnownStatus(value: string): boolean {
   return KNOWN_STATUS_PATTERNS.some(p => p.test(value.trim()));
 }
 
-// Date in DD.MM.YYYY format
+// Date in DD.MM.YYYY, DD.MM.YYYY HH:MM, or YYYY-MM-DD H:MM:SS format
 function isDate(value: string): boolean {
-  return /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value.trim());
+  const v = value.trim();
+  return /^\d{1,2}\.\d{1,2}\.\d{4}(\s+\d{1,2}:\d{2})?$/.test(v) ||
+         /^\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2}(:\d{2})?)?$/.test(v);
 }
 
 // Known operation/procedure names from Meta Forms
@@ -72,9 +74,9 @@ function isOperation(value: string): boolean {
   return /^(mommy\s*makeover|augenlidstraffung|schamlippenverkleinerung|penisvergrösserung|po-vergrösserung|faltenbehandlung|filler|gesicht|hals\/dekolleté|anderes)$/i.test(v);
 }
 
-// fb/ig source indicator
+// fb/ig/gg source indicator
 function isAdSource(value: string): boolean {
-  return /^(fb|ig)$/i.test(value.trim());
+  return /^(fb|ig|gg)$/i.test(value.trim());
 }
 
 type ParsedLead = {
@@ -367,7 +369,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                       {t("business.leads.backfillTitle", "{{count}} appointments missing referral source", { count: result.backfillEligibleCount })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("business.leads.backfillDesc", "Automatically set referral source (Social / Instagram or Facebook) on matched appointments that have no referral yet. They will then appear in the Referrals tab.")}
+                      {t("business.leads.backfillDesc", "Automatically set referral source (Facebook, Instagram, or Google Ads) on matched appointments that have no referral yet. They will then appear in the Referrals tab.")}
                     </p>
                   </div>
                 </div>
@@ -493,7 +495,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
           {result.sourceBreakdown && result.sourceBreakdown.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{t("business.leads.sourceBreakdown", "Ad Source Breakdown (FB vs IG)")}</CardTitle>
+                <CardTitle className="text-base">{t("business.leads.sourceBreakdown", "Ad Source Breakdown")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -511,7 +513,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                     <TableBody>
                       {result.sourceBreakdown.map((s) => (
                         <TableRow key={s.status}>
-                          <TableCell className="font-medium">{s.status === 'fb' ? 'Facebook' : s.status === 'ig' ? 'Instagram' : s.status}</TableCell>
+                          <TableCell className="font-medium">{s.status === 'fb' ? 'Facebook' : s.status === 'ig' ? 'Instagram' : s.status === 'gg' ? 'Google Ads' : s.status}</TableCell>
                           <TableCell className="text-right">{s.total}</TableCell>
                           <TableCell className="text-right">{s.matched}</TableCell>
                           <TableCell className="text-right">{s.total > 0 ? Math.round((s.matched / s.total) * 100) : 0}%</TableCell>
@@ -556,7 +558,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
                         <TableRow key={i}>
                           <TableCell className="font-medium">{d.leadName}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{d.operation || "\u2014"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{d.adSource === 'fb' ? 'Facebook' : d.adSource === 'ig' ? 'Instagram' : d.adSource || "\u2014"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{d.adSource === 'fb' ? 'Facebook' : d.adSource === 'ig' ? 'Instagram' : d.adSource === 'gg' ? 'Google Ads' : d.adSource || "\u2014"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{d.leadStatus || "\u2014"}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className="text-xs">{d.matchMethod}</Badge>

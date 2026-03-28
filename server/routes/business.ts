@@ -2401,13 +2401,15 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       hospitalId: string;
       patientId: string;
       appointmentId: string;
-      source: "social";
+      source: "social" | "search_engine";
       sourceDetail: string;
       captureMethod: "staff";
     }[] = [];
 
     for (const ml of matchedLeads) {
-      const sourceDetail = ml.lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
+      const isGoogle = ml.lead.adSource === 'gg';
+      const source = isGoogle ? 'search_engine' as const : 'social' as const;
+      const sourceDetail = isGoogle ? 'Google Ads' : ml.lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
       for (const patientId of ml.matchedPatientIds) {
         const apptIds = appointmentIdsByPatient.get(patientId) || [];
         for (const apptId of apptIds) {
@@ -2416,7 +2418,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
               hospitalId,
               patientId,
               appointmentId: apptId,
-              source: "social",
+              source,
               sourceDetail,
               captureMethod: "staff",
             });
