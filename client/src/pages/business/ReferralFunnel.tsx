@@ -125,7 +125,7 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     (r) => r.appointment_status === "cancelled",
   );
   const surgeryPlanned = rows.filter((r) => r.surgery_id);
-  const paid = surgeryPlanned.filter((r) => r.payment_status === "paid");
+  const paid = surgeryPlanned.filter((r) => r.payment_date);
   const totalRevenue = paid.reduce(
     (sum, r) => sum + parseFloat(r.price || "0"),
     0,

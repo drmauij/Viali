@@ -2707,8 +2707,8 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
         COUNT(*) AS leads,
         COUNT(*) FILTER (WHERE appointment_status IN ('scheduled', 'confirmed')) AS appointments_confirmed,
         COUNT(*) FILTER (WHERE appointment_status IN ('arrived', 'in_progress', 'completed')) AS appointments_kept,
-        COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_conversions,
-        COALESCE(SUM(price) FILTER (WHERE payment_status = 'paid'), 0) AS revenue
+        COUNT(*) FILTER (WHERE payment_date IS NOT NULL) AS paid_conversions,
+        COALESCE(SUM(price) FILTER (WHERE payment_date IS NOT NULL), 0) AS revenue
       FROM classified
       WHERE funnel IS NOT NULL
       GROUP BY month, funnel
