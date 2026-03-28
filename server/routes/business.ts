@@ -2387,16 +2387,38 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
     // 4. Find which appointments already have referral events
     const existingReferrals = allAppointmentIds.length > 0
       ? await db
-          .select({ appointmentId: referralEvents.appointmentId })
+          .select({
+            id: referralEvents.id,
+            appointmentId: referralEvents.appointmentId,
+            captureMethod: referralEvents.captureMethod,
+          })
           .from(referralEvents)
           .where(and(
             eq(referralEvents.hospitalId, hospitalId),
             inArray(referralEvents.appointmentId, allAppointmentIds),
           ))
       : [];
-    const appointmentsWithReferral = new Set(existingReferrals.map(r => r.appointmentId).filter(Boolean));
+    // Track which appointments have referrals and whether they're staff-backfilled (updatable)
+    const referralByAppointment = new Map<string, { id: string; captureMethod: string }>();
+    for (const r of existingReferrals) {
+      if (r.appointmentId) referralByAppointment.set(r.appointmentId, { id: r.id, captureMethod: r.captureMethod });
+    }
 
-    // 5. Create referral events for appointments missing them
+    // 5. Create or update referral events
+    // Parse lead date to use as createdAt (instead of now()) so the referral funnel
+    // surgery join (planned_date >= created_at) works correctly for historical leads
+    const parseLeadDate = (dateStr?: string): Date | null => {
+      if (!dateStr) return null;
+      const v = dateStr.trim();
+      // DD.MM.YYYY or DD.MM.YYYY HH:MM
+      const dotMatch = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+      if (dotMatch) return new Date(parseInt(dotMatch[3]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[1]));
+      // YYYY-MM-DD (with optional time)
+      const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+      return null;
+    };
+
     const toInsert: {
       hospitalId: string;
       patientId: string;
@@ -2404,16 +2426,25 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       source: "social" | "search_engine";
       sourceDetail: string;
       captureMethod: "staff";
+      createdAt: Date;
     }[] = [];
+    const toUpdate: { id: string; source: "social" | "search_engine"; sourceDetail: string; createdAt: Date }[] = [];
+    const handledAppointments = new Set<string>();
 
     for (const ml of matchedLeads) {
       const isGoogle = ml.lead.adSource === 'gg';
       const source = isGoogle ? 'search_engine' as const : 'social' as const;
       const sourceDetail = isGoogle ? 'Google Ads' : ml.lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
+      const leadDate = parseLeadDate(ml.lead.leadDate) || new Date();
       for (const patientId of ml.matchedPatientIds) {
         const apptIds = appointmentIdsByPatient.get(patientId) || [];
         for (const apptId of apptIds) {
-          if (!appointmentsWithReferral.has(apptId)) {
+          if (handledAppointments.has(apptId)) continue;
+          handledAppointments.add(apptId);
+
+          const existing = referralByAppointment.get(apptId);
+          if (!existing) {
+            // No referral yet — insert
             toInsert.push({
               hospitalId,
               patientId,
@@ -2421,25 +2452,35 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
               source,
               sourceDetail,
               captureMethod: "staff",
+              createdAt: leadDate,
             });
-            // Mark as handled so we don't double-insert within same batch
-            appointmentsWithReferral.add(apptId);
+          } else if (existing.captureMethod === 'staff') {
+            // Staff-backfilled referral — update with correct date & source
+            toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
           }
+          // If captureMethod is manual/utm/ref, leave it alone
         }
       }
     }
 
     if (toInsert.length > 0) {
-      // Insert in batches of 100
       for (let i = 0; i < toInsert.length; i += 100) {
         const batch = toInsert.slice(i, i + 100);
         await db.insert(referralEvents).values(batch);
       }
     }
 
-    logger.info(`[Business] Referral backfill: created ${toInsert.length} referral events for hospital=${hospitalId}`);
+    if (toUpdate.length > 0) {
+      for (const upd of toUpdate) {
+        await db.update(referralEvents)
+          .set({ source: upd.source, sourceDetail: upd.sourceDetail, createdAt: upd.createdAt })
+          .where(eq(referralEvents.id, upd.id));
+      }
+    }
 
-    res.json({ created: toInsert.length });
+    logger.info(`[Business] Referral backfill: created ${toInsert.length}, updated ${toUpdate.length} referral events for hospital=${hospitalId}`);
+
+    res.json({ created: toInsert.length, updated: toUpdate.length });
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return res.status(400).json({ message: 'Invalid lead data', details: error.errors });

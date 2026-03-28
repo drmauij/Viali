@@ -204,7 +204,9 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
       setBackfillDone(true);
       toast({
         title: t("business.leads.referralsBackfilled", "Referrals Backfilled"),
-        description: t("business.leads.referralsBackfilledDesc", "{{count}} referral events created. These appointments will now appear in the Referrals tab.", { count: data.created }),
+        description: data.updated > 0
+          ? t("business.leads.referralsBackfilledWithUpdates", "{{created}} referral events created, {{updated}} updated. These appointments will now appear in the Referrals tab.", { created: data.created, updated: data.updated })
+          : t("business.leads.referralsBackfilledDesc", "{{count}} referral events created. These appointments will now appear in the Referrals tab.", { count: data.created }),
       });
       // Update the result to reflect the backfill
       if (result) {
