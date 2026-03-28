@@ -151,7 +151,9 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     cancellationRate:
       withAppt.length > 0 ? cancelled.length / withAppt.length : 0,
     aptToSurgeryRate:
-      kept.length > 0 ? surgeryPlanned.length / kept.length : 0,
+      confirmed.length + kept.length > 0
+        ? surgeryPlanned.length / (confirmed.length + kept.length)
+        : 0,
     surgeryToPaidRate:
       surgeryPlanned.length > 0 ? paid.length / surgeryPlanned.length : 0,
     fullFunnelRate: total > 0 ? paid.length / total : 0,
