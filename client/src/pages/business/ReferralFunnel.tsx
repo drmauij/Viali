@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { DateInput } from "@/components/ui/date-input";
 import {
   Tooltip,
   TooltipContent,
@@ -44,6 +43,9 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ReferralFunnelProps {
   hospitalId: string | undefined;
+  from: string;
+  to: string;
+  onEarliestDate?: (date: string) => void;
 }
 
 type FunnelRow = {
@@ -170,14 +172,6 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function defaultFrom(): string {
-  return ""; // empty = no filter, will show all referrals
-}
-
-function defaultTo(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function pct(v: number): string {
   return (v * 100).toFixed(1) + "%";
@@ -327,12 +321,9 @@ function exportAdPerformanceCsv(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
+export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }: ReferralFunnelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState(defaultTo);
   const [providerFilter, setProviderFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
 
@@ -360,16 +351,16 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
     enabled: !!hospitalId,
   });
 
-  // Auto-set "from" to earliest referral date on initial load
-  const initialFromSet = useRef(false);
+  // Report earliest referral date to parent for auto-setting "From"
+  const reportedEarliest = useRef(false);
   useEffect(() => {
-    if (!initialFromSet.current && rows.length > 0 && !from) {
+    if (!reportedEarliest.current && rows.length > 0 && onEarliestDate) {
       const earliest = rows.reduce((min, r) =>
         r.referral_date < min ? r.referral_date : min, rows[0].referral_date);
-      setFrom(earliest.slice(0, 10));
-      initialFromSet.current = true;
+      onEarliestDate(earliest.slice(0, 10));
+      reportedEarliest.current = true;
     }
-  }, [rows, from]);
+  }, [rows, onEarliestDate]);
 
   const { data: allBudgets = [] } = useQuery<any[]>({
     queryKey: ["ad-budgets", hospitalId],
@@ -605,15 +596,7 @@ export default function ReferralFunnel({ hospitalId }: ReferralFunnelProps) {
       {/* ── Filter bar ──────────────────────────────────────────────────── */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label>From</Label>
-              <DateInput value={from} onChange={setFrom} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>To</Label>
-              <DateInput value={to} onChange={setTo} />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Provider</Label>
               <Select value={providerFilter} onValueChange={setProviderFilter}>

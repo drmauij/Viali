@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Redirect } from "wouter";
@@ -362,7 +363,7 @@ export default function CostAnalytics() {
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [showNurseHoursDialog, setShowNurseHoursDialog] = useState(false);
   const [referralFrom, setReferralFrom] = useState("");
-  const [referralTo, setReferralTo] = useState("");
+  const [referralTo, setReferralTo] = useState(new Date().toISOString().slice(0, 10));
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
   // Chart unit filter removed - now showing all units as separate lines
 
@@ -1643,33 +1644,16 @@ export default function CostAnalytics() {
         <TabsContent value="referrals" className="space-y-4 mt-6">
           {/* Date range filter */}
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{t('business.referrals.dateRange')}:</span>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <span className="text-sm font-medium">From</span>
+                  <DateInput value={referralFrom} onChange={setReferralFrom} />
                 </div>
-                <Input
-                  type="date"
-                  value={referralFrom}
-                  onChange={(e) => setReferralFrom(e.target.value)}
-                  className="w-40"
-                />
-                <span className="text-muted-foreground">—</span>
-                <Input
-                  type="date"
-                  value={referralTo}
-                  onChange={(e) => setReferralTo(e.target.value)}
-                  className="w-40"
-                />
-                {(referralFrom || referralTo) && (
-                  <button
-                    onClick={() => { setReferralFrom(""); setReferralTo(""); }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="space-y-1.5">
+                  <span className="text-sm font-medium">To</span>
+                  <DateInput value={referralTo} onChange={setReferralTo} />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1930,7 +1914,12 @@ export default function CostAnalytics() {
           </Card>
 
           {/* Conversion Funnel Analytics */}
-          <ReferralFunnel hospitalId={activeHospital?.id} />
+          <ReferralFunnel
+            hospitalId={activeHospital?.id}
+            from={referralFrom}
+            to={referralTo}
+            onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
+          />
         </TabsContent>
 
         {/* Leads Tab */}
