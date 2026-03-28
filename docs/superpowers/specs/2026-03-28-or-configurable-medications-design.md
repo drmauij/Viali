@@ -31,7 +31,7 @@ Values: `'anesthesia'` | `'or'`
 
 Migration backfills all existing rows to `'anesthesia'`. No impact on existing anesthesia groups or the Anesthesia Settings page.
 
-The `medicationConfigs` table needs no changes — each config is linked to a group via `administrationGroup`, so the group's `unitType` determines context implicitly.
+The `medicationConfigs` table needs no changes. Note: `medicationConfigs.administrationGroup` is a free-text VARCHAR (stores group names, not a FK to `administrationGroups.id`). For OR medications, the `group_id` on `or_medications` handles group assignment directly. The medication config is per-item (globally unique via `itemId`), not per-group — so `ampuleTotalContent` is the same regardless of which group the item appears in. The `group_id` on `or_medications` is purely for UI grouping; config lookup uses only `itemId`.
 
 #### 2. New table: `or_medications`
 
@@ -112,9 +112,9 @@ Body: `{ itemId, groupId, quantity, unit, notes? }`
 
 Side effect: triggers `calculateOrInventoryUsage()` for this item.
 
-**`DELETE /api/or-medications/:anesthesiaRecordId/:itemId`**
+**`DELETE /api/or-medications/:anesthesiaRecordId/:itemId?groupId=:groupId`**
 
-Removes medication entry and its corresponding `inventoryUsage` row.
+Removes medication entry and its corresponding `inventoryUsage` row. `groupId` query param is required since the same item can exist in multiple groups (unique constraint includes `group_id`).
 
 ### Storage Functions
 
@@ -122,7 +122,7 @@ Removes medication entry and its corresponding `inventoryUsage` row.
 // New — OR Medications CRUD
 getOrMedications(anesthesiaRecordId: string)
 upsertOrMedication(data: InsertOrMedication)
-deleteOrMedication(anesthesiaRecordId: string, itemId: string)
+deleteOrMedication(anesthesiaRecordId: string, itemId: string, groupId: string)
 
 // New — Inventory calculation
 calculateOrInventoryUsage(anesthesiaRecordId: string)
