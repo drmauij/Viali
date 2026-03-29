@@ -23,6 +23,10 @@ interface Hospital {
   hourFormat?: string;
   timezone?: string;
   defaultLanguage?: string;
+  // Permission flags
+  canConfigure?: boolean;
+  canChat?: boolean;
+  canPlanOps?: boolean;
 }
 
 function subscribe(callback: () => void) {
@@ -68,4 +72,10 @@ export function useActiveHospital(): Hospital | null {
   }, [activeHospital?.id, activeHospital?.dateFormat, activeHospital?.hourFormat, activeHospital?.currency]);
 
   return activeHospital;
+}
+
+export function useHasPermission(permission: 'canConfigure' | 'canChat' | 'canPlanOps'): boolean {
+  const activeHospital = useActiveHospital();
+  if (!activeHospital) return false;
+  return activeHospital.role === 'admin' || activeHospital[permission] === true;
 }
