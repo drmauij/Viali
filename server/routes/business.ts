@@ -2685,11 +2685,12 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
           END AS funnel,
           ca.status AS appointment_status,
           s.payment_status,
+          s.payment_date,
           COALESCE(s.price, 0) AS price
         FROM referral_events re
         LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
         LEFT JOIN LATERAL (
-          SELECT s2.id, s2.status, s2.payment_status, s2.price
+          SELECT s2.id, s2.status, s2.payment_status, s2.payment_date, s2.price
           FROM surgeries s2
           WHERE s2.patient_id = re.patient_id
             AND s2.hospital_id = re.hospital_id
