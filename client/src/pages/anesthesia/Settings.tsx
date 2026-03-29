@@ -73,6 +73,9 @@ export default function AnesthesiaSettings() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedItemForConfig, setSelectedItemForConfig] = useState<Item | null>(null);
   
+  const isAdmin = activeHospital?.role === "admin";
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
+
   // Configuration form state
   const [itemName, setItemName] = useState('');
   const [anesthesiaType, setAnesthesiaType] = useState<'medication' | 'infusion'>('medication');
@@ -754,6 +757,14 @@ export default function AnesthesiaSettings() {
             {t('anesthesia.settings.moduleNotConfiguredMessage')}
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (!canConfigure) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">{t("common.noPermission") || "You don't have permission to access this page."}</p>
       </div>
     );
   }

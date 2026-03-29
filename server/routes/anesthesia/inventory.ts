@@ -401,7 +401,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, requireStrictHosp
   }
 });
 
-router.post('/api/anesthesia-sets', [isAuthenticated, requirePermission('canPlanOps'), requireWriteAccess] as any, async (req: any, res: any) => {
+router.post('/api/anesthesia-sets', [isAuthenticated, requirePermission('canConfigure'), requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const userId = req.user.id;
     const { hospitalId, name, description, items, medications, inventoryItems } = req.body;
@@ -480,7 +480,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
       return res.status(404).json({ message: "Anesthesia set not found" });
     }
 
-    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canPlanOps');
+    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canConfigure');
     if (!hasPermission) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
@@ -552,7 +552,7 @@ router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess
       return res.status(404).json({ message: "Anesthesia set not found" });
     }
 
-    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canPlanOps');
+    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canConfigure');
     if (!hasPermission) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
@@ -920,7 +920,7 @@ router.get('/api/inventory-sets/set/:setId', isAuthenticated, requireStrictHospi
   }
 });
 
-router.post('/api/inventory-sets', [isAuthenticated, requirePermission('canPlanOps'), requireWriteAccess] as any, async (req: any, res: any) => {
+router.post('/api/inventory-sets', [isAuthenticated, requirePermission('canConfigure'), requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const userId = req.user.id;
     const { hospitalId, unitId, name, description, items } = req.body;
@@ -967,7 +967,7 @@ router.patch('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess, 
       return res.status(404).json({ message: "Inventory set not found" });
     }
 
-    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canPlanOps');
+    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canConfigure');
     if (!hasPermission) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
@@ -1004,7 +1004,7 @@ router.delete('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess,
       return res.status(404).json({ message: "Inventory set not found" });
     }
 
-    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canPlanOps');
+    const hasPermission = await userHasPermission(userId, set.hospitalId, 'canConfigure');
     if (!hasPermission) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
@@ -1111,7 +1111,7 @@ router.get('/api/surgery-sets/set/:setId', isAuthenticated, requireStrictHospita
   }
 });
 
-router.post('/api/surgery-sets', [isAuthenticated, requirePermission('canPlanOps'), requireWriteAccess] as any, async (req: any, res: any) => {
+router.post('/api/surgery-sets', [isAuthenticated, requirePermission('canConfigure'), requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { hospitalId, name, description, intraOpData, inventoryItems } = req.body;
     const userId = req.user.id;
@@ -1146,7 +1146,7 @@ router.post('/api/surgery-sets', [isAuthenticated, requirePermission('canPlanOps
   }
 });
 
-router.patch('/api/surgery-sets/:setId', [isAuthenticated, requirePermission('canPlanOps'), requireWriteAccess] as any, async (req: any, res: any) => {
+router.patch('/api/surgery-sets/:setId', [isAuthenticated, requirePermission('canConfigure'), requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { setId } = req.params;
     const { name, description, intraOpData, inventoryItems } = req.body;
@@ -1181,7 +1181,7 @@ router.patch('/api/surgery-sets/:setId', [isAuthenticated, requirePermission('ca
   }
 });
 
-router.delete('/api/surgery-sets/:setId', [isAuthenticated, requirePermission('canPlanOps'), requireWriteAccess] as any, async (req: any, res: any) => {
+router.delete('/api/surgery-sets/:setId', [isAuthenticated, requirePermission('canConfigure'), requireWriteAccess] as any, async (req: any, res: any) => {
   try {
     const { setId } = req.params;
 

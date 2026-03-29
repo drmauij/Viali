@@ -323,7 +323,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   
   // Admin check for medication configuration features (sorting, add/edit medication config)
   const isAdmin = activeHospital?.role === "admin";
-  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   useTimelineExport({ ref, chartRef, isChartReady, activeSwimlaneRef, data, anesthesiaRecord });
 
@@ -5685,7 +5685,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         activeSwimlanes={activeSwimlanes}
         isDark={isDark}
         canWrite={canWrite}
-        isAdmin={canPlanOps}
+        isAdmin={canConfigure}
         isTouchDevice={isTouchDevice}
         activeToolMode={activeToolMode}
         onBpToggle={handleBpToggle}
@@ -6428,8 +6428,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         </div>
       )}
 
-      {/* Interactive overlays for administration groups (RIGHT side chart area only) - Admin or canPlanOps */}
-      {canPlanOps && (
+      {/* Interactive overlays for administration groups (RIGHT side chart area only) - Admin or canConfigure */}
+      {canConfigure && (
         <div className="absolute inset-0 pointer-events-none z-[70]">
           {!activeToolMode && activeSwimlanes.map((lane) => {
             if (lane.hierarchyLevel !== 'group') return null;

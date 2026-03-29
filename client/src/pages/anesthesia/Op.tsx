@@ -1038,7 +1038,7 @@ export default function Op() {
         onOpenChange={setShowSetsDialog}
         hospitalId={activeHospital.id}
         recordId={anesthesiaRecord?.id}
-        isAdmin={activeHospital?.role === 'admin' || activeHospital?.canPlanOps === true}
+        isAdmin={activeHospital?.role === 'admin' || activeHospital?.canConfigure === true}
         onSetApplied={() => {
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecord?.id, 'imported-medications'] });
@@ -1060,7 +1060,7 @@ export default function Op() {
         onOpenChange={setShowSurgerySetsDialog}
         hospitalId={activeHospital.id}
         recordId={anesthesiaRecord?.id}
-        isAdmin={activeHospital?.role === 'admin' || activeHospital?.canPlanOps === true}
+        isAdmin={activeHospital?.role === 'admin' || activeHospital?.canConfigure === true}
         onSetApplied={async () => {
           await queryClient.refetchQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });

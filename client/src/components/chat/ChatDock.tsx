@@ -357,7 +357,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       if (!res.ok) return { count: 0 };
       return res.json();
     },
-    enabled: !!activeHospital?.id && isOpen && addons.patientChat,
+    enabled: !!activeHospital?.id && isOpen && addons.patientChat && (activeHospital?.role === 'admin' || activeHospital?.canChat === true),
     refetchInterval: 30000,
   });
 
@@ -1572,7 +1572,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                   <MessageCircle className="w-4 h-4" />
                   Messages
                 </button>
-                {addons.patientChat && (
+                {addons.patientChat && (activeHospital?.role === 'admin' || activeHospital?.canChat === true) && (
                 <button
                   className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                     listTab === 'patient-chat'

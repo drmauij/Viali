@@ -190,7 +190,7 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
   });
   const hasOrGroups = (orGroups?.length ?? 0) > 0;
   const isAdmin = activeHospital?.role === 'admin';
-  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   // Fetch OR medications for blue dot indicator
   const { data: orMedications = [] } = useQuery<any[]>({
@@ -1522,7 +1522,7 @@ export function IntraOpTab({ surgeryId, anesthesiaRecordId, surgery, anesthesiaR
             <OrMedicationsCard
               anesthesiaRecordId={anesthesiaRecordId}
               hospitalId={hospitalId}
-              isAdmin={canPlanOps ?? false}
+              isAdmin={canConfigure ?? false}
               hasLegacyData={hasLegacyData}
             />
           </CardContent>
