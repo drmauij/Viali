@@ -753,6 +753,7 @@ export function BookingDialog({
       isVideoAppointment,
       videoMeetingLink: videoMeetingLink || null,
       ...(referralSource ? { referralSource, referralSourceDetail: referralSourceDetail || null } : {}),
+      ...(referralCreatedAt ? { referralCreatedAt } : {}),
     });
   };
 

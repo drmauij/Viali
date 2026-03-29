@@ -2175,6 +2175,19 @@ router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, requir
   }
 });
 
+// Parse DD.MM.YYYY or YYYY-MM-DD date string to Date object
+function parseLeadDate(dateStr: string): Date {
+  const dotMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dotMatch) {
+    return new Date(parseInt(dotMatch[3]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[1]));
+  }
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+  }
+  return new Date(); // Fallback to now
+}
+
 // Create appointment
 router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
@@ -2260,7 +2273,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     }
     
     // Extract referral fields before passing to appointment schema
-    const { referralSource, referralSourceDetail, ...appointmentBody } = req.body;
+    const { referralSource, referralSourceDetail, referralCreatedAt, ...appointmentBody } = req.body;
 
     const validatedData = insertClinicAppointmentSchema.parse({
       ...appointmentBody,
@@ -2285,6 +2298,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
             source: referralSource as "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "other",
             sourceDetail: referralSourceDetail || undefined,
             captureMethod: "staff",
+            ...(referralCreatedAt ? { createdAt: parseLeadDate(referralCreatedAt) } : {}),
           });
         }
       } catch (err) {
