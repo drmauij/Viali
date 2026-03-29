@@ -34,6 +34,7 @@ import {
   UserPlus,
   Loader2,
   Video,
+  ClipboardPaste,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { format } from "date-fns";
@@ -436,6 +437,10 @@ export function BookingDialog({
   const [birthdayInput, setBirthdayInput] = useState("");
   const [referralSource, setReferralSource] = useState<string>("");
   const [referralSourceDetail, setReferralSourceDetail] = useState<string>("");
+  const [showLeadImport, setShowLeadImport] = useState(false);
+  const [leadPasteText, setLeadPasteText] = useState("");
+  const [leadImportPending, setLeadImportPending] = useState(false);
+  const [referralCreatedAt, setReferralCreatedAt] = useState<string | null>(null);
 
   // Update state when defaults change (from calendar slot selection or patient pre-fill)
   useMemo(() => {
@@ -559,6 +564,8 @@ export function BookingDialog({
       setSelectedPatientId(newPatient.id);
       setPatientSearch(`${newPatient.firstName} ${newPatient.surname}`);
       setShowNewPatientForm(false);
+      setShowLeadImport(false);
+      setLeadPasteText("");
       toast({
         title: t('anesthesia.quickSchedule.patientCreated', 'Patient created'),
         description: t('anesthesia.quickSchedule.patientCreatedDescription', 'Patient has been created and selected'),
@@ -592,6 +599,112 @@ export function BookingDialog({
     });
   };
 
+  const parseLeadRow = (text: string): {
+    leadDate: string | null;
+    operation: string | null;
+    email: string | null;
+    phone: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    source: string | null;
+  } | null => {
+    const trimmed = text.trim();
+    // Split by tab; if only 1 part, try semicolon
+    let parts = trimmed.split('\t').map(p => p.trim());
+    if (parts.length < 3) {
+      parts = trimmed.split(';').map(p => p.trim());
+    }
+    if (parts.length < 3) return null;
+
+    // Fixed column order: F, Operation, E-mail, Telefonnummer, Vorname, Nachname, Source
+    const [leadDate, operation, email, phone, firstName, lastName, source] = parts;
+    return {
+      leadDate: leadDate || null,
+      operation: operation || null,
+      email: email && email.includes('@') ? email : null,
+      phone: phone || null,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      source: source?.toLowerCase().trim() || null,
+    };
+  };
+
+  const handleLeadImport = async () => {
+    const parsed = parseLeadRow(leadPasteText);
+    if (!parsed || (!parsed.firstName && !parsed.email)) {
+      toast({
+        title: t('appointments.importFailed', 'Could not parse lead'),
+        description: t('appointments.importFailedDesc', 'Please paste a tab-separated row: F, Operation, E-mail, Phone, Vorname, Nachname, Source'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Auto-fill notes from Operation
+    if (parsed.operation) {
+      setNotes(parsed.operation);
+    }
+
+    // Auto-fill referral source from Source column (fb/ig)
+    if (parsed.source === 'fb' || parsed.source === 'ig') {
+      setReferralSource("social");
+      setReferralSourceDetail(parsed.source === 'fb' ? "facebook" : "instagram");
+    }
+
+    // Store lead date for referral event
+    if (parsed.leadDate) {
+      setReferralCreatedAt(parsed.leadDate);
+    }
+
+    // Try to find existing patient by searching name or email
+    setLeadImportPending(true);
+    try {
+      const searchTerm = parsed.email || `${parsed.firstName || ''} ${parsed.lastName || ''}`.trim();
+      const response = await fetch(`/api/patients?hospitalId=${hospitalId}&search=${encodeURIComponent(searchTerm)}`);
+      if (response.ok) {
+        const existingPatients: Patient[] = await response.json();
+        // Check for match by email or name
+        const match = existingPatients.find(p =>
+          (parsed.email && p.email?.toLowerCase() === parsed.email.toLowerCase()) ||
+          (parsed.firstName && parsed.lastName &&
+            p.firstName.toLowerCase() === parsed.firstName.toLowerCase() &&
+            p.surname.toLowerCase() === parsed.lastName.toLowerCase())
+        );
+
+        if (match) {
+          // Patient exists — select them, close panel
+          setSelectedPatientId(match.id);
+          setPatientSearch(`${match.firstName} ${match.surname}`);
+          setShowLeadImport(false);
+          setLeadPasteText("");
+          toast({
+            title: t('appointments.patientFound', 'Existing patient found'),
+            description: `${match.firstName} ${match.surname}`,
+          });
+        } else {
+          // No match — create new patient (panel closes via createPatientMutation.onSuccess)
+          createPatientMutation.mutate({
+            hospitalId,
+            firstName: (parsed.firstName || '').trim(),
+            surname: (parsed.lastName || '').trim(),
+            birthday: "1900-01-01", // Unknown — lead Excel doesn't include DOB
+            sex: "O",
+            email: parsed.email || undefined,
+            phone: parsed.phone || undefined,
+          });
+        }
+      }
+    } catch (err) {
+      toast({
+        title: t('appointments.importFailed', 'Could not parse lead'),
+        description: String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setLeadImportPending(false);
+    }
+  };
+
   const resetForm = () => {
     setSelectedPatientId("");
     setSelectedProviderId("");
@@ -610,6 +723,10 @@ export function BookingDialog({
     setBirthdayInput("");
     setReferralSource("");
     setReferralSourceDetail("");
+    setShowLeadImport(false);
+    setLeadPasteText("");
+    setLeadImportPending(false);
+    setReferralCreatedAt(null);
   };
 
   const handleSubmit = () => {
@@ -646,7 +763,32 @@ export function BookingDialog({
         <div className="space-y-4">
           <div>
             <Label>{t('appointments.searchPatient', 'Search Patient')} *</Label>
-            {!showNewPatientForm ? (
+            {showLeadImport ? (
+              <div className="border rounded-md p-4 space-y-3 mt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">{t('appointments.importLead', 'Import from Lead')}</h4>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowLeadImport(false); setLeadPasteText(""); }}
+                    data-testid="button-cancel-lead-import">
+                    {t('common.cancel', 'Cancel')}
+                  </Button>
+                </div>
+                <Textarea
+                  value={leadPasteText}
+                  onChange={(e) => setLeadPasteText(e.target.value)}
+                  placeholder="F → Operation → E-mail → Telefonnummer → Vorname → Nachname → Source"
+                  rows={2}
+                  data-testid="textarea-lead-paste"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('appointments.leadPasteHint', 'Paste one row from the leads Excel (tab-separated)')}
+                </p>
+                <Button onClick={handleLeadImport} disabled={leadImportPending || !leadPasteText.trim()}
+                  className="w-full" data-testid="button-import-lead">
+                  {leadImportPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t('appointments.importAndCreate', 'Import & Create Patient')}
+                </Button>
+              </div>
+            ) : !showNewPatientForm ? (
               <div>
                 <div className="flex gap-2">
                   <Input
@@ -667,6 +809,18 @@ export function BookingDialog({
                     data-testid="button-show-new-patient"
                   >
                     <UserPlus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setShowLeadImport(true);
+                      setShowNewPatientForm(false);
+                    }}
+                    title={t('appointments.importLead', 'Import from Lead')}
+                    data-testid="button-show-lead-import"
+                  >
+                    <ClipboardPaste className="h-4 w-4" />
                   </Button>
                 </div>
                 {patients.length > 0 && !selectedPatientId && (
