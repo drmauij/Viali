@@ -21,6 +21,7 @@ import {
   getBulkImportImageLimit,
   requireWriteAccess,
   requireStrictHospitalAccess,
+  userHasPermission,
 } from "../utils";
 import { z, ZodError } from "zod";
 import { eq, and, or, inArray, sql, asc } from "drizzle-orm";
@@ -89,10 +90,9 @@ router.patch('/api/hospitals/:hospitalId', isAuthenticated, requireStrictHospita
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospitalAccess = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
-    if (!hospitalAccess) {
-      return res.status(403).json({ message: "Admin access required to update hospital settings" });
+    const hasPermission = await userHasPermission(userId, hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions to update hospital settings" });
     }
     const hospitalUpdateSchema = z.object({
       visionAiProvider: z.enum(['openai', 'pixtral']).optional(),
@@ -126,10 +126,9 @@ router.post('/api/hospitals/:id/seed', isAuthenticated, requireStrictHospitalAcc
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
-    if (!hospital) {
-      return res.status(403).json({ message: "Admin access required to seed hospital data" });
+    const hasPermission = await userHasPermission(userId, hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions to seed hospital data" });
     }
     const { seedHospitalData } = await import('../seed-hospital');
     const result = await seedHospitalData(hospitalId);
@@ -152,10 +151,9 @@ router.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireStrictHosp
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
-    if (!hospital) {
-      return res.status(403).json({ message: "Admin access required to reset lists" });
+    const hasPermission = await userHasPermission(userId, hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions to reset lists" });
     }
     const { resetListsToDefaults } = await import('../seed-hospital');
     const result = await resetListsToDefaults(hospitalId);
@@ -170,10 +168,9 @@ router.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireStric
   try {
     const { id: hospitalId } = req.params;
     const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
-    if (!hospital) {
-      return res.status(403).json({ message: "Admin access required to normalize phone numbers" });
+    const hasPermission = await userHasPermission(userId, hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions to normalize phone numbers" });
     }
 
     const normalizePhone = (phone: string | null): string | null => {

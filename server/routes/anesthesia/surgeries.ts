@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess } from "../../utils";
+import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
 
 const router = Router();
@@ -356,11 +356,9 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
       return res.status(404).json({ message: "Surgery not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminAccess = hospitals.some(h => h.id === surgery.hospitalId && h.role === 'admin');
-
-    if (!hasAdminAccess) {
-      return res.status(403).json({ message: "Admin access required to archive surgeries" });
+    const hasPermission = await userHasPermission(userId, surgery.hospitalId, 'canPlanOps');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions to archive surgeries" });
     }
 
     const archivedSurgery = await storage.archiveSurgery(id, userId);

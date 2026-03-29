@@ -12,7 +12,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   requireWriteAccess,
-  verifyUserHospitalUnitAccess
+  verifyUserHospitalUnitAccess,
+  userHasPermission,
 } from "../utils";
 import { broadcastChecklistUpdate } from "../socket";
 import logger from "../logger";
@@ -43,12 +44,11 @@ router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, as
       }
     }
     
-    const hospitals = await storage.getUserHospitals(userId);
-    const adminLocations = hospitals.filter(h => h.id === templateData.hospitalId && h.role === 'admin');
-    if (adminLocations.length === 0) {
-      return res.status(403).json({ message: "Admin access required" });
+    const hasPermission = await userHasPermission(userId, templateData.hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
-    
+
     const validated = insertChecklistTemplateSchema.parse({
       ...templateData,
       unitId: templateData.unitId || null,
@@ -106,12 +106,11 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const hospitals = await storage.getUserHospitals(userId);
-    const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
-    if (adminLocations.length === 0) {
-      return res.status(403).json({ message: "Admin access required" });
+    const hasPermission = await userHasPermission(userId, template.hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
-    
+
     const processedUpdates = { ...updates };
     if (processedUpdates.startDate && typeof processedUpdates.startDate === 'string') {
       processedUpdates.startDate = new Date(processedUpdates.startDate);
@@ -145,12 +144,11 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const hospitals = await storage.getUserHospitals(userId);
-    const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
-    if (adminLocations.length === 0) {
-      return res.status(403).json({ message: "Admin access required" });
+    const hasPermission = await userHasPermission(userId, template.hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
-    
+
     await storage.deleteChecklistTemplate(id);
     res.json({ success: true });
   } catch (error: any) {

@@ -22,6 +22,7 @@ import {
   requireStrictHospitalAccess,
   requireResourceAccess,
   getActiveUnitIdFromRequest,
+  userHasPermission,
 } from "../../utils";
 import logger from "../../logger";
 
@@ -462,9 +463,9 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     const { hospitalId } = req.params;
     const userId = req.user.id;
 
-    const role = await getUserRole(userId, hospitalId);
-    if (role !== 'admin') {
-      return res.status(403).json({ message: "Admin access required" });
+    const hasPermission = await userHasPermission(userId, hospitalId, 'canConfigure');
+    if (!hasPermission) {
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
 
     const validatedData = insertHospitalAnesthesiaSettingsSchema.parse({
