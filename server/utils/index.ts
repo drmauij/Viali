@@ -20,7 +20,10 @@ export {
   hasLogisticsAccess,
   canAccessOrder,
   WRITE_ROLES,
-  READ_ONLY_ROLES
+  READ_ONLY_ROLES,
+  requirePermission,
+  userHasPermission,
+  type PermissionFlag
 } from "./accessControl";
 export {
   getLicenseLimit,

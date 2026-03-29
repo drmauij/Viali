@@ -712,3 +712,53 @@ export async function verifyRecordBelongsToHospital(
   }
   return { valid: true };
 }
+
+export type PermissionFlag = 'canConfigure' | 'canChat' | 'canPlanOps';
+
+// Check if user has a specific permission for a hospital
+// Admin role implicitly has all permissions
+export async function userHasPermission(
+  userId: string,
+  hospitalId: string,
+  permission: PermissionFlag
+): Promise<boolean> {
+  const hospitals = await storage.getUserHospitals(userId);
+  return hospitals.some(
+    h => h.id === hospitalId && (h.role === 'admin' || h[permission] === true)
+  );
+}
+
+// Middleware factory: requirePermission('canConfigure')
+export function requirePermission(permission: PermissionFlag) {
+  return async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const hospitalId = await resolveHospitalIdFromRequest(req);
+      if (!hospitalId) {
+        return res.status(400).json({
+          message: "Hospital context required.",
+          code: "HOSPITAL_ID_REQUIRED"
+        });
+      }
+
+      const hasAccess = await userHasPermission(userId, hospitalId, permission);
+      if (!hasAccess) {
+        return res.status(403).json({
+          message: "Insufficient permissions for this action.",
+          code: "PERMISSION_DENIED"
+        });
+      }
+
+      req.resolvedHospitalId = hospitalId;
+      req.verifiedHospitalId = hospitalId;
+      next();
+    } catch (error) {
+      logger.error(`Error checking permission ${permission}:`, error);
+      res.status(500).json({ message: "Error checking permissions" });
+    }
+  };
+}
