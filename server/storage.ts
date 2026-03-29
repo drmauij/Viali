@@ -217,7 +217,7 @@ export interface IStorage {
   
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
-  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean })[]>;
+  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined>;
@@ -330,7 +330,7 @@ export interface IStorage {
   // Admin - User management
   getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; unit: Unit })[]>;
   getUserHospitalRoleById(id: string): Promise<UserHospitalRole | undefined>;
-  createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt'>): Promise<UserHospitalRole>;
+  createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt' | 'canConfigure' | 'canChat' | 'canPlanOps'> & Partial<Pick<UserHospitalRole, 'canConfigure' | 'canChat' | 'canPlanOps'>>): Promise<UserHospitalRole>;
   updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
   deleteUserHospitalRole(id: string): Promise<void>;
   searchUserByEmail(email: string): Promise<User | undefined>;
