@@ -56,6 +56,9 @@ const updateUnitSchema = z.object({
 const updateUserRoleSchema = z.object({
   unitId: z.string().optional(),
   role: z.enum(['admin', 'user', 'viewer']).optional(),
+  canConfigure: z.boolean().optional(),
+  canChat: z.boolean().optional(),
+  canPlanOps: z.boolean().optional(),
 });
 
 const updateUserAccessSchema = z.object({
@@ -453,12 +456,12 @@ router.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => 
 router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { userId, unitId, role } = req.body;
-    
+    const { userId, unitId, role, canConfigure, canChat, canPlanOps } = req.body;
+
     if (!userId || !unitId || !role) {
       return res.status(400).json({ message: "userId, unitId, and role are required" });
     }
-    
+
     const userRole = await storage.createUserHospitalRole({
       userId,
       hospitalId,
@@ -472,6 +475,9 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
       calcomEventTypeId: null,
       bookingServiceName: null,
       bookingLocation: null,
+      ...(canConfigure !== undefined && { canConfigure }),
+      ...(canChat !== undefined && { canChat }),
+      ...(canPlanOps !== undefined && { canPlanOps }),
     });
     res.status(201).json(userRole);
   } catch (error) {
@@ -488,12 +494,15 @@ router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('
       return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
     }
 
-    const { unitId, role } = parsed.data;
+    const { unitId, role, canConfigure, canChat, canPlanOps } = parsed.data;
 
     const updates: any = {};
     if (unitId !== undefined) updates.unitId = unitId;
     if (role !== undefined) updates.role = role;
-    
+    if (canConfigure !== undefined) updates.canConfigure = canConfigure;
+    if (canChat !== undefined) updates.canChat = canChat;
+    if (canPlanOps !== undefined) updates.canPlanOps = canPlanOps;
+
     const updated = await storage.updateUserHospitalRole(roleId, updates);
     res.json(updated);
   } catch (error) {
@@ -516,8 +525,8 @@ router.delete('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin(
 router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmin, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { userId, unitId, role } = req.body;
-    
+    const { userId, unitId, role, canConfigure, canChat, canPlanOps } = req.body;
+
     if (!userId || !unitId || !role) {
       return res.status(400).json({ message: "userId, unitId, and role are required" });
     }
@@ -552,6 +561,9 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       calcomEventTypeId: null,
       bookingServiceName: null,
       bookingLocation: null,
+      ...(canConfigure !== undefined && { canConfigure }),
+      ...(canChat !== undefined && { canChat }),
+      ...(canPlanOps !== undefined && { canPlanOps }),
     });
 
     const hospital = await storage.getHospital(hospitalId);
@@ -598,8 +610,8 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
 router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { email, password, firstName, lastName, phone, unitId, role, canLogin } = req.body;
-    
+    const { email, password, firstName, lastName, phone, unitId, role, canLogin, canConfigure, canChat, canPlanOps } = req.body;
+
     if (!email || !password || !firstName || !lastName || !unitId || !role) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -608,15 +620,15 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
     if (existingUser) {
       const userHospitals = await storage.getUserHospitals(existingUser.id);
       const alreadyInHospital = userHospitals.some(h => h.id === hospitalId);
-      
+
       // If user already exists in THIS hospital, return error
       if (alreadyInHospital) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           code: "USER_ALREADY_IN_HOSPITAL",
           message: "User is already a member of this hospital"
         });
       }
-      
+
       // User exists but NOT in this hospital - silently add them
       await storage.createUserHospitalRole({
         userId: existingUser.id,
@@ -631,6 +643,9 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         calcomEventTypeId: null,
         bookingServiceName: null,
         bookingLocation: null,
+        ...(canConfigure !== undefined && { canConfigure }),
+        ...(canChat !== undefined && { canChat }),
+        ...(canPlanOps !== undefined && { canPlanOps }),
       });
 
       const hospital = await storage.getHospital(hospitalId);
@@ -696,10 +711,13 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       calcomEventTypeId: null,
       bookingServiceName: null,
       bookingLocation: null,
+      ...(canConfigure !== undefined && { canConfigure }),
+      ...(canChat !== undefined && { canChat }),
+      ...(canPlanOps !== undefined && { canPlanOps }),
     });
 
     const hospital = await storage.getHospital(hospitalId);
-    
+
     const loginUrl = process.env.PRODUCTION_URL 
       || (process.env.REPLIT_DOMAINS?.split(',')?.[0] 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 

@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -81,7 +82,7 @@ interface HospitalUser extends UserHospitalRole {
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>;
+  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }>;
 }
 
 function ListToolbar({ search, onSearchChange, sortAsc, onToggleSort, staffTypeFilter, onStaffTypeFilterChange, searchPlaceholder, totalCount, filteredCount }: {
@@ -165,8 +166,11 @@ export default function Users() {
     phone: "",
     unitId: "",
     role: "",
+    canConfigure: false,
+    canChat: false,
+    canPlanOps: false,
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>>([]);
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }>>([]);
   const [newPair, setNewPair] = useState({ role: "", unitId: "" });
   
   // Change password states
@@ -222,6 +226,9 @@ export default function Users() {
     phone: "",
     unitId: "",
     role: "",
+    canConfigure: false,
+    canChat: false,
+    canPlanOps: false,
   });
 
   // Staff merge/dedup states
@@ -260,7 +267,10 @@ export default function Users() {
             roleId: userRole.id,
             unitId: userRole.unitId,
             isBookable: (userRole as any).isBookable ?? false,
-            isDefaultLogin: (userRole as any).isDefaultLogin ?? false
+            isDefaultLogin: (userRole as any).isDefaultLogin ?? false,
+            canConfigure: (userRole as any).canConfigure ?? false,
+            canChat: (userRole as any).canChat ?? false,
+            canPlanOps: (userRole as any).canPlanOps ?? false,
           }]
         });
       } else {
@@ -271,7 +281,10 @@ export default function Users() {
           roleId: userRole.id,
           unitId: userRole.unitId,
           isBookable: (userRole as any).isBookable ?? false,
-          isDefaultLogin: (userRole as any).isDefaultLogin ?? false
+          isDefaultLogin: (userRole as any).isDefaultLogin ?? false,
+          canConfigure: (userRole as any).canConfigure ?? false,
+          canChat: (userRole as any).canChat ?? false,
+          canPlanOps: (userRole as any).canPlanOps ?? false,
         });
       }
     });
@@ -383,7 +396,7 @@ export default function Users() {
   });
 
   const addExistingUserMutation = useMutation({
-    mutationFn: async (data: { userId: string; unitId: string; role: string }) => {
+    mutationFn: async (data: { userId: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
       const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/add-existing`, data);
       const result = await response.json();
       if (!response.ok) {
@@ -572,6 +585,20 @@ export default function Users() {
     },
   });
 
+  // Update user role permission flags
+  const updateRolePermissionMutation = useMutation({
+    mutationFn: async ({ roleId, ...flags }: { roleId: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${roleId}`, flags);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdatePermissions"), variant: "destructive" });
+    },
+  });
+
   // Update user email mutation
   const updateUserEmailMutation = useMutation({
     mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
@@ -600,10 +627,10 @@ export default function Users() {
 
   // Create staff member mutation (auto-generated credentials, no login access)
   const createStaffMemberMutation = useMutation({
-    mutationFn: async (data: { firstName: string; lastName: string; phone?: string; unitId: string; role: string }) => {
+    mutationFn: async (data: { firstName: string; lastName: string; phone?: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
       const dummyEmail = `staff_${crypto.randomUUID()}@internal.local`;
       const dummyPassword = generateSecurePassword(16);
-      
+
       const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/create`, {
         email: dummyEmail,
         password: dummyPassword,
@@ -613,6 +640,9 @@ export default function Users() {
         unitId: data.unitId,
         role: data.role,
         canLogin: false,
+        canConfigure: data.canConfigure,
+        canChat: data.canChat,
+        canPlanOps: data.canPlanOps,
       });
       const result = await response.json();
       if (!response.ok) {
@@ -623,7 +653,7 @@ export default function Users() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       setStaffMemberDialogOpen(false);
-      setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "" });
+      setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
       toast({ title: t("common.success"), description: t("admin.staffMemberCreated") });
     },
     onError: (error: any) => {
@@ -653,7 +683,7 @@ export default function Users() {
   });
 
   const resetUserForm = () => {
-    setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "" });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
     setDetectedExistingUser(null);
     setDetectedUserAlreadyInHospital(false);
     setIsCheckingEmail(false);
@@ -702,7 +732,7 @@ export default function Users() {
   };
 
   const handleCreateStaffMember = () => {
-    setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "" });
+    setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
     setStaffMemberDialogOpen(true);
   };
 
@@ -731,12 +761,15 @@ export default function Users() {
   const [editEmail, setEditEmail] = useState("");
 
   const handleEditUser = (user: GroupedHospitalUser) => {
-    const userPairs = user.roles?.map((r: any) => ({ 
-      id: r.roleId, 
-      role: r.role, 
+    const userPairs = user.roles?.map((r: any) => ({
+      id: r.roleId,
+      role: r.role,
       unitId: r.unitId,
       isBookable: r.isBookable ?? false,
-      isDefaultLogin: r.isDefaultLogin ?? false
+      isDefaultLogin: r.isDefaultLogin ?? false,
+      canConfigure: r.canConfigure ?? false,
+      canChat: r.canChat ?? false,
+      canPlanOps: r.canPlanOps ?? false,
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -757,12 +790,15 @@ export default function Users() {
     if (editingUserDetails && users) {
       const user = users.find(u => u.user.id === editingUserDetails.id);
       if (user) {
-        const userPairs = user.roles?.map((r: any) => ({ 
-          id: r.roleId, 
-          role: r.role, 
+        const userPairs = user.roles?.map((r: any) => ({
+          id: r.roleId,
+          role: r.role,
           unitId: r.unitId,
           isBookable: r.isBookable ?? false,
-          isDefaultLogin: r.isDefaultLogin ?? false
+          isDefaultLogin: r.isDefaultLogin ?? false,
+          canConfigure: r.canConfigure ?? false,
+          canChat: r.canChat ?? false,
+          canPlanOps: r.canPlanOps ?? false,
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -840,6 +876,9 @@ export default function Users() {
         userId: detectedExistingUser.id,
         unitId: userForm.unitId,
         role: userForm.role,
+        canConfigure: userForm.canConfigure,
+        canChat: userForm.canChat,
+        canPlanOps: userForm.canPlanOps,
       });
       return;
     }
@@ -1364,7 +1403,7 @@ export default function Users() {
               <Label htmlFor="user-role">{t("admin.role")} *</Label>
               <Select
                 value={userForm.role}
-                onValueChange={(value) => setUserForm({ ...userForm, role: value })}
+                onValueChange={(value) => setUserForm({ ...userForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false } : {}) })}
                 disabled={!userForm.unitId}
               >
                 <SelectTrigger data-testid="select-user-role">
@@ -1382,6 +1421,34 @@ export default function Users() {
                 </SelectContent>
               </Select>
             </div>
+            {userForm.role && userForm.role !== 'admin' && (
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium text-muted-foreground">{t("admin.extraPermissions")}</Label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={userForm.canConfigure}
+                      onCheckedChange={(v) => setUserForm({ ...userForm, canConfigure: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionConfigure")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={userForm.canChat}
+                      onCheckedChange={(v) => setUserForm({ ...userForm, canChat: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionChat")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={userForm.canPlanOps}
+                      onCheckedChange={(v) => setUserForm({ ...userForm, canPlanOps: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionPlanOps")}</span>
+                  </label>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUserDialogOpen(false)}>
                 {t("common.cancel")}
@@ -1471,7 +1538,7 @@ export default function Users() {
               <Label htmlFor="staff-role">{t("admin.role")} *</Label>
               <Select
                 value={staffMemberForm.role}
-                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value })}
+                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false } : {}) })}
                 disabled={!staffMemberForm.unitId}
               >
                 <SelectTrigger data-testid="select-staff-role">
@@ -1489,6 +1556,34 @@ export default function Users() {
                 </SelectContent>
               </Select>
             </div>
+            {staffMemberForm.role && staffMemberForm.role !== 'admin' && (
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium text-muted-foreground">{t("admin.extraPermissions")}</Label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={staffMemberForm.canConfigure}
+                      onCheckedChange={(v) => setStaffMemberForm({ ...staffMemberForm, canConfigure: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionConfigure")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={staffMemberForm.canChat}
+                      onCheckedChange={(v) => setStaffMemberForm({ ...staffMemberForm, canChat: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionChat")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={staffMemberForm.canPlanOps}
+                      onCheckedChange={(v) => setStaffMemberForm({ ...staffMemberForm, canPlanOps: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionPlanOps")}</span>
+                  </label>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setStaffMemberDialogOpen(false)}>
                 {t("common.cancel")}
@@ -1823,6 +1918,40 @@ export default function Users() {
                             </Button>
                           )}
                         </div>
+                        {pair.id && pair.role !== 'admin' && (
+                          <div className="flex flex-wrap gap-3 w-full pt-1">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <Checkbox
+                                checked={pair.canConfigure ?? false}
+                                onCheckedChange={(v) => {
+                                  updateRolePermissionMutation.mutate({ roleId: pair.id!, canConfigure: !!v });
+                                }}
+                                disabled={updateRolePermissionMutation.isPending}
+                              />
+                              <span className="text-xs text-muted-foreground">{t("admin.permissionConfigure")}</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <Checkbox
+                                checked={pair.canChat ?? false}
+                                onCheckedChange={(v) => {
+                                  updateRolePermissionMutation.mutate({ roleId: pair.id!, canChat: !!v });
+                                }}
+                                disabled={updateRolePermissionMutation.isPending}
+                              />
+                              <span className="text-xs text-muted-foreground">{t("admin.permissionChat")}</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <Checkbox
+                                checked={pair.canPlanOps ?? false}
+                                onCheckedChange={(v) => {
+                                  updateRolePermissionMutation.mutate({ roleId: pair.id!, canPlanOps: !!v });
+                                }}
+                                disabled={updateRolePermissionMutation.isPending}
+                              />
+                              <span className="text-xs text-muted-foreground">{t("admin.permissionPlanOps")}</span>
+                            </label>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -2095,6 +2224,9 @@ export default function Users() {
                           userId: existingUserInfo.id,
                           unitId: userForm.unitId,
                           role: userForm.role,
+                          canConfigure: userForm.canConfigure,
+                          canChat: userForm.canChat,
+                          canPlanOps: userForm.canPlanOps,
                         });
                       }
                     }}
