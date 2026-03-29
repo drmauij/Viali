@@ -693,11 +693,17 @@ export function BookingDialog({
             phone: parsed.phone || undefined,
           });
         }
+      } else {
+        toast({
+          title: t('appointments.importFailed', 'Could not parse lead'),
+          description: t('appointments.patientSearchFailed', 'Could not search for existing patients'),
+          variant: "destructive",
+        });
       }
     } catch (err) {
       toast({
         title: t('appointments.importFailed', 'Could not parse lead'),
-        description: String(err),
+        description: err instanceof Error ? err.message : String(err),
         variant: "destructive",
       });
     } finally {
