@@ -13,7 +13,6 @@ import { z } from "zod";
 import {
   requireWriteAccess,
   verifyUserHospitalUnitAccess,
-  userHasPermission,
 } from "../utils";
 import { broadcastChecklistUpdate } from "../socket";
 import logger from "../logger";
@@ -44,9 +43,10 @@ router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, as
       }
     }
     
-    const hasPermission = await userHasPermission(userId, templateData.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some(h => h.id === templateData.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const validated = insertChecklistTemplateSchema.parse({
@@ -106,9 +106,10 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const hasPermission = await userHasPermission(userId, template.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const processedUpdates = { ...updates };
@@ -144,9 +145,10 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const hasPermission = await userHasPermission(userId, template.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some(h => h.id === template.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     await storage.deleteChecklistTemplate(id);

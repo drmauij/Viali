@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, requireStrictHospitalAccess, userHasPermission } from "../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
 import { 
   clinicInvoices, 
   clinicInvoiceItems,
@@ -5180,9 +5180,10 @@ router.get('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async 
     const { hospitalId } = req.params;
     
     // Verify user has admin access to this hospital
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
     
     const config = await storage.getHospitalVonageConfig(hospitalId);
@@ -5223,9 +5224,10 @@ router.put('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async 
     const { apiKey, apiSecret, fromNumber, isEnabled } = req.body;
     
     // Verify user has admin access to this hospital
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
     
     const existing = await storage.getHospitalVonageConfig(hospitalId);
@@ -5266,9 +5268,10 @@ router.post('/api/admin/:hospitalId/integrations/vonage/test', isAuthenticated, 
     const { testPhoneNumber } = req.body;
     
     // Verify user has admin access to this hospital
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
     
     const hospital = await storage.getHospital(hospitalId);
@@ -5337,9 +5340,10 @@ router.delete('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, asy
     const { hospitalId } = req.params;
     
     // Verify user has admin access to this hospital
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
     
     // Clear the config by setting everything to null
@@ -5367,9 +5371,10 @@ router.get('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, async 
   try {
     const { hospitalId } = req.params;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const config = await storage.getHospitalAspsmsConfig(hospitalId);
@@ -5409,9 +5414,10 @@ router.put('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, async 
     const { hospitalId } = req.params;
     const { userKey, password, originator, isEnabled } = req.body;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const existing = await storage.getHospitalAspsmsConfig(hospitalId);
@@ -5451,9 +5457,10 @@ router.post('/api/admin/:hospitalId/integrations/aspsms/test', isAuthenticated, 
     const { hospitalId } = req.params;
     const { testPhoneNumber } = req.body;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const hospital = await storage.getHospital(hospitalId);
@@ -5521,9 +5528,10 @@ router.delete('/api/admin/:hospitalId/integrations/aspsms', isAuthenticated, asy
   try {
     const { hospitalId } = req.params;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     await storage.upsertHospitalAspsmsConfig({
@@ -5546,9 +5554,10 @@ router.get('/api/admin/:hospitalId/integrations/aspsms/credits', isAuthenticated
   try {
     const { hospitalId } = req.params;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const config = await storage.getHospitalAspsmsConfig(hospitalId);
@@ -5595,9 +5604,10 @@ router.put('/api/admin/:hospitalId/integrations/sms-provider', isAuthenticated, 
     const { hospitalId } = req.params;
     const { provider } = req.body;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     if (!['auto', 'aspsms', 'vonage'].includes(provider)) {
@@ -5618,9 +5628,10 @@ router.get('/api/admin/:hospitalId/integrations/sms-provider', isAuthenticated, 
   try {
     const { hospitalId } = req.params;
 
-    const hasPermission = await userHasPermission(req.user.id, hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(req.user.id);
+    const hasAdminRole = hospitals.some((h: any) => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const fullHospital = await storage.getHospital(hospitalId);

@@ -2024,7 +2024,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     Deselect All
                   </Button>
                 )}
-                {(activeHospital?.role === 'admin' || activeHospital?.canConfigure === true) && (
+                {activeHospital?.role === 'admin' && (
                   <Button 
                     variant="outline" 
                     size="sm" 

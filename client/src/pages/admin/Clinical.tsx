@@ -83,26 +83,25 @@ export default function Clinical() {
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
-  // Check if user is admin or has configure permission
+  // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
-  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   // Fetch units
   const { data: units = [], isLoading: unitsLoading } = useQuery<Unit[]>({
     queryKey: [`/api/admin/${activeHospital?.id}/units`],
-    enabled: !!activeHospital?.id && canConfigure,
+    enabled: !!activeHospital?.id && isAdmin,
   });
 
   // Fetch surgery rooms
   const { data: surgeryRooms = [], isLoading: roomsLoading } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && canConfigure,
+    enabled: !!activeHospital?.id && isAdmin,
   });
 
   // Fetch checklist templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<any[]>({
     queryKey: [`/api/checklists/templates/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && canConfigure,
+    enabled: !!activeHospital?.id && isAdmin,
   });
 
   // Unit mutations
@@ -478,7 +477,7 @@ export default function Clinical() {
     );
   }
 
-  if (!canConfigure) {
+  if (!isAdmin) {
     return (
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">

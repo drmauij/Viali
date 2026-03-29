@@ -7,7 +7,7 @@ import { importChopProcedures } from "../scripts/importChop";
 import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
 import * as XLSX from 'xlsx';
 import { randomUUID } from 'crypto';
-import { requireWriteAccess, requireResourceAdmin, requireStrictHospitalAccess, requirePermission, userHasPermission } from "../utils";
+import { requireWriteAccess, requireResourceAdmin, requireStrictHospitalAccess } from "../utils";
 import logger from "../logger";
 import { z } from "zod";
 
@@ -107,7 +107,7 @@ async function isAdmin(req: any, res: Response, next: NextFunction) {
   }
 }
 
-router.get('/api/admin/:hospitalId', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -123,7 +123,7 @@ router.get('/api/admin/:hospitalId', isAuthenticated, requirePermission('canConf
   }
 });
 
-router.patch('/api/admin/:hospitalId', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const parsed = updateHospitalSchema.safeParse(req.body);
@@ -148,7 +148,7 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, requirePermission('canCo
   }
 });
 
-router.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { anesthesiaUnitId } = req.body;
@@ -177,7 +177,7 @@ router.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, requ
   }
 });
 
-router.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { surgeryUnitId } = req.body;
@@ -1241,7 +1241,7 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
 });
 
 // Questionnaire token management
-router.get('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -1259,7 +1259,7 @@ router.get('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, requir
   }
 });
 
-router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { nanoid } = await import('nanoid');
@@ -1276,7 +1276,7 @@ router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticat
   }
 });
 
-router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -1290,7 +1290,7 @@ router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, req
 });
 
 // Questionnaire alias management
-router.get('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -1304,7 +1304,7 @@ router.get('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, requir
   }
 });
 
-router.get('/api/admin/:hospitalId/questionnaire-alias/check', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/questionnaire-alias/check', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const alias = (req.query.alias as string || '').toLowerCase().trim();
@@ -1319,7 +1319,7 @@ router.get('/api/admin/:hospitalId/questionnaire-alias/check', isAuthenticated, 
   }
 });
 
-router.put('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.put('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const alias = (req.body.alias as string || '').toLowerCase().trim();
@@ -1341,7 +1341,7 @@ router.put('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, requir
   }
 });
 
-router.delete('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.delete('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     await storage.setHospitalQuestionnaireAlias(hospitalId, null);
@@ -1353,7 +1353,7 @@ router.delete('/api/admin/:hospitalId/questionnaire-alias', isAuthenticated, req
 });
 
 // Kiosk token management
-router.get('/api/admin/:hospitalId/kiosk-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -1371,7 +1371,7 @@ router.get('/api/admin/:hospitalId/kiosk-token', isAuthenticated, requirePermiss
   }
 });
 
-router.post('/api/admin/:hospitalId/kiosk-token/generate', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/kiosk-token/generate', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { nanoid } = await import('nanoid');
@@ -1388,7 +1388,7 @@ router.post('/api/admin/:hospitalId/kiosk-token/generate', isAuthenticated, requ
   }
 });
 
-router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -1402,7 +1402,7 @@ router.delete('/api/admin/:hospitalId/kiosk-token', isAuthenticated, requirePerm
 });
 
 // Booking token management
-router.get('/api/admin/:hospitalId/booking-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -1414,7 +1414,7 @@ router.get('/api/admin/:hospitalId/booking-token', isAuthenticated, requirePermi
   }
 });
 
-router.post('/api/admin/:hospitalId/booking-token/generate', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/booking-token/generate', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { nanoid } = await import('nanoid');
@@ -1427,7 +1427,7 @@ router.post('/api/admin/:hospitalId/booking-token/generate', isAuthenticated, re
   }
 });
 
-router.delete('/api/admin/:hospitalId/booking-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.delete('/api/admin/:hospitalId/booking-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     await storage.setHospitalBookingToken(hospitalId, null);
@@ -1438,7 +1438,7 @@ router.delete('/api/admin/:hospitalId/booking-token', isAuthenticated, requirePe
   }
 });
 
-router.put('/api/admin/:hospitalId/booking-settings', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.put('/api/admin/:hospitalId/booking-settings', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { slotDurationMinutes, maxAdvanceDays, minAdvanceHours, enableReferralOnBooking } = req.body;
@@ -1454,7 +1454,7 @@ router.put('/api/admin/:hospitalId/booking-settings', isAuthenticated, requirePe
 });
 
 // Card reader token management
-router.get('/api/admin/:hospitalId/card-reader-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/card-reader-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const hospital = await storage.getHospital(hospitalId);
@@ -1472,7 +1472,7 @@ router.get('/api/admin/:hospitalId/card-reader-token', isAuthenticated, requireP
   }
 });
 
-router.post('/api/admin/:hospitalId/card-reader-token/generate', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/card-reader-token/generate', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { nanoid } = await import('nanoid');
@@ -1489,7 +1489,7 @@ router.post('/api/admin/:hospitalId/card-reader-token/generate', isAuthenticated
   }
 });
 
-router.delete('/api/admin/:hospitalId/card-reader-token', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.delete('/api/admin/:hospitalId/card-reader-token', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -1561,7 +1561,7 @@ router.delete('/api/admin/users/:userId/kiosk-pin', isAuthenticated, requireWrit
 });
 
 // Admin file upload endpoint (for unit info flyers, etc.)
-router.post('/api/admin/:hospitalId/upload', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/upload', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { filename, folder } = req.body;
     
@@ -1612,7 +1612,7 @@ router.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => 
 // Admin endpoint to fix stock levels for ALL hospitals/clinics at once
 // This recalculates qty_on_hand = CEIL(current_units / pack_size) for all affected items
 // ONLY affects items where: unit = 'Pack' AND track_exact_quantity = true
-router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { items: itemsTable, stockLevels } = await import('@shared/schema');
     const { eq, and } = await import('drizzle-orm');
@@ -1917,7 +1917,7 @@ router.get('/api/admin/catalog/status', isAuthenticated, async (req: any, res) =
   }
 });
 
-router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, requirePermission('canConfigure'), async (req: any, res) => {
+router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, isAdmin, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -2217,7 +2217,7 @@ router.post('/api/admin/:hospitalId/patient-merge/undo/:mergeId', isAuthenticate
 });
 
 // GET /api/admin/:hospitalId/login-audit-logs — Paginated login audit logs
-router.get('/api/admin/:hospitalId/login-audit-logs', isAuthenticated, requirePermission('canConfigure'), async (req, res) => {
+router.get('/api/admin/:hospitalId/login-audit-logs', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { userId, eventType, startDate, endDate, limit, offset } = req.query;
@@ -2270,7 +2270,7 @@ router.get('/api/hospitals/:hospitalId/closures', isAuthenticated, async (req: a
   }
 });
 
-router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requirePermission('canConfigure'), async (req: any, res: Response) => {
+router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, isAdmin, async (req: any, res: Response) => {
   try {
     const { hospitalId } = req.params;
     const { name, startDate, endDate, notes } = req.body;
@@ -2299,7 +2299,7 @@ router.post('/api/hospitals/:hospitalId/closures', isAuthenticated, requirePermi
   }
 });
 
-router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requirePermission('canConfigure'), async (req: any, res: Response) => {
+router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, isAdmin, async (req: any, res: Response) => {
   try {
     const { id, hospitalId } = req.params;
     const { name, startDate, endDate, notes } = req.body;
@@ -2329,7 +2329,7 @@ router.patch('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, require
   }
 });
 
-router.delete('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, requirePermission('canConfigure'), async (req: any, res: Response) => {
+router.delete('/api/hospitals/:hospitalId/closures/:id', isAuthenticated, isAdmin, async (req: any, res: Response) => {
   try {
     const { id, hospitalId } = req.params;
 

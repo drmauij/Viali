@@ -21,7 +21,7 @@ import {
 } from "@shared/schema";
 import { importTardocFromExcel, importTardocFromCsv, importCumulationRulesFromExcel } from "../scripts/importTardoc";
 import { importApFromExcel } from "../scripts/importAmbulantePauschalen";
-import { requireWriteAccess, requireStrictHospitalAccess, userHasPermission } from "../utils";
+import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
 import { eq, and, or, sql, asc, desc, max, inArray } from "drizzle-orm";
 import { z } from "zod";
 import logger from "../logger";
@@ -89,9 +89,10 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
     const userId = req.user.id;
 
     // Check if user is admin of this hospital
-    const hasPermission = await userHasPermission(userId, req.params.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     // Expect base64 file content in body
@@ -149,9 +150,10 @@ router.post('/api/admin/:hospitalId/import-tardoc', isAuthenticated, requireStri
 router.post('/api/admin/:hospitalId/import-tardoc-remote', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
-    const hasPermission = await userHasPermission(userId, req.params.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const version = req.body.version || '1.4c';
@@ -266,9 +268,10 @@ router.get('/api/ambulante-pauschalen/search', isAuthenticated, async (req: any,
 router.post('/api/admin/:hospitalId/import-ambulante-pauschalen', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
-    const hasPermission = await userHasPermission(userId, req.params.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const { fileContent, version } = req.body;
@@ -313,9 +316,10 @@ router.post('/api/admin/:hospitalId/import-ambulante-pauschalen', isAuthenticate
 router.post('/api/admin/:hospitalId/import-ap-remote', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
-    const hasPermission = await userHasPermission(userId, req.params.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const version = req.body.version || '1.1c';
@@ -382,9 +386,10 @@ router.get('/api/tardoc/ap-catalog-status', async (req: any, res: Response) => {
 router.post('/api/admin/:hospitalId/import-cumulation-rules', isAuthenticated, requireStrictHospitalAccess, async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
-    const hasPermission = await userHasPermission(userId, req.params.hospitalId, 'canConfigure');
-    if (!hasPermission) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some((h: any) => h.id === req.params.hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const { fileContent, version } = req.body;
