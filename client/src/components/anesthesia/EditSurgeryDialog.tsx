@@ -37,6 +37,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [archiveConfirmText, setArchiveConfirmText] = useState("");
   const activeHospital = useActiveHospital();
   const isAdmin = activeHospital?.role === "admin";
+  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
   const [activeTab, setActiveTab] = useState("details");
@@ -875,7 +876,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       {t('anesthesia.editSurgery.suspendButton', 'Absetzen')}
                     </Button>
                   )}
-                  {isAdmin && (
+                  {canPlanOps && (
                     <Button
                       variant="outline"
                       onClick={handleArchive}

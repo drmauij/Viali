@@ -69,7 +69,7 @@ export default function OpList() {
   const activeHospital = useActiveHospital();
   const isMobile = useIsMobile();
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
-  const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && activeHospital?.role === 'admin';
+  const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && (activeHospital?.role === 'admin' || activeHospital?.canPlanOps === true);
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const [openRequestsFromUrl] = useState(() => {
     const params = new URLSearchParams(window.location.search);

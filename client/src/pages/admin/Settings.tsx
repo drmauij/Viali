@@ -26,8 +26,9 @@ export default function SettingsPage() {
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
 
-  // Check if user is admin
+  // Check if user is admin or has configure permission
   const isAdmin = activeHospital?.role === "admin";
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   // Internal tab state
   const urlTab = new URLSearchParams(window.location.search).get('tab');
@@ -703,7 +704,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canConfigure) {
     return (
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">

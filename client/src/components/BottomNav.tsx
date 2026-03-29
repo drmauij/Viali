@@ -41,6 +41,10 @@ export default function BottomNav() {
   }, [user]);
 
   const isAdmin = activeHospital?.role === "admin";
+  const hasAnyPermission = isAdmin
+    || activeHospital?.canConfigure === true
+    || activeHospital?.canChat === true
+    || activeHospital?.canPlanOps === true;
 
   // Fetch pending checklist count for the active unit
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({

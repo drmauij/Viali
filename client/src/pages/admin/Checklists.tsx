@@ -38,25 +38,26 @@ export default function Checklists() {
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
-  // Check if user is admin
+  // Check if user is admin or has configure permission
   const isAdmin = activeHospital?.role === "admin";
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   // Fetch units
   const { data: units = [] } = useQuery<any[]>({
     queryKey: [`/api/admin/${activeHospital?.id}/units`],
-    enabled: !!activeHospital?.id && isAdmin,
+    enabled: !!activeHospital?.id && canConfigure,
   });
 
   // Fetch surgery rooms
   const { data: surgeryRooms = [] } = useQuery<any[]>({
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && isAdmin,
+    enabled: !!activeHospital?.id && canConfigure,
   });
 
   // Fetch checklist templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<any[]>({
     queryKey: [`/api/checklists/templates/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && isAdmin,
+    enabled: !!activeHospital?.id && canConfigure,
   });
 
   // Template mutations
@@ -274,7 +275,7 @@ export default function Checklists() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canConfigure) {
     return (
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">

@@ -30,7 +30,10 @@ export function ProtectedRoute({
   // When user switches units, available modules change accordingly
   const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
   const hasSurgeryAccess = activeHospital?.unitType === 'or';
-  const hasAdminAccess = activeHospital?.role === "admin";
+  const hasAdminAccess = activeHospital?.role === "admin"
+    || activeHospital?.canConfigure === true
+    || activeHospital?.canChat === true
+    || activeHospital?.canPlanOps === true;
   const hasDoctorAccess = activeHospital?.role === "doctor";
   const hasBusinessAccess = activeHospital?.unitType === 'business';
   const hasClinicAccess = activeHospital?.unitType === 'clinic';

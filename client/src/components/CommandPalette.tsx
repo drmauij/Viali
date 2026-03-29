@@ -148,15 +148,20 @@ function CommandPalette({
     }
   }, [isOpen]);
 
-  // Filter static items by role
+  // Filter static items by role (users with any permission flag can see admin items)
+  const hasAnyPermission = activeHospital?.role === "admin"
+    || activeHospital?.canConfigure === true
+    || activeHospital?.canChat === true
+    || activeHospital?.canPlanOps === true;
   const filteredItems = useMemo(() => {
     const role = activeHospital?.role;
     return COMMAND_PALETTE_ITEMS.filter((item) => {
       if (!item.requiredRole) return true;
       if (role === "admin") return true;
+      if (item.requiredRole === "admin" && hasAnyPermission) return true;
       return role === item.requiredRole;
     });
-  }, [activeHospital?.role]);
+  }, [activeHospital?.role, hasAnyPermission]);
 
   // Group filtered items by section
   const groupedItems = useMemo(() => {

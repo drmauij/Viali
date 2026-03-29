@@ -195,6 +195,7 @@ export default function PatientDetail() {
   const canManageSurgeries = canWrite && !isClinicModule;
   const canViewSurgeryDetails = !isClinicModule;
   const isAdmin = activeHospital?.role === "admin";
+  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [archiveSurgeryConfirmText, setArchiveSurgeryConfirmText] = useState("");
   const [archivePatientConfirmText, setArchivePatientConfirmText] = useState("");
   const [undoingMerge, setUndoingMerge] = useState(false);
@@ -1870,7 +1871,7 @@ export default function PatientDetail() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  {isAdmin && (
+                  {canPlanOps && (
                     <Button
                       variant="outline"
                       size="icon"
@@ -2964,7 +2965,7 @@ export default function PatientDetail() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {isAdmin && (
+                        {canPlanOps && (
                           <Button
                             variant="ghost"
                             size="icon"

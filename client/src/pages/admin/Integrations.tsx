@@ -43,6 +43,7 @@ export default function Integrations() {
   );
 
   const isAdmin = activeHospital?.role === "admin";
+  const canConfigure = isAdmin || activeHospital?.canConfigure === true;
 
   // ── TARDOC Billing Identifiers state ─────────────────────────────────
   const [billingForm, setBillingForm] = useState({
@@ -443,7 +444,7 @@ export default function Integrations() {
 
   // ── Guard ──────────────────────────────────────────────────────────────
 
-  if (!isAdmin) {
+  if (!canConfigure) {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">{t("common.accessDenied", "Access denied")}</p>

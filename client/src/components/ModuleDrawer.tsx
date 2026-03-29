@@ -55,6 +55,10 @@ export default function ModuleDrawer() {
   const hasClinicAccess = activeHospital?.unitType === 'clinic';
   const hasLogisticAccess = activeHospital?.unitType === 'logistic';
   const isAdmin = activeHospital?.role === "admin";
+  const hasAnyPermission = isAdmin
+    || activeHospital?.canConfigure === true
+    || activeHospital?.canChat === true
+    || activeHospital?.canPlanOps === true;
   const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
 
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
@@ -138,8 +142,8 @@ export default function ModuleDrawer() {
   const isBusinessOnly = hasBusinessAccess && !hasAnesthesiaAccess && !hasSurgeryAccess && !isAdmin;
 
   const modules = allModules.filter(module => {
-    // Admin modules only for admins
-    if (module.adminOnly && !isAdmin) return false;
+    // Admin modules for admins or users with any permission flag
+    if (module.adminOnly && !hasAnyPermission) return false;
     // Business module only for users assigned to business units
     if (module.businessOnly && !hasBusinessAccess) return false;
     // Clinic module only for users assigned to clinic units AND addon enabled

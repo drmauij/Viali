@@ -22,6 +22,7 @@ interface Hospital {
   unitName: string;
   unitType?: string | null;
   addonWorktime?: boolean;
+  canChat?: boolean;
 }
 
 interface TopBarProps {

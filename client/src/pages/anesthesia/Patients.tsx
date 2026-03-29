@@ -66,6 +66,7 @@ export default function Patients() {
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
   const [selectedPatientForForm, setSelectedPatientForForm] = useState<Patient | null>(null);
   const isAdmin = activeHospital?.role === "admin";
+  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [mergePatients, setMergePatients] = useState<{ p1: string; p2: string } | null>(null);
 
@@ -344,7 +345,7 @@ export default function Patients() {
         </div>
         
         <div className="flex gap-2">
-          {isAdmin && (
+          {canPlanOps && (
             <Button variant="outline" onClick={() => setShowDuplicates(true)}>
               {t('anesthesia.patients.findDuplicates', 'Find Duplicates')}
             </Button>
@@ -722,7 +723,7 @@ export default function Patients() {
         />
       )}
 
-      {isAdmin && activeHospital && (
+      {canPlanOps && activeHospital && (
         <>
           <PatientDuplicatesDialog
             open={showDuplicates}

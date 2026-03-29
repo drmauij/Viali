@@ -92,6 +92,7 @@ interface ChatDockProps {
     unitId: string;
     unitName: string;
     unitType?: string | null;
+    canChat?: boolean;
   };
   onOpenPatientInline?: (patientId: string) => void;
   initialConversationId?: string | null;
@@ -2677,7 +2678,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     <span className="font-medium">Message My Unit</span>
                   </button>
 
-                  {activeHospital?.role === 'admin' && (
+                  {(activeHospital?.role === 'admin' || activeHospital?.canChat === true) && (
                     <button
                       className="w-full p-2.5 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
                       onClick={() => {

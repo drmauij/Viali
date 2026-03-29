@@ -77,6 +77,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   const [showCreateSetFromCommits, setShowCreateSetFromCommits] = useState(false);
 
   const isAdmin = activeHospital?.role === 'admin';
+  const canPlanOps = isAdmin || activeHospital?.canPlanOps === true;
 
   // Toggle folder expansion
   const toggleFolder = (folderId: string) => {
@@ -691,7 +692,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
       )}
 
       {/* Create Set from Committed Items */}
-      {commits.length > 0 && isAdmin && aggregatedCommittedItems.length > 0 && (
+      {commits.length > 0 && canPlanOps && aggregatedCommittedItems.length > 0 && (
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -899,7 +900,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
           open={showCreateSetFromCommits}
           onOpenChange={setShowCreateSetFromCommits}
           hospitalId={activeHospital?.id || ''}
-          isAdmin={isAdmin}
+          isAdmin={canPlanOps}
           initialInventoryItems={aggregatedCommittedItems}
         />
       ) : (
@@ -907,7 +908,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
           open={showCreateSetFromCommits}
           onOpenChange={setShowCreateSetFromCommits}
           hospitalId={activeHospital?.id || ''}
-          isAdmin={isAdmin}
+          isAdmin={canPlanOps}
           initialInventoryItems={aggregatedCommittedItems}
         />
       )}
