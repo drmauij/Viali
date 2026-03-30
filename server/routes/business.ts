@@ -42,20 +42,42 @@ async function isBusinessManager(req: any, res: Response, next: any) {
   try {
     const userId = req.user.id;
     const { hospitalId } = req.params;
-    
+
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => 
-      h.id === hospitalId && 
+    const hasAccess = hospitals.some(h =>
+      h.id === hospitalId &&
       (h.role === 'admin' || h.role === 'manager')
     );
-    
+
     if (!hasAccess) {
       return res.status(403).json({ message: "Business manager access required" });
     }
-    
+
     next();
   } catch (error) {
     logger.error("Error checking business access:", error);
+    res.status(500).json({ message: "Failed to verify access" });
+  }
+}
+
+async function isMarketingOrManager(req: any, res: Response, next: any) {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h =>
+      h.id === hospitalId &&
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing')
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Marketing or business manager access required" });
+    }
+
+    next();
+  } catch (error) {
+    logger.error("Error checking marketing access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
@@ -1780,7 +1802,7 @@ router.patch("/api/business/:hospitalId/time-off/:timeOffId/approve", isAuthenti
 });
 
 // Referral source statistics
-router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { from, to } = req.query;
@@ -1815,7 +1837,7 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isBusine
 });
 
 // Referral source time-series (monthly, full history — no date filter)
-router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -1838,7 +1860,7 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isB
 });
 
 // Recent referral events list (for verifying click ID tracking)
-router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
@@ -1884,7 +1906,7 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isBusin
 // Referral Funnel (conversion analytics)
 // ========================================
 
-router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { from, to } = req.query;
@@ -1972,7 +1994,7 @@ function normalizeName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const parsed = leadConversionSchema.parse(req.body);
@@ -2293,7 +2315,7 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isBusi
 // Backfill referral events from lead data
 // ========================================
 
-router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const parsed = leadConversionSchema.parse(req.body);
@@ -2568,7 +2590,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
 // Ad Budget Management (manager-only)
 // ========================================
 
-router.get('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/ad-budgets', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { month } = req.query;
@@ -2599,7 +2621,7 @@ router.get('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessMa
   }
 });
 
-router.put('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.put('/api/business/:hospitalId/ad-budgets', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { month, budgets } = req.body;
@@ -2654,7 +2676,7 @@ router.put('/api/business/:hospitalId/ad-budgets', isAuthenticated, isBusinessMa
   }
 });
 
-router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
 
@@ -2791,7 +2813,7 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isBusine
 });
 
 // Delete all budgets for a specific month
-router.delete('/api/business/:hospitalId/ad-budgets/:month', isAuthenticated, isBusinessManager, async (req: any, res) => {
+router.delete('/api/business/:hospitalId/ad-budgets/:month', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId, month } = req.params;
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
