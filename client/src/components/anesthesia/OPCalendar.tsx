@@ -1529,7 +1529,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           data-testid="day-notes-card"
         >
           <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-line line-clamp-3 flex-1 min-w-0">
+          <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-line flex-1 min-w-0">
             {dayNotesData.notes.trim()}
           </p>
           <button

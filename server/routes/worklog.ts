@@ -818,7 +818,7 @@ router.get('/api/worklog/:token/planned-shifts', async (req, res) => {
               inArray(surgeries.surgeryRoomId, uniqueRoomIds)
             )
           )
-          .groupBy(surgeries.surgeryRoomId, sql`DATE(${surgeries.plannedDate} AT TIME ZONE ${tz})`);
+          .groupBy(surgeries.surgeryRoomId, sql`2`);
 
         for (const row of saalRows) {
           const key = `${row.dateStr}|${row.surgeryRoomId}`;

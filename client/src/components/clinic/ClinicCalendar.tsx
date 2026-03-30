@@ -1497,7 +1497,7 @@ export default function ClinicCalendar({
         >
           <div className="flex items-start gap-2">
             <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-900 dark:text-amber-200 line-clamp-3 whitespace-pre-wrap flex-1">{dayNotesData.notes}</p>
+            <p className="text-sm text-amber-900 dark:text-amber-200 whitespace-pre-wrap flex-1">{dayNotesData.notes}</p>
             <button
               onClick={(e) => {
                 e.stopPropagation();
