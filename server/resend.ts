@@ -999,59 +999,7 @@ export async function sendQuestionnaireSubmittedNotification(
     const { client, fromEmail } = getResendClient();
     logger.info('[Email] Sending questionnaire submission notification from:', fromEmail, 'to:', toEmail);
 
-    const isGerman = language === 'de';
-
-    const subject = isGerman
-      ? `Neuer Fragebogen eingereicht: ${patientName}`
-      : `New Questionnaire Submitted: ${patientName}`;
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #8b5cf6; color: white; padding: 20px; text-align: center; }
-            .content { padding: 30px; background-color: #f9fafb; }
-            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8b5cf6; }
-            .button { display: inline-block; padding: 12px 24px; background-color: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>${isGerman ? 'Neuer Fragebogen eingereicht' : 'New Questionnaire Submitted'}</h1>
-              <p style="margin: 0;">${hospitalName}</p>
-            </div>
-            <div class="content">
-              <p>${isGerman ? 'Guten Tag' : 'Hello'} ${userName},</p>
-              <p>${isGerman
-                ? 'Ein neuer Fragebogen wurde über den allgemeinen Spital-Link eingereicht:'
-                : 'A new questionnaire has been submitted via the general hospital link:'}</p>
-
-              <div class="details">
-                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
-                <p><strong>${isGerman ? 'Eingereicht am' : 'Submitted at'}:</strong> ${submittedAt}</p>
-              </div>
-
-              <p>${isGerman
-                ? 'Bitte ordnen Sie diese Antwort einem Patienten zu.'
-                : 'Please associate this response with a patient record.'}</p>
-
-              <p style="text-align: center;">
-                <a href="${deepLinkUrl}" class="button">${isGerman ? 'Fragebögen ansehen' : 'View Questionnaires'}</a>
-              </p>
-            </div>
-            <div class="footer">
-              <p>Viali Hospital Management System</p>
-              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+    const { subject, html } = buildQuestionnaireSubmittedEmail(userName, hospitalName, patientName, submittedAt, deepLinkUrl, language);
 
     const { data, error } = await client.emails.send({
       from: fromEmail,
@@ -1071,6 +1019,109 @@ export async function sendQuestionnaireSubmittedNotification(
     logger.error('Error sending questionnaire submission notification:', error);
     return { success: false, error };
   }
+}
+
+/**
+ * Batch-send questionnaire submitted notifications to multiple recipients in a single API call.
+ */
+export async function sendQuestionnaireSubmittedNotificationBatch(
+  recipients: Array<{ email: string; userName: string }>,
+  hospitalName: string,
+  patientName: string,
+  submittedAt: string,
+  deepLinkUrl: string,
+  language: 'de' | 'en' = 'en'
+) {
+  if (recipients.length === 0) return { success: true, data: [] };
+
+  try {
+    const { client, fromEmail } = getResendClient();
+
+    const emails = recipients.map(r => {
+      const { subject, html } = buildQuestionnaireSubmittedEmail(r.userName, hospitalName, patientName, submittedAt, deepLinkUrl, language);
+      return { from: fromEmail, to: r.email, subject, html };
+    });
+
+    logger.info(`[Email] Batch sending questionnaire notification to ${recipients.map(r => r.email).join(', ')}`);
+
+    const { data, error } = await client.batch.send(emails);
+
+    if (error) {
+      logger.error('[Email] Batch questionnaire notification failed:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Batch questionnaire notification sent successfully (${recipients.length} emails)`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('[Email] Error in batch questionnaire notification:', error);
+    return { success: false, error };
+  }
+}
+
+function buildQuestionnaireSubmittedEmail(
+  userName: string,
+  hospitalName: string,
+  patientName: string,
+  submittedAt: string,
+  deepLinkUrl: string,
+  language: 'de' | 'en'
+) {
+  const isGerman = language === 'de';
+
+  const subject = isGerman
+    ? `Neuer Fragebogen eingereicht: ${patientName}`
+    : `New Questionnaire Submitted: ${patientName}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #8b5cf6; color: white; padding: 20px; text-align: center; }
+          .content { padding: 30px; background-color: #f9fafb; }
+          .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8b5cf6; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${isGerman ? 'Neuer Fragebogen eingereicht' : 'New Questionnaire Submitted'}</h1>
+            <p style="margin: 0;">${hospitalName}</p>
+          </div>
+          <div class="content">
+            <p>${isGerman ? 'Guten Tag' : 'Hello'} ${userName},</p>
+            <p>${isGerman
+              ? 'Ein neuer Fragebogen wurde über den allgemeinen Spital-Link eingereicht:'
+              : 'A new questionnaire has been submitted via the general hospital link:'}</p>
+
+            <div class="details">
+              <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+              <p><strong>${isGerman ? 'Eingereicht am' : 'Submitted at'}:</strong> ${submittedAt}</p>
+            </div>
+
+            <p>${isGerman
+              ? 'Bitte ordnen Sie diese Antwort einem Patienten zu.'
+              : 'Please associate this response with a patient record.'}</p>
+
+            <p style="text-align: center;">
+              <a href="${deepLinkUrl}" class="button">${isGerman ? 'Fragebögen ansehen' : 'View Questionnaires'}</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>Viali Hospital Management System</p>
+            <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return { subject, html };
 }
 
 export async function sendSurgerySummaryEmail(

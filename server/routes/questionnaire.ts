@@ -14,7 +14,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
-import { sendQuestionnaireSubmittedNotification } from "../resend";
+import { sendQuestionnaireSubmittedNotificationBatch } from "../resend";
 import { notifyQuestionnaireSubmitted } from "../socket";
 import { inArray } from "drizzle-orm";
 import logger from "../logger";
@@ -1595,11 +1595,12 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         const deepLinkUrl = `${baseUrl}/clinic/questionnaires`;
         const patientName = [submitted.patientFirstName, submitted.patientLastName].filter(Boolean).join(' ') || 'Unknown';
         const tz = hospital.timezone || 'Europe/Zurich';
+        const lang = (hospital.defaultLanguage as 'de' | 'en') || 'de';
         const submittedAtStr = submitted.submittedAt
-          ? new Date(submitted.submittedAt).toLocaleString(hospital.defaultLanguage === 'de' ? 'de-CH' : 'en-US', { timeZone: tz })
+          ? new Date(submitted.submittedAt).toLocaleString(lang === 'de' ? 'de-CH' : 'en-US', { timeZone: tz })
           : new Date().toLocaleString('en-US', { timeZone: tz });
 
-        // Query clinic nurse + admin users
+        // Query nurse + admin users assigned to clinic-type units
         const clinicUsers = await db
           .select({
             userId: userHospitalRoles.userId,
@@ -1618,35 +1619,64 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
             )
           );
 
-        if (clinicUsers.length === 0) {
-          logger.info('[Questionnaire] No clinic nurse/admin users found for hospital', hospital.id);
+        // Deduplicate by email (users with multiple clinic roles would appear multiple times)
+        const seenEmails = new Set<string>();
+        const uniqueClinicUsers: typeof clinicUsers = [];
+        for (const u of clinicUsers) {
+          if (u.email && !seenEmails.has(u.email)) {
+            seenEmails.add(u.email);
+            uniqueClinicUsers.push(u);
+          }
+        }
+
+        // Also send to the hospital's clinic email (companyEmail) if configured
+        const clinicEmail = hospital.companyEmail;
+        if (clinicEmail && !seenEmails.has(clinicEmail)) {
+          seenEmails.add(clinicEmail);
+        }
+
+        if (uniqueClinicUsers.length === 0 && !clinicEmail) {
+          logger.info('[Questionnaire] No clinic recipients found for hospital', hospital.id);
           return;
         }
 
-        for (const clinicUser of clinicUsers) {
-          // Send email notification
-          if (clinicUser.email) {
-            const userName = [clinicUser.firstName, clinicUser.lastName].filter(Boolean).join(' ') || 'User';
-            sendQuestionnaireSubmittedNotification(
-              clinicUser.email,
-              userName,
-              hospital.name,
-              patientName,
-              submittedAtStr,
-              deepLinkUrl,
-              (hospital.defaultLanguage as 'de' | 'en') || 'de'
-            ).catch(err => logger.error('[Questionnaire] Failed to send notification to', clinicUser.email, err));
-          }
+        // Build batch recipients list
+        const batchRecipients: Array<{ email: string; userName: string }> = [];
 
-          // Send socket notification
+        // Add hospital clinic email if configured and not already a user email
+        if (clinicEmail && !uniqueClinicUsers.some(u => u.email === clinicEmail)) {
+          batchRecipients.push({ email: clinicEmail, userName: hospital.name });
+        }
+
+        for (const clinicUser of uniqueClinicUsers) {
+          batchRecipients.push({
+            email: clinicUser.email!,
+            userName: [clinicUser.firstName, clinicUser.lastName].filter(Boolean).join(' ') || 'User',
+          });
+        }
+
+        // Single batch API call for all emails
+        const result = await sendQuestionnaireSubmittedNotificationBatch(
+          batchRecipients,
+          hospital.name,
+          patientName,
+          submittedAtStr,
+          deepLinkUrl,
+          lang
+        );
+
+        if (!result.success) {
+          logger.error(`[Questionnaire] Batch notification failed for hospital ${hospital.name}:`, result.error);
+        }
+
+        // Send socket notifications to each clinic user
+        for (const clinicUser of uniqueClinicUsers) {
           notifyQuestionnaireSubmitted(clinicUser.userId, {
             patientName,
             hospitalName: hospital.name,
             submittedAt: submitted.submittedAt,
           });
         }
-
-        logger.info(`[Questionnaire] Sent notifications to ${clinicUsers.length} clinic user(s) for hospital ${hospital.name}`);
       } catch (err) {
         logger.error('[Questionnaire] Error sending submission notifications:', err);
       }
