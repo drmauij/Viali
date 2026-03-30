@@ -9,8 +9,11 @@ import {
   insertSurgerySchema,
   insertSurgeryPreOpAssessmentSchema,
   externalSurgeryRequests,
+  patients,
+  surgeries as surgeriesTable,
+  surgeryRooms,
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, ilike, or, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
@@ -105,6 +108,63 @@ router.patch('/api/anesthesia/cases/:id', isAuthenticated, requireWriteAccess, a
 });
 
 // ========== SURGERIES ROUTES ==========
+
+// Search surgeries by patient name (across all dates)
+router.get('/api/anesthesia/surgeries/search', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, q } = req.query;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "hospitalId is required" });
+    }
+
+    const query = (q as string || "").trim();
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+
+    const term = `%${query}%`;
+
+    const results = await db
+      .select({
+        id: surgeriesTable.id,
+        patientFirstName: patients.firstName,
+        patientSurname: patients.surname,
+        plannedDate: surgeriesTable.plannedDate,
+        admissionTime: surgeriesTable.admissionTime,
+        plannedSurgery: surgeriesTable.plannedSurgery,
+        roomName: surgeryRooms.name,
+        patientId: surgeriesTable.patientId,
+      })
+      .from(surgeriesTable)
+      .leftJoin(patients, eq(surgeriesTable.patientId, patients.id))
+      .leftJoin(surgeryRooms, eq(surgeriesTable.surgeryRoomId, surgeryRooms.id))
+      .where(
+        and(
+          eq(surgeriesTable.hospitalId, hospitalId as string),
+          or(
+            ilike(patients.firstName, term),
+            ilike(patients.surname, term),
+          ),
+        ),
+      )
+      .orderBy(desc(surgeriesTable.plannedDate))
+      .limit(20);
+
+    return res.json(results.map(r => ({
+      id: r.id,
+      patientId: r.patientId,
+      patientName: [r.patientFirstName, r.patientSurname].filter(Boolean).join(" "),
+      date: r.plannedDate,
+      time: r.admissionTime || null,
+      procedure: r.plannedSurgery,
+      room: r.roomName || null,
+    })));
+  } catch (error) {
+    logger.error("Surgery search error:", error);
+    return res.status(500).json({ message: "Search failed" });
+  }
+});
 
 router.get('/api/anesthesia/surgeries', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
