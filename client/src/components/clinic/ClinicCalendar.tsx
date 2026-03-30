@@ -1405,7 +1405,14 @@ export default function ClinicCalendar({
   return (
     <div className="flex flex-col h-full" data-testid="clinic-calendar">
       {/* Header with view switcher and navigation */}
-      <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
+      <div className="relative flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
+        {/* Search */}
+        <CalendarSearch
+          type="appointments"
+          hospitalId={hospitalId}
+          onSelect={handleSearchSelect}
+          onClear={handleSearchClear}
+        />
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             variant="outline"
@@ -1441,12 +1448,6 @@ export default function ClinicCalendar({
         </span>
 
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
-          <CalendarSearch
-            type="appointments"
-            hospitalId={hospitalId}
-            onSelect={handleSearchSelect}
-            onClear={handleSearchClear}
-          />
           <Button
             variant={isFiltered ? "default" : "outline"}
             size="sm"

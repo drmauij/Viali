@@ -143,33 +143,32 @@ export default function CalendarSearch({ type, hospitalId, onSelect, onClear }: 
 
   return (
     <div ref={containerRef} className="relative" data-testid="calendar-search">
-      <div className="flex items-center gap-1">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      {/* Overlay: absolute, spans full width of the header row */}
+      <div className="absolute inset-0 z-40 flex items-center px-3 sm:px-4 bg-background">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('calendarSearch.placeholder', 'Search patient...')}
-            className="h-8 sm:h-9 w-48 sm:w-64 pl-8 pr-8 text-sm"
+            className="h-9 w-full pl-9 pr-9 text-sm"
             data-testid="input-calendar-search"
           />
-          {query && (
-            <button
-              onClick={handleClose}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              data-testid="button-calendar-search-clear"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <button
+            onClick={handleClose}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            data-testid="button-calendar-search-clear"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
       {/* Dropdown results */}
       {isOpen && debouncedQuery.length >= 2 && (
-        <div className="absolute top-full left-0 mt-1 w-72 sm:w-80 bg-popover border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto"
+        <div className="absolute top-full left-0 right-0 mt-1 mx-3 sm:mx-4 bg-popover border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto"
              data-testid="calendar-search-results">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">

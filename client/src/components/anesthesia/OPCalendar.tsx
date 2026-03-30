@@ -1373,7 +1373,16 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       <>
       <div className="flex flex-col min-h-screen">
       {/* Header with view switcher and navigation */}
-      <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
+      <div className="relative flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
+        {/* Search */}
+        {activeHospital && (
+          <CalendarSearch
+            type="surgeries"
+            hospitalId={activeHospital.id}
+            onSelect={handleSearchSelect}
+            onClear={handleSearchClear}
+          />
+        )}
         {/* Navigation buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
@@ -1412,14 +1421,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
         {/* View buttons - wrapped on small screens */}
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
-          {activeHospital && (
-            <CalendarSearch
-              type="surgeries"
-              hospitalId={activeHospital.id}
-              onSelect={handleSearchSelect}
-              onClear={handleSearchClear}
-            />
-          )}
           <Button
             variant={currentView === "day" ? "default" : "outline"}
             size="sm"
