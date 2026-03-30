@@ -87,6 +87,7 @@ export const hospitals = pgTable("hospitals", {
   companyPhone: varchar("company_phone"),
   companyFax: varchar("company_fax"),
   companyEmail: varchar("company_email"),
+  companyWebsite: varchar("company_website"),
   companyLogoUrl: varchar("company_logo_url"),
   // TARDOC billing identifiers
   companyGln: varchar("company_gln"), // 13-digit GLN for the facility

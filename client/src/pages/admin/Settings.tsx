@@ -46,6 +46,7 @@ export default function SettingsPage() {
     companyCity: "",
     companyPhone: "",
     companyEmail: "",
+    companyWebsite: "",
     companyLogoUrl: "",
     companyGln: "",
     companyZsr: "",
@@ -153,6 +154,7 @@ export default function SettingsPage() {
         companyCity: fullHospitalData.companyCity || "",
         companyPhone: fullHospitalData.companyPhone || "",
         companyEmail: fullHospitalData.companyEmail || "",
+        companyWebsite: fullHospitalData.companyWebsite || "",
         companyLogoUrl: fullHospitalData.companyLogoUrl || "",
         companyGln: fullHospitalData.companyGln || "",
         companyZsr: fullHospitalData.companyZsr || "",
@@ -1118,6 +1120,18 @@ export default function SettingsPage() {
                             data-testid="input-company-email-inline"
                           />
                         </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="company-website-inline">{t("admin.companyWebsite")}</Label>
+                        <Input
+                          id="company-website-inline"
+                          type="url"
+                          value={hospitalForm.companyWebsite}
+                          onChange={(e) => setHospitalForm(prev => ({ ...prev, companyWebsite: e.target.value }))}
+                          placeholder="https://www.klinik.ch"
+                          data-testid="input-company-website-inline"
+                        />
                       </div>
 
                     </div>

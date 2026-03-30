@@ -1319,6 +1319,7 @@
     "companyPhone": "Telefon",
     "companyFax": "Fax",
     "companyEmail": "E-Mail",
+    "companyWebsite": "Webseite",
     "uploadLogo": "Logo hochladen",
     "logoMaxSize": "Max. 5MB",
     "logoTooLarge": "Logo-Datei ist zu gross (max 5MB)",

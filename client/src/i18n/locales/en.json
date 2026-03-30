@@ -1238,6 +1238,7 @@
     "companyPhone": "Phone",
     "companyFax": "Fax",
     "companyEmail": "Email",
+    "companyWebsite": "Website",
     "uploadLogo": "Upload Logo",
     "logoMaxSize": "Max. 5MB",
     "logoTooLarge": "Logo file is too large (max 5MB)",

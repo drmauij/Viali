@@ -1373,6 +1373,13 @@
       "when": 1774879008757,
       "tag": "0195_faithful_vertigo",
       "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1774893073420,
+      "tag": "0196_cheerful_wraith",
+      "breakpoints": true
     }
   ]
 }
