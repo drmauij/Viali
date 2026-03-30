@@ -2,10 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import logger from "../logger";
 
-export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'guest'] as const;
+export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'guest'] as const;
 export type UserRole = typeof ROLE_HIERARCHY[number];
 
-export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff'];
+export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing'];
 export const READ_ONLY_ROLES: UserRole[] = ['guest'];
 
 // Helper to get hospitalId from various resource types
