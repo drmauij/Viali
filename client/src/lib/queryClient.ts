@@ -1,6 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
 import * as Sentry from "@sentry/react";
+import { isDemoMode, transformDemoResponse } from "@/utils/demoMode";
 
 function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null; role: string | null } {
   const activeHospitalKey = localStorage.getItem('activeHospital');
@@ -128,7 +129,8 @@ export const getQueryFn: <T>(options: {
     }
 
     await throwIfResNotOk(res, `GET ${queryKey[0]}`);
-    return await res.json();
+    const json = await res.json();
+    return isDemoMode() ? transformDemoResponse(json) : json;
   };
 
 export const queryClient = new QueryClient({
