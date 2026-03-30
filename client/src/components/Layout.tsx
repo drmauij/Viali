@@ -7,6 +7,8 @@ import ModuleDrawer from "./ModuleDrawer";
 import { BillingLock } from "./BillingLock";
 import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { useCardReaderBridge } from "@/hooks/useCardReaderBridge";
+import { isDemoMode, toggleDemoMode } from "@/utils/demoMode";
+import { queryClient } from "@/lib/queryClient";
 
 interface Hospital {
   id: string;
@@ -26,6 +28,21 @@ export default function Layout({ children }: LayoutProps) {
   const { user, isAuthenticated } = useAuth();
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [activeHospital, setActiveHospital] = useState<Hospital | undefined>();
+  const [demoMode, setDemoMode] = useState(() => isDemoMode());
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
+        e.preventDefault();
+        const next = toggleDemoMode();
+        setDemoMode(next);
+        // Force refetch all queries so the transform applies/unapplies
+        queryClient.invalidateQueries();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -141,6 +158,19 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <CommandPaletteProvider>
       <div className="screen-container">
+        {demoMode && (
+          <div
+            className="fixed top-2 right-2 z-[9999] bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg cursor-pointer hover:bg-orange-600 transition-colors"
+            onClick={() => {
+              const next = toggleDemoMode();
+              setDemoMode(next);
+              queryClient.invalidateQueries();
+            }}
+            title="Demo Mode active — click or Ctrl+Shift+D to disable"
+          >
+            DEMO MODE
+          </div>
+        )}
         <ModuleDrawer />
         <TopBar
           hospitals={hospitals}
