@@ -3261,25 +3261,33 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
   }
 
   const itemIds = Array.from(new Set(medications.map(m => m.itemId)));
+
+  // Fetch OR medication item IDs so we never delete their inventory rows
+  const orMedRows = await db
+    .select({ itemId: orMedications.itemId })
+    .from(orMedications)
+    .where(eq(orMedications.anesthesiaRecordId, anesthesiaRecordId));
+  const orMedItemIds = new Set(orMedRows.map(r => r.itemId));
+
   if (itemIds.length === 0) {
     const existingUsage = await db
       .select()
       .from(inventoryUsage)
       .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
-    
+
     for (const existing of existingUsage) {
-      if (existing.overrideQty === null) {
+      if (existing.overrideQty === null && !orMedItemIds.has(existing.itemId)) {
         await db
           .delete(inventoryUsage)
           .where(eq(inventoryUsage.id, existing.id));
       }
     }
-    
+
     const remainingUsage = await db
       .select()
       .from(inventoryUsage)
       .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
-    
+
     return remainingUsage;
   }
 
@@ -3555,7 +3563,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
   
   for (const existing of existingUsage) {
-    if (!usageMap.has(existing.itemId) && existing.overrideQty === null) {
+    if (!usageMap.has(existing.itemId) && existing.overrideQty === null && !orMedItemIds.has(existing.itemId)) {
       await db
         .delete(inventoryUsage)
         .where(eq(inventoryUsage.id, existing.id));
