@@ -39,12 +39,14 @@ import {
   Undo2,
   LogIn,
   Megaphone,
+  MessageSquare,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateLong } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 
 export type AppointmentWithDetails = ClinicAppointment & {
   patient?: Patient;
@@ -99,6 +101,7 @@ export default function AppointmentDetailDialog({
   const { toast } = useToast();
 
   const [editMode, setEditMode] = useState(false);
+  const [communicationOpen, setCommunicationOpen] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
@@ -316,6 +319,20 @@ export default function AppointmentDetailDialog({
                       </p>
                     )}
                   </div>
+                  {appointment.patient && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-shrink-0 h-8 w-8 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCommunicationOpen(true);
+                      }}
+                      title={t('messages.dialogTitle', 'Patient Communication')}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -739,6 +756,17 @@ export default function AppointmentDetailDialog({
           </>
         )}
       </DialogContent>
+
+      {appointment?.patient && (
+        <SendQuestionnaireDialog
+          open={communicationOpen}
+          onOpenChange={setCommunicationOpen}
+          patientId={appointment.patient.id}
+          patientName={`${appointment.patient.firstName} ${appointment.patient.surname}`}
+          patientEmail={appointment.patient.email}
+          patientPhone={appointment.patient.phone}
+        />
+      )}
     </Dialog>
   );
 }
