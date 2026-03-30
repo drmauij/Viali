@@ -29,6 +29,7 @@ type BookingData = {
     timezone: string;
     language: string;
     noShowFeeMessage?: string | null;
+    companyWebsite?: string | null;
   };
   bookingSettings: {
     slotDurationMinutes?: number;
@@ -471,13 +472,23 @@ export default function BookAppointment() {
         return;
       }
 
+      // Notify parent iframe (e.g. clinic website) for GA4 tracking
+      const clinicWebsite = data?.hospital?.companyWebsite;
+      if (clinicWebsite && window.parent !== window) {
+        try {
+          window.parent.postMessage({ event: 'booking_submitted' }, clinicWebsite);
+        } catch {
+          // Cross-origin postMessage may silently fail — that's OK
+        }
+      }
+
       setStep("done");
     } catch {
       setSubmitError("Verbindungsfehler. Bitte prüfen Sie Ihre Internetverbindung.");
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
 
   // ─── Render helpers ───────────────────────────────────────────
 

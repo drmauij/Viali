@@ -371,6 +371,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         timezone: hospital.timezone,
         language: hospital.defaultLanguage,
         noShowFeeMessage: hospital.noShowFeeMessage || null,
+        companyWebsite: hospital.companyWebsite || null,
       },
       bookingSettings: hospital.bookingSettings || {},
       providers: providers.map(p => ({
