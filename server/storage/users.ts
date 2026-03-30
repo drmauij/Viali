@@ -54,7 +54,7 @@ export async function getHospitalUsers(hospitalId: string): Promise<(UserHospita
   }));
 }
 
-export async function createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt' | 'canConfigure' | 'canChat' | 'canPlanOps'> & Partial<Pick<UserHospitalRole, 'canConfigure' | 'canChat' | 'canPlanOps'>>): Promise<UserHospitalRole> {
+export async function createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt' | 'canConfigure' | 'canChat' | 'canPlanOps' | 'canManageControlled'> & Partial<Pick<UserHospitalRole, 'canConfigure' | 'canChat' | 'canPlanOps' | 'canManageControlled'>>): Promise<UserHospitalRole> {
   const [newRole] = await db
     .insert(userHospitalRoles)
     .values(data)

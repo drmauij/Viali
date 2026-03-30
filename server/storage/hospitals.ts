@@ -13,7 +13,7 @@ export async function getHospital(id: string): Promise<Hospital | undefined> {
   return hospital;
 }
 
-export async function getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean })[]> {
+export async function getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean })[]> {
   const result = await db
     .select()
     .from(hospitals)
@@ -37,7 +37,8 @@ export async function getUserHospitals(userId: string): Promise<(Hospital & { ro
     canConfigure: row.user_hospital_roles.canConfigure ?? false,
     canChat: row.user_hospital_roles.canChat ?? false,
     canPlanOps: row.user_hospital_roles.canPlanOps ?? false,
-  })) as (Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean })[];
+    canManageControlled: row.user_hospital_roles.canManageControlled ?? false,
+  })) as (Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean })[];
 }
 
 export async function createHospital(name: string): Promise<Hospital> {

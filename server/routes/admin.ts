@@ -59,6 +59,7 @@ const updateUserRoleSchema = z.object({
   canConfigure: z.boolean().optional(),
   canChat: z.boolean().optional(),
   canPlanOps: z.boolean().optional(),
+  canManageControlled: z.boolean().optional(),
 });
 
 const updateUserAccessSchema = z.object({
@@ -456,7 +457,7 @@ router.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => 
 router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { userId, unitId, role, canConfigure, canChat, canPlanOps } = req.body;
+    const { userId, unitId, role, canConfigure, canChat, canPlanOps, canManageControlled } = req.body;
 
     if (!userId || !unitId || !role) {
       return res.status(400).json({ message: "userId, unitId, and role are required" });
@@ -478,6 +479,7 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
       ...(canConfigure !== undefined && { canConfigure }),
       ...(canChat !== undefined && { canChat }),
       ...(canPlanOps !== undefined && { canPlanOps }),
+      ...(canManageControlled !== undefined && { canManageControlled }),
     });
     res.status(201).json(userRole);
   } catch (error) {
@@ -494,7 +496,7 @@ router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('
       return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten().fieldErrors });
     }
 
-    const { unitId, role, canConfigure, canChat, canPlanOps } = parsed.data;
+    const { unitId, role, canConfigure, canChat, canPlanOps, canManageControlled } = parsed.data;
 
     const updates: any = {};
     if (unitId !== undefined) updates.unitId = unitId;
@@ -502,6 +504,7 @@ router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('
     if (canConfigure !== undefined) updates.canConfigure = canConfigure;
     if (canChat !== undefined) updates.canChat = canChat;
     if (canPlanOps !== undefined) updates.canPlanOps = canPlanOps;
+    if (canManageControlled !== undefined) updates.canManageControlled = canManageControlled;
 
     const updated = await storage.updateUserHospitalRole(roleId, updates);
     res.json(updated);
@@ -525,7 +528,7 @@ router.delete('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin(
 router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmin, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { userId, unitId, role, canConfigure, canChat, canPlanOps } = req.body;
+    const { userId, unitId, role, canConfigure, canChat, canPlanOps, canManageControlled } = req.body;
 
     if (!userId || !unitId || !role) {
       return res.status(400).json({ message: "userId, unitId, and role are required" });
@@ -564,6 +567,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       ...(canConfigure !== undefined && { canConfigure }),
       ...(canChat !== undefined && { canChat }),
       ...(canPlanOps !== undefined && { canPlanOps }),
+      ...(canManageControlled !== undefined && { canManageControlled }),
     });
 
     const hospital = await storage.getHospital(hospitalId);
@@ -610,7 +614,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
 router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { email, password, firstName, lastName, phone, unitId, role, canLogin, canConfigure, canChat, canPlanOps } = req.body;
+    const { email, password, firstName, lastName, phone, unitId, role, canLogin, canConfigure, canChat, canPlanOps, canManageControlled } = req.body;
 
     if (!email || !password || !firstName || !lastName || !unitId || !role) {
       return res.status(400).json({ message: "All fields are required" });
@@ -646,6 +650,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         ...(canConfigure !== undefined && { canConfigure }),
         ...(canChat !== undefined && { canChat }),
         ...(canPlanOps !== undefined && { canPlanOps }),
+        ...(canManageControlled !== undefined && { canManageControlled }),
       });
 
       const hospital = await storage.getHospital(hospitalId);
@@ -714,6 +719,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       ...(canConfigure !== undefined && { canConfigure }),
       ...(canChat !== undefined && { canChat }),
       ...(canPlanOps !== undefined && { canPlanOps }),
+      ...(canManageControlled !== undefined && { canManageControlled }),
     });
 
     const hospital = await storage.getHospital(hospitalId);

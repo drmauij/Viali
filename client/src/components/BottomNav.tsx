@@ -228,8 +228,8 @@ export default function BottomNav() {
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
-    // Show controlled medications tab if enabled for this unit
-    if (activeHospital?.showControlledMedications) {
+    // Show controlled medications tab if enabled for this unit AND user has permission (admin or canManageControlled)
+    if (activeHospital?.showControlledMedications && (activeHospital?.role === 'admin' || activeHospital?.canManageControlled)) {
       inventoryItems.push({ id: "controlled", icon: "fas fa-pills", label: t('bottomNav.controlled', 'BTM'), path: "/inventory/controlled" });
     }
     // Show checklists tab if there are pending checklists for this unit/role
@@ -237,7 +237,7 @@ export default function BottomNav() {
       inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
     }
     return inventoryItems;
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, hasPendingChecklists, addons.clinic, addons.questionnaire]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, activeHospital?.canManageControlled, hasPendingChecklists, addons.clinic, addons.questionnaire]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {

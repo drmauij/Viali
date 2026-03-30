@@ -27,6 +27,7 @@ interface Hospital {
   canConfigure?: boolean;
   canChat?: boolean;
   canPlanOps?: boolean;
+  canManageControlled?: boolean;
 }
 
 function subscribe(callback: () => void) {
@@ -74,7 +75,7 @@ export function useActiveHospital(): Hospital | null {
   return activeHospital;
 }
 
-export function useHasPermission(permission: 'canConfigure' | 'canChat' | 'canPlanOps'): boolean {
+export function useHasPermission(permission: 'canConfigure' | 'canChat' | 'canPlanOps' | 'canManageControlled'): boolean {
   const activeHospital = useActiveHospital();
   if (!activeHospital) return false;
   return activeHospital.role === 'admin' || activeHospital[permission] === true;

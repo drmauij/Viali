@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useActiveHospital, useHasPermission } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -76,6 +76,7 @@ export default function ControlledLog() {
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const canWrite = useCanWrite();
+  const canManageControlled = useHasPermission('canManageControlled');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
@@ -898,6 +899,17 @@ export default function ControlledLog() {
           <i className="fas fa-hospital text-4xl text-muted-foreground mb-4"></i>
           <h3 className="text-lg font-semibold text-foreground mb-2">No Hospital Selected</h3>
           <p className="text-muted-foreground">Please select a hospital to access controlled log.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canManageControlled) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('common.accessDenied', 'Access Denied')}</h3>
+          <p className="text-muted-foreground">{t('controlled.noPermission', 'You do not have permission to access controlled substances.')}</p>
         </div>
       </div>
     );

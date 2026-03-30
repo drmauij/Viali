@@ -713,7 +713,7 @@ export async function verifyRecordBelongsToHospital(
   return { valid: true };
 }
 
-export type PermissionFlag = 'canConfigure' | 'canChat' | 'canPlanOps';
+export type PermissionFlag = 'canConfigure' | 'canChat' | 'canPlanOps' | 'canManageControlled';
 
 // Check if user has a specific permission for a hospital
 // Admin role implicitly has all permissions

@@ -11,6 +11,7 @@ import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
   requireWriteAccess,
+  requirePermission,
 } from "../utils";
 import logger from "../logger";
 
@@ -56,7 +57,7 @@ router.post('/api/activity/log', isAuthenticated, async (req: any, res) => {
   }
 });
 
-router.post('/api/controlled/extract-patient-info', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/controlled/extract-patient-info', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { image } = req.body;
     
@@ -107,7 +108,7 @@ router.post('/api/controlled/extract-patient-info', isAuthenticated, requireWrit
   }
 });
 
-router.post('/api/controlled/dispense', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/controlled/dispense', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { items: dispenseItems, patientId, patientPhoto, notes, signatures } = req.body;
@@ -197,7 +198,7 @@ router.post('/api/controlled/dispense', isAuthenticated, requireWriteAccess, asy
   }
 });
 
-router.post('/api/controlled/adjust', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/controlled/adjust', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { itemId, newCurrentUnits, notes, signature, attachmentPhoto } = req.body;
@@ -279,7 +280,7 @@ router.post('/api/controlled/adjust', isAuthenticated, requireWriteAccess, async
   }
 });
 
-router.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/controlled/log/:hospitalId', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -346,7 +347,7 @@ router.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, 
   }
 });
 
-router.post('/api/controlled/checks', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/controlled/checks', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { hospitalId, unitId, signature, checkItems, notes } = req.body;
@@ -380,7 +381,7 @@ router.post('/api/controlled/checks', isAuthenticated, requireWriteAccess, async
   }
 });
 
-router.get('/api/controlled/checks/:hospitalId', isAuthenticated, async (req: any, res) => {
+router.get('/api/controlled/checks/:hospitalId', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
@@ -399,7 +400,7 @@ router.get('/api/controlled/checks/:hospitalId', isAuthenticated, async (req: an
   }
 });
 
-router.delete('/api/controlled/checks/:checkId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/controlled/checks/:checkId', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { checkId } = req.params;
     const { reason } = req.body;
@@ -434,7 +435,7 @@ router.delete('/api/controlled/checks/:checkId', isAuthenticated, requireWriteAc
   }
 });
 
-router.post('/api/controlled/verify/:activityId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/controlled/verify/:activityId', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { activityId } = req.params;
     const { signature } = req.body;
@@ -494,7 +495,7 @@ router.get('/api/alerts/:hospitalId', isAuthenticated, async (req: any, res) => 
   }
 });
 
-router.post('/api/alerts/:alertId/acknowledge', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/alerts/:alertId/acknowledge', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { alertId } = req.params;
     const userId = req.user.id;
@@ -517,7 +518,7 @@ router.post('/api/alerts/:alertId/acknowledge', isAuthenticated, requireWriteAcc
   }
 });
 
-router.post('/api/alerts/:alertId/snooze', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/alerts/:alertId/snooze', isAuthenticated, requirePermission('canManageControlled'), async (req: any, res) => {
   try {
     const { alertId } = req.params;
     const { until } = req.body;

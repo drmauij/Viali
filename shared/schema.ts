@@ -176,6 +176,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   canConfigure: boolean("can_configure").default(false),
   canChat: boolean("can_chat").default(false),
   canPlanOps: boolean("can_plan_ops").default(false),
+  canManageControlled: boolean("can_manage_controlled").default(false),
   calcomUserId: integer("calcom_user_id"), // Cal.com user ID for bi-directional sync
   calcomEventTypeId: integer("calcom_event_type_id"), // Cal.com event type ID for creating bookings
   createdAt: timestamp("created_at").defaultNow(),

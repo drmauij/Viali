@@ -83,7 +83,7 @@ interface HospitalUser extends UserHospitalRole {
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }>;
+  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean; canManageControlled?: boolean }>;
 }
 
 function ListToolbar({ search, onSearchChange, sortAsc, onToggleSort, staffTypeFilter, onStaffTypeFilterChange, searchPlaceholder, totalCount, filteredCount }: {
@@ -170,8 +170,9 @@ export default function Users() {
     canConfigure: false,
     canChat: false,
     canPlanOps: false,
+    canManageControlled: false,
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }>>([]);
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean; canManageControlled?: boolean }>>([]);
   const [newPair, setNewPair] = useState({ role: "", unitId: "" });
   
   // Change password states
@@ -230,6 +231,7 @@ export default function Users() {
     canConfigure: false,
     canChat: false,
     canPlanOps: false,
+    canManageControlled: false,
   });
 
   // Staff merge/dedup states
@@ -272,6 +274,7 @@ export default function Users() {
             canConfigure: (userRole as any).canConfigure ?? false,
             canChat: (userRole as any).canChat ?? false,
             canPlanOps: (userRole as any).canPlanOps ?? false,
+            canManageControlled: (userRole as any).canManageControlled ?? false,
           }]
         });
       } else {
@@ -286,6 +289,7 @@ export default function Users() {
           canConfigure: (userRole as any).canConfigure ?? false,
           canChat: (userRole as any).canChat ?? false,
           canPlanOps: (userRole as any).canPlanOps ?? false,
+            canManageControlled: (userRole as any).canManageControlled ?? false,
         });
       }
     });
@@ -397,7 +401,7 @@ export default function Users() {
   });
 
   const addExistingUserMutation = useMutation({
-    mutationFn: async (data: { userId: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
+    mutationFn: async (data: { userId: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean; canManageControlled?: boolean }) => {
       const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/add-existing`, data);
       const result = await response.json();
       if (!response.ok) {
@@ -588,7 +592,7 @@ export default function Users() {
 
   // Update user role permission flags
   const updateRolePermissionMutation = useMutation({
-    mutationFn: async ({ roleId, ...flags }: { roleId: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
+    mutationFn: async ({ roleId, ...flags }: { roleId: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean; canManageControlled?: boolean }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${roleId}`, flags);
       return await response.json();
     },
@@ -628,7 +632,7 @@ export default function Users() {
 
   // Create staff member mutation (auto-generated credentials, no login access)
   const createStaffMemberMutation = useMutation({
-    mutationFn: async (data: { firstName: string; lastName: string; phone?: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean }) => {
+    mutationFn: async (data: { firstName: string; lastName: string; phone?: string; unitId: string; role: string; canConfigure?: boolean; canChat?: boolean; canPlanOps?: boolean; canManageControlled?: boolean }) => {
       const dummyEmail = `staff_${crypto.randomUUID()}@internal.local`;
       const dummyPassword = generateSecurePassword(16);
 
@@ -644,6 +648,7 @@ export default function Users() {
         canConfigure: data.canConfigure,
         canChat: data.canChat,
         canPlanOps: data.canPlanOps,
+        canManageControlled: data.canManageControlled,
       });
       const result = await response.json();
       if (!response.ok) {
@@ -654,7 +659,7 @@ export default function Users() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       setStaffMemberDialogOpen(false);
-      setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
+      setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false, canManageControlled: false });
       toast({ title: t("common.success"), description: t("admin.staffMemberCreated") });
     },
     onError: (error: any) => {
@@ -684,7 +689,7 @@ export default function Users() {
   });
 
   const resetUserForm = () => {
-    setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false, canManageControlled: false });
     setDetectedExistingUser(null);
     setDetectedUserAlreadyInHospital(false);
     setIsCheckingEmail(false);
@@ -733,7 +738,7 @@ export default function Users() {
   };
 
   const handleCreateStaffMember = () => {
-    setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false });
+    setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "", canConfigure: false, canChat: false, canPlanOps: false, canManageControlled: false });
     setStaffMemberDialogOpen(true);
   };
 
@@ -771,6 +776,7 @@ export default function Users() {
       canConfigure: r.canConfigure ?? false,
       canChat: r.canChat ?? false,
       canPlanOps: r.canPlanOps ?? false,
+      canManageControlled: r.canManageControlled ?? false,
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -800,6 +806,7 @@ export default function Users() {
           canConfigure: r.canConfigure ?? false,
           canChat: r.canChat ?? false,
           canPlanOps: r.canPlanOps ?? false,
+      canManageControlled: r.canManageControlled ?? false,
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -880,6 +887,7 @@ export default function Users() {
         canConfigure: userForm.canConfigure,
         canChat: userForm.canChat,
         canPlanOps: userForm.canPlanOps,
+        canManageControlled: userForm.canManageControlled,
       });
       return;
     }
@@ -1404,7 +1412,7 @@ export default function Users() {
               <Label htmlFor="user-role">{t("admin.role")} *</Label>
               <Select
                 value={userForm.role}
-                onValueChange={(value) => setUserForm({ ...userForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false } : {}) })}
+                onValueChange={(value) => setUserForm({ ...userForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false, canManageControlled: false } : {}) })}
                 disabled={!userForm.unitId}
               >
                 <SelectTrigger data-testid="select-user-role">
@@ -1446,6 +1454,13 @@ export default function Users() {
                       onCheckedChange={(v) => setUserForm({ ...userForm, canPlanOps: !!v })}
                     />
                     <span className="text-sm">{t("admin.permissionPlanOps")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={userForm.canManageControlled}
+                      onCheckedChange={(v) => setUserForm({ ...userForm, canManageControlled: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionManageControlled", "Manage Controlled Substances")}</span>
                   </label>
                 </div>
               </div>
@@ -1539,7 +1554,7 @@ export default function Users() {
               <Label htmlFor="staff-role">{t("admin.role")} *</Label>
               <Select
                 value={staffMemberForm.role}
-                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false } : {}) })}
+                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value, ...(value === 'admin' ? { canConfigure: false, canChat: false, canPlanOps: false, canManageControlled: false } : {}) })}
                 disabled={!staffMemberForm.unitId}
               >
                 <SelectTrigger data-testid="select-staff-role">
@@ -1581,6 +1596,13 @@ export default function Users() {
                       onCheckedChange={(v) => setStaffMemberForm({ ...staffMemberForm, canPlanOps: !!v })}
                     />
                     <span className="text-sm">{t("admin.permissionPlanOps")}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={staffMemberForm.canManageControlled}
+                      onCheckedChange={(v) => setStaffMemberForm({ ...staffMemberForm, canManageControlled: !!v })}
+                    />
+                    <span className="text-sm">{t("admin.permissionManageControlled", "Manage Controlled Substances")}</span>
                   </label>
                 </div>
               </div>
@@ -1951,6 +1973,16 @@ export default function Users() {
                               />
                               <span className="text-xs text-muted-foreground">{t("admin.permissionPlanOps")}</span>
                             </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <Checkbox
+                                checked={pair.canManageControlled ?? false}
+                                onCheckedChange={(v) => {
+                                  updateRolePermissionMutation.mutate({ roleId: pair.id!, canManageControlled: !!v });
+                                }}
+                                disabled={updateRolePermissionMutation.isPending}
+                              />
+                              <span className="text-xs text-muted-foreground">{t("admin.permissionManageControlled", "Manage Controlled Substances")}</span>
+                            </label>
                           </div>
                         )}
                       </div>
@@ -2228,6 +2260,7 @@ export default function Users() {
                           canConfigure: userForm.canConfigure,
                           canChat: userForm.canChat,
                           canPlanOps: userForm.canPlanOps,
+        canManageControlled: userForm.canManageControlled,
                         });
                       }
                     }}
