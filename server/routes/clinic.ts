@@ -2022,14 +2022,15 @@ export async function sendAppointmentNotification(
         const videoSuffix = (appointment.isVideoAppointment && appointment.videoMeetingLink)
           ? (isGerman ? `\n📹 Video-Termin: ${appointment.videoMeetingLink}` : `\n📹 Video call: ${appointment.videoMeetingLink}`)
           : '';
+        const noShowSuffix = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Dear ${patientName}, your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
+            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${noShowSuffix}`,
+            en: `Dear ${patientName}, your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${noShowSuffix}`,
           },
           reschedule: {
-            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} wurde auf den ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} verschoben. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
-            en: `Dear ${patientName}, your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
+            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} wurde auf den ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} verschoben. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${noShowSuffix}`,
+            en: `Dear ${patientName}, your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${noShowSuffix}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
