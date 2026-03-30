@@ -349,7 +349,22 @@ export async function sendSms(to: string, message: string, hospitalId?: string):
       credentials.originator = await resolveOriginator(hospitalId);
     }
     // ASPSMS expects E.164 format WITH the + prefix
-    return sendSmsViaAspsms(normalizedTo, message, credentials);
+    const result = await sendSmsViaAspsms(normalizedTo, message, credentials);
+
+    // If hospital-specific ASPSMS account failed, fall back to system default
+    if (!result.success && credentials.source === 'hospital') {
+      const defaultCreds = getDefaultAspsmsCredentials();
+      if (defaultCreds) {
+        logger.warn(`[SMS] Hospital ASPSMS account failed (${result.error}), falling back to system default for hospital ${hospitalId}`);
+        // Resolve originator from hospital name for the default account
+        if (hospitalId) {
+          defaultCreds.originator = await resolveOriginator(hospitalId);
+        }
+        return sendSmsViaAspsms(normalizedTo, message, defaultCreds);
+      }
+    }
+
+    return result;
   }
 
   // provider === 'vonage'
