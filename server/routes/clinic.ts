@@ -1981,9 +1981,6 @@ export async function sendAppointmentNotification(
       }
     }
 
-    // No-show fee notice (appended to confirmation & reschedule messages)
-    const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
-
     // Try SMS first, then email fallback
     let channel: 'sms' | 'email' | null = null;
     let recipient = '';
@@ -2002,12 +1999,12 @@ export async function sendAppointmentNotification(
           : '';
         const smsMessages: Record<string, { de: string; en: string }> = {
           confirmation: {
-            de: `Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${feeNotice}`,
-            en: `Your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${feeNotice}`,
+            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} am ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} wurde bestätigt. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Dear ${patientName}, your appointment at ${clinicName} on ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''} has been confirmed. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
           },
           reschedule: {
-            de: `Ihr Termin bei ${clinicName} wurde verschoben auf ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}${feeNotice}`,
-            en: `Your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}.${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}${feeNotice}`,
+            de: `Liebe/r ${patientName}, Ihr Termin bei ${clinicName} wurde auf den ${formattedDate} um ${formattedTime}${providerName ? ` bei ${providerName}` : ''} verschoben. Wir freuen uns auf Ihren Besuch!${videoSuffix}${manageSuffix || ' Bei Fragen kontaktieren Sie uns bitte direkt.'}`,
+            en: `Dear ${patientName}, your appointment at ${clinicName} has been rescheduled to ${formattedDate} at ${formattedTime}${providerName ? ` with ${providerName}` : ''}. We look forward to seeing you!${videoSuffix}${manageSuffix || ' For questions, please contact us directly.'}`,
           },
           cancellation: {
             de: `Ihr Termin am ${formattedDate} um ${formattedTime} bei ${clinicName} wurde abgesagt. Bei Fragen kontaktieren Sie uns bitte direkt.`,
