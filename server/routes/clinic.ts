@@ -311,6 +311,30 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
       }
     }
 
+    // Log patient-initiated cancellation to patient_messages so it appears in Communication Dialog
+    if (appointment.patientId) {
+      try {
+        const shortDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+        const cancelMsg = isGerman
+          ? `Termin am ${shortDate} um ${appointment.startTime} wurde vom Patienten abgesagt.`
+          : `Appointment on ${shortDate} at ${appointment.startTime} was cancelled by the patient.`;
+        await storage.createPatientMessage({
+          hospitalId: hospital.id,
+          patientId: appointment.patientId,
+          sentBy: null,
+          channel: 'portal',
+          recipient: 'portal',
+          message: cancelMsg,
+          status: 'sent',
+          isAutomatic: true,
+          messageType: 'appointment_cancellation',
+          direction: 'inbound',
+        });
+      } catch (msgErr) {
+        logger.error('Failed to log patient cancellation to patient_messages:', msgErr);
+      }
+    }
+
     res.json({
       success: true,
       appointment: {
@@ -2392,6 +2416,11 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
       sendAppointmentNotification(updated.id, hospitalId, 'reschedule');
     }
 
+    // If status changed to cancelled, send cancellation notification
+    if (validatedData.status === 'cancelled' && existing.status !== 'cancelled' && updated.patientId) {
+      sendAppointmentNotification(updated.id, hospitalId, 'cancellation');
+    }
+
     // Async sync to Cal.com (don't block response)
     (async () => {
       try {
@@ -2507,7 +2536,8 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
     }
     
     // Send cancellation notification before deleting (need appointment data)
-    if (existing.patientId) {
+    // Skip if already cancelled — patient was already notified during the status change
+    if (existing.patientId && existing.status !== 'cancelled') {
       sendAppointmentNotification(appointmentId, hospitalId, 'cancellation');
     }
 
