@@ -12,13 +12,6 @@ export default function HR() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">{t('business.hr.title', 'HR')}</h1>
-        <p className="text-muted-foreground mt-1">
-          {t('business.hr.subtitle', 'Staff, contracts and worklogs')}
-        </p>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           <TabsList className="flex flex-row md:flex-col h-auto w-full md:w-52 shrink-0 justify-start overflow-x-auto md:overflow-x-visible scrollbar-hide bg-muted/50 md:bg-transparent p-1 md:p-0 md:gap-1">
