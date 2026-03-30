@@ -168,6 +168,12 @@ export default function OpList() {
     setSummaryOpen(true);
   };
 
+  const handleSearchSelect = (surgeryId: string, _patientId: string | null, _date: Date) => {
+    setSelectedSurgeryId(surgeryId);
+    setSelectedPatientId(null);
+    setSummaryOpen(true);
+  };
+
   const handleEditSurgery = () => {
     setSummaryOpen(false);
     setEditSurgeryOpen(true);
@@ -360,6 +366,7 @@ export default function OpList() {
       onDropFromOutside={handleDropFromOutside}
       tapSelectedRequest={tapSelectedRequest}
       onTapSlotWithSelection={handleTapSlotWithSelection}
+      onSearchSelect={handleSearchSelect}
     />
   );
 

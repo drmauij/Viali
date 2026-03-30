@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Calendar, dateFnsLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import { format as dateFnsFormat, parse, startOfWeek, getDay, type Locale } from "date-fns";
@@ -29,6 +29,8 @@ import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox"
 import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
 import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
+import CalendarSearch from "@/components/shared/CalendarSearch";
+import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -113,6 +115,7 @@ interface OPCalendarProps {
   onDropFromOutside?: (info: { start: Date; end: Date; resource?: string }) => void;
   tapSelectedRequest?: import("@shared/schema").ExternalSurgeryRequest | null;
   onTapSlotWithSelection?: (info: { start: Date; resource?: string }) => void;
+  onSearchSelect?: (surgeryId: string, patientId: string | null, date: Date) => void;
 }
 
 interface RoomStaffAssignment {
@@ -246,7 +249,7 @@ function DroppableRoomHeader({
   );
 }
 
-export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection }: OPCalendarProps) {
+export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, onSearchSelect }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
   // Create date-fns localizer based on i18n language
@@ -272,7 +275,8 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [staffBoxOpen, setStaffBoxOpen] = useState(true);
-  
+  const preSearchDateRef = useRef<Date | null>(null);
+
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1038,6 +1042,22 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     }
   }, [onEventClick]);
 
+  const handleSearchSelect = useCallback((result: CalendarSearchResult) => {
+    preSearchDateRef.current = selectedDate;
+    const newDate = new Date(result.date + "T00:00:00");
+    setSelectedDate(newDate);
+    if (onSearchSelect) {
+      onSearchSelect(result.id, null, newDate);
+    }
+  }, [selectedDate, onSearchSelect]);
+
+  const handleSearchClear = useCallback(() => {
+    if (preSearchDateRef.current) {
+      setSelectedDate(preSearchDateRef.current);
+      preSearchDateRef.current = null;
+    }
+  }, []);
+
   // Custom event style getter
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -1392,6 +1412,14 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
         {/* View buttons - wrapped on small screens */}
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
+          {activeHospital && (
+            <CalendarSearch
+              type="surgeries"
+              hospitalId={activeHospital.id}
+              onSelect={handleSearchSelect}
+              onClear={handleSearchClear}
+            />
+          )}
           <Button
             variant={currentView === "day" ? "default" : "outline"}
             size="sm"
