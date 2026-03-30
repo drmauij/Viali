@@ -191,9 +191,7 @@ export default function BottomNav() {
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
         businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/marketing" });
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
-        businessItems.push({ id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" });
-        businessItems.push({ id: "business-contracts", icon: "fas fa-file-signature", label: t('bottomNav.business.contracts', 'Contracts'), path: "/business/contracts" });
-        businessItems.push({ id: "business-worklogs", icon: "fas fa-clock", label: t('bottomNav.business.worklogs', 'Worklogs'), path: "/business/worklogs" });
+        businessItems.push({ id: "business-hr", icon: "fas fa-user-tie", label: t('bottomNav.business.hr', 'HR'), path: "/business/hr" });
       } else {
         // Staff role users: Administration (surgery planning) only
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business" });

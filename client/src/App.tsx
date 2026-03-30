@@ -56,6 +56,7 @@ const StaffCosts = React.lazy(() => import("@/pages/business/StaffCosts"));
 const SimplifiedDashboard = React.lazy(() => import("@/pages/business/SimplifiedDashboard"));
 const SimplifiedStaff = React.lazy(() => import("@/pages/business/SimplifiedStaff"));
 const BusinessContracts = React.lazy(() => import("@/pages/business/Contracts"));
+const HR = React.lazy(() => import("@/pages/business/HR"));
 const WorkerContractForm = React.lazy(() => import("@/pages/WorkerContractForm"));
 const ExternalWorklog = React.lazy(() => import("@/pages/ExternalWorklog"));
 const WorklogManagement = React.lazy(() => import("@/pages/WorklogManagement"));
@@ -245,13 +246,14 @@ function Router() {
               <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
-              <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>
-              <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><BusinessContracts /></ProtectedRoute>}</Route>
+              <Route path="/business/hr">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
+              <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
+              <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
               <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
-              <Route path="/business/worklogs">{() => <ProtectedRoute requireBusiness><WorklogManagement /></ProtectedRoute>}</Route>
+              <Route path="/business/worklogs">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
               {/* Worktime Kiosk - any authenticated user */}
               <Route path="/worktime-kiosk" component={WorktimeKiosk} />
               {/* Clinic Module - ambulatory invoicing */}
