@@ -14,7 +14,7 @@ import {
   medicationSetItems,
 } from "@shared/schema";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import {
   getUserUnitForHospital,
   getUserRole,
@@ -57,6 +57,20 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
 
     const unitType = (req.query.unitType as string) || undefined;
 
+    // When unitType=or, also include items from the OR unit (surgery items
+    // can be configured into OR medication groups via the configure dialog)
+    const unitIds = [anesthesiaUnitId];
+    if (unitType === 'or') {
+      const orUnits = await db
+        .select()
+        .from(units)
+        .where(and(eq(units.hospitalId, hospitalId), eq(units.type, 'or')))
+        .limit(1);
+      if (orUnits.length) {
+        unitIds.push(orUnits[0].id);
+      }
+    }
+
     const anesthesiaItems = await db
       .select({
         id: items.id,
@@ -96,7 +110,9 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
       .where(
         and(
           eq(items.hospitalId, hospitalId),
-          eq(items.unitId, anesthesiaUnitId)
+          unitIds.length === 1
+            ? eq(items.unitId, unitIds[0])
+            : inArray(items.unitId, unitIds)
         )
       )
       .orderBy(medicationConfigs.sortOrder, items.name);
