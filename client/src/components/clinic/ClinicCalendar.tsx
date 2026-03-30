@@ -23,6 +23,8 @@ import EditTimeOffDialog from "./EditTimeOffDialog";
 import ClinicDayNotesPanel, { useClinicDayNotes } from "./ClinicDayNotesPanel";
 import SaalStaffPopover from "./SaalStaffPopover";
 import { TIME_OFF_TYPE_ICONS } from "./ManageAvailabilityDialog";
+import CalendarSearch from "@/components/shared/CalendarSearch";
+import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
@@ -197,16 +199,18 @@ interface ClinicCalendarProps {
   onProviderClick?: (providerId: string) => void;
   onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
   statusLegend?: React.ReactNode;
+  onSearchSelect?: (appointmentId: string, date: Date) => void;
 }
 
-export default function ClinicCalendar({ 
-  hospitalId, 
-  unitId, 
+export default function ClinicCalendar({
+  hospitalId,
+  unitId,
   onBookAppointment,
   onEventClick,
   onProviderClick,
   onDragSelectRange,
   statusLegend,
+  onSearchSelect,
 }: ClinicCalendarProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -240,6 +244,7 @@ export default function ClinicCalendar({
   const [dayNotesDialogOpen, setDayNotesDialogOpen] = useState(false);
   const [notesBannerHidden, setNotesBannerHidden] = useState(() => sessionStorage.getItem('clinic_notes_banner_hidden') === 'true');
   const calendarContainerRef = useRef<HTMLDivElement>(null);
+  const preSearchDateRef = useRef<Date | null>(null);
 
   useEffect(() => {
     sessionStorage.setItem(CALENDAR_VIEW_KEY, currentView);
@@ -507,6 +512,22 @@ export default function ClinicCalendar({
     queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}/range`] });
     queryClient.invalidateQueries({ queryKey: [`/api/staff-pool/${hospitalId}`] });
   }, [hospitalId]);
+
+  const handleSearchSelect = useCallback((result: CalendarSearchResult) => {
+    preSearchDateRef.current = selectedDate;
+    const newDate = new Date(result.date + "T00:00:00");
+    setSelectedDate(newDate);
+    if (onSearchSelect) {
+      onSearchSelect(result.id, newDate);
+    }
+  }, [selectedDate, onSearchSelect]);
+
+  const handleSearchClear = useCallback(() => {
+    if (preSearchDateRef.current) {
+      setSelectedDate(preSearchDateRef.current);
+      preSearchDateRef.current = null;
+    }
+  }, []);
 
   // Get provider availability modes to determine which providers need windows displayed
   const providerModes = useMemo(() => {
@@ -1420,6 +1441,12 @@ export default function ClinicCalendar({
         </span>
 
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
+          <CalendarSearch
+            type="appointments"
+            hospitalId={hospitalId}
+            onSelect={handleSearchSelect}
+            onClear={handleSearchClear}
+          />
           <Button
             variant={isFiltered ? "default" : "outline"}
             size="sm"

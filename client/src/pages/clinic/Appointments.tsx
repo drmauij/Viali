@@ -240,6 +240,21 @@ export default function ClinicAppointments() {
     setDetailDialogOpen(true);
   };
 
+  const handleSearchSelect = async (appointmentId: string, _date: Date) => {
+    try {
+      const response = await fetch(`/api/clinic/${hospitalId}/appointments/${appointmentId}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const appointment = await response.json();
+        setSelectedAppointment(appointment);
+        setDetailDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Failed to fetch appointment:", error);
+    }
+  };
+
   if (!hospitalId || !unitId) {
     return (
       <div className="container mx-auto p-4" data-testid="appointments-no-hospital">
@@ -285,6 +300,7 @@ export default function ClinicAppointments() {
           onEventClick={handleEventClick}
           onProviderClick={handleProviderClick}
           onDragSelectRange={handleDragSelectRange}
+          onSearchSelect={handleSearchSelect}
           statusLegend={
             <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
               {Object.entries(STATUS_COLORS).map(([status, colors]) => (
