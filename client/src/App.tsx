@@ -80,6 +80,7 @@ const SurgeonPortal = React.lazy(() => import("@/pages/SurgeonPortal"));
 const LogisticInventory = React.lazy(() => import("@/pages/logistic/LogisticInventory"));
 const LogisticOrders = React.lazy(() => import("@/pages/logistic/LogisticOrders"));
 const LogisticMatches = React.lazy(() => import("@/pages/logistic/LogisticMatches"));
+const Marketing = React.lazy(() => import("@/pages/business/Marketing"));
 
 function PageLoader() {
   return (
@@ -241,6 +242,7 @@ function Router() {
               <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
+              <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
               <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>
