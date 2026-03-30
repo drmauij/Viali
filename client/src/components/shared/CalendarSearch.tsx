@@ -127,48 +127,47 @@ export default function CalendarSearch({ type, hospitalId, onSelect, onClear }: 
     }
   };
 
-  if (!isOpen) {
-    return (
+  return (
+    <div ref={containerRef} data-testid="calendar-search">
+      {/* Search icon button */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(true)}
-        className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+        className={cn("h-8 w-8 sm:h-9 sm:w-9 p-0", isOpen && "invisible")}
         data-testid="button-calendar-search"
       >
         <Search className="h-3 w-3 sm:h-4 sm:w-4" />
       </Button>
-    );
-  }
 
-  return (
-    <div ref={containerRef} className="relative" data-testid="calendar-search">
-      {/* Overlay: absolute, spans full width of the header row */}
-      <div className="absolute inset-0 z-40 flex items-center px-3 sm:px-4 bg-background">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('calendarSearch.placeholder', 'Search patient...')}
-            className="h-9 w-full pl-9 pr-9 text-sm"
-            data-testid="input-calendar-search"
-          />
-          <button
-            onClick={handleClose}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            data-testid="button-calendar-search-clear"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      {/* Full-width overlay — anchored to the nearest `relative` parent (the header row) */}
+      {isOpen && (
+        <div className="absolute inset-0 z-40 flex items-center px-3 sm:px-4 bg-background animate-in fade-in duration-150">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('calendarSearch.placeholder', 'Search patient...')}
+              className="h-9 w-full pl-9 pr-9 text-sm"
+              data-testid="input-calendar-search"
+            />
+            <button
+              onClick={handleClose}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              data-testid="button-calendar-search-clear"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Dropdown results */}
       {isOpen && debouncedQuery.length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-1 mx-3 sm:mx-4 bg-popover border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto"
+        <div className="absolute left-0 right-0 top-full mt-1 mx-3 sm:mx-4 bg-popover border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto"
              data-testid="calendar-search-results">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
