@@ -18,7 +18,7 @@ import {
   ProviderTimeOff,
   clinicDayNotes,
 } from "@shared/schema";
-import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
 // Cal.com integration is legacy — booking is now native via /book
@@ -2103,6 +2103,59 @@ import {
   insertProviderTimeOffSchema,
   users,
 } from "@shared/schema";
+
+// Search appointments by patient name (across all dates)
+router.get('/api/clinic/:hospitalId/appointments/search', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const query = (req.query.q as string || "").trim();
+
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+
+    const term = `%${query}%`;
+
+    const results = await db
+      .select({
+        id: clinicAppointments.id,
+        patientFirstName: patients.firstName,
+        patientSurname: patients.surname,
+        appointmentDate: clinicAppointments.appointmentDate,
+        startTime: clinicAppointments.startTime,
+        providerFirstName: users.firstName,
+        providerLastName: users.lastName,
+        serviceName: clinicServices.name,
+      })
+      .from(clinicAppointments)
+      .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
+      .leftJoin(users, eq(clinicAppointments.providerId, users.id))
+      .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+      .where(
+        and(
+          eq(clinicAppointments.hospitalId, hospitalId),
+          or(
+            ilike(patients.firstName, term),
+            ilike(patients.surname, term),
+          ),
+        ),
+      )
+      .orderBy(desc(clinicAppointments.appointmentDate))
+      .limit(20);
+
+    return res.json(results.map(r => ({
+      id: r.id,
+      patientName: [r.patientFirstName, r.patientSurname].filter(Boolean).join(" "),
+      date: r.appointmentDate,
+      time: r.startTime,
+      providerName: [r.providerFirstName, r.providerLastName].filter(Boolean).join(" "),
+      serviceName: r.serviceName || null,
+    })));
+  } catch (error) {
+    logger.error("Appointment search error:", error);
+    return res.status(500).json({ message: "Search failed" });
+  }
+});
 
 // List appointments for entire hospital (shared calendar)
 router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
