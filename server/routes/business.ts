@@ -2484,92 +2484,74 @@ router.post('/api/business/:hospitalId/lead-conversion/fuzzy-match', isAuthentic
 router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const parsed = leadConversionSchema.parse(req.body);
-    const { leads } = parsed;
 
-    logger.warn(`[AUDIT] Referral backfill by user=${req.user.id} email=${req.user.email} hospital=${hospitalId} leads=${leads.length}`);
+    const approvedBackfillSchema = z.object({
+      approvedMatches: z.array(z.object({
+        leadIndex: z.number(),
+        patientId: z.string(),
+        lead: z.object({
+          firstName: z.string().optional(),
+          lastName: z.string().optional(),
+          email: z.string().optional(),
+          phone: z.string().optional(),
+          leadDate: z.string().optional(),
+          adSource: z.string().optional(),
+          metaLeadId: z.string().optional(),
+          metaFormId: z.string().optional(),
+        }),
+        fillMissingData: z.boolean().default(true),
+      })).min(1).max(5000),
+    });
 
-    // 1. Fetch all non-archived patients for this hospital
-    const allPatients = await db
-      .select({
-        id: patients.id,
-        firstName: patients.firstName,
-        surname: patients.surname,
-        email: patients.email,
-        phone: patients.phone,
-      })
-      .from(patients)
-      .where(and(
-        eq(patients.hospitalId, hospitalId),
-        eq(patients.isArchived, false),
-      ));
+    const parsed = approvedBackfillSchema.parse(req.body);
+    const { approvedMatches } = parsed;
 
-    // Build lookup indexes (same as lead-conversion)
-    const patientsByNameKey = new Map<string, typeof allPatients>();
-    const patientsByEmail = new Map<string, typeof allPatients>();
-    const patientsByPhone = new Map<string, typeof allPatients>();
+    logger.warn(`[AUDIT] Referral backfill (approved pairs) by user=${req.user.id} email=${req.user.email} hospital=${hospitalId} matches=${approvedMatches.length}`);
 
-    for (const p of allPatients) {
-      const nameKey = `${normalizeName(p.firstName)}|${normalizeName(p.surname)}`;
-      if (!patientsByNameKey.has(nameKey)) patientsByNameKey.set(nameKey, []);
-      patientsByNameKey.get(nameKey)!.push(p);
-      if (p.email) {
-        const emailKey = p.email.trim().toLowerCase();
-        if (!patientsByEmail.has(emailKey)) patientsByEmail.set(emailKey, []);
-        patientsByEmail.get(emailKey)!.push(p);
-      }
-      if (p.phone) {
-        const phoneKey = normalizePhone(p.phone);
-        if (phoneKey.length >= 8) {
-          if (!patientsByPhone.has(phoneKey)) patientsByPhone.set(phoneKey, []);
-          patientsByPhone.get(phoneKey)!.push(p);
+    const allPatientIds = [...new Set(approvedMatches.map(m => m.patientId))];
+
+    // 1. Fill missing patient data (phone/email) from lead data
+    const matchesNeedingFill = approvedMatches.filter(m => m.fillMissingData && (m.lead.email || m.lead.phone));
+    let patientUpdates = 0;
+
+    if (matchesNeedingFill.length > 0) {
+      // Fetch current patient records for those needing fill
+      const patientsToFill = await db
+        .select({
+          id: patients.id,
+          email: patients.email,
+          phone: patients.phone,
+        })
+        .from(patients)
+        .where(and(
+          eq(patients.hospitalId, hospitalId),
+          inArray(patients.id, matchesNeedingFill.map(m => m.patientId)),
+        ));
+
+      const patientMap = new Map(patientsToFill.map(p => [p.id, p]));
+
+      for (const match of matchesNeedingFill) {
+        const patient = patientMap.get(match.patientId);
+        if (!patient) continue;
+
+        const updates: { email?: string; phone?: string } = {};
+        if (!patient.email && match.lead.email) {
+          updates.email = match.lead.email.trim();
+        }
+        if (!patient.phone && match.lead.phone) {
+          updates.phone = match.lead.phone.trim();
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await db.update(patients)
+            .set(updates)
+            .where(eq(patients.id, match.patientId));
+          patientUpdates++;
         }
       }
     }
 
-    // 2. Match leads to patients (only those with adSource)
-    type MatchedLead = { lead: typeof leads[0]; matchedPatientIds: string[] };
-    const matchedLeads: MatchedLead[] = [];
-    const allMatchedPatientIds = new Set<string>();
-
-    for (const lead of leads) {
-      if (!lead.adSource) continue; // Skip leads without fb/ig source
-      const candidates = new Set<string>();
-
-      if (lead.email) {
-        const matches = patientsByEmail.get(lead.email.trim().toLowerCase());
-        if (matches) matches.forEach(p => candidates.add(p.id));
-      }
-      if (lead.phone) {
-        const phoneKey = normalizePhone(lead.phone);
-        if (phoneKey.length >= 8) {
-          const matches = patientsByPhone.get(phoneKey);
-          if (matches) matches.forEach(p => candidates.add(p.id));
-        }
-      }
-      if (lead.firstName && lead.lastName) {
-        const nameKey = `${normalizeName(lead.firstName)}|${normalizeName(lead.lastName)}`;
-        const matches = patientsByNameKey.get(nameKey);
-        if (matches) matches.forEach(p => candidates.add(p.id));
-        const swappedKey = `${normalizeName(lead.lastName)}|${normalizeName(lead.firstName)}`;
-        const swappedMatches = patientsByNameKey.get(swappedKey);
-        if (swappedMatches) swappedMatches.forEach(p => candidates.add(p.id));
-      }
-
-      if (candidates.size > 0) {
-        const ids = Array.from(candidates);
-        matchedLeads.push({ lead, matchedPatientIds: ids });
-        ids.forEach(id => allMatchedPatientIds.add(id));
-      }
-    }
-
-    if (allMatchedPatientIds.size === 0) {
-      return res.json({ created: 0 });
-    }
-
-    const matchedIds = Array.from(allMatchedPatientIds);
-
-    // 3. Get non-cancelled appointments for matched patients
+    // 2. Get non-cancelled appointments for matched patients
     const appointmentData = await db
       .select({
         id: clinicAppointments.id,
@@ -2578,7 +2560,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       .from(clinicAppointments)
       .where(and(
         eq(clinicAppointments.hospitalId, hospitalId),
-        inArray(clinicAppointments.patientId, matchedIds),
+        inArray(clinicAppointments.patientId, allPatientIds),
         sql`${clinicAppointments.status} != 'cancelled'`,
       ));
 
@@ -2592,7 +2574,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       }
     }
 
-    // 4. Find which appointments already have referral events
+    // 3. Find which appointments already have referral events
     const existingReferrals = allAppointmentIds.length > 0
       ? await db
           .select({
@@ -2607,7 +2589,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
             inArray(referralEvents.appointmentId, allAppointmentIds),
           ))
       : [];
-    // Track which appointments have referrals and whether they're staff-backfilled today (safe to update)
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const referralByAppointment = new Map<string, { id: string; captureMethod: string; isToday: boolean }>();
@@ -2619,23 +2601,19 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       }
     }
 
-    // 5. Create or update referral events
-    // Parse lead date to use as createdAt (instead of now()) so the referral funnel
-    // surgery join (planned_date >= created_at) works correctly for historical leads
+    // 4. Create or update referral events
     const parseLeadDate = (dateStr?: string): Date | null => {
       if (!dateStr) return null;
       const v = dateStr.trim();
-      // DD.MM.YYYY or DD.MM.YYYY HH:MM
       const dotMatch = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
       if (dotMatch) return new Date(parseInt(dotMatch[3]), parseInt(dotMatch[2]) - 1, parseInt(dotMatch[1]));
-      // YYYY-MM-DD (with optional time)
       const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (isoMatch) return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
       return null;
     };
 
-    // 5b. Also check for existing patient-level referrals (no appointment) to avoid duplicates
-    const existingPatientReferrals = matchedIds.length > 0
+    // 4b. Check for existing patient-level referrals (no appointment) to avoid duplicates
+    const existingPatientReferrals = allPatientIds.length > 0
       ? await db
           .select({
             id: referralEvents.id,
@@ -2646,7 +2624,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
           .from(referralEvents)
           .where(and(
             eq(referralEvents.hospitalId, hospitalId),
-            inArray(referralEvents.patientId, matchedIds),
+            inArray(referralEvents.patientId, allPatientIds),
             sql`${referralEvents.appointmentId} IS NULL`,
             eq(referralEvents.captureMethod, 'staff'),
           ))
@@ -2675,58 +2653,56 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
     const handledAppointments = new Set<string>();
     const handledPatients = new Set<string>();
 
-    for (const ml of matchedLeads) {
-      const isGoogle = ml.lead.adSource === 'gg';
+    for (const match of approvedMatches) {
+      const { lead, patientId } = match;
+      if (!lead.adSource) continue;
+
+      const isGoogle = lead.adSource === 'gg';
       const source = isGoogle ? 'search_engine' as const : 'social' as const;
-      const sourceDetail = isGoogle ? 'Google Ads' : ml.lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
-      const leadDate = parseLeadDate(ml.lead.leadDate) || new Date();
-      for (const patientId of ml.matchedPatientIds) {
-        const apptIds = appointmentIdsByPatient.get(patientId) || [];
+      const sourceDetail = isGoogle ? 'Google Ads' : lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
+      const leadDate = parseLeadDate(lead.leadDate) || new Date();
+      const apptIds = appointmentIdsByPatient.get(patientId) || [];
 
-        if (apptIds.length > 0) {
-          // Patient has appointments — create/update referral per appointment
-          for (const apptId of apptIds) {
-            if (handledAppointments.has(apptId)) continue;
-            handledAppointments.add(apptId);
+      if (apptIds.length > 0) {
+        for (const apptId of apptIds) {
+          if (handledAppointments.has(apptId)) continue;
+          handledAppointments.add(apptId);
 
-            const existing = referralByAppointment.get(apptId);
-            if (!existing) {
-              toInsert.push({
-                hospitalId,
-                patientId,
-                appointmentId: apptId,
-                source,
-                sourceDetail,
-                captureMethod: "staff",
-                createdAt: leadDate,
-                ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}),
-                ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}),
-              });
-            } else if (existing.captureMethod === 'staff' && existing.isToday) {
-              toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}), ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}) });
-            }
-          }
-        } else {
-          // Patient has NO appointments — create patient-level referral (no appointmentId)
-          // so they still appear in the referral funnel with their surgery data
-          if (handledPatients.has(patientId)) continue;
-          handledPatients.add(patientId);
-
-          const existing = patientLevelReferral.get(patientId);
+          const existing = referralByAppointment.get(apptId);
           if (!existing) {
             toInsert.push({
               hospitalId,
               patientId,
+              appointmentId: apptId,
               source,
               sourceDetail,
               captureMethod: "staff",
               createdAt: leadDate,
-              ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}),
-              ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}),
+              ...(lead.metaLeadId ? { metaLeadId: lead.metaLeadId } : {}),
+              ...(lead.metaFormId ? { metaFormId: lead.metaFormId } : {}),
             });
-          } else if (existing.isToday) {
-            toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}), ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}) });
+          } else if (existing.captureMethod === 'staff' && existing.isToday) {
+            toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(lead.metaLeadId ? { metaLeadId: lead.metaLeadId } : {}), ...(lead.metaFormId ? { metaFormId: lead.metaFormId } : {}) });
           }
+        }
+      } else {
+        if (handledPatients.has(patientId)) continue;
+        handledPatients.add(patientId);
+
+        const existing = patientLevelReferral.get(patientId);
+        if (!existing) {
+          toInsert.push({
+            hospitalId,
+            patientId,
+            source,
+            sourceDetail,
+            captureMethod: "staff",
+            createdAt: leadDate,
+            ...(lead.metaLeadId ? { metaLeadId: lead.metaLeadId } : {}),
+            ...(lead.metaFormId ? { metaFormId: lead.metaFormId } : {}),
+          });
+        } else if (existing.isToday) {
+          toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(lead.metaLeadId ? { metaLeadId: lead.metaLeadId } : {}), ...(lead.metaFormId ? { metaFormId: lead.metaFormId } : {}) });
         }
       }
     }
@@ -2752,12 +2728,12 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       }
     }
 
-    logger.info(`[Business] Referral backfill: created ${toInsert.length}, updated ${toUpdate.length} referral events for hospital=${hospitalId}`);
+    logger.info(`[Business] Referral backfill (approved): created ${toInsert.length}, updated ${toUpdate.length} referrals, ${patientUpdates} patient updates for hospital=${hospitalId}`);
 
-    res.json({ created: toInsert.length, updated: toUpdate.length });
+    res.json({ created: toInsert.length, updated: toUpdate.length, patientUpdates });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ message: 'Invalid lead data', details: error.errors });
+      return res.status(400).json({ message: 'Invalid approved match data', details: error.errors });
     }
     logger.error('[Business] Error in referral backfill:', error);
     res.status(500).json({ message: 'Failed to backfill referrals' });
