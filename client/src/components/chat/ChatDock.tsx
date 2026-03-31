@@ -2537,11 +2537,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                       ))}
                     </div>
                   )}
-                  <div className="flex items-end gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="shrink-0" 
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                       data-testid="button-attach-file"
