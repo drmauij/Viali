@@ -473,10 +473,20 @@ export default function BookAppointment() {
       }
 
       // Notify parent iframe (e.g. clinic website) for GA4 tracking
+      // Send to both www and non-www variants since they are different origins
       const clinicWebsite = data?.hospital?.companyWebsite;
       if (clinicWebsite && window.parent !== window) {
         try {
-          window.parent.postMessage({ event: 'booking_submitted' }, clinicWebsite);
+          const url = new URL(clinicWebsite);
+          const origins = [url.origin];
+          if (url.hostname.startsWith('www.')) {
+            origins.push(url.origin.replace('://www.', '://'));
+          } else {
+            origins.push(url.origin.replace('://', '://www.'));
+          }
+          for (const origin of origins) {
+            window.parent.postMessage({ event: 'booking_submitted' }, origin);
+          }
         } catch {
           // Cross-origin postMessage may silently fail — that's OK
         }
