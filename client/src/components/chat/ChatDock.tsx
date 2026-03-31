@@ -38,7 +38,9 @@ import {
   GripVertical,
   ListTodo,
   Pencil,
-  Check
+  Check,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import PatientChatList, { type PatientConversation } from "./PatientChatList";
 import PatientChatThread from "./PatientChatThread";
@@ -218,6 +220,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     preview?: string;
     uploading: boolean;
     storageKey?: string;
+    uploadFailed?: boolean;
   }>>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showSlashCommands, setShowSlashCommands] = useState(false);
@@ -886,7 +889,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         ));
       } catch (error) {
         console.error("Upload failed:", error);
-        setPendingAttachments(prev => prev.filter(att => att.file !== attachment.file));
+        setPendingAttachments(prev => prev.map(att => att.file === attachment.file ? { ...att, uploading: false, uploadFailed: true } : att));
       }
     }
     setIsUploading(false);
@@ -894,6 +897,24 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       fileInputRef.current.value = '';
     }
   }, []);
+
+  const retryAttachmentUpload = useCallback(async (index: number) => {
+    const attachment = pendingAttachments[index];
+    if (!attachment || !attachment.uploadFailed) return;
+
+    setPendingAttachments(prev => prev.map((att, i) => i === index ? { ...att, uploading: true, uploadFailed: false } : att));
+
+    try {
+      const uploadResponse = await apiRequest("POST", "/api/chat/upload", { filename: attachment.file.name });
+      const { uploadURL, storageKey } = await uploadResponse.json();
+      await fetch(uploadURL, { method: "PUT", body: attachment.file, headers: { "Content-Type": attachment.file.type } });
+      await apiRequest("POST", "/api/chat/attachments/confirm", { storageKey, filename: attachment.file.name, mimeType: attachment.file.type, sizeBytes: attachment.file.size });
+      setPendingAttachments(prev => prev.map((att, i) => i === index ? { ...att, uploading: false, uploadFailed: false, storageKey } : att));
+    } catch (error) {
+      console.error("Retry upload failed:", error);
+      setPendingAttachments(prev => prev.map((att, i) => i === index ? { ...att, uploading: false, uploadFailed: true } : att));
+    }
+  }, [pendingAttachments]);
 
   const removeAttachment = useCallback((index: number) => {
     setPendingAttachments(prev => {
@@ -1032,8 +1053,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
             setPendingAttachments(prev => prev.map(att => att.file === file ? { ...att, uploading: false, storageKey } : att));
           } catch (error) {
             console.error("Screenshot upload failed:", error);
-            setPendingAttachments(prev => prev.filter(att => att.file !== file));
-            URL.revokeObjectURL(preview);
+            setPendingAttachments(prev => prev.map(att => att.file === file ? { ...att, uploading: false, uploadFailed: true } : att));
           }
         }, 'image/png');
       } catch (error) {
@@ -2414,9 +2434,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 {pendingAttachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {pendingAttachments.map((attachment, index) => (
-                      <div 
-                        key={index} 
-                        className="relative group bg-accent rounded-lg p-2 flex items-center gap-2"
+                      <div
+                        key={index}
+                        className={`relative group bg-accent rounded-lg p-2 flex items-center gap-2 ${attachment.uploadFailed ? 'ring-1 ring-destructive' : ''}`}
                         data-testid={`attachment-preview-${index}`}
                       >
                         {attachment.preview ? (
@@ -2437,6 +2457,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                               <Loader2 className="w-3 h-3 animate-spin" />
                               <span>Uploading...</span>
                             </div>
+                          )}
+                          {attachment.uploadFailed && (
+                            <button
+                              className="flex items-center gap-1 text-xs text-destructive hover:underline"
+                              onClick={() => retryAttachmentUpload(index)}
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              <span>Retry</span>
+                            </button>
                           )}
                         </div>
                         <button
