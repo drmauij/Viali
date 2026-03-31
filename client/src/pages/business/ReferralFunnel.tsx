@@ -58,6 +58,7 @@ type FunnelRow = {
   has_click_id: boolean;
   meta_lead_id: string | null;
   meta_form_id: string | null;
+  utm_campaign: string | null;
   appointment_id: string | null;
   appointment_status: string | null;
   provider_id: string | null;
@@ -329,6 +330,7 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
   const { toast } = useToast();
   const [providerFilter, setProviderFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [campaignFilter, setCampaignFilter] = useState("all");
 
   // Ad budget state
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -462,6 +464,14 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
     return Array.from(s).sort();
   }, [rows]);
 
+  const campaigns = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) {
+      if (r.utm_campaign) s.add(r.utm_campaign);
+    }
+    return Array.from(s).sort();
+  }, [rows]);
+
   const filtered = useMemo(() => {
     let result = rows;
     if (providerFilter !== "all") {
@@ -470,8 +480,11 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
     if (sourceFilter !== "all") {
       result = result.filter((r) => r.source === sourceFilter);
     }
+    if (campaignFilter !== "all") {
+      result = result.filter((r) => r.utm_campaign === campaignFilter);
+    }
     return result;
-  }, [rows, providerFilter, sourceFilter]);
+  }, [rows, providerFilter, sourceFilter, campaignFilter]);
 
   const metrics = useMemo(() => computeMetrics(filtered), [filtered]);
 
@@ -646,6 +659,31 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                 </SelectContent>
               </Select>
             </div>
+            {campaigns.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>{t("business.funnel.campaign", "Campaign")}</Label>
+                <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={t(
+                        "business.funnel.allCampaigns",
+                        "All Campaigns",
+                      )}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {t("business.funnel.allCampaigns", "All Campaigns")}
+                    </SelectItem>
+                    {campaigns.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
