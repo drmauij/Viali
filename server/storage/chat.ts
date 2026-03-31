@@ -291,6 +291,38 @@ export async function getMessage(id: string): Promise<ChatMessage | undefined> {
   return message;
 }
 
+export async function getMessageWithSender(id: string): Promise<(ChatMessage & { sender: { id: string; firstName: string | null; lastName: string | null; email: string | null } }) | undefined> {
+  const result = await db
+    .select()
+    .from(chatMessages)
+    .innerJoin(users, eq(chatMessages.senderId, users.id))
+    .where(eq(chatMessages.id, id));
+
+  if (result.length === 0) return undefined;
+
+  const row = result[0];
+  return {
+    ...row.chat_messages,
+    sender: {
+      id: row.users.id,
+      firstName: row.users.firstName,
+      lastName: row.users.lastName,
+      email: row.users.email,
+    }
+  };
+}
+
+export async function getParticipant(conversationId: string, userId: string): Promise<ChatParticipant | undefined> {
+  const [participant] = await db
+    .select()
+    .from(chatParticipants)
+    .where(and(
+      eq(chatParticipants.conversationId, conversationId),
+      eq(chatParticipants.userId, userId)
+    ));
+  return participant;
+}
+
 export async function createMessage(message: InsertChatMessage & { senderId: string }): Promise<ChatMessage> {
   const [created] = await db
     .insert(chatMessages)

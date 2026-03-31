@@ -559,6 +559,29 @@ router.delete('/api/chat/messages/:messageId', isAuthenticated, requireWriteAcce
   }
 });
 
+router.get('/api/chat/messages/:messageId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.id;
+
+    const message = await storage.getMessageWithSender(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    // Verify the requester is a participant in this conversation
+    const participant = await storage.getParticipant(message.conversationId, userId);
+    if (!participant) {
+      return res.status(403).json({ message: "Not a participant in this conversation" });
+    }
+
+    res.json(message);
+  } catch (error) {
+    logger.error("Error fetching message:", error);
+    res.status(500).json({ message: "Failed to fetch message" });
+  }
+});
+
 router.get('/api/chat/:hospitalId/notifications', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;

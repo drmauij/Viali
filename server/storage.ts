@@ -723,6 +723,8 @@ export interface IStorage {
     attachments: ChatAttachment[] 
   })[]>;
   getMessage(id: string): Promise<ChatMessage | undefined>;
+  getMessageWithSender(id: string): Promise<(ChatMessage & { sender: { id: string; firstName: string | null; lastName: string | null; email: string | null } }) | undefined>;
+  getParticipant(conversationId: string, userId: string): Promise<ChatParticipant | undefined>;
   createMessage(message: InsertChatMessage & { senderId: string }): Promise<ChatMessage>;
   updateMessage(id: string, content: string): Promise<ChatMessage>;
   deleteMessage(id: string): Promise<ChatMessage>;
@@ -1468,6 +1470,8 @@ export class DatabaseStorage implements IStorage {
   markConversationRead = chatStorage.markConversationRead;
   getMessages = chatStorage.getMessages;
   getMessage = chatStorage.getMessage;
+  getMessageWithSender = chatStorage.getMessageWithSender;
+  getParticipant = chatStorage.getParticipant;
   createMessage = chatStorage.createMessage;
   updateMessage = chatStorage.updateMessage;
   deleteMessage = chatStorage.deleteMessage;
