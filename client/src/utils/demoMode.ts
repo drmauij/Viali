@@ -170,6 +170,32 @@ const PII_FIELDS: Record<string, (val: string) => string> = {
 
 const SKIP_PARENT_KEYS = new Set(["provider", "colleague", "user", "createdBy", "updatedBy"]);
 
+// --- Global fetch interceptor ---
+// Wraps Response.json() for /api/ calls so demo mode anonymisation
+// applies everywhere, even in custom queryFn / raw fetch() calls.
+
+const _origFetch = window.fetch;
+window.fetch = async function (...args: Parameters<typeof fetch>) {
+  const res = await _origFetch.apply(this, args);
+  if (!isDemoMode()) return res;
+
+  // Only intercept our own API calls
+  const url = typeof args[0] === "string" ? args[0] : (args[0] as Request).url;
+  if (!url.includes("/api/")) return res;
+
+  const origJson = res.json.bind(res);
+  let _called = false;
+  let _cached: unknown;
+  (res as any).json = async () => {
+    if (_called) return _cached;
+    const data = await origJson();
+    _cached = transformDemoResponse(data);
+    _called = true;
+    return _cached;
+  };
+  return res;
+};
+
 // --- Recursive response transformer ---
 
 export function transformDemoResponse(data: unknown, parentKey?: string): unknown {

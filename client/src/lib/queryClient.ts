@@ -1,7 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
 import * as Sentry from "@sentry/react";
-import { isDemoMode, transformDemoResponse } from "@/utils/demoMode";
+import "@/utils/demoMode"; // Installs global fetch interceptor for demo-mode anonymisation
 
 function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null; role: string | null } {
   const activeHospitalKey = localStorage.getItem('activeHospital');
@@ -66,13 +66,20 @@ async function throwIfResNotOk(res: Response, url?: string) {
   }
 }
 
+/** Parse JSON from a Response, applying demo-mode anonymisation when active.
+ *  Note: the global fetch interceptor in demoMode.ts now handles the transform,
+ *  so this is simply a typed res.json() wrapper. Kept for convenience. */
+export async function demoJson<T = unknown>(res: Response): Promise<T> {
+  return await res.json() as T;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
-  
+
   // Add active hospital, unit ID, and role headers if available
   const { hospitalId, unitId, role } = getActiveHospitalAndUnit();
   if (hospitalId) {
@@ -84,10 +91,10 @@ export async function apiRequest(
   if (role) {
     headers["X-Active-Role"] = role;
   }
-  
+
   // Add client session ID for real-time sync filtering
   headers["X-Client-Session-Id"] = clientSessionId;
-  
+
   const res = await fetch(url, {
     method,
     headers,
@@ -129,8 +136,8 @@ export const getQueryFn: <T>(options: {
     }
 
     await throwIfResNotOk(res, `GET ${queryKey[0]}`);
-    const json = await res.json();
-    return isDemoMode() ? transformDemoResponse(json) : json;
+    // Demo-mode anonymisation is handled globally by the fetch interceptor in demoMode.ts
+    return await res.json();
   };
 
 export const queryClient = new QueryClient({

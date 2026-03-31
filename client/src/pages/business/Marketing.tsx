@@ -174,7 +174,7 @@ export default function Marketing() {
     queryFn: async () => {
       const res = await fetch(`/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch referral events');
-      const data = await res.json();
+      const data: ReferralEvent[] = await res.json();
       setReferralEvents(data);
       setReferralEventsHasMore(data.length === PAGE_SIZE);
       return data;
