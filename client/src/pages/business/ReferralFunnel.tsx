@@ -56,6 +56,8 @@ type FunnelRow = {
   patient_id: string;
   capture_method: string;
   has_click_id: boolean;
+  meta_lead_id: string | null;
+  meta_form_id: string | null;
   appointment_id: string | null;
   appointment_status: string | null;
   provider_id: string | null;
@@ -233,13 +235,14 @@ function exportAnonymizedCsv(rows: FunnelRow[]) {
 }
 
 function classifyFunnel(r: FunnelRow): string {
+  // Meta Forms: has meta lead/form ID (from Lead Ads / Excel import)
+  if (r.meta_lead_id || r.meta_form_id) return "meta_forms";
+  if (r.source === "social" && r.capture_method === "staff") return "meta_forms";
   if (r.has_click_id) {
-    // Determine specific ad funnel from source_detail or source
     if (r.source === "search_engine") return "google_ads";
     if (r.source === "social") return "meta_ads";
     return "paid_other";
   }
-  if (r.source === "social" && r.capture_method === "staff") return "meta_forms";
   return "organic";
 }
 
@@ -256,7 +259,7 @@ function exportAdPerformanceCsv(
   };
 
   // Section 1: Summary
-  const summaryHeader = "funnel,budget_chf,leads,cpl_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
+  const summaryHeader = "funnel,budget_chf,consultations,cpc_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
   const summaryRows = adPerformance.map((r: any) => [
     funnelLabels[r.funnel] || r.funnel,
     r.budget,
@@ -667,11 +670,11 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
             />
             <KpiCard
               label={t("business.funnel.noShowRate", "No-Show Rate")}
-              value={pct(metrics.noShowRate)}
+              value={`${metrics.noShow} (${pct(metrics.noShowRate)})`}
             />
             <KpiCard
               label={t("business.funnel.cancellationRate", "Cancellation Rate")}
-              value={pct(metrics.cancellationRate)}
+              value={`${metrics.cancelled} (${pct(metrics.cancellationRate)})`}
             />
             <KpiCard
               label={t("business.funnel.confirmed", "Confirmed")}
@@ -684,27 +687,27 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
             <KpiCard
               label={t(
                 "business.funnel.leadToSurgery",
-                "Lead \u2192 Surgery",
+                "Consultation \u2192 Surgery",
               )}
-              value={pct(metrics.leadToSurgeryRate)}
+              value={`${metrics.surgeryPlanned} (${pct(metrics.leadToSurgeryRate)})`}
             />
             <KpiCard
               label={t(
                 "business.funnel.aptToSurgery",
                 "Appointment \u2192 Surgery",
               )}
-              value={pct(metrics.aptToSurgeryRate)}
+              value={`${metrics.surgeryPlanned} (${pct(metrics.aptToSurgeryRate)})`}
             />
             <KpiCard
               label={t(
                 "business.funnel.surgeryToPaid",
                 "Surgery \u2192 Paid",
               )}
-              value={pct(metrics.surgeryToPaidRate)}
+              value={`${metrics.paid} (${pct(metrics.surgeryToPaidRate)})`}
             />
             <KpiCard
               label={t("business.funnel.fullFunnel", "Full Funnel")}
-              value={pct(metrics.fullFunnelRate)}
+              value={`${metrics.paid} / ${metrics.totalReferrals} (${pct(metrics.fullFunnelRate)})`}
             />
             <KpiCard
               label={t("business.funnel.revenue", "Revenue")}
@@ -770,31 +773,34 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                       {t("business.funnel.kept", "Kept")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t("business.funnel.noShowRate", "No-Show %")}
+                      {t("business.funnel.noShow", "No-Show")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t("business.funnel.cancellationRate", "Cancel %")}
+                      {t("business.funnel.cancelled", "Cancelled")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("business.funnel.surgery", "Surgery")}
                     </TableHead>
                     <TableHead className="text-right">
                       {t(
                         "business.funnel.leadToSurgery",
-                        "Lead\u2192Surgery %",
+                        "Consult\u2192Surgery",
                       )}
                     </TableHead>
                     <TableHead className="text-right">
                       {t(
                         "business.funnel.aptToSurgery",
-                        "Apt\u2192Surgery %",
+                        "Apt\u2192Surgery",
                       )}
                     </TableHead>
                     <TableHead className="text-right">
                       {t(
                         "business.funnel.surgeryToPaid",
-                        "Surgery\u2192Paid %",
+                        "Surgery\u2192Paid",
                       )}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t("business.funnel.fullFunnel", "Full Funnel %")}
+                      {t("business.funnel.fullFunnel", "Full Funnel")}
                     </TableHead>
                     <TableHead className="text-right">
                       {t("business.funnel.revenue", "Revenue")}
@@ -820,10 +826,13 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                         {m.kept}
                       </TableCell>
                       <TableCell className="text-right">
-                        {pct(m.noShowRate)}
+                        {m.noShow} <span className="text-muted-foreground text-xs">({pct(m.noShowRate)})</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        {pct(m.cancellationRate)}
+                        {m.cancelled} <span className="text-muted-foreground text-xs">({pct(m.cancellationRate)})</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {m.surgeryPlanned}
                       </TableCell>
                       <TableCell className="text-right">
                         {pct(m.leadToSurgeryRate)}
@@ -835,7 +844,7 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                         {pct(m.surgeryToPaidRate)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {pct(m.fullFunnelRate)}
+                        {m.paid} <span className="text-muted-foreground text-xs">({pct(m.fullFunnelRate)})</span>
                       </TableCell>
                       <TableCell className="text-right">
                         {CHF.format(m.totalRevenue)}
@@ -858,10 +867,13 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                       {metrics.kept}
                     </TableCell>
                     <TableCell className="text-right">
-                      {pct(metrics.noShowRate)}
+                      {metrics.noShow} <span className="text-muted-foreground text-xs">({pct(metrics.noShowRate)})</span>
                     </TableCell>
                     <TableCell className="text-right">
-                      {pct(metrics.cancellationRate)}
+                      {metrics.cancelled} <span className="text-muted-foreground text-xs">({pct(metrics.cancellationRate)})</span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {metrics.surgeryPlanned}
                     </TableCell>
                     <TableCell className="text-right">
                       {pct(metrics.leadToSurgeryRate)}
@@ -873,7 +885,7 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                       {pct(metrics.surgeryToPaidRate)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {pct(metrics.fullFunnelRate)}
+                      {metrics.paid} <span className="text-muted-foreground text-xs">({pct(metrics.fullFunnelRate)})</span>
                     </TableCell>
                     <TableCell className="text-right">
                       {CHF.format(metrics.totalRevenue)}
@@ -1031,8 +1043,8 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                         {[
                           { key: "month", label: t("business.adBudgets.month", "Month"), tip: t("business.adPerformance.monthTip", "Calendar month") },
                           { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend across all channels") },
-                          { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
-                          { key: "cpl", label: "CPL", tip: t("business.adPerformance.cplTip", "Cost per Lead — budget divided by number of leads") },
+                          { key: "leads", label: t("business.adPerformance.leads", "Consultations"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
+                          { key: "cpl", label: "CPC", tip: t("business.adPerformance.cplTip", "Cost per Consultation — budget divided by number of consultations") },
                           { key: "confirmed", label: t("business.adPerformance.confirmed", "Confirmed"), tip: t("business.adPerformance.confirmedTip", "Appointments scheduled or confirmed but not yet attended") },
                           { key: "kept", label: t("business.adPerformance.kept", "Appts Kept"), tip: t("business.adPerformance.keptTip", "Appointments that were attended (not no-show or cancelled)") },
                           { key: "cpk", label: t("business.adPerformance.cpk", "Cost/Kept"), tip: t("business.adPerformance.cpkTip", "Budget divided by number of kept appointments") },
