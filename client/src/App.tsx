@@ -289,7 +289,25 @@ function Router() {
   );
 }
 
+// Force repaint when returning to the app on mobile browsers.
+// Switching apps causes the browser to freeze the tab; when resuming,
+// the rendering surface can be blank until a repaint is triggered.
+function useRepaintOnResume() {
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        // Tiny opacity toggle forces the browser to repaint the page
+        document.body.style.opacity = '0.99';
+        requestAnimationFrame(() => { document.body.style.opacity = ''; });
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
+}
+
 function App() {
+  useRepaintOnResume();
   return (
     <QueryClientProvider client={queryClient}>
       <SocketProvider>
