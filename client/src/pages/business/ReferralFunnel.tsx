@@ -259,7 +259,7 @@ function exportAdPerformanceCsv(
   };
 
   // Section 1: Summary
-  const summaryHeader = "funnel,budget_chf,consultations,cpc_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
+  const summaryHeader = "funnel,budget_chf,leads,cpl_chf,appointments_kept,cost_per_kept_chf,paid_conversions,cpa_chf,revenue_chf,roi";
   const summaryRows = adPerformance.map((r: any) => [
     funnelLabels[r.funnel] || r.funnel,
     r.budget,
@@ -677,17 +677,13 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
               value={`${metrics.cancelled} (${pct(metrics.cancellationRate)})`}
             />
             <KpiCard
-              label={t("business.funnel.confirmed", "Confirmed")}
-              value={`${metrics.confirmed}`}
-            />
-            <KpiCard
-              label={t("business.funnel.kept", "Kept")}
+              label={t("business.funnel.attended", "Attended")}
               value={`${metrics.kept} / ${metrics.withAppointment}`}
             />
             <KpiCard
               label={t(
                 "business.funnel.leadToSurgery",
-                "Consultation \u2192 Surgery",
+                "Lead \u2192 Surgery",
               )}
               value={`${metrics.surgeryPlanned} (${pct(metrics.leadToSurgeryRate)})`}
             />
@@ -767,10 +763,7 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                       {t("business.funnel.referrals", "Referrals")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t("business.funnel.confirmed", "Confirmed")}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {t("business.funnel.kept", "Kept")}
+                      {t("business.funnel.attended", "Attended")}
                     </TableHead>
                     <TableHead className="text-right">
                       {t("business.funnel.noShow", "No-Show")}
@@ -784,7 +777,7 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                     <TableHead className="text-right">
                       {t(
                         "business.funnel.leadToSurgery",
-                        "Consult\u2192Surgery",
+                        "Lead\u2192Surgery",
                       )}
                     </TableHead>
                     <TableHead className="text-right">
@@ -818,9 +811,6 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                       </TableCell>
                       <TableCell className="text-right">
                         {m.totalReferrals}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {m.confirmed}
                       </TableCell>
                       <TableCell className="text-right">
                         {m.kept}
@@ -1043,8 +1033,8 @@ export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }:
                         {[
                           { key: "month", label: t("business.adBudgets.month", "Month"), tip: t("business.adPerformance.monthTip", "Calendar month") },
                           { key: "budget", label: t("business.adPerformance.budget", "Budget"), tip: t("business.adPerformance.budgetTip", "Total ad spend across all channels") },
-                          { key: "leads", label: t("business.adPerformance.leads", "Consultations"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
-                          { key: "cpl", label: "CPC", tip: t("business.adPerformance.cplTip", "Cost per Consultation — budget divided by number of consultations") },
+                          { key: "leads", label: t("business.adPerformance.leads", "Leads"), tip: t("business.adPerformance.leadsTip", "Number of referrals attributed to ad channels") },
+                          { key: "cpl", label: "CPL", tip: t("business.adPerformance.cplTip", "Cost per Lead — budget divided by number of leads") },
                           { key: "confirmed", label: t("business.adPerformance.confirmed", "Confirmed"), tip: t("business.adPerformance.confirmedTip", "Appointments scheduled or confirmed but not yet attended") },
                           { key: "kept", label: t("business.adPerformance.kept", "Appts Kept"), tip: t("business.adPerformance.keptTip", "Appointments that were attended (not no-show or cancelled)") },
                           { key: "cpk", label: t("business.adPerformance.cpk", "Cost/Kept"), tip: t("business.adPerformance.cpkTip", "Budget divided by number of kept appointments") },
