@@ -457,6 +457,8 @@ export function BookingDialog({
   const [leadPasteText, setLeadPasteText] = useState("");
   const [leadImportPending, setLeadImportPending] = useState(false);
   const [referralCreatedAt, setReferralCreatedAt] = useState<string | null>(null);
+  const [referralMetaLeadId, setReferralMetaLeadId] = useState<string | null>(null);
+  const [referralMetaFormId, setReferralMetaFormId] = useState<string | null>(null);
 
   // Update state when defaults change (from calendar slot selection or patient pre-fill)
   useMemo(() => {
@@ -623,6 +625,8 @@ export function BookingDialog({
     firstName: string | null;
     lastName: string | null;
     source: string | null;
+    metaLeadId: string | null;
+    metaFormId: string | null;
   } | null => {
     const trimmed = text.trim();
     // Split by tab; if only 1 part, try semicolon
@@ -634,6 +638,11 @@ export function BookingDialog({
 
     // Fixed column order: F, Operation, E-mail, Telefonnummer, Vorname, Nachname, Source
     const [leadDate, operation, email, phone, firstName, lastName, source] = parts;
+
+    // Detect Meta Lead ID and Form ID: long numeric strings (15+ digits), position-independent
+    // First match = Lead ID, second = Form ID
+    const metaIds = parts.slice(7).filter(p => /^\d{15,}$/.test(p));
+
     return {
       leadDate: leadDate || null,
       operation: operation || null,
@@ -642,6 +651,8 @@ export function BookingDialog({
       firstName: firstName || null,
       lastName: lastName || null,
       source: source?.toLowerCase().trim() || null,
+      metaLeadId: metaIds[0] || null,
+      metaFormId: metaIds[1] || null,
     };
   };
 
@@ -650,7 +661,7 @@ export function BookingDialog({
     if (!parsed || (!parsed.firstName && !parsed.email)) {
       toast({
         title: t('appointments.importFailed', 'Could not parse lead'),
-        description: t('appointments.importFailedDesc', 'Please paste a tab-separated row: F, Operation, E-mail, Phone, Vorname, Nachname, Source'),
+        description: t('appointments.importFailedDesc', 'Please paste a tab-separated row from the leads Excel (Lead ID and Form ID are detected automatically)'),
         variant: "destructive",
       });
       return;
@@ -667,10 +678,12 @@ export function BookingDialog({
       setReferralSourceDetail(parsed.source === 'fb' ? "facebook" : "instagram");
     }
 
-    // Store lead date for referral event
+    // Store lead date and Meta IDs for referral event
     if (parsed.leadDate) {
       setReferralCreatedAt(parsed.leadDate);
     }
+    if (parsed.metaLeadId) setReferralMetaLeadId(parsed.metaLeadId);
+    if (parsed.metaFormId) setReferralMetaFormId(parsed.metaFormId);
 
     // Try to find existing patient by searching name or email
     setLeadImportPending(true);
@@ -745,6 +758,8 @@ export function BookingDialog({
     setBirthdayInput("");
     setReferralSource("");
     setReferralSourceDetail("");
+    setReferralMetaLeadId(null);
+    setReferralMetaFormId(null);
     setShowLeadImport(false);
     setLeadPasteText("");
     setLeadImportPending(false);
@@ -770,6 +785,8 @@ export function BookingDialog({
       videoMeetingLink: videoMeetingLink || null,
       ...(referralSource ? { referralSource, referralSourceDetail: referralSourceDetail || null } : {}),
       ...(referralCreatedAt ? { referralCreatedAt } : {}),
+      ...(referralMetaLeadId ? { metaLeadId: referralMetaLeadId } : {}),
+      ...(referralMetaFormId ? { metaFormId: referralMetaFormId } : {}),
     });
   };
 
@@ -803,7 +820,7 @@ export function BookingDialog({
                   data-testid="textarea-lead-paste"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {t('appointments.leadPasteHint', 'Paste one row from the leads Excel (tab-separated)')}
+                  {t('appointments.leadPasteHint', 'Paste one row from the leads Excel: F, Operation, E-mail, Phone, Vorname, Nachname, Source, ... Lead ID, Form ID (tab-separated)')}
                 </p>
                 <Button onClick={handleLeadImport} disabled={leadImportPending || !leadPasteText.trim()}
                   className="w-full" data-testid="button-import-lead">

@@ -6323,6 +6323,9 @@ export const referralEvents = pgTable("referral_events", {
   igshid: varchar("igshid"),
   li_fat_id: varchar("li_fat_id"),
   twclid: varchar("twclid"),
+  // Meta Lead Forms IDs for offline conversion tracking
+  metaLeadId: varchar("meta_lead_id"),
+  metaFormId: varchar("meta_form_id"),
   captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref", "staff"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [

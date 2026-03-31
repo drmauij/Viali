@@ -1978,6 +1978,8 @@ const leadConversionSchema = z.object({
     leadDate: z.string().optional(),
     operation: z.string().optional(),
     adSource: z.string().optional(),
+    metaLeadId: z.string().optional(),
+    metaFormId: z.string().optional(),
   })).min(1).max(5000),
 });
 
@@ -2502,8 +2504,10 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
       sourceDetail: string;
       captureMethod: "staff";
       createdAt: Date;
+      metaLeadId?: string;
+      metaFormId?: string;
     }[] = [];
-    const toUpdate: { id: string; source: "social" | "search_engine"; sourceDetail: string; createdAt: Date }[] = [];
+    const toUpdate: { id: string; source: "social" | "search_engine"; sourceDetail: string; createdAt: Date; metaLeadId?: string; metaFormId?: string }[] = [];
     const handledAppointments = new Set<string>();
     const handledPatients = new Set<string>();
 
@@ -2531,9 +2535,11 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
                 sourceDetail,
                 captureMethod: "staff",
                 createdAt: leadDate,
+                ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}),
+                ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}),
               });
             } else if (existing.captureMethod === 'staff' && existing.isToday) {
-              toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
+              toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}), ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}) });
             }
           }
         } else {
@@ -2551,9 +2557,11 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
               sourceDetail,
               captureMethod: "staff",
               createdAt: leadDate,
+              ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}),
+              ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}),
             });
           } else if (existing.isToday) {
-            toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate });
+            toUpdate.push({ id: existing.id, source, sourceDetail, createdAt: leadDate, ...(ml.lead.metaLeadId ? { metaLeadId: ml.lead.metaLeadId } : {}), ...(ml.lead.metaFormId ? { metaFormId: ml.lead.metaFormId } : {}) });
           }
         }
       }
@@ -2569,7 +2577,13 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
     if (toUpdate.length > 0) {
       for (const upd of toUpdate) {
         await db.update(referralEvents)
-          .set({ source: upd.source, sourceDetail: upd.sourceDetail, createdAt: upd.createdAt })
+          .set({
+            source: upd.source,
+            sourceDetail: upd.sourceDetail,
+            createdAt: upd.createdAt,
+            ...(upd.metaLeadId ? { metaLeadId: upd.metaLeadId } : {}),
+            ...(upd.metaFormId ? { metaFormId: upd.metaFormId } : {}),
+          })
           .where(eq(referralEvents.id, upd.id));
       }
     }

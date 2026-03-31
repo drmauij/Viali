@@ -2349,7 +2349,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     }
     
     // Extract referral fields before passing to appointment schema
-    const { referralSource, referralSourceDetail, referralCreatedAt, ...appointmentBody } = req.body;
+    const { referralSource, referralSourceDetail, referralCreatedAt, metaLeadId, metaFormId, ...appointmentBody } = req.body;
 
     const validatedData = insertClinicAppointmentSchema.parse({
       ...appointmentBody,
@@ -2375,6 +2375,8 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
             sourceDetail: referralSourceDetail || undefined,
             captureMethod: "staff",
             ...(referralCreatedAt ? { createdAt: parseLeadDate(referralCreatedAt) } : {}),
+            ...(metaLeadId ? { metaLeadId } : {}),
+            ...(metaFormId ? { metaFormId } : {}),
           });
         }
       } catch (err) {

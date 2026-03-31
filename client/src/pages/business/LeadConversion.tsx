@@ -88,6 +88,8 @@ type ParsedLead = {
   leadDate?: string;
   operation?: string;
   adSource?: string;
+  metaLeadId?: string;
+  metaFormId?: string;
 };
 
 function parseLeads(text: string): ParsedLead[] {
@@ -125,6 +127,12 @@ function parseLeads(text: string): ParsedLead[] {
       lead.firstName = nameParts[0];
       lead.lastName = nameParts.slice(1).join(' ');
     }
+
+    // Detect Meta Lead ID and Form ID: long numeric strings (15+ digits)
+    // First match = Lead ID, second = Form ID (position-independent)
+    const metaIds = parts.filter(p => /^\d{15,}$/.test(p.trim()));
+    if (metaIds[0]) lead.metaLeadId = metaIds[0].trim();
+    if (metaIds[1]) lead.metaFormId = metaIds[1].trim();
 
     if (lead.firstName || lead.email || lead.phone) {
       leads.push(lead);
@@ -240,7 +248,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
             </p>
           </div>
           <Textarea
-            placeholder={"John, Doe, john@example.com, +41 79 123 45 67\nJane, Smith, jane@email.ch\nMax Muster, max@test.com\n..."}
+            placeholder={"F\tOperation\tE-mail\tPhone\tVorname\tNachname\tSource\tStatus\t...\tLead ID\tForm ID\n01.03.2026\tBrust_OP\tjane@email.ch\t+41 79 123 45 67\tJane\tSmith\tfb\tContacted\t...\t1234567890123456\t9876543210123456"}
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             rows={8}
@@ -248,7 +256,7 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
           />
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              {t("business.leads.leadFormatHint", "One lead per line. Format: name, surname, email, phone (any order, comma/semicolon/tab separated — paste directly from Excel)")}
+              {t("business.leads.leadFormatHint", "One lead per line — paste directly from Excel (tab-separated). Lead ID and Form ID are detected automatically from long numeric values.")}
             </p>
             <Button
               onClick={handleAnalyze}
