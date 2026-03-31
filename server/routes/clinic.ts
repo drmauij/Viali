@@ -2349,7 +2349,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     }
     
     // Extract referral fields before passing to appointment schema
-    const { referralSource, referralSourceDetail, referralCreatedAt, metaLeadId, metaFormId, ...appointmentBody } = req.body;
+    const { referralSource, referralSourceDetail, referralCreatedAt, metaLeadId, metaFormId, sendConfirmation, ...appointmentBody } = req.body;
 
     const validatedData = insertClinicAppointmentSchema.parse({
       ...appointmentBody,
@@ -2395,7 +2395,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     })();
 
     // Async send confirmation notification (don't block response)
-    if (appointment.patientId) {
+    if (appointment.patientId && sendConfirmation !== false) {
       sendAppointmentNotification(appointment.id, hospitalId, 'confirmation');
     }
 

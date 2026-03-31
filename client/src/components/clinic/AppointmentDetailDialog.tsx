@@ -255,7 +255,7 @@ export default function AppointmentDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -265,7 +265,7 @@ export default function AppointmentDetailDialog({
 
         {appointment && (
           <>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
             {/* Patient / Colleague Card */}
             {appointment.appointmentType === 'internal' ? (
               <div className="rounded-lg border bg-muted/30 p-3">

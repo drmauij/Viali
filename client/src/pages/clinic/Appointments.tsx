@@ -35,6 +35,7 @@ import {
   Loader2,
   Video,
   ClipboardPaste,
+  MessageSquare,
 } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { format } from "date-fns";
@@ -459,6 +460,7 @@ export function BookingDialog({
   const [referralCreatedAt, setReferralCreatedAt] = useState<string | null>(null);
   const [referralMetaLeadId, setReferralMetaLeadId] = useState<string | null>(null);
   const [referralMetaFormId, setReferralMetaFormId] = useState<string | null>(null);
+  const [sendConfirmation, setSendConfirmation] = useState(true);
 
   // Update state when defaults change (from calendar slot selection or patient pre-fill)
   useMemo(() => {
@@ -760,6 +762,7 @@ export function BookingDialog({
     setReferralSourceDetail("");
     setReferralMetaLeadId(null);
     setReferralMetaFormId(null);
+    setSendConfirmation(true);
     setShowLeadImport(false);
     setLeadPasteText("");
     setLeadImportPending(false);
@@ -768,7 +771,7 @@ export function BookingDialog({
 
   const handleSubmit = () => {
     const [startTime, endTime] = selectedSlot.split('-');
-    if (!selectedPatientId || !selectedProviderId || !selectedDate || !startTime || !endTime || !referralSource) {
+    if (!selectedPatientId || !selectedProviderId || !selectedDate || !startTime || !endTime) {
       toast({ title: t('appointments.fillRequired', 'Please fill all required fields'), variant: "destructive" });
       return;
     }
@@ -787,12 +790,13 @@ export function BookingDialog({
       ...(referralCreatedAt ? { referralCreatedAt } : {}),
       ...(referralMetaLeadId ? { metaLeadId: referralMetaLeadId } : {}),
       ...(referralMetaFormId ? { metaFormId: referralMetaFormId } : {}),
+      sendConfirmation,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('appointments.bookNew', 'Book New Appointment')}</DialogTitle>
           <DialogDescription>
@@ -800,7 +804,7 @@ export function BookingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto flex-1 pr-2">
           <div>
             <Label>{t('appointments.searchPatient', 'Search Patient')} *</Label>
             {showLeadImport ? (
@@ -1026,7 +1030,7 @@ export function BookingDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>{t('appointments.referralSource', 'Referral Source')} <span className="text-destructive">*</span></Label>
+              <Label>{t('appointments.referralSource', 'Referral Source')}</Label>
               <Select value={referralSource} onValueChange={(v) => { setReferralSource(v); setReferralSourceDetail(""); }}>
                 <SelectTrigger data-testid="select-referral-source">
                   <SelectValue placeholder={t('appointments.selectReferralSource', 'None')} />
@@ -1103,6 +1107,14 @@ export function BookingDialog({
               />
             </div>
           )}
+
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              {t('appointments.sendConfirmation', 'Send Confirmation SMS')}
+            </Label>
+            <Switch checked={sendConfirmation} onCheckedChange={setSendConfirmation} data-testid="toggle-send-confirmation" />
+          </div>
         </div>
 
         <DialogFooter>
