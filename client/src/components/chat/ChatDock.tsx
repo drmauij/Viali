@@ -762,16 +762,18 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, mentions, attachments }: { 
-      content: string; 
+    mutationFn: async ({ content, mentions, attachments, replyToMessageId }: {
+      content: string;
       mentions: Array<{ type: string; userId?: string; patientId?: string }>;
       attachments?: Array<{ storageKey: string; filename: string; mimeType: string; sizeBytes: number }>;
+      replyToMessageId?: string;
     }) => {
       const response = await apiRequest("POST", `/api/chat/conversations/${selectedConversation?.id}/messages`, {
         content,
         messageType: attachments && attachments.length > 0 ? 'file' : 'text',
         mentions: mentions.length > 0 ? mentions : undefined,
-        attachments: attachments && attachments.length > 0 ? attachments : undefined
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        replyToMessageId: replyToMessageId || undefined
       });
       return response.json();
     },
@@ -780,6 +782,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital?.id, 'conversations'] });
       setMessageText("");
       setPendingAttachments([]);
+      setReplyingTo(null);
     },
   });
 
@@ -1304,10 +1307,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         sizeBytes: a.file.size
       }));
     
-    sendMessageMutation.mutate({ 
-      content: hasContent ? messageText.trim() : (attachments.length > 0 ? `Sent ${attachments.length} file(s)` : ''), 
+    sendMessageMutation.mutate({
+      content: hasContent ? messageText.trim() : (attachments.length > 0 ? `Sent ${attachments.length} file(s)` : ''),
       mentions,
-      attachments: attachments.length > 0 ? attachments : undefined
+      attachments: attachments.length > 0 ? attachments : undefined,
+      replyToMessageId: replyingTo?.messageId
     });
   };
 
