@@ -294,6 +294,104 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     enabled: !!selectedConversation?.id && view === 'conversation',
   });
 
+  const replyMessageCache = useRef<Map<string, { senderName: string; content: string; isDeleted: boolean } | null>>(new Map());
+
+  const getReplyMessage = useCallback(async (messageId: string): Promise<{ senderName: string; content: string; isDeleted: boolean } | null> => {
+    // Check cache first
+    if (replyMessageCache.current.has(messageId)) {
+      return replyMessageCache.current.get(messageId)!;
+    }
+
+    // Check loaded messages
+    const loaded = messages.find(m => m.id === messageId);
+    if (loaded) {
+      const result = {
+        senderName: loaded.sender?.firstName || loaded.sender?.email || 'Unknown',
+        content: loaded.content.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').replace(/#\[([^\]]+)\]\([^)]+\)/g, '#$1'),
+        isDeleted: loaded.isDeleted
+      };
+      replyMessageCache.current.set(messageId, result);
+      return result;
+    }
+
+    // Fetch from API
+    try {
+      const response = await fetch(`/api/chat/messages/${messageId}`, { credentials: 'include' });
+      if (!response.ok) {
+        replyMessageCache.current.set(messageId, null);
+        return null;
+      }
+      const msg = await response.json();
+      const result = {
+        senderName: msg.sender?.firstName || msg.sender?.email || 'Unknown',
+        content: (msg.content || '').replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').replace(/#\[([^\]]+)\]\([^)]+\)/g, '#$1'),
+        isDeleted: !!msg.deletedAt
+      };
+      replyMessageCache.current.set(messageId, result);
+      return result;
+    } catch {
+      replyMessageCache.current.set(messageId, null);
+      return null;
+    }
+  }, [messages]);
+
+  const ReplyBubble = useCallback(({ replyToMessageId, isOwnMessage }: { replyToMessageId: string; isOwnMessage: boolean }) => {
+    const [replyData, setReplyData] = useState<{ senderName: string; content: string; isDeleted: boolean } | null | undefined>(undefined);
+
+    useEffect(() => {
+      let cancelled = false;
+      getReplyMessage(replyToMessageId).then(data => {
+        if (!cancelled) setReplyData(data);
+      });
+      return () => { cancelled = true; };
+    }, [replyToMessageId]);
+
+    const handleClick = () => {
+      const el = document.querySelector(`[data-testid="message-${replyToMessageId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('reply-highlight');
+        setTimeout(() => el.classList.remove('reply-highlight'), 1500);
+      }
+    };
+
+    if (replyData === undefined) {
+      return (
+        <div className="mb-1 px-3 py-1.5 rounded-lg bg-accent/50 animate-pulse">
+          <div className="h-3 w-24 bg-muted rounded" />
+        </div>
+      );
+    }
+
+    if (replyData === null) return null;
+
+    return (
+      <div
+        className="mb-1 px-3 py-1.5 rounded-lg bg-accent/50 cursor-pointer hover:bg-accent/70 transition-colors max-w-full"
+        onClick={handleClick}
+        data-testid={`reply-bubble-${replyToMessageId}`}
+      >
+        <div className="flex items-center gap-1 text-xs text-primary font-medium">
+          <Reply className="w-3 h-3" />
+          <span>{t('chat.replyingTo', 'Replying to')} {replyData.senderName}</span>
+        </div>
+        {replyData.isDeleted ? (
+          <p className="text-xs text-muted-foreground italic mt-0.5">
+            {t('chat.originalMessageDeleted', 'Original message was deleted')}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+            {replyData.content || '[Attachment]'}
+          </p>
+        )}
+      </div>
+    );
+  }, [getReplyMessage, t]);
+
+  useEffect(() => {
+    replyMessageCache.current.clear();
+  }, [selectedConversation?.id]);
+
   const { data: users = [] } = useQuery<Array<{id: string; firstName?: string; lastName?: string; email?: string}>>({
     queryKey: ['/api/hospitals', activeHospital?.id, 'users-by-module'],
     queryFn: async () => {
@@ -1549,6 +1647,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
 
   const panelContent = (
     <>
+      <style>{`
+        @keyframes reply-highlight-pulse {
+          0% { background-color: hsl(var(--primary) / 0.15); }
+          100% { background-color: transparent; }
+        }
+        .reply-highlight {
+          animation: reply-highlight-pulse 1.5s ease-out;
+        }
+      `}</style>
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-[998]"
@@ -2232,6 +2339,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 <p className="text-xs text-muted-foreground mb-1">
                                   {msg.sender?.firstName || msg.sender?.email || 'Unknown'}
                                 </p>
+                              )}
+                              {msg.replyToMessageId && (
+                                <ReplyBubble replyToMessageId={msg.replyToMessageId} isOwnMessage={isOwnMessage} />
                               )}
                               <div
                                 className={`rounded-2xl px-4 py-2 ${
