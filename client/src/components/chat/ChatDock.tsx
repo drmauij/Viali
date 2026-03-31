@@ -40,7 +40,8 @@ import {
   Pencil,
   Check,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Reply
 } from "lucide-react";
 import PatientChatList, { type PatientConversation } from "./PatientChatList";
 import PatientChatThread from "./PatientChatThread";
@@ -231,6 +232,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [selectedContacts, setSelectedContacts] = useState<Array<{id: string; name: string}>>([]);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ messageId: string; senderName: string; content: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -2305,6 +2307,23 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                   {formatMessageTime(msg.createdAt)}
                                   {msg.isEdited && ' (edited)'}
                                 </p>
+                                {!msg.isDeleted && msg.messageType !== 'system' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => {
+                                      const senderName = msg.sender?.firstName || msg.sender?.email || 'Unknown';
+                                      const plainText = msg.content.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').replace(/#\[([^\]]+)\]\([^)]+\)/g, '#$1');
+                                      setReplyingTo({ messageId: msg.id, senderName, content: plainText });
+                                      setEditingMessage(null);
+                                    }}
+                                    title={t('chat.reply', 'Reply')}
+                                    data-testid={`button-reply-message-${msg.id}`}
+                                  >
+                                    <Reply className="w-3 h-3" />
+                                  </Button>
+                                )}
                                 {!msg.isDeleted && msg.content && (
                                   <Button
                                     variant="ghost"
