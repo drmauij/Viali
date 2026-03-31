@@ -10,6 +10,7 @@ import crypto from "crypto";
 import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
 import { expandRecurringTimeOff } from "../utils/timeoff";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
+import { calculateNameSimilarity, normalizeName as dedupNormalizeName } from "../services/patientDeduplication";
 import logger from "../logger";
 import { z } from "zod";
 
@@ -2315,6 +2316,164 @@ router.post('/api/business/:hospitalId/lead-conversion', isAuthenticated, isMark
     }
     logger.error('[Business] Error in lead conversion analysis:', error);
     res.status(500).json({ message: 'Failed to analyze lead conversion' });
+  }
+});
+
+// ========================================
+// Fuzzy-match leads to patients (preview)
+// ========================================
+
+router.post('/api/business/:hospitalId/lead-conversion/fuzzy-match', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const parsed = leadConversionSchema.parse(req.body);
+    const { leads } = parsed;
+
+    // 1. Fetch all non-archived patients for hospital
+    const allPatients = await db
+      .select({
+        id: patients.id,
+        firstName: patients.firstName,
+        surname: patients.surname,
+        email: patients.email,
+        phone: patients.phone,
+        dateOfBirth: patients.birthday,
+      })
+      .from(patients)
+      .where(and(
+        eq(patients.hospitalId, hospitalId),
+        eq(patients.isArchived, false),
+      ));
+
+    // 2. Fetch latest non-cancelled appointment date per patient
+    const appointmentRows = await db
+      .select({
+        patientId: clinicAppointments.patientId,
+        latestDate: sql<string>`max(${clinicAppointments.appointmentDate})`.as('latestDate'),
+      })
+      .from(clinicAppointments)
+      .where(and(
+        eq(clinicAppointments.hospitalId, hospitalId),
+        ne(clinicAppointments.status, 'cancelled'),
+      ))
+      .groupBy(clinicAppointments.patientId);
+
+    const latestAppointmentByPatient = new Map<string, string>();
+    for (const row of appointmentRows) {
+      if (row.patientId) latestAppointmentByPatient.set(row.patientId, row.latestDate);
+    }
+
+    // 3. Pre-normalize patient data for matching
+    const normalizedPatients = allPatients.map(p => ({
+      ...p,
+      normalizedPhone: p.phone ? normalizePhoneForMatching(p.phone) : '',
+      normalizedEmail: p.email ? p.email.trim().toLowerCase() : '',
+      fullName: `${p.firstName} ${p.surname}`,
+    }));
+
+    // 4. For each lead with adSource, compute fuzzy matches
+    const matches: Array<{
+      leadIndex: number;
+      lead: typeof leads[0];
+      candidates: Array<{
+        patientId: string;
+        firstName: string;
+        surname: string;
+        phone: string | null;
+        email: string | null;
+        dateOfBirth: string | null;
+        nextAppointmentDate: string | null;
+        confidence: number;
+        reasons: string[];
+        missingFields: string[];
+      }>;
+    }> = [];
+
+    for (let i = 0; i < leads.length; i++) {
+      const lead = leads[i];
+      if (!lead.adSource) continue;
+
+      const leadFullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
+      const leadSwappedName = [lead.lastName, lead.firstName].filter(Boolean).join(' ');
+      const leadPhone = lead.phone ? normalizePhoneForMatching(lead.phone) : '';
+      const leadEmail = lead.email ? lead.email.trim().toLowerCase() : '';
+
+      const candidateList: typeof matches[0]['candidates'] = [];
+
+      for (const p of normalizedPatients) {
+        let confidence = 0;
+        const reasons: string[] = [];
+
+        // Name similarity (take best of normal and swapped order)
+        if (leadFullName) {
+          const nameSim = calculateNameSimilarity(leadFullName, p.fullName);
+          const swappedSim = leadSwappedName !== leadFullName
+            ? calculateNameSimilarity(leadSwappedName, p.fullName)
+            : 0;
+          const bestNameSim = Math.max(nameSim, swappedSim);
+          if (bestNameSim > 0) {
+            confidence = bestNameSim;
+            reasons.push(`Name similarity: ${Math.round(bestNameSim * 100)}%`);
+          }
+        }
+
+        // Phone match — exact after normalization
+        if (leadPhone && leadPhone.length >= 8 && p.normalizedPhone && p.normalizedPhone.length >= 8 && leadPhone === p.normalizedPhone) {
+          confidence += 0.15;
+          reasons.push('Phone match');
+        }
+
+        // Email match — exact lowercase
+        if (leadEmail && p.normalizedEmail && leadEmail === p.normalizedEmail) {
+          confidence += 0.15;
+          reasons.push('Email match');
+        }
+
+        confidence = Math.min(1.0, confidence);
+
+        if (confidence >= 0.50) {
+          // Compute missing fields — fields patient lacks that lead has
+          const missingFields: string[] = [];
+          if (lead.email && !p.email) missingFields.push('email');
+          if (lead.phone && !p.phone) missingFields.push('phone');
+          if (lead.firstName && !p.firstName) missingFields.push('firstName');
+          if (lead.lastName && !p.surname) missingFields.push('surname');
+
+          candidateList.push({
+            patientId: p.id,
+            firstName: p.firstName,
+            surname: p.surname,
+            phone: p.phone,
+            email: p.email,
+            dateOfBirth: p.dateOfBirth ? String(p.dateOfBirth) : null,
+            nextAppointmentDate: latestAppointmentByPatient.get(p.id) ?? null,
+            confidence: Math.round(confidence * 100) / 100,
+            reasons,
+            missingFields,
+          });
+        }
+      }
+
+      // Sort by confidence desc, take top 5
+      candidateList.sort((a, b) => b.confidence - a.confidence);
+      const topCandidates = candidateList.slice(0, 5);
+
+      if (topCandidates.length > 0) {
+        matches.push({
+          leadIndex: i,
+          lead,
+          candidates: topCandidates,
+        });
+      }
+    }
+
+    res.json({ matches });
+  } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid lead data', errors: error.errors });
+    }
+    logger.error('[Business] Error in lead fuzzy-match:', error);
+    res.status(500).json({ message: 'Failed to compute fuzzy matches' });
   }
 });
 
