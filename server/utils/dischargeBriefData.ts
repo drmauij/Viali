@@ -894,7 +894,7 @@ export function buildUserMessageSuffix(selectedBlocks: string[], briefType?: str
 
   if (blocks.has("surgery_details") || blocks.has("surgery_notes")) {
     sections.push(
-      `- Write a section titled "Operationsbericht" that summarizes: procedure performed (with side), lead surgeon and surgical assistants, surgery duration (O1→O2), intraoperative details (positioning, tourniquet, drainage, equipment), and a brief operative course description. Use the "Surgery Details" and/or "Surgery Notes" data above including the Intraoperative Details section.`,
+      `- Write a section titled "Operationsbericht" that summarizes: surgery date (ALWAYS include this), procedure performed (with side), lead surgeon and surgical assistants, surgery duration (O1→O2), intraoperative details (positioning, tourniquet, drainage, equipment), and a brief operative course description. Use the "Surgery Details" and/or "Surgery Notes" data above including the Intraoperative Details section.`,
     );
   }
 
@@ -956,6 +956,7 @@ You MUST include a concise anesthesia summary with these details (extract from t
 
 ## Mandatory: Surgery Summary
 You MUST include a concise surgery summary with these details (extract from Surgery Details / Surgery Notes data):
+- Surgery date (ALWAYS include the date of the surgery — this is essential)
 - Procedure performed (with side if applicable)
 - Lead surgeon and surgical assistants
 - Surgery duration (use the O1→O2 duration provided)
