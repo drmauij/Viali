@@ -4,10 +4,11 @@ import ReferralFunnel from "./ReferralFunnel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Redirect } from "wouter";
@@ -137,32 +138,67 @@ export default function Marketing() {
     enabled: !!activeHospital?.id && activeTab === 'referrals',
   });
 
-  // Fetch recent referral events (individual rows with click IDs)
-  const { data: referralEventsList, isLoading: referralEventsLoading } = useQuery<
-    Array<{
-      id: string;
-      source: string;
-      sourceDetail: string | null;
-      utmSource: string | null;
-      utmMedium: string | null;
-      utmCampaign: string | null;
-      utmTerm: string | null;
-      utmContent: string | null;
-      gclid: string | null;
-      gbraid: string | null;
-      wbraid: string | null;
-      fbclid: string | null;
-      ttclid: string | null;
-      msclkid: string | null;
-      captureMethod: string;
-      createdAt: string;
-      patientFirstName: string | null;
-      patientLastName: string | null;
-    }>
-  >({
-    queryKey: [`/api/business/${activeHospital?.id}/referral-events?limit=50`],
+  // Referral event type
+  type ReferralEvent = {
+    id: string;
+    source: string;
+    sourceDetail: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmTerm: string | null;
+    utmContent: string | null;
+    gclid: string | null;
+    gbraid: string | null;
+    wbraid: string | null;
+    fbclid: string | null;
+    ttclid: string | null;
+    msclkid: string | null;
+    metaLeadId: string | null;
+    metaFormId: string | null;
+    captureMethod: string;
+    createdAt: string;
+    patientFirstName: string | null;
+    patientLastName: string | null;
+  };
+
+  // Fetch recent referral events with progressive loading
+  const [referralEvents, setReferralEvents] = useState<ReferralEvent[]>([]);
+  const [referralEventsHasMore, setReferralEventsHasMore] = useState(true);
+  const [referralEventsLoadingMore, setReferralEventsLoadingMore] = useState(false);
+  const PAGE_SIZE = 50;
+
+  const { isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
+    queryKey: [`/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`],
     enabled: !!activeHospital?.id && activeTab === 'referrals',
+    queryFn: async () => {
+      const res = await fetch(`/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch referral events');
+      const data = await res.json();
+      setReferralEvents(data);
+      setReferralEventsHasMore(data.length === PAGE_SIZE);
+      return data;
+    },
   });
+
+  const loadMoreReferralEvents = useCallback(async () => {
+    if (!activeHospital?.id || referralEventsLoadingMore || !referralEventsHasMore) return;
+    setReferralEventsLoadingMore(true);
+    try {
+      const lastEvent = referralEvents[referralEvents.length - 1];
+      if (!lastEvent) return;
+      const res = await fetch(
+        `/api/business/${activeHospital.id}/referral-events?limit=${PAGE_SIZE}&before=${encodeURIComponent(lastEvent.createdAt)}`,
+        { credentials: 'include' }
+      );
+      if (!res.ok) throw new Error('Failed to fetch more referral events');
+      const data: ReferralEvent[] = await res.json();
+      setReferralEvents(prev => [...prev, ...data]);
+      setReferralEventsHasMore(data.length === PAGE_SIZE);
+    } finally {
+      setReferralEventsLoadingMore(false);
+    }
+  }, [activeHospital?.id, referralEvents, referralEventsLoadingMore, referralEventsHasMore]);
 
   // Transform time-series into line chart format: [{ month, social: N, search_engine: N, ... }]
   const referralLineData = useMemo(() => {
@@ -403,7 +439,10 @@ export default function Marketing() {
                 {t('business.referrals.recentEvents', 'Recent Referral Events')}
               </CardTitle>
               <CardDescription>
-                {t('business.referrals.recentEventsHelp', 'Last 50 booking referrals with ad click IDs for tracking verification')}
+                {t('business.referrals.recentEventsHelp', 'Booking referrals with ad click IDs for tracking verification')}
+                {referralEvents.length > 0 && (
+                  <span className="ml-1">({referralEvents.length} loaded)</span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -411,103 +450,124 @@ export default function Marketing() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              ) : !referralEventsList?.length ? (
+              ) : !referralEvents.length ? (
                 <div className="text-center text-muted-foreground py-8">
                   {t('business.referrals.noData')}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('common.date', 'Date')}</TableHead>
-                        <TableHead>{t('common.patient', 'Patient')}</TableHead>
-                        <TableHead>{t('business.referrals.source', 'Source')}</TableHead>
-                        <TableHead>{t('business.referrals.detail', 'Detail')}</TableHead>
-                        <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
-                        <TableHead>{t('business.referrals.keyword', 'Keyword')}</TableHead>
-                        <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {referralEventsList.map((ev) => {
-                        const clickIds = [
-                          ev.gclid && `gclid`,
-                          ev.gbraid && `gbraid`,
-                          ev.wbraid && `wbraid`,
-                          ev.fbclid && `fbclid`,
-                          ev.ttclid && `ttclid`,
-                          ev.msclkid && `msclkid`,
-                        ].filter(Boolean);
-                        return (
-                          <TableRow key={ev.id}>
-                            <TableCell className="whitespace-nowrap text-sm">
-                              {new Date(ev.createdAt).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ') || '—'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="secondary"
-                                style={{ backgroundColor: `${REFERRAL_COLORS[ev.source] || '#6b7280'}20`, color: REFERRAL_COLORS[ev.source] || '#6b7280' }}
-                              >
-                                {REFERRAL_LABELS[ev.source] || ev.source}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {ev.sourceDetail || '—'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {ev.utmCampaign || '—'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {ev.utmTerm || '—'}
-                            </TableCell>
-                            <TableCell>
-                              {clickIds.length > 0 ? (
-                                <div className="flex gap-1 flex-wrap">
-                                  {ev.gclid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.gclid}>
-                                      gclid
-                                    </Badge>
-                                  )}
-                                  {ev.gbraid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.gbraid}>
-                                      gbraid
-                                    </Badge>
-                                  )}
-                                  {ev.wbraid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.wbraid}>
-                                      wbraid
-                                    </Badge>
-                                  )}
-                                  {ev.fbclid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.fbclid}>
-                                      fbclid
-                                    </Badge>
-                                  )}
-                                  {ev.ttclid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.ttclid}>
-                                      ttclid
-                                    </Badge>
-                                  )}
-                                  {ev.msclkid && (
-                                    <Badge variant="outline" className="text-xs font-mono" title={ev.msclkid}>
-                                      msclkid
-                                    </Badge>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('common.date', 'Date')}</TableHead>
+                          <TableHead>{t('common.patient', 'Patient')}</TableHead>
+                          <TableHead>{t('business.referrals.source', 'Source')}</TableHead>
+                          <TableHead>{t('business.referrals.detail', 'Detail')}</TableHead>
+                          <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
+                          <TableHead>{t('business.referrals.keyword', 'Keyword')}</TableHead>
+                          <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {referralEvents.map((ev) => {
+                          const hasClickIds = ev.gclid || ev.gbraid || ev.wbraid || ev.fbclid || ev.ttclid || ev.msclkid || ev.metaLeadId || ev.metaFormId;
+                          return (
+                            <TableRow key={ev.id}>
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {new Date(ev.createdAt).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ') || '—'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="secondary"
+                                  style={{ backgroundColor: `${REFERRAL_COLORS[ev.source] || '#6b7280'}20`, color: REFERRAL_COLORS[ev.source] || '#6b7280' }}
+                                >
+                                  {REFERRAL_LABELS[ev.source] || ev.source}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {ev.sourceDetail || '—'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {ev.utmCampaign || '—'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {ev.utmTerm || '—'}
+                              </TableCell>
+                              <TableCell>
+                                {hasClickIds ? (
+                                  <div className="flex gap-1 flex-wrap">
+                                    {ev.gclid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.gclid}>
+                                        gclid
+                                      </Badge>
+                                    )}
+                                    {ev.gbraid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.gbraid}>
+                                        gbraid
+                                      </Badge>
+                                    )}
+                                    {ev.wbraid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.wbraid}>
+                                        wbraid
+                                      </Badge>
+                                    )}
+                                    {ev.fbclid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.fbclid}>
+                                        fbclid
+                                      </Badge>
+                                    )}
+                                    {ev.ttclid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.ttclid}>
+                                        ttclid
+                                      </Badge>
+                                    )}
+                                    {ev.msclkid && (
+                                      <Badge variant="outline" className="text-xs font-mono" title={ev.msclkid}>
+                                        msclkid
+                                      </Badge>
+                                    )}
+                                    {ev.metaLeadId && (
+                                      <Badge variant="outline" className="text-xs font-mono bg-blue-500/10 text-blue-600 border-blue-300" title={ev.metaLeadId}>
+                                        lead
+                                      </Badge>
+                                    )}
+                                    {ev.metaFormId && (
+                                      <Badge variant="outline" className="text-xs font-mono bg-blue-500/10 text-blue-600 border-blue-300" title={ev.metaFormId}>
+                                        form
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {referralEventsHasMore && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMoreReferralEvents}
+                        disabled={referralEventsLoadingMore}
+                      >
+                        {referralEventsLoadingMore ? (
+                          <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                        ) : (
+                          t('common.loadMore', 'Load more')
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

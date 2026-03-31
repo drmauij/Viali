@@ -1865,6 +1865,7 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
   try {
     const { hospitalId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const before = req.query.before ? new Date(req.query.before as string) : undefined;
 
     const rows = await db
       .select({
@@ -1885,6 +1886,8 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
         igshid: referralEvents.igshid,
         li_fat_id: referralEvents.li_fat_id,
         twclid: referralEvents.twclid,
+        metaLeadId: referralEvents.metaLeadId,
+        metaFormId: referralEvents.metaFormId,
         captureMethod: referralEvents.captureMethod,
         createdAt: referralEvents.createdAt,
         patientFirstName: patients.firstName,
@@ -1892,7 +1895,10 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
       })
       .from(referralEvents)
       .innerJoin(patients, eq(referralEvents.patientId, patients.id))
-      .where(eq(referralEvents.hospitalId, hospitalId))
+      .where(and(
+        eq(referralEvents.hospitalId, hospitalId),
+        before ? sql`${referralEvents.createdAt} < ${before}` : sql`1=1`
+      ))
       .orderBy(desc(referralEvents.createdAt))
       .limit(limit);
 
