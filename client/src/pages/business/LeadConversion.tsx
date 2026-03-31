@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Download, LinkIcon } from "lucide-react";
+import { Loader2, Upload, Users, Calendar, Scissors, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Download, LinkIcon, UserCheck, UserX, Search, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type LeadDetail = {
@@ -38,6 +41,32 @@ type ConversionResult = {
   statusBreakdown?: StatusBreakdown[];
   operationBreakdown?: StatusBreakdown[];
   sourceBreakdown?: StatusBreakdown[];
+};
+
+type FuzzyCandidate = {
+  patientId: string;
+  firstName: string;
+  surname: string;
+  phone: string | null;
+  email: string | null;
+  dateOfBirth: string | null;
+  nextAppointmentDate: string | null;
+  confidence: number;
+  reasons: string[];
+  missingFields: string[];
+};
+
+type FuzzyMatchResult = {
+  leadIndex: number;
+  lead: ParsedLead;
+  candidates: FuzzyCandidate[];
+};
+
+type ApprovedMatch = {
+  leadIndex: number;
+  patientId: string;
+  lead: ParsedLead;
+  fillMissingData: boolean;
 };
 
 // Known status values from Excel lead trackers — these are NOT names
@@ -113,7 +142,7 @@ function parseLeads(text: string): ParsedLead[] {
         lead.status = part.trim();
       } else if (part.includes('@') && part.includes('.')) {
         lead.email = part;
-      } else if (/^[\+0][\d\s\-\(\)\.]{6,}$/.test(part)) {
+      } else if (/^[\+0][\d\s\-\(\)\.]{6,}$/.test(part) || /^4[19]\d{8,11}$/.test(part)) {
         lead.phone = part;
       } else if (!lead.firstName) {
         lead.firstName = part;
@@ -176,6 +205,9 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillDone, setBackfillDone] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
+  const [fuzzyMatches, setFuzzyMatches] = useState<FuzzyMatchResult[]>([]);
+  const [isFuzzyLoading, setIsFuzzyLoading] = useState(false);
+  const [matchDecisions, setMatchDecisions] = useState<Map<number, string>>(new Map());
 
   const handleAnalyze = async () => {
     if (!hospitalId || !rawText.trim()) return;
@@ -188,6 +220,8 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
 
     setIsAnalyzing(true);
     setBackfillDone(false);
+    setFuzzyMatches([]);
+    setMatchDecisions(new Map());
     try {
       const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion`, { leads });
       const data = await res.json();
@@ -199,24 +233,58 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
     }
   };
 
-  const handleBackfillReferrals = async () => {
+  const handleFuzzyMatch = async () => {
     if (!hospitalId || !rawText.trim()) return;
 
     const leads = parseLeads(rawText);
     if (leads.length === 0) return;
 
+    setIsFuzzyLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion/fuzzy-match`, { leads });
+      const data = await res.json();
+      setFuzzyMatches(data.matches || []);
+      setMatchDecisions(new Map());
+    } catch (error: any) {
+      toast({ title: "Fuzzy match failed", description: error.message || "Could not find matches", variant: "destructive" });
+    } finally {
+      setIsFuzzyLoading(false);
+    }
+  };
+
+  const handleBackfillReferrals = async () => {
+    if (!hospitalId) return;
+
+    const approvedMatches: ApprovedMatch[] = [];
+    for (const [leadIndex, decision] of matchDecisions.entries()) {
+      if (decision === "declined") continue;
+      const match = fuzzyMatches.find(m => m.leadIndex === leadIndex);
+      if (!match) continue;
+      const candidate = match.candidates.find(c => c.patientId === decision);
+      if (!candidate) continue;
+      approvedMatches.push({
+        leadIndex,
+        patientId: decision,
+        lead: match.lead,
+        fillMissingData: candidate.missingFields.length > 0,
+      });
+    }
+
+    if (approvedMatches.length === 0) return;
+
     setIsBackfilling(true);
     try {
-      const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion/backfill-referrals`, { leads });
+      const res = await apiRequest("POST", `/api/business/${hospitalId}/lead-conversion/backfill-referrals`, { approvedMatches });
       const data = await res.json();
       setBackfillDone(true);
+      const parts: string[] = [];
+      if (data.created > 0) parts.push(`${data.created} referral events created`);
+      if (data.updated > 0) parts.push(`${data.updated} updated`);
+      if (data.patientUpdates > 0) parts.push(`${data.patientUpdates} patient records enriched`);
       toast({
         title: t("business.leads.referralsBackfilled", "Referrals Backfilled"),
-        description: data.updated > 0
-          ? t("business.leads.referralsBackfilledWithUpdates", "{{created}} referral events created, {{updated}} updated. These appointments will now appear in the Referrals tab.", { created: data.created, updated: data.updated })
-          : t("business.leads.referralsBackfilledDesc", "{{count}} referral events created. These appointments will now appear in the Referrals tab.", { count: data.created }),
+        description: parts.join(", ") + ". Check the Referrals tab to see the updated data.",
       });
-      // Update the result to reflect the backfill
       if (result) {
         setResult({ ...result, backfillEligibleCount: 0 });
       }
@@ -226,6 +294,38 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
       setIsBackfilling(false);
     }
   };
+
+  const handleMatchDecision = (leadIndex: number, value: string) => {
+    setMatchDecisions(prev => {
+      const next = new Map(prev);
+      if (value === "") {
+        next.delete(leadIndex);
+      } else {
+        next.set(leadIndex, value);
+      }
+      return next;
+    });
+  };
+
+  const handleApproveAllHighConfidence = () => {
+    setMatchDecisions(prev => {
+      const next = new Map(prev);
+      for (const match of fuzzyMatches) {
+        if (match.candidates.length > 0 && match.candidates[0].confidence >= 0.90) {
+          next.set(match.leadIndex, match.candidates[0].patientId);
+        }
+      }
+      return next;
+    });
+  };
+
+  const approvedCount = useMemo(() => {
+    let count = 0;
+    for (const decision of matchDecisions.values()) {
+      if (decision !== "declined") count++;
+    }
+    return count;
+  }, [matchDecisions]);
 
   const matchedDetails = result?.matchedDetails || [];
 
@@ -368,34 +468,197 @@ export function LeadConversionTab({ hospitalId }: { hospitalId?: string }) {
             </CardContent>
           </Card>
 
-          {/* Referral backfill */}
-          {result.backfillEligibleCount > 0 && !backfillDone && (
+          {/* Find Matches */}
+          {result.backfillEligibleCount > 0 && !backfillDone && fuzzyMatches.length === 0 && (
             <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
               <CardContent className="py-4 flex items-center justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <LinkIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                  <Search className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium">
-                      {t("business.leads.backfillTitle", "{{count}} leads eligible for referral backfill", { count: result.backfillEligibleCount })}
+                      {t("business.leads.fuzzyMatchTitle", "{{count}} leads eligible for referral backfill", { count: result.backfillEligibleCount })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t("business.leads.backfillDesc", "Set referral source (Facebook, Instagram, or Google Ads) on matched appointments. Creates new referrals or updates today's imports with the correct lead date.")}
+                      {t("business.leads.fuzzyMatchDesc", "Find matching patients using fuzzy name matching, phone, and email. You'll review each match before backfilling.")}
                     </p>
                   </div>
                 </div>
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={handleBackfillReferrals}
-                  disabled={isBackfilling}
+                  onClick={handleFuzzyMatch}
+                  disabled={isFuzzyLoading}
                   className="shrink-0"
                 >
-                  {isBackfilling ? (
+                  {isFuzzyLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    t("business.leads.backfillButton", "Backfill Referrals")
+                    <>
+                      <Search className="h-4 w-4 mr-1" />
+                      {t("business.leads.findMatches", "Find Matches")}
+                    </>
                   )}
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Review Matches */}
+          {fuzzyMatches.length > 0 && !backfillDone && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <CardTitle className="text-base">
+                    {t("business.leads.reviewMatches", "Review Matches")} ({fuzzyMatches.length})
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleApproveAllHighConfidence}
+                    >
+                      <Zap className="h-4 w-4 mr-1" />
+                      {t("business.leads.autoApprove", "Auto-approve >=90%")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleBackfillReferrals}
+                      disabled={approvedCount === 0 || isBackfilling}
+                    >
+                      {isBackfilling ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <UserCheck className="h-4 w-4 mr-1" />
+                      )}
+                      {t("business.leads.backfillApproved", "Backfill Approved ({{count}})", { count: approvedCount })}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[600px]">
+                  <div className="space-y-3">
+                    {fuzzyMatches.map((match) => {
+                      const decision = matchDecisions.get(match.leadIndex);
+                      const isDeclined = decision === "declined";
+                      const isApproved = decision && decision !== "declined";
+                      const leadName = [match.lead.firstName, match.lead.lastName].filter(Boolean).join(" ") || "Unknown";
+
+                      return (
+                        <div
+                          key={match.leadIndex}
+                          className={`border rounded-lg p-3 transition-colors ${
+                            isDeclined ? "opacity-50 bg-muted/30" :
+                            isApproved ? "border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20" :
+                            ""
+                          }`}
+                        >
+                          {/* Match header */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs text-muted-foreground font-mono">#{match.leadIndex + 1}</span>
+                              <span className="text-sm font-medium">{leadName}</span>
+                              {match.lead.adSource && (
+                                <Badge variant="outline" className="text-xs">
+                                  {match.lead.adSource === "fb" ? "Facebook" : match.lead.adSource === "ig" ? "Instagram" : match.lead.adSource === "gg" ? "Google Ads" : match.lead.adSource}
+                                </Badge>
+                              )}
+                              {match.lead.leadDate && (
+                                <span className="text-xs text-muted-foreground">{match.lead.leadDate}</span>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMatchDecision(match.leadIndex, isDeclined ? "" : "declined")}
+                              className="text-xs shrink-0"
+                            >
+                              {isDeclined ? (
+                                <>Undo</>
+                              ) : (
+                                <>
+                                  <UserX className="h-3 w-3 mr-1" />
+                                  Decline all
+                                </>
+                              )}
+                            </Button>
+                          </div>
+
+                          {/* Candidates */}
+                          {!isDeclined && (
+                            <RadioGroup
+                              value={decision || ""}
+                              onValueChange={(val) => handleMatchDecision(match.leadIndex, val)}
+                              className="space-y-2"
+                            >
+                              {match.candidates.map((candidate) => {
+                                const confPct = Math.round(candidate.confidence * 100);
+                                const confColor = confPct >= 90
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                  : confPct >= 70
+                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                    : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+
+                                return (
+                                  <Label
+                                    key={candidate.patientId}
+                                    className="flex items-start gap-3 p-2 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors"
+                                  >
+                                    <RadioGroupItem value={candidate.patientId} className="mt-1 shrink-0" />
+                                    <div className="flex-1 min-w-0 space-y-2">
+                                      {/* Confidence + reasons */}
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${confColor}`}>
+                                          {confPct}%
+                                        </span>
+                                        {candidate.reasons.map((reason, ri) => (
+                                          <span key={ri} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                                            {reason}
+                                          </span>
+                                        ))}
+                                      </div>
+
+                                      {/* Side-by-side comparison */}
+                                      <div className="grid grid-cols-2 gap-4 text-xs">
+                                        <div>
+                                          <p className="font-medium text-muted-foreground mb-1">From Excel</p>
+                                          <p>{leadName}</p>
+                                          <p className="text-muted-foreground">{match.lead.phone || "\u2014"}</p>
+                                          <p className="text-muted-foreground">{match.lead.email || "\u2014"}</p>
+                                          <p className="text-muted-foreground">{match.lead.leadDate || "\u2014"}</p>
+                                          {match.lead.metaLeadId && (
+                                            <p className="text-muted-foreground truncate">Meta: {match.lead.metaLeadId}</p>
+                                          )}
+                                        </div>
+                                        <div>
+                                          <p className="font-medium text-muted-foreground mb-1">Patient in App</p>
+                                          <p>{candidate.firstName} {candidate.surname}</p>
+                                          <p className="text-muted-foreground">{candidate.phone || "\u2014"}</p>
+                                          <p className="text-muted-foreground">{candidate.email || "\u2014"}</p>
+                                          <p className="text-muted-foreground">{candidate.dateOfBirth || "\u2014"}</p>
+                                          {candidate.nextAppointmentDate && (
+                                            <p className="text-muted-foreground">Appt: {candidate.nextAppointmentDate}</p>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Missing fields note */}
+                                      {candidate.missingFields.length > 0 && (
+                                        <p className="text-[11px] text-blue-600 dark:text-blue-400">
+                                          Will add from Excel: {candidate.missingFields.join(", ")}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </Label>
+                                );
+                              })}
+                            </RadioGroup>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
               </CardContent>
             </Card>
           )}
