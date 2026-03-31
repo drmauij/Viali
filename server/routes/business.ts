@@ -10,7 +10,7 @@ import crypto from "crypto";
 import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
 import { expandRecurringTimeOff } from "../utils/timeoff";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
-import { calculateNameSimilarity, normalizeName as dedupNormalizeName } from "../services/patientDeduplication";
+import { calculateNameSimilarity } from "../services/patientDeduplication";
 import logger from "../logger";
 import { z } from "zod";
 
