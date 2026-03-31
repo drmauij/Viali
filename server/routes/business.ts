@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import crypto from "crypto";
 import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
 import { expandRecurringTimeOff } from "../utils/timeoff";
+import { normalizePhoneForMatching } from "../utils/normalizePhone";
 import logger from "../logger";
 import { z } from "zod";
 
@@ -1984,12 +1985,8 @@ const leadConversionSchema = z.object({
 });
 
 
-// Normalize phone: strip spaces, dashes, leading +41/0041 → 0
-function normalizePhone(phone: string): string {
-  let p = phone.replace(/[\s\-\(\)\.]/g, '');
-  p = p.replace(/^(\+41|0041)/, '0');
-  return p.toLowerCase();
-}
+// Phone normalization for matching — see server/utils/normalizePhone.ts
+const normalizePhone = normalizePhoneForMatching;
 
 // Normalize name: trim, lowercase
 function normalizeName(name: string): string {
