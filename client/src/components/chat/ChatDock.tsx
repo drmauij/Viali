@@ -344,7 +344,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         if (!cancelled) setReplyData(data);
       });
       return () => { cancelled = true; };
-    }, [replyToMessageId]);
+    }, [replyToMessageId, getReplyMessage]);
 
     const handleClick = () => {
       const el = document.querySelector(`[data-testid="message-${replyToMessageId}"]`);
