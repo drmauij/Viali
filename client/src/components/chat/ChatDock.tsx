@@ -1013,18 +1013,13 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
           removeContainer: true,
           imageTimeout: 15000,
           onclone: (clonedDoc) => {
-            // Remove any problematic transforms or shadows that cause rendering issues
+            // Remove problematic box-shadows that cause rendering issues in html2canvas
             const elements = clonedDoc.querySelectorAll('*');
             elements.forEach((el) => {
               const htmlEl = el as HTMLElement;
               const style = window.getComputedStyle(htmlEl);
-              // Fix elements with problematic box-shadows
               if (style.boxShadow && style.boxShadow !== 'none') {
                 htmlEl.style.boxShadow = 'none';
-              }
-              // Fix elements with transforms that may cause misalignment
-              if (style.transform && style.transform !== 'none') {
-                htmlEl.style.transform = 'none';
               }
             });
           }
