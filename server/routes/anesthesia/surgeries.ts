@@ -155,7 +155,7 @@ router.get('/api/anesthesia/surgeries/search', isAuthenticated, requireStrictHos
       id: r.id,
       patientId: r.patientId,
       patientName: [r.patientFirstName, r.patientSurname].filter(Boolean).join(" "),
-      date: r.plannedDate,
+      date: r.plannedDate instanceof Date ? r.plannedDate.toISOString().slice(0, 10) : r.plannedDate,
       time: r.admissionTime || null,
       procedure: r.plannedSurgery,
       room: r.roomName || null,
