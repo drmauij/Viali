@@ -2346,7 +2346,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                       variant="ghost"
                                       size="icon"
                                       className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={() => setEditingMessage({ id: msg.id, content: msg.content })}
+                                      onClick={() => {
+                                        setEditingMessage({ id: msg.id, content: msg.content });
+                                        setReplyingTo(null);
+                                      }}
                                       title={t('common.edit')}
                                       data-testid={`button-edit-message-${msg.id}`}
                                     >
@@ -2388,6 +2391,23 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
               </ScrollArea>
 
               <div className="p-4 border-t border-border">
+                {replyingTo && !editingMessage && (
+                  <div className="mb-3 flex items-center gap-2 px-3 py-2 bg-accent/50 rounded-lg border border-border">
+                    <Reply className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-sm text-primary font-medium truncate">
+                      {t('chat.replyingTo', 'Replying to')} {replyingTo.senderName}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-auto shrink-0"
+                      onClick={() => setReplyingTo(null)}
+                      data-testid="button-cancel-reply"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
                 {editingMessage && (
                   <div className="mb-3 p-3 bg-accent/50 rounded-lg border border-border">
                     <div className="flex items-center gap-2 mb-2">
@@ -2608,6 +2628,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                               detectMentionTrigger(newText, newText.length);
                             }}
                             onKeyDown={(e) => {
+                              if (e.key === 'Escape' && replyingTo) {
+                                e.preventDefault();
+                                setReplyingTo(null);
+                                return;
+                              }
                               if (e.key === 'Backspace' || e.key === 'Delete') {
                                 e.preventDefault();
                                 handleSmartBackspace();
@@ -2637,6 +2662,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                             e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
                           }}
                           onKeyDown={(e) => {
+                            if (e.key === 'Escape' && replyingTo) {
+                              e.preventDefault();
+                              setReplyingTo(null);
+                              return;
+                            }
                             if (e.key === 'Enter' && !e.shiftKey && !showMentionSuggestions && !showSlashCommands) {
                               e.preventDefault();
                               handleSendMessage();
