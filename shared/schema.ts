@@ -3119,7 +3119,7 @@ export const insertVitalsSnapshotSchema = insertClinicalSnapshotSchema;
 // Schemas for individual point operations
 export const addVitalPointSchema = z.object({
   anesthesiaRecordId: z.string(),
-  vitalType: z.enum(['hr', 'spo2', 'temp', 'etco2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fio2', 'gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation', 'bis']),
+  vitalType: z.enum(['hr', 'spo2', 'temp', 'etco2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fio2', 'sevofluranInsp', 'sevofluranExp', 'desfluranInsp', 'desfluranExp', 'mac', 'gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation', 'bis']),
   timestamp: z.string(),
   value: z.number(),
 });

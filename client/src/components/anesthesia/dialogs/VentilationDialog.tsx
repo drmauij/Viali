@@ -12,6 +12,16 @@ interface PendingVentilationValue {
   label: string;
 }
 
+// Map display keys to the backend vitalType keys used in the clinical snapshot
+const PARAM_KEY_TO_VITAL_TYPE: Record<string, string> = {
+  fiO2: 'fio2',
+  etCO2: 'etco2',
+};
+
+function toVitalType(paramKey: string): string {
+  return PARAM_KEY_TO_VITAL_TYPE[paramKey] || paramKey;
+}
+
 interface VentilationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,7 +69,7 @@ export function VentilationDialog({
 
     addVitalPointMutation.mutate(
       {
-        vitalType: paramKey,
+        vitalType: toVitalType(paramKey),
         value,
         timestamp: new Date(time).toISOString(),
       },
