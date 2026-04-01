@@ -9,14 +9,45 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Redirect } from "wouter";
 import {
   HelpCircle,
   List,
   Loader2,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   LineChart,
   Line,
@@ -104,6 +135,29 @@ const REFERRAL_DETAIL_LABELS: Record<string, string> = {
   Perplexity: "Perplexity",
 };
 
+type ReferralEvent = {
+  id: string;
+  source: string;
+  sourceDetail: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmTerm: string | null;
+  utmContent: string | null;
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
+  fbclid: string | null;
+  ttclid: string | null;
+  msclkid: string | null;
+  metaLeadId: string | null;
+  metaFormId: string | null;
+  captureMethod: string;
+  createdAt: string;
+  patientFirstName: string | null;
+  patientLastName: string | null;
+};
+
 export default function Marketing() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -113,6 +167,54 @@ export default function Marketing() {
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
+  const isAdminOrManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
+  const isAdmin = activeHospital?.role === 'admin';
+  const { toast } = useToast();
+
+  // Edit referral state
+  const [editingReferral, setEditingReferral] = useState<ReferralEvent | null>(null);
+  const [editSource, setEditSource] = useState('');
+  const [editSourceDetail, setEditSourceDetail] = useState('');
+
+  const editReferralMutation = useMutation({
+    mutationFn: async ({ eventId, source, sourceDetail }: { eventId: string; source: string; sourceDetail: string }) => {
+      const res = await apiRequest('PATCH', `/api/business/${activeHospital?.id}/referral-events/${eventId}`, { source, sourceDetail });
+      return res.json();
+    },
+    onSuccess: () => {
+      // Update local state to reflect change immediately
+      setReferralEvents(prev => prev.map(ev =>
+        ev.id === editingReferral?.id ? { ...ev, source: editSource, sourceDetail: editSourceDetail || null } : ev
+      ));
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/referral-stats`] });
+      setEditingReferral(null);
+      toast({ title: "Referral updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update referral", variant: "destructive" });
+    },
+  });
+
+  const deleteReferralMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const res = await apiRequest('DELETE', `/api/business/${activeHospital?.id}/referral-events/${eventId}`);
+      return res.json();
+    },
+    onSuccess: (_data, eventId) => {
+      setReferralEvents(prev => prev.filter(ev => ev.id !== eventId));
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/referral-stats`] });
+      toast({ title: "Referral deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete referral", variant: "destructive" });
+    },
+  });
+
+  const openEditDialog = (ev: ReferralEvent) => {
+    setEditSource(ev.source);
+    setEditSourceDetail(ev.sourceDetail || '');
+    setEditingReferral(ev);
+  };
 
   if (activeHospital && !isManager) {
     return <Redirect to="/business/administration" />;
@@ -141,29 +243,7 @@ export default function Marketing() {
     enabled: !!activeHospital?.id && activeTab === 'referrals',
   });
 
-  // Referral event type
-  type ReferralEvent = {
-    id: string;
-    source: string;
-    sourceDetail: string | null;
-    utmSource: string | null;
-    utmMedium: string | null;
-    utmCampaign: string | null;
-    utmTerm: string | null;
-    utmContent: string | null;
-    gclid: string | null;
-    gbraid: string | null;
-    wbraid: string | null;
-    fbclid: string | null;
-    ttclid: string | null;
-    msclkid: string | null;
-    metaLeadId: string | null;
-    metaFormId: string | null;
-    captureMethod: string;
-    createdAt: string;
-    patientFirstName: string | null;
-    patientLastName: string | null;
-  };
+  // (ReferralEvent type moved above component)
 
   // Fetch recent referral events with progressive loading
   const [referralEvents, setReferralEvents] = useState<ReferralEvent[]>([]);
@@ -545,6 +625,7 @@ export default function Marketing() {
                           <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
                           <TableHead>{t('business.referrals.keyword', 'Keyword')}</TableHead>
                           <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
+                          {isAdminOrManager && <TableHead className="w-20"></TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -623,6 +704,52 @@ export default function Marketing() {
                                   <span className="text-muted-foreground text-sm">—</span>
                                 )}
                               </TableCell>
+                              {isAdminOrManager && (
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => openEditDialog(ev)}
+                                      title="Edit"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    {isAdmin && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-destructive hover:text-destructive"
+                                            title="Delete"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete referral?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              This will permanently delete the referral event for {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ')}. This cannot be undone.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() => deleteReferralMutation.mutate(ev.id)}
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              Delete
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}
@@ -649,6 +776,56 @@ export default function Marketing() {
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Referral Dialog */}
+          {editingReferral && (
+            <Dialog open={!!editingReferral} onOpenChange={(open) => { if (!open) setEditingReferral(null); }}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Edit Referral</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Source</Label>
+                    <Select value={editSource} onValueChange={setEditSource}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="social">Social</SelectItem>
+                        <SelectItem value="search_engine">Search Engine</SelectItem>
+                        <SelectItem value="llm">LLM / AI</SelectItem>
+                        <SelectItem value="word_of_mouth">Word of Mouth</SelectItem>
+                        <SelectItem value="belegarzt">Belegarzt</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Detail</Label>
+                    <Input
+                      value={editSourceDetail}
+                      onChange={(e) => setEditSourceDetail(e.target.value)}
+                      placeholder="e.g. facebook, google, friend"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditingReferral(null)}>Cancel</Button>
+                  <Button
+                    disabled={editReferralMutation.isPending}
+                    onClick={() => editReferralMutation.mutate({
+                      eventId: editingReferral.id,
+                      source: editSource,
+                      sourceDetail: editSourceDetail,
+                    })}
+                  >
+                    {editReferralMutation.isPending ? 'Saving...' : 'Save'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* Conversion Funnel Analytics */}
           <ReferralFunnel

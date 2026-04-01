@@ -30,6 +30,7 @@ function getRolesForUnitType(unitType: string | null | undefined): Array<{ value
   
   if (lowerType === "business") {
     return [
+      { value: "admin", labelKey: "admin.roleAdmin" },
       { value: "manager", labelKey: "admin.roleManager" },
       { value: "marketing", labelKey: "admin.roleMarketing" },
       { value: "staff", labelKey: "admin.roleStaff" },

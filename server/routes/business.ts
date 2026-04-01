@@ -1913,6 +1913,76 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
   }
 });
 
+// PATCH /api/business/:hospitalId/referral-events/:eventId — edit source/sourceDetail
+router.patch('/api/business/:hospitalId/referral-events/:eventId', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
+  try {
+    const { hospitalId, eventId } = req.params;
+    const { source, sourceDetail } = req.body;
+
+    const validSources = ['social', 'search_engine', 'llm', 'word_of_mouth', 'belegarzt', 'other'];
+    if (source && !validSources.includes(source)) {
+      return res.status(400).json({ message: `source must be one of: ${validSources.join(', ')}` });
+    }
+
+    // Verify event belongs to hospital
+    const [existing] = await db
+      .select({ id: referralEvents.id })
+      .from(referralEvents)
+      .where(and(eq(referralEvents.id, eventId), eq(referralEvents.hospitalId, hospitalId)))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ message: 'Referral event not found' });
+
+    const updates: Record<string, any> = {};
+    if (source !== undefined) updates.source = source;
+    if (sourceDetail !== undefined) updates.sourceDetail = sourceDetail || null;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'Nothing to update' });
+    }
+
+    const [updated] = await db
+      .update(referralEvents)
+      .set(updates)
+      .where(eq(referralEvents.id, eventId))
+      .returning();
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error('Error updating referral event:', error);
+    res.status(500).json({ message: 'Failed to update referral event' });
+  }
+});
+
+// DELETE /api/business/:hospitalId/referral-events/:eventId — admin only
+router.delete('/api/business/:hospitalId/referral-events/:eventId', isAuthenticated, isMarketingOrManager, async (req: any, res) => {
+  try {
+    const { hospitalId, eventId } = req.params;
+
+    // Admin-only check
+    const userRole = req.user?.hospitals?.find((h: any) => h.id === hospitalId)?.role;
+    if (userRole !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can delete referral events' });
+    }
+
+    // Verify event belongs to hospital
+    const [existing] = await db
+      .select({ id: referralEvents.id })
+      .from(referralEvents)
+      .where(and(eq(referralEvents.id, eventId), eq(referralEvents.hospitalId, hospitalId)))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ message: 'Referral event not found' });
+
+    await db.delete(referralEvents).where(eq(referralEvents.id, eventId));
+
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error('Error deleting referral event:', error);
+    res.status(500).json({ message: 'Failed to delete referral event' });
+  }
+});
+
 // ========================================
 // Referral Funnel (conversion analytics)
 // ========================================
