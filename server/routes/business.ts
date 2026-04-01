@@ -1813,15 +1813,18 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isMarket
     if (from) filters.push(gte(referralEvents.createdAt, new Date(from as string)));
     if (to) filters.push(lte(referralEvents.createdAt, new Date(to as string)));
 
+    const isPaidExpr = sql`CASE WHEN ${referralEvents.utmMedium} IN ('cpc', 'paid', 'ppc', 'paidsocial', 'paid_social') OR ${referralEvents.gclid} IS NOT NULL OR ${referralEvents.gbraid} IS NOT NULL OR ${referralEvents.wbraid} IS NOT NULL OR ${referralEvents.fbclid} IS NOT NULL OR ${referralEvents.ttclid} IS NOT NULL OR ${referralEvents.msclkid} IS NOT NULL OR ${referralEvents.metaLeadId} IS NOT NULL THEN true ELSE false END`;
+
     const breakdown = await db
       .select({
         referralSource: referralEvents.source,
         referralSourceDetail: sql<string>`INITCAP(${referralEvents.sourceDetail})`,
+        isPaid: sql<boolean>`${isPaidExpr}`,
         count: sql<number>`count(*)::int`,
       })
       .from(referralEvents)
       .where(and(...filters))
-      .groupBy(referralEvents.source, sql`INITCAP(${referralEvents.sourceDetail})`);
+      .groupBy(referralEvents.source, sql`INITCAP(${referralEvents.sourceDetail})`, isPaidExpr);
 
     const [totalResult] = await db
       .select({ count: sql<number>`count(*)::int` })

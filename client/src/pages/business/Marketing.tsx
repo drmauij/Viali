@@ -122,8 +122,10 @@ export default function Marketing() {
   if (referralFrom) referralParams.set("from", referralFrom);
   if (referralTo) referralParams.set("to", referralTo);
 
+  const [selectedDetail, setSelectedDetail] = useState<string | null>(null);
+
   const { data: referralData, isLoading: referralLoading } = useQuery<{
-    breakdown: Array<{ referralSource: string; referralSourceDetail: string | null; count: number }>;
+    breakdown: Array<{ referralSource: string; referralSourceDetail: string | null; isPaid: boolean; count: number }>;
     totalReferrals: number;
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/referral-stats?${referralParams.toString()}`],
@@ -243,13 +245,32 @@ export default function Marketing() {
 
   const referralDetailData = useMemo(() => {
     if (!referralData?.breakdown || !selectedReferralSource) return [];
-    return referralData.breakdown
+    const grouped: Record<string, number> = {};
+    referralData.breakdown
       .filter((r) => r.referralSource === selectedReferralSource && r.referralSourceDetail)
-      .map((r) => ({
-        name: REFERRAL_DETAIL_LABELS[r.referralSourceDetail!] || r.referralSourceDetail!,
-        value: r.count,
-      }));
+      .forEach((r) => {
+        const key = r.referralSourceDetail!;
+        grouped[key] = (grouped[key] || 0) + r.count;
+      });
+    return Object.entries(grouped).map(([detail, count]) => ({
+      name: REFERRAL_DETAIL_LABELS[detail] || detail,
+      detail,
+      value: count,
+    }));
   }, [referralData, selectedReferralSource]);
+
+  const detailPaidBreakdown = useMemo(() => {
+    if (!referralData?.breakdown || !selectedReferralSource || !selectedDetail) return [];
+    const rows = referralData.breakdown.filter(
+      (r) => r.referralSource === selectedReferralSource && r.referralSourceDetail === selectedDetail
+    );
+    let paid = 0, organic = 0;
+    rows.forEach((r) => { if (r.isPaid) paid += r.count; else organic += r.count; });
+    const result = [];
+    if (organic > 0) result.push({ name: "Organic", value: organic, color: "#10b981" });
+    if (paid > 0) result.push({ name: "Paid", value: paid, color: "#f59e0b" });
+    return result;
+  }, [referralData, selectedReferralSource, selectedDetail]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
@@ -325,9 +346,12 @@ export default function Marketing() {
                       outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
-                      onClick={(entry) => setSelectedReferralSource(
-                        selectedReferralSource === entry.source ? null : entry.source
-                      )}
+                      onClick={(entry) => {
+                        setSelectedReferralSource(
+                          selectedReferralSource === entry.source ? null : entry.source
+                        );
+                        setSelectedDetail(null);
+                      }}
                       cursor="pointer"
                     >
                       {referralPieData.map((entry, index) => (
@@ -343,7 +367,15 @@ export default function Marketing() {
                     <RechartsTooltip
                       formatter={(value: number) => [value, t('business.referrals.responses')]}
                     />
-                    <Legend />
+                    <Legend
+                      formatter={(value: string) => {
+                        const entry = referralPieData.find((e) => e.name === value);
+                        if (!entry) return value;
+                        const total = referralPieData.reduce((s, e) => s + e.value, 0);
+                        const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
+                        return `${value} ${entry.value} (${pct}%)`;
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -370,21 +402,66 @@ export default function Marketing() {
                   {referralDetailData.map((item, i) => {
                     const total = referralDetailData.reduce((s, d) => s + d.value, 0);
                     const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+                    const isSelected = selectedDetail === item.detail;
                     return (
-                      <div key={i} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>{item.name}</span>
-                          <span className="text-muted-foreground">{item.value} ({pct}%)</span>
+                      <div key={i}>
+                        <div
+                          className="space-y-1 cursor-pointer rounded-md px-2 py-1.5 -mx-2 transition-colors hover:bg-muted/50"
+                          style={isSelected ? { backgroundColor: 'hsl(var(--muted) / 0.5)' } : undefined}
+                          onClick={() => setSelectedDetail(isSelected ? null : item.detail)}
+                        >
+                          <div className="flex justify-between text-sm">
+                            <span>{item.name}</span>
+                            <span className="text-muted-foreground">{item.value} ({pct}%)</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: REFERRAL_COLORS[selectedReferralSource] || "#6b7280",
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: REFERRAL_COLORS[selectedReferralSource] || "#6b7280",
-                            }}
-                          />
-                        </div>
+                        {isSelected && detailPaidBreakdown.length > 0 && (
+                          <div className="mt-2 mb-1">
+                            <div className="flex items-center gap-4 justify-center">
+                              {detailPaidBreakdown.map((entry, idx) => {
+                                const tot = detailPaidBreakdown.reduce((s, e) => s + e.value, 0);
+                                const p = tot > 0 ? ((entry.value / tot) * 100).toFixed(0) : "0";
+                                return (
+                                  <div key={idx} className="flex items-center gap-1.5 text-xs">
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                    <span>{entry.name} {entry.value} ({p}%)</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <ResponsiveContainer width="100%" height={120}>
+                              <PieChart>
+                                <Pie
+                                  data={detailPaidBreakdown}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={25}
+                                  outerRadius={45}
+                                  paddingAngle={2}
+                                  dataKey="value"
+                                >
+                                  {detailPaidBreakdown.map((entry, idx) => (
+                                    <Cell key={idx} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                        {isSelected && detailPaidBreakdown.length === 0 && (
+                          <div className="text-xs text-muted-foreground text-center py-3">
+                            No organic/paid data available
+                          </div>
+                        )}
                       </div>
                     );
                   })}
