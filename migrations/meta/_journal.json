@@ -1387,6 +1387,13 @@
       "when": 1774941350921,
       "tag": "0197_spooky_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1775200000000,
+      "tag": "0198_normalize_source_details",
+      "breakpoints": true
     }
   ]
 }

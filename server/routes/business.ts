@@ -2663,7 +2663,7 @@ router.post('/api/business/:hospitalId/lead-conversion/backfill-referrals', isAu
 
       const isGoogle = lead.adSource === 'gg';
       const source = isGoogle ? 'search_engine' as const : 'social' as const;
-      const sourceDetail = isGoogle ? 'Google Ads' : lead.adSource === 'ig' ? 'Instagram' : 'Facebook';
+      const sourceDetail = isGoogle ? 'google' : lead.adSource === 'ig' ? 'instagram' : 'facebook';
       const leadDate = parseLeadDate(lead.leadDate) || new Date();
       const apptIds = appointmentIdsByPatient.get(patientId) || [];
 

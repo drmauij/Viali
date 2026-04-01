@@ -722,19 +722,19 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         let inferredDetail = parsed.data.referralSourceDetail || null;
         if (!parsed.data.referralSource && !parsed.data.utmSource) {
           if (parsed.data.gclid || parsed.data.gbraid || parsed.data.wbraid) {
-            inferredSource = "search_engine"; inferredDetail = "Google Ads";
+            inferredSource = "search_engine"; inferredDetail = "google";
           } else if (parsed.data.fbclid) {
-            inferredSource = "social"; inferredDetail = "Meta Ads";
+            inferredSource = "social"; inferredDetail = "facebook";
           } else if (parsed.data.ttclid) {
-            inferredSource = "social"; inferredDetail = "TikTok Ads";
+            inferredSource = "social"; inferredDetail = "tiktok";
           } else if (parsed.data.msclkid) {
-            inferredSource = "search_engine"; inferredDetail = "Bing Ads";
+            inferredSource = "search_engine"; inferredDetail = "bing";
           } else if (parsed.data.igshid) {
-            inferredSource = "social"; inferredDetail = "Instagram";
+            inferredSource = "social"; inferredDetail = "instagram";
           } else if (parsed.data.li_fat_id) {
-            inferredSource = "social"; inferredDetail = "LinkedIn Ads";
+            inferredSource = "social"; inferredDetail = "linkedin";
           } else if (parsed.data.twclid) {
-            inferredSource = "social"; inferredDetail = "Twitter/X Ads";
+            inferredSource = "social"; inferredDetail = "twitter";
           }
         }
         await db.insert(referralEvents).values({
