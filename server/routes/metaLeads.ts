@@ -1,7 +1,10 @@
 import { Router } from "express";
+import type { Response } from "express";
 import { db } from "../db";
-import { eq, and } from "drizzle-orm";
-import { metaLeads, metaLeadWebhookConfig } from "@shared/schema";
+import { eq, and, desc, sql, lt } from "drizzle-orm";
+import { metaLeads, metaLeadContacts, metaLeadWebhookConfig, users } from "@shared/schema";
+import { isAuthenticated } from "../auth/google";
+import { storage } from "../storage";
 import logger from "../logger";
 import { createHash } from "crypto";
 
@@ -149,5 +152,245 @@ router.post("/api/webhooks/meta-leads/:hospitalId", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// --- Auth middleware ---
+
+async function isMarketingOrManager(req: any, res: Response, next: any) {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h =>
+      h.id === hospitalId &&
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'marketing')
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Marketing or business manager access required" });
+    }
+
+    next();
+  } catch (error) {
+    logger.error("Error checking marketing access:", error);
+    res.status(500).json({ message: "Failed to verify access" });
+  }
+}
+
+// --- Valid contact outcomes ---
+
+const VALID_CONTACT_OUTCOMES = ["reached", "no_answer", "wants_callback", "will_call_back", "needs_time"] as const;
+
+// --- Internal API endpoints ---
+
+// 1. List leads with contact summary
+router.get(
+  "/api/business/:hospitalId/meta-leads",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const status = (req.query.status as string) || "all";
+      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
+      const before = req.query.before as string | undefined;
+
+      const conditions = [eq(metaLeads.hospitalId, hospitalId)];
+
+      if (status !== "all") {
+        conditions.push(eq(metaLeads.status, status as any));
+      }
+
+      if (before) {
+        conditions.push(lt(metaLeads.createdAt, new Date(before)));
+      }
+
+      const leads = await db
+        .select({
+          id: metaLeads.id,
+          hospitalId: metaLeads.hospitalId,
+          firstName: metaLeads.firstName,
+          lastName: metaLeads.lastName,
+          email: metaLeads.email,
+          phone: metaLeads.phone,
+          operation: metaLeads.operation,
+          source: metaLeads.source,
+          metaLeadId: metaLeads.metaLeadId,
+          metaFormId: metaLeads.metaFormId,
+          status: metaLeads.status,
+          patientId: metaLeads.patientId,
+          appointmentId: metaLeads.appointmentId,
+          closedReason: metaLeads.closedReason,
+          createdAt: metaLeads.createdAt,
+          updatedAt: metaLeads.updatedAt,
+          contactCount: sql<number>`(SELECT COUNT(*) FROM meta_lead_contacts WHERE meta_lead_id = ${metaLeads.id})`.as("contact_count"),
+          lastContactOutcome: sql<string | null>`(SELECT outcome FROM meta_lead_contacts WHERE meta_lead_id = ${metaLeads.id} ORDER BY created_at DESC LIMIT 1)`.as("last_contact_outcome"),
+          lastContactAt: sql<Date | null>`(SELECT created_at FROM meta_lead_contacts WHERE meta_lead_id = ${metaLeads.id} ORDER BY created_at DESC LIMIT 1)`.as("last_contact_at"),
+        })
+        .from(metaLeads)
+        .where(and(...conditions))
+        .orderBy(desc(metaLeads.createdAt))
+        .limit(limit);
+
+      return res.json(leads);
+    } catch (err) {
+      logger.error({ err }, "Error listing meta leads");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 2. Lead detail with contact history
+router.get(
+  "/api/business/:hospitalId/meta-leads/:leadId",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId, leadId } = req.params;
+
+      const [lead] = await db
+        .select()
+        .from(metaLeads)
+        .where(and(eq(metaLeads.id, leadId), eq(metaLeads.hospitalId, hospitalId)))
+        .limit(1);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const contacts = await db
+        .select({
+          id: metaLeadContacts.id,
+          metaLeadId: metaLeadContacts.metaLeadId,
+          outcome: metaLeadContacts.outcome,
+          note: metaLeadContacts.note,
+          createdAt: metaLeadContacts.createdAt,
+          createdBy: metaLeadContacts.createdBy,
+          userName: sql<string>`(SELECT first_name || ' ' || surname FROM users WHERE id = ${metaLeadContacts.createdBy})`.as("user_name"),
+        })
+        .from(metaLeadContacts)
+        .where(eq(metaLeadContacts.metaLeadId, leadId))
+        .orderBy(desc(metaLeadContacts.createdAt));
+
+      return res.json({ ...lead, contacts });
+    } catch (err) {
+      logger.error({ err }, "Error fetching meta lead detail");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 3. Log a contact attempt
+router.post(
+  "/api/business/:hospitalId/meta-leads/:leadId/contacts",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId, leadId } = req.params;
+      const { outcome, note } = req.body;
+
+      if (!outcome || !VALID_CONTACT_OUTCOMES.includes(outcome)) {
+        return res.status(400).json({
+          error: `Invalid outcome. Must be one of: ${VALID_CONTACT_OUTCOMES.join(", ")}`,
+        });
+      }
+
+      // Verify lead exists and belongs to this hospital
+      const [lead] = await db
+        .select({ id: metaLeads.id, status: metaLeads.status })
+        .from(metaLeads)
+        .where(and(eq(metaLeads.id, leadId), eq(metaLeads.hospitalId, hospitalId)))
+        .limit(1);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      // Create contact entry
+      const [contact] = await db
+        .insert(metaLeadContacts)
+        .values({
+          metaLeadId: leadId,
+          outcome,
+          note: note || null,
+          createdBy: req.user.id,
+        })
+        .returning();
+
+      // Auto-advance status from new -> in_progress
+      if (lead.status === "new") {
+        await db
+          .update(metaLeads)
+          .set({ status: "in_progress", updatedAt: new Date() })
+          .where(eq(metaLeads.id, leadId));
+      }
+
+      return res.status(201).json(contact);
+    } catch (err) {
+      logger.error({ err }, "Error logging meta lead contact");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 4. Close a lead
+router.patch(
+  "/api/business/:hospitalId/meta-leads/:leadId",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId, leadId } = req.params;
+      const { status, closedReason } = req.body;
+
+      if (status !== "closed") {
+        return res.status(400).json({ error: "Only 'closed' status can be set manually" });
+      }
+
+      const [updated] = await db
+        .update(metaLeads)
+        .set({
+          status: "closed",
+          closedReason: closedReason || null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(metaLeads.id, leadId), eq(metaLeads.hospitalId, hospitalId)))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      return res.json(updated);
+    } catch (err) {
+      logger.error({ err }, "Error closing meta lead");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 5. Badge count (new leads)
+router.get(
+  "/api/business/:hospitalId/meta-leads-count",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+
+      const [result] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(metaLeads)
+        .where(and(eq(metaLeads.hospitalId, hospitalId), eq(metaLeads.status, "new")));
+
+      return res.json({ count: Number(result.count) });
+    } catch (err) {
+      logger.error({ err }, "Error fetching meta leads count");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;
