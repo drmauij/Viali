@@ -2391,8 +2391,8 @@ async function processAppointmentReminder(job: any): Promise<void> {
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
         const smsDe = hospital.hidePatientCancel
-          ? `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Termininfo: ${manageUrl}${feeNotice}`
-          : `Erinnerung: Ihr Termin bei ${hospitalName} am ${formattedDate} um ${formattedTime}. Absagen: ${manageUrl}${feeNotice}`;
+          ? `Erinnerung: Ihr Termin in der ${hospitalName} am ${formattedDate} um ${formattedTime}. Termininfo: ${manageUrl}${feeNotice}`
+          : `Erinnerung: Ihr Termin in der ${hospitalName} am ${formattedDate} um ${formattedTime}. Absagen: ${manageUrl}${feeNotice}`;
         const smsEn = hospital.hidePatientCancel
           ? `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Details: ${manageUrl}${feeNotice}`
           : `Reminder: Your appointment at ${hospitalName} on ${formattedDate} at ${formattedTime}. Cancel: ${manageUrl}${feeNotice}`;
@@ -2602,9 +2602,8 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
 
       // Try SMS first
       if (appt.patientPhone && (await isSmsConfiguredForHospital(hospitalId))) {
-        const feeNotice = hospital.noShowFeeMessage ? `\n${hospital.noShowFeeMessage}` : '';
-        const smsDe = `Erinnerung: Ihr Termin heute bei ${hospitalName} um ${formattedTime}.${feeNotice}`;
-        const smsEn = `Reminder: Your appointment today at ${hospitalName} at ${formattedTime}.${feeNotice}`;
+        const smsDe = `Erinnerung: Ihr Termin heute in der ${hospitalName} um ${formattedTime}.`;
+        const smsEn = `Reminder: Your appointment today at ${hospitalName} at ${formattedTime}.`;
         const smsMessage = isGerman ? smsDe : smsEn;
 
         const smsResult = await sendSms(appt.patientPhone, smsMessage, hospitalId);
@@ -2629,7 +2628,7 @@ async function processMorningAppointmentReminder(job: any): Promise<void> {
           '',
           lang,
           'info-only',
-          hospital.noShowFeeMessage,
+          null,
         );
         if (emailResult.success) {
           sendSuccess = true;

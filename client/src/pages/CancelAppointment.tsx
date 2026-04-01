@@ -136,7 +136,7 @@ export default function CancelAppointment() {
             </h2>
             <p className="text-gray-600">
               {isGerman
-                ? `Ihr Termin bei ${cancelResult.appointment.clinicName} am ${cancelResult.appointment.date} um ${cancelResult.appointment.time} wurde erfolgreich abgesagt.`
+                ? `Ihr Termin in der ${cancelResult.appointment.clinicName} am ${cancelResult.appointment.date} um ${cancelResult.appointment.time} wurde erfolgreich abgesagt.`
                 : `Your appointment at ${cancelResult.appointment.clinicName} on ${cancelResult.appointment.date} at ${cancelResult.appointment.time} has been successfully cancelled.`}
             </p>
             <p className="text-sm text-gray-500 mt-4">
