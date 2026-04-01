@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,9 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 import { draggedRequest, setDraggedRequest } from "@/components/surgery/useExternalRequestDrag";
-import type { Surgery, ExternalSurgeryRequest } from "@shared/schema";
+import { MetaLeadsPanel, MetaLeadsBadge, ScheduleMetaLeadDialog } from "@/components/metaLeads/MetaLeadsPanel";
+import { draggedMetaLead, setDraggedMetaLead } from "@/components/metaLeads/useMetaLeadDrag";
+import type { Surgery, ExternalSurgeryRequest, MetaLead } from "@shared/schema";
 
 const preloadOp = () => import("@/pages/anesthesia/Op");
 
@@ -70,6 +72,7 @@ export default function OpList() {
   const isMobile = useIsMobile();
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const showExternalRequests = hasExternalSurgeryToken && (activeHospital?.role === 'admin' || activeHospital?.canPlanOps === true);
+  const showMetaLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const [openRequestsFromUrl] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,6 +96,13 @@ export default function OpList() {
   const [inlineSelectedRequest, setInlineSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleDropData, setScheduleDropData] = useState<{ date: string; time: string; roomId?: string } | null>(null);
+
+  // Meta Leads panel state
+  const [sidebarPanel, setSidebarPanel] = useState<'requests' | 'meta-leads'>('requests');
+  const [tapSelectedMetaLead, setTapSelectedMetaLead] = useState<MetaLead | null>(null);
+  const [selectedMetaLead, setSelectedMetaLead] = useState<MetaLead | null>(null);
+  const [metaLeadScheduleDialogOpen, setMetaLeadScheduleDialogOpen] = useState(false);
+  const [metaLeadDropData, setMetaLeadDropData] = useState<{ date: string; time: string; roomId?: string } | null>(null);
 
   // Surgery rooms query (hoisted from ExternalReservationsPanel to avoid double-fetching)
   const hospitalId = activeHospital?.id;
@@ -329,15 +339,31 @@ export default function OpList() {
   // Drop from outside: called by OPCalendar when a request card is dropped onto a slot
   const handleDropFromOutside = useCallback(({ start, resource }: { start: Date; end: Date; resource?: string }) => {
     const req = draggedRequest;
-    if (!req) return;
-    setInlineSelectedRequest(req);
-    setScheduleDropData({
-      date: format(start, 'yyyy-MM-dd'),
-      time: format(start, 'HH:mm'),
-      roomId: resource,
-    });
-    setScheduleDialogOpen(true);
-    setDraggedRequest(null);
+    const metaLead = draggedMetaLead;
+
+    if (req) {
+      setInlineSelectedRequest(req);
+      setScheduleDropData({
+        date: format(start, 'yyyy-MM-dd'),
+        time: format(start, 'HH:mm'),
+        roomId: resource,
+      });
+      setScheduleDialogOpen(true);
+      setDraggedRequest(null);
+      return;
+    }
+
+    if (metaLead) {
+      setSelectedMetaLead(metaLead);
+      setMetaLeadDropData({
+        date: format(start, 'yyyy-MM-dd'),
+        time: format(start, 'HH:mm'),
+        roomId: resource,
+      });
+      setMetaLeadScheduleDialogOpen(true);
+      setDraggedMetaLead(null);
+      return;
+    }
   }, []);
 
   // Tap to place: called by OPCalendar when a slot is tapped while a request is selected
@@ -353,8 +379,23 @@ export default function OpList() {
     setTapSelectedRequest(null);
   }, [tapSelectedRequest]);
 
+  // Tap to place: for meta leads
+  const handleTapSlotWithMetaLead = useCallback(({ start, resource }: { start: Date; resource?: string }) => {
+    if (!tapSelectedMetaLead) return;
+    setSelectedMetaLead(tapSelectedMetaLead);
+    setMetaLeadDropData({
+      date: format(start, 'yyyy-MM-dd'),
+      time: format(start, 'HH:mm'),
+      roomId: resource,
+    });
+    setMetaLeadScheduleDialogOpen(true);
+    setTapSelectedMetaLead(null);
+  }, [tapSelectedMetaLead]);
+
   // Show split panel when desktop + calendar + panel open
-  const showSplitPanel = !isMobile && viewMode === "calendar" && requestsPanelOpen && showExternalRequests;
+  const showSplitPanel = !isMobile && viewMode === "calendar" && (
+    (requestsPanelOpen && showExternalRequests) || (sidebarPanel === 'meta-leads' && requestsPanelOpen && showMetaLeads)
+  );
 
   const calendarElement = (
     <OPCalendar
@@ -366,6 +407,8 @@ export default function OpList() {
       onDropFromOutside={handleDropFromOutside}
       tapSelectedRequest={tapSelectedRequest}
       onTapSlotWithSelection={handleTapSlotWithSelection}
+      tapSelectedMetaLead={tapSelectedMetaLead}
+      onTapSlotWithMetaLead={handleTapSlotWithMetaLead}
       onSearchSelect={handleSearchSelect}
     />
   );
@@ -423,16 +466,43 @@ export default function OpList() {
             ) : (
               // Desktop: toggle split panel
               <Button
-                variant={requestsPanelOpen ? "default" : "outline"}
+                variant={sidebarPanel === 'requests' && requestsPanelOpen ? "default" : "outline"}
                 className="relative"
                 data-testid="button-external-requests"
-                onClick={() => setRequestsPanelOpen(p => !p)}
+                onClick={() => {
+                  if (sidebarPanel === 'requests' && requestsPanelOpen) {
+                    setRequestsPanelOpen(false);
+                  } else {
+                    setSidebarPanel('requests');
+                    setRequestsPanelOpen(true);
+                  }
+                }}
               >
                 <FileText className="mr-2 h-4 w-4" />
                 {t('anesthesia.opList.requests')}
                 <ExternalRequestsBadge />
               </Button>
             )
+          )}
+
+          {showMetaLeads && !isMobile && (
+            <Button
+              variant={sidebarPanel === 'meta-leads' && showSplitPanel ? "default" : "outline"}
+              className="relative"
+              onClick={() => {
+                if (sidebarPanel === 'meta-leads' && requestsPanelOpen) {
+                  setSidebarPanel('requests');
+                  setRequestsPanelOpen(false);
+                } else {
+                  setSidebarPanel('meta-leads');
+                  setRequestsPanelOpen(true);
+                }
+              }}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Meta Leads
+              <MetaLeadsBadge />
+            </Button>
           )}
 
           {/* View Toggle */}
@@ -471,17 +541,25 @@ export default function OpList() {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
-              <ExternalReservationsPanel
-                mode="inline"
-                surgeryRooms={surgeryRooms}
-                onScheduleRequest={(req) => {
-                  setInlineSelectedRequest(req);
-                  setScheduleDropData(null);
-                  setScheduleDialogOpen(true);
-                }}
-                selectedRequestId={tapSelectedRequest?.id ?? null}
-                onRequestTap={(req) => setTapSelectedRequest(p => p?.id === req?.id ? null : req)}
-              />
+              {sidebarPanel === 'meta-leads' && showMetaLeads ? (
+                <MetaLeadsPanel
+                  mode="inline"
+                  selectedLeadId={tapSelectedMetaLead?.id ?? null}
+                  onLeadTap={(lead) => setTapSelectedMetaLead(p => p?.id === lead?.id ? null : lead)}
+                />
+              ) : (
+                <ExternalReservationsPanel
+                  mode="inline"
+                  surgeryRooms={surgeryRooms}
+                  onScheduleRequest={(req) => {
+                    setInlineSelectedRequest(req);
+                    setScheduleDropData(null);
+                    setScheduleDialogOpen(true);
+                  }}
+                  selectedRequestId={tapSelectedRequest?.id ?? null}
+                  onRequestTap={(req) => setTapSelectedRequest(p => p?.id === req?.id ? null : req)}
+                />
+              )}
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
@@ -581,6 +659,22 @@ export default function OpList() {
           initialDate={scheduleDropData?.date}
           initialTime={scheduleDropData?.time}
           initialRoomId={scheduleDropData?.roomId}
+        />
+      )}
+
+      {/* Meta Lead schedule dialog */}
+      {selectedMetaLead && (
+        <ScheduleMetaLeadDialog
+          lead={selectedMetaLead}
+          open={metaLeadScheduleDialogOpen}
+          onOpenChange={(open) => {
+            setMetaLeadScheduleDialogOpen(open);
+            if (!open) {
+              setSelectedMetaLead(null);
+              setMetaLeadDropData(null);
+            }
+          }}
+          dropData={metaLeadDropData}
         />
       )}
 
