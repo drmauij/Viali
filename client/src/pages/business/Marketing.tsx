@@ -655,6 +655,7 @@ export default function Marketing() {
             hospitalId={activeHospital?.id}
             from={referralFrom}
             to={referralTo}
+            currency={activeHospital?.currency || "CHF"}
             onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
           />
         </TabsContent>

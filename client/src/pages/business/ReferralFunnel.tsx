@@ -45,6 +45,7 @@ interface ReferralFunnelProps {
   hospitalId: string | undefined;
   from: string;
   to: string;
+  currency?: string;
   onEarliestDate?: (date: string) => void;
 }
 
@@ -56,6 +57,11 @@ type FunnelRow = {
   patient_id: string;
   capture_method: string;
   has_click_id: boolean;
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
+  fbclid: string | null;
+  igshid: string | null;
   meta_lead_id: string | null;
   meta_form_id: string | null;
   utm_campaign: string | null;
@@ -325,7 +331,7 @@ function exportAdPerformanceCsv(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReferralFunnel({ hospitalId, from, to, onEarliestDate }: ReferralFunnelProps) {
+export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate }: ReferralFunnelProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [providerFilter, setProviderFilter] = useState("all");
