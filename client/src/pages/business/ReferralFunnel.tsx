@@ -445,6 +445,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   const [providerFilter, setProviderFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [campaignFilter, setCampaignFilter] = useState("all");
+  const [conversionLevel, setConversionLevel] = useState<ConversionLevel>("paid");
 
   // Ad budget state
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -601,6 +602,11 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   }, [rows, providerFilter, sourceFilter, campaignFilter]);
 
   const metrics = useMemo(() => computeMetrics(filtered), [filtered]);
+
+  const platformCounts = useMemo(
+    () => countPlatformConversions(filtered, conversionLevel),
+    [filtered, conversionLevel],
+  );
 
   // ── Funnel chart data ──────────────────────────────────────────────────
 
@@ -1319,6 +1325,64 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+          {/* ── Feed Back to Platforms ────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                {t("business.funnel.feedBack", "Feed Back to Platforms")}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {t("business.funnel.feedBackHelp", "Download converted leads as CSV files formatted for each ad platform's offline conversion upload.")}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-1.5">
+                  <Label>{t("business.funnel.conversionLevel", "Conversion Level")}</Label>
+                  <Select value={conversionLevel} onValueChange={(v) => setConversionLevel(v as ConversionLevel)}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kept">{t("business.funnel.levelKept", "Appointment Kept")}</SelectItem>
+                      <SelectItem value="surgery_planned">{t("business.funnel.levelSurgery", "Surgery Planned")}</SelectItem>
+                      <SelectItem value="paid">{t("business.funnel.levelPaid", "Paid")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={platformCounts.google === 0}
+                  onClick={() => exportGoogleAdsCsv(filtered, conversionLevel, currency, from, to)}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Google Ads ({platformCounts.google})
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={platformCounts.meta === 0}
+                  onClick={() => exportMetaAdsCsv(filtered, conversionLevel, currency, from, to)}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Meta Ads ({platformCounts.meta})
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={platformCounts.metaForms === 0}
+                  onClick={() => exportMetaFormsCsv(filtered, conversionLevel, currency, from, to)}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Meta Forms ({platformCounts.metaForms})
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </>
