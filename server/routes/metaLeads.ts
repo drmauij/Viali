@@ -2,11 +2,13 @@ import { Router } from "express";
 import type { Response } from "express";
 import { db } from "../db";
 import { eq, and, desc, sql, lt } from "drizzle-orm";
-import { metaLeads, metaLeadContacts, metaLeadWebhookConfig, users } from "@shared/schema";
+import { metaLeads, metaLeadContacts, metaLeadWebhookConfig, users, patients, clinicAppointments, referralEvents } from "@shared/schema";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
 import { createHash } from "crypto";
+import { calculateNameSimilarity } from "../services/patientDeduplication";
+import { normalizePhoneForMatching } from "../utils/normalizePhone";
 
 const router = Router();
 
@@ -235,6 +237,241 @@ router.get(
       return res.json(leads);
     } catch (err) {
       logger.error({ err }, "Error listing meta leads");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// --- Fuzzy match (must be before :leadId routes) ---
+router.post(
+  "/api/business/:hospitalId/meta-leads/fuzzy-match",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const { firstName, lastName, email, phone } = req.body;
+
+      if (!firstName && !lastName) {
+        return res.status(400).json({ error: "At least firstName or lastName is required" });
+      }
+
+      // 1. Fetch all non-archived patients for hospital
+      const allPatients = await db
+        .select({
+          id: patients.id,
+          firstName: patients.firstName,
+          surname: patients.surname,
+          email: patients.email,
+          phone: patients.phone,
+          dateOfBirth: patients.birthday,
+        })
+        .from(patients)
+        .where(and(
+          eq(patients.hospitalId, hospitalId),
+          eq(patients.isArchived, false),
+        ));
+
+      // 2. Normalize input
+      const leadFullName = [firstName, lastName].filter(Boolean).join(' ');
+      const leadSwappedName = [lastName, firstName].filter(Boolean).join(' ');
+      const leadPhone = phone ? normalizePhoneForMatching(phone) : '';
+      const leadEmail = email ? email.trim().toLowerCase() : '';
+
+      // 3. Score each patient
+      const candidates: Array<{
+        patientId: string;
+        firstName: string;
+        surname: string;
+        phone: string | null;
+        email: string | null;
+        dateOfBirth: string | null;
+        confidence: number;
+        phoneMatch: boolean;
+        emailMatch: boolean;
+      }> = [];
+
+      for (const p of allPatients) {
+        let confidence = 0;
+        let phoneMatch = false;
+        let emailMatch = false;
+
+        // Name similarity (best of normal and swapped order)
+        const fullName = `${p.firstName} ${p.surname}`;
+        const nameSim = calculateNameSimilarity(leadFullName, fullName);
+        const swappedSim = leadSwappedName !== leadFullName
+          ? calculateNameSimilarity(leadSwappedName, fullName)
+          : 0;
+        confidence = Math.max(nameSim, swappedSim);
+
+        // Phone match boost (+20%)
+        const pPhone = p.phone ? normalizePhoneForMatching(p.phone) : '';
+        if (leadPhone && leadPhone.length >= 8 && pPhone && pPhone.length >= 8 && leadPhone === pPhone) {
+          confidence += 0.20;
+          phoneMatch = true;
+        }
+
+        // Email match boost (+15%)
+        const pEmail = p.email ? p.email.trim().toLowerCase() : '';
+        if (leadEmail && pEmail && leadEmail === pEmail) {
+          confidence += 0.15;
+          emailMatch = true;
+        }
+
+        confidence = Math.min(1.0, confidence);
+
+        if (confidence >= 0.40) {
+          candidates.push({
+            patientId: p.id,
+            firstName: p.firstName,
+            surname: p.surname,
+            phone: p.phone,
+            email: p.email,
+            dateOfBirth: p.dateOfBirth ? String(p.dateOfBirth) : null,
+            confidence: Math.round(confidence * 100) / 100,
+            phoneMatch,
+            emailMatch,
+          });
+        }
+      }
+
+      // Sort desc by confidence, limit 5
+      candidates.sort((a, b) => b.confidence - a.confidence);
+      return res.json(candidates.slice(0, 5));
+    } catch (err) {
+      logger.error({ err }, "Error in meta lead fuzzy match");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// --- Convert lead to patient + appointment + referral ---
+router.post(
+  "/api/business/:hospitalId/meta-leads/:leadId/convert",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId, leadId } = req.params;
+      const { patientId, patient, appointmentDate, appointmentTime, duration, unitId, providerId, surgeryRoomId } = req.body;
+
+      // Validate required fields
+      if (!appointmentDate || !appointmentTime || !unitId || !providerId) {
+        return res.status(400).json({ error: "appointmentDate, appointmentTime, unitId, and providerId are required" });
+      }
+
+      const durationMinutes = duration || 30;
+
+      // 1. Verify lead exists, belongs to hospital, not already converted
+      const [lead] = await db
+        .select()
+        .from(metaLeads)
+        .where(and(eq(metaLeads.id, leadId), eq(metaLeads.hospitalId, hospitalId)))
+        .limit(1);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      if (lead.status === "converted") {
+        return res.status(409).json({ error: "Lead is already converted" });
+      }
+
+      // 2. Resolve patient
+      let resolvedPatientId: string;
+
+      if (patientId) {
+        // Use existing patient — verify it exists
+        const [existing] = await db
+          .select({ id: patients.id })
+          .from(patients)
+          .where(and(eq(patients.id, patientId), eq(patients.hospitalId, hospitalId)))
+          .limit(1);
+
+        if (!existing) {
+          return res.status(404).json({ error: "Patient not found" });
+        }
+        resolvedPatientId = patientId;
+      } else if (patient) {
+        // Create new patient
+        if (!patient.firstName || !patient.lastName) {
+          return res.status(400).json({ error: "patient.firstName and patient.lastName are required" });
+        }
+
+        // Generate patient number
+        const patientNumber = await storage.generatePatientNumber(hospitalId);
+
+        const [newPatient] = await db
+          .insert(patients)
+          .values({
+            hospitalId,
+            firstName: patient.firstName,
+            surname: patient.lastName,
+            email: patient.email || null,
+            phone: patient.phone || null,
+            patientNumber,
+            birthday: patient.birthday || "1900-01-01",
+            sex: patient.sex || "O",
+          })
+          .returning({ id: patients.id });
+
+        resolvedPatientId = newPatient.id;
+      } else {
+        return res.status(400).json({ error: "Either patientId or patient data is required" });
+      }
+
+      // 3. Calculate endTime
+      const [hours, minutes] = appointmentTime.split(':').map(Number);
+      const startDate = new Date(2000, 0, 1, hours, minutes);
+      startDate.setMinutes(startDate.getMinutes() + durationMinutes);
+      const endTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+
+      // 4. Create clinic appointment
+      const [appointment] = await db
+        .insert(clinicAppointments)
+        .values({
+          hospitalId,
+          unitId,
+          patientId: resolvedPatientId,
+          providerId,
+          appointmentDate,
+          startTime: appointmentTime,
+          endTime,
+          durationMinutes,
+          status: "confirmed",
+          appointmentType: "external",
+          notes: lead.operation || undefined,
+          createdBy: req.user.id,
+        })
+        .returning({ id: clinicAppointments.id });
+
+      // 5. Create referral event
+      await db.insert(referralEvents).values({
+        hospitalId,
+        patientId: resolvedPatientId,
+        appointmentId: appointment.id,
+        source: 'social',
+        sourceDetail: lead.source === 'ig' ? 'Instagram Lead Form' : 'Facebook Lead Form',
+        metaLeadId: lead.metaLeadId,
+        metaFormId: lead.metaFormId,
+        captureMethod: 'staff',
+      });
+
+      // 6. Update lead status
+      await db
+        .update(metaLeads)
+        .set({
+          status: "converted",
+          patientId: resolvedPatientId,
+          appointmentId: appointment.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(metaLeads.id, leadId));
+
+      // 7. Return result
+      return res.json({ status: "converted", patientId: resolvedPatientId, appointmentId: appointment.id });
+    } catch (err) {
+      logger.error({ err, leadId: req.params.leadId }, "Error converting meta lead");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
