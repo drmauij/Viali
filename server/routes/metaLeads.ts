@@ -1,12 +1,12 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import { db } from "../db";
 import { eq, and, desc, sql, lt } from "drizzle-orm";
 import { metaLeads, metaLeadContacts, metaLeadWebhookConfig, users, patients, clinicAppointments, referralEvents } from "@shared/schema";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { calculateNameSimilarity } from "../services/patientDeduplication";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
 
@@ -625,6 +625,143 @@ router.get(
       return res.json({ count: Number(result.count) });
     } catch (err) {
       logger.error({ err }, "Error fetching meta leads count");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// --- Admin middleware ---
+
+async function isAdmin(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    next();
+  } catch (error) {
+    logger.error("Error checking admin:", error);
+    res.status(500).json({ message: "Failed to verify admin access" });
+  }
+}
+
+// --- Admin API: Webhook Config ---
+
+// GET /api/admin/:hospitalId/meta-lead-config
+router.get(
+  "/api/admin/:hospitalId/meta-lead-config",
+  isAuthenticated,
+  isAdmin,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+
+      const [config] = await db
+        .select()
+        .from(metaLeadWebhookConfig)
+        .where(eq(metaLeadWebhookConfig.hospitalId, hospitalId))
+        .limit(1);
+
+      // Get last received lead timestamp
+      const [lastLead] = await db
+        .select({ createdAt: metaLeads.createdAt })
+        .from(metaLeads)
+        .where(eq(metaLeads.hospitalId, hospitalId))
+        .orderBy(desc(metaLeads.createdAt))
+        .limit(1);
+
+      const webhookUrl = `${req.protocol}://${req.get("host")}/api/webhooks/meta-leads/${hospitalId}`;
+
+      return res.json({
+        configured: !!config,
+        enabled: config?.enabled ?? false,
+        webhookUrl,
+        hasApiKey: !!config?.apiKey,
+        lastReceivedAt: lastLead?.createdAt ?? null,
+        createdAt: config?.createdAt ?? null,
+      });
+    } catch (err) {
+      logger.error({ err }, "Error fetching meta lead config");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// POST /api/admin/:hospitalId/meta-lead-config/generate-key
+router.post(
+  "/api/admin/:hospitalId/meta-lead-config/generate-key",
+  isAuthenticated,
+  isAdmin,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+
+      const rawKey = randomBytes(32).toString("hex");
+      const hashed = hashApiKey(rawKey);
+
+      // Upsert: insert or update
+      const [existing] = await db
+        .select({ hospitalId: metaLeadWebhookConfig.hospitalId })
+        .from(metaLeadWebhookConfig)
+        .where(eq(metaLeadWebhookConfig.hospitalId, hospitalId))
+        .limit(1);
+
+      if (existing) {
+        await db
+          .update(metaLeadWebhookConfig)
+          .set({ apiKey: hashed })
+          .where(eq(metaLeadWebhookConfig.hospitalId, hospitalId));
+      } else {
+        await db
+          .insert(metaLeadWebhookConfig)
+          .values({
+            hospitalId,
+            apiKey: hashed,
+            enabled: true,
+          });
+      }
+
+      return res.json({ apiKey: rawKey });
+    } catch (err) {
+      logger.error({ err }, "Error generating meta lead API key");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// PATCH /api/admin/:hospitalId/meta-lead-config
+router.patch(
+  "/api/admin/:hospitalId/meta-lead-config",
+  isAuthenticated,
+  isAdmin,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const { enabled } = req.body;
+
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      const [updated] = await db
+        .update(metaLeadWebhookConfig)
+        .set({ enabled })
+        .where(eq(metaLeadWebhookConfig.hospitalId, hospitalId))
+        .returning({ enabled: metaLeadWebhookConfig.enabled });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Webhook config not found. Generate an API key first." });
+      }
+
+      return res.json({ enabled: updated.enabled });
+    } catch (err) {
+      logger.error({ err }, "Error updating meta lead config");
       return res.status(500).json({ error: "Internal server error" });
     }
   },

@@ -29,6 +29,7 @@ import { CumulationRulesCard } from "./components/CumulationRulesCard";
 import { TpwRatesCard } from "./components/TpwRatesCard";
 import { VisionAiProviderCard } from "./components/VisionAiProviderCard";
 import { CardReaderTab } from "./components/CardReaderTab";
+import { MetaLeadWebhookCard } from "./components/MetaLeadWebhookCard";
 
 export default function Integrations() {
   const { t } = useTranslation();
@@ -37,8 +38,8 @@ export default function Integrations() {
   const [, navigate] = useLocation();
 
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["galexis", "sms", "cameras", "cardreader", "tardoc"];
-  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc">(
+  const validTabs = ["galexis", "sms", "cameras", "cardreader", "tardoc", "meta-leads"];
+  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc" | "meta-leads">(
     urlTab && validTabs.includes(urlTab) ? urlTab as any : "galexis"
   );
 
@@ -482,6 +483,10 @@ export default function Integrations() {
             <TabsTrigger value="tardoc" data-testid="tab-tardoc" className="justify-start md:w-full">
               <i className="fas fa-file-invoice mr-2 shrink-0"></i>
               <span className="truncate">TARDOC</span>
+            </TabsTrigger>
+            <TabsTrigger value="meta-leads" data-testid="tab-meta-leads" className="justify-start md:w-full">
+              <i className="fab fa-meta mr-2 shrink-0"></i>
+              <span className="truncate">Meta Leads</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1078,6 +1083,11 @@ export default function Integrations() {
             <CumulationRulesCard hospitalId={activeHospital?.id} />
             <TpwRatesCard hospitalId={activeHospital?.id} />
           </div>
+        </TabsContent>
+
+        {/* ── Tab 6: Meta Leads ──────────────────────────────────────────── */}
+        <TabsContent value="meta-leads">
+          <MetaLeadWebhookCard />
         </TabsContent>
 
           </div>{/* end tab content area */}
