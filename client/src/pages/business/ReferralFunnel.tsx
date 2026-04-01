@@ -329,6 +329,114 @@ function exportAdPerformanceCsv(
   URL.revokeObjectURL(url);
 }
 
+type ConversionLevel = "kept" | "surgery_planned" | "paid";
+
+function matchesConversionLevel(r: FunnelRow, level: ConversionLevel): boolean {
+  switch (level) {
+    case "kept":
+      return KEPT_STATUSES.includes(r.appointment_status || "");
+    case "surgery_planned":
+      return !!r.surgery_id;
+    case "paid":
+      return !!r.payment_date;
+  }
+}
+
+function getConversionTimestamp(r: FunnelRow, level: ConversionLevel): string | null {
+  switch (level) {
+    case "kept":
+      return r.appointment_date;
+    case "surgery_planned":
+      return r.surgery_planned_date;
+    case "paid":
+      return r.payment_date;
+  }
+}
+
+function getConversionValue(r: FunnelRow): string {
+  return r.price || "";
+}
+
+function exportGoogleAdsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
+  const conversionName = level === "kept" ? "Appointment Kept" : level === "surgery_planned" ? "Surgery Planned" : "Paid";
+  const filtered = rows.filter((r) => (r.gclid || r.gbraid || r.wbraid) && matchesConversionLevel(r, level));
+
+  const header = "Google Click ID,Click Type,Conversion Name,Conversion Time,Conversion Value,Conversion Currency";
+  const csvRows = filtered.map((r) => {
+    const clickId = r.gclid || r.gbraid || r.wbraid || "";
+    const clickType = r.gclid ? "GCLID" : r.gbraid ? "GBRAID" : "WBRAID";
+    const ts = getConversionTimestamp(r, level) || "";
+    return [clickId, clickType, conversionName, ts, getConversionValue(r), currency]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(",");
+  });
+
+  const csv = [header, ...csvRows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `google-ads-conversions-${from}-to-${to}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportMetaAdsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
+  const eventName = level === "kept" ? "Lead" : level === "surgery_planned" ? "Schedule" : "Purchase";
+  const filtered = rows.filter((r) => (r.fbclid || r.igshid) && matchesConversionLevel(r, level));
+
+  const header = "event_name,event_time,fbc,value,currency,action_source";
+  const csvRows = filtered.map((r) => {
+    const ts = getConversionTimestamp(r, level);
+    const unixTime = ts ? Math.floor(new Date(ts).getTime() / 1000) : "";
+    const fbc = r.fbclid || r.igshid || "";
+    return [eventName, unixTime, fbc, getConversionValue(r), currency, "website"]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(",");
+  });
+
+  const csv = [header, ...csvRows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `meta-ads-conversions-${from}-to-${to}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportMetaFormsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
+  const eventName = level === "kept" ? "lead_converted" : level === "surgery_planned" ? "lead_surgery_planned" : "lead_paid";
+  const filtered = rows.filter((r) => r.meta_lead_id && matchesConversionLevel(r, level));
+
+  const header = "lead_id,event_name,event_time,lead_value,currency";
+  const csvRows = filtered.map((r) => {
+    const ts = getConversionTimestamp(r, level);
+    const unixTime = ts ? Math.floor(new Date(ts).getTime() / 1000) : "";
+    return [r.meta_lead_id || "", eventName, unixTime, getConversionValue(r), currency]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(",");
+  });
+
+  const csv = [header, ...csvRows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `meta-forms-conversions-${from}-to-${to}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function countPlatformConversions(rows: FunnelRow[], level: ConversionLevel) {
+  const matching = rows.filter((r) => matchesConversionLevel(r, level));
+  return {
+    google: matching.filter((r) => r.gclid || r.gbraid || r.wbraid).length,
+    meta: matching.filter((r) => r.fbclid || r.igshid).length,
+    metaForms: matching.filter((r) => r.meta_lead_id).length,
+  };
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate }: ReferralFunnelProps) {
