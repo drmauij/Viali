@@ -44,6 +44,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateForInput, formatTime, isBirthdayUnknown } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { MetaLeadsPanel, MetaLeadsBadge, ScheduleMetaLeadDialog } from "@/components/metaLeads/MetaLeadsPanel";
+import type { MetaLead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
@@ -72,6 +75,11 @@ export default function ClinicAppointments() {
   const [timeOffDefaults, setTimeOffDefaults] = useState<{
     providerId: string; startDate: string; endDate: string;
   } | null>(null);
+  const [metaLeadsPanelOpen, setMetaLeadsPanelOpen] = useState(false);
+  const [selectedMetaLead, setSelectedMetaLead] = useState<MetaLead | null>(null);
+  const [metaLeadScheduleDialogOpen, setMetaLeadScheduleDialogOpen] = useState(false);
+  const [metaLeadDropData, setMetaLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
+
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
     setAvailabilityDialogOpen(true);
@@ -96,6 +104,7 @@ export default function ClinicAppointments() {
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
   const canPlanSurgery = useCanPlanSurgery();
+  const showMetaLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', hospitalId, unitId],
@@ -195,6 +204,16 @@ export default function ClinicAppointments() {
   };
 
   const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date; source?: 'day' | 'week-month' }) => {
+    // If a meta lead is tap-selected, open the meta lead scheduling dialog instead
+    if (selectedMetaLead && selectedMetaLead.status !== 'converted' && selectedMetaLead.status !== 'closed') {
+      setMetaLeadDropData({
+        date: format(data.date, 'yyyy-MM-dd'),
+        time: format(data.date, 'HH:mm'),
+        providerId: data.providerId,
+      });
+      setMetaLeadScheduleDialogOpen(true);
+      return;
+    }
     setBookingDefaults(data);
     setBookingTypeSelectorOpen(true);
   };
@@ -290,37 +309,96 @@ export default function ClinicAppointments() {
             <RefreshCw className={`h-4 w-4 mr-1 ${syncAbsencesMutation.isPending ? 'animate-spin' : ''}`} />
             {t('appointments.syncAbsences', 'Sync Absences')}
           </Button>
+          {showMetaLeads && (
+            <Button
+              variant={metaLeadsPanelOpen ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMetaLeadsPanelOpen(p => !p)}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Meta Leads
+              <MetaLeadsBadge />
+            </Button>
+          )}
         </div>
       </div>
 
+      {selectedMetaLead && metaLeadsPanelOpen && (
+        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b text-sm text-blue-700 dark:text-blue-300 animate-pulse">
+          Click a calendar slot to schedule: <strong>{selectedMetaLead.firstName} {selectedMetaLead.lastName}</strong> — {selectedMetaLead.operation}
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ClinicCalendar
-          hospitalId={hospitalId}
-          unitId={unitId}
-          onBookAppointment={handleBookAppointment}
-          onEventClick={handleEventClick}
-          onProviderClick={handleProviderClick}
-          onDragSelectRange={handleDragSelectRange}
-          onSearchSelect={handleSearchSelect}
-          statusLegend={
-            <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
-              {Object.entries(STATUS_COLORS).map(([status, colors]) => (
-                <div key={status} className="flex items-center gap-1.5">
-                  <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
-                  <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
+        {metaLeadsPanelOpen && showMetaLeads ? (
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            <ResizablePanel defaultSize={75} minSize={60}>
+              <ClinicCalendar
+                hospitalId={hospitalId}
+                unitId={unitId}
+                onBookAppointment={handleBookAppointment}
+                onEventClick={handleEventClick}
+                onProviderClick={handleProviderClick}
+                onDragSelectRange={handleDragSelectRange}
+                onSearchSelect={handleSearchSelect}
+                statusLegend={
+                  <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
+                    {Object.entries(STATUS_COLORS).map(([status, colors]) => (
+                      <div key={status} className="flex items-center gap-1.5">
+                        <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
+                        <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-1.5">
+                      <ToggleRight className="h-4 w-4 text-green-600" />
+                      <span className="text-muted-foreground">{t('appointments.legendSaalPlanned', 'Saal planned')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <ToggleLeft className="h-4 w-4 text-muted-foreground/40" />
+                      <span className="text-muted-foreground">{t('appointments.legendSaalAdd', 'Click to add to Saal')}</span>
+                    </div>
+                  </div>
+                }
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={25} minSize={18} maxSize={35}>
+              <MetaLeadsPanel
+                mode="inline"
+                selectedLeadId={selectedMetaLead?.id ?? null}
+                onLeadTap={(lead) => setSelectedMetaLead(p => p?.id === lead?.id ? null : lead)}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <ClinicCalendar
+            hospitalId={hospitalId}
+            unitId={unitId}
+            onBookAppointment={handleBookAppointment}
+            onEventClick={handleEventClick}
+            onProviderClick={handleProviderClick}
+            onDragSelectRange={handleDragSelectRange}
+            onSearchSelect={handleSearchSelect}
+            statusLegend={
+              <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
+                {Object.entries(STATUS_COLORS).map(([status, colors]) => (
+                  <div key={status} className="flex items-center gap-1.5">
+                    <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
+                    <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <ToggleRight className="h-4 w-4 text-green-600" />
+                  <span className="text-muted-foreground">{t('appointments.legendSaalPlanned', 'Saal planned')}</span>
                 </div>
-              ))}
-              <div className="flex items-center gap-1.5">
-                <ToggleRight className="h-4 w-4 text-green-600" />
-                <span className="text-muted-foreground">{t('appointments.legendSaalPlanned', 'Saal planned')}</span>
+                <div className="flex items-center gap-1.5">
+                  <ToggleLeft className="h-4 w-4 text-muted-foreground/40" />
+                  <span className="text-muted-foreground">{t('appointments.legendSaalAdd', 'Click to add to Saal')}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <ToggleLeft className="h-4 w-4 text-muted-foreground/40" />
-                <span className="text-muted-foreground">{t('appointments.legendSaalAdd', 'Click to add to Saal')}</span>
-              </div>
-            </div>
-          }
-        />
+            }
+          />
+        )}
       </div>
 
       <AppointmentDetailDialog
@@ -406,6 +484,23 @@ export default function ClinicAppointments() {
           isPending={createExtendedTimeOffMutation.isPending}
           defaultStartDate={timeOffDefaults.startDate}
           defaultEndDate={timeOffDefaults.endDate}
+        />
+      )}
+
+      {selectedMetaLead && (
+        <ScheduleMetaLeadDialog
+          lead={selectedMetaLead}
+          open={metaLeadScheduleDialogOpen}
+          onOpenChange={(open) => {
+            setMetaLeadScheduleDialogOpen(open);
+            if (!open) {
+              setSelectedMetaLead(null);
+              setMetaLeadDropData(null);
+            }
+          }}
+          dropData={metaLeadDropData}
+          unitId={unitId}
+          providerId={metaLeadDropData?.providerId}
         />
       )}
     </div>
