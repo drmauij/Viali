@@ -29,6 +29,7 @@ import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox"
 import DayNotesPanel, { useOpDayNotes } from "./DayNotesPanel";
 import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
+import { draggedMetaLead } from "@/components/metaLeads/useMetaLeadDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -115,6 +116,8 @@ interface OPCalendarProps {
   onDropFromOutside?: (info: { start: Date; end: Date; resource?: string }) => void;
   tapSelectedRequest?: import("@shared/schema").ExternalSurgeryRequest | null;
   onTapSlotWithSelection?: (info: { start: Date; resource?: string }) => void;
+  tapSelectedMetaLead?: import("@shared/schema").MetaLead | null;
+  onTapSlotWithMetaLead?: (info: { start: Date; resource?: string }) => void;
   onSearchSelect?: (surgeryId: string, patientId: string | null, date: Date) => void;
 }
 
@@ -249,7 +252,7 @@ function DroppableRoomHeader({
   );
 }
 
-export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, onSearchSelect }: OPCalendarProps) {
+export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, tapSelectedMetaLead, onTapSlotWithMetaLead, onSearchSelect }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
   // Create date-fns localizer based on i18n language
@@ -1007,6 +1010,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       onTapSlotWithSelection?.({ start: slotInfo.start, resource: slotInfo.resourceId as string });
       return;
     }
+    // Touch tap-to-place: if a meta lead is tap-selected, use this click to place it
+    if (tapSelectedMetaLead && slotInfo.action === 'click') {
+      onTapSlotWithMetaLead?.({ start: slotInfo.start, resource: slotInfo.resourceId as string });
+      return;
+    }
     if (!canPlanSurgery) return;
 
     // Block slot selection on closed dates
@@ -1028,7 +1036,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       });
       setQuickCreateOpen(true);
     }
-  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection, closures, toast, t]);
+  }, [currentView, canPlanSurgery, tapSelectedRequest, onTapSlotWithSelection, tapSelectedMetaLead, onTapSlotWithMetaLead, closures, toast, t]);
 
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
@@ -1680,7 +1688,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                     />
                   ),
                 }}
-                selectable={canPlanSurgery || !!tapSelectedRequest}
+                selectable={canPlanSurgery || !!tapSelectedRequest || !!tapSelectedMetaLead}
                 resizable={canPlanSurgery}
                 step={10}
                 timeslots={6}
@@ -1690,18 +1698,40 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
                 popup
                 data-testid="calendar-main"
                 dragFromOutsideItem={() => {
-                  if (!draggedRequest) return undefined as unknown as CalendarEvent;
+                  const req = draggedRequest;
+                  const metaLead = draggedMetaLead;
+                  if (!req && !metaLead) return undefined as unknown as CalendarEvent;
+
+                  if (req) {
+                    const now = new Date();
+                    const durationMs = (req.surgeryDurationMinutes || 60) * 60 * 1000;
+                    return {
+                      id: 'ext-req',
+                      title: req.surgeryName || 'Request',
+                      start: now,
+                      end: new Date(now.getTime() + durationMs),
+                      surgeryId: 'ext-req',
+                      patientId: null,
+                      plannedSurgery: req.surgeryName || '',
+                      patientName: '',
+                      patientBirthday: '',
+                      isCancelled: false,
+                      isSuspended: false,
+                    } as CalendarEvent;
+                  }
+
+                  // Meta lead drag
                   const now = new Date();
-                  const durationMs = (draggedRequest.surgeryDurationMinutes || 60) * 60 * 1000;
+                  const durationMs = 30 * 60 * 1000; // 30 min default for consultation
                   return {
-                    id: 'ext-req',
-                    title: draggedRequest.surgeryName || 'Request',
+                    id: 'meta-lead',
+                    title: `${metaLead!.firstName} ${metaLead!.lastName}`,
                     start: now,
                     end: new Date(now.getTime() + durationMs),
-                    surgeryId: 'ext-req',
+                    surgeryId: 'meta-lead',
                     patientId: null,
-                    plannedSurgery: draggedRequest.surgeryName || '',
-                    patientName: '',
+                    plannedSurgery: metaLead!.operation || '',
+                    patientName: `${metaLead!.firstName} ${metaLead!.lastName}`,
                     patientBirthday: '',
                     isCancelled: false,
                     isSuspended: false,
