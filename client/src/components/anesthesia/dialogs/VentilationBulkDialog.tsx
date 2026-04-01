@@ -7,6 +7,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BaseTimelineDialog } from "@/components/anesthesia/BaseTimelineDialog";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
+// Physiological ranges for clamping ventilation parameter values
+const VENT_RANGES: Record<string, { min: number; max: number }> = {
+  peep:            { min: 0,   max: 30   },
+  fio2:            { min: 21,  max: 100  },
+  tidalVolume:     { min: 0,   max: 2000 },
+  respiratoryRate: { min: 0,   max: 60   },
+  minuteVolume:    { min: 0,   max: 30   },
+  etco2:           { min: 0,   max: 100  },
+  pip:             { min: 0,   max: 60   },
+  sevofluranInsp:  { min: 0,   max: 10   },
+  sevofluranExp:   { min: 0,   max: 10   },
+  desfluranInsp:   { min: 0,   max: 20   },
+  desfluranExp:    { min: 0,   max: 20   },
+  mac:             { min: 0,   max: 5    },
+};
+
+function clampVent(key: string, value: number): number {
+  const range = VENT_RANGES[key];
+  if (!range) return value;
+  return Math.max(range.min, Math.min(range.max, value));
+}
+
 interface PendingVentilationBulk {
   time: number;
   existingParams?: {
@@ -157,20 +179,20 @@ export function VentilationBulkDialog({
     const timestamp = new Date(dialogTime).toISOString();
     
     try {
-      // Prepare parameters object with all valid values
+      // Prepare parameters object with all valid values, clamped to physiological ranges
       const parameters: any = {};
-      if (bulkVentilationParams.peep) parameters.peep = parseFloat(bulkVentilationParams.peep);
-      if (bulkVentilationParams.fiO2) parameters.fio2 = parseFloat(bulkVentilationParams.fiO2);
-      if (bulkVentilationParams.tidalVolume) parameters.tidalVolume = parseFloat(bulkVentilationParams.tidalVolume);
-      if (bulkVentilationParams.respiratoryRate) parameters.respiratoryRate = parseFloat(bulkVentilationParams.respiratoryRate);
-      if (bulkVentilationParams.minuteVolume) parameters.minuteVolume = parseFloat(bulkVentilationParams.minuteVolume);
-      if (bulkVentilationParams.etCO2) parameters.etco2 = parseFloat(bulkVentilationParams.etCO2);
-      if (bulkVentilationParams.pip) parameters.pip = parseFloat(bulkVentilationParams.pip);
-      if (bulkVentilationParams.sevofluranInsp) parameters.sevofluranInsp = parseFloat(bulkVentilationParams.sevofluranInsp);
-      if (bulkVentilationParams.sevofluranExp) parameters.sevofluranExp = parseFloat(bulkVentilationParams.sevofluranExp);
-      if (bulkVentilationParams.desfluranInsp) parameters.desfluranInsp = parseFloat(bulkVentilationParams.desfluranInsp);
-      if (bulkVentilationParams.desfluranExp) parameters.desfluranExp = parseFloat(bulkVentilationParams.desfluranExp);
-      if (bulkVentilationParams.mac) parameters.mac = parseFloat(bulkVentilationParams.mac);
+      if (bulkVentilationParams.peep) parameters.peep = clampVent('peep', parseFloat(bulkVentilationParams.peep));
+      if (bulkVentilationParams.fiO2) parameters.fio2 = clampVent('fio2', parseFloat(bulkVentilationParams.fiO2));
+      if (bulkVentilationParams.tidalVolume) parameters.tidalVolume = clampVent('tidalVolume', parseFloat(bulkVentilationParams.tidalVolume));
+      if (bulkVentilationParams.respiratoryRate) parameters.respiratoryRate = clampVent('respiratoryRate', parseFloat(bulkVentilationParams.respiratoryRate));
+      if (bulkVentilationParams.minuteVolume) parameters.minuteVolume = clampVent('minuteVolume', parseFloat(bulkVentilationParams.minuteVolume));
+      if (bulkVentilationParams.etCO2) parameters.etco2 = clampVent('etco2', parseFloat(bulkVentilationParams.etCO2));
+      if (bulkVentilationParams.pip) parameters.pip = clampVent('pip', parseFloat(bulkVentilationParams.pip));
+      if (bulkVentilationParams.sevofluranInsp) parameters.sevofluranInsp = clampVent('sevofluranInsp', parseFloat(bulkVentilationParams.sevofluranInsp));
+      if (bulkVentilationParams.sevofluranExp) parameters.sevofluranExp = clampVent('sevofluranExp', parseFloat(bulkVentilationParams.sevofluranExp));
+      if (bulkVentilationParams.desfluranInsp) parameters.desfluranInsp = clampVent('desfluranInsp', parseFloat(bulkVentilationParams.desfluranInsp));
+      if (bulkVentilationParams.desfluranExp) parameters.desfluranExp = clampVent('desfluranExp', parseFloat(bulkVentilationParams.desfluranExp));
+      if (bulkVentilationParams.mac) parameters.mac = clampVent('mac', parseFloat(bulkVentilationParams.mac));
       
       // Determine ventilation mode (skip if skipModeSelection is true)
       let modeValue = null;

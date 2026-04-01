@@ -82,6 +82,44 @@ export interface ClinicalSnapshot {
   updatedAt: string;
 }
 
+// Physiological min/max ranges for clamping vital values.
+// Values outside these ranges are clamped silently to prevent out-of-scale chart points.
+const VITAL_RANGES: Record<string, { min: number; max: number }> = {
+  hr:              { min: 20,  max: 240 },
+  spo2:            { min: 50,  max: 100 },
+  temp:            { min: 30,  max: 45  },
+  etco2:           { min: 0,   max: 100 },
+  pip:             { min: 0,   max: 60  },
+  peep:            { min: 0,   max: 30  },
+  tidalVolume:     { min: 0,   max: 2000 },
+  respiratoryRate: { min: 0,   max: 60  },
+  minuteVolume:    { min: 0,   max: 30  },
+  fio2:            { min: 21,  max: 100 },
+  bis:             { min: 0,   max: 100 },
+  sevofluranInsp:  { min: 0,   max: 10  },
+  sevofluranExp:   { min: 0,   max: 10  },
+  desfluranInsp:   { min: 0,   max: 20  },
+  desfluranExp:    { min: 0,   max: 20  },
+  mac:             { min: 0,   max: 5   },
+};
+
+const BP_RANGES = {
+  sys:  { min: 30, max: 250 },
+  dia:  { min: 10, max: 180 },
+  mean: { min: 15, max: 200 },
+};
+
+function clampVital(vitalType: string, value: number): number {
+  const range = VITAL_RANGES[vitalType];
+  if (!range) return value;
+  return Math.max(range.min, Math.min(range.max, value));
+}
+
+function clampBP(field: 'sys' | 'dia' | 'mean', value: number): number {
+  const range = BP_RANGES[field];
+  return Math.max(range.min, Math.min(range.max, value));
+}
+
 // Hook to get the clinical snapshot for a record
 export function useClinicalSnapshot(anesthesiaRecordId: string | undefined) {
   return useQuery<ClinicalSnapshot>({
@@ -102,13 +140,16 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
       timestamp: string;
       value: number;
     }) => {
+      const clamped = { ...data, value: clampVital(data.vitalType, data.value) };
       return await apiRequest(
         'POST',
         `/api/anesthesia/vitals/points`,
-        { anesthesiaRecordId, ...data }
+        { anesthesiaRecordId, ...clamped }
       );
     },
     onMutate: async (newPoint) => {
+      // Clamp for optimistic update too
+      newPoint = { ...newPoint, value: clampVital(newPoint.vitalType, newPoint.value) };
       // NOTE: Removed cancelQueries to prevent race conditions between 
       // different vital type mutations (HR, BP, SpO2).
       // Optimistic updates will still work, and any in-flight refetches
@@ -174,15 +215,28 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
       dia: number;
       mean?: number;
     }) => {
+      const clamped = {
+        ...data,
+        sys: clampBP('sys', data.sys),
+        dia: clampBP('dia', data.dia),
+        ...(data.mean !== undefined ? { mean: clampBP('mean', data.mean) } : {}),
+      };
       return await apiRequest(
         'POST',
         `/api/anesthesia/vitals/bp`,
-        { anesthesiaRecordId, ...data }
+        { anesthesiaRecordId, ...clamped }
       );
     },
     onMutate: async (newPoint) => {
-      // NOTE: Removed cancelQueries to prevent race conditions between 
+      // NOTE: Removed cancelQueries to prevent race conditions between
       // different vital type mutations (HR, BP, SpO2).
+      // Clamp for optimistic update too
+      newPoint = {
+        ...newPoint,
+        sys: clampBP('sys', newPoint.sys),
+        dia: clampBP('dia', newPoint.dia),
+        ...(newPoint.mean !== undefined ? { mean: clampBP('mean', newPoint.mean) } : {}),
+      };
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -241,10 +295,26 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
       value?: number;
       timestamp?: string;
     }) => {
+      // Clamp value if we can determine the vital type from the snapshot
+      let clampedValue = data.value;
+      if (clampedValue !== undefined) {
+        const snapshot = queryClient.getQueryData<ClinicalSnapshot>([
+          `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+        ]);
+        if (snapshot) {
+          for (const vt of Object.keys(snapshot.data) as Array<keyof ClinicalSnapshotData>) {
+            const pts = snapshot.data[vt];
+            if (Array.isArray(pts) && pts.some((p: any) => p.id === data.pointId)) {
+              clampedValue = clampVital(vt, clampedValue);
+              break;
+            }
+          }
+        }
+      }
       return await apiRequest(
         'PATCH',
         `/api/anesthesia/vitals/points/${data.pointId}`,
-        { value: data.value, timestamp: data.timestamp }
+        { value: clampedValue, timestamp: data.timestamp }
       );
     },
     onMutate: async (updates) => {
@@ -256,7 +326,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
 
       if (previousSnapshot) {
         const updatedData = { ...previousSnapshot.data };
-        
+
         // Find and update the point in any vital type
         for (const vitalType of Object.keys(updatedData) as Array<keyof ClinicalSnapshotData>) {
           const points = updatedData[vitalType];
@@ -266,6 +336,10 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
               const updatedPoints = [...points];
               // Only spread value and timestamp, not pointId
               const { pointId, ...updateFields } = updates;
+              // Clamp value for optimistic update
+              if (updateFields.value !== undefined) {
+                updateFields.value = clampVital(vitalType, updateFields.value);
+              }
               (updatedPoints as any)[index] = {
                 ...updatedPoints[index],
                 ...updateFields,
@@ -317,14 +391,27 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
       mean?: number;
       timestamp?: string;
     }) => {
+      const clamped = {
+        sys: data.sys !== undefined ? clampBP('sys', data.sys) : undefined,
+        dia: data.dia !== undefined ? clampBP('dia', data.dia) : undefined,
+        mean: data.mean !== undefined ? clampBP('mean', data.mean) : undefined,
+        timestamp: data.timestamp,
+      };
       return await apiRequest(
         'PATCH',
         `/api/anesthesia/vitals/bp/${data.pointId}`,
-        { sys: data.sys, dia: data.dia, mean: data.mean, timestamp: data.timestamp }
+        clamped
       );
     },
     onMutate: async (updates) => {
       // NOTE: Removed cancelQueries to prevent race conditions
+      // Clamp for optimistic update
+      updates = {
+        ...updates,
+        ...(updates.sys !== undefined ? { sys: clampBP('sys', updates.sys) } : {}),
+        ...(updates.dia !== undefined ? { dia: clampBP('dia', updates.dia) } : {}),
+        ...(updates.mean !== undefined ? { mean: clampBP('mean', updates.mean) } : {}),
+      };
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -334,7 +421,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
         const updatedData = { ...previousSnapshot.data };
         const bpPoints = updatedData.bp || [];
         const index = bpPoints.findIndex((p: any) => p.id === updates.pointId);
-        
+
         if (index !== -1) {
           const updatedPoints = [...bpPoints];
           // Only spread sys, dia, mean, timestamp - not pointId
