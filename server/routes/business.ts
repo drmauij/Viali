@@ -1960,7 +1960,9 @@ router.delete('/api/business/:hospitalId/referral-events/:eventId', isAuthentica
     const { hospitalId, eventId } = req.params;
 
     // Admin-only check
-    const userRole = req.user?.hospitals?.find((h: any) => h.id === hospitalId)?.role;
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const userRole = hospitals.find((h: any) => h.id === hospitalId)?.role;
     if (userRole !== 'admin') {
       return res.status(403).json({ message: 'Only admins can delete referral events' });
     }
