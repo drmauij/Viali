@@ -6347,3 +6347,61 @@ export const adBudgets = pgTable("ad_budgets", {
 }, (table) => [
   uniqueIndex("ad_budgets_hospital_month_funnel").on(table.hospitalId, table.month, table.funnel),
 ]);
+
+// ── Meta Lead Inbox ─────────────────────────────────────────────────────
+
+export const metaLeadStatusEnum = pgEnum("meta_lead_status", ["new", "in_progress", "converted", "closed"]);
+export const metaLeadContactOutcomeEnum = pgEnum("meta_lead_contact_outcome", ["reached", "no_answer", "wants_callback", "will_call_back", "needs_time"]);
+
+export const metaLeads = pgTable("meta_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  operation: varchar("operation").notNull(),
+  source: varchar("source").notNull(), // "fb" or "ig"
+  metaLeadId: varchar("meta_lead_id").notNull(),
+  metaFormId: varchar("meta_form_id").notNull(),
+  status: metaLeadStatusEnum("status").notNull().default("new"),
+  patientId: varchar("patient_id").references(() => patients.id, { onDelete: 'set null' }),
+  appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),
+  closedReason: varchar("closed_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("meta_leads_hospital_status_created").on(table.hospitalId, table.status, table.createdAt),
+  uniqueIndex("meta_leads_hospital_lead_id").on(table.hospitalId, table.metaLeadId),
+]);
+
+export const insertMetaLeadSchema = createInsertSchema(metaLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MetaLead = typeof metaLeads.$inferSelect;
+export type InsertMetaLead = z.infer<typeof insertMetaLeadSchema>;
+
+export const metaLeadContacts = pgTable("meta_lead_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metaLeadId: varchar("meta_lead_id").notNull().references(() => metaLeads.id, { onDelete: 'cascade' }),
+  outcome: metaLeadContactOutcomeEnum("outcome").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
+}, (table) => [
+  index("meta_lead_contacts_lead_created").on(table.metaLeadId, table.createdAt),
+]);
+
+export type MetaLeadContact = typeof metaLeadContacts.$inferSelect;
+
+export const metaLeadWebhookConfig = pgTable("meta_lead_webhook_config", {
+  hospitalId: varchar("hospital_id").primaryKey().references(() => hospitals.id, { onDelete: 'cascade' }),
+  apiKey: varchar("api_key").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type MetaLeadWebhookConfig = typeof metaLeadWebhookConfig.$inferSelect;
