@@ -249,7 +249,9 @@ export default function ClinicAppointments() {
 
   const leadDragFromOutsideItem = useCallback(() => {
     if (!draggedLead) return null;
-    return { start: new Date(), end: new Date(), title: `${draggedLead.firstName} ${draggedLead.lastName}` } as any;
+    const start = new Date();
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // 60 min preview
+    return { start, end, title: `${draggedLead.firstName} ${draggedLead.lastName}` } as any;
   }, []);
 
   const handleBookingTypeSelect = (type: BookingType) => {

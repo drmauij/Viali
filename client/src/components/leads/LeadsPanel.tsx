@@ -709,7 +709,7 @@ export function ScheduleLeadDialog({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [duration, setDuration] = useState("30");
+  const [duration, setDuration] = useState("60");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [createNew, setCreateNew] = useState(false);
 
@@ -723,7 +723,7 @@ export function ScheduleLeadDialog({
   // Reset state when dialog opens with a new lead
   useEffect(() => {
     if (open && lead) {
-      setDuration("30");
+      setDuration("60");
       setSelectedPatientId(null);
       setCreateNew(false);
       setCandidates([]);
