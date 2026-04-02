@@ -485,7 +485,7 @@ export default function Integrations() {
               <span className="truncate">TARDOC</span>
             </TabsTrigger>
             <TabsTrigger value="leads" data-testid="tab-leads" className="justify-start md:w-full">
-              <i className="fab fa-meta mr-2 shrink-0"></i>
+              <i className="fas fa-plug mr-2 shrink-0"></i>
               <span className="truncate">Leads</span>
             </TabsTrigger>
           </TabsList>
