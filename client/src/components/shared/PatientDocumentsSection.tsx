@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, Trash2, Eye, ClipboardList, FolderPlus, Folder, FolderOpen, ChevronRight, MoreHorizontal, FolderInput, Sparkles, Lock, Download } from "lucide-react";
+import { Loader2, FileText, Upload, Camera, Grid, List, Check, X, Pencil, Trash2, Eye, ClipboardList, FolderPlus, Folder, FolderOpen, ChevronRight, MoreHorizontal, FolderInput, Sparkles, Lock, Download, Share2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -58,6 +58,9 @@ export interface DischargeBrief {
   createdAt: string;
   creator: { firstName: string | null; lastName: string | null };
   signer: { firstName: string | null; lastName: string | null } | null;
+  portalVisible?: boolean;
+  portalSharedAt?: string | null;
+  portalSharedBy?: string | null;
 }
 
 interface PatientDocumentsSectionProps {
@@ -124,6 +127,7 @@ export function PatientDocumentsSection({
   // Brief state
   const [deleteBriefConfirm, setDeleteBriefConfirm] = useState<DischargeBrief | null>(null);
   const [exportingBriefId, setExportingBriefId] = useState<string | null>(null);
+  const [shareDialogBrief, setShareDialogBrief] = useState<DischargeBrief | null>(null);
 
   // Drag-and-drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -389,6 +393,46 @@ export function PatientDocumentsSection({
     },
     onError: (error: Error) => {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async (briefId: string) => {
+      await apiRequest("POST", `/api/discharge-briefs/${briefId}/share`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/discharge-briefs`] });
+      toast({ title: t("dischargeBriefs.shared", "Document shared to patient portal") });
+      setShareDialogBrief(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: t("dischargeBriefs.shareError", "Failed to share"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const unshareMutation = useMutation({
+    mutationFn: async (briefId: string) => {
+      await apiRequest("POST", `/api/discharge-briefs/${briefId}/unshare`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/discharge-briefs`] });
+      toast({ title: t("dischargeBriefs.unshared", "Document removed from patient portal") });
+      setShareDialogBrief(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: t("dischargeBriefs.unshareError", "Failed to unshare"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const notifyMutation = useMutation({
+    mutationFn: async ({ briefId, method }: { briefId: string; method: string }) => {
+      await apiRequest("POST", `/api/discharge-briefs/${briefId}/notify-patient`, { method });
+    },
+    onSuccess: () => {
+      toast({ title: t("dischargeBriefs.notified", "Patient notified") });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("dischargeBriefs.notifyError", "Failed to notify patient"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -843,6 +887,18 @@ export function PatientDocumentsSection({
             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           </Button>
 
+          {brief.isLocked && canWrite && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShareDialogBrief(brief)}
+              title={t('dischargeBriefs.share', 'Share')}
+              className={brief.portalVisible ? "text-green-600" : ""}
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          )}
+
           {isAdmin && onAuditBrief && (
             <Button
               size="sm"
@@ -1291,6 +1347,81 @@ export function PatientDocumentsSection({
               {t('common.delete')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share to portal dialog */}
+      <Dialog open={!!shareDialogBrief} onOpenChange={(open) => { if (!open) setShareDialogBrief(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("dischargeBriefs.shareTitle", "Share Document")}</DialogTitle>
+          </DialogHeader>
+          {shareDialogBrief && (
+            <div className="space-y-4 py-2">
+              {!shareDialogBrief.portalVisible ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {t("dischargeBriefs.shareConfirmation", "This document will be visible to the patient on their portal.")}
+                  </p>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShareDialogBrief(null)}>
+                      {t("common.cancel", "Cancel")}
+                    </Button>
+                    <Button
+                      onClick={() => shareMutation.mutate(shareDialogBrief.id)}
+                      disabled={shareMutation.isPending}
+                    >
+                      {shareMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {t("dischargeBriefs.shareToPortal", "Share to Portal")}
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Share2 className="h-4 w-4" />
+                    {t("dischargeBriefs.alreadyShared", "This document is visible on the patient portal.")}
+                  </div>
+
+                  <div className="border-t pt-4 space-y-2">
+                    <p className="text-sm font-medium">{t("dischargeBriefs.notifyPatient", "Notify patient")}</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => notifyMutation.mutate({ briefId: shareDialogBrief.id, method: "email" })}
+                        disabled={notifyMutation.isPending}
+                      >
+                        {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                        {t("dischargeBriefs.notifyEmail", "Send Email")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => notifyMutation.mutate({ briefId: shareDialogBrief.id, method: "sms" })}
+                        disabled={notifyMutation.isPending}
+                      >
+                        {notifyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                        {t("dischargeBriefs.notifySms", "Send SMS")}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => unshareMutation.mutate(shareDialogBrief.id)}
+                      disabled={unshareMutation.isPending}
+                    >
+                      {unshareMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {t("dischargeBriefs.unshare", "Remove from Portal")}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
