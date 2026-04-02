@@ -90,7 +90,7 @@ export function LeadWebhookCard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <i className="fab fa-meta text-blue-600"></i>
+            <i className="fas fa-plug text-blue-600"></i>
             Lead Webhook
           </CardTitle>
         </CardHeader>
@@ -121,7 +121,7 @@ export function LeadWebhookCard() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <i className="fab fa-meta text-blue-600"></i>
+            <i className="fas fa-plug text-blue-600"></i>
             Lead Webhook
           </CardTitle>
           <div className="flex items-center gap-2">
