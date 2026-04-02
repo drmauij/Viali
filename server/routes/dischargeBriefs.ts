@@ -9,6 +9,7 @@ import {
 } from "../utils";
 import { z, ZodError } from "zod";
 import OpenAI from "openai";
+import { Resend } from "resend";
 import logger from "../logger";
 import {
   getDischargeBriefsForPatient,
@@ -18,6 +19,8 @@ import {
   deleteDischargeBrief,
   lockDischargeBrief,
   unlockDischargeBrief,
+  shareDischargeBrief,
+  unshareDischargeBrief,
   getDischargeBriefTemplates,
   getAllDischargeBriefTemplates,
   getDischargeBriefTemplateById,
@@ -29,7 +32,10 @@ import {
 } from "../storage/dischargeBriefs";
 import { createAuditLog } from "../storage/anesthesia";
 import { getPatient } from "../storage/anesthesia";
-import { storage } from "../storage";
+import { storage, db } from "../storage";
+import { patients, patientQuestionnaireLinks, hospitals } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { sendSms } from "../sms";
 import {
   collectAnesthesiaRecordData,
   collectDischargeMedicationsData,
@@ -479,6 +485,204 @@ router.post(
         return res.status(400).json({ message: "Invalid request", details: error.errors });
       }
       logger.error("Error unlocking discharge brief:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Share brief to patient portal
+router.post(
+  "/api/discharge-briefs/:id/share",
+  isAuthenticated,
+  requireWriteAccess,
+  async (req: any, res: Response) => {
+    try {
+      const brief = await getDischargeBriefById(req.params.id);
+      if (!brief) {
+        return res.status(404).json({ message: "Brief not found" });
+      }
+      if (!brief.isLocked) {
+        return res.status(400).json({ message: "Only signed briefs can be shared" });
+      }
+      if (!brief.pdfUrl) {
+        return res.status(400).json({ message: "Brief must have a PDF before sharing. Export PDF first." });
+      }
+
+      const userId = req.user?.id;
+      await shareDischargeBrief(req.params.id, userId);
+
+      await createAuditLog({
+        recordType: "discharge_brief",
+        recordId: brief.id,
+        action: "update",
+        userId,
+        oldValue: { portalVisible: false },
+        newValue: { portalVisible: true },
+      });
+
+      const fullBrief = await getDischargeBriefById(req.params.id);
+      res.json(fullBrief);
+    } catch (error: any) {
+      logger.error("Error sharing discharge brief:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Unshare brief from patient portal
+router.post(
+  "/api/discharge-briefs/:id/unshare",
+  isAuthenticated,
+  requireWriteAccess,
+  async (req: any, res: Response) => {
+    try {
+      const brief = await getDischargeBriefById(req.params.id);
+      if (!brief) {
+        return res.status(404).json({ message: "Brief not found" });
+      }
+
+      const userId = req.user?.id;
+      await unshareDischargeBrief(req.params.id);
+
+      await createAuditLog({
+        recordType: "discharge_brief",
+        recordId: brief.id,
+        action: "update",
+        userId,
+        oldValue: { portalVisible: true },
+        newValue: { portalVisible: false },
+      });
+
+      const fullBrief = await getDischargeBriefById(req.params.id);
+      res.json(fullBrief);
+    } catch (error: any) {
+      logger.error("Error unsharing discharge brief:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Notify patient about shared document
+router.post(
+  "/api/discharge-briefs/:id/notify-patient",
+  isAuthenticated,
+  requireWriteAccess,
+  async (req: any, res: Response) => {
+    try {
+      const { method } = req.body; // "email" or "sms"
+      if (!method || !["email", "sms"].includes(method)) {
+        return res.status(400).json({ message: "method must be 'email' or 'sms'" });
+      }
+
+      const brief = await getDischargeBriefById(req.params.id);
+      if (!brief) {
+        return res.status(404).json({ message: "Brief not found" });
+      }
+      if (!brief.portalVisible) {
+        return res.status(400).json({ message: "Brief must be shared to portal before notifying" });
+      }
+
+      // Find patient contact info
+      const [patient] = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.id, brief.patientId));
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      // Find the patient's portal token for the link
+      const [link] = await db
+        .select()
+        .from(patientQuestionnaireLinks)
+        .where(eq(patientQuestionnaireLinks.patientId, brief.patientId))
+        .orderBy(patientQuestionnaireLinks.createdAt)
+        .limit(1);
+
+      if (!link) {
+        return res.status(400).json({ message: "Patient has no portal link" });
+      }
+
+      const portalUrl = `${process.env.APP_URL || "https://app.viali.ch"}/patient-portal/${link.token}`;
+
+      // Get hospital info for the notification
+      const [hospital] = await db
+        .select()
+        .from(hospitals)
+        .where(eq(hospitals.id, brief.hospitalId));
+      const hospitalName = hospital?.name || "Viali";
+      const language = hospital?.defaultLanguage || "de";
+
+      if (method === "email") {
+        const email = patient.email;
+        if (!email) {
+          return res.status(400).json({ message: "Patient has no email address" });
+        }
+
+        const resendApiKey = process.env.RESEND_API_KEY;
+        if (!resendApiKey) {
+          return res.status(500).json({ message: "Email service not configured" });
+        }
+
+        const resend = new Resend(resendApiKey);
+        const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@viali.ch";
+
+        const subjects: Record<string, string> = {
+          de: `Neues Dokument verfügbar — ${hospitalName}`,
+          en: `New document available — ${hospitalName}`,
+          fr: `Nouveau document disponible — ${hospitalName}`,
+          it: `Nuovo documento disponibile — ${hospitalName}`,
+        };
+
+        const bodies: Record<string, string> = {
+          de: `<p>Guten Tag</p><p>Ein neues Dokument wurde für Sie im Patientenportal bereitgestellt.</p><p><a href="${portalUrl}">Zum Patientenportal</a></p><p>Freundliche Grüsse<br/>${hospitalName}</p>`,
+          en: `<p>Hello</p><p>A new document has been made available for you on the patient portal.</p><p><a href="${portalUrl}">Go to Patient Portal</a></p><p>Best regards<br/>${hospitalName}</p>`,
+          fr: `<p>Bonjour</p><p>Un nouveau document a été mis à votre disposition sur le portail patient.</p><p><a href="${portalUrl}">Accéder au portail patient</a></p><p>Cordialement<br/>${hospitalName}</p>`,
+          it: `<p>Buongiorno</p><p>Un nuovo documento è stato messo a disposizione nel portale pazienti.</p><p><a href="${portalUrl}">Vai al portale pazienti</a></p><p>Cordiali saluti<br/>${hospitalName}</p>`,
+        };
+
+        await resend.emails.send({
+          from: fromEmail,
+          to: email,
+          subject: subjects[language] || subjects.de,
+          html: bodies[language] || bodies.de,
+        });
+      } else {
+        // SMS
+        const phone = patient.phone;
+        if (!phone) {
+          return res.status(400).json({ message: "Patient has no phone number" });
+        }
+
+        const smsMessages: Record<string, string> = {
+          de: `${hospitalName}: Ein neues Dokument ist für Sie im Patientenportal verfügbar. ${portalUrl}`,
+          en: `${hospitalName}: A new document is available on your patient portal. ${portalUrl}`,
+          fr: `${hospitalName}: Un nouveau document est disponible sur votre portail patient. ${portalUrl}`,
+          it: `${hospitalName}: Un nuovo documento è disponibile nel portale pazienti. ${portalUrl}`,
+        };
+
+        const result = await sendSms(
+          phone,
+          smsMessages[language] || smsMessages.de,
+          brief.hospitalId,
+        );
+        if (!result.success) {
+          return res.status(500).json({ message: "Failed to send SMS: " + result.error });
+        }
+      }
+
+      await createAuditLog({
+        recordType: "discharge_brief",
+        recordId: brief.id,
+        action: "update",
+        userId: req.user?.id,
+        oldValue: null,
+        newValue: { notificationType: method },
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      logger.error("Error notifying patient about shared brief:", error);
       res.status(500).json({ message: error.message });
     }
   },
