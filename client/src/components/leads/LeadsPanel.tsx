@@ -286,126 +286,136 @@ function ContactLogDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
+        {/* Sticky header */}
+        <DialogHeader className="px-6 pt-6 pb-3 border-b shrink-0">
           <DialogTitle>{t("leads.contactTitle", "Contact — {{name}}", { name: `${lead.firstName} ${lead.lastName}` })}</DialogTitle>
           <DialogDescription>
             {t("leads.contactDescription", "Log contact and view history")}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Lead info */}
-        <div className="space-y-1.5 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <SourceIcon source={lead.source} />
-            <span>{sourceLabel(lead.source)}</span>
-            {lead.operation && <span>— {lead.operation}</span>}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {/* Lead info */}
+          <div className="space-y-1.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <SourceIcon source={lead.source} />
+              <span>{sourceLabel(lead.source)}</span>
+              {lead.operation && <span>— {lead.operation}</span>}
+            </div>
+            {lead.phone && (
+              <a href={`tel:${lead.phone}`} className="block text-sm hover:underline">{lead.phone}</a>
+            )}
+            {lead.email && (
+              <a href={`mailto:${lead.email}`} className="block text-sm hover:underline">{lead.email}</a>
+            )}
+            {lead.message && (
+              <p className="text-xs italic border-t pt-1.5 mt-1.5">{lead.message}</p>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+              <span>ID: {lead.id.slice(0, 8)}</span>
+              <button
+                className="hover:text-foreground"
+                onClick={() => {
+                  navigator.clipboard.writeText(lead.id);
+                  toast({ title: t("common.copied", "Copied") });
+                }}
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
+            {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
+              <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-1">
+                {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
+                {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
+                {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
+                {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
+                {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+              </div>
+            )}
           </div>
-          {lead.phone && (
-            <a href={`tel:${lead.phone}`} className="block text-sm hover:underline">{lead.phone}</a>
-          )}
-          {lead.email && (
-            <a href={`mailto:${lead.email}`} className="block text-sm hover:underline">{lead.email}</a>
-          )}
-          {lead.message && (
-            <p className="text-xs italic border-t pt-1.5 mt-1.5">{lead.message}</p>
-          )}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
-            <span>ID: {lead.id.slice(0, 8)}</span>
-            <button
-              className="hover:text-foreground"
-              onClick={() => {
-                navigator.clipboard.writeText(lead.id);
-                toast({ title: t("common.copied", "Copied") });
-              }}
+
+          {/* Contact history — all visible, no inner scroll */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">{t("leads.history", "History")} ({detail?.contacts?.length ?? 0})</Label>
+            {detail?.contacts && detail.contacts.length > 0 ? (
+              <div className="space-y-2">
+                {detail.contacts.map((c) => {
+                  const contactDate = new Date(c.createdAt);
+                  // Guard against future dates (timezone mismatch)
+                  const isFuture = contactDate.getTime() > Date.now();
+                  const displayDate = isFuture
+                    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "short" }).format(contactDate)
+                    : formatDistanceToNow(contactDate, { addSuffix: true, locale: dateLocale });
+                  return (
+                    <div
+                      key={c.id}
+                      className="text-sm border rounded-md p-2 space-y-0.5"
+                    >
+                      <div className="flex justify-between">
+                        <span className="font-medium">
+                          {outcomeLabels[c.outcome] ?? c.outcome}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {displayDate}
+                        </span>
+                      </div>
+                      {c.note && (
+                        <p className="text-xs text-muted-foreground">{c.note}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : detailLoading ? (
+              <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
+            ) : detailError ? (
+              <p className="text-xs text-destructive">Error: {(detailError as any)?.message ?? "Failed to load"}</p>
+            ) : detail ? (
+              <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
+            ) : null}
+          </div>
+
+          {/* Log contact form */}
+          <div className="space-y-3 pt-2 border-t">
+            <Label className="text-xs text-muted-foreground">{t("leads.logNewContact", "Log new contact")}</Label>
+            <div>
+              <Select value={outcome} onValueChange={setOutcome}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("leads.selectOutcome", "Select outcome...")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(outcomeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t("leads.optionalNote", "Optional note...")}
+                rows={2}
+              />
+            </div>
+            <Button
+              onClick={() => logMutation.mutate()}
+              disabled={!outcome || logMutation.isPending}
+              className="w-full"
+              size="sm"
             >
-              <Copy className="h-3 w-3" />
-            </button>
+              <MessageSquare className="h-4 w-4 mr-2" />
+              {t("leads.logContact", "Log contact")}
+            </Button>
           </div>
-          {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
-            <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-1">
-              {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
-              {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
-              {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
-              {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
-              {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
-            </div>
-          )}
         </div>
 
-        {/* Contact history — shown first so it's immediately visible */}
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">{t("leads.history", "History")} ({detail?.contacts?.length ?? 0})</Label>
-          {detail?.contacts && detail.contacts.length > 0 ? (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {detail.contacts.map((c) => (
-                <div
-                  key={c.id}
-                  className="text-sm border rounded-md p-2 space-y-0.5"
-                >
-                  <div className="flex justify-between">
-                    <span className="font-medium">
-                      {outcomeLabels[c.outcome] ?? c.outcome}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(c.createdAt), {
-                        addSuffix: true,
-                        locale: dateLocale,
-                      })}
-                    </span>
-                  </div>
-                  {c.note && (
-                    <p className="text-xs text-muted-foreground">{c.note}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : detailLoading ? (
-            <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
-          ) : detailError ? (
-            <p className="text-xs text-destructive">Error: {(detailError as any)?.message ?? "Failed to load"}</p>
-          ) : detail ? (
-            <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
-          ) : null}
-        </div>
-
-        {/* Log contact form */}
-        <div className="space-y-3 pt-2 border-t">
-          <Label className="text-xs text-muted-foreground">{t("leads.logNewContact", "Log new contact")}</Label>
-          <div>
-            <Select value={outcome} onValueChange={setOutcome}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("leads.selectOutcome", "Select outcome...")} />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(outcomeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t("leads.optionalNote", "Optional note...")}
-              rows={2}
-            />
-          </div>
-          <Button
-            onClick={() => logMutation.mutate()}
-            disabled={!outcome || logMutation.isPending}
-            className="w-full"
-            size="sm"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {t("leads.logContact", "Log contact")}
-          </Button>
-        </div>
-
-        <DialogFooter className="pt-2 flex-row gap-2 sm:justify-between">
+        {/* Sticky footer */}
+        <DialogFooter className="px-6 py-3 border-t shrink-0 flex-row gap-2 sm:justify-between">
           {lead.status === "closed" ? (
             <Button
               variant="outline"
