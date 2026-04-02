@@ -408,6 +408,84 @@ function ContactLogDialog({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LeadDetailInline — shown below selected lead card
+// ═══════════════════════════════════════════════════════════════════════════
+
+function LeadDetailInline({ lead, hospitalId }: { lead: LeadWithSummary; hospitalId: string }) {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === "de" ? de : enUS;
+
+  const { data: detail } = useQuery<LeadDetail>({
+    queryKey: [`/api/business/${hospitalId}/leads/${lead.id}`],
+    enabled: !!hospitalId,
+  });
+
+  return (
+    <div className="px-3 py-2 space-y-3 border rounded-md bg-muted/30 text-sm">
+      {/* Contact info */}
+      <div className="space-y-1">
+        {lead.phone && (
+          <div className="flex items-center gap-2 text-xs">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+            <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
+          </div>
+        )}
+        {lead.email && (
+          <div className="flex items-center gap-2 text-xs">
+            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+            <a href={`mailto:${lead.email}`} className="hover:underline">{lead.email}</a>
+          </div>
+        )}
+      </div>
+
+      {/* Message */}
+      {lead.message && (
+        <div className="text-xs text-muted-foreground border-t pt-2">
+          <p className="italic">{lead.message}</p>
+        </div>
+      )}
+
+      {/* UTM info */}
+      {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
+        <div className="space-y-0.5 text-xs text-muted-foreground border-t pt-2">
+          {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
+          {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
+          {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
+          {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
+          {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}…</p>}
+        </div>
+      )}
+
+      {/* Contact history */}
+      {detail?.contacts && detail.contacts.length > 0 && (
+        <div className="space-y-1.5 border-t pt-2">
+          <p className="text-xs font-medium text-muted-foreground">{t("leads.history", "History")}</p>
+          {detail.contacts.map((c) => (
+            <div key={c.id} className="text-xs border rounded p-1.5 space-y-0.5">
+              <div className="flex justify-between">
+                <span className="font-medium">
+                  {getOutcomeLabels(t)[c.outcome] ?? c.outcome}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: dateLocale })}
+                </span>
+              </div>
+              {c.note && <p className="text-muted-foreground">{c.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {detail?.contacts && detail.contacts.length === 0 && (
+        <div className="border-t pt-2">
+          <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // LeadsPanel (renamed from MetaLeadsPanel)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -605,6 +683,13 @@ export function LeadsPanel({
                     </Button>
                   )}
                 </div>
+
+                {/* Inline detail when selected */}
+                {isSelected && hospitalId && (
+                  <div className="mt-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                    <LeadDetailInline lead={lead} hospitalId={hospitalId} />
+                  </div>
+                )}
               </Card>
             );
           })}
