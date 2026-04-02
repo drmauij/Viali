@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import type { Lead, LeadContact } from "@shared/schema";
 import { setDraggedLead } from "./useLeadDrag";
+import { formatDate, formatTime } from "@/lib/dateUtils";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,8 +151,9 @@ function sourceLabel(source: string): string {
 // ── Contact summary text ─────────────────────────────────────────────────
 
 function contactSummary(lead: LeadWithSummary, t: (key: string, fallback: string, opts?: Record<string, unknown>) => string): string | null {
-  if (lead.contactCount === 0) return null;
-  const prefix = t("leads.contactedCount", "{{count}}x contacted", { count: lead.contactCount });
+  const count = Number(lead.contactCount) || 0;
+  if (count === 0) return null;
+  const prefix = t("leads.contactedCount", "{{count}}x contacted", { count });
   if (lead.lastContactOutcome) {
     const outcomeLabels = getOutcomeLabels(t);
     const label = outcomeLabels[lead.lastContactOutcome];
@@ -229,9 +231,13 @@ function ContactLogDialog({
       toast({ title: t("leads.contactLogged", "Contact logged") });
       setOutcome("");
       setNote("");
-      queryClient.invalidateQueries({ queryKey: [detailUrl], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: [leadsQueryKey], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: [`/api/business/${hospitalId}/leads-count`] });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/business/${hospitalId}/leads`);
+        },
+        refetchType: 'all',
+      });
     },
     onError: () => {
       toast({ title: t("leads.errorLogging", "Error logging contact"), variant: "destructive" });
@@ -250,10 +256,11 @@ function ContactLogDialog({
       toast({ title: t("leads.leadClosed", "Lead closed") });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [leadsQueryKey],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads-count`],
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/business/${hospitalId}/leads`);
+        },
+        refetchType: 'all',
       });
     },
     onError: () => {
@@ -273,10 +280,11 @@ function ContactLogDialog({
       toast({ title: t("leads.leadReopened", "Lead reopened") });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [leadsQueryKey],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads-count`],
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/business/${hospitalId}/leads`);
+        },
+        refetchType: 'all',
       });
     },
     onError: () => {
@@ -784,10 +792,11 @@ export function ScheduleLeadDialog({
       toast({ title: t("leads.leadConverted", "Lead converted and appointment created") });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [leadsQueryKey],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads-count`],
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/business/${hospitalId}/leads`);
+        },
+        refetchType: 'all',
       });
       // Invalidate appointments/calendar queries
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-appointments"], exact: false });
@@ -839,11 +848,11 @@ export function ScheduleLeadDialog({
         <div className="grid grid-cols-3 gap-3 pt-2">
           <div>
             <Label className="text-xs">{t("common.date", "Date")}</Label>
-            <Input value={dropData.date} disabled className="text-sm" />
+            <Input value={formatDate(dropData.date)} disabled className="text-sm" />
           </div>
           <div>
             <Label className="text-xs">{t("common.time", "Time")}</Label>
-            <Input value={dropData.time} disabled className="text-sm" />
+            <Input value={formatTime(`2000-01-01T${dropData.time}`)} disabled className="text-sm" />
           </div>
           <div>
             <Label className="text-xs">{t("common.duration", "Duration")}</Label>
