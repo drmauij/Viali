@@ -1146,7 +1146,7 @@ export default function ClinicCalendar({
   }, [hospitalId]);
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
-    if ((currentView === "day" || currentView === "week") && slotInfo.action === 'select') {
+    if ((currentView === "day" || currentView === "week") && (slotInfo.action === 'select' || slotInfo.action === 'click')) {
       const providerId = slotInfo.resourceId as string;
       
       // Check if any slot in the selection range is blocked
