@@ -891,6 +891,8 @@ router.post(
             content: `You are a document content extractor. The user will provide raw text extracted from a medical discharge brief document.
 Your job is to extract ONLY the body content of the discharge brief — the actual medical text that a doctor would write.
 
+CRITICAL: You MUST preserve the original language of the document exactly. Do NOT translate any text. If the document is in German, return German. If in French, return French. If in Italian, return Italian.
+
 SKIP and DO NOT include:
 - Hospital letterheads, logos, headers
 - Hospital addresses, phone numbers, fax numbers
@@ -905,7 +907,7 @@ KEEP and INCLUDE:
 - Post-operative instructions, medications
 - Follow-up recommendations
 
-Return ONLY the extracted body content as plain text. Preserve paragraph structure and section headings.`,
+Return ONLY the extracted body content as plain text. Preserve paragraph structure and section headings. Do NOT translate any text — keep everything in the original language.`,
           },
           {
             role: "user",
@@ -975,13 +977,15 @@ router.post(
             role: "system",
             content: `You are a medical document analyzer. The user will provide raw text extracted from a medical discharge brief document.
 
+CRITICAL: You MUST preserve the original language of the document. Do NOT translate any content, names, descriptions, or medical terms. If the document is in German, ALL output fields must be in German. If in French, all in French. If in Italian, all in Italian. Only the JSON keys and briefType enum values should be in English.
+
 You must return a JSON object with exactly these fields:
 {
-  "name": "A short descriptive template name (e.g. 'Rhinoplasty Discharge Brief', 'Standard Anesthesia Report'). Max 60 chars.",
-  "description": "A one-sentence description of what this template covers and when to use it. Max 150 chars.",
+  "name": "A short descriptive template name IN THE ORIGINAL LANGUAGE of the document (e.g. for German: 'Rhinoplastik Austrittsbericht', for English: 'Rhinoplasty Discharge Brief'). Max 60 chars.",
+  "description": "A one-sentence description IN THE ORIGINAL LANGUAGE of what this template covers and when to use it. Max 150 chars.",
   "briefType": "One of: surgery_discharge, anesthesia_discharge, anesthesia_overnight_discharge, surgery_report, surgery_estimate, generic. Pick based on the document content.",
-  "procedureType": "The medical procedure type if identifiable (e.g. 'Rhinoplasty', 'Abdominoplasty'), or null if generic.",
-  "content": "The cleaned body content of the document as clean HTML — strip all hospital headers, addresses, letterheads, page numbers, footers, and signature blocks. Keep only the medical brief content. Use <h2>/<h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting."
+  "procedureType": "The medical procedure type if identifiable, IN THE ORIGINAL LANGUAGE (e.g. 'Rhinoplastik', 'Abdominoplastik' for German), or null if generic.",
+  "content": "The cleaned body content of the document as clean HTML IN THE ORIGINAL LANGUAGE — strip all hospital headers, addresses, letterheads, page numbers, footers, and signature blocks. Keep only the medical brief content. Use <h2>/<h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, and <hr> for separators. Do NOT use markdown formatting. Do NOT translate any text."
 }
 
 Return ONLY valid JSON, no markdown fences.`,
@@ -1019,7 +1023,7 @@ Return ONLY valid JSON, no markdown fences.`,
       const template = await createDischargeBriefTemplate({
         hospitalId,
         briefType: briefType || parsed.briefType || "surgery_discharge",
-        name: parsed.name || fileName.replace(/\.[^.]+$/, ""),
+        name: fileName.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "),
         description: parsed.description || null,
         templateContent: parsed.content || rawText,
         procedureType: parsed.procedureType || null,
