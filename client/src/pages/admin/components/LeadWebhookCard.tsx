@@ -101,8 +101,9 @@ export function LeadWebhookCard() {
     );
   }
 
-  const examplePayload = JSON.stringify(
+  const metaPayload = JSON.stringify(
     {
+      source: "fb",
       lead_id: "123456789",
       form_id: "987654321",
       first_name: "Jane",
@@ -110,7 +111,24 @@ export function LeadWebhookCard() {
       email: "jane@example.com",
       phone: "+41791234567",
       operation: "Rhinoplasty",
-      source: "fb",
+    },
+    null,
+    2,
+  );
+
+  const websitePayload = JSON.stringify(
+    {
+      source: "website",
+      first_name: "Maria",
+      last_name: "Müller",
+      email: "maria@example.com",
+      phone: "+41791234567",
+      message: "Ich interessiere mich für eine Brustvergrösserung",
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "fruehjahr-2026",
+      utm_term: "brustvergrösserung kreuzlingen",
+      gclid: "abc123...",
     },
     null,
     2,
@@ -247,23 +265,30 @@ export function LeadWebhookCard() {
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3 space-y-3">
-            <div className="rounded-lg bg-muted p-4 space-y-3">
-              <p className="text-sm font-medium">Example curl command:</p>
-              <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border">
+            <div className="rounded-lg bg-muted p-4 space-y-4">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p><strong>Required fields:</strong> source, first_name, last_name, + at least one of email or phone</p>
+                <p><strong>Meta leads (fb/ig):</strong> also require lead_id, form_id, operation</p>
+                <p><strong>Website leads:</strong> can include message, UTM params (utm_source, utm_medium, utm_campaign, utm_term, utm_content), and click IDs (gclid, fbclid, etc.)</p>
+                <p><strong>Response:</strong> <code>{`{ "status": "received", "id": "lead-uuid" }`}</code> — use the ID to link to the lead in Viali</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium">Website / Contact Form:</p>
+                <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border mt-1">
 {`curl -X POST "${config.webhookUrl}?key=YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '${examplePayload}'`}
-              </pre>
+  -d '${websitePayload}'`}
+                </pre>
+              </div>
 
-              <p className="text-sm font-medium mt-4">JSON Payload format:</p>
-              <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border">
-{examplePayload}
-              </pre>
-
-              <div className="text-xs text-muted-foreground space-y-1 mt-3">
-                <p><strong>Required fields:</strong> lead_id, form_id, first_name, last_name, operation, source</p>
-                <p><strong>Contact (at least one):</strong> email, phone</p>
-                <p><strong>Source values:</strong> "fb" (Facebook) or "ig" (Instagram)</p>
+              <div>
+                <p className="text-sm font-medium">Meta (Facebook / Instagram):</p>
+                <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border mt-1">
+{`curl -X POST "${config.webhookUrl}?key=YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${metaPayload}'`}
+                </pre>
               </div>
             </div>
           </CollapsibleContent>
