@@ -27,7 +27,7 @@ import {
 import { Copy, RefreshCw, Eye, EyeOff, AlertTriangle, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-interface MetaLeadConfig {
+interface LeadConfig {
   configured: boolean;
   enabled: boolean;
   webhookUrl: string;
@@ -36,7 +36,7 @@ interface MetaLeadConfig {
   createdAt: string | null;
 }
 
-export function MetaLeadWebhookCard() {
+export function LeadWebhookCard() {
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
@@ -45,20 +45,20 @@ export function MetaLeadWebhookCard() {
 
   const hospitalId = activeHospital?.id;
 
-  const { data: config, isLoading } = useQuery<MetaLeadConfig>({
-    queryKey: [`/api/admin/${hospitalId}/meta-lead-config`],
+  const { data: config, isLoading } = useQuery<LeadConfig>({
+    queryKey: [`/api/admin/${hospitalId}/lead-config`],
     enabled: !!hospitalId,
   });
 
   const generateKeyMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/admin/${hospitalId}/meta-lead-config/generate-key`);
+      const res = await apiRequest("POST", `/api/admin/${hospitalId}/lead-config/generate-key`);
       return res.json();
     },
     onSuccess: (data: { apiKey: string }) => {
       setGeneratedKey(data.apiKey);
       setShowKey(true);
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/meta-lead-config`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/lead-config`] });
       toast({ title: "API key generated", description: "Copy the key now -- it will not be shown again." });
     },
     onError: (error: any) => {
@@ -68,11 +68,11 @@ export function MetaLeadWebhookCard() {
 
   const toggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const res = await apiRequest("PATCH", `/api/admin/${hospitalId}/meta-lead-config`, { enabled });
+      const res = await apiRequest("PATCH", `/api/admin/${hospitalId}/lead-config`, { enabled });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/meta-lead-config`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/lead-config`] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to toggle webhook", variant: "destructive" });
@@ -91,7 +91,7 @@ export function MetaLeadWebhookCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <i className="fab fa-meta text-blue-600"></i>
-            Meta Lead Webhook
+            Lead Webhook
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -122,7 +122,7 @@ export function MetaLeadWebhookCard() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <i className="fab fa-meta text-blue-600"></i>
-            Meta Lead Webhook
+            Lead Webhook
           </CardTitle>
           <div className="flex items-center gap-2">
             {config.configured ? (

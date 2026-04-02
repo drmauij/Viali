@@ -45,8 +45,8 @@ import { formatDateForInput, formatTime, isBirthdayUnknown } from "@/lib/dateUti
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { MetaLeadsPanel, MetaLeadsBadge, ScheduleMetaLeadDialog } from "@/components/metaLeads/MetaLeadsPanel";
-import type { MetaLead } from "@shared/schema";
+import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
+import type { Lead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
@@ -75,10 +75,10 @@ export default function ClinicAppointments() {
   const [timeOffDefaults, setTimeOffDefaults] = useState<{
     providerId: string; startDate: string; endDate: string;
   } | null>(null);
-  const [metaLeadsPanelOpen, setMetaLeadsPanelOpen] = useState(false);
-  const [selectedMetaLead, setSelectedMetaLead] = useState<MetaLead | null>(null);
-  const [metaLeadScheduleDialogOpen, setMetaLeadScheduleDialogOpen] = useState(false);
-  const [metaLeadDropData, setMetaLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
+  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [leadScheduleDialogOpen, setLeadScheduleDialogOpen] = useState(false);
+  const [leadDropData, setLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
 
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
@@ -104,7 +104,7 @@ export default function ClinicAppointments() {
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
   const canPlanSurgery = useCanPlanSurgery();
-  const showMetaLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
+  const showLeads = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', hospitalId, unitId],
@@ -204,14 +204,14 @@ export default function ClinicAppointments() {
   };
 
   const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date; source?: 'day' | 'week-month' }) => {
-    // If a meta lead is tap-selected, open the meta lead scheduling dialog instead
-    if (selectedMetaLead && selectedMetaLead.status !== 'converted' && selectedMetaLead.status !== 'closed') {
-      setMetaLeadDropData({
+    // If a lead is tap-selected, open the lead scheduling dialog instead
+    if (selectedLead && selectedLead.status !== 'converted' && selectedLead.status !== 'closed') {
+      setLeadDropData({
         date: format(data.date, 'yyyy-MM-dd'),
         time: format(data.date, 'HH:mm'),
         providerId: data.providerId,
       });
-      setMetaLeadScheduleDialogOpen(true);
+      setLeadScheduleDialogOpen(true);
       return;
     }
     setBookingDefaults(data);
@@ -309,28 +309,28 @@ export default function ClinicAppointments() {
             <RefreshCw className={`h-4 w-4 mr-1 ${syncAbsencesMutation.isPending ? 'animate-spin' : ''}`} />
             {t('appointments.syncAbsences', 'Sync Absences')}
           </Button>
-          {showMetaLeads && (
+          {showLeads && (
             <Button
-              variant={metaLeadsPanelOpen ? "default" : "outline"}
+              variant={leadsPanelOpen ? "default" : "outline"}
               size="sm"
-              onClick={() => setMetaLeadsPanelOpen(p => !p)}
+              onClick={() => setLeadsPanelOpen(p => !p)}
             >
               <MessageSquare className="h-4 w-4 mr-1" />
-              Meta Leads
-              <MetaLeadsBadge />
+              Leads
+              <LeadsBadge />
             </Button>
           )}
         </div>
       </div>
 
-      {selectedMetaLead && metaLeadsPanelOpen && (
+      {selectedLead && leadsPanelOpen && (
         <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b text-sm text-blue-700 dark:text-blue-300 animate-pulse">
-          Click a calendar slot to schedule: <strong>{selectedMetaLead.firstName} {selectedMetaLead.lastName}</strong> — {selectedMetaLead.operation}
+          Click a calendar slot to schedule: <strong>{selectedLead.firstName} {selectedLead.lastName}</strong> — {selectedLead.operation}
         </div>
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {metaLeadsPanelOpen && showMetaLeads ? (
+        {leadsPanelOpen && showLeads ? (
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={75} minSize={60}>
               <ClinicCalendar
@@ -363,10 +363,10 @@ export default function ClinicAppointments() {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={25} minSize={18} maxSize={35}>
-              <MetaLeadsPanel
+              <LeadsPanel
                 mode="inline"
-                selectedLeadId={selectedMetaLead?.id ?? null}
-                onLeadTap={(lead) => setSelectedMetaLead(p => p?.id === lead?.id ? null : lead)}
+                selectedLeadId={selectedLead?.id ?? null}
+                onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
               />
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -487,20 +487,20 @@ export default function ClinicAppointments() {
         />
       )}
 
-      {selectedMetaLead && (
-        <ScheduleMetaLeadDialog
-          lead={selectedMetaLead}
-          open={metaLeadScheduleDialogOpen}
+      {selectedLead && (
+        <ScheduleLeadDialog
+          lead={selectedLead}
+          open={leadScheduleDialogOpen}
           onOpenChange={(open) => {
-            setMetaLeadScheduleDialogOpen(open);
+            setLeadScheduleDialogOpen(open);
             if (!open) {
-              setSelectedMetaLead(null);
-              setMetaLeadDropData(null);
+              setSelectedLead(null);
+              setLeadDropData(null);
             }
           }}
-          dropData={metaLeadDropData}
+          dropData={leadDropData}
           unitId={unitId}
-          providerId={metaLeadDropData?.providerId}
+          providerId={leadDropData?.providerId}
         />
       )}
     </div>

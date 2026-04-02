@@ -5,8 +5,8 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
-import type { MetaLead, MetaLeadContact } from "@shared/schema";
-import { setDraggedMetaLead } from "./useMetaLeadDrag";
+import type { Lead, LeadContact } from "@shared/schema";
+import { setDraggedLead } from "./useLeadDrag";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,18 +41,19 @@ import {
   Instagram,
   User,
   CheckCircle2,
+  Globe,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
-interface MetaLeadWithSummary extends MetaLead {
+interface LeadWithSummary extends Lead {
   contactCount: number;
   lastContactOutcome: string | null;
   lastContactAt: string | null;
 }
 
-interface MetaLeadDetail extends MetaLead {
-  contacts: MetaLeadContact[];
+interface LeadDetail extends Lead {
+  contacts: LeadContact[];
 }
 
 interface FuzzyMatchCandidate {
@@ -114,12 +115,25 @@ function SourceIcon({ source }: { source: string }) {
   if (source === "ig") {
     return <Instagram className="h-4 w-4 text-pink-500" />;
   }
-  return <FacebookIcon className="h-4 w-4 text-blue-600" />;
+  if (source === "fb") {
+    return <FacebookIcon className="h-4 w-4 text-blue-600" />;
+  }
+  return <Globe className="h-4 w-4 text-green-600" />;
+}
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case "fb": return "Facebook";
+    case "ig": return "Instagram";
+    case "website": return "Website";
+    case "email": return "E-Mail";
+    default: return source;
+  }
 }
 
 // ── Contact summary text ─────────────────────────────────────────────────
 
-function contactSummary(lead: MetaLeadWithSummary): string | null {
+function contactSummary(lead: LeadWithSummary): string | null {
   if (lead.contactCount === 0) return null;
   const prefix = `${lead.contactCount}x kontaktiert`;
   if (lead.lastContactOutcome) {
@@ -130,15 +144,15 @@ function contactSummary(lead: MetaLeadWithSummary): string | null {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MetaLeadsBadge
+// LeadsBadge (renamed from MetaLeadsBadge)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function MetaLeadsBadge() {
+export function LeadsBadge() {
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
 
   const { data } = useQuery<{ count: number }>({
-    queryKey: [`/api/business/${hospitalId}/meta-leads-count`],
+    queryKey: [`/api/business/${hospitalId}/leads-count`],
     enabled: !!hospitalId,
     refetchInterval: 30_000,
   });
@@ -161,7 +175,7 @@ function ContactLogDialog({
   open,
   onOpenChange,
 }: {
-  lead: MetaLeadWithSummary;
+  lead: LeadWithSummary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -173,9 +187,9 @@ function ContactLogDialog({
   const [outcome, setOutcome] = useState<string>("");
   const [note, setNote] = useState("");
 
-  const detailUrl = `/api/business/${hospitalId}/meta-leads/${lead.id}`;
+  const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
 
-  const { data: detail } = useQuery<MetaLeadDetail>({
+  const { data: detail } = useQuery<LeadDetail>({
     queryKey: [detailUrl],
     enabled: open && !!hospitalId,
   });
@@ -184,7 +198,7 @@ function ContactLogDialog({
     mutationFn: async () => {
       await apiRequest(
         "POST",
-        `/api/business/${hospitalId}/meta-leads/${lead.id}/contacts`,
+        `/api/business/${hospitalId}/leads/${lead.id}/contacts`,
         { outcome, note: note || null },
       );
     },
@@ -194,7 +208,7 @@ function ContactLogDialog({
       setNote("");
       queryClient.invalidateQueries({ queryKey: [detailUrl] });
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/meta-leads`],
+        queryKey: [`/api/business/${hospitalId}/leads`],
         exact: false,
       });
     },
@@ -207,7 +221,7 @@ function ContactLogDialog({
     mutationFn: async () => {
       await apiRequest(
         "PATCH",
-        `/api/business/${hospitalId}/meta-leads/${lead.id}`,
+        `/api/business/${hospitalId}/leads/${lead.id}`,
         { status: "closed" },
       );
     },
@@ -215,11 +229,11 @@ function ContactLogDialog({
       toast({ title: "Lead geschlossen" });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/meta-leads`],
+        queryKey: [`/api/business/${hospitalId}/leads`],
         exact: false,
       });
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/meta-leads-count`],
+        queryKey: [`/api/business/${hospitalId}/leads-count`],
       });
     },
     onError: () => {
@@ -258,6 +272,15 @@ function ContactLogDialog({
           <div className="text-xs text-muted-foreground/70">
             Lead ID: {lead.metaLeadId}
           </div>
+          {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
+            <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-2">
+              {lead.utmSource && <p>Quelle: {lead.utmSource}</p>}
+              {lead.utmMedium && <p>Medium: {lead.utmMedium}</p>}
+              {lead.utmCampaign && <p>Kampagne: {lead.utmCampaign}</p>}
+              {lead.utmTerm && <p>Suchbegriff: {lead.utmTerm}</p>}
+              {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+            </div>
+          )}
         </div>
 
         {/* Log contact form */}
@@ -343,26 +366,26 @@ function ContactLogDialog({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MetaLeadsPanel
+// LeadsPanel (renamed from MetaLeadsPanel)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function MetaLeadsPanel({
+export function LeadsPanel({
   mode = "inline",
   selectedLeadId = null,
   onLeadTap,
 }: {
   mode?: "inline" | "sheet";
   selectedLeadId?: string | null;
-  onLeadTap?: (lead: MetaLead | null) => void;
+  onLeadTap?: (lead: Lead | null) => void;
 }) {
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
 
   const [filter, setFilter] = useState<string>("active");
-  const [contactLead, setContactLead] = useState<MetaLeadWithSummary | null>(null);
+  const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
 
-  const { data: allLeads, isLoading } = useQuery<MetaLeadWithSummary[]>({
-    queryKey: [`/api/business/${hospitalId}/meta-leads?limit=50`],
+  const { data: allLeads, isLoading } = useQuery<LeadWithSummary[]>({
+    queryKey: [`/api/business/${hospitalId}/leads?limit=50`],
     enabled: !!hospitalId,
     refetchInterval: 30_000,
   });
@@ -374,14 +397,14 @@ export function MetaLeadsPanel({
     return true; // "all"
   });
 
-  const isDraggable = (lead: MetaLeadWithSummary) =>
+  const isDraggable = (lead: LeadWithSummary) =>
     mode === "inline" && lead.status !== "converted" && lead.status !== "closed";
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-3 border-b space-y-2">
-        <h3 className="font-semibold text-sm">Meta Leads</h3>
+        <h3 className="font-semibold text-sm">Leads</h3>
         <ToggleGroup
           type="single"
           value={filter}
@@ -433,10 +456,10 @@ export function MetaLeadsPanel({
                 draggable={draggable}
                 onDragStart={(e) => {
                   if (!draggable) return;
-                  setDraggedMetaLead(lead);
+                  setDraggedLead(lead);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                onDragEnd={() => setDraggedMetaLead(null)}
+                onDragEnd={() => setDraggedLead(null)}
                 onClick={() => onLeadTap?.(isSelected ? null : lead)}
                 className={`p-3 cursor-pointer transition-colors ${
                   isSelected
@@ -461,10 +484,17 @@ export function MetaLeadsPanel({
                       </span>
                     </div>
 
-                    {/* Operation + source + time */}
+                    {/* Operation/message */}
+                    {(lead.operation || lead.message) && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {lead.operation || (lead.message && lead.message.length > 60 ? lead.message.slice(0, 60) + "..." : lead.message)}
+                      </p>
+                    )}
+
+                    {/* Source + time */}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <SourceIcon source={lead.source} />
-                      <span className="truncate">{lead.operation}</span>
+                      <span className="text-[10px] text-muted-foreground">{sourceLabel(lead.source)}</span>
                       <span className="ml-auto flex items-center gap-1 flex-shrink-0">
                         <Clock className="h-3 w-3" />
                         {formatDistanceToNow(new Date(lead.createdAt), {
@@ -533,10 +563,10 @@ export function MetaLeadsPanel({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ScheduleMetaLeadDialog
+// ScheduleLeadDialog (renamed from ScheduleMetaLeadDialog)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ScheduleMetaLeadDialog({
+export function ScheduleLeadDialog({
   lead,
   open,
   onOpenChange,
@@ -544,7 +574,7 @@ export function ScheduleMetaLeadDialog({
   unitId,
   providerId,
 }: {
-  lead: MetaLead | null;
+  lead: Lead | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dropData: { date: string; time: string; roomId?: string } | null;
@@ -576,7 +606,7 @@ export function ScheduleMetaLeadDialog({
 
       // Run fuzzy match
       setMatchLoading(true);
-      apiRequest("POST", `/api/business/${hospitalId}/meta-leads/fuzzy-match`, {
+      apiRequest("POST", `/api/business/${hospitalId}/leads/fuzzy-match`, {
         firstName: lead.firstName,
         lastName: lead.lastName,
         phone: lead.phone,
@@ -621,7 +651,7 @@ export function ScheduleMetaLeadDialog({
       }
       await apiRequest(
         "POST",
-        `/api/business/${hospitalId}/meta-leads/${lead.id}/convert`,
+        `/api/business/${hospitalId}/leads/${lead.id}/convert`,
         body,
       );
     },
@@ -629,11 +659,11 @@ export function ScheduleMetaLeadDialog({
       toast({ title: "Lead konvertiert und Termin erstellt" });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/meta-leads`],
+        queryKey: [`/api/business/${hospitalId}/leads`],
         exact: false,
       });
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/meta-leads-count`],
+        queryKey: [`/api/business/${hospitalId}/leads-count`],
       });
       // Invalidate appointments/calendar queries
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-appointments"], exact: false });

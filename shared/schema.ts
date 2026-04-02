@@ -6354,58 +6354,75 @@ export const adBudgets = pgTable("ad_budgets", {
 
 // ── Meta Lead Inbox ─────────────────────────────────────────────────────
 
-export const metaLeadStatusEnum = pgEnum("meta_lead_status", ["new", "in_progress", "converted", "closed"]);
-export const metaLeadContactOutcomeEnum = pgEnum("meta_lead_contact_outcome", ["reached", "no_answer", "wants_callback", "will_call_back", "needs_time"]);
+export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "converted", "closed"]);
+export const leadContactOutcomeEnum = pgEnum("lead_contact_outcome", ["reached", "no_answer", "wants_callback", "will_call_back", "needs_time"]);
 
-export const metaLeads = pgTable("meta_leads", {
+export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   email: varchar("email"),
   phone: varchar("phone"),
-  operation: varchar("operation").notNull(),
-  source: varchar("source").notNull(), // "fb" or "ig"
-  metaLeadId: varchar("meta_lead_id").notNull(),
-  metaFormId: varchar("meta_form_id").notNull(),
-  status: metaLeadStatusEnum("status").notNull().default("new"),
+  operation: varchar("operation"),
+  message: text("message"),
+  source: varchar("source").notNull(), // "fb", "ig", "website", "email", etc.
+  metaLeadId: varchar("meta_lead_id"),
+  metaFormId: varchar("meta_form_id"),
+  status: leadStatusEnum("status").notNull().default("new"),
   patientId: varchar("patient_id").references(() => patients.id, { onDelete: 'set null' }),
   appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),
   closedReason: varchar("closed_reason"),
+  // UTM tracking
+  utmSource: varchar("utm_source"),
+  utmMedium: varchar("utm_medium"),
+  utmCampaign: varchar("utm_campaign"),
+  utmTerm: varchar("utm_term"),
+  utmContent: varchar("utm_content"),
+  // Click IDs
+  gclid: varchar("gclid"),
+  gbraid: varchar("gbraid"),
+  wbraid: varchar("wbraid"),
+  fbclid: varchar("fbclid"),
+  ttclid: varchar("ttclid"),
+  msclkid: varchar("msclkid"),
+  igshid: varchar("igshid"),
+  li_fat_id: varchar("li_fat_id"),
+  twclid: varchar("twclid"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
-  index("meta_leads_hospital_status_created").on(table.hospitalId, table.status, table.createdAt),
-  uniqueIndex("meta_leads_hospital_lead_id").on(table.hospitalId, table.metaLeadId),
+  index("leads_hospital_status_created").on(table.hospitalId, table.status, table.createdAt),
+  uniqueIndex("leads_hospital_meta_lead_id").on(table.hospitalId, table.metaLeadId).where(sql`meta_lead_id IS NOT NULL`),
 ]);
 
-export const insertMetaLeadSchema = createInsertSchema(metaLeads).omit({
+export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export type MetaLead = typeof metaLeads.$inferSelect;
-export type InsertMetaLead = z.infer<typeof insertMetaLeadSchema>;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
 
-export const metaLeadContacts = pgTable("meta_lead_contacts", {
+export const leadContacts = pgTable("lead_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  metaLeadId: varchar("meta_lead_id").notNull().references(() => metaLeads.id, { onDelete: 'cascade' }),
-  outcome: metaLeadContactOutcomeEnum("outcome").notNull(),
+  leadId: varchar("lead_id").notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  outcome: leadContactOutcomeEnum("outcome").notNull(),
   note: text("note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
 }, (table) => [
-  index("meta_lead_contacts_lead_created").on(table.metaLeadId, table.createdAt),
+  index("lead_contacts_lead_created").on(table.leadId, table.createdAt),
 ]);
 
-export type MetaLeadContact = typeof metaLeadContacts.$inferSelect;
+export type LeadContact = typeof leadContacts.$inferSelect;
 
-export const metaLeadWebhookConfig = pgTable("meta_lead_webhook_config", {
+export const leadWebhookConfig = pgTable("lead_webhook_config", {
   hospitalId: varchar("hospital_id").primaryKey().references(() => hospitals.id, { onDelete: 'cascade' }),
   apiKey: varchar("api_key").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export type MetaLeadWebhookConfig = typeof metaLeadWebhookConfig.$inferSelect;
+export type LeadWebhookConfig = typeof leadWebhookConfig.$inferSelect;
