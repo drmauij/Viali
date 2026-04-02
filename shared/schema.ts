@@ -5732,6 +5732,10 @@ export const dischargeBriefs = pgTable("discharge_briefs", {
   unlockedAt: timestamp("unlocked_at"),
   unlockedBy: varchar("unlocked_by").references(() => users.id),
   unlockReason: text("unlock_reason"),
+  // Portal sharing
+  portalVisible: boolean("portal_visible").default(false),
+  portalSharedAt: timestamp("portal_shared_at"),
+  portalSharedBy: varchar("portal_shared_by").references(() => users.id),
   // Metadata
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
