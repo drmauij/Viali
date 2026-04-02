@@ -140,6 +140,67 @@ export async function unlockDischargeBrief(
   return brief;
 }
 
+export async function shareDischargeBrief(
+  id: string,
+  userId: string,
+): Promise<DischargeBrief> {
+  const now = new Date();
+  const [brief] = await db
+    .update(dischargeBriefs)
+    .set({
+      portalVisible: true,
+      portalSharedAt: now,
+      portalSharedBy: userId,
+      updatedAt: now,
+    })
+    .where(eq(dischargeBriefs.id, id))
+    .returning();
+  return brief;
+}
+
+export async function unshareDischargeBrief(
+  id: string,
+): Promise<DischargeBrief> {
+  const [brief] = await db
+    .update(dischargeBriefs)
+    .set({
+      portalVisible: false,
+      portalSharedAt: null,
+      portalSharedBy: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(dischargeBriefs.id, id))
+    .returning();
+  return brief;
+}
+
+export async function getPortalVisibleBriefsForPatient(
+  patientId: string,
+): Promise<(DischargeBrief & { signer: User | null })[]> {
+  const rows = await db
+    .select()
+    .from(dischargeBriefs)
+    .where(
+      and(
+        eq(dischargeBriefs.patientId, patientId),
+        eq(dischargeBriefs.portalVisible, true),
+        eq(dischargeBriefs.isLocked, true),
+      ),
+    )
+    .orderBy(dischargeBriefs.signedAt);
+
+  const results: (DischargeBrief & { signer: User | null })[] = [];
+  for (const brief of rows) {
+    let signer: User | null = null;
+    if (brief.signedBy) {
+      const [s] = await db.select().from(users).where(eq(users.id, brief.signedBy));
+      signer = s || null;
+    }
+    results.push({ ...brief, signer });
+  }
+  return results;
+}
+
 // ========== DISCHARGE BRIEF TEMPLATES ==========
 
 export async function getDischargeBriefTemplates(
