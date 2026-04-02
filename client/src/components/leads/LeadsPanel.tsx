@@ -505,12 +505,6 @@ export function LeadsPanel({
     refetchInterval: 30_000,
   });
 
-  // Debug: check what API returns for contactCount
-  useEffect(() => {
-    if (allLeads && allLeads.length > 0) {
-      console.log('[Leads] First lead data:', JSON.stringify({ id: allLeads[0].id, contactCount: allLeads[0].contactCount, type: typeof allLeads[0].contactCount, keys: Object.keys(allLeads[0]).filter(k => k.includes('contact') || k.includes('Contact') || k.includes('count')) }));
-    }
-  }, [allLeads]);
 
   // Auto-open lead detail from deep link
   useEffect(() => {

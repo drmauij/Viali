@@ -313,25 +313,15 @@ router.get(
           gclid: leads.gclid,
           createdAt: leads.createdAt,
           updatedAt: leads.updatedAt,
-          contactCount: sql<number>`(SELECT COUNT(*) FROM lead_contacts WHERE lead_id = ${leads.id})`.as("contact_count"),
-          lastContactOutcome: sql<string | null>`(SELECT outcome FROM lead_contacts WHERE lead_id = ${leads.id} ORDER BY created_at DESC LIMIT 1)`.as("last_contact_outcome"),
-          lastContactAt: sql<Date | null>`(SELECT created_at FROM lead_contacts WHERE lead_id = ${leads.id} ORDER BY created_at DESC LIMIT 1)`.as("last_contact_at"),
+          contactCount: sql<number>`(SELECT COUNT(*) FROM lead_contacts WHERE lead_id = "leads"."id")`.as("contact_count"),
+          lastContactOutcome: sql<string | null>`(SELECT outcome FROM lead_contacts WHERE lead_id = "leads"."id" ORDER BY created_at DESC LIMIT 1)`.as("last_contact_outcome"),
+          lastContactAt: sql<Date | null>`(SELECT created_at FROM lead_contacts WHERE lead_id = "leads"."id" ORDER BY created_at DESC LIMIT 1)`.as("last_contact_at"),
         })
         .from(leads)
         .where(and(...conditions))
         .orderBy(desc(leads.createdAt))
         .limit(limit);
 
-      // Debug: log the actual SQL
-      const testQuery = db
-        .select({
-          id: leads.id,
-          contactCount: sql<number>`(SELECT COUNT(*) FROM lead_contacts WHERE lead_id = ${leads.id})`.as("contact_count"),
-        })
-        .from(leads)
-        .where(eq(leads.hospitalId, hospitalId))
-        .limit(1);
-      logger.info({ sql: testQuery.toSQL() }, "DEBUG leads query SQL");
       return res.json(leadRows);
     } catch (err) {
       logger.error({ err }, "Error listing leads");
