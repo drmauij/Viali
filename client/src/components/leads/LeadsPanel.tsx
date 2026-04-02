@@ -228,10 +228,9 @@ function ContactLogDialog({
       toast({ title: t("leads.contactLogged", "Contact logged") });
       setOutcome("");
       setNote("");
-      queryClient.invalidateQueries({ queryKey: [detailUrl] });
-      queryClient.invalidateQueries({
-        queryKey: [leadsQueryKey],
-      });
+      queryClient.invalidateQueries({ queryKey: [detailUrl], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: [leadsQueryKey], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${hospitalId}/leads-count`] });
     },
     onError: () => {
       toast({ title: t("leads.errorLogging", "Error logging contact"), variant: "destructive" });
@@ -333,47 +332,11 @@ function ContactLogDialog({
           )}
         </div>
 
-        {/* Log contact form */}
-        <div className="space-y-3 pt-2">
-          <div>
-            <Label>{t("leads.outcome", "Outcome")}</Label>
-            <Select value={outcome} onValueChange={setOutcome}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("leads.selectOutcome", "Select outcome...")} />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(outcomeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>{t("leads.note", "Note")}</Label>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t("leads.optionalNote", "Optional note...")}
-              rows={2}
-            />
-          </div>
-          <Button
-            onClick={() => logMutation.mutate()}
-            disabled={!outcome || logMutation.isPending}
-            className="w-full"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {t("leads.logContact", "Log contact")}
-          </Button>
-        </div>
-
-        {/* Contact history */}
-        {detail?.contacts && detail.contacts.length > 0 && (
-          <div className="space-y-2 pt-2">
-            <Label className="text-xs text-muted-foreground">{t("leads.history", "History")}</Label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+        {/* Contact history — shown first so it's immediately visible */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">{t("leads.history", "History")} ({detail?.contacts?.length ?? 0})</Label>
+          {detail?.contacts && detail.contacts.length > 0 ? (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {detail.contacts.map((c) => (
                 <div
                   key={c.id}
@@ -396,8 +359,48 @@ function ContactLogDialog({
                 </div>
               ))}
             </div>
+          ) : detail ? (
+            <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
+          )}
+        </div>
+
+        {/* Log contact form */}
+        <div className="space-y-3 pt-2 border-t">
+          <Label className="text-xs text-muted-foreground">{t("leads.logNewContact", "Log new contact")}</Label>
+          <div>
+            <Select value={outcome} onValueChange={setOutcome}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("leads.selectOutcome", "Select outcome...")} />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(outcomeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
+          <div>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t("leads.optionalNote", "Optional note...")}
+              rows={2}
+            />
+          </div>
+          <Button
+            onClick={() => logMutation.mutate()}
+            disabled={!outcome || logMutation.isPending}
+            className="w-full"
+            size="sm"
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            {t("leads.logContact", "Log contact")}
+          </Button>
+        </div>
 
         <DialogFooter className="pt-2 flex-row gap-2 sm:justify-between">
           {lead.status === "closed" ? (
@@ -471,7 +474,7 @@ export function LeadsPanel({
   const hospitalId = activeHospital?.id;
   const dateLocale = i18n.language === "de" ? de : enUS;
 
-  const [filter, setFilter] = useState<string>(initialLeadId ? "all" : "active");
+  const [filter, setFilter] = useState<string>(initialLeadId ? "active" : "new");
   const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
   const [initialLeadHandled, setInitialLeadHandled] = useState(false);
 
@@ -495,11 +498,12 @@ export function LeadsPanel({
     }
   }, [initialLeadId, allLeads, initialLeadHandled]);
 
-  // Client-side filtering
+  // Client-side filtering — kanban: New → Active → Closed
   const leads = (allLeads ?? []).filter((lead) => {
-    if (filter === "active") return lead.status === "new" || lead.status === "in_progress";
     if (filter === "new") return lead.status === "new";
-    return true; // "all"
+    if (filter === "active") return lead.status === "in_progress";
+    if (filter === "closed") return lead.status === "closed" || lead.status === "converted";
+    return true;
   });
 
   const isDraggable = (lead: LeadWithSummary) =>
@@ -517,14 +521,14 @@ export function LeadsPanel({
           className="justify-start"
           size="sm"
         >
-          <ToggleGroupItem value="active" className="text-xs px-2.5">
-            {t("leads.filterActive", "Active")}
-          </ToggleGroupItem>
           <ToggleGroupItem value="new" className="text-xs px-2.5">
             {t("leads.filterNew", "New")}
           </ToggleGroupItem>
-          <ToggleGroupItem value="all" className="text-xs px-2.5">
-            {t("leads.filterAll", "All")}
+          <ToggleGroupItem value="active" className="text-xs px-2.5">
+            {t("leads.filterActive", "Active")}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="closed" className="text-xs px-2.5">
+            {t("leads.filterClosed", "Closed")}
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
