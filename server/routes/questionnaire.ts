@@ -2964,6 +2964,80 @@ router.get('/api/patient-portal/:token/documents', patientDocUploadLimiter, asyn
   }
 });
 
+// Get portal-shared discharge briefs for patient
+router.get(
+  "/api/patient-portal/:token/shared-briefs",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const { getPortalVisibleBriefsForPatient } = await import("../storage/dischargeBriefs");
+      const briefs = await getPortalVisibleBriefsForPatient(link.patientId);
+
+      res.json(
+        briefs.map((b) => ({
+          id: b.id,
+          briefType: b.briefType,
+          language: b.language,
+          signedAt: b.signedAt,
+          signerName: b.signer
+            ? `${b.signer.firstName || ""} ${b.signer.lastName || ""}`.trim()
+            : null,
+        })),
+      );
+    } catch (error: any) {
+      logger.error("Error fetching portal shared briefs:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
+// Download a shared brief PDF
+router.get(
+  "/api/patient-portal/:token/shared-briefs/:briefId/download",
+  requirePortalVerification("patient"),
+  async (req: any, res: Response) => {
+    try {
+      const link = await storage.getQuestionnaireLinkByToken(req.params.token);
+      if (!link || !link.patientId) {
+        return res.status(404).json({ message: "Invalid portal link" });
+      }
+
+      const { getDischargeBriefById } = await import("../storage/dischargeBriefs");
+      const brief = await getDischargeBriefById(req.params.briefId);
+      if (!brief) {
+        return res.status(404).json({ message: "Brief not found" });
+      }
+
+      // Security: verify brief belongs to this patient, is portal-visible, is signed, has PDF
+      if (brief.patientId !== link.patientId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      if (!brief.portalVisible) {
+        return res.status(403).json({ message: "Document is not shared" });
+      }
+      if (!brief.isLocked || !brief.pdfUrl) {
+        return res.status(400).json({ message: "Document not available for download" });
+      }
+
+      const { ObjectStorageService } = await import("../objectStorage");
+      const s3 = new ObjectStorageService();
+      const downloadUrl = await s3.getObjectDownloadURL(brief.pdfUrl, 900); // 15 minutes
+
+      logger.info(`Portal brief download: briefId=${brief.id} patientId=${link.patientId}`);
+
+      res.json({ downloadUrl });
+    } catch (error: any) {
+      logger.error("Error downloading shared brief:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
+
 // Delete patient portal upload (only if source=patient_upload and not yet reviewed)
 router.delete('/api/patient-portal/:token/documents/:docId', patientDocUploadLimiter, async (req: Request, res: Response) => {
   try {
