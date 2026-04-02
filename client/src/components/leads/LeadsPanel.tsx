@@ -191,14 +191,14 @@ function ContactLogDialog({
   lead,
   open,
   onOpenChange,
+  hospitalId,
 }: {
   lead: LeadWithSummary;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  hospitalId: string;
 }) {
   const { t, i18n } = useTranslation();
-  const activeHospital = useActiveHospital();
-  const hospitalId = activeHospital?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const dateLocale = i18n.language === "de" ? de : enUS;
@@ -211,9 +211,10 @@ function ContactLogDialog({
   const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
   const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
 
-  const { data: detail } = useQuery<LeadDetail>({
+  const { data: detail, isLoading: detailLoading, error: detailError } = useQuery<LeadDetail>({
     queryKey: [detailUrl],
-    enabled: open && !!hospitalId,
+    enabled: open,
+    staleTime: 0,
   });
 
   const logMutation = useMutation({
@@ -359,11 +360,13 @@ function ContactLogDialog({
                 </div>
               ))}
             </div>
+          ) : detailLoading ? (
+            <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
+          ) : detailError ? (
+            <p className="text-xs text-destructive">Error: {(detailError as any)?.message ?? "Failed to load"}</p>
           ) : detail ? (
             <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
-          )}
+          ) : null}
         </div>
 
         {/* Log contact form */}
@@ -657,10 +660,11 @@ export function LeadsPanel({
       </ScrollArea>
 
       {/* Contact log dialog */}
-      {contactLead && (
+      {contactLead && hospitalId && (
         <ContactLogDialog
           lead={contactLead}
           open={!!contactLead}
+          hospitalId={hospitalId}
           onOpenChange={(open) => {
             if (!open) setContactLead(null);
           }}
