@@ -198,6 +198,8 @@ interface ClinicCalendarProps {
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onProviderClick?: (providerId: string) => void;
   onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
+  onDropFromOutside?: (data: { start: Date; end: Date; resource?: string }) => void;
+  dragFromOutsideItem?: () => CalendarEvent | null;
   statusLegend?: React.ReactNode;
   onSearchSelect?: (appointmentId: string, date: Date) => void;
 }
@@ -209,6 +211,8 @@ export default function ClinicCalendar({
   onEventClick,
   onProviderClick,
   onDragSelectRange,
+  onDropFromOutside,
+  dragFromOutsideItem,
   statusLegend,
   onSearchSelect,
 }: ClinicCalendarProps) {
@@ -1631,6 +1635,10 @@ export default function ClinicCalendar({
             onEventResize={handleEventResize}
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
+            onDropFromOutside={onDropFromOutside ? (args: any) => {
+              onDropFromOutside({ start: new Date(args.start), end: new Date(args.end), resource: args.resource as string | undefined });
+            } : undefined}
+            dragFromOutsideItem={dragFromOutsideItem as any}
             selectable
             resizable
             draggableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock && !event.isTimeOffBlock}

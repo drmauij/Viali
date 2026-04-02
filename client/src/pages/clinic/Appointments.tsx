@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +48,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
+import { draggedLead } from "@/components/leads/useLeadDrag";
 import type { Lead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog, TimeOffDialog } from "@/components/clinic/ManageAvailabilityDialog";
@@ -235,6 +236,22 @@ export default function ClinicAppointments() {
     setBookingTypeSelectorOpen(true);
   };
 
+  const handleLeadDropOnCalendar = useCallback((data: { start: Date; end: Date; resource?: string }) => {
+    if (!draggedLead) return;
+    setSelectedLead(draggedLead);
+    setLeadDropData({
+      date: format(data.start, 'yyyy-MM-dd'),
+      time: format(data.start, 'HH:mm'),
+      providerId: data.resource,
+    });
+    setLeadScheduleDialogOpen(true);
+  }, []);
+
+  const leadDragFromOutsideItem = useCallback(() => {
+    if (!draggedLead) return null;
+    return { start: new Date(), end: new Date(), title: `${draggedLead.firstName} ${draggedLead.lastName}` } as any;
+  }, []);
+
   const handleBookingTypeSelect = (type: BookingType) => {
     switch (type) {
       case 'external':
@@ -371,6 +388,8 @@ export default function ClinicAppointments() {
                 onEventClick={handleEventClick}
                 onProviderClick={handleProviderClick}
                 onDragSelectRange={handleDragSelectRange}
+                onDropFromOutside={handleLeadDropOnCalendar}
+                dragFromOutsideItem={leadDragFromOutsideItem}
                 onSearchSelect={handleSearchSelect}
                 statusLegend={
                   <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">

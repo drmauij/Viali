@@ -44,6 +44,7 @@ import {
   CheckCircle2,
   Globe,
   RefreshCw,
+  CalendarPlus,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -411,7 +412,7 @@ function ContactLogDialog({
 // LeadDetailInline — shown below selected lead card
 // ═══════════════════════════════════════════════════════════════════════════
 
-function LeadDetailInline({ lead, hospitalId }: { lead: LeadWithSummary; hospitalId: string }) {
+function LeadDetailInline({ lead, hospitalId, onSchedule }: { lead: LeadWithSummary; hospitalId: string; onSchedule?: () => void }) {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === "de" ? de : enUS;
 
@@ -422,6 +423,19 @@ function LeadDetailInline({ lead, hospitalId }: { lead: LeadWithSummary; hospita
 
   return (
     <div className="px-3 py-2 space-y-3 border rounded-md bg-muted/30 text-sm">
+      {/* Schedule button */}
+      {onSchedule && lead.status !== "converted" && lead.status !== "closed" && (
+        <Button
+          variant="default"
+          size="sm"
+          className="w-full"
+          onClick={onSchedule}
+        >
+          <CalendarPlus className="h-4 w-4 mr-2" />
+          {t("leads.scheduleAppointment", "Schedule appointment")}
+        </Button>
+      )}
+
       {/* Contact info */}
       <div className="space-y-1">
         {lead.phone && (
@@ -508,6 +522,7 @@ export function LeadsPanel({
   const [filter, setFilter] = useState<string>(initialLeadId ? "all" : "active");
   const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
   const [initialLeadHandled, setInitialLeadHandled] = useState(false);
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(initialLeadId);
 
   const { data: allLeads, isLoading } = useQuery<LeadWithSummary[]>({
     queryKey: [`/api/business/${hospitalId}/leads?limit=50`],
@@ -515,12 +530,12 @@ export function LeadsPanel({
     refetchInterval: 30_000,
   });
 
-  // Auto-select lead from deep link
+  // Auto-expand lead from deep link
   useEffect(() => {
     if (initialLeadId && allLeads && !initialLeadHandled) {
       const lead = allLeads.find((l) => l.id === initialLeadId);
       if (lead) {
-        onLeadTap?.(lead);
+        setExpandedLeadId(lead.id);
         // Scroll into view after render
         setTimeout(() => {
           document.getElementById(`lead-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -528,7 +543,7 @@ export function LeadsPanel({
       }
       setInitialLeadHandled(true);
     }
-  }, [initialLeadId, allLeads, initialLeadHandled, onLeadTap]);
+  }, [initialLeadId, allLeads, initialLeadHandled]);
 
   // Client-side filtering
   const leads = (allLeads ?? []).filter((lead) => {
@@ -585,7 +600,8 @@ export function LeadsPanel({
             </p>
           )}
           {leads.map((lead) => {
-            const isSelected = lead.id === selectedLeadId;
+            const isExpanded = lead.id === expandedLeadId;
+            const isScheduling = lead.id === selectedLeadId;
             const isNew = lead.status === "new";
             const draggable = isDraggable(lead);
             const summary = contactSummary(lead, t);
@@ -601,10 +617,14 @@ export function LeadsPanel({
                   e.dataTransfer.effectAllowed = "move";
                 }}
                 onDragEnd={() => setDraggedLead(null)}
-                onClick={() => onLeadTap?.(isSelected ? null : lead)}
+                onClick={() => setExpandedLeadId(prev => prev === lead.id ? null : lead.id)}
                 className={`p-2 sm:p-3 cursor-pointer transition-colors ${
-                  isSelected
-                    ? "ring-2 ring-blue-500 bg-blue-50/80 dark:bg-blue-950/50"
+                  isScheduling
+                    ? "ring-2 ring-blue-500"
+                    : ""
+                } ${
+                  isExpanded
+                    ? "bg-muted/50"
                     : isNew
                       ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
                       : ""
@@ -684,10 +704,14 @@ export function LeadsPanel({
                   )}
                 </div>
 
-                {/* Inline detail when selected */}
-                {isSelected && hospitalId && (
+                {/* Inline detail when expanded */}
+                {isExpanded && hospitalId && (
                   <div className="mt-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
-                    <LeadDetailInline lead={lead} hospitalId={hospitalId} />
+                    <LeadDetailInline
+                      lead={lead}
+                      hospitalId={hospitalId}
+                      onSchedule={() => onLeadTap?.(lead)}
+                    />
                   </div>
                 )}
               </Card>
