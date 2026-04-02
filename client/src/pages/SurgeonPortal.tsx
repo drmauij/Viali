@@ -945,9 +945,8 @@ function SurgeonPortalContent({ token }: { token: string }) {
                             </div>
                           )}
 
-                          {/* Download summary for completed surgeries */}
-                          {surgery.status === "completed" && (
-                            <div className="pt-1">
+                          {/* Download summary */}
+                          <div className="pt-1">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -968,7 +967,6 @@ function SurgeonPortalContent({ token }: { token: string }) {
                                 )}
                               </Button>
                             </div>
-                          )}
                         </div>
                       );
                     })}

@@ -96,7 +96,6 @@ router.get("/api/surgeon-portal/:token/surgeries", requireSurgeonSession, async 
 /**
  * GET /api/surgeon-portal/:token/surgeries/:surgeryId/summary-data
  * Returns all data needed to generate the Surgery Summary PDF.
- * Only available for completed surgeries.
  */
 router.get("/api/surgeon-portal/:token/surgeries/:surgeryId/summary-data", requireSurgeonSession, async (req: Request, res: Response) => {
   try {
@@ -113,10 +112,6 @@ router.get("/api/surgeon-portal/:token/surgeries/:surgeryId/summary-data", requi
     const surgery = surgeriesList.find((s) => s.id === surgeryId);
     if (!surgery) {
       return res.status(403).json({ message: "You do not have access to this surgery" });
-    }
-
-    if (surgery.status !== "completed") {
-      return res.status(400).json({ message: "Summary is only available for completed surgeries" });
     }
 
     // Fetch full surgery + patient data
