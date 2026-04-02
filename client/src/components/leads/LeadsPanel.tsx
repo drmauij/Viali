@@ -519,6 +519,11 @@ export function LeadsPanel({
     }
   }, [initialLeadId, allLeads, initialLeadHandled]);
 
+  // Count per status
+  const newCount = (allLeads ?? []).filter((l) => l.status === "new").length;
+  const activeCount = (allLeads ?? []).filter((l) => l.status === "in_progress").length;
+  const closedCount = (allLeads ?? []).filter((l) => l.status === "closed" || l.status === "converted").length;
+
   // Client-side filtering — kanban: New → Active → Closed
   const leads = (allLeads ?? []).filter((lead) => {
     if (filter === "new") return lead.status === "new";
@@ -543,10 +548,10 @@ export function LeadsPanel({
           size="sm"
         >
           <ToggleGroupItem value="new" className="text-xs px-2.5">
-            {t("leads.filterNew", "New")}
+            {t("leads.filterNew", "New")} {newCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 h-4">{newCount}</Badge>}
           </ToggleGroupItem>
           <ToggleGroupItem value="active" className="text-xs px-2.5">
-            {t("leads.filterActive", "Active")}
+            {t("leads.filterActive", "Active")} {activeCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 h-4">{activeCount}</Badge>}
           </ToggleGroupItem>
           <ToggleGroupItem value="closed" className="text-xs px-2.5">
             {t("leads.filterClosed", "Closed")}
@@ -590,7 +595,7 @@ export function LeadsPanel({
                   setDraggedLead(lead);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                onDragEnd={() => setDraggedLead(null)}
+                onDragEnd={() => setTimeout(() => setDraggedLead(null), 100)}
                 onClick={() => setContactLead(lead)}
                 className={`p-2 sm:p-3 cursor-pointer transition-colors ${
                   isScheduling
