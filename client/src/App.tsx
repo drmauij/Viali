@@ -156,6 +156,40 @@ function HomeRedirect() {
   return <PageLoader />;
 }
 
+function LeadRedirect() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const params = window.location.pathname.match(/^\/leads\/(.+)$/);
+  const leadId = params?.[1];
+
+  useEffect(() => {
+    if (!user || !leadId) return;
+
+    const userHospitals = (user as any)?.hospitals;
+    if (!userHospitals || userHospitals.length === 0) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    let activeHospital = userHospitals[0];
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) =>
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) activeHospital = saved;
+    }
+
+    let basePath = "/clinic/appointments";
+    if (activeHospital.unitType === 'anesthesia') basePath = "/anesthesia/appointments";
+    else if (activeHospital.unitType === 'or') basePath = "/surgery/appointments";
+
+    navigate(`${basePath}?leadId=${leadId}`, { replace: true });
+  }, [navigate, user, leadId]);
+
+  return <PageLoader />;
+}
+
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -189,6 +223,8 @@ function Router() {
           ) : (
             <>
               <Route path="/" component={HomeRedirect} />
+              {/* Lead deep link — redirects to appointments with ?leadId= */}
+              <Route path="/leads/:leadId" component={LeadRedirect} />
               {/* Module-agnostic patient redirect (card reader) */}
               <Route path="/patients/:id" component={PatientRedirect} />
               <Route path="/patients" component={PatientRedirect} />

@@ -372,23 +372,41 @@ function ContactLogDialog({
 export function LeadsPanel({
   mode = "inline",
   selectedLeadId = null,
+  initialLeadId = null,
   onLeadTap,
 }: {
   mode?: "inline" | "sheet";
   selectedLeadId?: string | null;
+  initialLeadId?: string | null;
   onLeadTap?: (lead: Lead | null) => void;
 }) {
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
 
-  const [filter, setFilter] = useState<string>("active");
+  const [filter, setFilter] = useState<string>(initialLeadId ? "all" : "active");
   const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
+  const [initialLeadHandled, setInitialLeadHandled] = useState(false);
 
   const { data: allLeads, isLoading } = useQuery<LeadWithSummary[]>({
     queryKey: [`/api/business/${hospitalId}/leads?limit=50`],
     enabled: !!hospitalId,
     refetchInterval: 30_000,
   });
+
+  // Auto-select lead from deep link
+  useEffect(() => {
+    if (initialLeadId && allLeads && !initialLeadHandled) {
+      const lead = allLeads.find((l) => l.id === initialLeadId);
+      if (lead) {
+        onLeadTap?.(lead);
+        // Scroll into view after render
+        setTimeout(() => {
+          document.getElementById(`lead-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+      }
+      setInitialLeadHandled(true);
+    }
+  }, [initialLeadId, allLeads, initialLeadHandled, onLeadTap]);
 
   // Client-side filtering
   const leads = (allLeads ?? []).filter((lead) => {
@@ -452,6 +470,7 @@ export function LeadsPanel({
 
             return (
               <Card
+                id={`lead-${lead.id}`}
                 key={lead.id}
                 draggable={draggable}
                 onDragStart={(e) => {

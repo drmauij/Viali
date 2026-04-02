@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,10 +75,24 @@ export default function ClinicAppointments() {
   const [timeOffDefaults, setTimeOffDefaults] = useState<{
     providerId: string; startDate: string; endDate: string;
   } | null>(null);
-  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
+  // Deep link: ?leadId= opens panel and selects the lead
+  const urlLeadId = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("leadId");
+  }, []);
+  const [leadsPanelOpen, setLeadsPanelOpen] = useState(!!urlLeadId);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadScheduleDialogOpen, setLeadScheduleDialogOpen] = useState(false);
   const [leadDropData, setLeadDropData] = useState<{ date: string; time: string; roomId?: string; providerId?: string } | null>(null);
+
+  // Clean up ?leadId= from URL after reading it
+  useEffect(() => {
+    if (urlLeadId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("leadId");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, [urlLeadId]);
 
   const handleProviderClick = (providerId: string) => {
     setSelectedProviderForAvailability(providerId);
@@ -366,6 +380,7 @@ export default function ClinicAppointments() {
               <LeadsPanel
                 mode="inline"
                 selectedLeadId={selectedLead?.id ?? null}
+                initialLeadId={urlLeadId}
                 onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
               />
             </ResizablePanel>
