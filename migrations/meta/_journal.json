@@ -1408,6 +1408,13 @@
       "when": 1775300001000,
       "tag": "0200_brainy_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1775400000000,
+      "tag": "0201_renormalize_source_details",
+      "breakpoints": true
     }
   ]
 }

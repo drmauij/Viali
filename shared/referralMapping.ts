@@ -34,7 +34,6 @@ const UTM_SOURCE_MAP: Record<string, { source: ReferralSource; detail: string }>
 const GOOGLE_MEDIUM_MAP: Record<string, string> = {
   maps: "Google Maps",
   local: "Google Maps",
-  cpc: "Google Ads",
 };
 
 export function mapUtmToReferral(utm: UtmParams): MappedReferral | null {
@@ -63,15 +62,15 @@ export function mapRefToReferral(refParam: string): MappedReferral {
 }
 
 const CLICK_ID_MAP: Record<string, { source: ReferralSource; detail: string }> = {
-  gclid: { source: "search_engine", detail: "Google Ads" },
-  gbraid: { source: "search_engine", detail: "Google Ads" },
-  wbraid: { source: "search_engine", detail: "Google Ads" },
-  fbclid: { source: "social", detail: "Meta Ads" },
-  ttclid: { source: "social", detail: "TikTok Ads" },
-  msclkid: { source: "search_engine", detail: "Bing Ads" },
+  gclid: { source: "search_engine", detail: "Google" },
+  gbraid: { source: "search_engine", detail: "Google" },
+  wbraid: { source: "search_engine", detail: "Google" },
+  fbclid: { source: "social", detail: "Facebook" },
+  ttclid: { source: "social", detail: "TikTok" },
+  msclkid: { source: "search_engine", detail: "Bing" },
   igshid: { source: "social", detail: "Instagram" },
-  li_fat_id: { source: "social", detail: "LinkedIn Ads" },
-  twclid: { source: "social", detail: "Twitter/X Ads" },
+  li_fat_id: { source: "social", detail: "LinkedIn" },
+  twclid: { source: "social", detail: "Twitter" },
 };
 
 export function resolveReferralFromParams(params: {

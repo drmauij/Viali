@@ -22,9 +22,9 @@ describe("mapUtmToReferral", () => {
     expect(result).toEqual({ source: "search_engine", sourceDetail: "Google Maps", captureMethod: "utm" });
   });
 
-  it("maps google+cpc medium to search_engine/Google Ads", () => {
+  it("maps google+cpc medium to search_engine/Google (paid detected at query time)", () => {
     const result = mapUtmToReferral({ utmSource: "google", utmMedium: "cpc" });
-    expect(result).toEqual({ source: "search_engine", sourceDetail: "Google Ads", captureMethod: "utm" });
+    expect(result).toEqual({ source: "search_engine", sourceDetail: "Google", captureMethod: "utm" });
   });
 
   it("maps google+organic medium to search_engine/Google", () => {
