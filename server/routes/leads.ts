@@ -322,10 +322,6 @@ router.get(
         .orderBy(desc(leads.createdAt))
         .limit(limit);
 
-      // Debug: log first lead's contactCount
-      if (leadRows.length > 0) {
-        logger.info({ contactCount: leadRows[0].contactCount, type: typeof leadRows[0].contactCount, leadId: leadRows[0].id }, "DEBUG lead contactCount");
-      }
       return res.json(leadRows);
     } catch (err) {
       logger.error({ err }, "Error listing leads");
