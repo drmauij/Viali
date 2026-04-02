@@ -410,19 +410,21 @@ router.post(
 
       const signSchema = z.object({
         signature: z.string().min(1, "Signature is required"),
+        signAsUserId: z.string().uuid().optional(),
       });
-      const { signature } = signSchema.parse(req.body);
+      const { signature, signAsUserId } = signSchema.parse(req.body);
 
-      const userId = req.user?.id;
-      const locked = await lockDischargeBrief(req.params.id, userId, signature);
+      const loggedInUserId = req.user?.id;
+      const signerId = signAsUserId || loggedInUserId;
+      const locked = await lockDischargeBrief(req.params.id, signerId, signature);
 
       await createAuditLog({
         recordType: "discharge_brief",
         recordId: brief.id,
         action: "lock",
-        userId,
-        oldValue: null,
-        newValue: { signedAt: locked.signedAt },
+        userId: loggedInUserId,
+        oldValue: signAsUserId ? { signedAsUserId: signAsUserId } : null,
+        newValue: { signedAt: locked.signedAt, signedBy: signerId },
       });
 
       const fullBrief = await getDischargeBriefById(req.params.id);

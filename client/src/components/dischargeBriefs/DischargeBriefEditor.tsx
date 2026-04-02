@@ -28,6 +28,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import {
   Bold,
   Italic,
@@ -38,6 +48,7 @@ import {
   Save,
   PenLine,
   FileDown,
+  UserCheck,
   ClipboardList,
   LockOpen,
   Loader2,
@@ -83,9 +94,14 @@ export function DischargeBriefEditor({
   const { toast } = useToast();
 
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [signAsDialogOpen, setSignAsDialogOpen] = useState(false);
+  const [signAsUserId, setSignAsUserId] = useState("");
+  const [signAsPassword, setSignAsPassword] = useState("");
+  const [signAsVerified, setSignAsVerified] = useState(false);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlockReason, setUnlockReason] = useState("");
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
+  const activeHospital = useActiveHospital();
 
   // Lazy-load the audit dialog only when needed
   const [AuditDialog, setAuditDialog] = useState<React.ComponentType<{
@@ -175,10 +191,8 @@ export function DischargeBriefEditor({
 
   // Sign mutation
   const signMutation = useMutation({
-    mutationFn: async (signature: string) => {
-      await apiRequest("POST", `/api/discharge-briefs/${briefId}/sign`, {
-        signature,
-      });
+    mutationFn: async (payload: { signature: string; signAsUserId?: string }) => {
+      await apiRequest("POST", `/api/discharge-briefs/${briefId}/sign`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -248,13 +262,55 @@ export function DischargeBriefEditor({
     },
   });
 
+  // Fetch hospital users for "Sign as..." dialog
+  const { data: hospitalUsers = [] } = useQuery<
+    { id: string; firstName: string; lastName: string; email: string }[]
+  >({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users`],
+    enabled: signAsDialogOpen && !!activeHospital?.id,
+  });
+
+  // Verify credentials for "Sign as..." flow
+  const verifyMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/auth/verify-for-signing", {
+        userId,
+        password,
+      });
+      return (await res.json()) as {
+        valid: boolean;
+        user: { id: string; firstName: string; lastName: string; briefSignature: string | null };
+      };
+    },
+    onSuccess: () => {
+      setSignAsVerified(true);
+      setSignAsDialogOpen(false);
+      setSignatureDialogOpen(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("dischargeBrief.verifyFailed", "Verification failed"),
+        description: t("dischargeBrief.invalidPassword", "Invalid password"),
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handle signature from the SignaturePad
   const handleSignature = useCallback(
     (base64: string) => {
       setSignatureDialogOpen(false);
-      signMutation.mutate(base64);
+      const payload: { signature: string; signAsUserId?: string } = { signature: base64 };
+      if (signAsVerified && signAsUserId) {
+        payload.signAsUserId = signAsUserId;
+      }
+      signMutation.mutate(payload as any);
+      // Reset sign-as state
+      setSignAsVerified(false);
+      setSignAsUserId("");
+      setSignAsPassword("");
     },
-    [signMutation],
+    [signMutation, signAsVerified, signAsUserId],
   );
 
   const handleUnlockConfirm = useCallback(() => {
@@ -553,6 +609,23 @@ export function DischargeBriefEditor({
           </Button>
         )}
 
+        {!isLocked && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSignAsUserId("");
+              setSignAsPassword("");
+              setSignAsVerified(false);
+              setSignAsDialogOpen(true);
+            }}
+            disabled={signMutation.isPending}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
+            {t("dischargeBrief.signAs", "Sign as...")}
+          </Button>
+        )}
+
         <Button
           variant="outline"
           size="sm"
@@ -612,6 +685,71 @@ export function DischargeBriefEditor({
         onSave={handleSignature}
         title={t("dischargeBrief.signBrief", "Sign Discharge Brief")}
       />
+
+      {/* Sign as... dialog */}
+      <Dialog open={signAsDialogOpen} onOpenChange={(open) => {
+        setSignAsDialogOpen(open);
+        if (!open) {
+          setSignAsUserId("");
+          setSignAsPassword("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t("dischargeBrief.signAsTitle", "Sign as another user")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{t("dischargeBrief.selectUser", "User")}</Label>
+              <Select value={signAsUserId} onValueChange={setSignAsUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("dischargeBrief.selectUserPlaceholder", "Select user...")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {hospitalUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("dischargeBrief.password", "Password")}</Label>
+              <Input
+                type="password"
+                value={signAsPassword}
+                onChange={(e) => setSignAsPassword(e.target.value)}
+                placeholder={t("dischargeBrief.enterPassword", "Enter password...")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && signAsUserId && signAsPassword) {
+                    verifyMutation.mutate({ userId: signAsUserId, password: signAsPassword });
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSignAsDialogOpen(false)}
+            >
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button
+              onClick={() => verifyMutation.mutate({ userId: signAsUserId, password: signAsPassword })}
+              disabled={!signAsUserId || !signAsPassword || verifyMutation.isPending}
+            >
+              {verifyMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {t("dischargeBrief.verifyAndSign", "Verify & Sign")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Unlock reason dialog */}
       <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>

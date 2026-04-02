@@ -151,6 +151,40 @@ router.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Verify another user's credentials for "Sign as..." flow
+router.post('/api/auth/verify-for-signing', isAuthenticated, async (req: any, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+      return res.status(400).json({ message: "userId and password are required" });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const bcrypt = await import('bcrypt');
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    res.json({
+      valid: true,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        briefSignature: user.briefSignature,
+      },
+    });
+  } catch (error: any) {
+    logger.error("Error verifying credentials for signing:", error);
+    res.status(500).json({ message: error.message || "Verification failed" });
+  }
+});
+
 router.post('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
