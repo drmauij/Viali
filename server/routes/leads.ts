@@ -614,7 +614,7 @@ router.get(
           note: leadContacts.note,
           createdAt: leadContacts.createdAt,
           createdBy: leadContacts.createdBy,
-          userName: sql<string>`(SELECT first_name || ' ' || surname FROM users WHERE id = ${leadContacts.createdBy})`.as("user_name"),
+          userName: sql<string>`(SELECT first_name || ' ' || last_name FROM users WHERE id = ${leadContacts.createdBy})`.as("user_name"),
         })
         .from(leadContacts)
         .where(eq(leadContacts.leadId, leadId))
