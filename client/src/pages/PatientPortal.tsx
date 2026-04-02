@@ -737,6 +737,16 @@ const translations = {
 
 type Lang = 'de' | 'en' | 'it' | 'es' | 'fr';
 
+const PORTAL_BRIEF_TYPE_LABELS: Record<string, Record<string, string>> = {
+  surgery_discharge: { de: "Austrittsbericht Chirurgie", en: "Surgery Discharge Brief", fr: "Rapport de sortie chirurgie", it: "Rapporto di dimissione chirurgia" },
+  anesthesia_discharge: { de: "Austrittsbericht Anästhesie", en: "Anesthesia Discharge Brief", fr: "Rapport de sortie anesthésie", it: "Rapporto di dimissione anestesia" },
+  anesthesia_overnight_discharge: { de: "Austrittsbericht Anästhesie + Übernachtung", en: "Anesthesia + Overnight Brief", fr: "Rapport anesthésie + nuitée", it: "Rapporto anestesia + pernottamento" },
+  prescription: { de: "Rezept", en: "Prescription", fr: "Ordonnance", it: "Ricetta" },
+  surgery_report: { de: "Operationsbericht", en: "Surgery Report", fr: "Rapport opératoire", it: "Rapporto operatorio" },
+  surgery_estimate: { de: "Kostenvoranschlag", en: "Surgery Estimate", fr: "Devis chirurgical", it: "Preventivo chirurgico" },
+  generic: { de: "Dokument", en: "Document", fr: "Document", it: "Documento" },
+};
+
 export default function PatientPortal() {
   const { token } = useParams<{ token: string }>();
 
@@ -899,6 +909,32 @@ function PatientPortalContent({ token }: { token: string }) {
     },
     enabled: !!token && !!data && data.questionnaireStatus === 'completed',
   });
+
+  const { data: sharedBriefs = [] } = useQuery<
+    { id: string; briefType: string; language: string; signedAt: string; signerName: string | null }[]
+  >({
+    queryKey: [`/api/patient-portal/${token}/shared-briefs`],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/shared-briefs`);
+      if (res.status === 403) { onSessionExpired(); throw new Error('Session expired'); }
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!token && !!data,
+  });
+
+  const handleDownloadBrief = async (briefId: string) => {
+    try {
+      const res = await fetch(`/api/patient-portal/${token}/shared-briefs/${briefId}/download`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch (error) {
+      console.error("Failed to download document:", error);
+    }
+  };
 
   const handleDocumentUpload = async (file: File) => {
     if (!token) return;
@@ -2275,6 +2311,53 @@ function PatientPortalContent({ token }: { token: string }) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Documents Section */}
+        {sharedBriefs.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              {lang === "de" ? "Ihre Dokumente" :
+               lang === "fr" ? "Vos documents" :
+               lang === "it" ? "I vostri documenti" :
+               "Your Documents"}
+            </h3>
+            <div className="space-y-3">
+              {sharedBriefs.map((brief) => (
+                <div
+                  key={brief.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">
+                      {PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.[lang] ||
+                       PORTAL_BRIEF_TYPE_LABELS[brief.briefType]?.de ||
+                       brief.briefType}
+                    </p>
+                    {brief.signerName && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {brief.signerName} — {new Date(brief.signedAt).toLocaleDateString(
+                          lang === "de" ? "de-CH" :
+                          lang === "fr" ? "fr-CH" :
+                          lang === "it" ? "it-CH" : "en-GB"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDownloadBrief(brief.id)}
+                    className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    {lang === "de" ? "Herunterladen" :
+                     lang === "fr" ? "Télécharger" :
+                     lang === "it" ? "Scaricare" :
+                     "Download"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Contact Card */}
         {data.hospital.phone && (
