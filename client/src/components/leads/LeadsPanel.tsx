@@ -33,6 +33,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Phone,
   Mail,
   Clock,
@@ -45,6 +55,7 @@ import {
   Globe,
   RefreshCw,
   CalendarPlus,
+  Copy,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -195,6 +206,7 @@ function ContactLogDialog({
 
   const [outcome, setOutcome] = useState<string>("");
   const [note, setNote] = useState("");
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
   const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
@@ -283,28 +295,35 @@ function ContactLogDialog({
         </DialogHeader>
 
         {/* Lead info */}
-        <div className="space-y-1 text-sm text-muted-foreground">
+        <div className="space-y-1.5 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <SourceIcon source={lead.source} />
-            <span>{lead.operation}</span>
+            <span>{sourceLabel(lead.source)}</span>
+            {lead.operation && <span>— {lead.operation}</span>}
           </div>
           {lead.phone && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5" />
-              <span>{lead.phone}</span>
-            </div>
+            <a href={`tel:${lead.phone}`} className="block text-sm hover:underline">{lead.phone}</a>
           )}
           {lead.email && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5" />
-              <span>{lead.email}</span>
-            </div>
+            <a href={`mailto:${lead.email}`} className="block text-sm hover:underline">{lead.email}</a>
           )}
-          <div className="text-xs text-muted-foreground/70">
-            Lead ID: {lead.metaLeadId}
+          {lead.message && (
+            <p className="text-xs italic border-t pt-1.5 mt-1.5">{lead.message}</p>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+            <span>ID: {lead.id.slice(0, 8)}</span>
+            <button
+              className="hover:text-foreground"
+              onClick={() => {
+                navigator.clipboard.writeText(lead.id);
+                toast({ title: t("common.copied", "Copied") });
+              }}
+            >
+              <Copy className="h-3 w-3" />
+            </button>
           </div>
           {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
-            <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-2">
+            <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-1">
               {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
               {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
               {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
@@ -395,7 +414,7 @@ function ContactLogDialog({
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => closeMutation.mutate()}
+              onClick={() => setConfirmClose(true)}
               disabled={closeMutation.isPending || lead.status === "converted"}
             >
               <X className="h-4 w-4 mr-1" />
@@ -404,98 +423,31 @@ function ContactLogDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Close confirmation */}
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("leads.confirmCloseTitle", "Close this lead?")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("leads.confirmCloseDescription", "{{name}} will be moved to closed leads. You can reopen it later if needed.", { name: `${lead.firstName} ${lead.lastName}` })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                closeMutation.mutate();
+                setConfirmClose(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("leads.closeLead", "Close lead")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// LeadDetailInline — shown below selected lead card
-// ═══════════════════════════════════════════════════════════════════════════
-
-function LeadDetailInline({ lead, hospitalId, onSchedule }: { lead: LeadWithSummary; hospitalId: string; onSchedule?: () => void }) {
-  const { t, i18n } = useTranslation();
-  const dateLocale = i18n.language === "de" ? de : enUS;
-
-  const { data: detail } = useQuery<LeadDetail>({
-    queryKey: [`/api/business/${hospitalId}/leads/${lead.id}`],
-    enabled: !!hospitalId,
-  });
-
-  return (
-    <div className="px-3 py-2 space-y-3 border rounded-md bg-muted/30 text-sm">
-      {/* Schedule button */}
-      {onSchedule && lead.status !== "converted" && lead.status !== "closed" && (
-        <Button
-          variant="default"
-          size="sm"
-          className="w-full"
-          onClick={onSchedule}
-        >
-          <CalendarPlus className="h-4 w-4 mr-2" />
-          {t("leads.scheduleAppointment", "Schedule appointment")}
-        </Button>
-      )}
-
-      {/* Contact info */}
-      <div className="space-y-1">
-        {lead.phone && (
-          <div className="flex items-center gap-2 text-xs">
-            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-            <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
-          </div>
-        )}
-        {lead.email && (
-          <div className="flex items-center gap-2 text-xs">
-            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-            <a href={`mailto:${lead.email}`} className="hover:underline">{lead.email}</a>
-          </div>
-        )}
-      </div>
-
-      {/* Message */}
-      {lead.message && (
-        <div className="text-xs text-muted-foreground border-t pt-2">
-          <p className="italic">{lead.message}</p>
-        </div>
-      )}
-
-      {/* UTM info */}
-      {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
-        <div className="space-y-0.5 text-xs text-muted-foreground border-t pt-2">
-          {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
-          {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
-          {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
-          {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
-          {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}…</p>}
-        </div>
-      )}
-
-      {/* Contact history */}
-      {detail?.contacts && detail.contacts.length > 0 && (
-        <div className="space-y-1.5 border-t pt-2">
-          <p className="text-xs font-medium text-muted-foreground">{t("leads.history", "History")}</p>
-          {detail.contacts.map((c) => (
-            <div key={c.id} className="text-xs border rounded p-1.5 space-y-0.5">
-              <div className="flex justify-between">
-                <span className="font-medium">
-                  {getOutcomeLabels(t)[c.outcome] ?? c.outcome}
-                </span>
-                <span className="text-muted-foreground">
-                  {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: dateLocale })}
-                </span>
-              </div>
-              {c.note && <p className="text-muted-foreground">{c.note}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {detail?.contacts && detail.contacts.length === 0 && (
-        <div className="border-t pt-2">
-          <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -522,7 +474,6 @@ export function LeadsPanel({
   const [filter, setFilter] = useState<string>(initialLeadId ? "all" : "active");
   const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
   const [initialLeadHandled, setInitialLeadHandled] = useState(false);
-  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(initialLeadId);
 
   const { data: allLeads, isLoading } = useQuery<LeadWithSummary[]>({
     queryKey: [`/api/business/${hospitalId}/leads?limit=50`],
@@ -530,13 +481,12 @@ export function LeadsPanel({
     refetchInterval: 30_000,
   });
 
-  // Auto-expand lead from deep link
+  // Auto-open lead detail from deep link
   useEffect(() => {
     if (initialLeadId && allLeads && !initialLeadHandled) {
       const lead = allLeads.find((l) => l.id === initialLeadId);
       if (lead) {
-        setExpandedLeadId(lead.id);
-        // Scroll into view after render
+        setContactLead(lead);
         setTimeout(() => {
           document.getElementById(`lead-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
         }, 100);
@@ -600,7 +550,6 @@ export function LeadsPanel({
             </p>
           )}
           {leads.map((lead) => {
-            const isExpanded = lead.id === expandedLeadId;
             const isScheduling = lead.id === selectedLeadId;
             const isNew = lead.status === "new";
             const draggable = isDraggable(lead);
@@ -617,17 +566,15 @@ export function LeadsPanel({
                   e.dataTransfer.effectAllowed = "move";
                 }}
                 onDragEnd={() => setDraggedLead(null)}
-                onClick={() => setExpandedLeadId(prev => prev === lead.id ? null : lead.id)}
+                onClick={() => setContactLead(lead)}
                 className={`p-2 sm:p-3 cursor-pointer transition-colors ${
                   isScheduling
                     ? "ring-2 ring-blue-500"
                     : ""
                 } ${
-                  isExpanded
-                    ? "bg-muted/50"
-                    : isNew
-                      ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
-                      : ""
+                  isNew
+                    ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
+                    : ""
                 } ${draggable ? "hover:shadow-md" : ""}`}
               >
                 <div className="flex items-start gap-2">
@@ -645,9 +592,17 @@ export function LeadsPanel({
                       </span>
                     </div>
 
+                    {/* Phone / email directly */}
+                    {lead.phone && (
+                      <p className="text-xs text-muted-foreground truncate">{lead.phone}</p>
+                    )}
+                    {lead.email && (
+                      <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
+                    )}
+
                     {/* Operation/message */}
                     {(lead.operation || lead.message) && (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate italic">
                         {lead.operation || (lead.message && lead.message.length > 60 ? lead.message.slice(0, 60) + "..." : lead.message)}
                       </p>
                     )}
@@ -655,7 +610,7 @@ export function LeadsPanel({
                     {/* Source + time */}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <SourceIcon source={lead.source} />
-                      <span className="text-[10px] text-muted-foreground">{sourceLabel(lead.source)}</span>
+                      <span className="text-[10px]">{sourceLabel(lead.source)}</span>
                       <span className="ml-auto flex items-center gap-1 flex-shrink-0">
                         <Clock className="h-3 w-3" />
                         {formatDistanceToNow(new Date(lead.createdAt), {
@@ -674,44 +629,21 @@ export function LeadsPanel({
                   </div>
                 </div>
 
-                {/* Quick actions */}
-                <div className="flex items-center gap-1 mt-2 pt-1.5 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setContactLead(lead);
-                    }}
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 sm:mr-1" />
-                    <span className="hidden sm:inline">{t("leads.contact", "Contact")}</span>
-                  </Button>
-                  {lead.phone && (
+                {/* Actions */}
+                {lead.status !== "converted" && lead.status !== "closed" && (
+                  <div className="mt-2 pt-1.5 border-t">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="h-7 text-xs"
+                      className="h-7 text-xs w-full"
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.open(`tel:${lead.phone}`);
+                        onLeadTap?.(lead);
                       }}
                     >
-                      <Phone className="h-3.5 w-3.5 sm:mr-1" />
-                      <span className="hidden sm:inline">{t("leads.call", "Call")}</span>
+                      <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                      {t("leads.scheduleAppointment", "Schedule appointment")}
                     </Button>
-                  )}
-                </div>
-
-                {/* Inline detail when expanded */}
-                {isExpanded && hospitalId && (
-                  <div className="mt-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
-                    <LeadDetailInline
-                      lead={lead}
-                      hospitalId={hospitalId}
-                      onSchedule={() => onLeadTap?.(lead)}
-                    />
                   </div>
                 )}
               </Card>
