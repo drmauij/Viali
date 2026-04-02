@@ -29,7 +29,7 @@ import portalOtpRouter from "./portalOtp";
 import surgeonPortalRouter from "./surgeonPortal";
 import { patientChatRouter } from "./patientChat";
 import searchRouter from "./search";
-import metaLeadsRouter from "./metaLeads";
+import leadsRouter from "./leads";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -62,5 +62,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(surgeonPortalRouter);
   app.use(patientChatRouter);
   app.use(searchRouter);
-  app.use(metaLeadsRouter);
+  app.use(leadsRouter);
 }

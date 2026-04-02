@@ -1,7 +1,7 @@
-import type { MetaLead } from "@shared/schema";
+import type { Lead } from "@shared/schema";
 
-export let draggedMetaLead: MetaLead | null = null;
+export let draggedLead: Lead | null = null;
 
-export function setDraggedMetaLead(lead: MetaLead | null) {
-  draggedMetaLead = lead;
+export function setDraggedLead(lead: Lead | null) {
+  draggedLead = lead;
 }
