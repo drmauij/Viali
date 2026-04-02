@@ -651,11 +651,15 @@ export function LeadsPanel({
                     </div>
 
                     {/* Contact summary */}
-                    {summary && (
+                    {summary ? (
                       <p className="text-xs text-muted-foreground/80 truncate">
                         {summary}
                       </p>
-                    )}
+                    ) : Number(lead.contactCount) > 0 ? (
+                      <p className="text-xs text-muted-foreground/80 truncate">
+                        {Number(lead.contactCount)}x {t("leads.contacted", "contacted")}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
