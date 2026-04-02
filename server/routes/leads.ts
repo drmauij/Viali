@@ -692,15 +692,15 @@ router.patch(
       const { hospitalId, leadId } = req.params;
       const { status, closedReason } = req.body;
 
-      if (status !== "closed") {
-        return res.status(400).json({ error: "Only 'closed' status can be set manually" });
+      if (status !== "closed" && status !== "in_progress") {
+        return res.status(400).json({ error: "Status must be 'closed' or 'in_progress'" });
       }
 
       const [updated] = await db
         .update(leads)
         .set({
-          status: "closed",
-          closedReason: closedReason || null,
+          status,
+          closedReason: status === "closed" ? (closedReason || null) : null,
           updatedAt: new Date(),
         })
         .where(and(eq(leads.id, leadId), eq(leads.hospitalId, hospitalId)))

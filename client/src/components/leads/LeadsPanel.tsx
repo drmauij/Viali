@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS } from "date-fns/locale";
 import type { Lead, LeadContact } from "@shared/schema";
 import { setDraggedLead } from "./useLeadDrag";
 
@@ -42,6 +43,7 @@ import {
   User,
   CheckCircle2,
   Globe,
+  RefreshCw,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -85,13 +87,15 @@ function FacebookIcon({ className }: { className?: string }) {
 
 // ── Outcome labels ───────────────────────────────────────────────────────
 
-const OUTCOME_LABELS: Record<string, string> = {
-  reached: "Erreicht",
-  no_answer: "Nicht erreicht",
-  wants_callback: "Wünscht Rückruf",
-  will_call_back: "Ruft zurück",
-  needs_time: "Braucht Zeit",
-};
+function getOutcomeLabels(t: (key: string, fallback: string) => string): Record<string, string> {
+  return {
+    reached: t("leads.outcome.reached", "Reached"),
+    no_answer: t("leads.outcome.noAnswer", "No answer"),
+    wants_callback: t("leads.outcome.wantsCallback", "Wants callback"),
+    will_call_back: t("leads.outcome.willCallBack", "Will call back"),
+    needs_time: t("leads.outcome.needsTime", "Needs time"),
+  };
+}
 
 // ── Status dot colors ────────────────────────────────────────────────────
 
@@ -133,11 +137,12 @@ function sourceLabel(source: string): string {
 
 // ── Contact summary text ─────────────────────────────────────────────────
 
-function contactSummary(lead: LeadWithSummary): string | null {
+function contactSummary(lead: LeadWithSummary, t: (key: string, fallback: string, opts?: Record<string, unknown>) => string): string | null {
   if (lead.contactCount === 0) return null;
-  const prefix = `${lead.contactCount}x kontaktiert`;
+  const prefix = t("leads.contactedCount", "{{count}}x contacted", { count: lead.contactCount });
   if (lead.lastContactOutcome) {
-    const label = OUTCOME_LABELS[lead.lastContactOutcome];
+    const outcomeLabels = getOutcomeLabels(t);
+    const label = outcomeLabels[lead.lastContactOutcome];
     if (label) return `${prefix} — ${label.toLowerCase()}`;
   }
   return prefix;
@@ -179,15 +184,19 @@ function ContactLogDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t, i18n } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const dateLocale = i18n.language === "de" ? de : enUS;
+  const outcomeLabels = getOutcomeLabels(t);
 
   const [outcome, setOutcome] = useState<string>("");
   const [note, setNote] = useState("");
 
   const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
+  const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
 
   const { data: detail } = useQuery<LeadDetail>({
     queryKey: [detailUrl],
@@ -203,17 +212,16 @@ function ContactLogDialog({
       );
     },
     onSuccess: () => {
-      toast({ title: "Kontakt protokolliert" });
+      toast({ title: t("leads.contactLogged", "Contact logged") });
       setOutcome("");
       setNote("");
       queryClient.invalidateQueries({ queryKey: [detailUrl] });
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads`],
-        exact: false,
+        queryKey: [leadsQueryKey],
       });
     },
     onError: () => {
-      toast({ title: "Fehler beim Protokollieren", variant: "destructive" });
+      toast({ title: t("leads.errorLogging", "Error logging contact"), variant: "destructive" });
     },
   });
 
@@ -226,18 +234,40 @@ function ContactLogDialog({
       );
     },
     onSuccess: () => {
-      toast({ title: "Lead geschlossen" });
+      toast({ title: t("leads.leadClosed", "Lead closed") });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads`],
-        exact: false,
+        queryKey: [leadsQueryKey],
       });
       queryClient.invalidateQueries({
         queryKey: [`/api/business/${hospitalId}/leads-count`],
       });
     },
     onError: () => {
-      toast({ title: "Fehler beim Schliessen", variant: "destructive" });
+      toast({ title: t("leads.errorClosing", "Error closing lead"), variant: "destructive" });
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest(
+        "PATCH",
+        `/api/business/${hospitalId}/leads/${lead.id}`,
+        { status: "in_progress" },
+      );
+    },
+    onSuccess: () => {
+      toast({ title: t("leads.leadReopened", "Lead reopened") });
+      onOpenChange(false);
+      queryClient.invalidateQueries({
+        queryKey: [leadsQueryKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/business/${hospitalId}/leads-count`],
+      });
+    },
+    onError: () => {
+      toast({ title: t("leads.errorReopening", "Error reopening lead"), variant: "destructive" });
     },
   });
 
@@ -245,9 +275,9 @@ function ContactLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Kontakt — {lead.firstName} {lead.lastName}</DialogTitle>
+          <DialogTitle>{t("leads.contactTitle", "Contact — {{name}}", { name: `${lead.firstName} ${lead.lastName}` })}</DialogTitle>
           <DialogDescription>
-            Kontakt protokollieren und Verlauf einsehen
+            {t("leads.contactDescription", "Log contact and view history")}
           </DialogDescription>
         </DialogHeader>
 
@@ -274,10 +304,10 @@ function ContactLogDialog({
           </div>
           {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
             <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-2">
-              {lead.utmSource && <p>Quelle: {lead.utmSource}</p>}
-              {lead.utmMedium && <p>Medium: {lead.utmMedium}</p>}
-              {lead.utmCampaign && <p>Kampagne: {lead.utmCampaign}</p>}
-              {lead.utmTerm && <p>Suchbegriff: {lead.utmTerm}</p>}
+              {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
+              {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
+              {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
+              {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
               {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
             </div>
           )}
@@ -286,13 +316,13 @@ function ContactLogDialog({
         {/* Log contact form */}
         <div className="space-y-3 pt-2">
           <div>
-            <Label>Ergebnis</Label>
+            <Label>{t("leads.outcome", "Outcome")}</Label>
             <Select value={outcome} onValueChange={setOutcome}>
               <SelectTrigger>
-                <SelectValue placeholder="Ergebnis wählen..." />
+                <SelectValue placeholder={t("leads.selectOutcome", "Select outcome...")} />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(OUTCOME_LABELS).map(([value, label]) => (
+                {Object.entries(outcomeLabels).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
                   </SelectItem>
@@ -301,11 +331,11 @@ function ContactLogDialog({
             </Select>
           </div>
           <div>
-            <Label>Notiz</Label>
+            <Label>{t("leads.note", "Note")}</Label>
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Optionale Notiz..."
+              placeholder={t("leads.optionalNote", "Optional note...")}
               rows={2}
             />
           </div>
@@ -315,14 +345,14 @@ function ContactLogDialog({
             className="w-full"
           >
             <MessageSquare className="h-4 w-4 mr-2" />
-            Kontakt protokollieren
+            {t("leads.logContact", "Log contact")}
           </Button>
         </div>
 
         {/* Contact history */}
         {detail?.contacts && detail.contacts.length > 0 && (
           <div className="space-y-2 pt-2">
-            <Label className="text-xs text-muted-foreground">Verlauf</Label>
+            <Label className="text-xs text-muted-foreground">{t("leads.history", "History")}</Label>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {detail.contacts.map((c) => (
                 <div
@@ -331,12 +361,12 @@ function ContactLogDialog({
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">
-                      {OUTCOME_LABELS[c.outcome] ?? c.outcome}
+                      {outcomeLabels[c.outcome] ?? c.outcome}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(c.createdAt), {
                         addSuffix: true,
-                        locale: de,
+                        locale: dateLocale,
                       })}
                     </span>
                   </div>
@@ -349,16 +379,28 @@ function ContactLogDialog({
           </div>
         )}
 
-        <DialogFooter className="pt-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => closeMutation.mutate()}
-            disabled={closeMutation.isPending || lead.status === "closed" || lead.status === "converted"}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Lead schliessen
-          </Button>
+        <DialogFooter className="pt-2 flex-row gap-2 sm:justify-between">
+          {lead.status === "closed" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reopenMutation.mutate()}
+              disabled={reopenMutation.isPending}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              {t("leads.reopenLead", "Reopen lead")}
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => closeMutation.mutate()}
+              disabled={closeMutation.isPending || lead.status === "converted"}
+            >
+              <X className="h-4 w-4 mr-1" />
+              {t("leads.closeLead", "Close lead")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -380,8 +422,10 @@ export function LeadsPanel({
   initialLeadId?: string | null;
   onLeadTap?: (lead: Lead | null) => void;
 }) {
+  const { t, i18n } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
+  const dateLocale = i18n.language === "de" ? de : enUS;
 
   const [filter, setFilter] = useState<string>(initialLeadId ? "all" : "active");
   const [contactLead, setContactLead] = useState<LeadWithSummary | null>(null);
@@ -421,8 +465,8 @@ export function LeadsPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-3 border-b space-y-2">
-        <h3 className="font-semibold text-sm">Leads</h3>
+      <div className="p-2 sm:p-3 border-b space-y-2">
+        <h3 className="font-semibold text-sm">{t("leads.title", "Leads")}</h3>
         <ToggleGroup
           type="single"
           value={filter}
@@ -431,13 +475,13 @@ export function LeadsPanel({
           size="sm"
         >
           <ToggleGroupItem value="active" className="text-xs px-2.5">
-            Aktiv
+            {t("leads.filterActive", "Active")}
           </ToggleGroupItem>
           <ToggleGroupItem value="new" className="text-xs px-2.5">
-            Neu
+            {t("leads.filterNew", "New")}
           </ToggleGroupItem>
           <ToggleGroupItem value="all" className="text-xs px-2.5">
-            Alle
+            {t("leads.filterAll", "All")}
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
@@ -445,7 +489,7 @@ export function LeadsPanel({
       {/* Selected lead hint */}
       {selectedLeadId && (
         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border-b text-xs text-blue-700 dark:text-blue-300">
-          Tippe auf einen Kalender-Slot, um diesen Lead zu planen
+          {t("leads.selectSlotHint", "Tap a calendar slot to schedule this lead")}
         </div>
       )}
 
@@ -454,19 +498,19 @@ export function LeadsPanel({
         <div className="p-2 space-y-2">
           {isLoading && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Laden...
+              {t("common.loading", "Loading...")}
             </p>
           )}
           {!isLoading && leads.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Keine Leads
+              {t("leads.noLeads", "No leads")}
             </p>
           )}
           {leads.map((lead) => {
             const isSelected = lead.id === selectedLeadId;
             const isNew = lead.status === "new";
             const draggable = isDraggable(lead);
-            const summary = contactSummary(lead);
+            const summary = contactSummary(lead, t);
 
             return (
               <Card
@@ -480,7 +524,7 @@ export function LeadsPanel({
                 }}
                 onDragEnd={() => setDraggedLead(null)}
                 onClick={() => onLeadTap?.(isSelected ? null : lead)}
-                className={`p-3 cursor-pointer transition-colors ${
+                className={`p-2 sm:p-3 cursor-pointer transition-colors ${
                   isSelected
                     ? "ring-2 ring-blue-500 bg-blue-50/80 dark:bg-blue-950/50"
                     : isNew
@@ -518,7 +562,7 @@ export function LeadsPanel({
                         <Clock className="h-3 w-3" />
                         {formatDistanceToNow(new Date(lead.createdAt), {
                           addSuffix: false,
-                          locale: de,
+                          locale: dateLocale,
                         })}
                       </span>
                     </div>
@@ -543,8 +587,8 @@ export function LeadsPanel({
                       setContactLead(lead);
                     }}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                    Kontakt
+                    <MessageSquare className="h-3.5 w-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">{t("leads.contact", "Contact")}</span>
                   </Button>
                   {lead.phone && (
                     <Button
@@ -556,8 +600,8 @@ export function LeadsPanel({
                         window.open(`tel:${lead.phone}`);
                       }}
                     >
-                      <Phone className="h-3.5 w-3.5 mr-1" />
-                      Anrufen
+                      <Phone className="h-3.5 w-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">{t("leads.call", "Call")}</span>
                     </Button>
                   )}
                 </div>
@@ -600,6 +644,7 @@ export function ScheduleLeadDialog({
   unitId?: string;
   providerId?: string;
 }) {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const queryClient = useQueryClient();
@@ -613,6 +658,8 @@ export function ScheduleLeadDialog({
   const [candidates, setCandidates] = useState<FuzzyMatchCandidate[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchDone, setMatchDone] = useState(false);
+
+  const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
 
   // Reset state when dialog opens with a new lead
   useEffect(() => {
@@ -675,11 +722,10 @@ export function ScheduleLeadDialog({
       );
     },
     onSuccess: () => {
-      toast({ title: "Lead konvertiert und Termin erstellt" });
+      toast({ title: t("leads.leadConverted", "Lead converted and appointment created") });
       onOpenChange(false);
       queryClient.invalidateQueries({
-        queryKey: [`/api/business/${hospitalId}/leads`],
-        exact: false,
+        queryKey: [leadsQueryKey],
       });
       queryClient.invalidateQueries({
         queryKey: [`/api/business/${hospitalId}/leads-count`],
@@ -688,7 +734,7 @@ export function ScheduleLeadDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-appointments"], exact: false });
     },
     onError: () => {
-      toast({ title: "Fehler bei der Konvertierung", variant: "destructive" });
+      toast({ title: t("leads.errorConverting", "Error converting lead"), variant: "destructive" });
     },
   });
 
@@ -698,22 +744,22 @@ export function ScheduleLeadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Lead einplanen</DialogTitle>
+          <DialogTitle>{t("leads.scheduleLead", "Schedule lead")}</DialogTitle>
           <DialogDescription>
-            Termin erstellen und Lead konvertieren
+            {t("leads.scheduleDescription", "Create appointment and convert lead")}
           </DialogDescription>
         </DialogHeader>
 
         {/* Lead info */}
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
-            <Label className="text-xs text-muted-foreground">Name</Label>
+            <Label className="text-xs text-muted-foreground">{t("common.name", "Name")}</Label>
             <p className="font-medium">
               {lead.firstName} {lead.lastName}
             </p>
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Operation</Label>
+            <Label className="text-xs text-muted-foreground">{t("leads.operation", "Operation")}</Label>
             <p>{lead.operation}</p>
           </div>
           {lead.phone && (
@@ -733,15 +779,15 @@ export function ScheduleLeadDialog({
         {/* Appointment details */}
         <div className="grid grid-cols-3 gap-3 pt-2">
           <div>
-            <Label className="text-xs">Datum</Label>
+            <Label className="text-xs">{t("common.date", "Date")}</Label>
             <Input value={dropData.date} disabled className="text-sm" />
           </div>
           <div>
-            <Label className="text-xs">Zeit</Label>
+            <Label className="text-xs">{t("common.time", "Time")}</Label>
             <Input value={dropData.time} disabled className="text-sm" />
           </div>
           <div>
-            <Label className="text-xs">Dauer</Label>
+            <Label className="text-xs">{t("common.duration", "Duration")}</Label>
             <Select value={duration} onValueChange={setDuration}>
               <SelectTrigger className="text-sm">
                 <SelectValue />
@@ -759,12 +805,12 @@ export function ScheduleLeadDialog({
         {/* Patient matching */}
         <div className="space-y-2 pt-2">
           <Label className="text-xs text-muted-foreground">
-            Patienten-Zuordnung
+            {t("leads.patientMatching", "Patient matching")}
           </Label>
 
           {matchLoading && (
             <p className="text-sm text-muted-foreground py-2">
-              Suche nach passenden Patienten...
+              {t("leads.searchingPatients", "Searching for matching patients...")}
             </p>
           )}
 
@@ -831,7 +877,7 @@ export function ScheduleLeadDialog({
                   setCreateNew(true);
                 }}
               >
-                Keiner davon — neuen Patienten anlegen
+                {t("leads.createNewPatient", "None of these — create new patient")}
               </Button>
             </div>
           )}
@@ -841,7 +887,8 @@ export function ScheduleLeadDialog({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-500" />
                 <span>
-                  Neuer Patient wird erstellt: {lead.firstName} {lead.lastName}
+                  {t("leads.newPatientWillBeCreated", "New patient will be created:")}{" "}
+                  {lead.firstName} {lead.lastName}
                 </span>
               </div>
               {candidates.length > 0 && (
@@ -851,7 +898,7 @@ export function ScheduleLeadDialog({
                   className="text-xs p-0 h-auto mt-1"
                   onClick={() => setCreateNew(false)}
                 >
-                  Bestehende Patienten nochmal anzeigen
+                  {t("leads.showExistingPatients", "Show existing patients again")}
                 </Button>
               )}
             </div>
@@ -860,7 +907,7 @@ export function ScheduleLeadDialog({
 
         <DialogFooter className="pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             onClick={() => convertMutation.mutate()}
@@ -870,7 +917,7 @@ export function ScheduleLeadDialog({
               !matchDone
             }
           >
-            {convertMutation.isPending ? "Wird konvertiert..." : "Konvertieren & Einplanen"}
+            {convertMutation.isPending ? t("leads.converting", "Converting...") : t("leads.convertAndSchedule", "Convert & schedule")}
           </Button>
         </DialogFooter>
       </DialogContent>

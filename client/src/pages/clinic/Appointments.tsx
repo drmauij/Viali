@@ -45,6 +45,8 @@ import { formatDateForInput, formatTime, isBirthdayUnknown } from "@/lib/dateUti
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
 import type { Lead } from "@shared/schema";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
@@ -80,6 +82,7 @@ export default function ClinicAppointments() {
     const params = new URLSearchParams(window.location.search);
     return params.get("leadId");
   }, []);
+  const isMobile = useIsMobile();
   const [leadsPanelOpen, setLeadsPanelOpen] = useState(!!urlLeadId);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadScheduleDialogOpen, setLeadScheduleDialogOpen] = useState(false);
@@ -343,8 +346,22 @@ export default function ClinicAppointments() {
         </div>
       )}
 
+      {/* Mobile: leads panel as a Sheet */}
+      {isMobile && showLeads && (
+        <Sheet open={leadsPanelOpen} onOpenChange={setLeadsPanelOpen}>
+          <SheetContent side="right" className="w-[85vw] max-w-sm p-0">
+            <LeadsPanel
+              mode="sheet"
+              selectedLeadId={selectedLead?.id ?? null}
+              initialLeadId={urlLeadId}
+              onLeadTap={(lead) => setSelectedLead(p => p?.id === lead?.id ? null : lead)}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
       <div className="flex-1 min-h-0 overflow-hidden">
-        {leadsPanelOpen && showLeads ? (
+        {leadsPanelOpen && showLeads && !isMobile ? (
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={75} minSize={60}>
               <ClinicCalendar
