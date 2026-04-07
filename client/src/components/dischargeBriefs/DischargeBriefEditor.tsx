@@ -64,6 +64,7 @@ import { formatDateTime } from "@/lib/dateUtils";
 
 interface DischargeBriefData {
   id: string;
+  patientId: string;
   briefType: string;
   language: string;
   content: string;
@@ -198,6 +199,11 @@ export function DischargeBriefEditor({
       queryClient.invalidateQueries({
         queryKey: [`/api/discharge-briefs/${briefId}`],
       });
+      if (brief?.patientId) {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/patients/${brief.patientId}/discharge-briefs`],
+        });
+      }
       toast({ title: t("dischargeBrief.signed", "Brief signed") });
     },
     onError: (error: Error) => {

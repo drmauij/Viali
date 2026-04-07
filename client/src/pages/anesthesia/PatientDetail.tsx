@@ -221,6 +221,7 @@ export default function PatientDetail() {
     unassociatedQuestionnaires, isLoadingUnassociated, refetchUnassociated,
     staffDocuments, isLoadingStaffDocs,
     noteAttachmentDocs, isLoadingNoteAttachments,
+    dischargeBriefs, dischargeMedications,
     existingAssessment,
     chopProcedures, isLoadingChop,
   } = usePatientQueries({
@@ -2071,8 +2072,8 @@ export default function PatientDetail() {
             </TabsTrigger>
             <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.documents', 'Documents')}
-              {(staffDocuments.length + noteAttachmentDocs.length) > 0 && (
-                <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length}</Badge>
+              {(staffDocuments.length + noteAttachmentDocs.length + dischargeBriefs.length) > 0 && (
+                <Badge variant="secondary" className="ml-1">{staffDocuments.length + noteAttachmentDocs.length + dischargeBriefs.length}</Badge>
               )}
             </TabsTrigger>
             {/* Episodes tab hidden for later use
@@ -2088,6 +2089,9 @@ export default function PatientDetail() {
             </TabsTrigger>
             <TabsTrigger value="medications" data-testid="tab-medications" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.medications', 'Medications')}
+              {dischargeMedications.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{dischargeMedications.length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="appointments" data-testid="tab-appointments" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.appointments', 'Appointments')}

@@ -380,6 +380,18 @@ export function usePatientQueries({
     enabled: !!derivedPatientId && !!hospitalId,
   });
 
+  // Fetch discharge briefs (for Documents tab count)
+  const dischargeBriefsQuery = useQuery<any[]>({
+    queryKey: [`/api/patients/${derivedPatientId}/discharge-briefs`],
+    enabled: !!derivedPatientId && !!hospitalId,
+  });
+
+  // Fetch discharge medications (for Medications tab count)
+  const dischargeMedicationsQuery = useQuery<any[]>({
+    queryKey: ['/api/patients', derivedPatientId, 'discharge-medications', hospitalId],
+    enabled: !!derivedPatientId && !!hospitalId,
+  });
+
   // Fetch pre-op assessment for selected surgery
   const existingAssessmentQuery = useQuery<any>({
     queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`],
@@ -461,6 +473,12 @@ export function usePatientQueries({
     // Note attachment docs
     noteAttachmentDocs: noteAttachmentDocsQuery.data ?? [],
     isLoadingNoteAttachments: noteAttachmentDocsQuery.isLoading,
+
+    // Discharge briefs (for tab badge)
+    dischargeBriefs: dischargeBriefsQuery.data ?? [],
+
+    // Discharge medications (for tab badge)
+    dischargeMedications: dischargeMedicationsQuery.data ?? [],
 
     // Existing assessment
     existingAssessment: existingAssessmentQuery.data,

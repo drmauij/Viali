@@ -416,7 +416,7 @@ router.post(
 
       const signSchema = z.object({
         signature: z.string().min(1, "Signature is required"),
-        signAsUserId: z.string().uuid().optional(),
+        signAsUserId: z.string().min(1).optional(),
       });
       const { signature, signAsUserId } = signSchema.parse(req.body);
 
