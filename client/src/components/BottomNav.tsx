@@ -209,7 +209,7 @@ export default function BottomNav() {
       if (addons.questionnaire) {
         clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });
       }
-      clinicItems.push({ id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" });
+      clinicItems.push({ id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic/invoices" });
       return clinicItems;
     }
     
@@ -251,10 +251,9 @@ export default function BottomNav() {
     if (path === "/business") {
       return location === "/business" || location === "/business/dashboard";
     }
-    // Clinic invoices is at "/clinic" but patients is at "/clinic/patients"
-    // Need exact match for "/clinic" to avoid matching "/clinic/patients"
-    if (path === "/clinic") {
-      return location === "/clinic" || location === "/clinic/invoices" || location?.startsWith("/clinic/invoices/");
+    // Clinic appointments tab should also light up on the bare /clinic root
+    if (path === "/clinic/appointments") {
+      return location === "/clinic" || location?.startsWith("/clinic/appointments");
     }
     return location?.startsWith(path);
   };

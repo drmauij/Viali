@@ -293,7 +293,7 @@ function Router() {
               {/* Worktime Kiosk - any authenticated user */}
               <Route path="/worktime-kiosk" component={WorktimeKiosk} />
               {/* Clinic Module - ambulatory invoicing */}
-              <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
+              <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>
               <Route path="/clinic/appointments">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>
               <Route path="/clinic/invoices">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
               <Route path="/clinic/services">{() => <ProtectedRoute requireClinic><ClinicServices /></ProtectedRoute>}</Route>
