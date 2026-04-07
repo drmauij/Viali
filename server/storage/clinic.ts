@@ -326,7 +326,7 @@ export async function updateProviderAvailability(id: string, updates: Partial<Pr
   return updated;
 }
 
-export async function getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderTimeOff[]> {
+export async function getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<(ProviderTimeOff & { creator?: User })[]> {
   let conditions: any[] = [eq(providerTimeOff.providerId, providerId)];
   
   if (unitId === null && hospitalId) {
@@ -350,11 +350,17 @@ export async function getProviderTimeOff(providerId: string, unitId: string | nu
     conditions.push(or(...dateConditions));
   }
 
-  return await db
+  const rows = await db
     .select()
     .from(providerTimeOff)
+    .leftJoin(creatorUser, eq(providerTimeOff.createdBy, creatorUser.id))
     .where(and(...conditions))
     .orderBy(asc(providerTimeOff.startDate));
+
+  return rows.map(r => ({
+    ...r.provider_time_off,
+    creator: r.creator_user || undefined,
+  }));
 }
 
 export async function createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff> {
@@ -380,7 +386,7 @@ export async function deleteProviderTimeOff(id: string): Promise<void> {
     .where(eq(providerTimeOff.id, id));
 }
 
-export async function getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+export async function getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<(ProviderTimeOff & { creator?: User })[]> {
   let conditions: any[] = [eq(providerTimeOff.unitId, unitId)];
 
   // Always include recurring time-offs (expansion handles date filtering)
@@ -397,14 +403,20 @@ export async function getProviderTimeOffsForUnit(unitId: string, startDate?: str
     conditions.push(or(...dateConditions));
   }
 
-  return await db
+  const rows = await db
     .select()
     .from(providerTimeOff)
+    .leftJoin(creatorUser, eq(providerTimeOff.createdBy, creatorUser.id))
     .where(and(...conditions))
     .orderBy(asc(providerTimeOff.startDate));
+
+  return rows.map(r => ({
+    ...r.provider_time_off,
+    creator: r.creator_user || undefined,
+  }));
 }
 
-export async function getProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+export async function getProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<(ProviderTimeOff & { creator?: User })[]> {
   let conditions: any[] = [
     eq(providerTimeOff.hospitalId, hospitalId),
     isNull(providerTimeOff.unitId)
@@ -424,15 +436,21 @@ export async function getProviderTimeOffsForHospital(hospitalId: string, startDa
     conditions.push(or(...dateConditions));
   }
 
-  return await db
+  const rows = await db
     .select()
     .from(providerTimeOff)
+    .leftJoin(creatorUser, eq(providerTimeOff.createdBy, creatorUser.id))
     .where(and(...conditions))
     .orderBy(asc(providerTimeOff.startDate));
+
+  return rows.map(r => ({
+    ...r.provider_time_off,
+    creator: r.creator_user || undefined,
+  }));
 }
 
 // Fetch ALL time-off for providers belonging to a hospital (across all units)
-export async function getAllProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+export async function getAllProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<(ProviderTimeOff & { creator?: User })[]> {
   // Get all provider IDs belonging to this hospital via userHospitalRoles
   const hospitalProviders = await db
     .select({ userId: userHospitalRoles.userId })
@@ -460,11 +478,17 @@ export async function getAllProviderTimeOffsForHospital(hospitalId: string, star
     conditions.push(or(...dateConditions));
   }
 
-  return await db
+  const rows = await db
     .select()
     .from(providerTimeOff)
+    .leftJoin(creatorUser, eq(providerTimeOff.createdBy, creatorUser.id))
     .where(and(...conditions))
     .orderBy(asc(providerTimeOff.startDate));
+
+  return rows.map(r => ({
+    ...r.provider_time_off,
+    creator: r.creator_user || undefined,
+  }));
 }
 
 export async function approveProviderTimeOff(id: string, status: 'approved' | 'declined', approvedBy: string): Promise<ProviderTimeOff> {
@@ -869,6 +893,7 @@ export async function updateHospitalAspsmsTestStatus(hospitalId: string, status:
 }
 
 const colleagueUser = alias(users, 'colleague_user');
+const creatorUser = alias(users, 'creator_user');
 
 export async function getClinicAppointments(unitId: string, filters?: {
   providerId?: string;
@@ -962,7 +987,7 @@ export async function getClinicAppointmentsByHospital(hospitalId: string, filter
   }));
 }
 
-export async function getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService; colleague?: User }) | undefined> {
+export async function getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService; colleague?: User; creator?: User }) | undefined> {
   const [result] = await db
     .select()
     .from(clinicAppointments)
@@ -970,6 +995,7 @@ export async function getClinicAppointment(id: string): Promise<(ClinicAppointme
     .leftJoin(users, eq(clinicAppointments.providerId, users.id))
     .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
     .leftJoin(colleagueUser, eq(clinicAppointments.internalColleagueId, colleagueUser.id))
+    .leftJoin(creatorUser, eq(clinicAppointments.createdBy, creatorUser.id))
     .where(eq(clinicAppointments.id, id));
 
   if (!result) return undefined;
@@ -980,6 +1006,7 @@ export async function getClinicAppointment(id: string): Promise<(ClinicAppointme
     provider: result.users || undefined,
     service: result.clinic_services || undefined,
     colleague: result.colleague_user || undefined,
+    creator: result.creator_user || undefined,
   };
 }
 

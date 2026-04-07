@@ -42,6 +42,8 @@ interface TimeOffData {
   reason: string | null;
   notes: string | null;
   approvalStatus?: string;
+  createdAt?: string | Date | null;
+  creator?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null;
 }
 
 interface EditTimeOffDialogProps {
@@ -259,6 +261,16 @@ export default function EditTimeOffDialog({
                 data-testid="input-timeoff-notes"
               />
             </div>
+
+            {(timeOff?.creator || timeOff?.createdAt) && (
+              <div className="text-xs text-muted-foreground pt-2 border-t">
+                {t('appointments.createdBy', 'Created by')}{' '}
+                {timeOff.creator
+                  ? `${timeOff.creator.firstName ?? ''} ${timeOff.creator.lastName ?? ''}`.trim() || timeOff.creator.email || t('common.unknown', 'unknown')
+                  : t('common.unknown', 'unknown')}
+                {timeOff.createdAt && ` · ${format(new Date(timeOff.createdAt as any), 'PP')}`}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">

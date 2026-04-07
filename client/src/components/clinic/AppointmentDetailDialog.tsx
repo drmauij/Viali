@@ -53,6 +53,7 @@ export type AppointmentWithDetails = ClinicAppointment & {
   provider?: UserType;
   service?: ClinicService;
   colleague?: UserType;
+  creator?: UserType;
 };
 
 export const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -500,6 +501,16 @@ export default function AppointmentDetailDialog({
                   <p className="text-sm bg-muted/50 p-2 rounded">{appointment.notes}</p>
                 </div>
               ) : null}
+
+              {(appointment.creator || appointment.createdAt) && (
+                <div className="text-xs text-muted-foreground pt-2 mt-1 border-t">
+                  {t('appointments.createdBy', 'Created by')}{' '}
+                  {appointment.creator
+                    ? `${appointment.creator.firstName ?? ''} ${appointment.creator.lastName ?? ''}`.trim() || appointment.creator.email || t('common.unknown', 'unknown')
+                    : t('common.unknown', 'unknown')}
+                  {appointment.createdAt && ` · ${formatDateLong(new Date(appointment.createdAt as any))}`}
+                </div>
+              )}
             </div>
 
             {/* Referral Source Card */}

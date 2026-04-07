@@ -242,7 +242,7 @@ export default function ClinicCalendar({
   const [selectedProviderIds, setSelectedProviderIds] = useState<Set<string>>(new Set());
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
   const [editTimeOffOpen, setEditTimeOffOpen] = useState(false);
-  const [selectedTimeOff, setSelectedTimeOff] = useState<ProviderTimeOff | null>(null);
+  const [selectedTimeOff, setSelectedTimeOff] = useState<(ProviderTimeOff & { creator?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null }) | null>(null);
   const [selectedTimeOffProviderName, setSelectedTimeOffProviderName] = useState<string>("");
   const [hoverTime, setHoverTime] = useState<{ y: number; time: string } | null>(null);
   const [dayNotesDialogOpen, setDayNotesDialogOpen] = useState(false);
