@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useSearch } from "wouter";
+import { BookingSection } from '@/components/booking/BookingSection';
+import { useBookingScrollOnStep } from '@/components/booking/useBookingScrollOnStep';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +44,17 @@ type BookingData = {
 
 type Slot = { startTime: string; endTime: string };
 
-type Step = "provider" | "datetime" | "details" | "referral" | "done";
+type Step = "treatment" | "provider" | "date" | "time" | "details" | "referral" | "done";
+
+type Service = {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number | null;
+  code: string | null;
+  sortOrder: number;
+  providerIds: string[];
+};
 
 // ─── Referral Labels ─────────────────────────────────────────────────
 
@@ -183,6 +195,10 @@ export default function BookAppointment() {
   const [serviceInfo, setServiceInfo] = useState<{ id: string; name: string; description: string | null; durationMinutes: number | null } | null>(null);
   const [bestProviderLoading, setBestProviderLoading] = useState(false);
 
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedTreatment, setSelectedTreatment] = useState<Service | null>(null);
+  const [treatmentSearch, setTreatmentSearch] = useState('');
+
   // ─── Load booking data ────────────────────────────────────────
 
   useEffect(() => {
@@ -201,7 +217,7 @@ export default function BookAppointment() {
           : null;
         if (preselected) {
           setSelectedProvider(preselected);
-          setStep("datetime");
+          setStep("date");
           setAvailableDatesLoading(true);
           setSeekingAvailableMonth(true);
         }
@@ -209,6 +225,28 @@ export default function BookAppointment() {
       .catch(() => setError("network"))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/public/booking/${token}/services`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const body = await res.json();
+        const list: Service[] = body.services ?? [];
+        setServices(list);
+        if (serviceCode) {
+          const match = list.find(s => s.code === serviceCode);
+          if (match) {
+            setSelectedTreatment(match);
+            return;
+          }
+        }
+        if (list.length > 0) {
+          setStep('treatment');
+        }
+      })
+      .catch(() => { /* non-fatal */ });
+  }, [token, serviceCode]);
 
   // ─── Auto-select best provider (service-based or default) ───
   useEffect(() => {
@@ -218,7 +256,7 @@ export default function BookAppointment() {
 
     const autoSelect = (provider: Provider) => {
       setSelectedProvider(provider);
-      setStep("datetime");
+      setStep("date");
       setAvailableDatesLoading(true);
       setSeekingAvailableMonth(true);
     };
@@ -378,7 +416,7 @@ export default function BookAppointment() {
 
   const handleProviderSelect = useCallback((provider: Provider) => {
     setSelectedProvider(provider);
-    setStep("datetime");
+    setStep("date");
     setSelectedDate(undefined);
     setSlots([]);
     setSelectedSlot(null);
@@ -396,13 +434,13 @@ export default function BookAppointment() {
   const canGoBackToProviders = data && data.providers.length > 1 && !preselectedProviderId && !serviceCode;
 
   const handleBack = useCallback(() => {
-    if (step === "datetime") {
+    if (step === "date") {
       if (canGoBackToProviders) {
         setStep("provider");
         setSelectedProvider(null);
       }
     } else if (step === "details") {
-      setStep("datetime");
+      setStep("date");
       setSubmitError(null);
       setSlotTaken(false);
     } else if (step === "referral") {
@@ -500,6 +538,31 @@ export default function BookAppointment() {
     }
   }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
 
+  // ─── Section refs and status helpers ─────────────────────────
+  const sectionRefs = useRef<Partial<Record<Step, HTMLDivElement | null>>>({});
+
+  const hasTreatments = services.length > 0;
+
+  const sectionOrder: Step[] = useMemo(() => {
+    const list: Step[] = [];
+    if (hasTreatments) list.push('treatment');
+    list.push('provider', 'date', 'time', 'details');
+    if (showReferralStep) list.push('referral');
+    list.push('done');
+    return list;
+  }, [hasTreatments, showReferralStep]);
+
+  const sectionStatus = useCallback((s: Step): 'hidden' | 'active' | 'summary' => {
+    const currentIdx = sectionOrder.indexOf(step);
+    const thisIdx = sectionOrder.indexOf(s);
+    if (thisIdx === -1) return 'hidden';
+    if (thisIdx > currentIdx) return 'hidden';
+    if (thisIdx === currentIdx) return 'active';
+    return 'summary';
+  }, [step, sectionOrder]);
+
+  useBookingScrollOnStep<Step>(step, (s) => sectionRefs.current[s] ?? null);
+
   // ─── Render helpers ───────────────────────────────────────────
 
   const formattedSelectedDate = useMemo(() => {
@@ -558,653 +621,27 @@ export default function BookAppointment() {
 
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
-      {/* Step indicator only in header area */}
-
-      {/* Step indicator */}
-      <StepIndicator
-        current={step}
-        isDark={isDark}
-        hasMultipleProviders={data.providers.length > 1}
-        showReferralStep={!!showReferralStep}
-      />
-
-      {/* Content */}
-      <div className="mt-6 animate-slide-up">
-
-        {/* ── Step 1: Provider Selection ── */}
-        {step === "provider" && (
-          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-0 md:gap-6 items-start">
-            {/* Clinic info left column */}
+      <div className={cn(
+        'grid gap-6',
+        isEmbed ? 'grid-cols-1' : 'lg:grid-cols-[320px_1fr]',
+      )}>
+        {/* Sticky sidebar (desktop) / header (mobile + embed) */}
+        {!isEmbed && (
+          <aside className="lg:sticky lg:top-4 lg:self-start">
             <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
-
-            <div>
-              <h2 className={cn(
-                "text-lg font-semibold mb-1",
-                isDark ? "text-white" : "text-gray-900"
-              )}>
-                Arzt wählen
-              </h2>
-              <p className={cn(
-                "text-sm mb-6",
-                isDark ? "text-white/50" : "text-gray-500"
-              )}>
-                Wählen Sie Ihren behandelnden Arzt
-              </p>
-
-              <div className="grid gap-3">
-                {data.providers.map((provider) => (
-                  <button
-                    key={provider.id}
-                    onClick={() => handleProviderSelect(provider)}
-                    className={cn(
-                      "group flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200",
-                      isDark
-                        ? "bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
-                        : "bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md"
-                    )}
-                  >
-                    <ProviderAvatar provider={provider} isDark={isDark} />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "font-medium truncate",
-                        isDark ? "text-white" : "text-gray-900"
-                      )}>
-                        {formatProviderName(provider)}
-                      </p>
-                    </div>
-                    <svg
-                      className={cn(
-                        "w-5 h-5 transition-transform duration-200 group-hover:translate-x-1",
-                        isDark ? "text-white/30" : "text-gray-400"
-                      )}
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                    >
-                      <path d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            </div>
+          </aside>
+        )}
+        {isEmbed && (
+          <div className="mb-4">
+            <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
           </div>
         )}
 
-        {/* ── Step 2: Date & Time Selection ── */}
-        {step === "datetime" && selectedProvider && (
-          <div>
-            {canGoBackToProviders && (
-              <button
-                onClick={handleBack}
-                className={cn(
-                  "flex items-center gap-1 text-sm mb-4 transition-colors",
-                  isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15 19l-7-7 7-7" />
-                </svg>
-                Zurück
-              </button>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-[200px_auto_1fr] gap-4 md:gap-6 items-start">
-              {/* Left column: Clinic, Doctor, Treatment cards — hidden on small screens */}
-              <div className="hidden md:block space-y-3">
-                {/* Card 1: Clinic info + theme toggle */}
-                <div className={cn(
-                  "rounded-xl p-3",
-                  isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
-                )}>
-                  <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
-                </div>
-
-                {/* Card 2: Doctor info */}
-                <div className={cn(
-                  "rounded-xl p-3",
-                  isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
-                )}>
-                  <p className={cn(
-                    "text-[10px] font-semibold uppercase tracking-wider mb-2",
-                    isDark ? "text-white/30" : "text-gray-500"
-                  )}>
-                    Arzt
-                  </p>
-                  <div className="flex items-center gap-2.5">
-                    <ProviderAvatar provider={selectedProvider} isDark={isDark} />
-                    <div className="min-w-0">
-                      <p className={cn(
-                        "text-sm font-semibold truncate",
-                        isDark ? "text-white/80" : "text-gray-900"
-                      )}>
-                        {formatProviderName(selectedProvider)}
-                      </p>
-                      {selectedProvider.bookingServiceName && (
-                        <p className={cn(
-                          "text-xs truncate",
-                          isDark ? "text-white/50" : "text-gray-500"
-                        )}>
-                          {selectedProvider.bookingServiceName}
-                        </p>
-                      )}
-                      {selectedProvider.bookingLocation && (
-                        <p className={cn(
-                          "flex items-center gap-1 text-xs mt-0.5",
-                          isDark ? "text-white/40" : "text-gray-500"
-                        )}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                            <circle cx="12" cy="10" r="3" />
-                          </svg>
-                          <span className="truncate">{selectedProvider.bookingLocation}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 3: Treatment info (only when service is set) */}
-                {serviceInfo && (
-                  <div className={cn(
-                    "rounded-xl p-3",
-                    isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
-                  )}>
-                    <p className={cn(
-                      "text-[10px] font-semibold uppercase tracking-wider mb-1.5",
-                      isDark ? "text-white/30" : "text-gray-500"
-                    )}>
-                      Behandlung
-                    </p>
-                    <p className={cn(
-                      "text-sm font-medium",
-                      isDark ? "text-white/80" : "text-gray-900"
-                    )}>
-                      {serviceInfo.name}
-                    </p>
-                    {serviceInfo.description && (
-                      <p className={cn(
-                        "text-xs mt-0.5",
-                        isDark ? "text-white/50" : "text-gray-500"
-                      )}>
-                        {serviceInfo.description}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              {/* Calendar */}
-              <div className={cn(
-                "rounded-2xl p-1 mx-auto md:mx-0 shrink-0",
-                isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200 shadow-sm"
-              )}>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(d) => d && setSelectedDate(d)}
-                  month={visibleMonth}
-                  onMonthChange={setVisibleMonth}
-                  locale={de}
-                  classNames={{
-                    nav_button: cn(
-                      "inline-flex items-center justify-center rounded-md border h-7 w-7 p-0 transition-colors",
-                      isDark
-                        ? "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
-                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                    ),
-                    day_today: cn(
-                      "font-bold underline underline-offset-4 decoration-2",
-                      isDark ? "text-white decoration-blue-400" : "text-gray-900 decoration-gray-400"
-                    ),
-                    day_selected: cn(
-                      "hover:!opacity-100",
-                      isDark
-                        ? "!bg-blue-500 !text-white"
-                        : "!bg-gray-900 !text-white hover:!bg-gray-800"
-                    ),
-                    cell: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
-                  }}
-                  modifiers={{
-                    hasSlots: (date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      if (date < today) return false;
-                      if (dateConstraints.fromDate && date < dateConstraints.fromDate) return false;
-                      if (dateConstraints.toDate && date > dateConstraints.toDate) return false;
-                      return availableDates.has(formatDateISO(date));
-                    },
-                  }}
-                  modifiersClassNames={{
-                    hasSlots: "day-has-slots",
-                  }}
-                  disabled={(date) => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    if (date < today) return true;
-                    if (dateConstraints.fromDate && date < dateConstraints.fromDate) return true;
-                    if (dateConstraints.toDate && date > dateConstraints.toDate) return true;
-                    if (closedDates.has(formatDateISO(date))) return true;
-                    if (!availableDatesLoading) {
-                      return !availableDates.has(formatDateISO(date));
-                    }
-                    return false;
-                  }}
-                  className={cn(
-                    isDark
-                      ? "[&_.rdp-day]:text-white/25 [&_.rdp-head_cell]:text-white/50 [&_.rdp-caption_month]:text-white [&_.rdp-caption_year]:text-white/50 [&_.rdp-day_disabled]:text-white/15 [&_.rdp-day_outside]:text-white/10 [&_.day-has-slots]:text-white [&_.day-has-slots]:font-semibold"
-                      : "[&_.rdp-day]:text-gray-300 [&_.rdp-day_disabled]:text-gray-200 [&_.rdp-day_outside]:text-gray-200 [&_.day-has-slots]:text-gray-900 [&_.day-has-slots]:font-semibold [&_.day-has-slots]:hover:bg-gray-100 [&_.rdp-day_selected.day-has-slots]:text-white"
-                  )}
-                />
-              </div>
-
-              {/* Time slots */}
-              <div className="flex-1 w-full min-w-0">
-                {!selectedDate ? (
-                  <div className={cn(
-                    "text-center py-12 text-sm",
-                    isDark ? "text-white/40" : "text-gray-500"
-                  )}>
-                    Bitte wählen Sie ein Datum
-                  </div>
-                ) : slotsLoading ? (
-                  <div className="flex justify-center py-12">
-                    <div className={cn(
-                      "h-6 w-6 rounded-full border-2 animate-spin",
-                      isDark ? "border-white/20 border-t-white" : "border-gray-200 border-t-gray-600"
-                    )} />
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className={cn(
-                    "text-center py-12",
-                    isDark ? "text-white/40" : "text-gray-500"
-                  )}>
-                    <p className="text-sm font-medium mb-1">Keine freien Termine</p>
-                    <p className="text-xs opacity-70">
-                      An diesem Tag sind leider keine Termine verfügbar.
-                      <br />Bitte wählen Sie einen anderen Tag.
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className={cn(
-                      "text-xs font-medium uppercase tracking-wider mb-3",
-                      isDark ? "text-white/40" : "text-gray-500"
-                    )}>
-                      Verfügbare Zeiten — {formattedSelectedDate}
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {slots.map((slot) => (
-                        <button
-                          key={slot.startTime}
-                          onClick={() => handleSlotSelect(slot)}
-                          className={cn(
-                            "py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-150",
-                            isDark
-                              ? "bg-white/5 border border-white/10 text-white/80 hover:bg-blue-500/20 hover:border-blue-400/40 hover:text-white"
-                              : "bg-white border border-gray-200 text-gray-800 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 shadow-sm"
-                          )}
-                        >
-                          {slot.startTime}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 3: Contact Details ── */}
-        {step === "details" && selectedProvider && selectedDate && selectedSlot && (
-          <div className="max-w-md mx-auto">
-            <button
-              onClick={handleBack}
-              className={cn(
-                "flex items-center gap-1 text-sm mb-4 transition-colors",
-                isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 19l-7-7 7-7" />
-              </svg>
-              Zurück
-            </button>
-
-            {/* Summary bar */}
-            <div className={cn(
-              "flex items-center gap-3 p-3 rounded-xl mb-6",
-              isDark ? "bg-blue-500/10 border border-blue-400/20" : "bg-blue-50 border border-blue-100"
-            )}>
-              <ProviderAvatar provider={selectedProvider} isDark={isDark} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-sm font-medium truncate",
-                  isDark ? "text-white/80" : "text-gray-800"
-                )}>
-                  {formatProviderName(selectedProvider)}
-                </p>
-                <p className={cn(
-                  "text-xs",
-                  isDark ? "text-white/50" : "text-gray-500"
-                )}>
-                  {formattedSelectedDate} um {selectedSlot.startTime} Uhr
-                </p>
-              </div>
-            </div>
-
-            {/* Slot taken error */}
-            {slotTaken && (
-              <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-                <p className="font-medium mb-1">Termin nicht mehr verfügbar</p>
-                <p className="text-xs">Dieser Zeitpunkt wurde soeben gebucht. Bitte wählen Sie einen anderen.</p>
-                <Button
-                  onClick={() => { setSlotTaken(false); setStep("datetime"); }}
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                >
-                  Anderes Datum wählen
-                </Button>
-              </div>
-            )}
-
-            {/* Submit error */}
-            {submitError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                {submitError}
-              </div>
-            )}
-
-            {/* Form */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="firstName" className={cn(
-                    "text-xs font-medium mb-1.5 block",
-                    isDark ? "text-white/60" : "text-gray-500"
-                  )}>
-                    Vorname *
-                  </Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Max"
-                    className={cn(
-                      "rounded-xl h-11",
-                      isDark
-                        ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                    )}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="surname" className={cn(
-                    "text-xs font-medium mb-1.5 block",
-                    isDark ? "text-white/60" : "text-gray-500"
-                  )}>
-                    Nachname *
-                  </Label>
-                  <Input
-                    id="surname"
-                    value={surname}
-                    onChange={(e) => setSurname(e.target.value)}
-                    placeholder="Muster"
-                    className={cn(
-                      "rounded-xl h-11",
-                      isDark
-                        ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                        : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                    )}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="email" className={cn(
-                  "text-xs font-medium mb-1.5 block",
-                  isDark ? "text-white/60" : "text-gray-500"
-                )}>
-                  E-Mail *
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="max.muster@email.ch"
-                  className={cn(
-                    "rounded-xl h-11",
-                    isDark
-                      ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                  )}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="phone" className={cn(
-                  "text-xs font-medium mb-1.5 block",
-                  isDark ? "text-white/60" : "text-gray-500"
-                )}>
-                  Telefon *
-                </Label>
-                <PhoneInputWithCountry
-                  id="phone"
-                  value={phone}
-                  onChange={(val) => setPhone(val)}
-                  placeholder="79 123 45 67"
-                  className={cn(
-                    "[&_input]:rounded-xl [&_input]:h-11 [&_button]:rounded-xl [&_button]:h-11",
-                    isDark
-                      ? "[&_input]:bg-white/5 [&_input]:border-white/15 [&_input]:text-white [&_input]:placeholder:text-white/30 [&_button]:bg-white/5 [&_button]:border-white/15 [&_button]:text-white"
-                      : "[&_input]:bg-white [&_input]:border-gray-200 [&_input]:text-gray-900 [&_input]:placeholder:text-gray-400 [&_button]:bg-white [&_button]:border-gray-200"
-                  )}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="notes" className={cn(
-                  "text-xs font-medium mb-1.5 block",
-                  isDark ? "text-white/60" : "text-gray-500"
-                )}>
-                  Grund der Terminanfrage *
-                </Label>
-                <textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Beschreiben Sie kurz den Grund Ihres Termins..."
-                  rows={3}
-                  maxLength={1000}
-                  className={cn(
-                    "flex w-full rounded-xl border px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none",
-                    isDark
-                      ? "bg-white/5 border-white/15 text-white placeholder:text-white/30"
-                      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-                  )}
-                />
-              </div>
-
-              {/* Privacy consent */}
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={privacyAccepted}
-                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                  className={cn(
-                    "mt-0.5 h-4 w-4 rounded border shrink-0 accent-gray-900",
-                    isDark ? "border-white/20" : "border-gray-300"
-                  )}
-                />
-                <span className={cn(
-                  "text-xs leading-relaxed",
-                  isDark ? "text-white/50" : "text-gray-500"
-                )}>
-                  Ich stimme der Verarbeitung meiner personenbezogenen Daten zum Zweck der Terminbuchung zu. Meine Daten werden vertraulich behandelt und nicht an Dritte weitergegeben. *
-                </span>
-              </label>
-
-              {/* No-show fee acknowledgment */}
-              {data?.hospital?.noShowFeeMessage && (
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={noShowFeeAcknowledged}
-                    onChange={(e) => setNoShowFeeAcknowledged(e.target.checked)}
-                    className={cn(
-                      "mt-0.5 h-4 w-4 rounded border shrink-0 accent-gray-900",
-                      isDark ? "border-white/20" : "border-gray-300"
-                    )}
-                  />
-                  <span className={cn(
-                    "text-xs leading-relaxed",
-                    isDark ? "text-white/50" : "text-gray-500"
-                  )}>
-                    {data.hospital.noShowFeeMessage} *
-                  </span>
-                </label>
-              )}
-
-              <Button
-                onClick={showReferralStep ? () => setStep("referral") : handleSubmit}
-                disabled={showReferralStep
-                  ? (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged))
-                  : (submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged))}
-                className={cn(
-                  "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isDark
-                    ? "bg-blue-500 hover:bg-blue-400 text-white disabled:bg-white/10 disabled:text-white/30"
-                    : "bg-gray-900 hover:bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-400"
-                )}
-              >
-                {submitting ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    Wird gebucht...
-                  </span>
-                ) : showReferralStep ? (
-                  "Weiter"
-                ) : (
-                  "Termin buchen"
-                )}
-              </Button>
-
-              <p className={cn(
-                "text-[11px] text-center leading-relaxed",
-                isDark ? "text-white/30" : "text-gray-500"
-              )}>
-                Sie erhalten eine Bestätigung per E-Mail.
-                <br />Der Termin kann jederzeit über den Link in der E-Mail abgesagt werden.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step: Referral ── */}
-        {step === "referral" && (
-          <div className="max-w-md mx-auto">
-            <button
-              onClick={handleBack}
-              className={cn(
-                "flex items-center gap-1 text-sm mb-4 transition-colors",
-                isDark ? "text-white/50 hover:text-white/80" : "text-gray-500 hover:text-gray-700"
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 19l-7-7 7-7" />
-              </svg>
-              Zurück
-            </button>
-            {submitError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                {submitError}
-              </div>
-            )}
-            <ReferralSourcePicker
-              value={referralSource}
-              detail={referralDetail}
-              onChange={(source, detail) => { setReferralSource(source); setReferralDetail(detail); }}
-              labels={BOOKING_REFERRAL_LABELS[data?.hospital?.language || "de"]}
-            />
-            <Button
-              onClick={handleSubmit}
-              disabled={!referralSource || submitting}
-              className={cn(
-                "w-full h-12 rounded-xl text-sm font-semibold mt-6 transition-all duration-200",
-                isDark
-                  ? "bg-blue-500 hover:bg-blue-400 text-white disabled:bg-white/10 disabled:text-white/30"
-                  : "bg-gray-900 hover:bg-gray-800 text-white disabled:bg-gray-200 disabled:text-gray-400"
-              )}
-            >
-              {submitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Wird gebucht...
-                </span>
-              ) : "Termin buchen"}
-            </Button>
-          </div>
-        )}
-
-        {/* ── Step 4: Confirmation ── */}
-        {step === "done" && selectedProvider && selectedDate && selectedSlot && (
-          <div className="max-w-sm mx-auto text-center py-8 animate-fade-in">
-            <div className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6",
-              isDark ? "bg-emerald-500/15" : "bg-emerald-50"
-            )}>
-              <svg
-                className={cn("w-8 h-8", isDark ? "text-emerald-400" : "text-emerald-600")}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-
-            <h2 className={cn(
-              "text-xl font-semibold mb-2",
-              isDark ? "text-white" : "text-gray-900"
-            )}>
-              Termin bestätigt
-            </h2>
-            <p className={cn(
-              "text-sm mb-6",
-              isDark ? "text-white/50" : "text-gray-500"
-            )}>
-              Bestätigung wurde an <strong className={isDark ? "text-white/70" : "text-gray-700"}>{email}</strong> gesendet.
-            </p>
-
-            <div className={cn(
-              "rounded-2xl p-5 text-left space-y-3 mb-6",
-              isDark ? "bg-white/5 border border-white/10" : "bg-white border border-gray-200"
-            )}>
-              <SummaryRow label="Arzt" value={formatProviderName(selectedProvider)} isDark={isDark} />
-              <SummaryRow label="Datum" value={formattedSelectedDate} isDark={isDark} />
-              <SummaryRow label="Uhrzeit" value={`${selectedSlot.startTime} Uhr`} isDark={isDark} />
-              <SummaryRow label="Klinik" value={data.hospital.name} isDark={isDark} />
-            </div>
-
-            <p className={cn(
-              "text-xs",
-              isDark ? "text-white/30" : "text-gray-500"
-            )}>
-              Zum Absagen nutzen Sie den Link in Ihrer Bestätigungs-E-Mail.
-            </p>
-          </div>
-        )}
+        {/* Stacked sections column */}
+        <main className="flex flex-col gap-4 max-w-[640px] w-full mx-auto">
+          {/* Sections will be added in subsequent tasks */}
+        </main>
       </div>
-
-      {/* Footer */}
-      {!isEmbed && (
-        <footer className={cn(
-          "mt-12 pt-4 border-t text-center text-[11px]",
-          isDark ? "border-white/5 text-white/20" : "border-gray-200 text-gray-400"
-        )}>
-          Powered by Viali
-        </footer>
-      )}
     </PageShell>
   );
 }
@@ -1337,11 +774,11 @@ function StepIndicator({ current, isDark, hasMultipleProviders, showReferralStep
   const baseSteps = hasMultipleProviders
     ? [
         { key: "provider", label: "Arzt" },
-        { key: "datetime", label: "Termin" },
+        { key: "date", label: "Termin" },
         { key: "details", label: "Daten" },
       ]
     : [
-        { key: "datetime", label: "Termin" },
+        { key: "date", label: "Termin" },
         { key: "details", label: "Daten" },
       ];
   const steps = showReferralStep
