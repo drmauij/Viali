@@ -21,6 +21,7 @@ ecosystem.config.cjs
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
 
 # Card reader
 card-reader/config.env
