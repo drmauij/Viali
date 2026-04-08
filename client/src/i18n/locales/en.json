@@ -171,6 +171,70 @@
     "parsapScore": "PARSAP Score",
     "scoresTotal": "Total",
     "dischargeReady": "Discharge Ready",
+    "aldreteCriteria": {
+      "activity": {
+        "label": "Activity",
+        "opt2": "Moves 4 extremities voluntarily or on command",
+        "opt1": "Moves 2 extremities voluntarily or on command",
+        "opt0": "Unable to move extremities voluntarily or on command"
+      },
+      "respiration": {
+        "label": "Respiration",
+        "opt2": "Able to breathe deeply and cough freely",
+        "opt1": "Dyspnea or limited breathing",
+        "opt0": "Apneic"
+      },
+      "circulation": {
+        "label": "Circulation",
+        "opt2": "BP ± 20% of preanesthetic level",
+        "opt1": "BP ± 20-50% of preanesthetic level",
+        "opt0": "BP ± 50% of preanesthetic level"
+      },
+      "consciousness": {
+        "label": "Consciousness",
+        "opt2": "Fully awake",
+        "opt1": "Arousable on calling",
+        "opt0": "Not responding"
+      },
+      "oxygenSaturation": {
+        "label": "O₂ Saturation",
+        "opt2": "SpO₂ > 92% on room air",
+        "opt1": "Needs O₂ to maintain SpO₂ > 90%",
+        "opt0": "SpO₂ < 90% even with O₂"
+      }
+    },
+    "parsapCriteria": {
+      "vitals": {
+        "label": "Vital Signs",
+        "opt2": "BP and pulse within 20% of preoperative value",
+        "opt1": "BP and pulse within 20-40% of preoperative value",
+        "opt0": "BP and pulse > 40% of preoperative value"
+      },
+      "ambulation": {
+        "label": "Ambulation",
+        "opt2": "Steady gait, no dizziness, or meets preop level",
+        "opt1": "With assistance",
+        "opt0": "Unable to ambulate"
+      },
+      "nauseaVomiting": {
+        "label": "Nausea/Vomiting",
+        "opt2": "Minimal: successfully treated with PO medication",
+        "opt1": "Moderate: successfully treated with IM medication",
+        "opt0": "Severe: continues despite treatment"
+      },
+      "pain": {
+        "label": "Pain",
+        "opt2": "Minimal or none, acceptable to patient",
+        "opt1": "Moderate, not acceptable to patient",
+        "opt0": "Severe"
+      },
+      "surgicalBleeding": {
+        "label": "Surgical Bleeding",
+        "opt2": "Minimal: no dressing change required",
+        "opt1": "Moderate: up to 2 dressing changes",
+        "opt0": "Severe: more than 3 dressing changes"
+      }
+    },
     "staffEditDesc": "Edit or delete the {{role}} entry",
     "staffAddDesc": "Add staff member to the timeline",
     "staffEnterName": "Enter name...",

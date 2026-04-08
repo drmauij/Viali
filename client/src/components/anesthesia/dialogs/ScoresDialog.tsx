@@ -35,100 +35,22 @@ interface ScoresDialogProps {
 }
 
 const ALDRETE_CRITERIA = [
-  {
-    key: 'activity' as const,
-    label: 'Activity',
-    options: [
-      { value: 2, label: 'Moves 4 extremities voluntarily or on command' },
-      { value: 1, label: 'Moves 2 extremities voluntarily or on command' },
-      { value: 0, label: 'Unable to move extremities voluntarily or on command' },
-    ],
-  },
-  {
-    key: 'respiration' as const,
-    label: 'Respiration',
-    options: [
-      { value: 2, label: 'Able to breathe deeply and cough freely' },
-      { value: 1, label: 'Dyspnea or limited breathing' },
-      { value: 0, label: 'Apneic' },
-    ],
-  },
-  {
-    key: 'circulation' as const,
-    label: 'Circulation',
-    options: [
-      { value: 2, label: 'BP ± 20% of preanesthetic level' },
-      { value: 1, label: 'BP ± 20-50% of preanesthetic level' },
-      { value: 0, label: 'BP ± 50% of preanesthetic level' },
-    ],
-  },
-  {
-    key: 'consciousness' as const,
-    label: 'Consciousness',
-    options: [
-      { value: 2, label: 'Fully awake' },
-      { value: 1, label: 'Arousable on calling' },
-      { value: 0, label: 'Not responding' },
-    ],
-  },
-  {
-    key: 'oxygenSaturation' as const,
-    label: 'O₂ Saturation',
-    options: [
-      { value: 2, label: 'SpO₂ > 92% on room air' },
-      { value: 1, label: 'Needs O₂ to maintain SpO₂ > 90%' },
-      { value: 0, label: 'SpO₂ < 90% even with O₂' },
-    ],
-  },
+  { key: 'activity' as const, i18nKey: 'activity' },
+  { key: 'respiration' as const, i18nKey: 'respiration' },
+  { key: 'circulation' as const, i18nKey: 'circulation' },
+  { key: 'consciousness' as const, i18nKey: 'consciousness' },
+  { key: 'oxygenSaturation' as const, i18nKey: 'oxygenSaturation' },
 ];
 
 const PARSAP_CRITERIA = [
-  {
-    key: 'vitals' as const,
-    label: 'Vital Signs',
-    options: [
-      { value: 2, label: 'BP and pulse within 20% of preoperative value' },
-      { value: 1, label: 'BP and pulse within 20-40% of preoperative value' },
-      { value: 0, label: 'BP and pulse > 40% of preoperative value' },
-    ],
-  },
-  {
-    key: 'ambulation' as const,
-    label: 'Ambulation',
-    options: [
-      { value: 2, label: 'Steady gait, no dizziness, or meets preop level' },
-      { value: 1, label: 'With assistance' },
-      { value: 0, label: 'Unable to ambulate' },
-    ],
-  },
-  {
-    key: 'nauseaVomiting' as const,
-    label: 'Nausea/Vomiting',
-    options: [
-      { value: 2, label: 'Minimal: successfully treated with PO medication' },
-      { value: 1, label: 'Moderate: successfully treated with IM medication' },
-      { value: 0, label: 'Severe: continues despite treatment' },
-    ],
-  },
-  {
-    key: 'pain' as const,
-    label: 'Pain',
-    options: [
-      { value: 2, label: 'Minimal or none, acceptable to patient' },
-      { value: 1, label: 'Moderate, not acceptable to patient' },
-      { value: 0, label: 'Severe' },
-    ],
-  },
-  {
-    key: 'surgicalBleeding' as const,
-    label: 'Surgical Bleeding',
-    options: [
-      { value: 2, label: 'Minimal: no dressing change required' },
-      { value: 1, label: 'Moderate: up to 2 dressing changes' },
-      { value: 0, label: 'Severe: more than 3 dressing changes' },
-    ],
-  },
+  { key: 'vitals' as const, i18nKey: 'vitals' },
+  { key: 'ambulation' as const, i18nKey: 'ambulation' },
+  { key: 'nauseaVomiting' as const, i18nKey: 'nauseaVomiting' },
+  { key: 'pain' as const, i18nKey: 'pain' },
+  { key: 'surgicalBleeding' as const, i18nKey: 'surgicalBleeding' },
 ];
+
+const OPTION_VALUES = [2, 1, 0] as const;
 
 const DEFAULT_ALDRETE: AldreteScore = {
   activity: 2,
@@ -252,19 +174,22 @@ export function ScoresDialog({
 
   const renderCriteriaButtons = (
     criteria: typeof ALDRETE_CRITERIA | typeof PARSAP_CRITERIA,
+    i18nNamespace: 'aldreteCriteria' | 'parsapCriteria',
     score: AldreteScore | PARSAPScore,
     setScore: (fn: (prev: any) => any) => void
   ) => (
     <div className="space-y-4">
       {criteria.map((criterion) => (
         <div key={criterion.key} className="space-y-2">
-          <Label className="text-sm font-medium">{criterion.label}</Label>
+          <Label className="text-sm font-medium">
+            {t(`dialogs.${i18nNamespace}.${criterion.i18nKey}.label`)}
+          </Label>
           <div className="grid gap-1">
-            {criterion.options.map((option) => {
-              const isSelected = score[criterion.key as keyof typeof score] === option.value;
+            {OPTION_VALUES.map((value) => {
+              const isSelected = score[criterion.key as keyof typeof score] === value;
               return (
                 <Button
-                  key={option.value}
+                  key={value}
                   variant={isSelected ? 'default' : 'outline'}
                   size="sm"
                   className={`justify-start h-auto py-2 px-3 text-left whitespace-normal ${
@@ -275,13 +200,15 @@ export function ScoresDialog({
                     if (readOnly) return;
                     setScore((prev: any) => ({
                       ...prev,
-                      [criterion.key]: option.value,
+                      [criterion.key]: value,
                     }));
                   }}
-                  data-testid={`button-${criterion.key}-${option.value}`}
+                  data-testid={`button-${criterion.key}-${value}`}
                 >
-                  <span className="font-bold mr-2 shrink-0">{option.value}</span>
-                  <span className="text-xs">{option.label}</span>
+                  <span className="font-bold mr-2 shrink-0">{value}</span>
+                  <span className="text-xs">
+                    {t(`dialogs.${i18nNamespace}.${criterion.i18nKey}.opt${value}`)}
+                  </span>
                 </Button>
               );
             })}
@@ -320,11 +247,11 @@ export function ScoresDialog({
 
         <div className="mt-4 max-h-[50vh] overflow-y-auto pr-2">
           <TabsContent value="aldrete" className="mt-0">
-            {renderCriteriaButtons(ALDRETE_CRITERIA, aldreteScore, setAldreteScore)}
+            {renderCriteriaButtons(ALDRETE_CRITERIA, 'aldreteCriteria', aldreteScore, setAldreteScore)}
           </TabsContent>
 
           <TabsContent value="parsap" className="mt-0">
-            {renderCriteriaButtons(PARSAP_CRITERIA, parsapScore, setParsapScore)}
+            {renderCriteriaButtons(PARSAP_CRITERIA, 'parsapCriteria', parsapScore, setParsapScore)}
           </TabsContent>
         </div>
       </Tabs>

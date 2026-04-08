@@ -252,6 +252,70 @@
     "parsapScore": "PARSAP-Score",
     "scoresTotal": "Gesamt",
     "dischargeReady": "Entlassungsbereit",
+    "aldreteCriteria": {
+      "activity": {
+        "label": "Aktivität",
+        "opt2": "Bewegt 4 Extremitäten spontan oder auf Aufforderung",
+        "opt1": "Bewegt 2 Extremitäten spontan oder auf Aufforderung",
+        "opt0": "Kann Extremitäten weder spontan noch auf Aufforderung bewegen"
+      },
+      "respiration": {
+        "label": "Atmung",
+        "opt2": "Kann tief einatmen und frei husten",
+        "opt1": "Dyspnoe oder eingeschränkte Atmung",
+        "opt0": "Apnoe"
+      },
+      "circulation": {
+        "label": "Kreislauf",
+        "opt2": "RR ± 20% des präanästhetischen Werts",
+        "opt1": "RR ± 20-50% des präanästhetischen Werts",
+        "opt0": "RR ± 50% des präanästhetischen Werts"
+      },
+      "consciousness": {
+        "label": "Bewusstsein",
+        "opt2": "Vollständig wach",
+        "opt1": "Auf Ansprache erweckbar",
+        "opt0": "Reagiert nicht"
+      },
+      "oxygenSaturation": {
+        "label": "O₂-Sättigung",
+        "opt2": "SpO₂ > 92% bei Raumluft",
+        "opt1": "Benötigt O₂ zur Aufrechterhaltung von SpO₂ > 90%",
+        "opt0": "SpO₂ < 90% auch mit O₂"
+      }
+    },
+    "parsapCriteria": {
+      "vitals": {
+        "label": "Vitalzeichen",
+        "opt2": "RR und Puls innerhalb 20% des präoperativen Werts",
+        "opt1": "RR und Puls innerhalb 20-40% des präoperativen Werts",
+        "opt0": "RR und Puls > 40% des präoperativen Werts"
+      },
+      "ambulation": {
+        "label": "Mobilisation",
+        "opt2": "Sicherer Gang, kein Schwindel, oder präoperatives Niveau",
+        "opt1": "Mit Unterstützung",
+        "opt0": "Nicht gehfähig"
+      },
+      "nauseaVomiting": {
+        "label": "Übelkeit/Erbrechen",
+        "opt2": "Minimal: erfolgreich mit oraler Medikation behandelt",
+        "opt1": "Mäßig: erfolgreich mit i.m. Medikation behandelt",
+        "opt0": "Schwer: anhaltend trotz Behandlung"
+      },
+      "pain": {
+        "label": "Schmerz",
+        "opt2": "Minimal oder keine, für Patient akzeptabel",
+        "opt1": "Mäßig, für Patient nicht akzeptabel",
+        "opt0": "Schwer"
+      },
+      "surgicalBleeding": {
+        "label": "Operative Blutung",
+        "opt2": "Minimal: kein Verbandwechsel erforderlich",
+        "opt1": "Mäßig: bis zu 2 Verbandwechsel",
+        "opt0": "Schwer: mehr als 3 Verbandwechsel"
+      }
+    },
     "staffEditDesc": "{{role}}-Eintrag bearbeiten oder löschen",
     "staffAddDesc": "Mitarbeiter zur Zeitleiste hinzufügen",
     "staffEnterName": "Name eingeben...",
