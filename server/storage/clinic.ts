@@ -1620,6 +1620,61 @@ export async function getClinicServices(unitId: string): Promise<ClinicService[]
     .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
 }
 
+export async function getPublicBookableServicesByHospital(hospitalId: string): Promise<Array<{
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number | null;
+  code: string | null;
+  sortOrder: number;
+  providerIds: string[];
+}>> {
+  const bookable = await getPublicBookableProvidersByHospital(hospitalId);
+  const bookableIdSet = new Set(bookable.map(p => p.userId));
+
+  const services = await db
+    .select({
+      id: clinicServices.id,
+      name: clinicServices.name,
+      description: clinicServices.description,
+      durationMinutes: clinicServices.durationMinutes,
+      code: clinicServices.code,
+      sortOrder: clinicServices.sortOrder,
+    })
+    .from(clinicServices)
+    .where(eq(clinicServices.hospitalId, hospitalId))
+    .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
+
+  if (services.length === 0) return [];
+
+  const serviceIds = services.map(s => s.id);
+  const mappings = await db
+    .select({
+      serviceId: clinicServiceProviders.serviceId,
+      providerId: clinicServiceProviders.providerId,
+    })
+    .from(clinicServiceProviders)
+    .where(inArray(clinicServiceProviders.serviceId, serviceIds));
+
+  const byService = new Map<string, string[]>();
+  for (const m of mappings) {
+    if (!bookableIdSet.has(m.providerId)) continue;
+    const list = byService.get(m.serviceId) ?? [];
+    list.push(m.providerId);
+    byService.set(m.serviceId, list);
+  }
+
+  return services.map(s => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    durationMinutes: s.durationMinutes,
+    code: s.code,
+    sortOrder: s.sortOrder ?? 0,
+    providerIds: byService.get(s.id) ?? [],
+  }));
+}
+
 export async function getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined> {
   const [service] = await db
     .select()
