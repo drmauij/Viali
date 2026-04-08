@@ -913,6 +913,15 @@ export interface IStorage {
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;
   getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined>;
+  getPublicBookableServicesByHospital(hospitalId: string): Promise<Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    durationMinutes: number | null;
+    code: string | null;
+    sortOrder: number;
+    providerIds: string[];
+  }>>;
   getProvidersByServiceId(serviceId: string): Promise<string[]>;
   setServiceProviders(serviceId: string, providerIds: string[]): Promise<void>;
   getBestAvailableProvider(hospitalId: string, candidateProviderIds: string[], durationMinutes?: number): Promise<{ providerId: string; date: string; startTime: string } | null>;
@@ -1581,6 +1590,7 @@ export class DatabaseStorage implements IStorage {
   getAvailableDatesForMonth = clinicStorage.getAvailableDatesForMonth;
   getClinicServices = clinicStorage.getClinicServices;
   getServiceByCode = clinicStorage.getServiceByCode;
+  getPublicBookableServicesByHospital = clinicStorage.getPublicBookableServicesByHospital;
   getProvidersByServiceId = clinicStorage.getProvidersByServiceId;
   setServiceProviders = clinicStorage.setServiceProviders;
   getBestAvailableProvider = clinicStorage.getBestAvailableProvider;
