@@ -372,6 +372,9 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
         language: hospital.defaultLanguage,
         noShowFeeMessage: hospital.noShowFeeMessage || null,
         companyWebsite: hospital.companyWebsite || null,
+        street: hospital.companyStreet || null,
+        postalCode: hospital.companyPostalCode || null,
+        city: hospital.companyCity || null,
       },
       bookingSettings: hospital.bookingSettings || {},
       providers: providers.map(p => ({

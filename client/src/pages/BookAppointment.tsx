@@ -32,6 +32,9 @@ type BookingData = {
     language: string;
     noShowFeeMessage?: string | null;
     companyWebsite?: string | null;
+    street?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
   };
   bookingSettings: {
     slotDurationMinutes?: number;
@@ -637,6 +640,7 @@ export default function BookAppointment() {
 
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
+      {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
       <div className={cn(
         'grid gap-6',
         isEmbed ? 'grid-cols-1' : 'lg:grid-cols-[320px_1fr]',
@@ -644,12 +648,12 @@ export default function BookAppointment() {
         {/* Sticky sidebar (desktop) / header (mobile + embed) */}
         {!isEmbed && (
           <aside className="lg:sticky lg:top-4 lg:self-start">
-            <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+            <ClinicInfoPanel data={data} isDark={isDark} />
           </aside>
         )}
         {isEmbed && (
           <div className="mb-4">
-            <ClinicInfoPanel data={data} isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+            <ClinicInfoPanel data={data} isDark={isDark} />
           </div>
         )}
 
@@ -725,8 +729,11 @@ export default function BookAppointment() {
             isDark={isDark}
             ref={(el) => { sectionRefs.current.provider = el; }}
             summary={selectedProvider ? {
+              icon: <ProviderAvatar provider={selectedProvider} isDark={isDark} size="sm" />,
               label: 'Arzt',
-              value: formatProviderName(selectedProvider),
+              value: selectedProvider.bookingLocation
+                ? `${formatProviderName(selectedProvider)} · ${selectedProvider.bookingLocation}`
+                : formatProviderName(selectedProvider),
               onChange: canGoBackToProviders ? () => setStep('provider') : undefined,
             } : undefined}
           >
@@ -767,6 +774,15 @@ export default function BookAppointment() {
                       <p className={cn('font-medium truncate', isDark ? 'text-white' : 'text-gray-900')}>
                         {formatProviderName(provider)}
                       </p>
+                      {provider.bookingLocation && (
+                        <p className={cn('flex items-center gap-1 text-xs mt-0.5 truncate', isDark ? 'text-white/50' : 'text-gray-500')}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                          <span className="truncate">{provider.bookingLocation}</span>
+                        </p>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -1189,6 +1205,16 @@ export default function BookAppointment() {
                   <SummaryRow label="Datum" value={formattedSelectedDate} isDark={isDark} />
                   <SummaryRow label="Uhrzeit" value={`${selectedSlot.startTime} Uhr`} isDark={isDark} />
                   <SummaryRow label="Klinik" value={data.hospital.name} isDark={isDark} />
+                  {(data.hospital.street || data.hospital.city) && (
+                    <SummaryRow
+                      label="Adresse"
+                      value={[data.hospital.street, [data.hospital.postalCode, data.hospital.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                      isDark={isDark}
+                    />
+                  )}
+                  {selectedProvider?.bookingLocation && (
+                    <SummaryRow label="Standort" value={selectedProvider.bookingLocation} isDark={isDark} />
+                  )}
                 </div>
 
                 <p className={cn(
@@ -1208,7 +1234,7 @@ export default function BookAppointment() {
 
 // ─── Sub-components ────────────────────────────────────────────────
 
-function ClinicInfoPanel({ data, isDark, onToggleTheme }: { data: BookingData; isDark: boolean; onToggleTheme: () => void }) {
+function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean }) {
   return (
     <div className={cn(
       "mb-4 md:mb-0",
@@ -1228,34 +1254,50 @@ function ClinicInfoPanel({ data, isDark, onToggleTheme }: { data: BookingData; i
           {data.hospital.name}
         </h1>
       </div>
-      {/* Theme toggle — small, tucked under clinic info */}
-      <button
-        onClick={onToggleTheme}
-        className={cn(
-          "mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-300",
-          isDark
-            ? "bg-white/10 text-white/50 hover:bg-white/15 hover:text-white/70"
-            : "bg-gray-200 text-gray-500 hover:bg-gray-300 hover:text-gray-600"
-        )}
-      >
-        {isDark ? (
-          <>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-            Hell
-          </>
-        ) : (
-          <>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-            Dunkel
-          </>
-        )}
-      </button>
+      {(data.hospital.street || data.hospital.city) && (
+        <div className={cn(
+          "mt-2 flex items-start gap-1.5 text-xs",
+          isDark ? "text-white/50" : "text-gray-500"
+        )}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <div className="leading-tight">
+            {data.hospital.street && <div>{data.hospital.street}</div>}
+            {(data.hospital.postalCode || data.hospital.city) && (
+              <div>{[data.hospital.postalCode, data.hospital.city].filter(Boolean).join(' ')}</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ThemeToggleFab({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={isDark ? 'Zu Hell-Modus wechseln' : 'Zu Dunkel-Modus wechseln'}
+      className={cn(
+        "fixed top-4 right-4 z-50 inline-flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-300",
+        isDark
+          ? "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+          : "bg-white/90 text-gray-600 hover:bg-white hover:text-gray-900 shadow-sm border border-gray-200"
+      )}
+    >
+      {isDark ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
   );
 }
 
