@@ -542,6 +542,21 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
   }
 });
 
+// 3b-services: Get bookable services for the clinic (for public booking page treatment picker)
+router.get('/api/public/booking/:bookingToken/services', async (req, res) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+    const services = await storage.getPublicBookableServicesByHospital(hospital.id);
+    res.json({ services });
+  } catch (error) {
+    logger.error('Error fetching bookable services:', error);
+    res.status(500).json({ message: 'Failed to load services' });
+  }
+});
+
 // 3c: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {
