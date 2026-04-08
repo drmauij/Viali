@@ -336,6 +336,22 @@ export default function BookAppointment() {
     return { fromDate, toDate };
   }, [data]);
 
+  const filteredProviders = useMemo(() => {
+    if (!data) return [] as Provider[];
+    if (!selectedTreatment) return data.providers;
+    const allowed = new Set(selectedTreatment.providerIds);
+    if (allowed.size === 0) return data.providers;
+    const filtered = data.providers.filter(p => allowed.has(p.id));
+    return filtered.length > 0 ? filtered : data.providers;
+  }, [data, selectedTreatment]);
+
+  const treatmentFilterHadNoMatches = useMemo(() => {
+    if (!data || !selectedTreatment) return false;
+    const allowed = new Set(selectedTreatment.providerIds);
+    if (allowed.size === 0) return false;
+    return data.providers.filter(p => allowed.has(p.id)).length === 0;
+  }, [data, selectedTreatment]);
+
   // ─── Available dates for calendar highlighting ──────────────
   const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
   const [availableDatesLoading, setAvailableDatesLoading] = useState(false);
@@ -415,14 +431,16 @@ export default function BookAppointment() {
   // ─── Handlers ─────────────────────────────────────────────────
 
   const handleProviderSelect = useCallback((provider: Provider) => {
+    const changed = selectedProvider && selectedProvider.id !== provider.id;
     setSelectedProvider(provider);
-    setStep("date");
-    setSelectedDate(undefined);
-    setSlots([]);
-    setSelectedSlot(null);
+    setStep('date');
+    if (changed) {
+      setSelectedSlot(null);
+      setSlotTaken(false);
+    }
     setAvailableDatesLoading(true);
     setSeekingAvailableMonth(true);
-  }, []);
+  }, [selectedProvider]);
 
   const handleSlotSelect = useCallback((slot: Slot) => {
     setSelectedSlot(slot);
@@ -431,7 +449,7 @@ export default function BookAppointment() {
     setSlotTaken(false);
   }, []);
 
-  const canGoBackToProviders = data && data.providers.length > 1 && !preselectedProviderId && !serviceCode;
+  const canGoBackToProviders = (filteredProviders?.length ?? 0) > 1;
 
   const handleBack = useCallback(() => {
     if (step === "date") {
@@ -639,7 +657,124 @@ export default function BookAppointment() {
 
         {/* Stacked sections column */}
         <main className="flex flex-col gap-4 max-w-[640px] w-full mx-auto">
-          {/* Sections will be added in subsequent tasks */}
+          {hasTreatments && (
+            <BookingSection
+              status={sectionStatus('treatment')}
+              isDark={isDark}
+              ref={(el) => { sectionRefs.current.treatment = el; }}
+              summary={{
+                label: 'Behandlung',
+                value: selectedTreatment ? selectedTreatment.name : 'Allgemeiner Termin',
+                onChange: () => setStep('treatment'),
+              }}
+            >
+              <div>
+                <h2 className={cn('text-lg font-semibold mb-1', isDark ? 'text-white' : 'text-gray-900')}>
+                  Behandlung wählen
+                </h2>
+                <p className={cn('text-sm mb-4', isDark ? 'text-white/50' : 'text-gray-500')}>
+                  Wählen Sie die gewünschte Behandlung oder fahren Sie mit einem allgemeinen Termin fort.
+                </p>
+                <Input
+                  value={treatmentSearch}
+                  onChange={(e) => setTreatmentSearch(e.target.value)}
+                  placeholder="Suchen..."
+                  className={cn(
+                    'mb-3 rounded-xl h-11',
+                    isDark ? 'bg-white/5 border-white/15 text-white placeholder:text-white/30' : '',
+                  )}
+                />
+                <div className="grid gap-2 max-h-80 overflow-y-auto">
+                  {services
+                    .filter(s => s.name.toLowerCase().includes(treatmentSearch.toLowerCase()))
+                    .map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSelectedTreatment(s); setStep('provider'); }}
+                        data-testid={`treatment-${s.code ?? s.id}`}
+                        className={cn(
+                          'text-left p-3 rounded-xl border transition-colors',
+                          isDark
+                            ? 'bg-white/5 border-white/10 hover:bg-white/10'
+                            : 'bg-white border-gray-200 hover:bg-gray-50',
+                        )}
+                      >
+                        <p className={cn('font-medium', isDark ? 'text-white' : 'text-gray-900')}>
+                          {s.name}
+                        </p>
+                        {s.description && (
+                          <p className={cn('text-xs mt-0.5', isDark ? 'text-white/50' : 'text-gray-500')}>
+                            {s.description}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  className="mt-4 w-full"
+                  onClick={() => { setSelectedTreatment(null); setStep('provider'); }}
+                  data-testid="treatment-skip"
+                >
+                  Überspringen — allgemeiner Termin
+                </Button>
+              </div>
+            </BookingSection>
+          )}
+
+          <BookingSection
+            status={sectionStatus('provider')}
+            isDark={isDark}
+            ref={(el) => { sectionRefs.current.provider = el; }}
+            summary={selectedProvider ? {
+              label: 'Arzt',
+              value: formatProviderName(selectedProvider),
+              onChange: canGoBackToProviders ? () => setStep('provider') : undefined,
+            } : undefined}
+          >
+            <div>
+              <h2 className={cn('text-lg font-semibold mb-1', isDark ? 'text-white' : 'text-gray-900')}>
+                Arzt wählen
+              </h2>
+              <p className={cn('text-sm mb-4', isDark ? 'text-white/50' : 'text-gray-500')}>
+                Wählen Sie Ihren behandelnden Arzt
+              </p>
+              {treatmentFilterHadNoMatches && (
+                <div
+                  className={cn(
+                    'mb-3 p-3 rounded-xl text-xs',
+                    isDark
+                      ? 'bg-amber-500/10 border border-amber-400/30 text-amber-200'
+                      : 'bg-amber-50 border border-amber-200 text-amber-800',
+                  )}
+                >
+                  Für diese Behandlung sind keine spezifischen Ärzte hinterlegt — alle verfügbaren Ärzte werden angezeigt.
+                </div>
+              )}
+              <div className="grid gap-3">
+                {filteredProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => handleProviderSelect(provider)}
+                    data-testid={`provider-${provider.id}`}
+                    className={cn(
+                      'group flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200',
+                      isDark
+                        ? 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20'
+                        : 'bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md',
+                    )}
+                  >
+                    <ProviderAvatar provider={provider} isDark={isDark} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('font-medium truncate', isDark ? 'text-white' : 'text-gray-900')}>
+                        {formatProviderName(provider)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </BookingSection>
         </main>
       </div>
     </PageShell>
