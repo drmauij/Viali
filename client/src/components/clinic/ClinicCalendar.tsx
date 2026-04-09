@@ -244,7 +244,11 @@ export default function ClinicCalendar({
   const [editTimeOffOpen, setEditTimeOffOpen] = useState(false);
   const [selectedTimeOff, setSelectedTimeOff] = useState<(ProviderTimeOff & { creator?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null }) | null>(null);
   const [selectedTimeOffProviderName, setSelectedTimeOffProviderName] = useState<string>("");
-  const [hoverTime, setHoverTime] = useState<{ y: number; time: string } | null>(null);
+  // Hover time indicator uses refs + imperative DOM updates to avoid
+  // re-rendering the whole calendar on every mouse move (which caused the
+  // SaalStaffPopover to flicker when the cursor entered it).
+  const hoverIndicatorRef = useRef<HTMLDivElement>(null);
+  const hoverTimeLabelRef = useRef<HTMLSpanElement>(null);
   const [dayNotesDialogOpen, setDayNotesDialogOpen] = useState(false);
   const [notesBannerHidden, setNotesBannerHidden] = useState(() => sessionStorage.getItem('clinic_notes_banner_hidden') === 'true');
   const calendarContainerRef = useRef<HTMLDivElement>(null);
@@ -264,7 +268,9 @@ export default function ClinicCalendar({
     if (currentView !== 'day') return;
 
     const container = calendarContainerRef.current;
-    if (!container) return;
+    const indicator = hoverIndicatorRef.current;
+    const label = hoverTimeLabelRef.current;
+    if (!container || !indicator || !label) return;
 
     const timeContent = container.querySelector('.rbc-time-content');
     if (!timeContent) return;
@@ -272,7 +278,7 @@ export default function ClinicCalendar({
     const rect = timeContent.getBoundingClientRect();
     const y = e.clientY - rect.top;
     if (y < 0 || y > rect.height) {
-      setHoverTime(null);
+      indicator.style.display = 'none';
       return;
     }
 
@@ -286,11 +292,15 @@ export default function ClinicCalendar({
     const minutes = Math.floor(minutesRaw / 5) * 5;
     const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 
-    setHoverTime({ y: y + rect.top - container.getBoundingClientRect().top, time: timeStr });
+    const top = y + rect.top - container.getBoundingClientRect().top;
+    indicator.style.display = 'flex';
+    indicator.style.top = `${top}px`;
+    label.textContent = timeStr;
   }, [currentView]);
 
   const handleCalendarMouseLeave = useCallback(() => {
-    setHoverTime(null);
+    const indicator = hoverIndicatorRef.current;
+    if (indicator) indicator.style.display = 'none';
   }, []);
 
   const dateRange = useMemo(() => {
@@ -1722,14 +1732,16 @@ export default function ClinicCalendar({
             popup
           />
         )}
-        {hoverTime && currentView === 'day' && (
+        {currentView === 'day' && (
           <div
-            className="absolute left-0 right-0 pointer-events-none z-50 flex items-center"
-            style={{ top: hoverTime.y }}
+            ref={hoverIndicatorRef}
+            className="absolute left-0 right-0 pointer-events-none z-50 items-center"
+            style={{ display: 'none', top: 0 }}
           >
-            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap">
-              {hoverTime.time}
-            </span>
+            <span
+              ref={hoverTimeLabelRef}
+              className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap"
+            />
             <div className="flex-1 border-t border-dashed border-primary/60" />
           </div>
         )}

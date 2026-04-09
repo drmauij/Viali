@@ -453,15 +453,18 @@ export default function BookAppointment() {
   // ─── Handlers ─────────────────────────────────────────────────
 
   const handleProviderSelect = useCallback((provider: Provider) => {
-    const changed = selectedProvider && selectedProvider.id !== provider.id;
+    const changed = !selectedProvider || selectedProvider.id !== provider.id;
     setSelectedProvider(provider);
     setStep('date');
     if (changed) {
       setSelectedSlot(null);
       setSlotTaken(false);
+      // Only force a loading state when the provider actually changed —
+      // otherwise the fetch effect won't re-fire (same dep) and the
+      // calendar would stay stuck in "loading" with every day disabled.
+      setAvailableDatesLoading(true);
+      setSeekingAvailableMonth(true);
     }
-    setAvailableDatesLoading(true);
-    setSeekingAvailableMonth(true);
   }, [selectedProvider]);
 
   const handleSlotSelect = useCallback((slot: Slot) => {
