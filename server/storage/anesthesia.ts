@@ -2,6 +2,7 @@ import { db } from "../db";
 import {
   eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull, isNotNull,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { randomUUID } from "crypto";
 import {
   calculateInventoryForMedication,
@@ -882,20 +883,26 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
   statusTimestamp: number;
   pacuBedId: string | null;
   pacuBedName: string | null;
+  clinicRoomId: string | null;
+  clinicRoomName: string | null;
   plannedTime: string | null;
   admissionTime: string | null;
 }>> {
+  const clinicRoom = alias(surgeryRooms, "clinic_room");
+
   const results = await db
     .select({
       anesthesiaRecord: anesthesiaRecords,
       surgery: surgeries,
       patient: patients,
       pacuBed: surgeryRooms,
+      clinic_room: clinicRoom,
     })
     .from(anesthesiaRecords)
     .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
     .innerJoin(patients, eq(surgeries.patientId, patients.id))
     .leftJoin(surgeryRooms, eq(surgeries.pacuBedId, surgeryRooms.id))
+    .leftJoin(clinicRoom, eq(surgeries.clinicRoomId, clinicRoom.id))
     .where(and(
       eq(surgeries.hospitalId, hospitalId),
       eq(surgeries.isArchived, false),
@@ -976,6 +983,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         statusTimestamp,
         pacuBedId: row.surgery.pacuBedId || null,
         pacuBedName: row.pacuBed?.name || null,
+        clinicRoomId: row.surgery.clinicRoomId || null,
+        clinicRoomName: row.clinic_room?.name || null,
         plannedTime: null,
         admissionTime: null,
       };
@@ -995,11 +1004,13 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
       surgery: surgeries,
       patient: patients,
       pacuBed: surgeryRooms,
+      clinic_room: clinicRoom,
       anesthesiaRecord: anesthesiaRecords,
     })
     .from(surgeries)
     .innerJoin(patients, eq(surgeries.patientId, patients.id))
     .leftJoin(surgeryRooms, eq(surgeries.pacuBedId, surgeryRooms.id))
+    .leftJoin(clinicRoom, eq(surgeries.clinicRoomId, clinicRoom.id))
     .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
     .where(and(
       eq(surgeries.hospitalId, hospitalId),
@@ -1054,6 +1065,8 @@ export async function getPacuPatients(hospitalId: string): Promise<Array<{
         statusTimestamp: plannedDate ? plannedDate.getTime() : Date.now(),
         pacuBedId: row.surgery.pacuBedId || null,
         pacuBedName: row.pacuBed?.name || null,
+        clinicRoomId: row.surgery.clinicRoomId || null,
+        clinicRoomName: row.clinic_room?.name || null,
         plannedTime: row.surgery.plannedDate ? new Date(row.surgery.plannedDate).toISOString() : null,
         admissionTime: row.surgery.admissionTime ? new Date(row.surgery.admissionTime).toISOString() : null,
       };
