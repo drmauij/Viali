@@ -368,6 +368,15 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
       updateData.admissionTime = new Date(updateData.admissionTime);
     }
 
+    // Patient location is mutually exclusive: a patient is either in the
+    // clinic waiting room OR assigned to a PACU bed, never both.
+    if (Object.prototype.hasOwnProperty.call(req.body, 'pacuBedId') && req.body.pacuBedId) {
+      updateData.clinicRoomId = null;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'clinicRoomId') && req.body.clinicRoomId) {
+      updateData.pacuBedId = null;
+    }
+
     if (updateData.isSuspended === true && !surgery.isSuspended) {
       updateData.suspendedAt = new Date();
       updateData.suspendedBy = userId;
