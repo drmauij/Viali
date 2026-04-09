@@ -1664,15 +1664,19 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
     byService.set(m.serviceId, list);
   }
 
-  return services.map(s => ({
-    id: s.id,
-    name: s.name,
-    description: s.description,
-    durationMinutes: s.durationMinutes,
-    code: s.code,
-    sortOrder: s.sortOrder ?? 0,
-    providerIds: byService.get(s.id) ?? [],
-  }));
+  return services
+    .map(s => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      durationMinutes: s.durationMinutes,
+      code: s.code,
+      sortOrder: s.sortOrder ?? 0,
+      providerIds: byService.get(s.id) ?? [],
+    }))
+    // Hide services that have no bookable provider linked — otherwise the /book
+    // treatment picker would list them but the patient could never complete a booking.
+    .filter(s => s.providerIds.length > 0);
 }
 
 export async function getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined> {
