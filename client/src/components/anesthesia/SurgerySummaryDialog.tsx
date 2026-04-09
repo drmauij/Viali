@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, ClipboardList, Activity, ChevronRight, ChevronDown, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail, StickyNote, MessageSquare, Trash2, Archive, UserPlus, Printer } from "lucide-react";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
+import { ClinicRoomSelector } from "@/components/anesthesia/ClinicRoomSelector";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -121,6 +122,7 @@ export default function SurgerySummaryDialog({
   
   // Find the PACU bed name
   const pacuBed = rooms.find(r => r.id === surgery?.pacuBedId);
+  const clinicRoom = rooms.find(r => r.id === surgery?.clinicRoomId);
 
   // Fetch pre-op assessment data
   const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError, error: preOpError } = useQuery<any>({
@@ -861,6 +863,28 @@ export default function SurgerySummaryDialog({
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Clinic Waiting Room Assignment - Only shown in anesthesia module, hidden for slot reservations */}
+            {(!activeModule || activeModule === 'anesthesia') && surgery?.patientId && (
+              <div className="flex items-center justify-between px-4 py-3 bg-amber-50/50 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-900" data-testid="section-clinic-room-assignment">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t('anesthesia.clinic.waitingLabel', 'Waiting')}</span>
+                  {clinicRoom && (
+                    <span
+                      className="text-sm text-amber-800 dark:text-amber-300 font-semibold"
+                      data-testid="text-clinic-room-current"
+                    >
+                      {clinicRoom.name}
+                    </span>
+                  )}
+                </div>
+                <ClinicRoomSelector
+                  surgeryId={surgery!.id}
+                  currentRoomId={surgery?.clinicRoomId}
+                  currentRoomName={clinicRoom?.name}
+                />
+              </div>
             )}
 
             {/* PACU Bed Assignment - Only shown in anesthesia module, hidden for slot reservations */}

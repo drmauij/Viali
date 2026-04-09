@@ -33,7 +33,7 @@ const UNIT_TYPES = [
   { value: "ward", labelKey: "admin.unitTypes.ward" },
 ] as const;
 
-type SurgeryRoom = { id: string; name: string; type: 'OP' | 'PACU'; hospitalId: string; sortOrder: number; createdAt: string };
+type SurgeryRoom = { id: string; name: string; type: 'OP' | 'PACU' | 'CLINIC'; hospitalId: string; sortOrder: number; createdAt: string };
 
 export default function Clinical() {
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ export default function Clinical() {
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [roomFormName, setRoomFormName] = useState('');
-  const [roomFormType, setRoomFormType] = useState<'OP' | 'PACU'>('OP');
+  const [roomFormType, setRoomFormType] = useState<'OP' | 'PACU' | 'CLINIC'>('OP');
 
   // Unit states
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
@@ -154,7 +154,7 @@ export default function Clinical() {
 
   // Surgery Room mutations
   const createRoomMutation = useMutation({
-    mutationFn: async ({ name, type }: { name: string; type: 'OP' | 'PACU' }) => {
+    mutationFn: async ({ name, type }: { name: string; type: 'OP' | 'PACU' | 'CLINIC' }) => {
       return apiRequest('POST', `/api/surgery-rooms`, { hospitalId: activeHospital?.id, name, type });
     },
     onSuccess: () => {
@@ -170,7 +170,7 @@ export default function Clinical() {
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: async ({ roomId, name, type }: { roomId: string; name: string; type: 'OP' | 'PACU' }) => {
+    mutationFn: async ({ roomId, name, type }: { roomId: string; name: string; type: 'OP' | 'PACU' | 'CLINIC' }) => {
       return apiRequest('PUT', `/api/surgery-rooms/${roomId}`, { name, type });
     },
     onSuccess: () => {
@@ -1033,13 +1033,14 @@ export default function Clinical() {
             </div>
             <div>
               <Label htmlFor="room-type">{t("admin.roomType", "Room Type")} *</Label>
-              <Select value={roomFormType} onValueChange={(value: 'OP' | 'PACU') => setRoomFormType(value)}>
+              <Select value={roomFormType} onValueChange={(value: 'OP' | 'PACU' | 'CLINIC') => setRoomFormType(value)}>
                 <SelectTrigger data-testid="select-room-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="OP">{t("admin.roomTypeOP", "OP (Operating Room)")}</SelectItem>
                   <SelectItem value="PACU">{t("admin.roomTypePACU", "PACU (Recovery)")}</SelectItem>
+                  <SelectItem value="CLINIC">{t("admin.roomTypeCLINIC", "Clinic (Waiting Area)")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

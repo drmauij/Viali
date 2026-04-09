@@ -239,6 +239,13 @@ export default function TimelineWeekView({
     return bed?.name || null;
   };
 
+  // Get clinic room name
+  const getClinicRoomName = (clinicRoomId: string | null | undefined) => {
+    if (!clinicRoomId) return null;
+    const room = allRooms.find((r: any) => r.id === clinicRoomId);
+    return room?.name || null;
+  };
+
   // Get status color for surgery - using theme-aware backgrounds
   const getStatusClass = (surgery: any) => {
     const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
@@ -674,6 +681,7 @@ export default function TimelineWeekView({
                   const procedureName = surgery.plannedSurgery || 'Surgery';
                   const startTime = format(displayStart, getDateFnsTimeFormat());
                   const pacuBedName = getPacuBedName(surgery.pacuBedId);
+                  const clinicRoomName = getClinicRoomName(surgery.clinicRoomId);
                   const preOpKey = getPreOpStatus ? getPreOpStatus(surgery.id).key : 'planned';
                   const qDot = getQuestionnaireDot(surgery.questionnaireStatus, preOpKey);
                   const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
@@ -699,7 +707,7 @@ export default function TimelineWeekView({
                           ? `${startTime} - ${t('opCalendar.roomBlocked', 'BLOCKED')}\n${roomName}${surgery.notes ? `\n${surgery.notes}` : ''}`
                           : isSlotReservation
                             ? `${startTime} - ${t('opCalendar.slotReserved', 'SLOT RESERVED')}\n${roomName}${surgery.surgeonName ? `\n${surgery.surgeonName}` : ''}`
-                            : `${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`
+                            : `${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : (!pacuBedName && clinicRoomName ? `\n${clinicRoomName}` : '')}`
                       }
                       data-testid={`surgery-event-${surgery.id}`}
                     >
@@ -789,6 +797,11 @@ export default function TimelineWeekView({
                           {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
                             <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
                               {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {pacuBedName}
+                            </div>
+                          )}
+                          {!pacuBedName && clinicRoomName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
+                            <div className="text-[8px] font-medium text-amber-800 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/30 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-clinic-room-week-${surgery.id}`}>
+                              {clinicRoomName}
                             </div>
                           )}
                           {isTruncatedEnd && height > 40 && (

@@ -1694,6 +1694,7 @@
     "roomType": "Room Type",
     "roomTypeOP": "OP (Operating Room)",
     "roomTypePACU": "PACU (Recovery)",
+    "roomTypeCLINIC": "Clinic (Waiting Area)",
     "roomNameRequired": "Room name is required",
     "assignments": "Unit / Role Assignments",
     "addAssignment": "Add",
@@ -2286,6 +2287,16 @@
         "sbpLow": "SBP low",
         "sbpHigh": "SBP high"
       }
+    },
+    "clinic": {
+      "markWaiting": "Mark as Waiting",
+      "assigned": "Patient marked as waiting",
+      "unassigned": "Waiting status cleared",
+      "failedToAssign": "Failed to assign clinic room",
+      "noRooms": "No clinic rooms configured",
+      "selectRoom": "Select Clinic Room",
+      "clear": "Clear Waiting",
+      "waitingLabel": "Waiting"
     },
     "op": {
       "title": "OP Monitoring",

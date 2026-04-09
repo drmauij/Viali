@@ -27,7 +27,7 @@ interface PacuBedSelectorProps {
 interface SurgeryRoom {
   id: string;
   name: string;
-  type: "OP" | "PACU";
+  type: "OP" | "PACU" | "CLINIC";
   hospitalId: string;
   sortOrder: number;
 }

@@ -1775,6 +1775,7 @@
     "roomType": "Raumtyp",
     "roomTypeOP": "OP (Operationssaal)",
     "roomTypePACU": "AWR (Aufwachraum)",
+    "roomTypeCLINIC": "Klinik (Wartebereich)",
     "roomNameRequired": "Raumname ist erforderlich",
     "assignments": "Abteilung / Rollen-Zuweisungen",
     "addAssignment": "Hinzufügen",
@@ -2367,6 +2368,16 @@
         "sbpLow": "RR sys. niedrig",
         "sbpHigh": "RR sys. hoch"
       }
+    },
+    "clinic": {
+      "markWaiting": "Als wartend markieren",
+      "assigned": "Patient als wartend markiert",
+      "unassigned": "Wartestatus gelöscht",
+      "failedToAssign": "Wartebereich konnte nicht zugewiesen werden",
+      "noRooms": "Keine Wartebereich-Räume konfiguriert",
+      "selectRoom": "Wartebereich auswählen",
+      "clear": "Wartestatus aufheben",
+      "waitingLabel": "Wartend"
     },
     "op": {
       "title": "OP-Überwachung",
