@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createEmptyItem, isItemType, type PostopOrderItem } from './postopOrderItems';
+import { createEmptyItem, isItemType, type PostopOrderItem } from '@shared/postopOrderItems';
 
 describe('postopOrderItems', () => {
   it('creates empty items of every type with correct discriminator', () => {
