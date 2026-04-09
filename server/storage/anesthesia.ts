@@ -474,9 +474,16 @@ export async function createSurgery(surgery: InsertSurgery): Promise<Surgery> {
 }
 
 export async function updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery> {
+  // Sequential physical-location rule: assigning a PACU bed clears any pending clinic/waiting assignment.
+  // A patient is either waiting in the clinic OR in a PACU bed — never both.
+  const effectiveUpdates: Partial<Surgery> =
+    Object.prototype.hasOwnProperty.call(updates, 'pacuBedId') && updates.pacuBedId
+      ? { ...updates, clinicRoomId: null }
+      : updates;
+
   const [updated] = await db
     .update(surgeries)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...effectiveUpdates, updatedAt: new Date() })
     .where(eq(surgeries.id, id))
     .returning();
   return updated;
