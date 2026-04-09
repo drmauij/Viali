@@ -6338,6 +6338,9 @@ export const referralEvents = pgTable("referral_events", {
   adsetId: varchar("adset_id"),
   adId: varchar("ad_id"),
   captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref", "staff"] }).notNull(),
+  // Snapshot taken when a linked appointment is hard-deleted, so conversion tracking survives
+  appointmentDeletedAt: timestamp("appointment_deleted_at"),
+  appointmentFinalStatus: varchar("appointment_final_status"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("referral_events_hospital_created").on(table.hospitalId, table.createdAt),

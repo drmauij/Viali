@@ -29,6 +29,7 @@ import {
   externalSurgeryRequests,
   externalSurgeryRequestDocuments,
   appointmentActionTokens,
+  referralEvents,
   type User,
   type Hospital,
   type Unit,
@@ -1028,6 +1029,24 @@ export async function updateClinicAppointment(id: string, updates: Partial<Clini
 }
 
 export async function deleteClinicAppointment(id: string): Promise<void> {
+  // Snapshot appointment status onto linked referral_events before hard delete,
+  // so conversion tracking survives (FK is ON DELETE SET NULL).
+  const [existing] = await db
+    .select({ status: clinicAppointments.status })
+    .from(clinicAppointments)
+    .where(eq(clinicAppointments.id, id))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(referralEvents)
+      .set({
+        appointmentDeletedAt: new Date(),
+        appointmentFinalStatus: existing.status,
+      })
+      .where(eq(referralEvents.appointmentId, id));
+  }
+
   await db
     .delete(clinicAppointments)
     .where(eq(clinicAppointments.id, id));
