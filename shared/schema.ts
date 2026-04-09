@@ -234,8 +234,8 @@ export const orMedications = pgTable("or_medications", {
   uniqueIndex("idx_or_medications_record_item_group").on(table.anesthesiaRecordId, table.itemId, table.groupId),
 ]);
 
-// Room types: OP = Operating Room (default), PACU = Post-Anesthesia Care Unit
-export const roomTypeEnum = pgEnum("room_type", ["OP", "PACU"]);
+// Room types: OP = Operating Room, PACU = Post-Anesthesia Care Unit, CLINIC = waiting/reception area
+export const roomTypeEnum = pgEnum("room_type", ["OP", "PACU", "CLINIC"]);
 
 // Surgery Rooms (for managing operating rooms in anesthesia module)
 export const surgeryRooms = pgTable("surgery_rooms", {
@@ -978,7 +978,8 @@ export const surgeries = pgTable("surgeries", {
   patientId: varchar("patient_id"), // Nullable for slot reservations (no patient assigned yet)
   surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id),
   pacuBedId: varchar("pacu_bed_id").references(() => surgeryRooms.id), // PACU bed/room assignment for post-op
-  
+  clinicRoomId: varchar("clinic_room_id").references(() => surgeryRooms.id), // Pre-op clinic/waiting room assignment — cleared when pacuBedId is set
+
   // Planning
   plannedDate: timestamp("planned_date").notNull(),
   plannedSurgery: varchar("planned_surgery"), // Nullable for slot reservations
@@ -1065,6 +1066,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_patient").on(table.patientId),
   index("idx_surgeries_room").on(table.surgeryRoomId),
   index("idx_surgeries_pacu_bed").on(table.pacuBedId),
+  index("idx_surgeries_clinic_room").on(table.clinicRoomId),
   index("idx_surgeries_surgeon").on(table.surgeonId),
   index("idx_surgeries_status").on(table.status),
   index("idx_surgeries_planned_date").on(table.plannedDate),
