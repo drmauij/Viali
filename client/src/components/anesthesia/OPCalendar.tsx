@@ -58,6 +58,7 @@ interface CalendarEvent {
   notes?: string | null;
   isRoomBlock?: boolean;
   pacuBedName?: string | null;
+  clinicRoomName?: string | null;
   questionnaireStatus?: string | null;
   timeMarkers?: Array<{
     id: string;
@@ -547,6 +548,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         : `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
 
       const pacuBedRoom = surgery.pacuBedId ? allSurgeryRooms.find((r: any) => r.id === surgery.pacuBedId) : null;
+      const clinicRoom = surgery.clinicRoomId ? allSurgeryRooms.find((r: any) => r.id === surgery.clinicRoomId) : null;
 
       return {
         id: surgery.id,
@@ -579,6 +581,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         notes: surgery.notes || null,
         isRoomBlock: surgery.plannedSurgery === '__ROOM_BLOCK__',
         pacuBedName: pacuBedRoom?.name || null,
+        clinicRoomName: clinicRoom?.name || null,
         questionnaireStatus: surgery.questionnaireStatus || null,
         timeMarkers: surgery.timeMarkers || null,
       };
@@ -1253,6 +1256,11 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         {event.pacuBedName && !event.isCancelled && !event.isSuspended && (
           <div className="absolute bottom-0.5 right-0.5 sm:right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 sm:px-1 py-0 rounded text-[8px] sm:text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
             {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {event.pacuBedName}
+          </div>
+        )}
+        {!event.pacuBedName && event.clinicRoomName && !event.isCancelled && !event.isSuspended && (
+          <div className="absolute bottom-0.5 right-0.5 sm:right-1 flex items-center gap-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-0.5 sm:px-1 py-0 rounded text-[8px] sm:text-[9px] font-medium leading-tight" data-testid={`badge-clinic-room-${event.surgeryId}`}>
+            {event.clinicRoomName}
           </div>
         )}
       </div>
