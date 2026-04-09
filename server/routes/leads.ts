@@ -24,6 +24,10 @@ interface ValidatedLead {
   source: string;
   metaLeadId: string | null;
   metaFormId: string | null;
+  campaignId: string | null;
+  campaignName: string | null;
+  adsetId: string | null;
+  adId: string | null;
   operation: string | null;
   message: string | null;
   utmSource: string | null;
@@ -102,6 +106,10 @@ export function validateLeadPayload(body: unknown): {
       source,
       metaLeadId: optStr("lead_id"),
       metaFormId: optStr("form_id"),
+      campaignId: optStr("campaign_id"),
+      campaignName: optStr("campaign_name"),
+      adsetId: optStr("adset_id"),
+      adId: optStr("ad_id"),
       operation: optStr("operation"),
       message: optStr("message"),
       utmSource: optStr("utm_source"),
@@ -209,6 +217,10 @@ router.post("/api/webhooks/leads/:hospitalId", async (req, res) => {
         source: data.source,
         metaLeadId: data.metaLeadId,
         metaFormId: data.metaFormId,
+        campaignId: data.campaignId,
+        campaignName: data.campaignName,
+        adsetId: data.adsetId,
+        adId: data.adId,
         status: "new",
         utmSource: data.utmSource,
         utmMedium: data.utmMedium,
@@ -572,6 +584,10 @@ router.post(
         igshid: lead.igshid || undefined,
         li_fat_id: lead.li_fat_id || undefined,
         twclid: lead.twclid || undefined,
+        campaignId: lead.campaignId || undefined,
+        campaignName: lead.campaignName || undefined,
+        adsetId: lead.adsetId || undefined,
+        adId: lead.adId || undefined,
       });
 
       // 6. Update lead status

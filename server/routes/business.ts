@@ -1892,6 +1892,12 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
         twclid: referralEvents.twclid,
         metaLeadId: referralEvents.metaLeadId,
         metaFormId: referralEvents.metaFormId,
+        campaignId: referralEvents.campaignId,
+        campaignName: referralEvents.campaignName,
+        adsetId: referralEvents.adsetId,
+        adId: referralEvents.adId,
+        // Unified campaign label: prefer ad-platform webhook name, fall back to URL utm_campaign
+        campaign: sql<string | null>`COALESCE(${referralEvents.campaignName}, ${referralEvents.utmCampaign})`.as('campaign'),
         captureMethod: referralEvents.captureMethod,
         createdAt: referralEvents.createdAt,
         patientFirstName: patients.firstName,
@@ -2017,6 +2023,12 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarke
         re.meta_lead_id,
         re.meta_form_id,
         re.utm_campaign,
+        -- Unified campaign label: prefer the name from the ad-platform webhook
+        -- (e.g. Meta Ads Manager campaign_name) and fall back to the URL's
+        -- utm_campaign tag. This gives one "Campaign" field across sources.
+        COALESCE(re.campaign_name, re.utm_campaign) AS campaign,
+        re.campaign_id,
+        re.campaign_name,
         ca.id AS appointment_id,
         ca.status AS appointment_status,
         ca.provider_id,

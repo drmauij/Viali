@@ -144,6 +144,13 @@ type ReferralEvent = {
   utmCampaign: string | null;
   utmTerm: string | null;
   utmContent: string | null;
+  // Ad platform campaign attribution (from lead webhook)
+  campaignId: string | null;
+  campaignName: string | null;
+  adsetId: string | null;
+  adId: string | null;
+  // Unified campaign label: COALESCE(campaignName, utmCampaign), computed server-side
+  campaign: string | null;
   gclid: string | null;
   gbraid: string | null;
   wbraid: string | null;
@@ -651,7 +658,7 @@ export default function Marketing() {
                                 {ev.sourceDetail || '—'}
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">
-                                {ev.utmCampaign || '—'}
+                                {ev.campaign || ev.utmCampaign || '—'}
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">
                                 {ev.utmTerm || '—'}

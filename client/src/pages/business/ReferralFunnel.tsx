@@ -324,9 +324,14 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   }, [rows]);
 
   const campaigns = useMemo(() => {
+    // Unified campaign label: prefer the human-readable campaign name from the
+    // ad-platform webhook (e.g. Meta Ads Manager) and fall back to utm_campaign.
+    // Server already computes this as `campaign`, but we double-coalesce here
+    // for safety in case an older cached response lacks the field.
     const s = new Set<string>();
     for (const r of rows) {
-      if (r.utm_campaign) s.add(r.utm_campaign);
+      const label = r.campaign ?? r.utm_campaign;
+      if (label) s.add(label);
     }
     return Array.from(s).sort();
   }, [rows]);
@@ -340,7 +345,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
       result = result.filter((r) => r.source === sourceFilter);
     }
     if (campaignFilter !== "all") {
-      result = result.filter((r) => r.utm_campaign === campaignFilter);
+      result = result.filter((r) => (r.campaign ?? r.utm_campaign) === campaignFilter);
     }
     return result;
   }, [rows, providerFilter, sourceFilter, campaignFilter]);
@@ -1090,7 +1095,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="kept">{t("business.funnel.levelKept", "Appointment Kept")}</SelectItem>
+                      <SelectItem value="kept">{t("business.funnel.levelKept", "Attended")}</SelectItem>
                       <SelectItem value="surgery_planned">{t("business.funnel.levelSurgery", "Surgery Planned")}</SelectItem>
                       <SelectItem value="paid">{t("business.funnel.levelPaid", "Paid")}</SelectItem>
                     </SelectContent>

@@ -6330,6 +6330,11 @@ export const referralEvents = pgTable("referral_events", {
   // Meta Lead Forms IDs for offline conversion tracking
   metaLeadId: varchar("meta_lead_id"),
   metaFormId: varchar("meta_form_id"),
+  // Ad platform campaign attribution (campaign/adset/ad hierarchy)
+  campaignId: varchar("campaign_id"),
+  campaignName: varchar("campaign_name"),
+  adsetId: varchar("adset_id"),
+  adId: varchar("ad_id"),
   captureMethod: varchar("capture_method", { enum: ["manual", "utm", "ref", "staff"] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
@@ -6369,6 +6374,11 @@ export const leads = pgTable("leads", {
   source: varchar("source").notNull(), // "fb", "ig", "website", "email", etc.
   metaLeadId: varchar("meta_lead_id"),
   metaFormId: varchar("meta_form_id"),
+  // Ad platform campaign attribution (from lead webhook: campaign/adset/ad hierarchy)
+  campaignId: varchar("campaign_id"),
+  campaignName: varchar("campaign_name"),
+  adsetId: varchar("adset_id"),
+  adId: varchar("ad_id"),
   status: leadStatusEnum("status").notNull().default("new"),
   patientId: varchar("patient_id").references(() => patients.id, { onDelete: 'set null' }),
   appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),

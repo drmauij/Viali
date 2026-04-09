@@ -1422,6 +1422,13 @@
       "when": 1775500000000,
       "tag": "0202_rename_meta_leads_to_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1775600000000,
+      "tag": "0203_add_lead_meta_campaign_fields",
+      "breakpoints": true
     }
   ]
 }
