@@ -1429,6 +1429,13 @@
       "when": 1775600000000,
       "tag": "0203_add_lead_meta_campaign_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1775700000000,
+      "tag": "0204_add_clinic_room_type",
+      "breakpoints": true
     }
   ]
 }
