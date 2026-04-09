@@ -780,7 +780,10 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         });
       }
 
-      // Send confirmation email asynchronously
+      // Send confirmation to patient (SMS first, email fallback) via shared notification helper
+      sendAppointmentNotification(appointment.id, hospital.id, 'confirmation');
+
+      // Notify clinic staff about new booking
       (async () => {
         try {
           const tz = hospital.timezone || 'Europe/Zurich';
@@ -790,47 +793,11 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           const dateObj = new Date(`${date}T${startTime}:00`);
           const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
 
-          // Generate cancel token
-          let manageUrl = '';
-          try {
-            const crypto = await import('crypto');
-            const cancelToken = crypto.randomBytes(32).toString('hex');
-            const tokenExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
-            await storage.createAppointmentActionToken({
-              token: cancelToken,
-              appointmentId: appointment.id,
-              hospitalId: hospital.id,
-              action: 'cancel',
-              expiresAt: tokenExpiresAt,
-            });
-            const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
-            manageUrl = `${baseUrl}/manage-appointment/${cancelToken}`;
-          } catch (tokenErr) {
-            logger.error('Failed to generate cancel token for booking:', tokenErr);
-          }
-
           const provider = await storage.getUser(providerId);
           const providerName = provider
             ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim()
             : '';
-          const noShowFeeMsg = hospital.noShowFeeMessage || '';
 
-          const { sendAppointmentConfirmationEmail } = await import('../resend');
-          await sendAppointmentConfirmationEmail(
-            email,
-            firstName,
-            hospital.name,
-            formattedDate,
-            startTime,
-            lang,
-            manageUrl,
-            providerName,
-            '',
-            noShowFeeMsg,
-            hospital.hidePatientCancel || false,
-          );
-
-          // Notify clinic staff about new booking
           const clinicEmail = hospital.companyEmail || (hospital as any).externalSurgeryNotificationEmail;
           if (clinicEmail) {
             try {
@@ -849,8 +816,8 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
               logger.error('Failed to send new booking alert email to clinic:', alertErr);
             }
           }
-        } catch (emailErr) {
-          logger.error('Failed to send booking confirmation email:', emailErr);
+        } catch (alertErr) {
+          logger.error('Failed to send clinic staff booking alert:', alertErr);
         }
       })();
 

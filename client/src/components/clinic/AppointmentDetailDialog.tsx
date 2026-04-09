@@ -712,6 +712,19 @@ export default function AppointmentDetailDialog({
                         {t('appointments.undoNoShow', 'Undo No-Show')}
                       </Button>
                     )}
+                    {appointment.status === 'cancelled' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-300 dark:border-green-700 dark:hover:bg-green-900/20"
+                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
+                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                        data-testid="button-reactivate-appointment"
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        {t('appointments.reactivate', 'Wiederherstellen')}
+                      </Button>
+                    )}
                   </div>
                   {/* Secondary actions row */}
                   {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
