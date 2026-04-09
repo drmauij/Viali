@@ -197,11 +197,11 @@ export default function BookAppointment() {
 
   // Service-based booking state
   const [serviceInfo, setServiceInfo] = useState<{ id: string; name: string; description: string | null; durationMinutes: number | null } | null>(null);
-  const [bestProviderLoading, setBestProviderLoading] = useState(false);
 
   const [services, setServices] = useState<Service[]>([]);
   const [selectedTreatment, setSelectedTreatment] = useState<Service | null>(null);
   const [treatmentSearch, setTreatmentSearch] = useState('');
+  const [suggestedProviderId, setSuggestedProviderId] = useState<string | null>(null);
 
   // ─── Load booking data ────────────────────────────────────────
 
@@ -252,31 +252,17 @@ export default function BookAppointment() {
       .catch(() => { /* non-fatal */ });
   }, [token, serviceCode]);
 
-  // ─── Auto-select best provider (service-based or default) ───
+  // ─── Service info prefill for ?service= deep links ───────────
+  // We never auto-select a provider here — the patient always sees the
+  // provider list with the "Nächster Termin" badge on the suggestion
+  // (see per-treatment effect below). This effect only fetches the
+  // service metadata so the notes field can be prefilled.
   useEffect(() => {
     if (!token || !data) return;
-    if (preselectedProviderId) return;
-    if (selectedProvider) return;
-
-    const autoSelect = (provider: Provider) => {
-      setSelectedProvider(provider);
-      setStep("date");
-      setAvailableDatesLoading(true);
-      setSeekingAvailableMonth(true);
-    };
-
-    setBestProviderLoading(true);
-    const url = serviceCode
-      ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(serviceCode)}`
-      : `/api/public/booking/${token}/best-provider`;
-
-    fetch(url)
+    if (!serviceCode) return;
+    fetch(`/api/public/booking/${token}/best-provider?service=${encodeURIComponent(serviceCode)}`)
       .then(async (res) => {
-        if (!res.ok) {
-          // API error — fall back to first provider in list
-          if (data.providers.length >= 1) autoSelect(data.providers[0]);
-          return;
-        }
+        if (!res.ok) return;
         const result = await res.json();
         if (result.service) {
           setServiceInfo(result.service);
@@ -284,20 +270,34 @@ export default function BookAppointment() {
           const serviceDesc = result.service.description;
           setNotes(serviceName + (serviceDesc ? ` - ${serviceDesc}` : ''));
         }
-        if (result.provider) {
-          const provider = data.providers.find(p => p.id === result.provider.id) || result.provider;
-          autoSelect(provider);
-        } else if (data.providers.length >= 1) {
-          // No available slots found — fall back to first provider
-          autoSelect(data.providers[0]);
-        }
       })
-      .catch(() => {
-        // Network failure — fall back to first provider
-        if (data.providers.length >= 1) autoSelect(data.providers[0]);
+      .catch(() => { /* non-fatal */ });
+  }, [token, data, serviceCode]);
+
+  // ─── Suggested provider for the selected treatment ───────────
+  // Option 2 behavior: don't autoselect — just mark the provider with
+  // the next free slot so the user can see the recommendation while
+  // keeping full manual choice.
+  useEffect(() => {
+    if (!token || !data) return;
+    if (!selectedTreatment) { setSuggestedProviderId(null); return; }
+    if (preselectedProviderId) return;
+    const code = selectedTreatment.code;
+    const url = code
+      ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(code)}`
+      : `/api/public/booking/${token}/best-provider`;
+    let cancelled = false;
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const result = await res.json();
+        if (cancelled) return;
+        if (result.provider?.id) setSuggestedProviderId(result.provider.id);
+        else setSuggestedProviderId(null);
       })
-      .finally(() => setBestProviderLoading(false));
-  }, [token, data, preselectedProviderId]);
+      .catch(() => { if (!cancelled) setSuggestedProviderId(null); });
+    return () => { cancelled = true; };
+  }, [token, data, selectedTreatment, preselectedProviderId]);
 
   // ─── Clinic closures ─────────────────────────────────────────
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
@@ -342,12 +342,26 @@ export default function BookAppointment() {
 
   const filteredProviders = useMemo(() => {
     if (!data) return [] as Provider[];
-    if (!selectedTreatment) return data.providers;
-    const allowed = new Set(selectedTreatment.providerIds);
-    if (allowed.size === 0) return data.providers;
-    const filtered = data.providers.filter(p => allowed.has(p.id));
-    return filtered.length > 0 ? filtered : data.providers;
-  }, [data, selectedTreatment]);
+    let list: Provider[];
+    if (!selectedTreatment) {
+      list = data.providers;
+    } else {
+      const allowed = new Set(selectedTreatment.providerIds);
+      if (allowed.size === 0) {
+        list = data.providers;
+      } else {
+        const filtered = data.providers.filter(p => allowed.has(p.id));
+        list = filtered.length > 0 ? filtered : data.providers;
+      }
+    }
+    if (suggestedProviderId && list.some(p => p.id === suggestedProviderId)) {
+      return [
+        ...list.filter(p => p.id === suggestedProviderId),
+        ...list.filter(p => p.id !== suggestedProviderId),
+      ];
+    }
+    return list;
+  }, [data, selectedTreatment, suggestedProviderId]);
 
   const treatmentFilterHadNoMatches = useMemo(() => {
     if (!data || !selectedTreatment) return false;
@@ -596,7 +610,7 @@ export default function BookAppointment() {
 
   // ─── Loading / Error states ───────────────────────────────────
 
-  if (loading || bestProviderLoading) {
+  if (loading) {
     return (
       <PageShell isDark={isDark} isEmbed={isEmbed}>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -770,9 +784,28 @@ export default function BookAppointment() {
                   >
                     <ProviderAvatar provider={provider} isDark={isDark} />
                     <div className="flex-1 min-w-0">
-                      <p className={cn('font-medium truncate', isDark ? 'text-white' : 'text-gray-900')}>
-                        {formatProviderName(provider)}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={cn('font-medium truncate', isDark ? 'text-white' : 'text-gray-900')}>
+                          {formatProviderName(provider)}
+                        </p>
+                        {provider.id === suggestedProviderId && (
+                          <span
+                            data-testid={`provider-${provider.id}-suggested`}
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0',
+                              isDark
+                                ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/30'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                            )}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            Nächster Termin
+                          </span>
+                        )}
+                      </div>
                       {provider.bookingLocation && (
                         <p className={cn('flex items-center gap-1 text-xs mt-0.5 truncate', isDark ? 'text-white/50' : 'text-gray-500')}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
