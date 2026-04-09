@@ -1175,8 +1175,49 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     const isSlotReservationEvt = !event.patientId;
     const isRoomBlockEvt = !!event.isRoomBlock;
     const qDot = getQuestionnaireDot(event.questionnaireStatus, preOpStatus.key);
+
+    // Build a rich native tooltip for the surgery card
+    const tooltipLines: string[] = [];
+    if (isRoomBlockEvt) {
+      tooltipLines.push(t('opCalendar.roomBlocked', 'BLOCKED'));
+      if (event.notes) tooltipLines.push(event.notes);
+    } else if (isSlotReservationEvt) {
+      tooltipLines.push(t('opCalendar.slotReserved', 'SLOT RESERVED'));
+      if (event.surgeonName) tooltipLines.push(`👨‍⚕️ ${event.surgeonName}`);
+      if (event.plannedSurgery && event.plannedSurgery !== t('opCalendar.slotReserved', 'SLOT RESERVED')) {
+        tooltipLines.push(event.plannedSurgery);
+      }
+      if (event.notes) tooltipLines.push(`📝 ${event.notes}`);
+    } else {
+      if (event.plannedSurgery) tooltipLines.push(`🔪 ${event.plannedSurgery}`);
+      const patientLine = [event.patientName, event.patientBirthday].filter(Boolean).join(' · ');
+      if (patientLine) tooltipLines.push(`👤 ${patientLine}`);
+      if (event.surgeonName) tooltipLines.push(`👨‍⚕️ ${event.surgeonName}`);
+      if (event.start && event.end) {
+        const fmt = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        tooltipLines.push(`🕒 ${fmt(event.start)} – ${fmt(event.end)}`);
+      }
+      if (event.noPreOpRequired) {
+        tooltipLines.push(`💉 ${t('opCalendar.localAnesthesia', 'LA')}`);
+      } else {
+        tooltipLines.push(`📋 ${preOpStatus.label}`);
+      }
+      if (event.pacuBedName) {
+        tooltipLines.push(`🛏️ ${t('anesthesia.pacu.pacuBed', 'PACU Bed')}: ${event.pacuBedName}`);
+      } else if (event.clinicRoomName) {
+        tooltipLines.push(`🚪 ${t('anesthesia.clinic.waitingLabel', 'Waiting')}: ${event.clinicRoomName}`);
+      }
+      if (event.isSuspended) {
+        tooltipLines.push(`⛔ ${t('opCalendar.suspended', 'SUSPENDED')}${event.suspendedReason ? ` – ${event.suspendedReason}` : ''}`);
+      } else if (event.isCancelled) {
+        tooltipLines.push(`❌ ${t('opCalendar.cancelled', 'Cancelled')}`);
+      }
+      if (event.notes) tooltipLines.push(`📝 ${event.notes}`);
+    }
+    const tooltipText = tooltipLines.join('\n');
+
     return (
-      <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
+      <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`} title={tooltipText}>
         {qDot && !isRoomBlockEvt && !isSlotReservationEvt && (
           <div
             className={`absolute top-1 right-0.5 w-2.5 h-2.5 rounded-full ${qDot.color} ring-1 ring-white/50`}

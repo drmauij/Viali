@@ -59,6 +59,7 @@ export default function SurgerySummaryDialog({
   const [isPhoneRevealed, setIsPhoneRevealed] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState("");
+  const [locationMode, setLocationMode] = useState<'waiting' | 'pacu'>('waiting');
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [extRequestExpanded, setExtRequestExpanded] = useState(false);
 
@@ -123,6 +124,20 @@ export default function SurgerySummaryDialog({
   // Find the PACU bed name
   const pacuBed = rooms.find(r => r.id === surgery?.pacuBedId);
   const clinicRoom = rooms.find(r => r.id === surgery?.clinicRoomId);
+
+  const hasClinicRooms = rooms.some(r => r.type === 'CLINIC');
+  const hasPacuBeds = rooms.some(r => r.type === 'PACU');
+
+  // Auto-select location mode once per surgery open: PACU wins if a bed is already set.
+  // After that, respect the user's manual toggle so assigning a waiting room doesn't
+  // snap back to PACU while a stale pacuBedId is still present.
+  useEffect(() => {
+    if (!open || !surgery?.id) return;
+    if (surgery.pacuBedId) setLocationMode('pacu');
+    else if (!hasClinicRooms && hasPacuBeds) setLocationMode('pacu');
+    else setLocationMode('waiting');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, surgery?.id]);
 
   // Fetch pre-op assessment data
   const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError, error: preOpError } = useQuery<any>({
@@ -865,46 +880,73 @@ export default function SurgerySummaryDialog({
               </Card>
             )}
 
-            {/* Clinic Waiting Room Assignment - Only shown in anesthesia module, hidden for slot reservations */}
-            {(!activeModule || activeModule === 'anesthesia') && surgery?.patientId && (
-              <div className="flex items-center justify-between px-4 py-3 bg-amber-50/50 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-900" data-testid="section-clinic-room-assignment">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{t('anesthesia.clinic.waitingLabel', 'Waiting')}</span>
-                  {clinicRoom && (
-                    <span
-                      className="text-sm text-amber-800 dark:text-amber-300 font-semibold"
-                      data-testid="text-clinic-room-current"
-                    >
-                      {clinicRoom.name}
+            {/* Patient Location - Waiting Room OR PACU (exclusive toggle) */}
+            {(!activeModule || activeModule === 'anesthesia') && surgery?.patientId && (hasClinicRooms || hasPacuBeds) && (
+              <div
+                className={`px-4 py-3 rounded-lg border ${
+                  locationMode === 'pacu'
+                    ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900'
+                    : 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900'
+                }`}
+                data-testid="section-patient-location"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  {hasClinicRooms && hasPacuBeds ? (
+                    <div className="inline-flex rounded-md border border-border bg-background p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setLocationMode('waiting')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          locationMode === 'waiting'
+                            ? 'bg-amber-500 text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        data-testid="button-location-waiting"
+                      >
+                        {t('anesthesia.clinic.waitingLabel', 'Waiting')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLocationMode('pacu')}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                          locationMode === 'pacu'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        data-testid="button-location-pacu"
+                      >
+                        {t('anesthesia.pacu.pacuBed', 'PACU Bed')}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-medium">
+                      {locationMode === 'pacu'
+                        ? t('anesthesia.pacu.pacuBed', 'PACU Bed')
+                        : t('anesthesia.clinic.waitingLabel', 'Waiting')}
                     </span>
                   )}
-                </div>
-                <ClinicRoomSelector
-                  surgeryId={surgery!.id}
-                  currentRoomId={surgery?.clinicRoomId}
-                  currentRoomName={clinicRoom?.name}
-                />
-              </div>
-            )}
 
-            {/* PACU Bed Assignment - Only shown in anesthesia module, hidden for slot reservations */}
-            {(!activeModule || activeModule === 'anesthesia') && surgery?.patientId && (
-              <div className="flex items-center justify-between px-4 py-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900" data-testid="section-pacu-bed-assignment">
-                <div className="flex items-center gap-2">
-                  <Bed className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium">{t('anesthesia.pacu.pacuBed', 'PACU Bed')}</span>
-                  {pacuBed && (
-                    <span className="text-sm text-blue-700 dark:text-blue-300 font-semibold" data-testid="text-pacu-bed-current">{pacuBed.name}</span>
+                  {locationMode === 'waiting' ? (
+                    <div className="flex items-center gap-2">
+                      <ClinicRoomSelector
+                        surgeryId={surgery!.id}
+                        currentRoomId={surgery?.clinicRoomId}
+                        currentRoomName={clinicRoom?.name}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <PacuBedSelector
+                        surgeryId={surgeryId}
+                        hospitalId={activeHospital?.id}
+                        currentBedId={surgery?.pacuBedId}
+                        currentBedName={pacuBed?.name}
+                        variant="button"
+                        size="sm"
+                      />
+                    </div>
                   )}
                 </div>
-                <PacuBedSelector
-                  surgeryId={surgeryId}
-                  hospitalId={activeHospital?.id}
-                  currentBedId={surgery?.pacuBedId}
-                  currentBedName={pacuBed?.name}
-                  variant="inline"
-                  size="sm"
-                />
               </div>
             )}
 
