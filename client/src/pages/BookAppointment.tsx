@@ -461,7 +461,7 @@ export default function BookAppointment() {
 
   const handleSubmit = useCallback(async () => {
     if (!token || !selectedProvider || !selectedDate || !selectedSlot) return;
-    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim()) return;
+    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim())) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -549,7 +549,7 @@ export default function BookAppointment() {
   }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
 
   const handleDetailsContinue = () => {
-    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim()) return;
+    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim())) return;
     if (showReferralStep) {
       setStep('referral');
     } else {
@@ -642,17 +642,16 @@ export default function BookAppointment() {
     <PageShell isDark={isDark} isEmbed={isEmbed}>
       {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
       <div className={cn(
-        'grid gap-6',
-        isEmbed ? 'grid-cols-1' : 'lg:grid-cols-[320px_1fr]',
+        'grid gap-6 items-start',
+        isEmbed ? 'grid-cols-1' : 'lg:grid-cols-[280px_1fr]',
       )}>
-        {/* Sticky sidebar (desktop) / header (mobile + embed) */}
-        {!isEmbed && (
-          <aside className="lg:sticky lg:top-4 lg:self-start">
+        {/* Sticky sidebar on large screens; stacked header on small/medium + embed */}
+        {!isEmbed ? (
+          <aside className="w-full max-w-[640px] mx-auto lg:max-w-none lg:mx-0 lg:sticky lg:top-4 lg:self-start">
             <ClinicInfoPanel data={data} isDark={isDark} />
           </aside>
-        )}
-        {isEmbed && (
-          <div className="mb-4">
+        ) : (
+          <div className="mb-4 w-full max-w-[640px] mx-auto">
             <ClinicInfoPanel data={data} isDark={isDark} />
           </div>
         )}
@@ -1055,13 +1054,15 @@ export default function BookAppointment() {
                     "text-xs font-medium mb-1.5 block",
                     isDark ? "text-white/60" : "text-gray-500"
                   )}>
-                    Grund der Terminanfrage *
+                    {selectedTreatment ? 'Notizen (optional)' : 'Grund der Terminanfrage *'}
                   </Label>
                   <textarea
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Beschreiben Sie kurz den Grund Ihres Termins..."
+                    placeholder={selectedTreatment
+                      ? 'Zusätzliche Informationen...'
+                      : 'Beschreiben Sie kurz den Grund Ihres Termins...'}
                     rows={3}
                     maxLength={1000}
                     className={cn(
@@ -1113,7 +1114,7 @@ export default function BookAppointment() {
 
                 <Button
                   onClick={handleDetailsContinue}
-                  disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !notes.trim() || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged)}
+                  disabled={submitting || !firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim()) || !privacyAccepted || (!!data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged)}
                   className={cn(
                     "w-full h-12 rounded-xl text-sm font-semibold transition-all duration-200",
                     isDark
@@ -1144,9 +1145,6 @@ export default function BookAppointment() {
               } : undefined}
             >
               <div>
-                <h2 className={cn('text-lg font-semibold mb-4', isDark ? 'text-white' : 'text-gray-900')}>
-                  {BOOKING_REFERRAL_LABELS[data.hospital.language]?.title ?? BOOKING_REFERRAL_LABELS.de.title}
-                </h2>
                 <ReferralSourcePicker
                   value={referralSource}
                   detail={referralDetail}
@@ -1237,40 +1235,59 @@ export default function BookAppointment() {
 function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean }) {
   return (
     <div className={cn(
-      "mb-4 md:mb-0",
+      "rounded-2xl p-4 lg:p-0 lg:bg-transparent lg:border-0 lg:shadow-none border",
+      isDark
+        ? "bg-white/[0.03] border-white/10"
+        : "bg-white/60 border-gray-200/70 shadow-sm",
     )}>
-      <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-3">
-        {data.hospital.logoUrl && (
-          <img
-            src={data.hospital.logoUrl}
-            alt={data.hospital.name}
-            className="h-8 w-auto object-contain"
-          />
-        )}
-        <h1 className={cn(
-          "text-sm font-semibold",
-          isDark ? "text-white" : "text-gray-900"
-        )}>
-          {data.hospital.name}
-        </h1>
-      </div>
-      {(data.hospital.street || data.hospital.city) && (
-        <div className={cn(
-          "mt-2 flex items-start gap-1.5 text-xs",
-          isDark ? "text-white/50" : "text-gray-500"
-        )}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          <div className="leading-tight">
-            {data.hospital.street && <div>{data.hospital.street}</div>}
-            {(data.hospital.postalCode || data.hospital.city) && (
-              <div>{[data.hospital.postalCode, data.hospital.city].filter(Boolean).join(' ')}</div>
-            )}
-          </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-start gap-2 min-w-0">
+          {data.hospital.logoUrl && (
+            <img
+              src={data.hospital.logoUrl}
+              alt={data.hospital.name}
+              className="h-8 w-auto object-contain"
+            />
+          )}
+          <h1 className={cn(
+            "text-sm font-semibold truncate",
+            isDark ? "text-white" : "text-gray-900"
+          )}>
+            {data.hospital.name}
+          </h1>
+          {data.hospital.street && (
+            <div className={cn(
+              "flex items-start gap-1.5 text-xs",
+              isDark ? "text-white/50" : "text-gray-500"
+            )}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <div className="leading-tight">
+                <div>{data.hospital.street}</div>
+                {data.hospital.postalCode && (
+                  <div>{data.hospital.postalCode}</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        {data.hospital.city && (
+          <div className={cn(
+            "text-right shrink-0",
+            isDark ? "text-white" : "text-gray-900"
+          )}>
+            <div className={cn(
+              "text-[9px] uppercase tracking-wider font-semibold",
+              isDark ? "text-white/40" : "text-gray-400"
+            )}>
+              Standort
+            </div>
+            <div className="text-lg font-bold leading-tight">{data.hospital.city}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
