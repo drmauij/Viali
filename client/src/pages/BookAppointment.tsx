@@ -678,17 +678,17 @@ export default function BookAppointment() {
               isDark={isDark}
               ref={(el) => { sectionRefs.current.treatment = el; }}
               summary={{
-                label: 'Behandlung',
-                value: selectedTreatment ? selectedTreatment.name : 'Allgemeiner Termin',
+                label: 'Beratung zu',
+                value: selectedTreatment ? selectedTreatment.name : 'Allgemeines Beratungsgespräch',
                 onChange: () => setStep('treatment'),
               }}
             >
               <div>
                 <h2 className={cn('text-lg font-semibold mb-1', isDark ? 'text-white' : 'text-gray-900')}>
-                  Behandlung wählen
+                  Wofür möchten Sie sich beraten lassen?
                 </h2>
                 <p className={cn('text-sm mb-4', isDark ? 'text-white/50' : 'text-gray-500')}>
-                  Wählen Sie die gewünschte Behandlung oder fahren Sie mit einem allgemeinen Termin fort.
+                  Dies ist ein unverbindliches Beratungsgespräch, nicht die Behandlung selbst. Wählen Sie das gewünschte Thema oder fahren Sie mit einem allgemeinen Beratungstermin fort.
                 </p>
                 <Input
                   value={treatmentSearch}
@@ -731,7 +731,7 @@ export default function BookAppointment() {
                   onClick={() => { setSelectedTreatment(null); setStep('provider'); }}
                   data-testid="treatment-skip"
                 >
-                  Überspringen — allgemeiner Termin
+                  Überspringen — allgemeines Beratungsgespräch
                 </Button>
               </div>
             </BookingSection>
