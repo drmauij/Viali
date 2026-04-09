@@ -886,10 +886,11 @@ export default function BookAppointment() {
                     if (dateConstraints.fromDate && date < dateConstraints.fromDate) return true;
                     if (dateConstraints.toDate && date > dateConstraints.toDate) return true;
                     if (closedDates.has(formatDateISO(date))) return true;
-                    if (!availableDatesLoading) {
-                      return !availableDates.has(formatDateISO(date));
-                    }
-                    return false;
+                    // While the month's available-dates are still loading, block
+                    // all clicks so the patient can't race-select a day that
+                    // turns out to have no slots.
+                    if (availableDatesLoading) return true;
+                    return !availableDates.has(formatDateISO(date));
                   }}
                   className={cn(
                     isDark
