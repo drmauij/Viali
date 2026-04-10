@@ -62,12 +62,17 @@ export default function ShiftCell({ shift, role, absence, variant, onClick, disa
           className="rounded-sm text-white font-semibold px-2 py-0.5 flex items-center gap-1 text-[11px]"
           style={{ backgroundColor: shift.color }}
         >
-          {ShiftIcon && <ShiftIcon className="h-3 w-3 flex-shrink-0" />}
-          <span>{shift.code}</span>
-          {variant === "week" && (
-            <span className="text-[10px] opacity-90 ml-auto">
-              {shift.startTime}–{shift.endTime}
-            </span>
+          {variant === "month" ? (
+            // Month: icon only (fallback to code if no icon)
+            ShiftIcon ? <ShiftIcon className="h-3 w-3" /> : <span>{shift.code}</span>
+          ) : (
+            // Week: code + times, no icon
+            <>
+              <span>{shift.code}</span>
+              <span className="text-[10px] opacity-90 ml-auto">
+                {shift.startTime}–{shift.endTime}
+              </span>
+            </>
           )}
         </div>
       )}

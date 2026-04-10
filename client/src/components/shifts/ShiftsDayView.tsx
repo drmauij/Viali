@@ -293,6 +293,14 @@ export default function ShiftsDayView({
                     />
                   )}
 
+                  {/* Role badge (always shown when saal-planned) */}
+                  {poolEntry && (
+                    <div className="absolute top-1 left-1 rounded bg-muted/80 border border-muted-foreground/20 px-1.5 py-0.5 flex items-center gap-1 text-[9px] text-muted-foreground font-medium z-10">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                      {poolEntry.role}
+                    </div>
+                  )}
+
                   {/* Shift block */}
                   {shiftType && shiftLeft !== null && shiftWidth !== null && shiftWidth > 0 && (
                     <div
@@ -308,14 +316,6 @@ export default function ShiftsDayView({
                       <span className="ml-auto text-[9px] opacity-80 whitespace-nowrap pl-1">
                         {shiftType.startTime}–{shiftType.endTime}
                       </span>
-                    </div>
-                  )}
-
-                  {/* Role-only indicator (saal-planned but no shift) */}
-                  {!shiftType && poolEntry && (
-                    <div className="absolute top-2 bottom-2 left-[2%] rounded bg-muted/60 border border-muted-foreground/20 px-2 flex items-center gap-1 text-[10px] text-muted-foreground font-medium" style={{ width: '96%' }}>
-                      <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
-                      Saal · {poolEntry.role}
                     </div>
                   )}
 
