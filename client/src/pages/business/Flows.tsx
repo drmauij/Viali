@@ -167,15 +167,15 @@ export default function Flows() {
                         {c.sentAt ? new Date(c.sentAt).toLocaleDateString("de-CH") : "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">—</TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         {c.status === "draft" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -184,7 +184,7 @@ export default function Flows() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteMutation.mutate(c.id)}>
+                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(c.id); }}>
                                   {t("common.delete", "Delete")}
                                 </AlertDialogAction>
                               </AlertDialogFooter>

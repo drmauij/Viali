@@ -119,15 +119,29 @@ function PreviewPanel({
   channel,
   messageContent,
   messageSubject,
+  referenceUrl,
+  onReferenceUrlChange,
 }: {
   channel: "sms" | "email" | "html_email";
   messageContent: string;
   messageSubject: string;
+  referenceUrl: string;
+  onReferenceUrlChange: (v: string) => void;
 }) {
   const { t } = useTranslation();
   return (
     <div className="h-full flex flex-col">
-      <div className="text-xs font-medium text-muted-foreground px-3 pt-3 pb-1 border-b">
+      {channel === "html_email" && (
+        <div className="px-3 pt-2 pb-1 border-b">
+          <Input
+            value={referenceUrl}
+            onChange={(e) => onReferenceUrlChange(e.target.value)}
+            placeholder={t("flows.compose.referenceUrl", "Design reference URL (optional — defaults to clinic website)")}
+            className="h-7 text-xs"
+          />
+        </div>
+      )}
+      <div className="text-xs font-medium text-muted-foreground px-3 pt-2 pb-1 border-b">
         {t("flows.compose.preview", "Preview")}
       </div>
       <div className="flex-1 overflow-hidden">
@@ -149,12 +163,14 @@ function AiChatPanel({
   channel,
   segmentFilters,
   promoCode,
+  referenceUrl,
   onMessageGenerated,
   onSubjectGenerated,
 }: {
   channel: "sms" | "email" | "html_email";
   segmentFilters: Array<{ field: string; operator: string; value: string }>;
   promoCode: string | null;
+  referenceUrl: string;
   onMessageGenerated: (content: string) => void;
   onSubjectGenerated?: (subject: string) => void;
 }) {
@@ -197,11 +213,14 @@ function AiChatPanel({
           prompt: userMessage.content,
           segmentDescription,
           promoCode,
+          referenceUrl: referenceUrl.trim() || undefined,
           previousMessages: messages,
         }
       );
       const data = await res.json();
       let aiContent = data.message || data.content || "";
+      // Strip markdown code fences (```html ... ```)
+      aiContent = aiContent.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
       // For email channels, extract subject if AI included one
       if ((channel === "email" || channel === "html_email") && onSubjectGenerated) {
         const subjectMatch = aiContent.match(/^Subject:\s*(.+?)[\n\r]/i);
@@ -448,13 +467,16 @@ export default function MessageComposer({
   promoCode,
 }: Props) {
   const { t } = useTranslation();
+  const [referenceUrl, setReferenceUrl] = useState("");
 
   return (
     <div className="space-y-3">
       <Tabs defaultValue="ai">
         <TabsList>
           <TabsTrigger value="ai">{t("flows.compose.tabAi", "AI Chat")}</TabsTrigger>
-          <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
+          {channel !== "html_email" && (
+            <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
+          )}
         </TabsList>
 
         {/* AI Chat Tab */}
@@ -467,6 +489,7 @@ export default function MessageComposer({
                   channel={channel}
                   segmentFilters={segmentFilters}
                   promoCode={promoCode}
+                  referenceUrl={referenceUrl}
                   onMessageGenerated={onContentChange}
                   onSubjectGenerated={onSubjectChange}
                 />
@@ -480,6 +503,8 @@ export default function MessageComposer({
                   channel={channel}
                   messageContent={messageContent}
                   messageSubject={messageSubject}
+                  referenceUrl={referenceUrl}
+                  onReferenceUrlChange={setReferenceUrl}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>

@@ -452,6 +452,7 @@ const composeSchema = z.object({
   hospitalName: z.string().optional(),
   bookingUrl: z.string().optional(),
   promoCode: z.string().nullable().optional(),
+  referenceUrl: z.string().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -461,6 +462,166 @@ const composeSchema = z.object({
     )
     .optional(),
 });
+
+// Fetch screenshot of a website via thum.io (cached per session; TTL 1h)
+const screenshotCache = new Map<string, { base64: string; expiresAt: number }>();
+const SCREENSHOT_CACHE_TTL = 60 * 60 * 1000;
+
+async function fetchWebsiteScreenshot(url: string): Promise<string> {
+  const cached = screenshotCache.get(url);
+  if (cached && cached.expiresAt > Date.now() && cached.base64.length > 0) {
+    logger.info(`[flows] screenshot cache hit: ${url}`);
+    return cached.base64;
+  }
+
+  // Try multiple screenshot services in sequence (fallback chain)
+  const services = [
+    `https://image.thum.io/get/width/1200/noanimate/${url}`,
+    `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`,
+  ];
+
+  for (const serviceUrl of services) {
+    try {
+      logger.info(`[flows] fetching screenshot from: ${serviceUrl.slice(0, 80)}`);
+      const resp = await fetch(serviceUrl, {
+        signal: AbortSignal.timeout(45000),
+        redirect: "follow",
+      });
+      if (!resp.ok) {
+        logger.warn(`[flows] screenshot fetch failed: status=${resp.status}`);
+        continue;
+      }
+      const contentType = resp.headers.get("content-type") || "";
+      if (!contentType.startsWith("image/")) {
+        logger.warn(`[flows] screenshot service returned non-image: ${contentType}`);
+        continue;
+      }
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength < 1000) {
+        logger.warn(`[flows] screenshot too small: ${buf.byteLength} bytes`);
+        continue;
+      }
+      const base64 = Buffer.from(buf).toString("base64");
+      logger.info(`[flows] screenshot success: ${buf.byteLength} bytes`);
+      screenshotCache.set(url, { base64, expiresAt: Date.now() + SCREENSHOT_CACHE_TTL });
+      return base64;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[flows] screenshot service error: ${msg}`);
+    }
+  }
+
+  logger.error(`[flows] all screenshot services failed for: ${url}`);
+  return "";
+}
+
+// Fetch website and extract brand tokens (cached per session; TTL 10 min)
+const brandCache = new Map<string, { tokens: string; expiresAt: number }>();
+const BRAND_CACHE_TTL = 10 * 60 * 1000;
+
+async function fetchWebsiteForBrand(url: string): Promise<string> {
+  const cached = brandCache.get(url);
+  if (cached && cached.expiresAt > Date.now() && cached.tokens.length > 0) {
+    logger.info(`[flows] brand cache hit: ${url}`);
+    return cached.tokens;
+  }
+  try {
+    const base = new URL(url);
+    logger.info(`[flows] fetching website for brand: ${url}`);
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ViaLi-Flows/1.0)" },
+    });
+    if (!resp.ok) return "";
+    const html = await resp.text();
+    logger.info(`[flows] brand html fetched: ${html.length} chars`);
+
+    // Extract Google Fonts URLs
+    const googleFontsMatches = html.match(/fonts\.googleapis\.com\/css[^"'\s]+/g) || [];
+    const fontFamilies = new Set<string>();
+    for (const gf of googleFontsMatches) {
+      const familyMatches = gf.match(/family=([^&"']+)/g) || [];
+      for (const fm of familyMatches) {
+        const decoded = decodeURIComponent(fm.replace("family=", "")).split(/[|]/);
+        for (const f of decoded) {
+          const name = f.split(":")[0].replace(/\+/g, " ").trim();
+          if (name && name.length < 50) fontFamilies.add(name);
+        }
+      }
+    }
+
+    // Extract external stylesheets — prioritize theme/main CSS over plugins
+    const allCssLinks = (html.match(/<link[^>]+href=["']([^"']+\.css[^"']*)["'][^>]*>/gi) || [])
+      .map(l => {
+        const m = l.match(/href=["']([^"']+)["']/);
+        return m ? m[1] : null;
+      })
+      .filter(Boolean) as string[];
+
+    // Skip known noise plugins, prefer theme/style/main files
+    const filteredCss = allCssLinks.filter(href => {
+      const lower = href.toLowerCase();
+      return !lower.includes("splide") && !lower.includes("cookieyes")
+        && !lower.includes("translatepress") && !lower.includes("yoast");
+    });
+    // Prioritize: theme/main/style files first, then everything else
+    const prioritizedCss = [
+      ...filteredCss.filter(h => /theme|main|style|global|brand|custom/i.test(h)),
+      ...filteredCss.filter(h => !/theme|main|style|global|brand|custom/i.test(h)),
+    ].slice(0, 5);
+
+    logger.info(`[flows] brand: fetching ${prioritizedCss.length} CSS files`);
+
+    // Fetch CSS files
+    let extractedCss = "";
+    for (const cssHref of prioritizedCss) {
+      try {
+        const cssUrl = cssHref!.startsWith("http") ? cssHref! : new URL(cssHref!, base).toString();
+        const cssResp = await fetch(cssUrl, { signal: AbortSignal.timeout(4000) });
+        if (cssResp.ok) {
+          const cssText = await cssResp.text();
+          extractedCss += cssText + "\n";
+          if (extractedCss.length > 80000) break;
+        }
+      } catch { /* ignore */ }
+    }
+    logger.info(`[flows] brand: total CSS fetched = ${extractedCss.length} chars`);
+
+    // Also extract inline <style> blocks
+    const inlineStyles = (html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [])
+      .map(s => s.replace(/<\/?style[^>]*>/gi, ""))
+      .join("\n");
+    const allCss = extractedCss + "\n" + inlineStyles;
+
+    // Extract color-related declarations
+    const colorDecls = [
+      ...(allCss.match(/--[a-z-]+:\s*#[0-9a-fA-F]{3,8}[^;]*;/gi) || []),
+      ...(allCss.match(/--[a-z-]+:\s*rgba?\([^)]+\)[^;]*;/gi) || []),
+      ...(allCss.match(/(?:color|background-color|background):\s*#[0-9a-fA-F]{3,8}[^;]*;/gi) || []).slice(0, 30),
+      ...(allCss.match(/linear-gradient\([^)]+\)/gi) || []).slice(0, 10),
+    ];
+    const uniqueColorDecls = [...new Set(colorDecls)].slice(0, 50);
+
+    // Build brand summary
+    const tokens = [
+      fontFamilies.size > 0 ? `Fonts used on the website:\n${[...fontFamilies].join(", ")}` : "",
+      uniqueColorDecls.length > 0 ? `Brand colors and design tokens from the website CSS:\n${uniqueColorDecls.join("\n")}` : "",
+      `Website URL: ${url}`,
+      `Tone: match the elegance, warmth, and premium feel of the source website.`,
+    ].filter(Boolean).join("\n\n");
+
+    logger.info(`[flows] brand tokens extracted: ${tokens.length} chars, ${fontFamilies.size} fonts, ${uniqueColorDecls.length} color decls`);
+
+    if (tokens.length > 0) {
+      brandCache.set(url, { tokens, expiresAt: Date.now() + BRAND_CACHE_TTL });
+    }
+    return tokens;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`[flows] brand fetch error: ${url} — ${msg}`);
+    return "";
+  }
+}
 
 router.post(
   "/api/business/:hospitalId/flows/compose",
@@ -478,6 +639,22 @@ router.post(
       const hospital = await storage.getHospital(hId);
       const clinicName = hospital?.name || body.hospitalName || "Premium Aesthetic Clinic";
       const clinicWebsite = hospital?.companyWebsite || "";
+      const clinicLogo = hospital?.companyLogoUrl || "";
+
+      // Fetch brand reference — prefer user-provided URL over clinic default
+      let effectiveReferenceUrl = (body.referenceUrl || clinicWebsite || "").trim();
+      // If user mentions a URL in the chat prompt, that takes priority
+      const mentionedUrlMatch = body.prompt.match(/https?:\/\/[^\s)"']+/);
+      if (mentionedUrlMatch) {
+        effectiveReferenceUrl = mentionedUrlMatch[0];
+      }
+
+      let screenshotBase64 = "";
+      logger.info(`[flows] compose: hospital=${clinicName}, referenceUrl=${effectiveReferenceUrl || "(none)"}, channel=${body.channel}`);
+      if (effectiveReferenceUrl && body.channel === "html_email") {
+        screenshotBase64 = await fetchWebsiteScreenshot(effectiveReferenceUrl);
+      }
+      logger.info(`[flows] compose: screenshot base64 length=${screenshotBase64.length}`);
 
       const channelInstructions: Record<string, string> = {
         sms: "Generate a short SMS message (max 160 characters). Plain text only, no HTML. Include {{buchungslink}} where the booking link should go.",
@@ -490,11 +667,15 @@ TECHNICAL RULES (always follow):
 - Mobile-responsive: max-width:600px centered container, widths in % or max-width, min 14px body font
 - Must render well on mobile (320px) and desktop
 - Include {{buchungslink}} as the href for the CTA button
-- Do NOT include <img> tags
-- Header: include clinic name "${clinicName}"
+${clinicLogo ? `- Header: include the clinic logo as <img src="${clinicLogo}" alt="${clinicName}" style="max-height:60px;display:block;margin:0 auto;"> at the top of the email` : `- Header: include clinic name "${clinicName}" prominently (no img tags)`}
+- Do NOT include OTHER <img> tags besides the logo (no hero images, no photos)
 - Footer: clinic name, small muted text
 
-DESIGN: ${clinicWebsite ? `Match the design, color palette, fonts, and visual style of the clinic website at ${clinicWebsite}. Study it as your brand reference.` : "Use an elegant premium aesthetic: warm neutrals, clean whitespace, sophisticated typography."} Dark CTA button with white text. If the user overrides with specific brand instructions, follow those instead.`,
+BRAND DESIGN:${clinicWebsite ? `
+Match the visual style of the clinic website at ${clinicWebsite} — same colors, fonts, and design language. The website HTML will be provided as reference in the first message.` : `
+Use an elegant premium aesthetic: warm neutrals, clean whitespace, sophisticated typography.`}
+CTA button: use the primary brand color as background, white text, rounded corners, padding 14px 32px, font-weight 600.
+If the user overrides with specific instructions, follow those instead.`,
       };
 
       const systemPrompt = `You are a marketing copywriter for ${body.hospitalName || "a premium aesthetic clinic"} in Switzerland.
@@ -510,11 +691,40 @@ Available template variables (use exactly as shown):
 ${body.promoCode ? `- Promo code to mention: ${body.promoCode}` : ""}
 ${body.segmentDescription ? `\nTarget audience: ${body.segmentDescription}` : ""}
 
-Return ONLY the message content. No explanations, no markdown code fences.`;
+Return ONLY the raw message content. NEVER wrap output in markdown code fences (no \`\`\`html, no \`\`\`). NEVER add explanations before or after. For HTML email, start directly with <!DOCTYPE html> or the first HTML element. For plain text, start with "Subject:".`;
+
+      // Build user message — include screenshot as image content block if available
+      const isFirstMessage = !body.previousMessages || body.previousMessages.length === 0;
+      const textContent = `${body.prompt}${(isFirstMessage && screenshotBase64) ? `\n\nATTACHED IMAGE: This is the actual screenshot of the clinic's website at ${effectiveReferenceUrl}. You MUST carefully analyze this image and extract:
+1. The EXACT primary brand color (what color dominates the buttons, headers, logo accents?)
+2. The background color (light/dark/warm/cool?)
+3. The font style (serif/sans-serif, elegant/bold/minimal?)
+4. The overall mood (luxurious/playful/clinical/warm?)
+5. The header layout and visual style
+
+Then use these EXACT extracted properties in your HTML email. Do NOT use generic purple/blue/gray. If the website uses red/coral → use red/coral. If it uses beige/gold → use beige/gold. Match the REAL brand.
+
+CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`html). Start directly with <!DOCTYPE html> or the first HTML element.` : ""}`;
+
+      // Build the current user message content — either plain string or multimodal array
+      const currentUserContent: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> =
+        (isFirstMessage && screenshotBase64)
+          ? [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: screenshotBase64,
+                },
+              },
+              { type: "text", text: textContent },
+            ]
+          : textContent;
 
       const messages = [
         ...(body.previousMessages || []),
-        { role: "user" as const, content: body.prompt },
+        { role: "user" as const, content: currentUserContent as any },
       ];
 
       const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -523,6 +733,19 @@ Return ONLY the message content. No explanations, no markdown code fences.`;
       let responseText: string;
 
       if (body.channel === "html_email" && ANTHROPIC_API_KEY) {
+        // Log what we're sending to debug image issues
+        const lastMsg = messages[messages.length - 1];
+        const lastContent = lastMsg.content;
+        if (Array.isArray(lastContent)) {
+          logger.info(`[flows] sending multimodal to Claude: ${lastContent.length} blocks (${lastContent.map((b: any) => b.type).join(", ")})`);
+          const imgBlock = lastContent.find((b: any) => b.type === "image");
+          if (imgBlock) {
+            logger.info(`[flows] image block: media_type=${(imgBlock as any).source?.media_type}, data length=${(imgBlock as any).source?.data?.length || 0}`);
+          }
+        } else {
+          logger.info(`[flows] sending text-only to Claude (${typeof lastContent === "string" ? lastContent.length : "?"} chars)`);
+        }
+
         const resp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -537,8 +760,11 @@ Return ONLY the message content. No explanations, no markdown code fences.`;
             messages,
           }),
         });
-        if (!resp.ok)
-          throw new Error(`Anthropic API ${resp.status}: ${await resp.text()}`);
+        if (!resp.ok) {
+          const errText = await resp.text();
+          logger.error(`[flows] Anthropic API ${resp.status}: ${errText.slice(0, 500)}`);
+          throw new Error(`Anthropic API ${resp.status}: ${errText}`);
+        }
         const data = (await resp.json()) as {
           content: Array<{ type: string; text?: string }>;
         };
