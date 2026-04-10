@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ type Section = "segment" | "channel" | "compose" | "offer" | "review";
 
 const SECTION_ORDER: Section[] = ["segment", "channel", "compose", "offer", "review"];
 
-export default function FlowCreate() {
+export default function FlowCreate({ editId }: { editId?: string }) {
   const { t } = useTranslation();
   const [, navigate] = useLocation();
   const activeHospital = useActiveHospital();
@@ -38,6 +39,63 @@ export default function FlowCreate() {
   const [promoCodeId, setPromoCodeId] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [loaded, setLoaded] = useState(!editId);
+
+  // Load existing draft if editing
+  const { data: existingFlow } = useQuery({
+    queryKey: ["flow", hospitalId, editId],
+    queryFn: () => apiRequest("GET", `/api/business/${hospitalId}/flows/${editId}`).then(r => r.json()),
+    enabled: !!editId && !!hospitalId,
+  });
+
+  // Load promo codes to resolve promoCodeId → code string
+  const { data: promoCodes = [] } = useQuery({
+    queryKey: ["promo-codes", hospitalId],
+    queryFn: () => apiRequest("GET", `/api/business/${hospitalId}/promo-codes`).then(r => r.json()),
+    enabled: !!hospitalId && !!editId,
+  });
+
+  useEffect(() => {
+    if (existingFlow && !loaded) {
+      setName(existingFlow.name || "");
+      setFilters(existingFlow.segmentFilters || []);
+      setChannel(existingFlow.channel || null);
+      setMessageContent(existingFlow.messageTemplate || "");
+      setMessageSubject(existingFlow.messageSubject || "");
+      setPromoCodeId(existingFlow.promoCodeId || null);
+      if (existingFlow.promoCodeId && (promoCodes as any[]).length > 0) {
+        const pc = (promoCodes as any[]).find((p: any) => p.id === existingFlow.promoCodeId);
+        if (pc) setPromoCode(pc.code);
+      }
+
+      // Mark sections as completed based on what data exists, and jump to the right step
+      const done = new Set<Section>();
+      let nextStep: Section = "segment";
+
+      if (existingFlow.segmentFilters?.length > 0) {
+        done.add("segment");
+        nextStep = "channel";
+      }
+      if (existingFlow.channel) {
+        done.add("channel");
+        nextStep = "compose";
+      }
+      if (existingFlow.messageTemplate) {
+        done.add("compose");
+        nextStep = "offer";
+      }
+      if (existingFlow.promoCodeId) {
+        done.add("offer");
+        nextStep = "review";
+      }
+
+      setCompletedSections(done);
+      setActiveSection(nextStep);
+      setLoaded(true);
+    }
+  }, [existingFlow, loaded]);
 
   function goTo(section: Section) {
     setActiveSection(section);
@@ -92,6 +150,59 @@ export default function FlowCreate() {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!hospitalId) return;
+    setSavingDraft(true);
+    try {
+      const payload = {
+        name,
+        segmentFilters: filters,
+        channel,
+        promoCodeId,
+        messageTemplate: messageContent,
+        messageSubject,
+      };
+      if (editId) {
+        await apiRequest("PATCH", `/api/business/${hospitalId}/flows/${editId}`, payload);
+      } else {
+        await apiRequest("POST", `/api/business/${hospitalId}/flows`, payload);
+      }
+      queryClient.invalidateQueries({ queryKey: ["flows", hospitalId] });
+      toast({
+        title: t("flows.toast.draftSaved", "Draft saved"),
+        description: t("flows.toast.draftSavedDesc", "You can continue editing later."),
+      });
+      navigate("/business/flows");
+    } catch {
+      toast({ title: t("common.error", "Error"), description: t("flows.toast.draftError", "Could not save draft."), variant: "destructive" });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const handleSendTest = async (recipient: string, testVars: { vorname: string; nachname: string; behandlung: string }) => {
+    if (!hospitalId || !channel || !messageContent) return;
+    setSendingTest(true);
+    try {
+      await apiRequest("POST", `/api/business/${hospitalId}/flows/test-send`, {
+        channel,
+        recipient,
+        messageTemplate: messageContent,
+        messageSubject,
+        promoCode,
+        testVars,
+      });
+      toast({
+        title: t("flows.toast.testSent", "Test sent"),
+        description: t("flows.toast.testSentDesc", "Test message sent to {{recipient}}.", { recipient }),
+      });
+    } catch {
+      toast({ title: t("common.error", "Error"), description: t("flows.toast.testError", "Could not send test."), variant: "destructive" });
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -164,15 +275,7 @@ export default function FlowCreate() {
       >
         <div className="space-y-4">
           <h3 className="font-semibold">{t("flows.channel.title", "Select Channel")}</h3>
-          <ChannelPicker value={channel} onChange={setChannel} />
-          <div className="flex justify-end">
-            <Button
-              onClick={() => completeAndGoTo("channel", "compose")}
-              disabled={!channel}
-            >
-              {t("common.next", "Next")}
-            </Button>
-          </div>
+          <ChannelPicker value={channel} onChange={(ch) => { setChannel(ch); completeAndGoTo("channel", "compose"); }} />
         </div>
       </BookingSection>
 
@@ -260,7 +363,11 @@ export default function FlowCreate() {
             promoCode={promoCode}
             campaignName={name}
             onSend={handleSend}
+            onSaveDraft={handleSaveDraft}
+            onSendTest={handleSendTest}
             sending={sending}
+            savingDraft={savingDraft}
+            sendingTest={sendingTest}
             disabled={!isReady}
           />
         </div>

@@ -12,7 +12,7 @@ import {
   clinicServices,
   patientMessages,
 } from "@shared/schema";
-import { eq, and, desc, isNull, sql } from "drizzle-orm";
+import { eq, and, or, desc, isNull, sql } from "drizzle-orm";
 import logger from "../logger";
 import { z } from "zod";
 import { sendSms } from "../sms";
@@ -173,6 +173,7 @@ const segmentFilterSchema = z.object({
       ]),
       operator: z.string(),
       value: z.string(),
+      logic: z.enum(["and", "or"]).optional(),
     })
   ),
 });
@@ -186,7 +187,7 @@ router.post(
       const { hospitalId } = req.params;
       const { filters } = segmentFilterSchema.parse(req.body);
 
-      const conditions: any[] = [
+      const baseConditions: any[] = [
         eq(patients.hospitalId, hospitalId),
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
@@ -194,39 +195,64 @@ router.post(
 
       let needsAppointmentJoin = false;
 
-      for (const f of filters) {
+      // Build per-filter SQL conditions
+      const filterToSql = (f: typeof filters[number]): any => {
         switch (f.field) {
           case "sex":
-            conditions.push(
-              f.operator === "is"
-                ? sql`${patients.sex} = ${f.value}`
-                : sql`${patients.sex} != ${f.value}`
-            );
-            break;
+            return f.operator === "is"
+              ? sql`${patients.sex} = ${f.value}`
+              : sql`${patients.sex} != ${f.value}`;
           case "treatment":
             needsAppointmentJoin = true;
-            conditions.push(sql`cs."name" = ${f.value}`);
-            break;
+            return f.operator === "isNot"
+              ? sql`cs."name" != ${f.value}`
+              : sql`cs."name" = ${f.value}`;
           case "lastAppointment": {
             needsAppointmentJoin = true;
-            const months = parseInt(f.value, 10);
-            if (f.operator === "moreThan") {
-              conditions.push(
-                sql`ca."appointment_date" <= NOW() - INTERVAL '${sql.raw(String(months))} months'`
-              );
-            } else {
-              conditions.push(
-                sql`ca."appointment_date" >= NOW() - INTERVAL '${sql.raw(String(months))} months'`
-              );
-            }
-            break;
+            // value format: "3:months" or "2:weeks"
+            const [numStr, unit] = f.value.split(":");
+            const num = parseInt(numStr, 10) || 3;
+            const pgUnit = unit === "weeks" ? "weeks" : "months";
+            return f.operator === "moreThan"
+              ? sql`ca."appointment_date" <= NOW() - INTERVAL '${sql.raw(String(num))} ${sql.raw(pgUnit)}'`
+              : sql`ca."appointment_date" >= NOW() - INTERVAL '${sql.raw(String(num))} ${sql.raw(pgUnit)}'`;
           }
           case "appointmentStatus":
             needsAppointmentJoin = true;
-            conditions.push(sql`ca."status" = ${f.value}`);
-            break;
+            return sql`ca."status" = ${f.value}`;
+          default:
+            return sql`TRUE`;
         }
       }
+
+      // Group filters by AND/OR logic — consecutive OR filters form a group
+      // e.g. [AND, OR, OR, AND] → and(first, or(second, third), fourth)
+      const filterConditions: any[] = [];
+      let orGroup: any[] = [];
+
+      for (let i = 0; i < filters.length; i++) {
+        const cond = filterToSql(filters[i]);
+        if (i > 0 && filters[i].logic === "or") {
+          // Start or continue an OR group
+          if (orGroup.length === 0 && filterConditions.length > 0) {
+            // Pull the previous AND condition into the OR group
+            orGroup.push(filterConditions.pop());
+          }
+          orGroup.push(cond);
+        } else {
+          // Flush any pending OR group
+          if (orGroup.length > 0) {
+            filterConditions.push(or(...orGroup));
+            orGroup = [];
+          }
+          filterConditions.push(cond);
+        }
+      }
+      if (orGroup.length > 0) {
+        filterConditions.push(or(...orGroup));
+      }
+
+      const allConditions = [...baseConditions, ...filterConditions];
 
       let result: Array<{
         id: string;
@@ -250,7 +276,7 @@ router.post(
             clinicServices,
             eq(clinicAppointments.serviceId, clinicServices.id)
           )
-          .where(and(...conditions));
+          .where(and(...allConditions));
       } else {
         result = await db
           .select({
@@ -259,7 +285,7 @@ router.post(
             surname: patients.surname,
           })
           .from(patients)
-          .where(and(...conditions));
+          .where(and(...allConditions));
       }
 
       res.json({
@@ -357,6 +383,66 @@ router.delete(
   }
 );
 
+// ─── Test Send ───────────────────────────────────────────────
+
+const testSendSchema = z.object({
+  channel: z.enum(["sms", "email", "html_email"]),
+  recipient: z.string(),
+  messageTemplate: z.string(),
+  messageSubject: z.string().optional(),
+  promoCode: z.string().nullable().optional(),
+  testVars: z.object({
+    vorname: z.string(),
+    nachname: z.string(),
+    behandlung: z.string(),
+  }).optional(),
+});
+
+router.post(
+  "/api/business/:hospitalId/flows/test-send",
+  isAuthenticated,
+  isMarketingAccess,
+  async (req: Request, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const body = testSendSchema.parse(req.body);
+
+      // Build real booking URL with promo
+      const hospital = await storage.getHospital(hospitalId);
+      const bookingToken = hospital?.bookingToken || "";
+      const testParams = new URLSearchParams();
+      if (body.promoCode) testParams.set("promo", body.promoCode);
+      const bookingUrl = `${req.protocol}://${req.get("host")}/book/${bookingToken}${testParams.toString() ? `?${testParams.toString()}` : ""}`;
+
+      // Replace template vars with test data
+      const vars = body.testVars || { vorname: "Max", nachname: "Mustermann", behandlung: "Test Treatment" };
+      let message = body.messageTemplate;
+      message = message.replace(/\{\{vorname\}\}/g, vars.vorname);
+      message = message.replace(/\{\{nachname\}\}/g, vars.nachname);
+      message = message.replace(/\{\{behandlung\}\}/g, vars.behandlung);
+      message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
+
+      if (body.channel === "sms") {
+        const result = await sendSms(body.recipient, message, hospitalId);
+        if (!result.success) throw new Error(result.error || "SMS send failed");
+      } else {
+        const { client, fromEmail } = await getUncachableResendClient();
+        const subject = body.messageSubject || "Test Message";
+        const html = body.channel === "html_email"
+          ? message
+          : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`;
+        await client.emails.send({ from: fromEmail, to: body.recipient, subject, html });
+      }
+
+      res.json({ ok: true });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error("[flows] test-send error:", msg);
+      res.status(500).json({ message: msg });
+    }
+  }
+);
+
 // ─── AI Compose ───────────────────────────────────────────────
 
 const composeSchema = z.object({
@@ -365,7 +451,7 @@ const composeSchema = z.object({
   segmentDescription: z.string().optional(),
   hospitalName: z.string().optional(),
   bookingUrl: z.string().optional(),
-  promoCode: z.string().optional(),
+  promoCode: z.string().nullable().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -387,12 +473,28 @@ router.post(
     try {
       const body = composeSchema.parse(req.body);
 
+      // Get hospital info for branding
+      const { hospitalId: hId } = req.params;
+      const hospital = await storage.getHospital(hId);
+      const clinicName = hospital?.name || body.hospitalName || "Premium Aesthetic Clinic";
+      const clinicWebsite = hospital?.companyWebsite || "";
+
       const channelInstructions: Record<string, string> = {
         sms: "Generate a short SMS message (max 160 characters). Plain text only, no HTML. Include {{buchungslink}} where the booking link should go.",
         email:
-          "Generate a plain text email with a subject line. Format: first line is 'Subject: ...' then a blank line then the body. Include {{buchungslink}} where the booking link should go.",
-        html_email:
-          "Generate a complete HTML email newsletter. Use inline CSS styles (no external stylesheets). Professional, clean design suitable for a medical aesthetic clinic. Colors: primary #7c3aed (purple), clean whites and grays. Include {{buchungslink}} as the href for the CTA button.",
+          "Generate a plain text email. ALWAYS start with 'Subject: <compelling subject line>' on the first line, then a blank line, then the body. Include {{buchungslink}} where the booking link should go.",
+        html_email: `Generate a complete HTML email newsletter. ALWAYS start with 'Subject: <compelling subject line>' on the first line, then a blank line, then the HTML.
+
+TECHNICAL RULES (always follow):
+- Use ONLY inline CSS styles for all elements
+- Mobile-responsive: max-width:600px centered container, widths in % or max-width, min 14px body font
+- Must render well on mobile (320px) and desktop
+- Include {{buchungslink}} as the href for the CTA button
+- Do NOT include <img> tags
+- Header: include clinic name "${clinicName}"
+- Footer: clinic name, small muted text
+
+DESIGN: ${clinicWebsite ? `Match the design, color palette, fonts, and visual style of the clinic website at ${clinicWebsite}. Study it as your brand reference.` : "Use an elegant premium aesthetic: warm neutrals, clean whitespace, sophisticated typography."} Dark CTA button with white text. If the user overrides with specific brand instructions, follow those instead.`,
       };
 
       const systemPrompt = `You are a marketing copywriter for ${body.hospitalName || "a premium aesthetic clinic"} in Switzerland.
@@ -638,17 +740,43 @@ router.post(
       const bookingToken = hospital?.bookingToken || "";
       const baseBookingUrl = `${req.protocol}://${req.get("host")}/book/${bookingToken}`;
 
+      // Extract treatment from segment filters → look up service code for booking link
+      const filters = flow.segmentFilters as Array<{ field: string; operator: string; value: string }> | null;
+      const treatmentFilter = filters?.find(f => f.field === "treatment");
+      let serviceCode: string | null = null;
+      let treatmentName = "";
+      if (treatmentFilter) {
+        treatmentName = treatmentFilter.value;
+        const [svc] = await db.select({ code: clinicServices.code })
+          .from(clinicServices)
+          .where(and(
+            eq(clinicServices.hospitalId, hospitalId),
+            sql`${clinicServices.name} = ${treatmentFilter.value}`,
+          ))
+          .limit(1);
+        if (svc?.code) serviceCode = svc.code;
+      }
+
+      // Build booking URL with service + promo + UTM for referral attribution
+      const params = new URLSearchParams();
+      if (serviceCode) params.set("service", serviceCode);
+      if (promoCode) params.set("promo", promoCode);
+      params.set("utm_source", flow.channel === "sms" ? "sms_campaign" : "email_campaign");
+      params.set("utm_medium", flow.channel === "sms" ? "sms" : "email");
+      params.set("utm_campaign", flow.name || "campaign");
+      const bookingUrlSuffix = `?${params.toString()}`;
+
       let sentCount = 0;
       let failCount = 0;
 
       for (const patient of patientResults) {
         try {
           let message = flow.messageTemplate!;
-          let bookingUrl = baseBookingUrl;
-          if (promoCode) bookingUrl += `?promo=${promoCode}`;
+          const bookingUrl = baseBookingUrl + bookingUrlSuffix;
 
           message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
           message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");
+          message = message.replace(/\{\{behandlung\}\}/g, treatmentName);
           message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
 
           // Create execution record

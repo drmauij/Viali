@@ -16,6 +16,9 @@ interface UtmParams {
 }
 
 const UTM_SOURCE_MAP: Record<string, { source: ReferralSource; detail: string }> = {
+  newsletter: { source: "other", detail: "Newsletter" },
+  email_campaign: { source: "other", detail: "Email Campaign" },
+  sms_campaign: { source: "other", detail: "SMS Campaign" },
   google: { source: "search_engine", detail: "Google" },
   bing: { source: "search_engine", detail: "Bing" },
   facebook: { source: "social", detail: "Facebook" },

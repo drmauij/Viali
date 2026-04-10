@@ -4425,6 +4425,9 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   morningReminderSentAt: timestamp("morning_reminder_sent_at"),
   noShowFeeAcknowledgedAt: timestamp("no_show_fee_acknowledged_at"), // When patient acknowledged no-show fee policy during booking
 
+  // Campaign / promo
+  promoCode: varchar("promo_code", { length: 20 }), // Promo code used when booking via campaign link
+
   // Cal.com sync tracking
   calcomBookingUid: varchar("calcom_booking_uid"), // Cal.com booking UID for sync
   calcomSyncedAt: timestamp("calcom_synced_at"), // When last synced to Cal.com

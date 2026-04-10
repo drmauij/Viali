@@ -780,6 +780,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         notes: notes || null,
         noShowFeeAcknowledgedAt: parsed.data.noShowFeeAcknowledged ? new Date() : null,
         serviceId: parsed.data.serviceId || null,
+        promoCode: req.body.promoCode?.toUpperCase() || null,
       });
 
       // Save referral event if any referral data present

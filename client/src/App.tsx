@@ -286,6 +286,7 @@ function Router() {
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
               <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
               <Route path="/business/flows/new">{() => <ProtectedRoute requireBusiness><FlowCreate /></ProtectedRoute>}</Route>
+              <Route path="/business/flows/:id">{(params) => <ProtectedRoute requireBusiness><FlowCreate editId={params.id} /></ProtectedRoute>}</Route>
               <Route path="/business/flows">{() => <ProtectedRoute requireBusiness><Flows /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>

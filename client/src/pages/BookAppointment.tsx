@@ -542,6 +542,7 @@ export default function BookAppointment() {
           twclid,
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
           serviceId: serviceInfo?.id || undefined,
+          promoCode: promoData?.valid ? promoData.code : undefined,
         }),
       });
 
@@ -694,13 +695,16 @@ export default function BookAppointment() {
         {/* Stacked sections column */}
         <main className="flex flex-col gap-4 max-w-[640px] w-full mx-auto">
           {promoData?.valid && (
-            <div className="rounded-xl px-4 py-3 flex items-center gap-3 border bg-green-500/10 border-green-500/20">
-              <Gift className="h-5 w-5 text-green-400" />
+            <div className={cn(
+              "rounded-xl px-4 py-3 flex items-center gap-3 border",
+              isDark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-300"
+            )}>
+              <Gift className={cn("h-5 w-5", isDark ? "text-green-400" : "text-green-600")} />
               <div>
-                <div className="text-sm font-medium text-green-300">
+                <div className={cn("text-sm font-medium", isDark ? "text-green-300" : "text-green-800")}>
                   Rabattcode: {promoData.code}
                 </div>
-                <div className="text-xs text-green-400/70">
+                <div className={cn("text-xs", isDark ? "text-green-400/70" : "text-green-600")}>
                   {promoData.discountType === "percent"
                     ? `${promoData.discountValue}% Rabatt`
                     : `CHF ${promoData.discountValue} Rabatt`}

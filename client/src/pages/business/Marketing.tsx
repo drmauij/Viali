@@ -1,12 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { LeadConversionTab } from "./LeadConversion";
 import ReferralFunnel from "./ReferralFunnel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -168,7 +166,6 @@ type ReferralEvent = {
 export default function Marketing() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
-  const [activeTab, setActiveTab] = useState("referrals");
   const [referralFrom, setReferralFrom] = useState("");
   const [referralTo, setReferralTo] = useState(new Date().toISOString().slice(0, 10));
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
@@ -239,7 +236,7 @@ export default function Marketing() {
     totalReferrals: number;
   }>({
     queryKey: [`/api/business/${activeHospital?.id}/referral-stats?${referralParams.toString()}`],
-    enabled: !!activeHospital?.id && activeTab === 'referrals',
+    enabled: !!activeHospital?.id,
   });
 
   // Fetch referral time-series (full history, no date filter)
@@ -247,7 +244,7 @@ export default function Marketing() {
     Array<{ month: string; referralSource: string; count: number }>
   >({
     queryKey: [`/api/business/${activeHospital?.id}/referral-timeseries`],
-    enabled: !!activeHospital?.id && activeTab === 'referrals',
+    enabled: !!activeHospital?.id,
   });
 
   // (ReferralEvent type moved above component)
@@ -260,7 +257,7 @@ export default function Marketing() {
 
   const { isLoading: referralEventsLoading } = useQuery<ReferralEvent[]>({
     queryKey: [`/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`],
-    enabled: !!activeHospital?.id && activeTab === 'referrals',
+    enabled: !!activeHospital?.id,
     queryFn: async () => {
       const res = await fetch(`/api/business/${activeHospital?.id}/referral-events?limit=${PAGE_SIZE}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch referral events');
@@ -373,19 +370,7 @@ export default function Marketing() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-sm grid-cols-2">
-          <TabsTrigger value="referrals" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            {t('business.costs.referrals', 'Referrals')}
-          </TabsTrigger>
-          <TabsTrigger value="leads" className="flex items-center gap-2">
-            {t('business.costs.leads', 'Leads')}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Referrals Tab */}
-        <TabsContent value="referrals" className="space-y-4 mt-6">
+      <div className="space-y-4">
           {/* Date range filter */}
           <Card>
             <CardContent className="pt-6">
@@ -842,13 +827,7 @@ export default function Marketing() {
             currency={activeHospital?.currency || "CHF"}
             onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
           />
-        </TabsContent>
-
-        {/* Leads Tab */}
-        <TabsContent value="leads" className="mt-6">
-          <LeadConversionTab hospitalId={activeHospital?.id} />
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }

@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
+import { useState } from "react";
 import {
-  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2,
+  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -56,6 +58,19 @@ export default function Flows() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["flows", hospitalId] }),
   });
 
+  // Promo codes
+  const { data: promoCodes = [] } = useQuery({
+    queryKey: ["promo-codes", hospitalId],
+    queryFn: () => apiRequest("GET", `/api/business/${hospitalId}/promo-codes`).then(r => r.json()),
+    enabled: !!hospitalId,
+  });
+
+  const deletePromoMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/business/${hospitalId}/promo-codes/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["promo-codes", hospitalId] }),
+  });
+
   return (
     <div className="p-4 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -87,82 +102,179 @@ export default function Flows() {
         ))}
       </div>
 
-      {/* Campaign list */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : (campaigns as any[]).length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <Send className="h-12 w-12 opacity-20 mb-4" />
-            <p className="text-lg font-medium mb-1">{t("flows.empty.title", "No campaigns yet")}</p>
-            <p className="text-sm opacity-60 mb-4">{t("flows.empty.subtitle", "Create your first marketing campaign")}</p>
-            <Button onClick={() => navigate("/business/flows/new")} variant="outline" className="gap-2">
-              <Plus className="h-4 w-4" /> {t("flows.empty.createFirst", "Create First Campaign")}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("common.name", "Name")}</TableHead>
-                <TableHead>{t("common.status", "Status")}</TableHead>
-                <TableHead>{t("flows.table.channel", "Channel")}</TableHead>
-                <TableHead>{t("flows.table.recipients", "Recipients")}</TableHead>
-                <TableHead>{t("flows.table.sent", "Sent")}</TableHead>
-                <TableHead>{t("flows.table.openRate", "Open Rate")}</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(campaigns as any[]).map((c: any) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>
-                      {STATUS_BADGE[c.status]?.label || c.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{CHANNEL_LABEL[c.channel] || c.channel || "—"}</TableCell>
-                  <TableCell>{c.recipientCount ?? "—"}</TableCell>
-                  <TableCell>
-                    {c.sentAt ? new Date(c.sentAt).toLocaleDateString("de-CH") : "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">—</TableCell>
-                  <TableCell>
-                    {c.status === "draft" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {t("flows.delete.description", "This action cannot be undone.")}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteMutation.mutate(c.id)}>
-                              {t("common.delete", "Delete")}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+      {/* Tabs: Campaigns | Promo Codes */}
+      <Tabs defaultValue="campaigns">
+        <TabsList>
+          <TabsTrigger value="campaigns" className="gap-2">
+            <Send className="h-4 w-4" />
+            {t("flows.tabs.campaigns", "Campaigns")}
+            {(campaigns as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(campaigns as any[]).length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="promos" className="gap-2">
+            <Tag className="h-4 w-4" />
+            {t("flows.tabs.promoCodes", "Promo Codes")}
+            {(promoCodes as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(promoCodes as any[]).length}</Badge>}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns" className="mt-4">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (campaigns as any[]).length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <Send className="h-12 w-12 opacity-20 mb-4" />
+                <p className="text-lg font-medium mb-1">{t("flows.empty.title", "No campaigns yet")}</p>
+                <p className="text-sm opacity-60 mb-4">{t("flows.empty.subtitle", "Create your first marketing campaign")}</p>
+                <Button onClick={() => navigate("/business/flows/new")} variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" /> {t("flows.empty.createFirst", "Create First Campaign")}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("common.name", "Name")}</TableHead>
+                    <TableHead>{t("common.status", "Status")}</TableHead>
+                    <TableHead>{t("flows.table.channel", "Channel")}</TableHead>
+                    <TableHead>{t("flows.table.recipients", "Recipients")}</TableHead>
+                    <TableHead>{t("flows.table.sent", "Sent")}</TableHead>
+                    <TableHead>{t("flows.table.openRate", "Open Rate")}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(campaigns as any[]).map((c: any) => (
+                    <TableRow
+                      key={c.id}
+                      className={c.status === "draft" ? "cursor-pointer hover:bg-muted/50" : ""}
+                      onClick={() => c.status === "draft" && navigate(`/business/flows/${c.id}`)}
+                    >
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>
+                          {STATUS_BADGE[c.status]?.label || c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{CHANNEL_LABEL[c.channel] || c.channel || "—"}</TableCell>
+                      <TableCell>{c.recipientCount ?? "—"}</TableCell>
+                      <TableCell>
+                        {c.sentAt ? new Date(c.sentAt).toLocaleDateString("de-CH") : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">—</TableCell>
+                      <TableCell>
+                        {c.status === "draft" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {t("flows.delete.description", "This action cannot be undone.")}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteMutation.mutate(c.id)}>
+                                  {t("common.delete", "Delete")}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Promo Codes Tab */}
+        <TabsContent value="promos" className="mt-4">
+          <Card>
+            {(promoCodes as any[]).length === 0 ? (
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                {t("flows.promoCodes.empty", "No promo codes yet. Create one inside a campaign.")}
+              </CardContent>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("flows.promoCodes.code", "Code")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.discount", "Discount")}</TableHead>
+                    <TableHead>{t("flows.offer.description", "Description")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.usage", "Usage")}</TableHead>
+                    <TableHead>{t("flows.promoCodes.validUntil", "Valid Until")}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(promoCodes as any[]).map((pc: any) => {
+                    const isExpired = pc.validUntil && new Date(pc.validUntil) < new Date();
+                    const isMaxed = pc.maxUses && pc.usedCount >= pc.maxUses;
+                    return (
+                      <TableRow key={pc.id} className={isExpired || isMaxed ? "opacity-50" : ""}>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono">{pc.code}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {pc.discountType === "percent" ? `${pc.discountValue}%` : `CHF ${pc.discountValue}`}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{pc.description || "—"}</TableCell>
+                        <TableCell>
+                          {pc.usedCount}{pc.maxUses ? ` / ${pc.maxUses}` : ""}
+                        </TableCell>
+                        <TableCell>
+                          {pc.validUntil ? (
+                            <span className={isExpired ? "text-destructive" : ""}>
+                              {new Date(pc.validUntil).toLocaleDateString("de-CH")}
+                              {isExpired && ` (${t("flows.promoCodes.expired", "expired")})`}
+                            </span>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>{t("flows.promoCodes.deleteTitle", "Delete promo code?")}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {t("flows.promoCodes.deleteDesc", "Code {{code}} will be permanently deleted.", { code: pc.code })}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deletePromoMutation.mutate(pc.id)}>
+                                  {t("common.delete", "Delete")}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

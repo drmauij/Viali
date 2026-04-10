@@ -40,11 +40,11 @@ function SmsPreview({ content }: { content: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-full p-4">
       {/* Phone frame */}
-      <div className="border-2 border-gray-300 rounded-3xl p-4 w-64 bg-gray-50 shadow-md">
+      <div className="border-2 border-muted rounded-3xl p-4 w-64 bg-muted/30 shadow-md">
         <div className="flex justify-center mb-3">
-          <div className="w-20 h-1.5 bg-gray-300 rounded-full" />
+          <div className="w-20 h-1.5 bg-muted rounded-full" />
         </div>
-        <div className="bg-white rounded-2xl min-h-40 p-2 space-y-2">
+        <div className="bg-background rounded-2xl min-h-40 p-2 space-y-2">
           {content ? (
             <div className="flex justify-end">
               <div className="bg-blue-500 text-white text-xs rounded-2xl rounded-tr-sm px-3 py-2 max-w-[85%] whitespace-pre-wrap break-words">
@@ -58,7 +58,7 @@ function SmsPreview({ content }: { content: string }) {
           )}
         </div>
         <div className="flex justify-center mt-3">
-          <div className="w-8 h-8 border-2 border-gray-300 rounded-full" />
+          <div className="w-8 h-8 border-2 border-muted rounded-full" />
         </div>
       </div>
     </div>
@@ -75,7 +75,7 @@ function EmailPreview({
   const { t } = useTranslation();
   return (
     <div className="h-full p-4 overflow-auto">
-      <div className="border rounded-lg bg-white shadow-sm max-w-lg mx-auto">
+      <div className="border rounded-lg bg-background shadow-sm max-w-lg mx-auto">
         {/* Email header */}
         <div className="border-b p-4">
           <div className="text-xs text-muted-foreground mb-1">{t("flows.compose.subject", "Subject")}:</div>
@@ -150,11 +150,13 @@ function AiChatPanel({
   segmentFilters,
   promoCode,
   onMessageGenerated,
+  onSubjectGenerated,
 }: {
   channel: "sms" | "email" | "html_email";
   segmentFilters: Array<{ field: string; operator: string; value: string }>;
   promoCode: string | null;
   onMessageGenerated: (content: string) => void;
+  onSubjectGenerated?: (subject: string) => void;
 }) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -199,14 +201,27 @@ function AiChatPanel({
         }
       );
       const data = await res.json();
+      let aiContent = data.message || data.content || "";
+      // For email channels, extract subject if AI included one
+      if ((channel === "email" || channel === "html_email") && onSubjectGenerated) {
+        const subjectMatch = aiContent.match(/^Subject:\s*(.+?)[\n\r]/i);
+        if (subjectMatch) {
+          onSubjectGenerated(subjectMatch[1].trim());
+          aiContent = aiContent.replace(/^Subject:\s*.+?[\n\r]+/i, "").trim();
+        }
+      }
+      // Send full content to preview, but show only a short summary in chat
+      if (aiContent) {
+        onMessageGenerated(aiContent);
+      }
+      const chatDisplay = channel === "html_email"
+        ? t("flows.compose.htmlGenerated", "HTML email generated — see preview →")
+        : aiContent;
       const aiMessage: ChatMessage = {
         role: "assistant",
-        content: data.message || data.content || "",
+        content: chatDisplay,
       };
       setMessages([...newMessages, aiMessage]);
-      if (aiMessage.content) {
-        onMessageGenerated(aiMessage.content);
-      }
     } catch {
       const errMessage: ChatMessage = {
         role: "assistant",
@@ -233,8 +248,23 @@ function AiChatPanel({
         className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0"
       >
         {messages.length === 0 && (
-          <div className="text-center text-xs text-muted-foreground pt-6">
-            {t("flows.compose.placeholder", "Describe the message...")}
+          <div className="flex flex-col items-center gap-3 pt-4 px-2">
+            <p className="text-xs text-muted-foreground">{t("flows.compose.placeholder", "Describe the message you want, or try an example:")}</p>
+            {[
+              channel === "sms"
+                ? "Write a friendly SMS reminder for patients who had a treatment with us. Mention we have a special spring offer and include the booking link."
+                : channel === "html_email"
+                ? "Create a beautiful HTML newsletter for our aesthetic clinic patients. Include a personal greeting, mention their previous treatment, highlight our exclusive spring offer with 20% off, and add a prominent booking button."
+                : "Write a professional follow-up email to patients who visited our clinic. Ask how they're feeling after their treatment, mention our loyalty offer, and invite them to book a follow-up consultation.",
+            ].map((example) => (
+              <button
+                key={example}
+                onClick={() => setPrompt(example)}
+                className="text-left text-xs px-3 py-2 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-colors text-muted-foreground w-full"
+              >
+                "{example}"
+              </button>
+            ))}
           </div>
         )}
         {messages.map((msg, i) => (
@@ -400,7 +430,7 @@ function RichEditor({
       </div>
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none p-3 min-h-32 focus-within:outline-none"
+        className="prose prose-sm prose-invert max-w-none p-3 min-h-32 focus-within:outline-none"
       />
     </div>
   );
@@ -438,6 +468,7 @@ export default function MessageComposer({
                   segmentFilters={segmentFilters}
                   promoCode={promoCode}
                   onMessageGenerated={onContentChange}
+                  onSubjectGenerated={onSubjectChange}
                 />
               </ResizablePanel>
 
