@@ -144,6 +144,7 @@ export default function BottomNav() {
       if (addons.clinic && activeHospital?.showAppointments !== false) {
         items.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" });
       }
+      items.push({ id: "anesthesia-shifts", icon: "fas fa-clock", label: t('bottomNav.anesthesia.shifts', 'Shifts'), path: "/anesthesia/shifts" });
       items.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" });
       items.push({ id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" });
       items.push({ id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" });
@@ -157,6 +158,7 @@ export default function BottomNav() {
       if (addons.clinic && activeHospital?.showAppointments !== false) {
         surgeryItems.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" });
       }
+      surgeryItems.push({ id: "surgery-shifts", icon: "fas fa-clock", label: t('bottomNav.surgery.shifts', 'Shifts'), path: "/surgery/shifts" });
       surgeryItems.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" });
       // Pre-op tab hidden for now — not actively used yet
       // if (canAccessPreOp) {
@@ -205,6 +207,7 @@ export default function BottomNav() {
       if (activeHospital?.showAppointments !== false) {
         clinicItems.push({ id: "clinic-appointments", icon: "fas fa-calendar-check", label: t('bottomNav.clinic.appointments', 'Appointments'), path: "/clinic/appointments" });
       }
+      clinicItems.push({ id: "clinic-shifts", icon: "fas fa-clock", label: t('bottomNav.clinic.shifts', 'Shifts'), path: "/clinic/shifts" });
       clinicItems.push({ id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" });
       if (addons.questionnaire) {
         clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });

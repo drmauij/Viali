@@ -343,7 +343,8 @@
       "op": "OP",
       "pacu": "PACU",
       "clinical": "Statistics",
-      "settings": "Settings"
+      "settings": "Settings",
+      "shifts": "Shifts"
     },
     "surgery": {
       "patients": "Patients",
@@ -351,7 +352,8 @@
       "preop": "Pre-Op",
       "checklists": "Checklists",
       "settings": "Settings",
-      "appointments": "Appointments"
+      "appointments": "Appointments",
+      "shifts": "Shifts"
     },
     "business": {
       "dashboard": "Dashboard",
@@ -368,7 +370,8 @@
       "services": "Services",
       "invoices": "Invoices",
       "settings": "Company",
-      "appointments": "Appointments"
+      "appointments": "Appointments",
+      "shifts": "Shifts"
     },
     "logistic": {
       "inventory": "Inventory",
@@ -7637,5 +7640,43 @@
     "tiktok": "TikTok",
     "google": "Google",
     "bing": "Bing"
+  },
+  "shifts": {
+    "tabLabel": "Shifts",
+    "dayView": "Day",
+    "weekView": "Week",
+    "monthView": "Month",
+    "saved": "Shift saved",
+    "currentlyAssigned": "Currently",
+    "popover": {
+      "role": "Role (Saal plan)",
+      "rolePlaceholder": "Select role",
+      "roleNone": "Not in Saal",
+      "shift": "Shift",
+      "shiftPlaceholder": "Select shift",
+      "shiftNone": "No shift",
+      "clearAll": "Clear all",
+      "assignToDays": "Assign to {{count}} days"
+    },
+    "settings": {
+      "title": "Shift Types",
+      "addNew": "Add shift type",
+      "empty": "No shift types configured yet.",
+      "deleteBlocked": "This shift type is used in {{count}} assignments. Reassign or clear them first.",
+      "deleteConfirm": "Delete shift type?",
+      "deleteConfirmDesc": "Are you sure you want to delete this shift type?",
+      "form": {
+        "name": "Name",
+        "code": "Code",
+        "icon": "Icon",
+        "iconNone": "None",
+        "color": "Color",
+        "startTime": "Start time",
+        "endTime": "End time",
+        "unit": "Unit",
+        "allUnits": "All units",
+        "sortOrder": "Sort order"
+      }
+    }
   }
 }
