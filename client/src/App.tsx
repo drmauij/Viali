@@ -333,16 +333,24 @@ function Router() {
   );
 }
 
-// Force repaint when returning to the app on mobile browsers.
-// Switching apps causes the browser to freeze the tab; when resuming,
-// the rendering surface can be blank until a repaint is triggered.
+// Recover from mobile standby: repaint the rendering surface and
+// refetch stale data so the user never comes back to a blank screen.
 function useRepaintOnResume() {
   useEffect(() => {
+    let hiddenAt = 0;
     const handler = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible') {
         // Tiny opacity toggle forces the browser to repaint the page
         document.body.style.opacity = '0.99';
         requestAnimationFrame(() => { document.body.style.opacity = ''; });
+
+        // If the tab was hidden for more than 30 seconds, invalidate all
+        // queries so mounted components refetch fresh data (auth, lists, etc.)
+        if (hiddenAt && Date.now() - hiddenAt > 30_000) {
+          queryClient.invalidateQueries();
+        }
       }
     };
     document.addEventListener('visibilitychange', handler);
