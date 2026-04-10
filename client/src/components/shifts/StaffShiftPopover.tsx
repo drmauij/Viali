@@ -78,14 +78,19 @@ export default function StaffShiftPopover({
   const [role, setRole] = useState<string>(currentRole ?? NONE_VALUE);
   const [shiftTypeId, setShiftTypeId] = useState<string>(currentShiftTypeId ?? NONE_VALUE);
   const [saving, setSaving] = useState(false);
+  // Snapshot bulk state internally so it can't be lost if parent re-renders
+  const [isBulk, setIsBulk] = useState(false);
+  const [bulkDatesInternal, setBulkDatesInternal] = useState<string[]>([]);
 
   // Reset fields when popover opens
   useEffect(() => {
     if (open) {
       setRole(currentRole ?? NONE_VALUE);
       setShiftTypeId(currentShiftTypeId ?? NONE_VALUE);
+      setIsBulk(bulk);
+      setBulkDatesInternal(bulkDates ?? []);
     }
-  }, [open, currentRole, currentShiftTypeId]);
+  }, [open, currentRole, currentShiftTypeId, bulk, bulkDates]);
 
   const { data: shiftTypes = [], isLoading: loadingShiftTypes } = useQuery<ShiftType[]>({
     queryKey: ["shift-types", hospitalId],
@@ -99,10 +104,10 @@ export default function StaffShiftPopover({
       const resolvedShiftTypeId = clearAll ? null : shiftTypeId === NONE_VALUE ? null : shiftTypeId;
       const resolvedRole = clearAll ? null : role === NONE_VALUE ? null : role;
 
-      console.log('[StaffShiftPopover save]', { bulk, bulkDates, resolvedShiftTypeId, resolvedRole, userId, date });
+      console.log('[StaffShiftPopover save]', { isBulk, bulkDatesInternal, resolvedShiftTypeId, resolvedRole, userId, date });
 
-      if (bulk && bulkDates && bulkDates.length > 0) {
-        const items = bulkDates.map((d) => ({
+      if (isBulk && bulkDatesInternal.length > 0) {
+        const items = bulkDatesInternal.map((d) => ({
           userId,
           date: d,
           shiftTypeId: resolvedShiftTypeId,
@@ -149,9 +154,9 @@ export default function StaffShiftPopover({
           {/* Header */}
           <div>
             <p className="font-medium text-sm">{userName}</p>
-            {bulk && bulkDates && bulkDates.length > 1 ? (
+            {isBulk && bulkDatesInternal.length > 1 ? (
               <p className="text-xs text-muted-foreground">
-                {t("shifts.assignToDays", "Assign to {{count}} days", { count: bulkDates.length })}
+                {t("shifts.assignToDays", "Assign to {{count}} days", { count: bulkDatesInternal.length })}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">{date}</p>
@@ -159,7 +164,7 @@ export default function StaffShiftPopover({
           </div>
 
           {/* Absence info (single-cell mode only) */}
-          {!bulk && <AbsenceInfoBlock absence={absence ?? null} />}
+          {!isBulk && <AbsenceInfoBlock absence={absence ?? null} />}
 
           {/* Role select */}
           <div className="space-y-1">
