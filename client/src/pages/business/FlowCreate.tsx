@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,12 +20,13 @@ type Section = "segment" | "channel" | "compose" | "offer" | "review";
 const SECTION_ORDER: Section[] = ["segment", "channel", "compose", "offer", "review"];
 
 export default function FlowCreate() {
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const { toast } = useToast();
 
-  const [name, setName] = useState("Neue Kampagne");
+  const [name, setName] = useState(t("flows.newCampaign", "New Campaign"));
   const [activeSection, setActiveSection] = useState<Section>("segment");
   const [completedSections, setCompletedSections] = useState<Set<Section>>(new Set());
 
@@ -57,8 +59,8 @@ export default function FlowCreate() {
 
   const channelLabel: Record<Channel, string> = {
     sms: "SMS",
-    email: "E-Mail",
-    html_email: "HTML-E-Mail",
+    email: t("flows.channel.email", "Email"),
+    html_email: t("flows.channel.htmlEmail", "HTML Email"),
   };
 
   const handleSend = async () => {
@@ -77,12 +79,15 @@ export default function FlowCreate() {
 
       await apiRequest("POST", `/api/business/${hospitalId}/flows/${flow.id}/send`);
 
-      toast({ title: "Kampagne gesendet", description: `${name} wurde erfolgreich gesendet.` });
+      toast({
+        title: t("flows.toast.sent", "Campaign sent"),
+        description: t("flows.toast.sentDescription", "{{name}} was sent successfully.", { name }),
+      });
       navigate("/business/flows");
     } catch {
       toast({
-        title: "Fehler",
-        description: "Die Kampagne konnte nicht gesendet werden.",
+        title: t("common.error", "Error"),
+        description: t("flows.toast.sendError", "The campaign could not be sent."),
         variant: "destructive",
       });
     } finally {
@@ -100,17 +105,17 @@ export default function FlowCreate() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Neue Kampagne</h1>
-          <p className="text-xs text-muted-foreground">Schritt für Schritt konfigurieren</p>
+          <h1 className="text-xl font-bold">{t("flows.newCampaign", "New Campaign")}</h1>
+          <p className="text-xs text-muted-foreground">{t("flows.create.subtitle", "Configure step by step")}</p>
         </div>
         {/* Campaign name inline */}
         <div className="flex items-center gap-2">
-          <Label htmlFor="campaign-name" className="sr-only">Name</Label>
+          <Label htmlFor="campaign-name" className="sr-only">{t("common.name", "Name")}</Label>
           <Input
             id="campaign-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Kampagnenname"
+            placeholder={t("flows.create.namePlaceholder", "Campaign name")}
             className="h-8 text-sm w-52"
           />
         </div>
@@ -119,19 +124,19 @@ export default function FlowCreate() {
       {/* 1 — Segment */}
       <BookingSection
         status={sectionStatus("segment")}
-        isDark={false}
+        isDark={true}
         summary={{
           icon: <Users className="h-4 w-4 text-muted-foreground" />,
-          label: "Zielgruppe",
+          label: t("flows.segment.title", "Target Audience"),
           value:
             filters.length > 0
-              ? `${filters.length} Filter${filters.length !== 1 ? " aktiv" : " aktiv"}${patientCount !== null ? ` · ${patientCount} Patienten` : ""}`
-              : "Alle Patienten",
+              ? `${filters.length} ${t("flows.segment.filtersActive", "Filter(s) active")}${patientCount !== null ? ` · ${patientCount} ${t("flows.segment.patients", "Patients")}` : ""}`
+              : t("flows.segment.allPatients", "All Patients"),
           onChange: () => goTo("segment"),
         }}
       >
         <div className="space-y-4">
-          <h3 className="font-semibold">Zielgruppe auswählen</h3>
+          <h3 className="font-semibold">{t("flows.segment.select", "Select Target Audience")}</h3>
           <SegmentBuilder
             filters={filters}
             onChange={setFilters}
@@ -140,7 +145,7 @@ export default function FlowCreate() {
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("segment", "channel")}>
-              Weiter
+              {t("common.next", "Next")}
             </Button>
           </div>
         </div>
@@ -149,23 +154,23 @@ export default function FlowCreate() {
       {/* 2 — Channel */}
       <BookingSection
         status={sectionStatus("channel")}
-        isDark={false}
+        isDark={true}
         summary={{
           icon: <Radio className="h-4 w-4 text-muted-foreground" />,
-          label: "Kanal",
-          value: channel ? channelLabel[channel] : "Kein Kanal gewählt",
+          label: t("flows.channel.label", "Channel"),
+          value: channel ? channelLabel[channel] : t("flows.channel.none", "No channel selected"),
           onChange: () => goTo("channel"),
         }}
       >
         <div className="space-y-4">
-          <h3 className="font-semibold">Kanal wählen</h3>
+          <h3 className="font-semibold">{t("flows.channel.title", "Select Channel")}</h3>
           <ChannelPicker value={channel} onChange={setChannel} />
           <div className="flex justify-end">
             <Button
               onClick={() => completeAndGoTo("channel", "compose")}
               disabled={!channel}
             >
-              Weiter
+              {t("common.next", "Next")}
             </Button>
           </div>
         </div>
@@ -174,19 +179,19 @@ export default function FlowCreate() {
       {/* 3 — Compose */}
       <BookingSection
         status={sectionStatus("compose")}
-        isDark={false}
+        isDark={true}
         summary={{
           icon: <MessageSquare className="h-4 w-4 text-muted-foreground" />,
-          label: "Nachricht",
+          label: t("flows.compose.label", "Message"),
           value: messageContent
             ? messageContent.replace(/<[^>]*>/g, "").slice(0, 60) +
               (messageContent.replace(/<[^>]*>/g, "").length > 60 ? "…" : "")
-            : "Noch nicht verfasst",
+            : t("flows.compose.notYetWritten", "Not yet written"),
           onChange: () => goTo("compose"),
         }}
       >
         <div className="space-y-4">
-          <h3 className="font-semibold">Nachricht verfassen</h3>
+          <h3 className="font-semibold">{t("flows.compose.title", "Compose Message")}</h3>
           {channel && (
             <MessageComposer
               channel={channel}
@@ -203,7 +208,7 @@ export default function FlowCreate() {
               onClick={() => completeAndGoTo("compose", "offer")}
               disabled={!messageContent}
             >
-              Weiter
+              {t("common.next", "Next")}
             </Button>
           </div>
         </div>
@@ -212,16 +217,16 @@ export default function FlowCreate() {
       {/* 4 — Offer */}
       <BookingSection
         status={sectionStatus("offer")}
-        isDark={false}
+        isDark={true}
         summary={{
           icon: <Tag className="h-4 w-4 text-muted-foreground" />,
-          label: "Angebot",
-          value: promoCode ? `Code: ${promoCode}` : "Kein Rabattcode",
+          label: t("flows.offer.label", "Offer"),
+          value: promoCode ? `${t("flows.offer.code", "Code")}: ${promoCode}` : t("flows.offer.none", "No promo code"),
           onChange: () => goTo("offer"),
         }}
       >
         <div className="space-y-4">
-          <h3 className="font-semibold">Angebot / Rabattcode (optional)</h3>
+          <h3 className="font-semibold">{t("flows.offer.title", "Offer / Promo Code")} ({t("common.optional", "optional")})</h3>
           <OfferSection
             promoCodeId={promoCodeId}
             onChange={(id, code) => {
@@ -231,7 +236,7 @@ export default function FlowCreate() {
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("offer", "review")}>
-              Weiter
+              {t("common.next", "Next")}
             </Button>
           </div>
         </div>
@@ -240,15 +245,15 @@ export default function FlowCreate() {
       {/* 5 — Review + Send */}
       <BookingSection
         status={sectionStatus("review")}
-        isDark={false}
+        isDark={true}
         summary={{
           icon: <Send className="h-4 w-4 text-muted-foreground" />,
-          label: "Versand",
-          value: "Gesendet",
+          label: t("flows.review.label", "Send"),
+          value: t("flows.status.sent", "Sent"),
         }}
       >
         <div className="space-y-4">
-          <h3 className="font-semibold">Überprüfen & senden</h3>
+          <h3 className="font-semibold">{t("flows.review.title", "Review & Send")}</h3>
           <ReviewSend
             patientCount={patientCount}
             channel={channel}

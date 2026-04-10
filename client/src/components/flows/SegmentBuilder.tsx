@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,6 +15,7 @@ export interface SegmentFilter {
   field: "sex" | "treatment" | "lastAppointment" | "appointmentStatus";
   operator: string;
   value: string;
+  logic?: "and" | "or";
 }
 
 interface Props {
@@ -23,39 +25,46 @@ interface Props {
   onCountChange: (count: number | null) => void;
 }
 
-const FIELDS = [
-  { value: "sex", label: "Geschlecht" },
-  { value: "treatment", label: "Behandlung" },
-  { value: "lastAppointment", label: "Letzter Termin" },
-  { value: "appointmentStatus", label: "Terminstatus" },
-];
-
-const OPERATORS: Record<string, Array<{ value: string; label: string }>> = {
-  sex: [{ value: "is", label: "ist" }, { value: "isNot", label: "ist nicht" }],
-  treatment: [{ value: "is", label: "war" }],
-  lastAppointment: [
-    { value: "moreThan", label: "vor mehr als" },
-    { value: "lessThan", label: "vor weniger als" },
-  ],
-  appointmentStatus: [{ value: "is", label: "ist" }],
-};
-
-const SEX_VALUES = [
-  { value: "F", label: "Weiblich" },
-  { value: "M", label: "Männlich" },
-  { value: "O", label: "Andere" },
-];
-
-const STATUS_VALUES = [
-  { value: "completed", label: "Abgeschlossen" },
-  { value: "cancelled", label: "Abgesagt" },
-  { value: "no_show", label: "No-Show" },
-];
-
 export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange }: Props) {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const [counting, setCounting] = useState(false);
+
+  const FIELDS = [
+    { value: "sex", label: t("flows.fields.sex", "Gender") },
+    { value: "treatment", label: t("flows.fields.treatment", "Treatment") },
+    { value: "lastAppointment", label: t("flows.fields.lastAppointment", "Last Appointment") },
+    { value: "appointmentStatus", label: t("flows.fields.appointmentStatus", "Appointment Status") },
+  ];
+
+  const OPERATORS: Record<string, Array<{ value: string; label: string }>> = {
+    sex: [
+      { value: "is", label: t("flows.operators.is", "is") },
+      { value: "isNot", label: t("flows.operators.isNot", "is not") },
+    ],
+    treatment: [
+      { value: "is", label: t("flows.operators.was", "was") },
+      { value: "isNot", label: t("flows.operators.wasNot", "was not") },
+    ],
+    lastAppointment: [
+      { value: "moreThan", label: t("flows.operators.moreThan", "more than ago") },
+      { value: "lessThan", label: t("flows.operators.lessThan", "less than ago") },
+    ],
+    appointmentStatus: [{ value: "is", label: t("flows.operators.is", "is") }],
+  };
+
+  const SEX_VALUES = [
+    { value: "F", label: t("flows.values.female", "Female") },
+    { value: "M", label: t("flows.values.male", "Male") },
+    { value: "O", label: t("flows.values.other", "Other") },
+  ];
+
+  const STATUS_VALUES = [
+    { value: "completed", label: t("flows.values.completed", "Completed") },
+    { value: "cancelled", label: t("flows.values.cancelled", "Cancelled") },
+    { value: "no_show", label: t("flows.values.noShow", "No-Show") },
+  ];
 
   // Fetch services for treatment dropdown
   const { data: services = [] } = useQuery({
@@ -94,7 +103,13 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
   }, [fetchCount]);
 
   const addFilter = () => {
-    onChange([...filters, { field: "sex", operator: "is", value: "" }]);
+    onChange([...filters, { field: "sex", operator: "is", value: "", logic: "and" }]);
+  };
+
+  const toggleLogic = (index: number) => {
+    const updated = [...filters];
+    updated[index] = { ...updated[index], logic: updated[index].logic === "or" ? "and" : "or" };
+    onChange(updated);
   };
 
   const updateFilter = (index: number, updates: Partial<SegmentFilter>) => {
@@ -118,7 +133,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
         return (
           <Select value={filter.value} onValueChange={(v) => updateFilter(index, { value: v })}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Wählen..." />
+              <SelectValue placeholder={t("flows.segment.choose", "Choose...")} />
             </SelectTrigger>
             <SelectContent>
               {SEX_VALUES.map((s) => (
@@ -131,7 +146,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
         return (
           <Select value={filter.value} onValueChange={(v) => updateFilter(index, { value: v })}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Behandlung..." />
+              <SelectValue placeholder={t("flows.fields.treatment", "Treatment") + "..."} />
             </SelectTrigger>
             <SelectContent>
               {(services as any[]).map((s: any) => (
@@ -140,25 +155,33 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
             </SelectContent>
           </Select>
         );
-      case "lastAppointment":
+      case "lastAppointment": {
+        const [numVal, unitVal] = (filter.value || ":months").split(":");
         return (
           <div className="flex items-center gap-2">
             <Input
               type="number"
               min={1}
               className="w-[80px]"
-              value={filter.value}
-              onChange={(e) => updateFilter(index, { value: e.target.value })}
+              value={numVal}
+              onChange={(e) => updateFilter(index, { value: `${e.target.value}:${unitVal || "months"}` })}
               placeholder="3"
             />
-            <span className="text-sm text-muted-foreground">Monaten</span>
+            <Select value={unitVal || "months"} onValueChange={(v) => updateFilter(index, { value: `${numVal}:${v}` })}>
+              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weeks">{t("flows.values.weeks", "Weeks")}</SelectItem>
+                <SelectItem value="months">{t("flows.values.months", "Months")}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         );
+      }
       case "appointmentStatus":
         return (
           <Select value={filter.value} onValueChange={(v) => updateFilter(index, { value: v })}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Status..." />
+              <SelectValue placeholder={t("common.status", "Status") + "..."} />
             </SelectTrigger>
             <SelectContent>
               {STATUS_VALUES.map((s) => (
@@ -176,9 +199,18 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     <div className="space-y-3">
       {filters.map((filter, i) => (
         <div key={i} className="flex items-center gap-2 flex-wrap">
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {i === 0 ? "IF" : "AND"}
-          </Badge>
+          {i === 0 ? (
+            <Badge variant="secondary" className="shrink-0 text-xs">IF</Badge>
+          ) : (
+            <Badge
+              variant="secondary"
+              className="shrink-0 text-xs cursor-pointer hover:bg-primary/20 select-none"
+              onClick={() => toggleLogic(i)}
+              title={t("flows.segment.toggleLogic", "Click to toggle")}
+            >
+              {filter.logic === "or" ? "OR" : "AND"}
+            </Badge>
+          )}
           <Select
             value={filter.field}
             onValueChange={(v) => updateFilter(i, { field: v as SegmentFilter["field"] })}
@@ -215,7 +247,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
 
       <div className="flex items-center gap-3 pt-1">
         <Button variant="outline" size="sm" onClick={addFilter} className="gap-1">
-          <Plus className="h-3.5 w-3.5" /> Regel hinzufügen
+          <Plus className="h-3.5 w-3.5" /> {t("flows.segment.addRule", "Add Rule")}
         </Button>
         {filters.length > 0 && (
           <div className="flex items-center gap-2">
@@ -224,7 +256,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
             ) : patientCount !== null ? (
               <Badge className="bg-primary gap-1">
                 <Users className="h-3 w-3" />
-                {patientCount} Patienten
+                {patientCount} {t("flows.segment.patients", "Patients")}
               </Badge>
             ) : null}
           </div>

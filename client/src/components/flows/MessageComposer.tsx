@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,7 @@ interface ChatMessage {
 // ── Preview Components ────────────────────────────────────────────────────────
 
 function SmsPreview({ content }: { content: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center h-full p-4">
       {/* Phone frame */}
@@ -51,7 +53,7 @@ function SmsPreview({ content }: { content: string }) {
             </div>
           ) : (
             <p className="text-xs text-muted-foreground text-center pt-4">
-              Noch keine Nachricht
+              {t("flows.compose.noMessage", "No message yet")}
             </p>
           )}
         </div>
@@ -70,20 +72,21 @@ function EmailPreview({
   subject: string;
   content: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="h-full p-4 overflow-auto">
       <div className="border rounded-lg bg-white shadow-sm max-w-lg mx-auto">
         {/* Email header */}
         <div className="border-b p-4">
-          <div className="text-xs text-muted-foreground mb-1">Betreff:</div>
+          <div className="text-xs text-muted-foreground mb-1">{t("flows.compose.subject", "Subject")}:</div>
           <div className="font-semibold text-sm">
-            {subject || "(kein Betreff)"}
+            {subject || `(${t("flows.compose.noSubject", "no subject")})`}
           </div>
         </div>
         {/* Email body */}
         <div className="p-4 text-sm whitespace-pre-wrap min-h-32">
           {content || (
-            <span className="text-muted-foreground">Noch kein Inhalt</span>
+            <span className="text-muted-foreground">{t("flows.compose.noContent", "No content yet")}</span>
           )}
         </div>
       </div>
@@ -92,9 +95,10 @@ function EmailPreview({
 }
 
 function HtmlEmailPreview({ content }: { content: string }) {
+  const { t } = useTranslation();
   const srcDoc = content
     ? `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
-    : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">Noch kein Inhalt</body></html>`;
+    : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
 
   return (
     <div className="h-full p-4">
@@ -120,10 +124,11 @@ function PreviewPanel({
   messageContent: string;
   messageSubject: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="h-full flex flex-col">
       <div className="text-xs font-medium text-muted-foreground px-3 pt-3 pb-1 border-b">
-        Vorschau
+        {t("flows.compose.preview", "Preview")}
       </div>
       <div className="flex-1 overflow-hidden">
         {channel === "sms" && <SmsPreview content={messageContent} />}
@@ -151,6 +156,7 @@ function AiChatPanel({
   promoCode: string | null;
   onMessageGenerated: (content: string) => void;
 }) {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -169,7 +175,7 @@ function AiChatPanel({
       ? segmentFilters
           .map((f) => `${f.field} ${f.operator} ${f.value}`)
           .join(", ")
-      : "Alle Patienten";
+      : t("flows.segment.allPatients", "All Patients");
 
   const handleSend = async () => {
     if (!prompt.trim() || !hospitalId || loading) return;
@@ -204,7 +210,7 @@ function AiChatPanel({
     } catch {
       const errMessage: ChatMessage = {
         role: "assistant",
-        content: "Fehler beim Generieren der Nachricht. Bitte versuche es erneut.",
+        content: t("flows.compose.aiError", "Error generating message. Please try again."),
       };
       setMessages([...newMessages, errMessage]);
     } finally {
@@ -228,7 +234,7 @@ function AiChatPanel({
       >
         {messages.length === 0 && (
           <div className="text-center text-xs text-muted-foreground pt-6">
-            Beschreibe die Nachricht, die du verfassen möchtest.
+            {t("flows.compose.placeholder", "Describe the message...")}
           </div>
         )}
         {messages.map((msg, i) => (
@@ -266,7 +272,7 @@ function AiChatPanel({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Schreibe eine Anfrage... (Enter zum Senden)"
+          placeholder={t("flows.compose.inputPlaceholder", "Write a request... (Enter to send)")}
           className="resize-none text-sm min-h-[60px] max-h-32"
           rows={2}
           disabled={loading}
@@ -297,13 +303,14 @@ function SmsEditor({
   content: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const max = 160;
   return (
     <div className="space-y-2">
       <Textarea
         value={content}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="SMS-Text eingeben..."
+        placeholder={t("flows.compose.smsPlaceholder", "Enter SMS text...")}
         className="resize-none"
         rows={5}
         maxLength={max}
@@ -314,7 +321,7 @@ function SmsEditor({
           content.length > max ? "text-destructive" : "text-muted-foreground"
         )}
       >
-        {content.length}/{max} Zeichen
+        {content.length}/{max} {t("flows.compose.chars", "characters")}
       </p>
     </div>
   );
@@ -410,12 +417,14 @@ export default function MessageComposer({
   segmentFilters,
   promoCode,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-3">
       <Tabs defaultValue="ai">
         <TabsList>
-          <TabsTrigger value="ai">AI Chat</TabsTrigger>
-          <TabsTrigger value="editor">Editor</TabsTrigger>
+          <TabsTrigger value="ai">{t("flows.compose.tabAi", "AI Chat")}</TabsTrigger>
+          <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
         </TabsList>
 
         {/* AI Chat Tab */}
@@ -451,19 +460,19 @@ export default function MessageComposer({
           {/* Subject field for email channels */}
           {(channel === "email" || channel === "html_email") && (
             <div className="space-y-1">
-              <Label htmlFor="msg-subject">Betreff</Label>
+              <Label htmlFor="msg-subject">{t("flows.compose.subjectLabel", "Subject")}</Label>
               <Input
                 id="msg-subject"
                 value={messageSubject}
                 onChange={(e) => onSubjectChange(e.target.value)}
-                placeholder="Betreff der E-Mail..."
+                placeholder={t("flows.compose.subjectPlaceholder", "Email subject...")}
               />
             </div>
           )}
 
           {/* Content editor */}
           <div className="space-y-1">
-            <Label>Inhalt</Label>
+            <Label>{t("flows.compose.contentLabel", "Content")}</Label>
             {channel === "sms" ? (
               <SmsEditor content={messageContent} onChange={onContentChange} />
             ) : (

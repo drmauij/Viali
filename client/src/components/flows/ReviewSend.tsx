@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -12,12 +13,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Rocket } from "lucide-react";
 import type { Channel } from "./ChannelPicker";
-
-const CHANNEL_LABEL: Record<string, string> = {
-  sms: "SMS",
-  email: "Email",
-  html_email: "Newsletter",
-};
 
 interface Props {
   patientCount: number | null;
@@ -38,10 +33,17 @@ export default function ReviewSend({
   sending,
   disabled,
 }: Props) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const CHANNEL_LABEL: Record<string, string> = {
+    sms: "SMS",
+    email: t("flows.channel.email", "Email"),
+    html_email: t("flows.channel.newsletter", "Newsletter"),
+  };
+
   const summary = [
-    patientCount !== null ? `${patientCount} Patienten` : null,
+    patientCount !== null ? `${patientCount} ${t("flows.segment.patients", "Patients")}` : null,
     channel ? CHANNEL_LABEL[channel] : null,
     promoCode ?? null,
   ]
@@ -51,9 +53,9 @@ export default function ReviewSend({
   return (
     <div className="flex items-center justify-between p-4 rounded-xl border border-primary/20 bg-primary/5">
       <div>
-        <div className="font-semibold text-sm">{campaignName || "Kampagne"}</div>
+        <div className="font-semibold text-sm">{campaignName || t("flows.review.campaign", "Campaign")}</div>
         <div className="text-xs text-muted-foreground mt-0.5">
-          {summary || "Bitte alle Schritte ausfüllen"}
+          {summary || t("flows.review.fillAllSteps", "Please complete all steps")}
         </div>
       </div>
       <Button
@@ -67,29 +69,31 @@ export default function ReviewSend({
         ) : (
           <Rocket className="h-4 w-4" />
         )}
-        Kampagne senden
+        {t("flows.review.send", "Send Campaign")}
       </Button>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Kampagne senden?</AlertDialogTitle>
+            <AlertDialogTitle>{t("flows.review.confirmTitle", "Send Campaign?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {patientCount} Patienten werden eine{" "}
-              {channel ? CHANNEL_LABEL[channel] : ""} erhalten.
-              {promoCode && ` Rabattcode: ${promoCode}.`}{" "}
-              Diese Aktion kann nicht rückgängig gemacht werden.
+              {t("flows.review.confirmDescription", "{{count}} patients will receive a {{channel}}.", {
+                count: patientCount ?? 0,
+                channel: channel ? CHANNEL_LABEL[channel] : "",
+              })}
+              {promoCode && ` ${t("flows.review.promoCode", "Promo code")}: ${promoCode}.`}{" "}
+              {t("flows.review.irreversible", "This action cannot be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 setConfirmOpen(false);
                 await onSend();
               }}
             >
-              Jetzt senden
+              {t("flows.review.sendNow", "Send Now")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

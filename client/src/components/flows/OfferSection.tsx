@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function OfferSection({ promoCodeId, onChange }: Props) {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const [tab, setTab] = useState<string>("new");
@@ -56,14 +58,14 @@ export default function OfferSection({ promoCodeId, onChange }: Props) {
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="mb-4">
-        <TabsTrigger value="new">Neu erstellen</TabsTrigger>
-        <TabsTrigger value="existing">Bestehenden wählen</TabsTrigger>
+        <TabsTrigger value="new">{t("flows.offer.createNew", "Create New")}</TabsTrigger>
+        <TabsTrigger value="existing">{t("flows.offer.selectExisting", "Select Existing")}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="new" className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs">Code (leer = auto)</Label>
+            <Label className="text-xs">{t("flows.offer.codeLabel", "Code (blank = auto)")}</Label>
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -71,27 +73,27 @@ export default function OfferSection({ promoCodeId, onChange }: Props) {
             />
           </div>
           <div>
-            <Label className="text-xs">Beschreibung</Label>
+            <Label className="text-xs">{t("flows.offer.description", "Description")}</Label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Frühlings-Angebot"
+              placeholder={t("flows.offer.descriptionPlaceholder", "Spring offer")}
             />
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs">Rabatt-Typ</Label>
+            <Label className="text-xs">{t("flows.offer.discountType", "Discount Type")}</Label>
             <Select value={discountType} onValueChange={setDiscountType}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="percent">Prozent (%)</SelectItem>
-                <SelectItem value="fixed">CHF (fest)</SelectItem>
+                <SelectItem value="percent">{t("flows.offer.percent", "Percent (%)")}</SelectItem>
+                <SelectItem value="fixed">{t("flows.offer.fixed", "CHF (fixed)")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Wert</Label>
+            <Label className="text-xs">{t("flows.offer.value", "Value")}</Label>
             <Input
               type="number"
               value={discountValue}
@@ -100,7 +102,7 @@ export default function OfferSection({ promoCodeId, onChange }: Props) {
             />
           </div>
           <div>
-            <Label className="text-xs">Gültig bis</Label>
+            <Label className="text-xs">{t("flows.offer.validUntil", "Valid Until")}</Label>
             <Input
               type="date"
               value={validUntil}
@@ -114,13 +116,13 @@ export default function OfferSection({ promoCodeId, onChange }: Props) {
           className="gap-2"
         >
           {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Code erstellen
+          {t("flows.offer.createCode", "Create Code")}
         </Button>
       </TabsContent>
 
       <TabsContent value="existing" className="space-y-2">
         {(existingCodes as any[]).length === 0 ? (
-          <p className="text-sm text-muted-foreground">Keine bestehenden Codes vorhanden.</p>
+          <p className="text-sm text-muted-foreground">{t("flows.offer.noCodes", "No existing codes available.")}</p>
         ) : (
           <div className="space-y-2">
             {(existingCodes as any[]).map((pc: any) => (

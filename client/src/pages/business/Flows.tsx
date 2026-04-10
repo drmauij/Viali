@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,30 +18,31 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const DUMMY_STATS = [
-  { label: "Kampagnen diesen Monat", value: "12", icon: Send, color: "text-purple-400" },
-  { label: "Empfänger erreicht", value: "384", icon: Users, color: "text-blue-400" },
-  { label: "Ø Öffnungsrate", value: "34%", icon: BarChart3, color: "text-green-400" },
-  { label: "Buchungen", value: "28", icon: CalendarCheck, color: "text-orange-400" },
-];
-
-const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  draft: { label: "Entwurf", variant: "outline" },
-  sending: { label: "Wird gesendet...", variant: "secondary" },
-  sent: { label: "Gesendet", variant: "default" },
-  failed: { label: "Fehlgeschlagen", variant: "destructive" },
-};
-
-const CHANNEL_LABEL: Record<string, string> = {
-  sms: "SMS",
-  email: "Email",
-  html_email: "Newsletter",
-};
-
 export default function Flows() {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const [, navigate] = useLocation();
   const hospitalId = activeHospital?.id;
+
+  const DUMMY_STATS = [
+    { label: t("flows.dashboard.campaigns", "Campaigns This Month"), value: "12", icon: Send, color: "text-purple-400" },
+    { label: t("flows.dashboard.reached", "Recipients Reached"), value: "384", icon: Users, color: "text-blue-400" },
+    { label: t("flows.dashboard.openRate", "Avg. Open Rate"), value: "34%", icon: BarChart3, color: "text-green-400" },
+    { label: t("flows.dashboard.bookings", "Bookings"), value: "28", icon: CalendarCheck, color: "text-orange-400" },
+  ];
+
+  const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    draft: { label: t("flows.status.draft", "Draft"), variant: "outline" },
+    sending: { label: t("flows.status.sending", "Sending..."), variant: "secondary" },
+    sent: { label: t("flows.status.sent", "Sent"), variant: "default" },
+    failed: { label: t("flows.status.failed", "Failed"), variant: "destructive" },
+  };
+
+  const CHANNEL_LABEL: Record<string, string> = {
+    sms: "SMS",
+    email: "Email",
+    html_email: t("flows.channel.newsletter", "Newsletter"),
+  };
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["flows", hospitalId],
@@ -59,12 +61,12 @@ export default function Flows() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Flows</h1>
-          <p className="text-sm text-muted-foreground">Marketing-Kampagnen verwalten</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Flows</h1>
+          <p className="text-sm text-muted-foreground">{t("flows.subtitle", "Manage Marketing Campaigns")}</p>
         </div>
         <Button onClick={() => navigate("/business/flows/new")} className="gap-2">
           <Plus className="h-4 w-4" />
-          Neue Kampagne
+          {t("flows.newCampaign", "New Campaign")}
         </Button>
       </div>
 
@@ -94,10 +96,10 @@ export default function Flows() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Send className="h-12 w-12 opacity-20 mb-4" />
-            <p className="text-lg font-medium mb-1">Noch keine Kampagnen</p>
-            <p className="text-sm opacity-60 mb-4">Erstellen Sie Ihre erste Marketing-Kampagne</p>
+            <p className="text-lg font-medium mb-1">{t("flows.empty.title", "No campaigns yet")}</p>
+            <p className="text-sm opacity-60 mb-4">{t("flows.empty.subtitle", "Create your first marketing campaign")}</p>
             <Button onClick={() => navigate("/business/flows/new")} variant="outline" className="gap-2">
-              <Plus className="h-4 w-4" /> Erste Kampagne erstellen
+              <Plus className="h-4 w-4" /> {t("flows.empty.createFirst", "Create First Campaign")}
             </Button>
           </CardContent>
         </Card>
@@ -106,12 +108,12 @@ export default function Flows() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Kanal</TableHead>
-                <TableHead>Empfänger</TableHead>
-                <TableHead>Gesendet</TableHead>
-                <TableHead>Öffnungsrate</TableHead>
+                <TableHead>{t("common.name", "Name")}</TableHead>
+                <TableHead>{t("common.status", "Status")}</TableHead>
+                <TableHead>{t("flows.table.channel", "Channel")}</TableHead>
+                <TableHead>{t("flows.table.recipients", "Recipients")}</TableHead>
+                <TableHead>{t("flows.table.sent", "Sent")}</TableHead>
+                <TableHead>{t("flows.table.openRate", "Open Rate")}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -140,15 +142,15 @@ export default function Flows() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Kampagne löschen?</AlertDialogTitle>
+                            <AlertDialogTitle>{t("flows.delete.title", "Delete Campaign?")}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Diese Aktion kann nicht rückgängig gemacht werden.
+                              {t("flows.delete.description", "This action cannot be undone.")}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogCancel>{t("common.cancel", "Cancel")}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => deleteMutation.mutate(c.id)}>
-                              Löschen
+                              {t("common.delete", "Delete")}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
