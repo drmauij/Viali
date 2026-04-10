@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDateLong, formatDateForInput } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
+import ClinicShiftTypes from "@/pages/clinic/ShiftTypes";
 
 // Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
@@ -42,8 +43,8 @@ export default function Clinical() {
 
   // Internal tab state
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["units", "rooms", "checklists", "templates"];
-  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates">(
+  const validTabs = ["units", "rooms", "checklists", "templates", "shifts"];
+  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates" | "shifts">(
     urlTab && validTabs.includes(urlTab) ? urlTab as any : "units"
   );
 
@@ -515,6 +516,10 @@ export default function Clinical() {
               <i className="fas fa-file-lines mr-2 shrink-0"></i>
               <span className="truncate">{t("admin.templates", "Templates")}</span>
             </TabsTrigger>
+            <TabsTrigger value="shifts" data-testid="tab-shifts" className="justify-start md:w-full">
+              <i className="fas fa-clock mr-2 shrink-0"></i>
+              <span className="truncate">{t("shifts.settings.title", "Shift Types")}</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab content area */}
@@ -803,6 +808,10 @@ export default function Clinical() {
             />
           )}
         </div>
+        </TabsContent>
+
+        <TabsContent value="shifts">
+          <ClinicShiftTypes />
         </TabsContent>
 
           </div>
