@@ -31,6 +31,7 @@ import { patientChatRouter } from "./patientChat";
 import searchRouter from "./search";
 import leadsRouter from "./leads";
 import shiftsRouter from "./shifts";
+import websiteRouter from "./website";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -65,4 +66,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(searchRouter);
   app.use(leadsRouter);
   app.use(shiftsRouter);
+  app.use(websiteRouter);
 }

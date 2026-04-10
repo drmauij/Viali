@@ -47,6 +47,7 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'", "wss:", "ws://localhost:21965", "https:"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      frameSrc: ["'self'", "https://privatklinik-kreuzlingen.vercel.app"],
       objectSrc: ["'none'"],
       frameAncestors: ["'self'"],
     },

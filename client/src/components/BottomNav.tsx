@@ -213,6 +213,7 @@ export default function BottomNav() {
         clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });
       }
       clinicItems.push({ id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic/invoices" });
+      clinicItems.push({ id: "clinic-website", icon: "fas fa-globe", label: "Website", path: "/clinic/website" });
       return clinicItems;
     }
     

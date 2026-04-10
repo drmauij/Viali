@@ -74,6 +74,7 @@ const ClinicShiftTypes = React.lazy(() => import("@/pages/clinic/ShiftTypes"));
 const ClinicShifts = React.lazy(() => import("@/pages/clinic/Shifts"));
 const ClinicQuestionnaires = React.lazy(() => import("@/pages/clinic/UnassociatedQuestionnaires"));
 const ClinicAppointments = React.lazy(() => import("@/pages/clinic/Appointments"));
+const ClinicWebsite = React.lazy(() => import("@/pages/clinic/Website"));
 const PatientQuestionnaire = React.lazy(() => import("@/pages/PatientQuestionnaire"));
 const QuestionnaireAliasResolver = React.lazy(() => import("@/pages/QuestionnaireAliasResolver"));
 const PatientPortal = React.lazy(() => import("@/pages/PatientPortal"));
@@ -306,6 +307,7 @@ function Router() {
               <Route path="/clinic/questionnaires">{() => <ProtectedRoute requireClinic><ClinicQuestionnaires /></ProtectedRoute>}</Route>
               <Route path="/clinic/patients">{() => <ProtectedRoute requireClinic><Patients /></ProtectedRoute>}</Route>
               <Route path="/clinic/patients/:id">{() => <ProtectedRoute requireClinic><PatientDetail /></ProtectedRoute>}</Route>
+              <Route path="/clinic/website">{() => <ProtectedRoute requireClinic><ClinicWebsite /></ProtectedRoute>}</Route>
               {/* Logistic Module - cross-unit inventory & orders view */}
               <Route path="/logistic">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
               <Route path="/logistic/inventory">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
