@@ -107,17 +107,19 @@ export default function ShiftsMonthView({
         format(d, "yyyy-MM-dd")
       );
 
-      if (selectedDates.length === 1) {
-        setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
-      } else {
-        setPopover({
-          userId: ds.providerId,
-          userName: name,
-          date: selectedDates[0],
-          bulk: true,
-          bulkDates: selectedDates,
-        });
-      }
+      setTimeout(() => {
+        if (selectedDates.length === 1) {
+          setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
+        } else {
+          setPopover({
+            userId: ds.providerId,
+            userName: name,
+            date: selectedDates[0],
+            bulk: true,
+            bulkDates: selectedDates,
+          });
+        }
+      }, 0);
     };
 
     window.addEventListener("mouseup", handleDragEnd);
@@ -296,6 +298,9 @@ export default function ShiftsMonthView({
                           if (dragState) {
                             handleDragEnter(p.id, dayIdx);
                           }
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
                         }}
                       >
                         <StaffShiftPopover

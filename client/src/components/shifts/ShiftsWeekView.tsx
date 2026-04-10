@@ -106,19 +106,21 @@ export default function ShiftsWeekView({
         format(d, "yyyy-MM-dd")
       );
 
-      if (selectedDates.length === 1) {
-        // Single cell — open normal popover
-        setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
-      } else {
-        // Multi-cell — open bulk popover at the first selected date
-        setPopover({
-          userId: ds.providerId,
-          userName: name,
-          date: selectedDates[0],
-          bulk: true,
-          bulkDates: selectedDates,
-        });
-      }
+      // Delay to next tick so the popover opens AFTER the click event
+      // (which would otherwise toggle the Radix PopoverTrigger closed).
+      setTimeout(() => {
+        if (selectedDates.length === 1) {
+          setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
+        } else {
+          setPopover({
+            userId: ds.providerId,
+            userName: name,
+            date: selectedDates[0],
+            bulk: true,
+            bulkDates: selectedDates,
+          });
+        }
+      }, 0);
     };
 
     window.addEventListener("mouseup", handleDragEnd);
@@ -280,6 +282,9 @@ export default function ShiftsWeekView({
                         if (dragState) {
                           handleDragEnter(p.id, dayIdx);
                         }
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
                       }}
                     >
                       <StaffShiftPopover
