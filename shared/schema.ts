@@ -6441,3 +6441,44 @@ export const leadWebhookConfig = pgTable("lead_webhook_config", {
 });
 
 export type LeadWebhookConfig = typeof leadWebhookConfig.$inferSelect;
+
+// ── Shifts ───────────────────────────────────────────────────────────────────
+
+export const shiftTypes = pgTable("shift_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  icon: text("icon"),
+  color: text("color").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  index("shift_types_hospital_sort_idx").on(t.hospitalId, t.sortOrder),
+  index("shift_types_hospital_unit_idx").on(t.hospitalId, t.unitId),
+]);
+
+export const staffShifts = pgTable("staff_shifts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  shiftTypeId: varchar("shift_type_id").notNull().references(() => shiftTypes.id, { onDelete: "restrict" }),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("staff_shifts_hospital_user_date_uidx").on(t.hospitalId, t.userId, t.date),
+  index("staff_shifts_hospital_date_idx").on(t.hospitalId, t.date),
+]);
+
+export const insertShiftTypeSchema = createInsertSchema(shiftTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStaffShiftSchema = createInsertSchema(staffShifts).omit({ id: true, createdAt: true, updatedAt: true });
+export type ShiftType = typeof shiftTypes.$inferSelect;
+export type InsertShiftType = z.infer<typeof insertShiftTypeSchema>;
+export type StaffShift = typeof staffShifts.$inferSelect;
+export type InsertStaffShift = z.infer<typeof insertStaffShiftSchema>;
