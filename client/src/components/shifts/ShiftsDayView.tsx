@@ -311,8 +311,16 @@ export default function ShiftsDayView({
                     </div>
                   )}
 
+                  {/* Role-only indicator (saal-planned but no shift) */}
+                  {!shiftType && poolEntry && (
+                    <div className="absolute top-2 bottom-2 left-[2%] rounded bg-muted/60 border border-muted-foreground/20 px-2 flex items-center gap-1 text-[10px] text-muted-foreground font-medium" style={{ width: '96%' }}>
+                      <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
+                      Saal · {poolEntry.role}
+                    </div>
+                  )}
+
                   {/* No shift placeholder */}
-                  {!shiftType && !absence && (
+                  {!shiftType && !poolEntry && !absence && (
                     <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground/40 select-none pointer-events-none">
                       click to assign
                     </div>

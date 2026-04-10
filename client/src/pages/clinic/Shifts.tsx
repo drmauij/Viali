@@ -135,7 +135,7 @@ export default function ClinicShifts() {
     enabled: !!hospitalId,
   });
 
-  const { data: staffPool = [] } = useQuery<
+  const { data: staffPool = [], refetch: refetchPool } = useQuery<
     Array<{ id: string; date: string; userId: string | null; name: string; role: string }>
   >({
     queryKey: ["staff-pool-range", hospitalId, fromStr, toStr],
@@ -261,7 +261,7 @@ export default function ClinicShifts() {
             timeOffs={timeOffs}
             hospitalId={hospitalId}
             anchor={anchor}
-            onSaved={() => refetchShifts()}
+            onSaved={() => { refetchShifts(); refetchPool(); }}
           />
         ) : view === "day" ? (
           <ShiftsDayView
@@ -274,7 +274,7 @@ export default function ClinicShifts() {
             hospitalId={hospitalId}
             unitId={unitId ?? ""}
             anchor={anchor}
-            onSaved={() => refetchShifts()}
+            onSaved={() => { refetchShifts(); refetchPool(); }}
           />
         ) : (
           <ShiftsMonthView
@@ -287,7 +287,7 @@ export default function ClinicShifts() {
             hospitalId={hospitalId}
             unitId={unitId ?? ""}
             anchor={anchor}
-            onSaved={() => refetchShifts()}
+            onSaved={() => { refetchShifts(); refetchPool(); }}
           />
         )}
       </div>
