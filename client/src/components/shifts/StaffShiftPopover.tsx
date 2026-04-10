@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -82,15 +82,20 @@ export default function StaffShiftPopover({
   const [isBulk, setIsBulk] = useState(false);
   const [bulkDatesInternal, setBulkDatesInternal] = useState<string[]>([]);
 
-  // Reset fields when popover opens
+  // Snapshot all state once when popover opens — deps intentionally
+  // limited to `open` so later prop changes (caused by parent
+  // re-renders from Radix interactions) don't overwrite the snapshot.
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setRole(currentRole ?? NONE_VALUE);
       setShiftTypeId(currentShiftTypeId ?? NONE_VALUE);
       setIsBulk(bulk);
       setBulkDatesInternal(bulkDates ?? []);
     }
-  }, [open, currentRole, currentShiftTypeId, bulk, bulkDates]);
+    prevOpenRef.current = open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const { data: shiftTypes = [], isLoading: loadingShiftTypes } = useQuery<ShiftType[]>({
     queryKey: ["shift-types", hospitalId],
