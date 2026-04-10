@@ -11,8 +11,7 @@ import {
 } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { ToggleRight, ToggleLeft, Video } from "lucide-react";
-import SaalStaffPopover from "./SaalStaffPopover";
+import { Video } from "lucide-react";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -55,12 +54,6 @@ interface AppointmentsWeekViewProps {
   onCanvasClick?: (providerId: string, time: Date) => void;
   onDayClick?: (date: Date) => void;
   onProviderClick?: (providerId: string) => void;
-  staffPoolByDateUser?: Map<string, Map<string, { id: string; role: string }>>;
-  hospitalId?: string;
-  onRemoveFromSaal?: (poolEntryId: string) => void;
-  onSaalPopoverChange?: (state: { providerId: string; providerName: string; dateStr: string } | null) => void;
-  saalPopoverState?: { providerId: string; providerName: string; dateStr: string } | null;
-  onSaalAdded?: () => void;
   onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
 }
 
@@ -121,12 +114,6 @@ export default function AppointmentsWeekView({
   onCanvasClick,
   onDayClick,
   onProviderClick,
-  staffPoolByDateUser,
-  hospitalId,
-  onRemoveFromSaal,
-  onSaalPopoverChange,
-  saalPopoverState,
-  onSaalAdded,
   onDragSelectRange,
 }: AppointmentsWeekViewProps) {
   const { t, i18n } = useTranslation();
@@ -363,8 +350,6 @@ export default function AppointmentsWeekView({
                 const dayAppointments = getAppointmentsForProviderDay(provider.id, day);
                 const absence = getAbsenceForProviderDay(provider.id, day);
                 const dayStr = format(day, 'yyyy-MM-dd');
-                const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
-                const isSaalPlanned = !!poolEntry;
 
                 const inDragRange = isDayInDragRange(provider.id, dayIdx);
 
@@ -413,54 +398,6 @@ export default function AppointmentsWeekView({
                     data-day-idx={String(dayIdx)}
                     data-testid={`day-cell-${provider.id}-${dayStr}`}
                   >
-                    {/* Saal toggle in top-right corner — always visible */}
-                    <div className="absolute top-0.5 right-0.5 z-10">
-                      {isSaalPlanned ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(t('appointments.saalRemoveConfirm'))) {
-                              onRemoveFromSaal?.(poolEntry.id);
-                            }
-                          }}
-                          className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
-                          title={t('appointments.saalPlanned')}
-                        >
-                          <ToggleRight className="h-5 w-5" />
-                        </button>
-                      ) : hospitalId ? (
-                        <SaalStaffPopover
-                          providerId={provider.id}
-                          providerName={getProviderName(provider)}
-                          dateStr={dayStr}
-                          hospitalId={hospitalId}
-                          open={saalPopoverState?.providerId === provider.id && saalPopoverState?.dateStr === dayStr}
-                          onOpenChange={(open) => {
-                            if (open) {
-                              onSaalPopoverChange?.({ providerId: provider.id, providerName: getProviderName(provider), dateStr: dayStr });
-                            } else {
-                              onSaalPopoverChange?.(null);
-                            }
-                          }}
-                          onAdded={() => {
-                            onSaalPopoverChange?.(null);
-                            onSaalAdded?.();
-                          }}
-                        >
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-                            title={t('appointments.saalNotPlanned')}
-                          >
-                            <ToggleLeft className="h-5 w-5" />
-                          </button>
-                        </SaalStaffPopover>
-                      ) : (
-                        <span className="p-1 text-muted-foreground/20">
-                          <ToggleLeft className="h-5 w-5" />
-                        </span>
-                      )}
-                    </div>
                     {absence && !absence.isPartial ? (
                       <div className={cn(
                         "flex items-center justify-center h-full text-muted-foreground text-sm",

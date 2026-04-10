@@ -15,8 +15,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { ABSENCE_COLORS, ABSENCE_ICONS, ABSENCE_TYPE_LABEL_KEYS } from "@/lib/absenceConstants";
-import { ToggleRight, ToggleLeft } from "lucide-react";
-import SaalStaffPopover from "./SaalStaffPopover";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -57,10 +55,6 @@ interface AppointmentsMonthViewProps {
   selectedDate: Date;
   onDayClick?: (date: Date) => void;
   onProviderClick?: (providerId: string) => void;
-  staffPoolByDateUser?: Map<string, Map<string, { id: string; role: string }>>;
-  hospitalId?: string;
-  onRemoveFromSaal?: (poolEntryId: string) => void;
-  onSaalAdded?: () => void;
   onDragSelectRange?: (providerId: string, startDate: Date, endDate: Date) => void;
 }
 
@@ -85,15 +79,9 @@ export default function AppointmentsMonthView({
   selectedDate,
   onDayClick,
   onProviderClick,
-  staffPoolByDateUser,
-  hospitalId,
-  onRemoveFromSaal,
-  onSaalAdded,
   onDragSelectRange,
 }: AppointmentsMonthViewProps) {
   const { t, i18n } = useTranslation();
-  const [saalPopoverKey, setSaalPopoverKey] = useState<string | null>(null);
-
   // Drag selection state for multi-day off-time
   const [dragState, setDragState] = useState<{
     providerId: string;
@@ -289,11 +277,6 @@ export default function AppointmentsMonthView({
     }
 
     const dayStr = format(day, 'yyyy-MM-dd');
-    const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(providerId);
-    if (poolEntry) {
-      parts.push(t('appointments.saalPlanned', 'Saal planned'));
-    }
-
     return parts.join('\n') || format(day, 'dd.MM.yyyy');
   };
 
@@ -350,8 +333,6 @@ export default function AppointmentsMonthView({
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const dayAppointments = getAppointmentsForProviderDay(provider.id, day);
                 const absence = getAbsenceForProviderDay(provider.id, day);
-                const poolEntry = staffPoolByDateUser?.get(dayStr)?.get(provider.id);
-                const isSaalPlanned = !!poolEntry;
                 const tooltip = buildTooltip(provider.id, day);
 
                 const inDragRange = isDayInDragRange(provider.id, dayIdx);
@@ -400,50 +381,6 @@ export default function AppointmentsMonthView({
                       data-day-idx={String(dayIdx)}
                       data-testid={`month-cell-${provider.id}-${dayStr}`}
                     >
-                      {/* Saal toggle top-right — always visible */}
-                      <div className="absolute top-0.5 right-0.5 z-10">
-                        {isSaalPlanned ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(t('appointments.saalRemoveConfirm'))) {
-                                onRemoveFromSaal?.(poolEntry.id);
-                              }
-                            }}
-                            className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
-                            title={t('appointments.saalPlanned')}
-                          >
-                            <ToggleRight className="h-5 w-5" />
-                          </button>
-                        ) : hospitalId ? (
-                          <SaalStaffPopover
-                            providerId={provider.id}
-                            providerName={getProviderName(provider)}
-                            dateStr={dayStr}
-                            hospitalId={hospitalId}
-                            open={saalPopoverKey === `${provider.id}-${dayStr}`}
-                            onOpenChange={(open) => {
-                              setSaalPopoverKey(open ? `${provider.id}-${dayStr}` : null);
-                            }}
-                            onAdded={() => {
-                              setSaalPopoverKey(null);
-                              onSaalAdded?.();
-                            }}
-                          >
-                            <button
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-                              title={t('appointments.saalNotPlanned')}
-                            >
-                              <ToggleLeft className="h-5 w-5" />
-                            </button>
-                          </SaalStaffPopover>
-                        ) : (
-                          <span className="p-1 text-muted-foreground/20">
-                            <ToggleLeft className="h-5 w-5" />
-                          </span>
-                        )}
-                      </div>
 
                       {/* Cell content */}
                       {absence && !absence.isPartial ? (

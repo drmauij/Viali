@@ -29,8 +29,6 @@ import {
   Calendar,
   AlertCircle,
   RefreshCw,
-  ToggleRight,
-  ToggleLeft,
   UserPlus,
   Loader2,
   Video,
@@ -401,14 +399,6 @@ export default function ClinicAppointments() {
                         <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
                       </div>
                     ))}
-                    <div className="flex items-center gap-1.5">
-                      <ToggleRight className="h-4 w-4 text-green-600" />
-                      <span className="text-muted-foreground">{t('appointments.legendSaalPlanned', 'Saal planned')}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <ToggleLeft className="h-4 w-4 text-muted-foreground/40" />
-                      <span className="text-muted-foreground">{t('appointments.legendSaalAdd', 'Click to add to Saal')}</span>
-                    </div>
                   </div>
                 }
               />
@@ -440,14 +430,6 @@ export default function ClinicAppointments() {
                     <span className="text-muted-foreground">{getStatusLabel(status, t)}</span>
                   </div>
                 ))}
-                <div className="flex items-center gap-1.5">
-                  <ToggleRight className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">{t('appointments.legendSaalPlanned', 'Saal planned')}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <ToggleLeft className="h-4 w-4 text-muted-foreground/40" />
-                  <span className="text-muted-foreground">{t('appointments.legendSaalAdd', 'Click to add to Saal')}</span>
-                </div>
               </div>
             }
           />
