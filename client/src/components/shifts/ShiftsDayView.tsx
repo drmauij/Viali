@@ -46,6 +46,7 @@ interface ShiftsDayViewProps {
   unitId: string;
   anchor: Date;
   onSaved?: () => void;
+  readOnly?: boolean;
 }
 
 interface PopoverState {
@@ -77,6 +78,7 @@ export default function ShiftsDayView({
   hospitalId,
   anchor,
   onSaved,
+  readOnly = false,
 }: ShiftsDayViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
 
@@ -252,22 +254,26 @@ export default function ShiftsDayView({
                 currentRole={poolEntry?.role ?? null}
                 absence={absence}
                 open={isOpen}
-                onOpenChange={(v) =>
-                  setPopover(v ? { userId: p.id, userName: name, date: dateStr } : null)
-                }
+                onOpenChange={(v) => {
+                  if (readOnly) return;
+                  setPopover(v ? { userId: p.id, userName: name, date: dateStr } : null);
+                }}
                 onSaved={() => {
                   setPopover(null);
                   onSaved?.();
                 }}
+                readOnly={readOnly}
               >
                 <div
                   className={cn(
-                    "relative border-b cursor-pointer hover:bg-muted/20 transition-colors",
-                    // Hour grid lines
-                    "bg-background"
+                    "relative border-b transition-colors bg-background",
+                    readOnly ? "cursor-default" : "cursor-pointer hover:bg-muted/20"
                   )}
                   style={{ height: LANE_HEIGHT }}
-                  onClick={() => setPopover({ userId: p.id, userName: name, date: dateStr })}
+                  onClick={() => {
+                    if (readOnly) return;
+                    setPopover({ userId: p.id, userName: name, date: dateStr });
+                  }}
                 >
                   {/* Hour grid lines */}
                   {HOURS.map((h) => {
@@ -320,7 +326,7 @@ export default function ShiftsDayView({
                   )}
 
                   {/* No shift placeholder */}
-                  {!shiftType && !poolEntry && !absence && (
+                  {!shiftType && !poolEntry && !absence && !readOnly && (
                     <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground/40 select-none pointer-events-none">
                       click to assign
                     </div>

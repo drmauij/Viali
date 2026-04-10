@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess } from "../utils";
+import { requireWriteAccess, requireAdminWriteAccess } from "../utils";
 import { storage } from "../storage";
 import { db } from "../db";
 import { staffShifts, dailyStaffPool, users } from "@shared/schema";
@@ -34,7 +34,7 @@ router.get("/api/shift-types/:hospitalId", isAuthenticated, async (req: any, res
 });
 
 // POST /api/shift-types/:hospitalId
-router.post("/api/shift-types/:hospitalId", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post("/api/shift-types/:hospitalId", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const parsed = shiftTypeBodySchema.safeParse(req.body);
@@ -49,7 +49,7 @@ router.post("/api/shift-types/:hospitalId", isAuthenticated, requireWriteAccess,
 });
 
 // PATCH /api/shift-types/:id
-router.patch("/api/shift-types/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch("/api/shift-types/:id", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const parsed = shiftTypeBodySchema.partial().safeParse(req.body);
@@ -65,7 +65,7 @@ router.patch("/api/shift-types/:id", isAuthenticated, requireWriteAccess, async 
 });
 
 // DELETE /api/shift-types/:id
-router.delete("/api/shift-types/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete("/api/shift-types/:id", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const result = await storage.deleteShiftType(id);
@@ -96,7 +96,7 @@ router.get("/api/staff-shifts/:hospitalId", isAuthenticated, async (req: any, re
 });
 
 // POST /api/staff-shifts/:hospitalId
-router.post("/api/staff-shifts/:hospitalId", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post("/api/staff-shifts/:hospitalId", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { userId, date, shiftTypeId } = req.body;
@@ -111,7 +111,7 @@ router.post("/api/staff-shifts/:hospitalId", isAuthenticated, requireWriteAccess
 });
 
 // DELETE /api/staff-shifts/:id
-router.delete("/api/staff-shifts/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete("/api/staff-shifts/:id", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     await storage.deleteStaffShiftById(id);
@@ -196,7 +196,7 @@ async function performAssign(
 }
 
 // POST /api/staff-shifts/:hospitalId/assign
-router.post("/api/staff-shifts/:hospitalId/assign", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post("/api/staff-shifts/:hospitalId/assign", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const parsed = assignBodySchema.safeParse(req.body);
@@ -216,7 +216,7 @@ router.post("/api/staff-shifts/:hospitalId/assign", isAuthenticated, requireWrit
 });
 
 // POST /api/staff-shifts/:hospitalId/assign/bulk
-router.post("/api/staff-shifts/:hospitalId/assign/bulk", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post("/api/staff-shifts/:hospitalId/assign/bulk", isAuthenticated, requireWriteAccess, requireAdminWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const itemsSchema = z.object({

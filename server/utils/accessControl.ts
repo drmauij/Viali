@@ -593,6 +593,44 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
   }
 }
 
+// Middleware to verify user has admin role for the hospital
+// Must be placed AFTER requireWriteAccess (which sets req.resolvedRole)
+export async function requireAdminWriteAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    // If requireWriteAccess already resolved the role, use it
+    if (req.resolvedRole) {
+      if (req.resolvedRole !== 'admin') {
+        return res.status(403).json({
+          message: "Admin access required",
+          code: "ADMIN_REQUIRED"
+        });
+      }
+      return next();
+    }
+
+    // Fallback: resolve ourselves
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const hospitalId = await resolveHospitalIdFromRequest(req);
+    if (!hospitalId) {
+      return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
+    }
+
+    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
+    if (role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
+    }
+
+    next();
+  } catch (error) {
+    logger.error("Error checking admin write access:", error);
+    res.status(500).json({ message: "Error checking permissions" });
+  }
+}
+
 // STRICT middleware for write access - fails if hospitalId cannot be resolved
 export async function requireStrictWriteAccess(req: any, res: Response, next: NextFunction) {
   try {

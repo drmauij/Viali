@@ -6,6 +6,7 @@ export {
   verifyUserHospitalUnitAccess,
   canWrite,
   requireWriteAccess,
+  requireAdminWriteAccess,
   requireHospitalAccess,
   requireStrictHospitalAccess,
   requireStrictWriteAccess,

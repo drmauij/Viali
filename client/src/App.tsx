@@ -305,7 +305,7 @@ function Router() {
               <Route path="/clinic/appointments">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>
               <Route path="/clinic/invoices">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
               <Route path="/clinic/services">{() => <ProtectedRoute requireClinic><ClinicServices /></ProtectedRoute>}</Route>
-              <Route path="/clinic/shift-types">{() => <ProtectedRoute requireClinic><ClinicShiftTypes /></ProtectedRoute>}</Route>
+              <Route path="/clinic/shift-types">{() => <ProtectedRoute requireClinic requireAdmin><ClinicShiftTypes /></ProtectedRoute>}</Route>
               <Route path="/clinic/shifts">{() => <ProtectedRoute requireClinic><ClinicShifts /></ProtectedRoute>}</Route>
               <Route path="/surgery/shifts">{() => <ProtectedRoute requireSurgery><ClinicShifts /></ProtectedRoute>}</Route>
               <Route path="/anesthesia/shifts">{() => <ProtectedRoute requireAnesthesia><ClinicShifts /></ProtectedRoute>}</Route>

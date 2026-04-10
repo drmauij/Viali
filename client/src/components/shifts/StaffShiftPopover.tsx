@@ -56,6 +56,8 @@ interface Props {
   bulk?: boolean;
   /** The list of dates to assign when in bulk mode */
   bulkDates?: string[];
+  /** When true, renders children without the popover (no editing) */
+  readOnly?: boolean;
 }
 
 export default function StaffShiftPopover({
@@ -72,7 +74,12 @@ export default function StaffShiftPopover({
   children,
   bulk = false,
   bulkDates,
+  readOnly = false,
 }: Props) {
+  // In readOnly mode, render children as-is without any popover/editing UI
+  if (readOnly) {
+    return <>{children}</>;
+  }
   const { t } = useTranslation();
   const { toast } = useToast();
 

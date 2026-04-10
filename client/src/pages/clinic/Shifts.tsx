@@ -54,6 +54,7 @@ export default function ClinicShifts() {
 
   const hospitalId: string | undefined = activeHospital?.id;
   const unitId: string | undefined = activeHospital?.unitId;
+  const isAdmin = activeHospital?.role === 'admin';
 
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [view, setView] = useState<ViewType>(getStoredView);
@@ -262,6 +263,7 @@ export default function ClinicShifts() {
             hospitalId={hospitalId}
             anchor={anchor}
             onSaved={() => { refetchShifts(); refetchPool(); }}
+            readOnly={!isAdmin}
           />
         ) : view === "day" ? (
           <ShiftsDayView
@@ -275,6 +277,7 @@ export default function ClinicShifts() {
             unitId={unitId ?? ""}
             anchor={anchor}
             onSaved={() => { refetchShifts(); refetchPool(); }}
+            readOnly={!isAdmin}
           />
         ) : (
           <ShiftsMonthView
@@ -288,6 +291,7 @@ export default function ClinicShifts() {
             unitId={unitId ?? ""}
             anchor={anchor}
             onSaved={() => { refetchShifts(); refetchPool(); }}
+            readOnly={!isAdmin}
           />
         )}
       </div>

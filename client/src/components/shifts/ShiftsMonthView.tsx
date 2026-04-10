@@ -46,6 +46,7 @@ interface ShiftsMonthViewProps {
   unitId: string;
   anchor: Date;
   onSaved?: () => void;
+  readOnly?: boolean;
 }
 
 interface PopoverState {
@@ -75,6 +76,7 @@ export default function ShiftsMonthView({
   hospitalId,
   anchor,
   onSaved,
+  readOnly = false,
 }: ShiftsMonthViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -82,15 +84,17 @@ export default function ShiftsMonthView({
   dragStateRef.current = dragState;
 
   const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
+    if (readOnly) return;
     setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
-  }, []);
+  }, [readOnly]);
 
   const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
+    if (readOnly) return;
     setDragState((prev) => {
       if (!prev || prev.providerId !== providerId) return prev;
       return { ...prev, currentIdx: dayIdx };
     });
-  }, []);
+  }, [readOnly]);
 
   const weekdaysRef = useRef<Date[]>([]);
 
@@ -332,6 +336,7 @@ export default function ShiftsMonthView({
                           absence={absence}
                           open={isOpen}
                           onOpenChange={(v) => {
+                            if (readOnly) return;
                             if (!v) setPopover(null);
                           }}
                           onSaved={() => {
@@ -340,6 +345,7 @@ export default function ShiftsMonthView({
                           }}
                           bulk={isOpen ? (popover?.bulk ?? false) : false}
                           bulkDates={isOpen ? popover?.bulkDates : undefined}
+                          readOnly={readOnly}
                         >
                           <div className="h-full w-full" style={{ minHeight: 40 }}>
                             <ShiftCell

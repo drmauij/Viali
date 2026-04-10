@@ -45,6 +45,7 @@ interface ShiftsWeekViewProps {
   hospitalId: string;
   anchor: Date;
   onSaved?: () => void;
+  readOnly?: boolean;
 }
 
 interface PopoverState {
@@ -74,6 +75,7 @@ export default function ShiftsWeekView({
   hospitalId,
   anchor,
   onSaved,
+  readOnly = false,
 }: ShiftsWeekViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -81,15 +83,17 @@ export default function ShiftsWeekView({
   dragStateRef.current = dragState;
 
   const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
+    if (readOnly) return;
     setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
-  }, []);
+  }, [readOnly]);
 
   const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
+    if (readOnly) return;
     setDragState((prev) => {
       if (!prev || prev.providerId !== providerId) return prev;
       return { ...prev, currentIdx: dayIdx };
     });
-  }, []);
+  }, [readOnly]);
 
   // Global mouseup: finalize or cancel drag
   useEffect(() => {
@@ -316,6 +320,7 @@ export default function ShiftsWeekView({
                         absence={absence}
                         open={isOpen}
                         onOpenChange={(v) => {
+                          if (readOnly) return;
                           // Only handle close — opening is managed by the mouseup/drag handler
                           if (!v) setPopover(null);
                         }}
@@ -325,6 +330,7 @@ export default function ShiftsWeekView({
                         }}
                         bulk={isOpen ? (popover?.bulk ?? false) : false}
                         bulkDates={isOpen ? popover?.bulkDates : undefined}
+                        readOnly={readOnly}
                       >
                         <div className="h-full w-full" style={{ minHeight: MIN_ROW_HEIGHT }}>
                           <ShiftCell
