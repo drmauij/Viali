@@ -14,7 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus, Pencil, Trash2,
+  Sun, Moon, SunMoon, Phone, BedDouble, Stethoscope,
+  Clock, AlarmClock, Calendar, Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -56,18 +61,20 @@ interface Unit {
   type: string | null;
 }
 
-const ICON_OPTIONS = [
-  "sun",
-  "moon",
-  "sun-moon",
-  "phone",
-  "bed-double",
-  "stethoscope",
-  "clock",
-  "alarm-clock",
-  "calendar",
-  "zap",
-] as const;
+const ICON_MAP: Record<string, { component: LucideIcon; label: string }> = {
+  "sun": { component: Sun, label: "Sun" },
+  "moon": { component: Moon, label: "Moon" },
+  "sun-moon": { component: SunMoon, label: "Sun/Moon" },
+  "phone": { component: Phone, label: "Phone" },
+  "bed-double": { component: BedDouble, label: "Bed" },
+  "stethoscope": { component: Stethoscope, label: "Stethoscope" },
+  "clock": { component: Clock, label: "Clock" },
+  "alarm-clock": { component: AlarmClock, label: "Alarm" },
+  "calendar": { component: Calendar, label: "Calendar" },
+  "zap": { component: Zap, label: "Zap" },
+};
+
+const ICON_OPTIONS = Object.keys(ICON_MAP);
 
 const DEFAULT_FORM = {
   name: "",
@@ -364,8 +371,8 @@ export default function ClinicShiftTypes() {
                   {/* Name + icon */}
                   <td className="px-4 py-3 font-medium">
                     <span className="flex items-center gap-1.5">
-                      {st.icon && (
-                        <span className="text-muted-foreground text-xs">[{st.icon}]</span>
+                      {st.icon && ICON_MAP[st.icon] && (
+                        (() => { const I = ICON_MAP[st.icon!].component; return <I className="h-4 w-4 text-muted-foreground" />; })()
                       )}
                       {st.name}
                     </span>
@@ -480,17 +487,32 @@ export default function ClinicShiftTypes() {
                 }
               >
                 <SelectTrigger id="st-icon" data-testid="select-shift-type-icon">
-                  <SelectValue placeholder={t("shifts.settings.iconNone", "None")} />
+                  <SelectValue placeholder={t("shifts.settings.iconNone", "None")}>
+                    {formData.icon && ICON_MAP[formData.icon] ? (
+                      <span className="inline-flex items-center gap-2">
+                        {(() => { const I = ICON_MAP[formData.icon].component; return <I className="h-4 w-4" />; })()}
+                        {ICON_MAP[formData.icon].label}
+                      </span>
+                    ) : (
+                      t("shifts.settings.iconNone", "None")
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">
                     {t("shifts.settings.iconNone", "None")}
                   </SelectItem>
-                  {ICON_OPTIONS.map((icon) => (
-                    <SelectItem key={icon} value={icon}>
-                      {icon}
-                    </SelectItem>
-                  ))}
+                  {ICON_OPTIONS.map((key) => {
+                    const { component: Icon, label } = ICON_MAP[key];
+                    return (
+                      <SelectItem key={key} value={key}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          {label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
