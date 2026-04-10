@@ -27,9 +27,18 @@ interface ProviderTimeOff {
   approvalStatus?: string;
 }
 
+interface StaffPoolEntry {
+  id: string;
+  date: string;
+  userId: string | null;
+  name: string;
+  role: string;
+}
+
 interface ShiftsDayViewProps {
   shiftTypes: ShiftType[];
   staffShifts: StaffShift[];
+  staffPool: StaffPoolEntry[];
   providers: Array<{ id: string; firstName: string; lastName: string }>;
   absences: ProviderAbsence[];
   timeOffs: ProviderTimeOff[];
@@ -61,6 +70,7 @@ const HOURS = Array.from({ length: MAX_HOUR - MIN_HOUR + 1 }, (_, i) => MIN_HOUR
 export default function ShiftsDayView({
   shiftTypes,
   staffShifts,
+  staffPool,
   providers,
   absences,
   timeOffs,
@@ -80,6 +90,14 @@ export default function ShiftsDayView({
     }
     return map;
   }, [staffShifts, dateStr]);
+
+  const poolByUser = useMemo(() => {
+    const map = new Map<string, StaffPoolEntry>();
+    for (const e of staffPool) {
+      if (e.userId && e.date === dateStr) map.set(e.userId, e);
+    }
+    return map;
+  }, [staffPool, dateStr]);
 
   const typeById = useMemo(() => {
     const map = new Map<string, ShiftType>();
@@ -190,6 +208,7 @@ export default function ShiftsDayView({
           {providers.map((p) => {
             const shift = shiftByUser.get(p.id) ?? null;
             const shiftType = shift?.shiftTypeId ? (typeById.get(shift.shiftTypeId) ?? null) : null;
+            const poolEntry = poolByUser.get(p.id) ?? null;
             const absence = absenceFor(p.id);
             const isOpen = popover?.userId === p.id && popover?.date === dateStr;
 
@@ -230,6 +249,7 @@ export default function ShiftsDayView({
                 userName={name}
                 date={dateStr}
                 currentShiftTypeId={shift?.shiftTypeId ?? null}
+                currentRole={poolEntry?.role ?? null}
                 absence={absence}
                 open={isOpen}
                 onOpenChange={(v) =>

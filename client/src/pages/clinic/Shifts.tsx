@@ -135,6 +135,18 @@ export default function ClinicShifts() {
     enabled: !!hospitalId,
   });
 
+  const { data: staffPool = [] } = useQuery<
+    Array<{ id: string; date: string; userId: string | null; name: string; role: string }>
+  >({
+    queryKey: ["staff-pool-range", hospitalId, fromStr, toStr],
+    queryFn: () =>
+      fetch(
+        `/api/staff-pool/${hospitalId}/range?startDate=${fromStr}&endDate=${toStr}`,
+        { credentials: "include" }
+      ).then((r) => r.json()),
+    enabled: !!hospitalId,
+  });
+
   const { data: providersRaw = [] } = useQuery<
     Array<{ userId: string; user: { firstName: string; lastName: string; email: string | null } }>
   >({
@@ -243,6 +255,7 @@ export default function ClinicShifts() {
           <ShiftsWeekView
             shiftTypes={shiftTypes}
             staffShifts={staffShifts}
+            staffPool={staffPool}
             providers={providers}
             absences={absences}
             timeOffs={timeOffs}
@@ -254,6 +267,7 @@ export default function ClinicShifts() {
           <ShiftsDayView
             shiftTypes={shiftTypes}
             staffShifts={staffShifts}
+            staffPool={staffPool}
             providers={providers}
             absences={absences}
             timeOffs={timeOffs}
@@ -266,6 +280,7 @@ export default function ClinicShifts() {
           <ShiftsMonthView
             shiftTypes={shiftTypes}
             staffShifts={staffShifts}
+            staffPool={staffPool}
             providers={providers}
             absences={absences}
             timeOffs={timeOffs}

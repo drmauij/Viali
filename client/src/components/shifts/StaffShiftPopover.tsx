@@ -119,6 +119,7 @@ export default function StaffShiftPopover({
 
       await queryClient.invalidateQueries({ queryKey: ["staff-shifts"] });
       await queryClient.invalidateQueries({ queryKey: ["staff-pool"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-pool-range"] });
       onSaved();
       onOpenChange(false);
     } catch (err) {

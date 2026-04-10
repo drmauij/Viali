@@ -27,9 +27,18 @@ interface ProviderTimeOff {
   approvalStatus?: string;
 }
 
+interface StaffPoolEntry {
+  id: string;
+  date: string;
+  userId: string | null;
+  name: string;
+  role: string;
+}
+
 interface ShiftsMonthViewProps {
   shiftTypes: ShiftType[];
   staffShifts: StaffShift[];
+  staffPool: StaffPoolEntry[];
   providers: Array<{ id: string; firstName: string; lastName: string }>;
   absences: ProviderAbsence[];
   timeOffs: ProviderTimeOff[];
@@ -59,6 +68,7 @@ const MIN_COL_WIDTH = 42;
 export default function ShiftsMonthView({
   shiftTypes,
   staffShifts,
+  staffPool,
   providers,
   absences,
   timeOffs,
@@ -163,6 +173,14 @@ export default function ShiftsMonthView({
     }
     return map;
   }, [staffShifts]);
+
+  const poolByKey = useMemo(() => {
+    const map = new Map<string, StaffPoolEntry>();
+    for (const e of staffPool) {
+      if (e.userId) map.set(`${e.userId}|${e.date}`, e);
+    }
+    return map;
+  }, [staffPool]);
 
   const typeById = useMemo(() => {
     const map = new Map<string, ShiftType>();
@@ -274,6 +292,7 @@ export default function ShiftsMonthView({
                   const shiftType = shift?.shiftTypeId
                     ? (typeById.get(shift.shiftTypeId) ?? null)
                     : null;
+                  const poolEntry = poolByKey.get(`${p.id}|${dateStr}`) ?? null;
                   const absence = absenceFor(p.id, day);
                   const inDragRange = isDayInDragRange(p.id, dayIdx);
                   const isOpen =
@@ -309,6 +328,7 @@ export default function ShiftsMonthView({
                           userName={name}
                           date={dateStr}
                           currentShiftTypeId={shift?.shiftTypeId ?? null}
+                          currentRole={poolEntry?.role ?? null}
                           absence={absence}
                           open={isOpen}
                           onOpenChange={(v) =>
@@ -326,6 +346,7 @@ export default function ShiftsMonthView({
                           <div className="h-full w-full" style={{ minHeight: 40 }}>
                             <ShiftCell
                               shift={shiftType}
+                              role={poolEntry?.role}
                               absence={absence}
                               variant="month"
                               onClick={() => {
