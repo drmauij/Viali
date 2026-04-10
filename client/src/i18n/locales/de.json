@@ -424,7 +424,8 @@
       "op": "OP",
       "pacu": "AWR",
       "clinical": "Statistik",
-      "settings": "Einstellungen"
+      "settings": "Einstellungen",
+      "shifts": "Schichten"
     },
     "surgery": {
       "patients": "Patienten",
@@ -432,7 +433,8 @@
       "preop": "Prä-OP",
       "checklists": "Checklisten",
       "settings": "Einstellungen",
-      "appointments": "Termine"
+      "appointments": "Termine",
+      "shifts": "Schichten"
     },
     "business": {
       "dashboard": "Dashboard",
@@ -449,7 +451,8 @@
       "services": "Leistungen",
       "invoices": "Rechnungen",
       "settings": "Firma",
-      "appointments": "Termine"
+      "appointments": "Termine",
+      "shifts": "Schichten"
     },
     "logistic": {
       "inventory": "Inventar",
@@ -7654,5 +7657,43 @@
     "tiktok": "TikTok",
     "google": "Google",
     "bing": "Bing"
+  },
+  "shifts": {
+    "tabLabel": "Schichten",
+    "dayView": "Tag",
+    "weekView": "Woche",
+    "monthView": "Monat",
+    "saved": "Schicht gespeichert",
+    "currentlyAssigned": "Aktuell",
+    "popover": {
+      "role": "Rolle (Saal-Plan)",
+      "rolePlaceholder": "Rolle wählen",
+      "roleNone": "Nicht im Saal",
+      "shift": "Schicht",
+      "shiftPlaceholder": "Schicht wählen",
+      "shiftNone": "Keine Schicht",
+      "clearAll": "Alles löschen",
+      "assignToDays": "Auf {{count}} Tage anwenden"
+    },
+    "settings": {
+      "title": "Schichttypen",
+      "addNew": "Schichttyp hinzufügen",
+      "empty": "Noch keine Schichttypen konfiguriert.",
+      "deleteBlocked": "Dieser Schichttyp wird in {{count}} Zuweisungen verwendet. Bitte zuerst neu zuweisen oder löschen.",
+      "deleteConfirm": "Schichttyp löschen?",
+      "deleteConfirmDesc": "Sind Sie sicher, dass Sie diesen Schichttyp löschen möchten?",
+      "form": {
+        "name": "Name",
+        "code": "Kürzel",
+        "icon": "Icon",
+        "iconNone": "Keins",
+        "color": "Farbe",
+        "startTime": "Beginn",
+        "endTime": "Ende",
+        "unit": "Einheit",
+        "allUnits": "Alle Einheiten",
+        "sortOrder": "Sortierung"
+      }
+    }
   }
 }

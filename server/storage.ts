@@ -189,6 +189,10 @@ import {
   type InsertLoginAuditLog,
   type AppointmentActionToken,
   type InsertAppointmentActionToken,
+  type ShiftType,
+  type InsertShiftType,
+  type StaffShift,
+  type InsertStaffShift,
 } from "@shared/schema";
 
 export { db } from "./db";
@@ -209,6 +213,7 @@ import * as worktimeStorage from "./storage/worktime";
 import * as episodeStorage from "./storage/episodes";
 import * as patientDocumentFolderStorage from "./storage/patientDocumentFolders";
 import * as loginAuditStorage from "./storage/loginAudit";
+import * as shiftsStorage from "./storage/shifts";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -1089,6 +1094,16 @@ export interface IStorage {
   // Login Audit Log operations
   createLoginAuditLog(log: InsertLoginAuditLog): Promise<void>;
   getLoginAuditLogs(hospitalId: string, filters?: { userId?: string; eventType?: string; startDate?: Date; endDate?: Date; limit?: number; offset?: number }): Promise<{ logs: (LoginAuditLog & { userName?: string })[]; total: number }>;
+
+  // Shifts operations
+  getShiftTypes(hospitalId: string): Promise<ShiftType[]>;
+  createShiftType(data: InsertShiftType): Promise<ShiftType>;
+  updateShiftType(id: string, data: Partial<InsertShiftType>): Promise<ShiftType | null>;
+  deleteShiftType(id: string): Promise<{ deleted: boolean; usageCount: number }>;
+  getStaffShiftsRange(hospitalId: string, from: string, to: string): Promise<StaffShift[]>;
+  upsertStaffShift(data: InsertStaffShift): Promise<StaffShift>;
+  clearStaffShift(hospitalId: string, userId: string, date: string): Promise<void>;
+  deleteStaffShiftById(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1681,6 +1696,16 @@ export class DatabaseStorage implements IStorage {
   // ========== LOGIN AUDIT LOG OPERATIONS ==========
   createLoginAuditLog = loginAuditStorage.createLoginAuditLog;
   getLoginAuditLogs = loginAuditStorage.getLoginAuditLogs;
+
+  // ========== SHIFTS OPERATIONS ==========
+  getShiftTypes = shiftsStorage.getShiftTypes;
+  createShiftType = shiftsStorage.createShiftType;
+  updateShiftType = shiftsStorage.updateShiftType;
+  deleteShiftType = shiftsStorage.deleteShiftType;
+  getStaffShiftsRange = shiftsStorage.getStaffShiftsRange;
+  upsertStaffShift = shiftsStorage.upsertStaffShift;
+  clearStaffShift = shiftsStorage.clearStaffShift;
+  deleteStaffShiftById = shiftsStorage.deleteStaffShiftById;
 }
 
 export const storage = new DatabaseStorage();
