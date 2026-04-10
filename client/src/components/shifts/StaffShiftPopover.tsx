@@ -51,6 +51,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   onSaved: () => void;
   children: React.ReactNode;
+  /** When true, the popover operates in bulk mode */
+  bulk?: boolean;
+  /** The list of dates to assign when in bulk mode */
+  bulkDates?: string[];
 }
 
 export default function StaffShiftPopover({
@@ -65,6 +69,8 @@ export default function StaffShiftPopover({
   onOpenChange,
   onSaved,
   children,
+  bulk = false,
+  bulkDates,
 }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -90,13 +96,27 @@ export default function StaffShiftPopover({
   async function save(clearAll = false) {
     setSaving(true);
     try {
-      const body = {
-        userId,
-        date,
-        shiftTypeId: clearAll ? null : shiftTypeId === NONE_VALUE ? null : shiftTypeId,
-        role: clearAll ? null : role === NONE_VALUE ? null : role,
-      };
-      await apiRequest("POST", `/api/staff-shifts/${hospitalId}/assign`, body);
+      const resolvedShiftTypeId = clearAll ? null : shiftTypeId === NONE_VALUE ? null : shiftTypeId;
+      const resolvedRole = clearAll ? null : role === NONE_VALUE ? null : role;
+
+      if (bulk && bulkDates && bulkDates.length > 0) {
+        const items = bulkDates.map((d) => ({
+          userId,
+          date: d,
+          shiftTypeId: resolvedShiftTypeId,
+          role: resolvedRole,
+        }));
+        await apiRequest("POST", `/api/staff-shifts/${hospitalId}/assign/bulk`, { items });
+      } else {
+        const body = {
+          userId,
+          date,
+          shiftTypeId: resolvedShiftTypeId,
+          role: resolvedRole,
+        };
+        await apiRequest("POST", `/api/staff-shifts/${hospitalId}/assign`, body);
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["staff-shifts"] });
       await queryClient.invalidateQueries({ queryKey: ["staff-pool"] });
       onSaved();
@@ -124,11 +144,17 @@ export default function StaffShiftPopover({
           {/* Header */}
           <div>
             <p className="font-medium text-sm">{userName}</p>
-            <p className="text-xs text-muted-foreground">{date}</p>
+            {bulk && bulkDates && bulkDates.length > 1 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("shifts.assignToDays", "Assign to {{count}} days", { count: bulkDates.length })}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{date}</p>
+            )}
           </div>
 
-          {/* Absence info */}
-          <AbsenceInfoBlock absence={absence ?? null} />
+          {/* Absence info (single-cell mode only) */}
+          {!bulk && <AbsenceInfoBlock absence={absence ?? null} />}
 
           {/* Role select */}
           <div className="space-y-1">

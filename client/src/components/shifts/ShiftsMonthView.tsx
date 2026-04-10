@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { addDays, startOfMonth, endOfMonth, format, isSameDay, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import ShiftCell from "./ShiftCell";
@@ -43,6 +43,14 @@ interface PopoverState {
   userId: string;
   userName: string;
   date: string;
+  bulk?: boolean;
+  bulkDates?: string[];
+}
+
+interface DragState {
+  providerId: string;
+  startIdx: number;
+  currentIdx: number;
 }
 
 const SEP_WIDTH = 6;
@@ -59,6 +67,74 @@ export default function ShiftsMonthView({
   onSaved,
 }: ShiftsMonthViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const dragStateRef = useRef(dragState);
+  dragStateRef.current = dragState;
+
+  const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
+    setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
+  }, []);
+
+  const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
+    setDragState((prev) => {
+      if (!prev || prev.providerId !== providerId) return prev;
+      return { ...prev, currentIdx: dayIdx };
+    });
+  }, []);
+
+  const weekdaysRef = useRef<Date[]>([]);
+
+  // Global mouseup: finalize or cancel drag
+  useEffect(() => {
+    const handleDragEnd = () => {
+      const ds = dragStateRef.current;
+      if (!ds) return;
+      setDragState(null);
+
+      const provider = providers.find((p) => p.id === ds.providerId);
+      if (!provider) return;
+      const name =
+        `${provider.lastName}, ${provider.firstName}`
+          .replace(/^,\s*/, "")
+          .replace(/,\s*$/, "") ||
+        provider.firstName ||
+        provider.lastName ||
+        "Unknown";
+
+      const minIdx = Math.min(ds.startIdx, ds.currentIdx);
+      const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
+      const selectedDates = weekdaysRef.current.slice(minIdx, maxIdx + 1).map((d) =>
+        format(d, "yyyy-MM-dd")
+      );
+
+      if (selectedDates.length === 1) {
+        setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
+      } else {
+        setPopover({
+          userId: ds.providerId,
+          userName: name,
+          date: selectedDates[0],
+          bulk: true,
+          bulkDates: selectedDates,
+        });
+      }
+    };
+
+    window.addEventListener("mouseup", handleDragEnd);
+    return () => {
+      window.removeEventListener("mouseup", handleDragEnd);
+    };
+  }, [providers]);
+
+  const isDayInDragRange = useCallback(
+    (providerId: string, dayIdx: number) => {
+      if (!dragState || dragState.providerId !== providerId) return false;
+      const minIdx = Math.min(dragState.startIdx, dragState.currentIdx);
+      const maxIdx = Math.max(dragState.startIdx, dragState.currentIdx);
+      return dayIdx >= minIdx && dayIdx <= maxIdx;
+    },
+    [dragState]
+  );
 
   const { weekdays, separatorAfter } = useMemo(() => {
     const monthStartDate = startOfMonth(anchor);
@@ -74,6 +150,7 @@ export default function ShiftsMonthView({
       }
       current = addDays(current, 1);
     }
+    weekdaysRef.current = wd;
     return { weekdays: wd, separatorAfter: seps };
   }, [anchor]);
 
@@ -165,7 +242,10 @@ export default function ShiftsMonthView({
       </div>
 
       {/* Provider rows */}
-      <div className="flex-1 overflow-auto pb-6" style={{ minWidth: totalGridWidth }}>
+      <div
+        className={cn("flex-1 overflow-auto pb-6", dragState && "select-none")}
+        style={{ minWidth: totalGridWidth }}
+      >
         {providers.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
             No providers found.
@@ -193,6 +273,7 @@ export default function ShiftsMonthView({
                     ? (typeById.get(shift.shiftTypeId) ?? null)
                     : null;
                   const absence = absenceFor(p.id, day);
+                  const inDragRange = isDayInDragRange(p.id, dayIdx);
                   const isOpen =
                     popover?.userId === p.id && popover?.date === dateStr;
 
@@ -201,9 +282,21 @@ export default function ShiftsMonthView({
                       <div
                         className={cn(
                           "border-r",
-                          isToday(day) && "bg-primary/5"
+                          isToday(day) && "bg-primary/5",
+                          inDragRange && "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                         )}
                         style={{ width: MIN_COL_WIDTH, minWidth: MIN_COL_WIDTH, minHeight: 40 }}
+                        onMouseDown={(e) => {
+                          if (e.button === 0) {
+                            e.preventDefault();
+                            handleDragStart(p.id, dayIdx);
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (dragState) {
+                            handleDragEnter(p.id, dayIdx);
+                          }
+                        }}
                       >
                         <StaffShiftPopover
                           hospitalId={hospitalId}
@@ -222,15 +315,17 @@ export default function ShiftsMonthView({
                             setPopover(null);
                             onSaved?.();
                           }}
+                          bulk={isOpen ? (popover?.bulk ?? false) : false}
+                          bulkDates={isOpen ? popover?.bulkDates : undefined}
                         >
                           <div className="h-full w-full" style={{ minHeight: 40 }}>
                             <ShiftCell
                               shift={shiftType}
                               absence={absence}
                               variant="month"
-                              onClick={() =>
-                                setPopover({ userId: p.id, userName: name, date: dateStr })
-                              }
+                              onClick={() => {
+                                // Click handled via mousedown/mouseup drag logic
+                              }}
                             />
                           </div>
                         </StaffShiftPopover>

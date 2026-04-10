@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { addDays, startOfISOWeek, format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import ShiftCell from "./ShiftCell";
@@ -42,6 +42,14 @@ interface PopoverState {
   userId: string;
   userName: string;
   date: string;
+  bulk?: boolean;
+  bulkDates?: string[];
+}
+
+interface DragState {
+  providerId: string;
+  startIdx: number;
+  currentIdx: number;
 }
 
 const MIN_COL_WIDTH = 120;
@@ -58,10 +66,84 @@ export default function ShiftsWeekView({
   onSaved,
 }: ShiftsWeekViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const dragStateRef = useRef(dragState);
+  dragStateRef.current = dragState;
+
+  const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
+    setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
+  }, []);
+
+  const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
+    setDragState((prev) => {
+      if (!prev || prev.providerId !== providerId) return prev;
+      return { ...prev, currentIdx: dayIdx };
+    });
+  }, []);
+
+  // Global mouseup: finalize or cancel drag
+  useEffect(() => {
+    const handleDragEnd = () => {
+      const ds = dragStateRef.current;
+      if (!ds) return;
+      setDragState(null);
+
+      // Find the provider
+      const provider = providers.find((p) => p.id === ds.providerId);
+      if (!provider) return;
+      const name =
+        `${provider.lastName}, ${provider.firstName}`
+          .replace(/^,\s*/, "")
+          .replace(/,\s*$/, "") ||
+        provider.firstName ||
+        provider.lastName ||
+        "Unknown";
+
+      const minIdx = Math.min(ds.startIdx, ds.currentIdx);
+      const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
+      // weekDays is captured via closure — we rebuild it from the ref below
+      const selectedDates = weekDaysRef.current.slice(minIdx, maxIdx + 1).map((d) =>
+        format(d, "yyyy-MM-dd")
+      );
+
+      if (selectedDates.length === 1) {
+        // Single cell — open normal popover
+        setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
+      } else {
+        // Multi-cell — open bulk popover at the first selected date
+        setPopover({
+          userId: ds.providerId,
+          userName: name,
+          date: selectedDates[0],
+          bulk: true,
+          bulkDates: selectedDates,
+        });
+      }
+    };
+
+    window.addEventListener("mouseup", handleDragEnd);
+    return () => {
+      window.removeEventListener("mouseup", handleDragEnd);
+    };
+  }, [providers]);
+
+  const weekDaysRef = useRef<Date[]>([]);
+
+  const isDayInDragRange = useCallback(
+    (providerId: string, dayIdx: number) => {
+      if (!dragState || dragState.providerId !== providerId) return false;
+      const minIdx = Math.min(dragState.startIdx, dragState.currentIdx);
+      const maxIdx = Math.max(dragState.startIdx, dragState.currentIdx);
+      return dayIdx >= minIdx && dayIdx <= maxIdx;
+    },
+    [dragState]
+  );
 
   const weekDays = useMemo(() => {
     const weekStart = startOfISOWeek(anchor);
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    weekDaysRef.current = days;
+    return days;
   }, [anchor]);
 
   const shiftByKey = useMemo(() => {
@@ -150,7 +232,10 @@ export default function ShiftsWeekView({
       </div>
 
       {/* Provider rows */}
-      <div style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}>
+      <div
+        className={cn(dragState && "select-none")}
+        style={{ minWidth: `calc(10rem + ${weekDays.length * MIN_COL_WIDTH}px)` }}
+      >
         {providers.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
             No providers found.
@@ -172,6 +257,7 @@ export default function ShiftsWeekView({
                   const shift = shiftByKey.get(`${p.id}|${dateStr}`) ?? null;
                   const shiftType = shift?.shiftTypeId ? (typeById.get(shift.shiftTypeId) ?? null) : null;
                   const absence = absenceFor(p.id, day);
+                  const inDragRange = isDayInDragRange(p.id, dayIdx);
                   const isOpen =
                     popover?.userId === p.id && popover?.date === dateStr;
 
@@ -180,9 +266,21 @@ export default function ShiftsWeekView({
                       key={dayIdx}
                       className={cn(
                         "flex-1 border-r",
-                        isToday(day) && "bg-primary/5"
+                        isToday(day) && "bg-primary/5",
+                        inDragRange && "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                       )}
                       style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
+                      onMouseDown={(e) => {
+                        if (e.button === 0) {
+                          e.preventDefault();
+                          handleDragStart(p.id, dayIdx);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        if (dragState) {
+                          handleDragEnter(p.id, dayIdx);
+                        }
+                      }}
                     >
                       <StaffShiftPopover
                         hospitalId={hospitalId}
@@ -199,13 +297,17 @@ export default function ShiftsWeekView({
                           setPopover(null);
                           onSaved?.();
                         }}
+                        bulk={isOpen ? (popover?.bulk ?? false) : false}
+                        bulkDates={isOpen ? popover?.bulkDates : undefined}
                       >
                         <div className="h-full w-full" style={{ minHeight: MIN_ROW_HEIGHT }}>
                           <ShiftCell
                             shift={shiftType}
                             absence={absence}
                             variant="week"
-                            onClick={() => setPopover({ userId: p.id, userName: name, date: dateStr })}
+                            onClick={() => {
+                              // Click is handled via mousedown/mouseup drag logic
+                            }}
                           />
                         </div>
                       </StaffShiftPopover>
