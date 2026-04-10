@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,6 +11,8 @@ import { UserCog, AlertTriangle, Copy, Send, Link, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ShiftType, StaffShift } from '@shared/schema';
 import { ROLE_CONFIG, type StaffPoolEntry } from './PlannedStaffBox';
 import { StaffRecurrenceContent } from './StaffRecurrenceDialog';
 
@@ -128,6 +130,50 @@ export default function StaffManagementDialog({ open, onOpenChange, staff, hospi
     },
   });
 
+  // Shift section
+  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+
+  const { data: shiftTypes = [] } = useQuery<ShiftType[]>({
+    queryKey: [`/api/shift-types/${hospitalId}`],
+    enabled: open,
+  });
+
+  const { data: staffShifts = [] } = useQuery<StaffShift[]>({
+    queryKey: [`/api/staff-shifts/${hospitalId}`, dateStr, dateStr],
+    queryFn: async () => {
+      const res = await fetch(`/api/staff-shifts/${hospitalId}?from=${dateStr}&to=${dateStr}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && !!staff.userId,
+  });
+
+  const currentShift = staffShifts.find(s => s.userId === staff.userId && s.date === dateStr);
+  const [shiftTypeId, setShiftTypeId] = useState<string>('');
+
+  useEffect(() => {
+    if (currentShift) setShiftTypeId(currentShift.shiftTypeId);
+    else setShiftTypeId('');
+  }, [currentShift]);
+
+  const saveShiftMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest('POST', `/api/staff-shifts/${hospitalId}/assign`, {
+        userId: staff.userId,
+        date: dateStr,
+        shiftTypeId: shiftTypeId || null,
+        role: null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t('shifts.saved', 'Shift saved') });
+      queryClient.invalidateQueries({ queryKey: [`/api/staff-shifts/${hospitalId}`] });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), variant: 'destructive' });
+    },
+  });
+
   const handleCopyLink = (token: string) => {
     const url = `${window.location.origin}/worklog/${token}`;
     navigator.clipboard.writeText(url);
@@ -200,6 +246,44 @@ export default function StaffManagementDialog({ open, onOpenChange, staff, hospi
                 <p className="text-xs text-muted-foreground">{t('staffPool.adminRequiredForEmail')}</p>
               )}
             </div>
+
+            {/* Shift section */}
+            {isAdmin && (
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm font-medium">{t('shifts.popover.shift', 'Shift')}</Label>
+                <div className="flex gap-2">
+                  <Select value={shiftTypeId || '__none__'} onValueChange={(v) => setShiftTypeId(v === '__none__' ? '' : v)}>
+                    <SelectTrigger className="h-9 text-sm flex-1">
+                      <SelectValue placeholder={t('shifts.popover.shiftPlaceholder', 'Select shift')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">{t('shifts.popover.shiftNone', 'No shift')}</SelectItem>
+                      {shiftTypes.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: s.color }} />
+                            {s.name} ({s.startTime}–{s.endTime})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={saveShiftMutation.isPending || (shiftTypeId === (currentShift?.shiftTypeId ?? ''))}
+                    onClick={() => saveShiftMutation.mutate()}
+                  >
+                    {saveShiftMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t('common.save', 'Save')}
+                  </Button>
+                </div>
+                {currentShift && shiftTypes.find(s => s.id === currentShift.shiftTypeId) && (
+                  <div className="text-xs text-muted-foreground">
+                    {t('shifts.currentlyAssigned', 'Currently')}: {shiftTypes.find(s => s.id === currentShift.shiftTypeId)!.name}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Worklog link section */}
             {isRealEmail && (
