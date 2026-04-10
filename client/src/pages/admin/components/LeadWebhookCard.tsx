@@ -31,6 +31,7 @@ interface LeadConfig {
   configured: boolean;
   enabled: boolean;
   webhookUrl: string;
+  conversionsUrl: string;
   hasApiKey: boolean;
   lastReceivedAt: string | null;
   createdAt: string | null;
@@ -288,6 +289,77 @@ export function LeadWebhookCard() {
 {`curl -X POST "${config.webhookUrl}?key=YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '${metaPayload}'`}
+                </pre>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Conversions API */}
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1 px-0">
+              <ChevronDown className="h-4 w-4" />
+              Conversions API (read-only)
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-3">
+            <div className="rounded-lg bg-muted p-4 space-y-4">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Pull conversion data to send back to ad platforms (e.g. via Make). Uses the same API key as the lead webhook.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Conversions URL</Label>
+                <div className="flex gap-2">
+                  <Input value={config.conversionsUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(config.conversionsUrl, "Conversions URL")}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-2">
+                <p><strong>Parameters:</strong></p>
+                <ul className="list-disc ml-4 space-y-1">
+                  <li><code>key</code> — your API key (required)</li>
+                  <li><code>platform</code> — <code>meta_forms</code>, <code>meta_ads</code>, or <code>google_ads</code> (optional — omit to get all platforms)</li>
+                  <li><code>level</code> — conversion level (optional — omit to get all levels, see below)</li>
+                  <li><code>from</code> / <code>to</code> — date range filter, e.g. <code>2026-01-01</code> (optional)</li>
+                </ul>
+                <p>Each result includes <code>platform</code> and <code>level</code> fields so you can filter on your end.</p>
+
+                <p className="pt-2"><strong>Conversion levels:</strong></p>
+                <ul className="list-disc ml-4 space-y-1">
+                  <li><code>kept</code> — the patient showed up to their appointment (arrived, in progress, or completed)</li>
+                  <li><code>surgery_planned</code> — a surgery has been scheduled for this patient</li>
+                  <li><code>paid</code> — the surgery has been paid for</li>
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium">Example — Meta Lead Forms conversions:</p>
+                <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border mt-1">
+{`curl "${config.conversionsUrl}?key=YOUR_API_KEY&platform=meta_forms&level=kept&from=2026-01-01&to=2026-04-10"`}
+                </pre>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium">Response:</p>
+                <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all bg-background rounded p-3 border mt-1">
+{`[
+  {
+    "lead_id": "123456789",
+    "event_name": "lead_converted",
+    "event_time": 1712700000,
+    "lead_value": "5000",
+    "currency": "CHF"
+  }
+]`}
                 </pre>
               </div>
             </div>

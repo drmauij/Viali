@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import { db } from "../db";
 import { eq, and, desc, sql, lt } from "drizzle-orm";
-import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents } from "@shared/schema";
+import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
@@ -244,6 +244,196 @@ router.post("/api/webhooks/leads/:hospitalId", async (req, res) => {
     return res.status(200).json({ status: "received", id: inserted.id });
   } catch (err) {
     logger.error({ err, hospitalId }, "Error processing lead webhook");
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// --- Conversions API (read-only, same API key as webhook) ---
+
+const KEPT_STATUSES = ["arrived", "in_progress", "completed"];
+const VALID_PLATFORMS = ["meta_forms", "meta_ads", "google_ads"] as const;
+const VALID_LEVELS = ["kept", "surgery_planned", "paid"] as const;
+
+router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
+  const { hospitalId } = req.params;
+  const apiKey = req.query.key as string | undefined;
+
+  if (!apiKey) {
+    return res.status(401).json({ error: "API key required" });
+  }
+
+  try {
+    const [config] = await db
+      .select()
+      .from(leadWebhookConfig)
+      .where(eq(leadWebhookConfig.hospitalId, hospitalId))
+      .limit(1);
+
+    if (!config || config.apiKey !== hashApiKey(apiKey)) {
+      return res.status(401).json({ error: "Invalid API key" });
+    }
+
+    if (!config.enabled) {
+      return res.status(403).json({ error: "Webhook is disabled for this hospital" });
+    }
+
+    // Validate params
+    const platform = req.query.platform as string | undefined;
+    const level = req.query.level as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+
+    if (platform && !VALID_PLATFORMS.includes(platform as any)) {
+      return res.status(400).json({
+        error: `Invalid platform. Valid values: ${VALID_PLATFORMS.join(", ")}`,
+      });
+    }
+    if (level && !VALID_LEVELS.includes(level as any)) {
+      return res.status(400).json({
+        error: `Invalid level. Valid values: ${VALID_LEVELS.join(", ")}`,
+      });
+    }
+
+    // Get hospital currency
+    const [hospital] = await db
+      .select({ currency: hospitals.currency })
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId))
+      .limit(1);
+    const currency = hospital?.currency || "CHF";
+
+    // Fetch funnel data (same query as /api/business/:hospitalId/referral-funnel)
+    const conditions = [sql`re.hospital_id = ${hospitalId}`];
+    if (from) conditions.push(sql`re.created_at >= ${from}::timestamp`);
+    if (to) conditions.push(sql`re.created_at <= ${to}::timestamp`);
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const result = await db.execute(sql`
+      SELECT
+        re.id AS referral_id,
+        re.created_at AS referral_date,
+        re.gclid, re.gbraid, re.wbraid,
+        re.fbclid, re.igshid,
+        re.meta_lead_id, re.meta_form_id,
+        ca.id AS appointment_id,
+        ca.status AS appointment_status,
+        ca.appointment_date,
+        s.id AS surgery_id,
+        s.price,
+        s.payment_date,
+        s.planned_date AS surgery_planned_date
+      FROM referral_events re
+      LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
+      LEFT JOIN LATERAL (
+        SELECT s2.id, s2.price, s2.payment_date, s2.planned_date
+        FROM surgeries s2
+        WHERE s2.patient_id = re.patient_id
+          AND s2.hospital_id = re.hospital_id
+          AND s2.planned_date >= re.created_at
+          AND s2.is_archived = false
+          AND COALESCE(s2.is_suspended, false) = false
+        ORDER BY s2.planned_date ASC
+        LIMIT 1
+      ) s ON true
+      WHERE ${whereClause}
+      ORDER BY re.created_at DESC
+    `);
+
+    const rows = result.rows as any[];
+
+    // Helpers
+    const toUnix = (ts: string | null) =>
+      ts ? Math.floor(new Date(ts).getTime() / 1000) : null;
+
+    const getRowLevel = (r: any): string | null => {
+      if (r.payment_date) return "paid";
+      if (r.surgery_id) return "surgery_planned";
+      if (KEPT_STATUSES.includes(r.appointment_status || "")) return "kept";
+      return null;
+    };
+
+    const getLevelTimestamp = (r: any, lvl: string) => {
+      switch (lvl) {
+        case "kept": return r.appointment_date;
+        case "surgery_planned": return r.surgery_planned_date;
+        case "paid": return r.payment_date;
+        default: return null;
+      }
+    };
+
+    const getLevelEventName = (lvl: string, plat: string) => {
+      if (plat === "meta_forms") {
+        return lvl === "kept" ? "lead_converted" : lvl === "surgery_planned" ? "lead_surgery_planned" : "lead_paid";
+      }
+      // meta_ads and google_ads use same names
+      return lvl === "kept" ? "Lead" : lvl === "surgery_planned" ? "Schedule" : "Purchase";
+    };
+
+    const getRowPlatform = (r: any): string | null => {
+      if (r.meta_lead_id) return "meta_forms";
+      if (r.fbclid || r.igshid) return "meta_ads";
+      if (r.gclid || r.gbraid || r.wbraid) return "google_ads";
+      return null;
+    };
+
+    // Build conversions: iterate all rows, determine platform + level, apply filters
+    const conversions: any[] = [];
+
+    for (const r of rows) {
+      const rowPlatform = getRowPlatform(r);
+      if (!rowPlatform) continue;
+      if (platform && rowPlatform !== platform) continue;
+
+      const rowLevel = getRowLevel(r);
+      if (!rowLevel) continue;
+      if (level && rowLevel !== level) continue;
+
+      const eventName = getLevelEventName(rowLevel, rowPlatform);
+      const eventTime = toUnix(getLevelTimestamp(r, rowLevel));
+
+      if (rowPlatform === "meta_forms") {
+        conversions.push({
+          platform: "meta_forms",
+          level: rowLevel,
+          lead_id: r.meta_lead_id,
+          event_name: eventName,
+          event_time: eventTime,
+          lead_value: r.price || "",
+          currency,
+        });
+      } else if (rowPlatform === "meta_ads") {
+        const fbc = r.fbclid
+          ? `fb.1.${Math.floor(new Date(r.referral_date).getTime() / 1000)}.${r.fbclid}`
+          : r.igshid || "";
+        conversions.push({
+          platform: "meta_ads",
+          level: rowLevel,
+          event_name: eventName,
+          event_time: eventTime,
+          fbc,
+          value: r.price || "",
+          currency,
+          action_source: "website",
+        });
+      } else if (rowPlatform === "google_ads") {
+        const clickId = r.gclid || r.gbraid || r.wbraid || "";
+        const clickType = r.gclid ? "gclid" : r.gbraid ? "gbraid" : "wbraid";
+        conversions.push({
+          platform: "google_ads",
+          level: rowLevel,
+          click_id: clickId,
+          click_type: clickType,
+          conversion_name: eventName,
+          conversion_time: getLevelTimestamp(r, rowLevel) || "",
+          conversion_value: r.price || "",
+          conversion_currency: currency,
+        });
+      }
+    }
+
+    return res.json(conversions);
+  } catch (err) {
+    logger.error({ err, hospitalId }, "Error fetching conversions");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -810,11 +1000,13 @@ router.get(
         .limit(1);
 
       const webhookUrl = `${req.protocol}://${req.get("host")}/api/webhooks/leads/${hospitalId}`;
+      const conversionsUrl = `${req.protocol}://${req.get("host")}/api/webhooks/conversions/${hospitalId}`;
 
       return res.json({
         configured: !!config,
         enabled: config?.enabled ?? false,
         webhookUrl,
+        conversionsUrl,
         hasApiKey: !!config?.apiKey,
         lastReceivedAt: lastLead?.createdAt ?? null,
         createdAt: config?.createdAt ?? null,
