@@ -71,6 +71,7 @@ const ApiPlayground = React.lazy(() => import("@/pages/ApiPlayground"));
 const ClinicInvoices = React.lazy(() => import("@/pages/clinic/Invoices"));
 const ClinicServices = React.lazy(() => import("@/pages/clinic/Services"));
 const ClinicShiftTypes = React.lazy(() => import("@/pages/clinic/ShiftTypes"));
+const ClinicShifts = React.lazy(() => import("@/pages/clinic/Shifts"));
 const ClinicQuestionnaires = React.lazy(() => import("@/pages/clinic/UnassociatedQuestionnaires"));
 const ClinicAppointments = React.lazy(() => import("@/pages/clinic/Appointments"));
 const PatientQuestionnaire = React.lazy(() => import("@/pages/PatientQuestionnaire"));
@@ -299,6 +300,7 @@ function Router() {
               <Route path="/clinic/invoices">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
               <Route path="/clinic/services">{() => <ProtectedRoute requireClinic><ClinicServices /></ProtectedRoute>}</Route>
               <Route path="/clinic/shift-types">{() => <ProtectedRoute requireClinic><ClinicShiftTypes /></ProtectedRoute>}</Route>
+              <Route path="/clinic/shifts">{() => <ProtectedRoute requireClinic><ClinicShifts /></ProtectedRoute>}</Route>
               <Route path="/clinic/questionnaires">{() => <ProtectedRoute requireClinic><ClinicQuestionnaires /></ProtectedRoute>}</Route>
               <Route path="/clinic/patients">{() => <ProtectedRoute requireClinic><Patients /></ProtectedRoute>}</Route>
               <Route path="/clinic/patients/:id">{() => <ProtectedRoute requireClinic><PatientDetail /></ProtectedRoute>}</Route>
