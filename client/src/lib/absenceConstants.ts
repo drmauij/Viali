@@ -33,3 +33,39 @@ export const ABSENCE_TYPE_LABEL_KEYS: Record<string, { key: string; fallback: st
   sabbatical: { key: 'appointments.absence.sabbatical', fallback: 'Sabbatical' },
   default: { key: 'appointments.absence.default', fallback: 'Absent' },
 };
+
+// ─── Helpers for the Shifts tab ──────────────────────────────────
+
+export type AbsenceInput = {
+  type: string;
+  isPartial: boolean;
+  approvalStatus?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
+/** Returns the Tailwind bg class for a full-day absence cell. */
+export function absenceBgClass(absence: AbsenceInput | null | undefined): string {
+  if (!absence) return "";
+  if (absence.approvalStatus === "pending") {
+    return "bg-orange-50 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700";
+  }
+  if (absence.isPartial) return "";
+  return ABSENCE_COLORS[absence.type] ?? ABSENCE_COLORS.default ?? "";
+}
+
+/** Returns true if a shift's [startTime, endTime] overlaps an absence window. */
+export function shiftOverlapsAbsence(
+  shift: { startTime: string; endTime: string },
+  absence: AbsenceInput,
+): boolean {
+  if (!absence.isPartial) return true;
+  if (!absence.startTime || !absence.endTime) return false;
+  const [sh, sm] = shift.startTime.split(":").map(Number);
+  const [eh, em] = shift.endTime.split(":").map(Number);
+  const [ash, asm] = absence.startTime.split(":").map(Number);
+  const [aeh, aem] = absence.endTime.split(":").map(Number);
+  const sMin = sh * 60 + sm, eMin = eh * 60 + em;
+  const aStart = ash * 60 + asm, aEnd = aeh * 60 + aem;
+  return sMin < aEnd && eMin > aStart;
+}
