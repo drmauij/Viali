@@ -16,6 +16,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ShiftsWeekView from "@/components/shifts/ShiftsWeekView";
+import ShiftsMonthView from "@/components/shifts/ShiftsMonthView";
+import ShiftsDayView from "@/components/shifts/ShiftsDayView";
 import type { ShiftType, StaffShift } from "@shared/schema";
 
 type ViewType = "day" | "week" | "month";
@@ -247,13 +249,29 @@ export default function ClinicShifts() {
             onSaved={() => refetchShifts()}
           />
         ) : view === "day" ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            Day view coming soon.
-          </div>
+          <ShiftsDayView
+            shiftTypes={shiftTypes}
+            staffShifts={staffShifts}
+            providers={providers}
+            absences={absences}
+            timeOffs={timeOffs}
+            hospitalId={hospitalId}
+            unitId={unitId ?? ""}
+            anchor={anchor}
+            onSaved={() => refetchShifts()}
+          />
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            Month view coming soon.
-          </div>
+          <ShiftsMonthView
+            shiftTypes={shiftTypes}
+            staffShifts={staffShifts}
+            providers={providers}
+            absences={absences}
+            timeOffs={timeOffs}
+            hospitalId={hospitalId}
+            unitId={unitId ?? ""}
+            anchor={anchor}
+            onSaved={() => refetchShifts()}
+          />
         )}
       </div>
     </div>
