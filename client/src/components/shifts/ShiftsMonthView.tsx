@@ -331,11 +331,9 @@ export default function ShiftsMonthView({
                           currentRole={poolEntry?.role ?? null}
                           absence={absence}
                           open={isOpen}
-                          onOpenChange={(v) =>
-                            setPopover(
-                              v ? { userId: p.id, userName: name, date: dateStr } : null
-                            )
-                          }
+                          onOpenChange={(v) => {
+                            if (!v) setPopover(null);
+                          }}
                           onSaved={() => {
                             setPopover(null);
                             onSaved?.();

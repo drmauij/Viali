@@ -315,9 +315,10 @@ export default function ShiftsWeekView({
                         currentRole={poolEntry?.role ?? null}
                         absence={absence}
                         open={isOpen}
-                        onOpenChange={(v) =>
-                          setPopover(v ? { userId: p.id, userName: name, date: dateStr } : null)
-                        }
+                        onOpenChange={(v) => {
+                          // Only handle close — opening is managed by the mouseup/drag handler
+                          if (!v) setPopover(null);
+                        }}
                         onSaved={() => {
                           setPopover(null);
                           onSaved?.();
