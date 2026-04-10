@@ -235,7 +235,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
   const [managementDialogStaff, setManagementDialogStaff] = useState<StaffPoolEntry | null>(null);
 
   const handleStaffClick = useCallback((staff: StaffPoolEntry) => {
-    if (staff.canLogin === false && staff.userId) {
+    if (staff.userId) {
       setManagementDialogStaff(staff);
     } else {
       setRecurrenceDialogStaff(staff);

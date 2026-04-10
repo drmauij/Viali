@@ -556,6 +556,51 @@ router.post('/api/staff-pool', isAuthenticated, requireWriteAccess, async (req: 
   }
 });
 
+router.patch('/api/staff-pool/:id/role', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const schema = z.object({
+      role: z.enum([
+        "surgeon", "surgicalAssistant", "instrumentNurse",
+        "circulatingNurse", "anesthesiologist", "anesthesiaNurse", "pacuNurse"
+      ]),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid role", errors: parsed.error.issues });
+    }
+
+    const [entry] = await db
+      .select()
+      .from(dailyStaffPool)
+      .where(eq(dailyStaffPool.id, id));
+
+    if (!entry) {
+      return res.status(404).json({ message: "Staff pool entry not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === entry.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const [updated] = await db
+      .update(dailyStaffPool)
+      .set({ role: parsed.data.role })
+      .where(eq(dailyStaffPool.id, id))
+      .returning();
+
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error updating staff pool role:", error);
+    res.status(500).json({ message: "Failed to update role" });
+  }
+});
+
 router.delete('/api/staff-pool/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
