@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
@@ -87,7 +87,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly, 
   const hasSurgeryAssignments = staff.assignedSurgeryIds && staff.assignedSurgeryIds.length > 0;
   const hasClinicAppointments = (availability?.appointments && availability.appointments.length > 0) || (availability?.timeOffBlocks && availability.timeOffBlocks.length > 0);
 
-  const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const wasDraggingRef = useRef(false);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -98,22 +98,20 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly, 
     disabled: readOnly,
   });
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    pointerStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
-    listeners?.onPointerDown?.(e as any);
-  }, [listeners]);
-
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    if (pointerStartRef.current) {
-      const dx = e.clientX - pointerStartRef.current.x;
-      const dy = e.clientY - pointerStartRef.current.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const duration = Date.now() - pointerStartRef.current.time;
-      if (dist < 5 && duration < 300 && onClick) {
-        onClick(staff);
-      }
-      pointerStartRef.current = null;
+  // Track drag state so we can suppress click after a drag ends
+  useEffect(() => {
+    if (isDragging) {
+      wasDraggingRef.current = true;
     }
+  }, [isDragging]);
+
+  const handleClick = useCallback(() => {
+    // After a drag ends, isDragging flips false and then click fires — suppress it
+    if (wasDraggingRef.current) {
+      wasDraggingRef.current = false;
+      return;
+    }
+    onClick?.(staff);
   }, [onClick, staff]);
 
   const style = {
@@ -131,8 +129,7 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly, 
       } border ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''} ${readOnly ? '' : 'touch-none'}`}
       data-testid={`planned-staff-chip-${staff.id}`}
       {...(readOnly ? {} : { ...attributes, ...listeners })}
-      onPointerDown={readOnly ? undefined : handlePointerDown}
-      onPointerUp={readOnly ? undefined : handlePointerUp}
+      onClick={onClick ? handleClick : undefined}
     >
       {!readOnly && <GripVertical className="h-3 w-3 text-muted-foreground" />}
       {staff.ruleId && <Repeat className="h-3 w-3 text-muted-foreground" />}

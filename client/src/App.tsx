@@ -346,10 +346,15 @@ function useRepaintOnResume() {
         document.body.style.opacity = '0.99';
         requestAnimationFrame(() => { document.body.style.opacity = ''; });
 
-        // If the tab was hidden for more than 30 seconds, invalidate all
-        // queries so mounted components refetch fresh data (auth, lists, etc.)
+        // If the tab was hidden for more than 30 seconds, invalidate key
+        // queries so mounted components refetch fresh data. We avoid a blanket
+        // invalidateQueries() because that refetches every mounted query at
+        // once, overwhelming the browser with re-renders and freezing the tab.
         if (hiddenAt && Date.now() - hiddenAt > 30_000) {
-          queryClient.invalidateQueries();
+          queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/staff-pool'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/room-staff/all'] });
         }
       }
     };
