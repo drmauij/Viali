@@ -560,6 +560,56 @@ router.get('/api/public/booking/:bookingToken/services', async (req, res) => {
   }
 });
 
+// 3b-promo: Validate a promo code for the booking page
+router.get('/api/public/booking/:bookingToken/promo/:code', async (req: import("express").Request, res: Response) => {
+  try {
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) {
+      return res.status(404).json({ message: 'Booking page not found' });
+    }
+
+    const { promoCodes } = await import("@shared/schema");
+    const code = req.params.code.toUpperCase();
+    const today = new Date().toISOString().split('T')[0];
+
+    const rows = await db
+      .select()
+      .from(promoCodes)
+      .where(and(
+        eq(promoCodes.hospitalId, hospital.id),
+        eq(promoCodes.code, code),
+      ))
+      .limit(1);
+
+    if (rows.length === 0) {
+      return res.json({ valid: false });
+    }
+
+    const promo = rows[0];
+
+    // Check expiry
+    if (promo.validUntil && promo.validUntil < today) {
+      return res.json({ valid: false });
+    }
+
+    // Check max uses
+    if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
+      return res.json({ valid: false });
+    }
+
+    return res.json({
+      valid: true,
+      code: promo.code,
+      discountType: promo.discountType,
+      discountValue: promo.discountValue,
+      description: promo.description || null,
+    });
+  } catch (error) {
+    logger.error('Error validating promo code:', error);
+    res.status(500).json({ message: 'Failed to validate promo code' });
+  }
+});
+
 // 3c: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {
@@ -778,6 +828,21 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           twclid: parsed.data.twclid || null,
           captureMethod: parsed.data.captureMethod || "manual",
         });
+      }
+
+      // Increment promo code usage if provided
+      if (req.body.promoCode) {
+        try {
+          const { promoCodes } = await import("@shared/schema");
+          await db.update(promoCodes)
+            .set({ usedCount: sql`${promoCodes.usedCount} + 1` })
+            .where(and(
+              eq(promoCodes.hospitalId, hospital.id),
+              eq(promoCodes.code, req.body.promoCode.toUpperCase()),
+            ));
+        } catch (e) {
+          logger.error("[booking] promo increment error:", e);
+        }
       }
 
       // Send confirmation to patient (SMS first, email fallback) via shared notification helper
