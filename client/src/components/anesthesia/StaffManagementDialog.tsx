@@ -162,12 +162,13 @@ export default function StaffManagementDialog({ open, onOpenChange, staff, hospi
         userId: staff.userId,
         date: dateStr,
         shiftTypeId: shiftTypeId || null,
-        role: null,
+        role: staff.role,
       });
     },
     onSuccess: () => {
       toast({ title: t('shifts.saved', 'Shift saved') });
       queryClient.invalidateQueries({ queryKey: [`/api/staff-shifts/${hospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: ['staff-shifts', hospitalId] });
     },
     onError: () => {
       toast({ title: t('common.error'), variant: 'destructive' });
@@ -175,6 +176,12 @@ export default function StaffManagementDialog({ open, onOpenChange, staff, hospi
   });
 
   const isExternalStaff = staff.canLogin === false;
+
+  // Fetch allowed staff roles for this user (based on unit/permission assignments)
+  const { data: allowedRoles } = useQuery<string[]>({
+    queryKey: [`/api/anesthesia/allowed-staff-roles/${hospitalId}/${staff.userId}`],
+    enabled: open && !!staff.userId,
+  });
 
   // Role section
   const [selectedRole, setSelectedRole] = useState<string>(staff.role);
@@ -321,7 +328,9 @@ export default function StaffManagementDialog({ open, onOpenChange, staff, hospi
                       <SelectValue placeholder={t('surgery.staff.selectRole', 'Select role')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(ROLE_CONFIG) as StaffRole[]).map((r) => (
+                      {(Object.keys(ROLE_CONFIG) as StaffRole[])
+                        .filter((r) => !allowedRoles || allowedRoles.includes(r))
+                        .map((r) => (
                         <SelectItem key={r} value={r}>
                           <span className="inline-flex items-center gap-1.5">
                             <span className={`h-2.5 w-2.5 rounded-sm inline-block ${ROLE_CONFIG[r].bgClass}`} />

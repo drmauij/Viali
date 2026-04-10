@@ -120,6 +120,43 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, require
   }
 });
 
+// Returns the list of staff roles a specific user is allowed to hold,
+// based on which unit they belong to and their access role (doctor/nurse).
+router.get('/api/anesthesia/allowed-staff-roles/:hospitalId/:userId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, userId: targetUserId } = req.params;
+
+    const allUnits = await storage.getUnits(hospitalId);
+    const surgeryUnit = allUnits.find(u => u.type === 'or');
+    const anesthesiaUnit = allUnits.find(u => u.type === 'anesthesia');
+
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+    const userEntries = hospitalUsers.filter(hu => hu.user.id === targetUserId);
+
+    const roleToUnitAndUserRole: Record<string, { unitId: string | undefined; userRoles: string[] }> = {
+      surgeon: { unitId: surgeryUnit?.id, userRoles: ['doctor'] },
+      surgicalAssistant: { unitId: surgeryUnit?.id, userRoles: ['doctor', 'nurse'] },
+      instrumentNurse: { unitId: surgeryUnit?.id, userRoles: ['nurse'] },
+      circulatingNurse: { unitId: surgeryUnit?.id, userRoles: ['nurse'] },
+      anesthesiologist: { unitId: anesthesiaUnit?.id, userRoles: ['doctor'] },
+      anesthesiaNurse: { unitId: anesthesiaUnit?.id, userRoles: ['nurse'] },
+      pacuNurse: { unitId: anesthesiaUnit?.id, userRoles: ['nurse'] },
+    };
+
+    const allowedRoles: string[] = [];
+    for (const [staffRole, config] of Object.entries(roleToUnitAndUserRole)) {
+      if (!config.unitId) continue;
+      const match = userEntries.some(hu => hu.unitId === config.unitId && config.userRoles.includes(hu.role));
+      if (match) allowedRoles.push(staffRole);
+    }
+
+    res.json(allowedRoles);
+  } catch (error) {
+    logger.error("Error fetching allowed staff roles:", error);
+    res.status(500).json({ message: "Failed to fetch allowed staff roles" });
+  }
+});
+
 router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;

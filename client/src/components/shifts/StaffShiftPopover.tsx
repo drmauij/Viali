@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AbsenceInfoBlock, { type AbsenceDetail } from "./AbsenceInfoBlock";
 import { shiftOverlapsAbsence } from "@/lib/absenceConstants";
+import { ROLE_CONFIG } from "@/components/anesthesia/PlannedStaffBox";
 import type { ShiftType } from "@shared/schema";
 
 type StaffRole =
@@ -103,6 +104,12 @@ export default function StaffShiftPopover({
     enabled: open,
   });
 
+  // Fetch allowed staff roles for this user (based on unit/permission assignments)
+  const { data: allowedRoles } = useQuery<string[]>({
+    queryKey: [`/api/anesthesia/allowed-staff-roles/${hospitalId}/${userId}`],
+    enabled: open && !!userId,
+  });
+
   async function save(clearAll = false) {
     setSaving(true);
     try {
@@ -152,8 +159,6 @@ export default function StaffShiftPopover({
         className="w-80"
         align="start"
         onClick={(e) => e.stopPropagation()}
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <div className="space-y-3">
           {/* Header */}
@@ -182,11 +187,19 @@ export default function StaffShiftPopover({
                 <SelectItem value={NONE_VALUE}>
                   <span className="text-muted-foreground">{t("shifts.noRole", "Not in Saal")}</span>
                 </SelectItem>
-                {STAFF_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {t(`roles.${r}`, r)}
-                  </SelectItem>
-                ))}
+                {STAFF_ROLES
+                  .filter((r) => !allowedRoles || allowedRoles.includes(r))
+                  .map((r) => {
+                    const config = ROLE_CONFIG[r];
+                    return (
+                      <SelectItem key={r} value={r}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={`h-2.5 w-2.5 rounded-sm inline-block ${config?.bgClass}`} />
+                          {t(config?.labelKey || r)}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
               </SelectContent>
             </Select>
           </div>
