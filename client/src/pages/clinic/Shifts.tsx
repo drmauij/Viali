@@ -149,11 +149,13 @@ export default function ClinicShifts() {
 
   const providers = useMemo(
     () =>
-      providersRaw.map((p) => ({
-        id: p.userId,
-        firstName: p.user.firstName,
-        lastName: p.user.lastName,
-      })),
+      providersRaw
+        .filter((p) => p.user)
+        .map((p) => ({
+          id: p.userId,
+          firstName: p.user.firstName,
+          lastName: p.user.lastName,
+        })),
     [providersRaw]
   );
 
