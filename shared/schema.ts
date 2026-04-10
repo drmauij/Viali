@@ -6482,3 +6482,92 @@ export type ShiftType = typeof shiftTypes.$inferSelect;
 export type InsertShiftType = z.infer<typeof insertShiftTypeSchema>;
 export type StaffShift = typeof staffShifts.$inferSelect;
 export type InsertStaffShift = z.infer<typeof insertStaffShiftSchema>;
+
+// ─── Marketing Flows ──────────────────────────────────────────
+
+export const promoCodes = pgTable("promo_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  flowId: varchar("flow_id"),
+  code: varchar("code", { length: 20 }).notNull(),
+  discountType: varchar("discount_type", { length: 10 }).notNull(),
+  discountValue: decimal("discount_value").notNull(),
+  description: text("description"),
+  validFrom: date("valid_from"),
+  validUntil: date("valid_until"),
+  maxUses: integer("max_uses"),
+  usedCount: integer("used_count").default(0).notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_promo_codes_hospital").on(table.hospitalId),
+  index("idx_promo_codes_code_hospital").on(table.code, table.hospitalId),
+]);
+
+export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, createdAt: true, usedCount: true });
+export type PromoCode = typeof promoCodes.$inferSelect;
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+
+export const flows = pgTable("flows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  status: varchar("status", { length: 20 }).default("draft").notNull(),
+  triggerType: varchar("trigger_type", { length: 20 }).default("manual").notNull(),
+  segmentFilters: jsonb("segment_filters").$type<Array<{ field: string; operator: string; value: string }>>(),
+  channel: varchar("channel", { length: 20 }),
+  messageTemplate: text("message_template"),
+  messageSubject: varchar("message_subject", { length: 300 }),
+  promoCodeId: varchar("promo_code_id").references(() => promoCodes.id),
+  recipientCount: integer("recipient_count"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  sentAt: timestamp("sent_at"),
+}, (table) => [
+  index("idx_flows_hospital").on(table.hospitalId),
+  index("idx_flows_status").on(table.status),
+]);
+
+export const insertFlowSchema = createInsertSchema(flows).omit({ id: true, createdAt: true, updatedAt: true });
+export type Flow = typeof flows.$inferSelect;
+export type InsertFlow = z.infer<typeof insertFlowSchema>;
+
+export const flowSteps = pgTable("flow_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flowId: varchar("flow_id").notNull().references(() => flows.id, { onDelete: 'cascade' }),
+  stepOrder: integer("step_order").notNull(),
+  stepType: varchar("step_type", { length: 30 }).notNull(),
+  config: jsonb("config").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_flow_steps_flow").on(table.flowId),
+]);
+
+export type FlowStep = typeof flowSteps.$inferSelect;
+
+export const flowExecutions = pgTable("flow_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flowId: varchar("flow_id").notNull().references(() => flows.id, { onDelete: 'cascade' }),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_flow_executions_flow").on(table.flowId),
+  index("idx_flow_executions_patient").on(table.patientId),
+]);
+
+export type FlowExecution = typeof flowExecutions.$inferSelect;
+
+export const flowEvents = pgTable("flow_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  executionId: varchar("execution_id").notNull().references(() => flowExecutions.id, { onDelete: 'cascade' }),
+  eventType: varchar("event_type", { length: 20 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_flow_events_execution").on(table.executionId),
+]);
+
+export type FlowEvent = typeof flowEvents.$inferSelect;

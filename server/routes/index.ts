@@ -32,6 +32,7 @@ import searchRouter from "./search";
 import leadsRouter from "./leads";
 import shiftsRouter from "./shifts";
 import websiteRouter from "./website";
+import flowsRouter from "./flows";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -67,4 +68,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(leadsRouter);
   app.use(shiftsRouter);
   app.use(websiteRouter);
+  app.use(flowsRouter);
 }

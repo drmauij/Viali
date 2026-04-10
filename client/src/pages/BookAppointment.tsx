@@ -11,6 +11,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { ReferralSourcePicker } from "@/components/ReferralSourcePicker";
 import { resolveReferralFromParams } from "@shared/referralMapping";
 import { de } from "date-fns/locale";
+import { Gift } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -158,6 +159,7 @@ export default function BookAppointment() {
   const igshid = searchParams.get("igshid");
   const li_fat_id = searchParams.get("li_fat_id");
   const twclid = searchParams.get("twclid");
+  const promoCodeParam = searchParams.get("promo");
 
   const autoReferral = useMemo(() => resolveReferralFromParams({
     utmSource, utmMedium, utmCampaign, utmTerm, utmContent, ref: refParam,
@@ -202,6 +204,10 @@ export default function BookAppointment() {
   const [selectedTreatment, setSelectedTreatment] = useState<Service | null>(null);
   const [treatmentSearch, setTreatmentSearch] = useState('');
   const [suggestedProviderId, setSuggestedProviderId] = useState<string | null>(null);
+
+  // Promo code state
+  type PromoData = { valid: true; code: string; discountType: string; discountValue: string; description: string | null } | { valid: false };
+  const [promoData, setPromoData] = useState<PromoData | null>(null);
 
   // ─── Load booking data ────────────────────────────────────────
 
@@ -298,6 +304,18 @@ export default function BookAppointment() {
       .catch(() => { if (!cancelled) setSuggestedProviderId(null); });
     return () => { cancelled = true; };
   }, [token, data, selectedTreatment, preselectedProviderId]);
+
+  // ─── Promo code validation ────────────────────────────────────
+  useEffect(() => {
+    if (!token || !promoCodeParam) return;
+    fetch(`/api/public/booking/${token}/promo/${encodeURIComponent(promoCodeParam.toUpperCase())}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const result: PromoData = await res.json();
+        setPromoData(result);
+      })
+      .catch(() => { /* non-fatal */ });
+  }, [token, promoCodeParam]);
 
   // ─── Clinic closures ─────────────────────────────────────────
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
@@ -675,6 +693,22 @@ export default function BookAppointment() {
 
         {/* Stacked sections column */}
         <main className="flex flex-col gap-4 max-w-[640px] w-full mx-auto">
+          {promoData?.valid && (
+            <div className="rounded-xl px-4 py-3 flex items-center gap-3 border bg-green-500/10 border-green-500/20">
+              <Gift className="h-5 w-5 text-green-400" />
+              <div>
+                <div className="text-sm font-medium text-green-300">
+                  Rabattcode: {promoData.code}
+                </div>
+                <div className="text-xs text-green-400/70">
+                  {promoData.discountType === "percent"
+                    ? `${promoData.discountValue}% Rabatt`
+                    : `CHF ${promoData.discountValue} Rabatt`}
+                  {promoData.description && ` — ${promoData.description}`}
+                </div>
+              </div>
+            </div>
+          )}
           {hasTreatments && (
             <BookingSection
               status={sectionStatus('treatment')}

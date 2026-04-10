@@ -85,6 +85,8 @@ const LogisticInventory = React.lazy(() => import("@/pages/logistic/LogisticInve
 const LogisticOrders = React.lazy(() => import("@/pages/logistic/LogisticOrders"));
 const LogisticMatches = React.lazy(() => import("@/pages/logistic/LogisticMatches"));
 const Marketing = React.lazy(() => import("@/pages/business/Marketing"));
+const Flows = React.lazy(() => import("@/pages/business/Flows"));
+const FlowCreate = React.lazy(() => import("@/pages/business/FlowCreate"));
 
 function PageLoader() {
   return (
@@ -283,6 +285,8 @@ function Router() {
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
               <Route path="/business/marketing">{() => <ProtectedRoute requireBusiness><Marketing /></ProtectedRoute>}</Route>
+              <Route path="/business/flows/new">{() => <ProtectedRoute requireBusiness><FlowCreate /></ProtectedRoute>}</Route>
+              <Route path="/business/flows">{() => <ProtectedRoute requireBusiness><Flows /></ProtectedRoute>}</Route>
               <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
               <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
               <Route path="/business/hr">{() => <ProtectedRoute requireBusiness><HR /></ProtectedRoute>}</Route>
