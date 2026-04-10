@@ -41,6 +41,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 export default function ShiftCell({ shift, role, absence, variant, onClick, disabled }: Props) {
   const ShiftIcon = shift?.icon ? ICON_MAP[shift.icon] : null;
+  const shiftTooltip = shift ? `${shift.name} (${shift.code}) ${shift.startTime}–${shift.endTime}` : undefined;
+  const roleTooltip = role ? (ROLE_LABELS[role] ?? role) : undefined;
+  const tooltip = [roleTooltip, shiftTooltip].filter(Boolean).join(" · ");
 
   return (
     <div
@@ -50,11 +53,12 @@ export default function ShiftCell({ shift, role, absence, variant, onClick, disa
         !disabled && "cursor-pointer hover:bg-muted/30 transition-colors",
       )}
       onClick={disabled ? undefined : onClick}
+      title={tooltip || undefined}
     >
       {role && (
-        <div className="rounded-sm bg-muted/60 border border-muted-foreground/20 px-2 py-0.5 flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+        <div className="rounded-sm bg-muted/60 border border-muted-foreground/20 px-1.5 py-0.5 flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0" />
-          {variant === "week" ? (ROLE_LABELS[role] ?? role) : "Saal"}
+          {variant === "week" && (ROLE_LABELS[role] ?? role)}
         </div>
       )}
       {shift && (
@@ -63,10 +67,8 @@ export default function ShiftCell({ shift, role, absence, variant, onClick, disa
           style={{ backgroundColor: shift.color }}
         >
           {variant === "month" ? (
-            // Month: icon only (fallback to code if no icon)
             ShiftIcon ? <ShiftIcon className="h-3 w-3" /> : <span>{shift.code}</span>
           ) : (
-            // Week: code + times, no icon
             <>
               <span>{shift.code}</span>
               <span className="text-[10px] opacity-90 ml-auto">

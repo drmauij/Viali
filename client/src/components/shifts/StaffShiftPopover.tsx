@@ -99,6 +99,8 @@ export default function StaffShiftPopover({
       const resolvedShiftTypeId = clearAll ? null : shiftTypeId === NONE_VALUE ? null : shiftTypeId;
       const resolvedRole = clearAll ? null : role === NONE_VALUE ? null : role;
 
+      console.log('[StaffShiftPopover save]', { bulk, bulkDates, resolvedShiftTypeId, resolvedRole, userId, date });
+
       if (bulk && bulkDates && bulkDates.length > 0) {
         const items = bulkDates.map((d) => ({
           userId,
@@ -140,6 +142,8 @@ export default function StaffShiftPopover({
         className="w-80"
         align="start"
         onClick={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <div className="space-y-3">
           {/* Header */}

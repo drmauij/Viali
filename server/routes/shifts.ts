@@ -234,6 +234,7 @@ router.post("/api/staff-shifts/:hospitalId/assign/bulk", isAuthenticated, requir
       return res.status(400).json({ message: "Invalid body", errors: parsed.error.issues });
     }
 
+    console.log('[bulk assign]', JSON.stringify(parsed.data.items));
     await db.transaction(async (tx) => {
       for (const item of parsed.data.items) {
         await performAssign(tx as any, hospitalId, item.userId, item.date, item.shiftTypeId, item.role, req.user.id);
@@ -242,6 +243,7 @@ router.post("/api/staff-shifts/:hospitalId/assign/bulk", isAuthenticated, requir
 
     res.json({ ok: true });
   } catch (err) {
+    console.error('[bulk assign error]', err);
     res.status(500).json({ message: "Failed to bulk assign shifts" });
   }
 });

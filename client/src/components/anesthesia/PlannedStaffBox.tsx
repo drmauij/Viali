@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import StaffRecurrenceDialog from './StaffRecurrenceDialog';
 import StaffManagementDialog from './StaffManagementDialog';
+import type { ShiftType, StaffShift } from '@shared/schema';
 
 type StaffRole = 
   | "surgeon"
@@ -78,7 +79,7 @@ interface StaffAvailability {
   timeOffBlocks?: Array<{ startTime: string; endTime: string; reason: string }>;
 }
 
-function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability; onClick?: (staff: StaffPoolEntry) => void; readOnly?: boolean }) {
+function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly, shiftType }: { staff: StaffPoolEntry; onRemove: (id: string) => void; availability?: StaffAvailability; onClick?: (staff: StaffPoolEntry) => void; readOnly?: boolean; shiftType?: ShiftType | null }) {
   const { t } = useTranslation();
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
@@ -139,6 +140,15 @@ function DraggableStaffChip({ staff, onRemove, availability, onClick, readOnly }
       <span className="font-medium">
         {staff.name}
       </span>
+      {shiftType && (
+        <span
+          className="text-[9px] px-1 py-0.5 rounded text-white font-semibold"
+          style={{ backgroundColor: shiftType.color }}
+          title={`${shiftType.name} ${shiftType.startTime}–${shiftType.endTime}`}
+        >
+          {shiftType.code}
+        </span>
+      )}
       {hasClinicAppointments && (
         <Popover>
           <PopoverTrigger asChild>
@@ -258,6 +268,39 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
     enabled: !!hospitalId,
   });
 
+  // Fetch shift types and staff shifts for the selected date
+  const { data: shiftTypes = [] } = useQuery<ShiftType[]>({
+    queryKey: ['shift-types', hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/shift-types/${hospitalId}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: staffShiftsForDay = [] } = useQuery<StaffShift[]>({
+    queryKey: ['staff-shifts', hospitalId, dateString, dateString],
+    queryFn: async () => {
+      const res = await fetch(`/api/staff-shifts/${hospitalId}?from=${dateString}&to=${dateString}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const shiftTypeById = useMemo(() => {
+    const map = new Map<string, ShiftType>();
+    for (const t of shiftTypes) map.set(t.id, t);
+    return map;
+  }, [shiftTypes]);
+
+  const shiftByUserId = useMemo(() => {
+    const map = new Map<string, StaffShift>();
+    for (const s of staffShiftsForDay) map.set(s.userId, s);
+    return map;
+  }, [staffShiftsForDay]);
+
   // Fetch clinic appointment availability for staff with userIds
   const staffUserIds = useMemo(() => {
     return staffPool.filter(s => s.userId).map(s => s.userId!).join(',');
@@ -353,6 +396,7 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
               availability={staffAvailability[staff.userId || '']}
               onClick={isAdmin ? handleStaffClick : undefined}
               readOnly={!isAdmin}
+              shiftType={staff.userId ? (shiftTypeById.get(shiftByUserId.get(staff.userId)?.shiftTypeId ?? '') ?? null) : null}
             />
           ))}
         </div>
