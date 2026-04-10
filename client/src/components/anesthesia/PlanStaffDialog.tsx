@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Search, 
   Plus, 
@@ -75,6 +76,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<StaffRole | ''>('');
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   
   const dateString = useMemo(() => {
@@ -196,6 +198,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
     setSearchQuery('');
     setSelectedIds(new Set());
     setNewStaffName('');
+    setNewStaffRole('');
     setShowCreateOptions(false);
     onOpenChange(false);
   };
@@ -237,20 +240,20 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
   };
   
   const handleCreateAsStaffUser = async () => {
-    if (!newStaffName.trim()) return;
-    
+    if (!newStaffName.trim() || !newStaffRole) return;
+
     try {
       const result = await createQuickStaffUser.mutateAsync({
         name: newStaffName.trim(),
-        staffRole: 'anesthesiaNurse',
+        staffRole: newStaffRole,
       });
-      
+
       await addToPoolMutation.mutateAsync([{
         name: newStaffName.trim(),
-        role: 'anesthesiaNurse',
+        role: newStaffRole,
         userId: result.id,
       }]);
-      
+
       queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/all-staff-options', hospitalId] });
     } catch (error) {
       toast({
@@ -260,13 +263,13 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
       });
     }
   };
-  
+
   const handleCreateAsText = async () => {
-    if (!newStaffName.trim()) return;
-    
+    if (!newStaffName.trim() || !newStaffRole) return;
+
     await addToPoolMutation.mutateAsync([{
       name: newStaffName.trim(),
-      role: 'anesthesiaNurse',
+      role: newStaffRole,
       userId: null,
     }]);
   };
@@ -464,13 +467,25 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                 <p className="text-sm text-muted-foreground">
                   {t('staffPool.createChoice', { name: newStaffName })}
                 </p>
+                <Select value={newStaffRole} onValueChange={(v) => setNewStaffRole(v as StaffRole)}>
+                  <SelectTrigger className="h-9" data-testid="select-new-staff-role">
+                    <SelectValue placeholder={t('surgery.staff.selectRole', 'Select role')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ROLE_CONFIG) as StaffRole[]).map(r => (
+                      <SelectItem key={r} value={r}>
+                        {t(ROLE_CONFIG[r].labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1"
                     onClick={handleCreateAsStaffUser}
-                    disabled={addToPoolMutation.isPending}
+                    disabled={addToPoolMutation.isPending || !newStaffRole}
                     data-testid="button-create-as-user"
                   >
                     <UserPlus className="h-4 w-4 mr-1" />
@@ -481,7 +496,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                     size="sm"
                     className="flex-1"
                     onClick={handleCreateAsText}
-                    disabled={addToPoolMutation.isPending}
+                    disabled={addToPoolMutation.isPending || !newStaffRole}
                     data-testid="button-create-as-text"
                   >
                     <FileText className="h-4 w-4 mr-1" />
@@ -493,6 +508,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                     onClick={() => {
                       setShowCreateOptions(false);
                       setNewStaffName('');
+                      setNewStaffRole('');
                     }}
                     data-testid="button-cancel-create"
                   >
