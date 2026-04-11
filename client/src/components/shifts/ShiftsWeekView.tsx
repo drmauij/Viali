@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { addDays, startOfISOWeek, format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import ShiftCell from "./ShiftCell";
 import StaffShiftPopover from "./StaffShiftPopover";
 import type { AbsenceDetail } from "./AbsenceInfoBlock";
 import type { ShiftType, StaffShift } from "@shared/schema";
+import { useCellDragSelection } from "@/hooks/useCellDragSelection";
 
 interface ProviderAbsence {
   id: string;
@@ -56,12 +57,6 @@ interface PopoverState {
   bulkDates?: string[];
 }
 
-interface DragState {
-  providerId: string;
-  startIdx: number;
-  currentIdx: number;
-}
-
 const MIN_COL_WIDTH = 120;
 const MIN_ROW_HEIGHT = 72;
 
@@ -78,82 +73,44 @@ export default function ShiftsWeekView({
   readOnly = false,
 }: ShiftsWeekViewProps) {
   const [popover, setPopover] = useState<PopoverState | null>(null);
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const dragStateRef = useRef(dragState);
-  dragStateRef.current = dragState;
-
-  const handleDragStart = useCallback((providerId: string, dayIdx: number) => {
-    if (readOnly) return;
-    setDragState({ providerId, startIdx: dayIdx, currentIdx: dayIdx });
-  }, [readOnly]);
-
-  const handleDragEnter = useCallback((providerId: string, dayIdx: number) => {
-    if (readOnly) return;
-    setDragState((prev) => {
-      if (!prev || prev.providerId !== providerId) return prev;
-      return { ...prev, currentIdx: dayIdx };
-    });
-  }, [readOnly]);
-
-  // Global mouseup: finalize or cancel drag
-  useEffect(() => {
-    const handleDragEnd = () => {
-      const ds = dragStateRef.current;
-      if (!ds) return;
-      setDragState(null);
-
-      // Find the provider
-      const provider = providers.find((p) => p.id === ds.providerId);
-      if (!provider) return;
-      const name =
-        `${provider.lastName}, ${provider.firstName}`
-          .replace(/^,\s*/, "")
-          .replace(/,\s*$/, "") ||
-        provider.firstName ||
-        provider.lastName ||
-        "Unknown";
-
-      const minIdx = Math.min(ds.startIdx, ds.currentIdx);
-      const maxIdx = Math.max(ds.startIdx, ds.currentIdx);
-      // weekDays is captured via closure — we rebuild it from the ref below
-      const selectedDates = weekDaysRef.current.slice(minIdx, maxIdx + 1).map((d) =>
-        format(d, "yyyy-MM-dd")
-      );
-
-      // Delay to next tick so the popover opens AFTER the click event
-      // (which would otherwise toggle the Radix PopoverTrigger closed).
-      setTimeout(() => {
-        if (selectedDates.length === 1) {
-          setPopover({ userId: ds.providerId, userName: name, date: selectedDates[0] });
-        } else {
-          setPopover({
-            userId: ds.providerId,
-            userName: name,
-            date: selectedDates[0],
-            bulk: true,
-            bulkDates: selectedDates,
-          });
-        }
-      }, 0);
-    };
-
-    window.addEventListener("mouseup", handleDragEnd);
-    return () => {
-      window.removeEventListener("mouseup", handleDragEnd);
-    };
-  }, [providers]);
 
   const weekDaysRef = useRef<Date[]>([]);
+  const providersRef = useRef(providers);
+  providersRef.current = providers;
 
-  const isDayInDragRange = useCallback(
-    (providerId: string, dayIdx: number) => {
-      if (!dragState || dragState.providerId !== providerId) return false;
-      const minIdx = Math.min(dragState.startIdx, dragState.currentIdx);
-      const maxIdx = Math.max(dragState.startIdx, dragState.currentIdx);
-      return dayIdx >= minIdx && dayIdx <= maxIdx;
-    },
-    [dragState]
-  );
+  const handleFinalize = useCallback((providerId: string, startIdx: number, endIdx: number) => {
+    const provider = providersRef.current.find((p) => p.id === providerId);
+    if (!provider) return;
+    const name =
+      `${provider.lastName}, ${provider.firstName}`
+        .replace(/^,\s*/, "")
+        .replace(/,\s*$/, "") ||
+      provider.firstName ||
+      provider.lastName ||
+      "Unknown";
+
+    const selectedDates = weekDaysRef.current
+      .slice(startIdx, endIdx + 1)
+      .map((d) => format(d, "yyyy-MM-dd"));
+
+    if (selectedDates.length === 0) return;
+    if (selectedDates.length === 1) {
+      setPopover({ userId: providerId, userName: name, date: selectedDates[0] });
+    } else {
+      setPopover({
+        userId: providerId,
+        userName: name,
+        date: selectedDates[0],
+        bulk: true,
+        bulkDates: selectedDates,
+      });
+    }
+  }, []);
+
+  const { dragState, isInDragRange, getCellProps } = useCellDragSelection({
+    readOnly,
+    onFinalize: handleFinalize,
+  });
 
   const weekDays = useMemo(() => {
     const weekStart = startOfISOWeek(anchor);
@@ -282,7 +239,7 @@ export default function ShiftsWeekView({
                   const shiftType = shift?.shiftTypeId ? (typeById.get(shift.shiftTypeId) ?? null) : null;
                   const poolEntry = poolByKey.get(`${p.id}|${dateStr}`) ?? null;
                   const absence = absenceFor(p.id, day);
-                  const inDragRange = isDayInDragRange(p.id, dayIdx);
+                  const inDragRange = isInDragRange(p.id, dayIdx);
                   const isOpen =
                     popover?.userId === p.id && popover?.date === dateStr;
 
@@ -295,20 +252,7 @@ export default function ShiftsWeekView({
                         inDragRange && "ring-2 ring-inset ring-blue-400 bg-blue-50 dark:bg-blue-950/30"
                       )}
                       style={{ minHeight: MIN_ROW_HEIGHT, minWidth: MIN_COL_WIDTH }}
-                      onMouseDown={(e) => {
-                        if (e.button === 0) {
-                          e.preventDefault();
-                          handleDragStart(p.id, dayIdx);
-                        }
-                      }}
-                      onMouseEnter={() => {
-                        if (dragState) {
-                          handleDragEnter(p.id, dayIdx);
-                        }
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                      }}
+                      {...getCellProps(p.id, dayIdx)}
                     >
                       <StaffShiftPopover
                         hospitalId={hospitalId}
