@@ -2818,18 +2818,21 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
     // If turning off isBookable, also turn off publicCalendarEnabled
     if (isBookable === false) updateSet.publicCalendarEnabled = false;
 
-    // Guard: cannot enable publicCalendarEnabled if isBookable is not (being set to) true
+    // Guard: cannot enable publicCalendarEnabled if isBookable is not (being set to) true.
+    // A user may have multiple userHospitalRoles rows in the same hospital (one per unit/
+    // role-type). getClinicProvidersByHospital merges them — the provider counts as bookable
+    // if ANY role has isBookable=true. The guard must use the same semantics, otherwise a
+    // non-deterministic .limit(1) can pick a non-bookable row and 400 a legitimate toggle.
     if (updateSet.publicCalendarEnabled === true && updateSet.isBookable !== true) {
-      // Check current isBookable in DB
-      const [currentRole] = await db
+      const currentRoles = await db
         .select({ isBookable: userHospitalRoles.isBookable })
         .from(userHospitalRoles)
         .where(and(
           eq(userHospitalRoles.hospitalId, hospitalId),
           eq(userHospitalRoles.userId, userId)
-        ))
-        .limit(1);
-      if (!currentRole?.isBookable) {
+        ));
+      const anyBookable = currentRoles.some(r => r.isBookable);
+      if (!anyBookable) {
         return res.status(400).json({ message: "Provider must be bookable before enabling public calendar" });
       }
     }
