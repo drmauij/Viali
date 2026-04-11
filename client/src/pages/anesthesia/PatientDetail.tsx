@@ -497,6 +497,7 @@ export default function PatientDetail() {
         street: (patient as any).street || "",
         postalCode: (patient as any).postalCode || "",
         city: (patient as any).city || "",
+        emergencyContactName: (patient as any).emergencyContactName || "",
         emergencyContact: patient.emergencyContact || "",
         insuranceProvider: patient.insuranceProvider || "",
         insuranceNumber: patient.insuranceNumber || "",
@@ -1858,6 +1859,7 @@ export default function PatientDetail() {
                         street: (patient as any).street || "",
                         postalCode: (patient as any).postalCode || "",
                         city: (patient as any).city || "",
+                        emergencyContactName: (patient as any).emergencyContactName || "",
                         emergencyContact: patient.emergencyContact || "",
                         insuranceProvider: patient.insuranceProvider || "",
                         insuranceNumber: patient.insuranceNumber || "",
@@ -6098,7 +6100,14 @@ export default function PatientDetail() {
               />
 
               <div className="space-y-2">
-                <Label htmlFor="edit-emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                <Label htmlFor="edit-emergencyContactName">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                <Input
+                  id="edit-emergencyContactName"
+                  value={editForm.emergencyContactName}
+                  onChange={(e) => setEditForm({ ...editForm, emergencyContactName: e.target.value })}
+                  placeholder={t('anesthesia.patients.emergencyContactNamePlaceholder', 'Name')}
+                  data-testid="input-edit-emergencyContactName"
+                />
                 <PhoneInputWithCountry
                   id="edit-emergencyContact"
                   value={editForm.emergencyContact}
@@ -6203,6 +6212,7 @@ export default function PatientDetail() {
                   street: editForm.street || null,
                   postalCode: editForm.postalCode || null,
                   city: editForm.city || null,
+                  emergencyContactName: editForm.emergencyContactName || null,
                   emergencyContact: editForm.emergencyContact || null,
                   insuranceProvider: editForm.insuranceProvider || null,
                   insuranceNumber: editForm.insuranceNumber || null,

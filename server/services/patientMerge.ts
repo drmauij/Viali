@@ -144,6 +144,7 @@ const MERGEABLE_FIELDS = [
   "insuranceNumber",
   "healthInsuranceNumber",
   "insurerGln",
+  "emergencyContactName",
   "emergencyContact",
   "otherAllergies",
   "idCardFrontUrl",

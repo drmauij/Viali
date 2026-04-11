@@ -60,6 +60,7 @@ export type EditForm = {
   street: string;
   postalCode: string;
   city: string;
+  emergencyContactName: string;
   emergencyContact: string;
   insuranceProvider: string;
   insuranceNumber: string;
@@ -279,6 +280,7 @@ export function usePatientState() {
     street: "",
     postalCode: "",
     city: "",
+    emergencyContactName: "",
     emergencyContact: "",
     insuranceProvider: "",
     insuranceNumber: "",

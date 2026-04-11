@@ -57,6 +57,7 @@ function getFieldLabels(t: (key: string, fallback: string) => string): Record<st
     insuranceNumber: t("anesthesia.patients.merge.fieldInsuranceNumber", "Insurance Number"),
     healthInsuranceNumber: t("anesthesia.patients.merge.fieldHealthInsuranceNumber", "Health Insurance Number"),
     insurerGln: t("anesthesia.patients.merge.fieldInsurerGln", "Insurer GLN"),
+    emergencyContactName: t("anesthesia.patients.merge.fieldEmergencyContactName", "Emergency Contact Name"),
     emergencyContact: t("anesthesia.patients.merge.fieldEmergencyContact", "Emergency Contact"),
     otherAllergies: t("anesthesia.patients.merge.fieldOtherAllergies", "Other Allergies"),
     allergies: t("anesthesia.patients.merge.fieldAllergies", "Allergies"),

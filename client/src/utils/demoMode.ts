@@ -127,10 +127,12 @@ function fakeAhv(original: string): string {
 }
 
 function fakeEmergencyContact(original: string): string {
+  return fakePhone(original);
+}
+
+function fakeEmergencyContactName(original: string): string {
   const seed = hashString(original);
-  const name = `${seededPick(seed, FIRST_NAMES)} ${seededPick(seed + 1, SURNAMES)}`;
-  const phone = fakePhone(original);
-  return `${name}, ${phone}`;
+  return `${seededPick(seed, FIRST_NAMES)} ${seededPick(seed + 1, SURNAMES)}`;
 }
 
 function fakePatientNumber(original: string): string {
@@ -156,6 +158,7 @@ const PII_FIELDS: Record<string, (val: string) => string> = {
   insuranceNumber: fakeInsuranceNumber,
   healthInsuranceNumber: fakeAhv,
   emergencyContact: fakeEmergencyContact,
+  emergencyContactName: fakeEmergencyContactName,
   patientNumber: fakePatientNumber,
   patientFirstName: fakeFirstName,
   patientLastName: fakeSurname,

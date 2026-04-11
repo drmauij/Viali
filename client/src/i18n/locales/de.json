@@ -1857,6 +1857,7 @@
       "otherAllergies": "Andere Allergien",
       "otherAllergiesPlaceholder": "Andere Allergien...",
       "emergencyContact": "Notfallkontakt",
+      "emergencyContactNamePlaceholder": "Name",
       "insuranceProvider": "Versicherung",
       "insuranceNumber": "Versicherungsnummer",
       "missingFields": "Fehlende Pflichtfelder",

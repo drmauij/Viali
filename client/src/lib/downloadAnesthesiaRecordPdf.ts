@@ -199,6 +199,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       email: patient.email ?? null,
       phone: patient.phone ?? null,
       address: patient.address ?? null,
+      emergencyContactName: (patient as any).emergencyContactName ?? null,
       emergencyContact: patient.emergencyContact ?? null,
       insuranceProvider: patient.insuranceProvider ?? null,
       insuranceNumber: patient.insuranceNumber ?? null,

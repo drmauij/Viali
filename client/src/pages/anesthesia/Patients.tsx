@@ -57,6 +57,7 @@ export default function Patients() {
     insuranceProvider: "",
     insuranceNumber: "",
     healthInsuranceNumber: "",
+    emergencyContactName: "",
     emergencyContact: "",
     allergies: [] as string[],
     otherAllergies: "",
@@ -87,6 +88,7 @@ export default function Patients() {
         insuranceProvider: params.get('insuranceProvider') || "",
         insuranceNumber: params.get('insuranceNumber') || "",
         healthInsuranceNumber: params.get('healthInsuranceNumber') || "",
+        emergencyContactName: "",
         emergencyContact: "",
         allergies: [],
         otherAllergies: "",
@@ -240,6 +242,7 @@ export default function Patients() {
         insuranceProvider: "",
         insuranceNumber: "",
         healthInsuranceNumber: "",
+        emergencyContactName: "",
         emergencyContact: "",
         allergies: [],
         otherAllergies: "",
@@ -325,6 +328,7 @@ export default function Patients() {
       insuranceProvider: newPatient.insuranceProvider || null,
       insuranceNumber: newPatient.insuranceNumber || null,
       healthInsuranceNumber: newPatient.healthInsuranceNumber || null,
+      emergencyContactName: newPatient.emergencyContactName || null,
       emergencyContact: newPatient.emergencyContact || null,
       allergies: newPatient.allergies.length > 0 ? newPatient.allergies : null,
       otherAllergies: newPatient.otherAllergies || null,
@@ -490,7 +494,14 @@ export default function Patients() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                  <Label htmlFor="emergencyContactName">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                  <Input
+                    id="emergencyContactName"
+                    value={newPatient.emergencyContactName}
+                    onChange={(e) => setNewPatient({ ...newPatient, emergencyContactName: e.target.value })}
+                    placeholder={t('anesthesia.patients.emergencyContactNamePlaceholder', 'Name')}
+                    data-testid="input-emergencyContactName"
+                  />
                   <PhoneInputWithCountry
                     id="emergencyContact"
                     value={newPatient.emergencyContact}

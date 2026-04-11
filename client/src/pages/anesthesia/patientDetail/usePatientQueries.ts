@@ -17,6 +17,7 @@ type Patient = {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  emergencyContactName?: string | null;
   emergencyContact?: string | null;
   insuranceProvider?: string | null;
   insuranceNumber?: string | null;
