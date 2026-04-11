@@ -31,6 +31,7 @@ const AdminClinical = React.lazy(() => import("@/pages/admin/Clinical"));
 const AdminIntegrations = React.lazy(() => import("@/pages/admin/Integrations"));
 const AdminUsers = React.lazy(() => import("@/pages/admin/Users"));
 const AdminBilling = React.lazy(() => import("@/pages/admin/Billing"));
+const AdminPostopOrderTemplates = React.lazy(() => import("@/pages/admin/PostopOrderTemplates"));
 const Signup = React.lazy(() => import("@/pages/Signup"));
 const ResetPassword = React.lazy(() => import("@/pages/ResetPassword"));
 const ChangePasswordDialog = React.lazy(() => import("@/components/ChangePasswordDialog"));
@@ -281,6 +282,7 @@ function Router() {
               <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
               <Route path="/admin/integrations">{() => <ProtectedRoute requireAdmin><AdminIntegrations /></ProtectedRoute>}</Route>
               <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
+              <Route path="/admin/postop-order-templates">{() => <ProtectedRoute requireAdmin><AdminPostopOrderTemplates /></ProtectedRoute>}</Route>
               <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
