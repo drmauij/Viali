@@ -1269,6 +1269,23 @@ export default function Op() {
                   isPacuMode={isPacuMode}
                   patientData={patient ? { birthday: (patient as any).birthday, sex: (patient as any).sex } : null}
                   patientCovariateData={{ weight: (preOpAssessment as any)?.weight ?? null, height: (preOpAssessment as any)?.height ?? null }}
+                  plannedTaskEvents={
+                    (postopOrderSet.data?.plannedEvents ?? [])
+                      .filter(e => e.kind === 'task' || e.kind === 'iv_fluid')
+                      .map(e => ({
+                        id: e.id,
+                        plannedAt: new Date(e.plannedAt).getTime(),
+                        plannedEndAt: e.plannedEndAt ? new Date(e.plannedEndAt).getTime() : null,
+                        title: (() => {
+                          const snap = e.payloadSnapshot as any;
+                          if (snap?.title) return snap.title as string;
+                          if (snap?.type === 'lab') return `Labor \u2014 ${(snap.panel || []).join(', ')}`;
+                          if (snap?.type === 'iv_fluid') return `${snap.solution} ${snap.volumeMl}ml`;
+                          return (snap?.type as string) ?? 'Task';
+                        })(),
+                        status: e.status,
+                      }))
+                  }
                   onSaveCovariates={async (data) => {
                     if (!surgeryId) return;
                     const payload: Record<string, string> = {};

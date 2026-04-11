@@ -271,6 +271,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   patientData?: { birthday?: string | null; sex?: string | null } | null;
   patientCovariateData?: { weight?: string | null; height?: string | null } | null;
   onSaveCovariates?: (data: { weight?: string; height?: string }) => Promise<void>;
+  plannedTaskEvents?: Array<{
+    id: string;
+    plannedAt: number;
+    plannedEndAt?: number | null;
+    title: string;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+  }>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -285,6 +292,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   patientData, // Patient birthday/sex for PK simulation
   patientCovariateData, // Patient weight/height from preOp assessment for PK simulation
   onSaveCovariates, // Callback to save missing weight/height to preOp assessment
+  plannedTaskEvents, // Planned task events from postop order set for timeline pills
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -5915,6 +5923,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setEditingTimeMarker(editData);
           setTimeMarkerEditDialogOpen(true);
         }}
+        plannedTaskEvents={plannedTaskEvents}
       />
 
       {/* MedicationsSwimlane Component - Interactive layers and rendering for medications */}

@@ -43,12 +43,21 @@ interface InventoryCommit {
 
 const ONE_MINUTE = 60 * 1000;
 
+interface PlannedTaskEvent {
+  id: string;
+  plannedAt: number;       // epoch ms
+  plannedEndAt?: number | null;
+  title: string;
+  status: 'planned' | 'done' | 'missed' | 'cancelled';
+}
+
 interface EventsSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
   isTouchDevice: boolean;
   onEventDialogOpen: (pending: { time: number } | null) => void;
   onEventEditDialogOpen: (event: EventComment) => void;
   onTimeMarkerEditDialogOpen: (marker: { index: number; marker: AnesthesiaTimeMarker }) => void;
+  plannedTaskEvents?: PlannedTaskEvent[];
 }
 
 export function EventsSwimlane({
@@ -57,6 +66,7 @@ export function EventsSwimlane({
   onEventDialogOpen,
   onEventEditDialogOpen,
   onTimeMarkerEditDialogOpen,
+  plannedTaskEvents = [],
 }: EventsSwimlaneProps) {
   const {
     eventState,
@@ -502,6 +512,55 @@ export function EventsSwimlane({
             data-testid={`event-icon-${event.id}`}
           >
             <IconComponent className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+          </div>
+        );
+      })}
+
+      {/* Planned task pills from postop order set */}
+      {plannedTaskEvents.filter(e => e.status !== 'cancelled').map((task) => {
+        const xFraction = (task.plannedAt - visibleStart) / visibleRange;
+        if (xFraction < -0.05 || xFraction > 1.05) return null;
+        if (!eventsLane) return null;
+
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 4px)`;
+
+        const bgColor = task.status === 'done' ? (isDark ? '#166534' : '#dcfce7')
+          : task.status === 'missed' ? (isDark ? '#92400e' : '#fef3c7')
+          : (isDark ? '#1e3a5f' : '#eff6ff');
+        const borderColor = task.status === 'done' ? '#16a34a'
+          : task.status === 'missed' ? '#f59e0b'
+          : '#93c5fd';
+        const borderStyle = task.status === 'planned' ? 'dashed' : 'solid';
+        const textColor = task.status === 'done' ? (isDark ? '#86efac' : '#166534')
+          : task.status === 'missed' ? (isDark ? '#fcd34d' : '#92400e')
+          : (isDark ? '#93c5fd' : '#1e40af');
+
+        return (
+          <div
+            key={`planned-task-${task.id}`}
+            className="absolute z-30 pointer-events-auto"
+            style={{
+              left: leftPosition,
+              top: `${eventsLane.top + 2}px`,
+              height: `${Math.max(eventsLane.height - 4, 16)}px`,
+            }}
+            title={`${task.title} (${task.status})`}
+          >
+            <div
+              className="flex items-center gap-1 px-1.5 rounded text-[10px] font-medium whitespace-nowrap"
+              style={{
+                backgroundColor: bgColor,
+                border: `1.5px ${borderStyle} ${borderColor}`,
+                color: textColor,
+                height: '100%',
+                maxWidth: '120px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {task.status === 'done' && <span>&#x2713;</span>}
+              {task.title.length > 15 ? task.title.slice(0, 15) + '\u2026' : task.title}
+            </div>
           </div>
         );
       })}
