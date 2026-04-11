@@ -6669,7 +6669,8 @@
     "adminTitle": "Postoperative Verordnungsvorlagen",
     "newTemplate": "Neue Vorlage",
     "noDescription": "Keine Beschreibung",
-    "items": "Einträge"
+    "items": "Einträge",
+    "legacyFields": "Medikation / PONV / Ambulant (alt)"
   },
   "todoList": {
     "title": "To-Do",

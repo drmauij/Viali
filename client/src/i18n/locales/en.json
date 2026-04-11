@@ -6568,7 +6568,8 @@
     "adminTitle": "Postoperative Order Templates",
     "newTemplate": "New Template",
     "noDescription": "No description",
-    "items": "items"
+    "items": "items",
+    "legacyFields": "Medication Timing / PONV / Ambulatory (legacy)"
   },
   "todoList": {
     "title": "To-Do",
