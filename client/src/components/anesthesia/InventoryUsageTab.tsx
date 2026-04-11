@@ -881,6 +881,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         patientId={patient?.id}
         patientName={patient ? `${patient.surname}, ${patient.firstName}` : null}
         patientBirthday={patient?.birthday}
+        onRemoveItem={(itemId) => overrideMutation.mutate({ itemId, qty: 0 })}
       />
 
       <Dialog open={!!zoomImageUrl} onOpenChange={() => setZoomImageUrl(null)}>
