@@ -148,10 +148,16 @@ export default function ClinicShifts() {
     enabled: !!hospitalId,
   });
 
+  // NOTE: distinct from the `['bookable-providers', hospitalId, unitId]` key used
+  // by Appointments.tsx / PatientDetail.tsx. Those callers cache a flat shape
+  // ({id, firstName, lastName}); this page needs the raw nested shape so it can
+  // filter by `p.user`. Sharing the same key caused the /shifts calendar to
+  // render without providers when navigating from another tab, because React
+  // Query returned the cached flat shape and the `p.user` filter dropped everything.
   const { data: providersRaw = [] } = useQuery<
     Array<{ userId: string; user: { firstName: string; lastName: string; email: string | null } }>
   >({
-    queryKey: ["bookable-providers", hospitalId, unitId],
+    queryKey: ["bookable-providers-raw", hospitalId, unitId],
     queryFn: () =>
       apiRequest(
         "GET",
