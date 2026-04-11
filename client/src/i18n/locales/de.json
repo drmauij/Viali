@@ -6650,6 +6650,27 @@
       "pacuNurse": "IMC/AWR"
     }
   },
+  "postopOrders": {
+    "ordersAtAGlance": "Verordnungen",
+    "edit": "Bearbeiten",
+    "postopTasks": "Postoperative Aufgaben",
+    "overdue": "überfällig",
+    "noTasks": "Keine Aufgaben.",
+    "mobilisation": "Mobilisation",
+    "positioning": "Lagerung",
+    "drainage": "Drainagen",
+    "nutrition": "Nahrung",
+    "woundCheck": "Wundkontrolle",
+    "dressing": "Verband",
+    "template": "Vorlage",
+    "addItem": "Hinzufügen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "adminTitle": "Postoperative Verordnungsvorlagen",
+    "newTemplate": "Neue Vorlage",
+    "noDescription": "Keine Beschreibung",
+    "items": "Einträge"
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Aufgabe hinzufügen... (# für Patient)",

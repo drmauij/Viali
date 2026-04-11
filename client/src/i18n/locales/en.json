@@ -6549,6 +6549,27 @@
       "pacuNurse": "PACU Nurse"
     }
   },
+  "postopOrders": {
+    "ordersAtAGlance": "Orders at a Glance",
+    "edit": "Edit",
+    "postopTasks": "Postoperative Tasks",
+    "overdue": "overdue",
+    "noTasks": "No tasks.",
+    "mobilisation": "Mobilisation",
+    "positioning": "Positioning",
+    "drainage": "Drainages",
+    "nutrition": "Nutrition",
+    "woundCheck": "Wound Check",
+    "dressing": "Dressing",
+    "template": "Template",
+    "addItem": "Add Item",
+    "save": "Save",
+    "cancel": "Cancel",
+    "adminTitle": "Postoperative Order Templates",
+    "newTemplate": "New Template",
+    "noDescription": "No description",
+    "items": "items"
+  },
   "todoList": {
     "title": "To-Do",
     "addPlaceholder": "Add a task... (use # for patient)",
