@@ -15,10 +15,40 @@ interface UtmParams {
   utmContent?: string | null;
 }
 
+/**
+ * utm_source values that represent "owned / marketing" channels (Flows email/SMS,
+ * newsletters, external email-service providers). Used by the Conversion Funnel
+ * to group all marketing-originated bookings under a single "marketing" funnel,
+ * independently of the delivery channel (email / sms / whatsapp / …).
+ *
+ * Match is case-insensitive against the raw `utm_source` value stored on the
+ * referral event. When adding new senders, use the lowercase form here.
+ */
+export const MARKETING_UTM_SOURCES: ReadonlySet<string> = new Set([
+  "email_campaign",    // Flows email channel
+  "sms_campaign",      // Flows SMS channel
+  "whatsapp_campaign", // future Flows WhatsApp channel
+  "newsletter",        // recommended generic value for external senders
+  "klaviyo",           // Klaviyo (external newsletter tool)
+  "mailchimp",         // Mailchimp
+  "brevo",             // Brevo (Sendinblue)
+  "sendgrid",          // SendGrid
+]);
+
+export function isMarketingUtmSource(utmSource: string | null | undefined): boolean {
+  if (!utmSource) return false;
+  return MARKETING_UTM_SOURCES.has(utmSource.toLowerCase().trim());
+}
+
 const UTM_SOURCE_MAP: Record<string, { source: ReferralSource; detail: string }> = {
   newsletter: { source: "other", detail: "Newsletter" },
   email_campaign: { source: "other", detail: "Email Campaign" },
   sms_campaign: { source: "other", detail: "SMS Campaign" },
+  whatsapp_campaign: { source: "other", detail: "WhatsApp Campaign" },
+  klaviyo: { source: "other", detail: "Klaviyo" },
+  mailchimp: { source: "other", detail: "Mailchimp" },
+  brevo: { source: "other", detail: "Brevo" },
+  sendgrid: { source: "other", detail: "SendGrid" },
   google: { source: "search_engine", detail: "Google" },
   bing: { source: "search_engine", detail: "Bing" },
   facebook: { source: "social", detail: "Facebook" },

@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, TrendingUp, Download, HelpCircle, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isMarketingUtmSource } from "@shared/referralMapping";
 import {
   FunnelRow,
   ConversionLevel,
@@ -87,7 +88,36 @@ const REFERRAL_COLORS: Record<string, string> = {
   llm: "#8b5cf6",
   word_of_mouth: "#f59e0b",
   belegarzt: "#ec4899",
+  marketing: "#14b8a6", // teal — owned marketing channels (Flows/newsletters)
   other: "#6b7280",
+};
+
+/**
+ * Returns the "bucket" used to group a referral row in the funnel chart,
+ * matrix table and source filter. Marketing rows (Flows email/SMS, external
+ * newsletters matched by utm_source) are pulled out of their underlying
+ * `source` (usually "other") into a dedicated "marketing" bucket so they can
+ * be analysed independently of the delivery channel.
+ */
+function getFunnelBucket(r: FunnelRow): string {
+  if (isMarketingUtmSource(r.utm_source)) return "marketing";
+  return r.source;
+}
+
+/**
+ * i18n label for a funnel bucket (the 6 source enum values plus the virtual
+ * "marketing" bucket). Uses the shared `referral.*` namespace so labels stay
+ * in sync with the rest of the app (ReferralSourcePicker, Marketing page, etc).
+ * Falls back to the raw key for forward-compatibility.
+ */
+const BUCKET_LABEL_KEYS: Record<string, string> = {
+  social: "referral.social",
+  search_engine: "referral.searchEngine",
+  llm: "referral.llm",
+  word_of_mouth: "referral.wordOfMouth",
+  belegarzt: "referral.belegarzt",
+  marketing: "referral.marketing",
+  other: "referral.other",
 };
 
 const CHF = new Intl.NumberFormat("de-CH", {
@@ -177,6 +207,10 @@ function classifyFunnel(r: FunnelRow): string {
     if (r.source === "social") return "meta_ads";
     return "paid_other";
   }
+  // Owned marketing channels (Flows email/SMS, newsletters, Klaviyo, etc.) —
+  // grouped by utm_source regardless of delivery channel. See
+  // MARKETING_UTM_SOURCES in shared/referralMapping.ts.
+  if (isMarketingUtmSource(r.utm_source)) return "marketing";
   return "organic";
 }
 
@@ -200,6 +234,13 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   });
 
   const queryClient = useQueryClient();
+
+  // Returns a human-readable label for a funnel bucket (source enum value or
+  // the virtual "marketing" bucket). Falls back to the raw key if unknown.
+  const bucketLabel = (bucket: string): string => {
+    const key = BUCKET_LABEL_KEYS[bucket];
+    return key ? t(key, bucket) : bucket;
+  };
 
   // ── Data fetching ──────────────────────────────────────────────────────
 
@@ -319,7 +360,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
   const sources = useMemo(() => {
     const s = new Set<string>();
-    for (const r of rows) s.add(r.source);
+    for (const r of rows) s.add(getFunnelBucket(r));
     return Array.from(s).sort();
   }, [rows]);
 
@@ -342,7 +383,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
       result = result.filter((r) => r.provider_id === providerFilter);
     }
     if (sourceFilter !== "all") {
-      result = result.filter((r) => r.source === sourceFilter);
+      result = result.filter((r) => getFunnelBucket(r) === sourceFilter);
     }
     if (campaignFilter !== "all") {
       result = result.filter((r) => (r.campaign ?? r.utm_campaign) === campaignFilter);
@@ -377,7 +418,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
     const bySource: Record<string, FunnelRow[]> = {};
     for (const r of filtered) {
-      (bySource[r.source] ??= []).push(r);
+      (bySource[getFunnelBucket(r)] ??= []).push(r);
     }
 
     return stageKeys.map((key) => {
@@ -410,7 +451,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
   const activeSources = useMemo(() => {
     const s = new Set<string>();
-    for (const r of filtered) s.add(r.source);
+    for (const r of filtered) s.add(getFunnelBucket(r));
     return Array.from(s).sort();
   }, [filtered]);
 
@@ -419,7 +460,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
   const matrixRows = useMemo(() => {
     const bySource: Record<string, FunnelRow[]> = {};
     for (const r of filtered) {
-      (bySource[r.source] ??= []).push(r);
+      (bySource[getFunnelBucket(r)] ??= []).push(r);
     }
     const result: Array<{
       source: string;
@@ -522,7 +563,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                   </SelectItem>
                   {sources.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s}
+                      {bucketLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -649,7 +690,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                       key={src}
                       dataKey={src}
                       fill={colorForSource(src)}
-                      name={src}
+                      name={bucketLabel(src)}
                     />
                   ))}
                 </BarChart>
@@ -714,7 +755,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                   {matrixRows.map(({ source, metrics: m, isSubRow, subLabel }, idx) => (
                     <TableRow key={`${source}-${subLabel || 'agg'}-${idx}`} className={isSubRow ? "text-muted-foreground" : ""}>
                       <TableCell className={isSubRow ? "pl-8 text-sm" : "font-medium"}>
-                        {isSubRow ? `↳ ${subLabel}` : source}
+                        {isSubRow ? `↳ ${subLabel}` : bucketLabel(source)}
                       </TableCell>
                       <TableCell className="text-right">
                         {m.totalReferrals}

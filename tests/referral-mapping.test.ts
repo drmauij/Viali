@@ -3,6 +3,8 @@ import {
   mapUtmToReferral,
   mapRefToReferral,
   resolveReferralFromParams,
+  isMarketingUtmSource,
+  MARKETING_UTM_SOURCES,
 } from "../shared/referralMapping";
 
 describe("mapUtmToReferral", () => {
@@ -170,5 +172,91 @@ describe("resolveReferralFromParams", () => {
     const result = resolveReferralFromParams({ ref: "dr-jones" });
     expect(result).not.toBeNull();
     expect(result!.refParam).toBe("dr-jones");
+  });
+});
+
+describe("marketing utm sources", () => {
+  // UTM_SOURCE_MAP entries — these must return source=other with a friendly detail
+  // so new Flows / newsletter bookings get clean source_detail strings.
+
+  it("maps klaviyo to other/Klaviyo", () => {
+    const result = mapUtmToReferral({ utmSource: "klaviyo" });
+    expect(result).toEqual({ source: "other", sourceDetail: "Klaviyo", captureMethod: "utm" });
+  });
+
+  it("maps mailchimp to other/Mailchimp", () => {
+    const result = mapUtmToReferral({ utmSource: "mailchimp" });
+    expect(result).toEqual({ source: "other", sourceDetail: "Mailchimp", captureMethod: "utm" });
+  });
+
+  it("maps brevo to other/Brevo", () => {
+    const result = mapUtmToReferral({ utmSource: "brevo" });
+    expect(result).toEqual({ source: "other", sourceDetail: "Brevo", captureMethod: "utm" });
+  });
+
+  it("maps sendgrid to other/SendGrid", () => {
+    const result = mapUtmToReferral({ utmSource: "sendgrid" });
+    expect(result).toEqual({ source: "other", sourceDetail: "SendGrid", captureMethod: "utm" });
+  });
+
+  it("maps whatsapp_campaign to other/WhatsApp Campaign", () => {
+    const result = mapUtmToReferral({ utmSource: "whatsapp_campaign" });
+    expect(result).toEqual({ source: "other", sourceDetail: "WhatsApp Campaign", captureMethod: "utm" });
+  });
+
+  it("klaviyo mapping is case-insensitive (matches Peter Schmid's 'Klaviyo')", () => {
+    const result = mapUtmToReferral({ utmSource: "Klaviyo" });
+    expect(result).toEqual({ source: "other", sourceDetail: "Klaviyo", captureMethod: "utm" });
+  });
+});
+
+describe("isMarketingUtmSource", () => {
+  it("returns true for each value in MARKETING_UTM_SOURCES", () => {
+    for (const src of MARKETING_UTM_SOURCES) {
+      expect(isMarketingUtmSource(src)).toBe(true);
+    }
+  });
+
+  it("matches Flows email channel (email_campaign)", () => {
+    expect(isMarketingUtmSource("email_campaign")).toBe(true);
+  });
+
+  it("matches Flows SMS channel (sms_campaign)", () => {
+    expect(isMarketingUtmSource("sms_campaign")).toBe(true);
+  });
+
+  it("matches future Flows WhatsApp channel", () => {
+    expect(isMarketingUtmSource("whatsapp_campaign")).toBe(true);
+  });
+
+  it("matches generic 'newsletter' value", () => {
+    expect(isMarketingUtmSource("newsletter")).toBe(true);
+  });
+
+  it("matches Klaviyo retroactively (the Peter Schmid case)", () => {
+    expect(isMarketingUtmSource("Klaviyo")).toBe(true);
+    expect(isMarketingUtmSource("klaviyo")).toBe(true);
+    expect(isMarketingUtmSource("KLAVIYO")).toBe(true);
+  });
+
+  it("trims whitespace", () => {
+    expect(isMarketingUtmSource("  klaviyo  ")).toBe(true);
+  });
+
+  it("returns false for ad / search sources", () => {
+    expect(isMarketingUtmSource("google")).toBe(false);
+    expect(isMarketingUtmSource("facebook")).toBe(false);
+    expect(isMarketingUtmSource("tiktok")).toBe(false);
+    expect(isMarketingUtmSource("bing")).toBe(false);
+  });
+
+  it("returns false for unknown sources", () => {
+    expect(isMarketingUtmSource("somerandomblog")).toBe(false);
+  });
+
+  it("returns false for null/undefined/empty", () => {
+    expect(isMarketingUtmSource(null)).toBe(false);
+    expect(isMarketingUtmSource(undefined)).toBe(false);
+    expect(isMarketingUtmSource("")).toBe(false);
   });
 });

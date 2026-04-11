@@ -2022,6 +2022,7 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarke
         re.igshid,
         re.meta_lead_id,
         re.meta_form_id,
+        re.utm_source,
         re.utm_campaign,
         -- Unified campaign label: prefer the name from the ad-platform webhook
         -- (e.g. Meta Ads Manager campaign_name) and fall back to the URL's

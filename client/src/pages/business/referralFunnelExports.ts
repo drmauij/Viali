@@ -15,6 +15,7 @@ export type FunnelRow = {
   igshid: string | null;
   meta_lead_id: string | null;
   meta_form_id: string | null;
+  utm_source: string | null;
   utm_campaign: string | null;
   // Unified campaign label: COALESCE(campaign_name, utm_campaign) computed server-side
   campaign: string | null;
