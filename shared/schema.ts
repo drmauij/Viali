@@ -14,6 +14,7 @@ import {
   primaryKey,
   unique,
   date,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -655,10 +656,15 @@ export const checklistTemplates = pgTable("checklist_templates", {
 
 export const checklistTemplateAssignments = pgTable("checklist_template_assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull().references(() => checklistTemplates.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").notNull(),
   unitId: varchar("unit_id").references(() => units.id),
   role: varchar("role"),
 }, (table) => [
+  foreignKey({
+    columns: [table.templateId],
+    foreignColumns: [checklistTemplates.id],
+    name: "template_id_checklist_templates_fk",
+  }).onDelete("cascade"),
   index("idx_checklist_template_assignments_template").on(table.templateId),
   index("idx_checklist_template_assignments_unit").on(table.unitId),
 ]);
@@ -1418,11 +1424,21 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
 // have been imported/attached to a specific anesthesia record
 export const anesthesiaRecordMedications = pgTable("anesthesia_record_medications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
-  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+  medicationConfigId: varchar("medication_config_id").notNull(),
   importedAt: timestamp("imported_at").defaultNow(),
   importedBy: varchar("imported_by").references(() => users.id),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
+  foreignKey({
+    columns: [table.medicationConfigId],
+    foreignColumns: [medicationConfigs.id],
+    name: "medication_config_id_medication_configs_fk",
+  }).onDelete("cascade"),
   index("idx_record_medications_record").on(table.anesthesiaRecordId),
   index("idx_record_medications_config").on(table.medicationConfigId),
   unique("uq_record_medication").on(table.anesthesiaRecordId, table.medicationConfigId),
@@ -1432,8 +1448,8 @@ export const anesthesiaRecordMedications = pgTable("anesthesia_record_medication
 // Example: When Kefzol is given, NaCl 0.9% 100ml is automatically added as the diluent
 export const medicationCouplings = pgTable("medication_couplings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  primaryMedicationConfigId: varchar("primary_medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
-  coupledMedicationConfigId: varchar("coupled_medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  primaryMedicationConfigId: varchar("primary_medication_config_id").notNull(),
+  coupledMedicationConfigId: varchar("coupled_medication_config_id").notNull(),
   
   // Optional: default dose/quantity for the coupled medication
   defaultDose: varchar("default_dose"),
@@ -1446,6 +1462,16 @@ export const medicationCouplings = pgTable("medication_couplings", {
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: varchar("created_by").references(() => users.id),
 }, (table) => [
+  foreignKey({
+    columns: [table.coupledMedicationConfigId],
+    foreignColumns: [medicationConfigs.id],
+    name: "coupled_medication_config_id_medication_configs_fk",
+  }).onDelete("cascade"),
+  foreignKey({
+    columns: [table.primaryMedicationConfigId],
+    foreignColumns: [medicationConfigs.id],
+    name: "primary_medication_config_id_medication_configs_fk",
+  }).onDelete("cascade"),
   index("idx_medication_couplings_primary").on(table.primaryMedicationConfigId),
   index("idx_medication_couplings_coupled").on(table.coupledMedicationConfigId),
   unique("uq_medication_coupling").on(table.primaryMedicationConfigId, table.coupledMedicationConfigId),
@@ -1471,11 +1497,16 @@ export const medicationSets = pgTable("medication_sets", {
 export const medicationSetItems = pgTable("medication_set_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   setId: varchar("set_id").notNull().references(() => medicationSets.id, { onDelete: 'cascade' }),
-  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  medicationConfigId: varchar("medication_config_id").notNull(),
   customDose: varchar("custom_dose"), // Optional: override the medication's default dose
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.medicationConfigId],
+    foreignColumns: [medicationConfigs.id],
+    name: "medication_config_id_medication_configs_fk",
+  }).onDelete("cascade"),
   index("idx_medication_set_items_set").on(table.setId),
   index("idx_medication_set_items_config").on(table.medicationConfigId),
   unique("uq_medication_set_item").on(table.setId, table.medicationConfigId),
@@ -1484,8 +1515,8 @@ export const medicationSetItems = pgTable("medication_set_items", {
 // Anesthesia Installations - Track peripheral/arterial/central line placements
 export const anesthesiaInstallations = pgTable("anesthesia_installations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   // Type of installation
   category: varchar("category", { enum: ["peripheral", "arterial", "central", "bladder"] }).notNull(),
   
@@ -1519,6 +1550,11 @@ export const anesthesiaInstallations = pgTable("anesthesia_installations", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_installations_record").on(table.anesthesiaRecordId),
   index("idx_installations_category").on(table.category),
 ]);
@@ -1526,8 +1562,8 @@ export const anesthesiaInstallations = pgTable("anesthesia_installations", {
 // Anesthesia Technique Details - Store technique-specific documentation
 export const anesthesiaTechniqueDetails = pgTable("anesthesia_technique_details", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   // Which technique section this belongs to
   technique: varchar("technique", { 
     enum: ["general", "sedation", "regional_spinal", "regional_epidural", "regional_peripheral"] 
@@ -1583,6 +1619,11 @@ export const anesthesiaTechniqueDetails = pgTable("anesthesia_technique_details"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_technique_details_record").on(table.anesthesiaRecordId),
   index("idx_technique_details_technique").on(table.technique),
 ]);
@@ -1590,8 +1631,8 @@ export const anesthesiaTechniqueDetails = pgTable("anesthesia_technique_details"
 // Anesthesia Airway Management - Dedicated table for airway device details
 export const anesthesiaAirwayManagement = pgTable("anesthesia_airway_management", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique(),
+
   airwayDevice: varchar("airway_device"), // "ett", "spiral-tube", "rae-tube", "dlt-left", "dlt-right", "lma", etc.
   size: varchar("size"), // e.g., "7.5"
   depth: integer("depth"), // cm at teeth
@@ -1609,13 +1650,18 @@ export const anesthesiaAirwayManagement = pgTable("anesthesia_airway_management"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_airway_management_record").on(table.anesthesiaRecordId),
 ]);
 
 // Difficult Airway Reports - DAS-compliant documentation for difficult airway encounters
 export const difficultAirwayReports = pgTable("difficult_airway_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  airwayManagementId: varchar("airway_management_id").notNull().unique().references(() => anesthesiaAirwayManagement.id, { onDelete: "cascade" }),
+  airwayManagementId: varchar("airway_management_id").notNull().unique(),
   
   // DAS Documentation Fields
   description: text("description").notNull(), // What made the airway difficult
@@ -1645,6 +1691,11 @@ export const difficultAirwayReports = pgTable("difficult_airway_reports", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.airwayManagementId],
+    foreignColumns: [anesthesiaAirwayManagement.id],
+    name: "airway_management_id_anesthesia_airway_management_fk",
+  }).onDelete("cascade"),
   index("idx_difficult_airway_reports_airway").on(table.airwayManagementId),
   index("idx_difficult_airway_reports_created_by").on(table.createdBy),
 ]);
@@ -1652,8 +1703,8 @@ export const difficultAirwayReports = pgTable("difficult_airway_reports", {
 // Anesthesia General Technique - Dedicated table for general anesthesia approach
 export const anesthesiaGeneralTechnique = pgTable("anesthesia_general_technique", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique(),
+
   approach: varchar("approach", { enum: ["tiva", "tci", "balanced-gas", "sedation"] }),
   rsi: boolean("rsi").default(false), // Rapid Sequence Intubation
   sedationLevel: varchar("sedation_level"), // "minimal", "moderate", "deep"
@@ -1663,14 +1714,19 @@ export const anesthesiaGeneralTechnique = pgTable("anesthesia_general_technique"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_general_technique_record").on(table.anesthesiaRecordId),
 ]);
 
 // Anesthesia Neuraxial Blocks - Spinal, Epidural, CSE, Caudal
 export const anesthesiaNeuraxialBlocks = pgTable("anesthesia_neuraxial_blocks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   blockType: varchar("block_type", { enum: ["spinal", "epidural", "cse", "caudal"] }).notNull(),
   level: varchar("level"), // e.g., "L3-L4", "T10-T11"
   approach: varchar("approach"), // "midline", "paramedian", "needle-through-needle"
@@ -1686,6 +1742,11 @@ export const anesthesiaNeuraxialBlocks = pgTable("anesthesia_neuraxial_blocks", 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_neuraxial_blocks_record").on(table.anesthesiaRecordId),
   index("idx_neuraxial_blocks_type").on(table.blockType),
 ]);
@@ -1693,8 +1754,8 @@ export const anesthesiaNeuraxialBlocks = pgTable("anesthesia_neuraxial_blocks", 
 // Anesthesia Peripheral Blocks - Regional nerve blocks
 export const anesthesiaPeripheralBlocks = pgTable("anesthesia_peripheral_blocks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   blockType: varchar("block_type").notNull(), // "interscalene", "supraclavicular", "axillary", "femoral", "sciatic", etc.
   laterality: varchar("laterality", { enum: ["left", "right", "bilateral"] }),
   guidanceTechnique: varchar("guidance_technique"), // "ultrasound", "nerve-stimulator", "landmark"
@@ -1708,6 +1769,11 @@ export const anesthesiaPeripheralBlocks = pgTable("anesthesia_peripheral_blocks"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_peripheral_blocks_record").on(table.anesthesiaRecordId),
 ]);
 
@@ -1978,8 +2044,8 @@ export type TOFPointWithId = {
 // NEW: Each anesthesia record has ONE snapshot row containing all points as arrays
 export const clinicalSnapshots = pgTable("clinical_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique(),
+
   // All clinical data stored as arrays of points with IDs
   data: jsonb("data").$type<{
     // Vitals (arrays of points)
@@ -2022,6 +2088,11 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_clinical_snapshots_record").on(table.anesthesiaRecordId),
 ]);
 
@@ -2031,7 +2102,7 @@ export const vitalsSnapshots = clinicalSnapshots;
 // Anesthesia Medications (Boluses and Infusions) - Links to inventory
 export const anesthesiaMedications = pgTable("anesthesia_medications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
   itemId: varchar("item_id").notNull().references(() => items.id), // Link to inventory
   
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
@@ -2062,6 +2133,11 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_anesthesia_medications_record").on(table.anesthesiaRecordId),
   index("idx_anesthesia_medications_item").on(table.itemId),
   index("idx_anesthesia_medications_timestamp").on(table.timestamp),
@@ -2089,14 +2165,19 @@ export const anesthesiaEvents = pgTable("anesthesia_events", {
 // Anesthesia Positions (Patient positioning during surgery)
 export const anesthesiaPositions = pgTable("anesthesia_positions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   timestamp: timestamp("timestamp").notNull(),
   position: varchar("position").notNull(), // supine, prone, lateral, lithotomy, etc.
   
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_anesthesia_positions_record").on(table.anesthesiaRecordId),
   index("idx_anesthesia_positions_timestamp").on(table.timestamp),
 ]);
@@ -2104,8 +2185,8 @@ export const anesthesiaPositions = pgTable("anesthesia_positions", {
 // Surgery Staff (Unified staff assignments shared between anesthesia and surgery modules)
 export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
-  
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
+
   role: varchar("role", { enum: [
     "surgeon",           // Operateur
     "surgicalAssistant", // Assistenz
@@ -2122,6 +2203,11 @@ export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "anesthesia_record_id_anesthesia_records_fk",
+  }).onDelete("cascade"),
   index("idx_surgery_staff_entries_record").on(table.anesthesiaRecordId),
   index("idx_surgery_staff_entries_role").on(table.role),
   index("idx_surgery_staff_entries_user").on(table.userId),
@@ -2183,7 +2269,7 @@ export const dailyStaffPool = pgTable("daily_staff_pool", {
 export const plannedSurgeryStaff = pgTable("planned_surgery_staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: 'cascade' }),
-  dailyStaffPoolId: varchar("daily_staff_pool_id").notNull().references(() => dailyStaffPool.id, { onDelete: 'cascade' }),
+  dailyStaffPoolId: varchar("daily_staff_pool_id").notNull(),
   
   // Denormalized for quick display
   role: varchar("role", { enum: [
@@ -2201,6 +2287,11 @@ export const plannedSurgeryStaff = pgTable("planned_surgery_staff", {
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.dailyStaffPoolId],
+    foreignColumns: [dailyStaffPool.id],
+    name: "daily_staff_pool_id_daily_staff_pool_fk",
+  }).onDelete("cascade"),
   index("idx_planned_surgery_staff_surgery").on(table.surgeryId),
   index("idx_planned_surgery_staff_pool").on(table.dailyStaffPoolId),
   unique("idx_planned_surgery_staff_unique").on(table.surgeryId, table.dailyStaffPoolId),
@@ -3900,11 +3991,16 @@ export const surgeonChecklistTemplates = pgTable("surgeon_checklist_templates", 
 // Surgeon Checklist Template Items - Individual items within a template
 export const surgeonChecklistTemplateItems = pgTable("surgeon_checklist_template_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull().references(() => surgeonChecklistTemplates.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").notNull(),
   label: text("label").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.templateId],
+    foreignColumns: [surgeonChecklistTemplates.id],
+    name: "template_id_surgeon_checklist_templates_fk",
+  }).onDelete("cascade"),
   index("idx_surgeon_checklist_items_template").on(table.templateId),
 ]);
 
@@ -3912,12 +4008,22 @@ export const surgeonChecklistTemplateItems = pgTable("surgeon_checklist_template
 export const surgeryPreOpChecklistEntries = pgTable("surgery_preop_checklist_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: 'cascade' }),
-  templateId: varchar("template_id").notNull().references(() => surgeonChecklistTemplates.id),
-  itemId: varchar("item_id").notNull().references(() => surgeonChecklistTemplateItems.id),
+  templateId: varchar("template_id").notNull(),
+  itemId: varchar("item_id").notNull(),
   checked: boolean("checked").default(false).notNull(),
   note: text("note"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.itemId],
+    foreignColumns: [surgeonChecklistTemplateItems.id],
+    name: "item_id_surgeon_checklist_template_items_fk",
+  }),
+  foreignKey({
+    columns: [table.templateId],
+    foreignColumns: [surgeonChecklistTemplates.id],
+    name: "template_id_surgeon_checklist_templates_fk",
+  }),
   index("idx_surgery_checklist_entries_surgery").on(table.surgeryId),
   index("idx_surgery_checklist_entries_template").on(table.templateId),
   unique("unique_surgery_item").on(table.surgeryId, table.itemId),
@@ -4006,7 +4112,7 @@ export const patientQuestionnaireLinks = pgTable("patient_questionnaire_links", 
 // Patient Questionnaire Responses - Stores patient-submitted data
 export const patientQuestionnaireResponses = pgTable("patient_questionnaire_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  linkId: varchar("link_id").notNull().references(() => patientQuestionnaireLinks.id, { onDelete: 'cascade' }),
+  linkId: varchar("link_id").notNull(),
   
   // Patient identification (for general forms where patient may not exist yet)
   patientFirstName: varchar("patient_first_name"),
@@ -4102,13 +4208,18 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   submittedAt: timestamp("submitted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.linkId],
+    foreignColumns: [patientQuestionnaireLinks.id],
+    name: "link_id_patient_questionnaire_links_fk",
+  }).onDelete("cascade"),
   index("idx_questionnaire_responses_link").on(table.linkId),
 ]);
 
 // Patient Questionnaire Uploads - File attachments from patients
 export const patientQuestionnaireUploads = pgTable("patient_questionnaire_uploads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  responseId: varchar("response_id").notNull().references(() => patientQuestionnaireResponses.id, { onDelete: 'cascade' }),
+  responseId: varchar("response_id").notNull(),
   category: varchar("category", { enum: ["medication_list", "diagnosis", "exam_result", "other"] }).notNull(),
   fileName: varchar("file_name").notNull(),
   fileUrl: varchar("file_url").notNull(), // Object storage URL
@@ -4118,13 +4229,18 @@ export const patientQuestionnaireUploads = pgTable("patient_questionnaire_upload
   reviewed: boolean("reviewed").default(false), // Staff has reviewed this upload
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.responseId],
+    foreignColumns: [patientQuestionnaireResponses.id],
+    name: "response_id_patient_questionnaire_responses_fk",
+  }).onDelete("cascade"),
   index("idx_questionnaire_uploads_response").on(table.responseId),
 ]);
 
 // Patient Questionnaire Review - Doctor's review/mapping of patient data
 export const patientQuestionnaireReviews = pgTable("patient_questionnaire_reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  responseId: varchar("response_id").notNull().references(() => patientQuestionnaireResponses.id, { onDelete: 'cascade' }),
+  responseId: varchar("response_id").notNull(),
   reviewedBy: varchar("reviewed_by").notNull().references(() => users.id),
   
   // Mapping decisions - which patient answers were mapped to which professional fields
@@ -4139,12 +4255,22 @@ export const patientQuestionnaireReviews = pgTable("patient_questionnaire_review
   reviewNotes: text("review_notes"),
   
   // Link to pre-op assessment if merged
-  preOpAssessmentId: varchar("preop_assessment_id").references(() => preOpAssessments.id),
+  preOpAssessmentId: varchar("preop_assessment_id"),
   
   status: varchar("status", { enum: ["pending", "partial", "completed"] }).default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 }, (table) => [
+  foreignKey({
+    columns: [table.preOpAssessmentId],
+    foreignColumns: [preOpAssessments.id],
+    name: "preop_assessment_id_preop_assessments_fk",
+  }),
+  foreignKey({
+    columns: [table.responseId],
+    foreignColumns: [patientQuestionnaireResponses.id],
+    name: "response_id_patient_questionnaire_responses_fk",
+  }).onDelete("cascade"),
   index("idx_questionnaire_reviews_response").on(table.responseId),
   index("idx_questionnaire_reviews_assessment").on(table.preOpAssessmentId),
 ]);
@@ -5136,7 +5262,7 @@ export type InsertExternalSurgeryRequest = z.infer<typeof insertExternalSurgeryR
 // External Surgery Request Documents - uploaded by external doctors
 export const externalSurgeryRequestDocuments = pgTable("external_surgery_request_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  requestId: varchar("request_id").notNull().references(() => externalSurgeryRequests.id, { onDelete: 'cascade' }),
+  requestId: varchar("request_id").notNull(),
   fileName: varchar("file_name").notNull(),
   fileUrl: varchar("file_url").notNull(),
   mimeType: varchar("mime_type"),
@@ -5144,6 +5270,11 @@ export const externalSurgeryRequestDocuments = pgTable("external_surgery_request
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.requestId],
+    foreignColumns: [externalSurgeryRequests.id],
+    name: "request_id_external_surgery_requests_fk",
+  }).onDelete("cascade"),
   index("idx_external_surgery_docs_request").on(table.requestId),
 ]);
 
@@ -5280,11 +5411,16 @@ export type InsertAnesthesiaSetItem = z.infer<typeof insertAnesthesiaSetItemSche
 export const anesthesiaSetMedications = pgTable("anesthesia_set_medications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   setId: varchar("set_id").notNull().references(() => anesthesiaSets.id, { onDelete: 'cascade' }),
-  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  medicationConfigId: varchar("medication_config_id").notNull(),
   customDose: varchar("custom_dose"), // Optional: override the medication's default dose
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.medicationConfigId],
+    foreignColumns: [medicationConfigs.id],
+    name: "medication_config_id_medication_configs_fk",
+  }).onDelete("cascade"),
   index("idx_anesthesia_set_medications_set").on(table.setId),
   index("idx_anesthesia_set_medications_config").on(table.medicationConfigId),
   unique("uq_anesthesia_set_medication").on(table.setId, table.medicationConfigId),
@@ -5598,11 +5734,16 @@ export const patientDischargeMedications = pgTable("patient_discharge_medication
   signature: text("signature"),
   createdBy: varchar("created_by").references(() => users.id),
   inventoryCommittedAt: timestamp("inventory_committed_at", { withTimezone: true }),
-  inventoryCommittedBy: varchar("inventory_committed_by").references(() => users.id),
+  inventoryCommittedBy: varchar("inventory_committed_by"),
   inventorySignature: text("inventory_signature"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.inventoryCommittedBy],
+    foreignColumns: [users.id],
+    name: "inventory_committed_by_users_fk",
+  }),
   index("idx_discharge_meds_patient").on(table.patientId),
   index("idx_discharge_meds_hospital").on(table.hospitalId),
   index("idx_discharge_meds_doctor").on(table.doctorId),
@@ -5610,7 +5751,7 @@ export const patientDischargeMedications = pgTable("patient_discharge_medication
 
 export const patientDischargeMedicationItems = pgTable("patient_discharge_medication_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  dischargeMedicationId: varchar("discharge_medication_id").notNull().references(() => patientDischargeMedications.id, { onDelete: 'cascade' }),
+  dischargeMedicationId: varchar("discharge_medication_id").notNull(),
   itemId: varchar("item_id").references(() => items.id),
   customName: varchar("custom_name"),
   quantity: integer("quantity").notNull().default(1),
@@ -5621,6 +5762,11 @@ export const patientDischargeMedicationItems = pgTable("patient_discharge_medica
   endPrice: decimal("end_price", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.dischargeMedicationId],
+    foreignColumns: [patientDischargeMedications.id],
+    name: "discharge_medication_id_patient_discharge_medications_fk",
+  }).onDelete("cascade"),
   index("idx_discharge_med_items_slot").on(table.dischargeMedicationId),
   index("idx_discharge_med_items_item").on(table.itemId),
 ]);
@@ -5656,7 +5802,7 @@ export const dischargeMedicationTemplates = pgTable("discharge_medication_templa
 
 export const dischargeMedicationTemplateItems = pgTable("discharge_medication_template_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull().references(() => dischargeMedicationTemplates.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").notNull(),
   itemId: varchar("item_id").references(() => items.id),
   customName: varchar("custom_name"),
   quantity: integer("quantity").notNull().default(1),
@@ -5665,6 +5811,11 @@ export const dischargeMedicationTemplateItems = pgTable("discharge_medication_te
   frequency: varchar("frequency"),
   notes: text("notes"),
 }, (table) => [
+  foreignKey({
+    columns: [table.templateId],
+    foreignColumns: [dischargeMedicationTemplates.id],
+    name: "template_id_discharge_medication_templates_fk",
+  }).onDelete("cascade"),
   index("idx_discharge_med_tmpl_items_template").on(table.templateId),
 ]);
 
@@ -6075,7 +6226,7 @@ export const tardocInvoiceTemplates = pgTable("tardoc_invoice_templates", {
 
 export const tardocInvoiceTemplateItems = pgTable("tardoc_invoice_template_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull().references(() => tardocInvoiceTemplates.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").notNull(),
   tardocCode: varchar("tardoc_code").notNull(),
   description: varchar("description").notNull(),
   taxPoints: decimal("tax_points", { precision: 10, scale: 2 }),
@@ -6084,6 +6235,11 @@ export const tardocInvoiceTemplateItems = pgTable("tardoc_invoice_template_items
   quantity: integer("quantity").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
 }, (table) => [
+  foreignKey({
+    columns: [table.templateId],
+    foreignColumns: [tardocInvoiceTemplates.id],
+    name: "template_id_tardoc_invoice_templates_fk",
+  }).onDelete("cascade"),
   index("idx_tardoc_template_items_template").on(table.templateId),
 ]);
 
@@ -6287,7 +6443,7 @@ export type InsertClinicClosure = z.infer<typeof insertClinicClosureSchema>;
 // Appointment Action Tokens — token-based cancel/confirm links for patients (no login required)
 export const appointmentActionTokens = pgTable("appointment_action_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  appointmentId: varchar("appointment_id").notNull().references(() => clinicAppointments.id, { onDelete: 'cascade' }),
+  appointmentId: varchar("appointment_id").notNull(),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   token: varchar("token").notNull().unique(),
   action: varchar("action", { enum: ["cancel", "confirm"] }).notNull(),
@@ -6296,6 +6452,11 @@ export const appointmentActionTokens = pgTable("appointment_action_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
+  foreignKey({
+    columns: [table.appointmentId],
+    foreignColumns: [clinicAppointments.id],
+    name: "appointment_id_clinic_appointments_fk",
+  }).onDelete("cascade"),
   index("idx_appointment_action_tokens_token").on(table.token),
   index("idx_appointment_action_tokens_appointment").on(table.appointmentId),
 ]);
