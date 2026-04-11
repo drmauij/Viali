@@ -48,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import SignaturePad from "@/components/SignaturePad";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1651,6 +1652,14 @@ export default function Op() {
                   />
                 </div>
 
+                {/* Legacy fields — collapsed by default, superseded by order-set system */}
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-1">
+                    <ChevronRight className="w-4 h-4 transition-transform [[data-state=open]>&]:rotate-90" />
+                    {t('postopOrders.legacyFields', 'Medication Timing / PONV / Ambulatory (legacy)')}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-2">
+
                 {/* Medication Timing Fields */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium">Medication Timing</h4>
@@ -2050,6 +2059,9 @@ export default function Op() {
                     />
                   </div>
                 </div>
+
+                  </CollapsibleContent>
+                </Collapsible>
 
                 {/* Intraoperative Complications - moved to end */}
                 <div className="space-y-2">
