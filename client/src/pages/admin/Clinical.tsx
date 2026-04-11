@@ -19,6 +19,7 @@ import { formatDateLong, formatDateForInput } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 import { DischargeBriefTemplateManager } from "@/components/dischargeBriefs/DischargeBriefTemplateManager";
 import ClinicShiftTypes from "@/pages/clinic/ShiftTypes";
+import PostopOrderTemplatesPage from "@/pages/admin/PostopOrderTemplates";
 
 // Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
@@ -43,8 +44,8 @@ export default function Clinical() {
 
   // Internal tab state
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["units", "rooms", "checklists", "templates", "shifts"];
-  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates" | "shifts">(
+  const validTabs = ["units", "rooms", "checklists", "templates", "shifts", "postop-orders"];
+  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "templates" | "shifts" | "postop-orders">(
     urlTab && validTabs.includes(urlTab) ? urlTab as any : "units"
   );
 
@@ -520,6 +521,10 @@ export default function Clinical() {
               <i className="fas fa-clock mr-2 shrink-0"></i>
               <span className="truncate">{t("shifts.settings.title", "Shift Types")}</span>
             </TabsTrigger>
+            <TabsTrigger value="postop-orders" data-testid="tab-postop-orders" className="justify-start md:w-full">
+              <i className="fas fa-clipboard-list mr-2 shrink-0"></i>
+              <span className="truncate">{t("postopOrders.adminTitle", "Postop Order Templates")}</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab content area */}
@@ -812,6 +817,10 @@ export default function Clinical() {
 
         <TabsContent value="shifts">
           <ClinicShiftTypes />
+        </TabsContent>
+
+        <TabsContent value="postop-orders">
+          <PostopOrderTemplatesPage />
         </TabsContent>
 
           </div>

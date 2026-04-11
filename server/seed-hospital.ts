@@ -18,6 +18,7 @@ import {
   DEFAULT_ADMINISTRATION_GROUPS,
   DEFAULT_MEDICATIONS,
 } from "./seed-data";
+import { seedPostopOrderTemplates } from "./seed/postopOrderTemplates";
 
 export interface SeedResult {
   unitsCreated: number;
@@ -485,6 +486,9 @@ export async function seedHospitalData(
       });
     }
   }
+
+  // Seed postop order templates
+  await seedPostopOrderTemplates(hospitalId);
 
   return result;
 }
