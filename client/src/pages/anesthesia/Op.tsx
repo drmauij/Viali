@@ -1323,6 +1323,23 @@ export default function Op() {
                 </div>
               </div>
 
+              {/* Legacy postop info from anesthesia record */}
+              {(postOpData.postOpDestination || postOpData.postOpNotes || postOpData.complications) && (
+                <Card>
+                  <CardContent className="py-3 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
+                    {postOpData.postOpDestination && (
+                      <div><span className="text-muted-foreground">Destination: </span><span className="font-medium">{postOpData.postOpDestination.toUpperCase()}</span></div>
+                    )}
+                    {postOpData.postOpNotes && (
+                      <div className="col-span-2"><span className="text-muted-foreground">Notes: </span><span>{postOpData.postOpNotes}</span></div>
+                    )}
+                    {postOpData.complications && (
+                      <div className="col-span-2"><span className="text-muted-foreground">Complications: </span><span className="text-destructive">{postOpData.complications}</span></div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Bottom row: Tasks panel + Intraop meds */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <PostopTasksPanel
@@ -2053,6 +2070,24 @@ export default function Op() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Postoperative Orders (order-set editor) */}
+            <OrdersGlanceCard
+              items={postopOrderSet.data?.orderSet.items ?? []}
+              templateName={postopTemplates.data?.find(tp => tp.id === postopOrderSet.data?.orderSet.templateId)?.name ?? null}
+              onEdit={() => setOrderEditorOpen(true)}
+              canEdit={!anesthesiaRecord?.isLocked}
+            />
+            <OrderSetEditorDialog
+              open={orderEditorOpen}
+              onOpenChange={setOrderEditorOpen}
+              initial={{
+                items: postopOrderSet.data?.orderSet.items ?? [],
+                templateId: postopOrderSet.data?.orderSet.templateId ?? null,
+              }}
+              templates={postopTemplates.data ?? []}
+              onSave={(payload) => postopOrderSet.save.mutate(payload)}
+            />
           </TabsContent>
           )}
 

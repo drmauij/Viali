@@ -16,6 +16,13 @@ const pacuShortItems: PostopOrderItem[] = [
     actionLow: 'O2-Gabe, Arztinfo' },
   { id: id(), type: 'vitals_monitoring', parameter: 'temp', frequency: '2x_daily', max: 38.5,
     actionHigh: 'Fieberkurve, Infektsuche' },
+  // Ambulatory care tasks
+  { id: id(), type: 'task', title: 'Antibiotikum nach 4h wiederholen', when: 'conditional', condition: 'falls AB gegeben' },
+  { id: id(), type: 'task', title: 'OSAS: Min. 4h Beobachtung nach letztem Opioid', when: 'conditional', condition: 'bei OSAS-Patienten' },
+  { id: id(), type: 'task', title: 'Begleitperson für Entlassung erforderlich', when: 'ad_hoc' },
+  { id: id(), type: 'task', title: 'Motorik-Check nach Regionalanästhesie', when: 'ad_hoc', actionHint: 'Vor Entlassung Sensibilität und Motorik prüfen' },
+  { id: id(), type: 'task', title: 'Verlängerte Überwachung (Risiko-Patient)', when: 'ad_hoc' },
+  { id: id(), type: 'task', title: 'Keine oralen Antikoagulanzien für 24h', when: 'conditional', condition: 'nach Regionalanästhesie' },
 ];
 
 const overnightItems: PostopOrderItem[] = [
