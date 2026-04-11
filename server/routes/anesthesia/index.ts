@@ -12,6 +12,7 @@ import inventoryRouter from "./inventory";
 import installationsRouter from "./installations";
 import episodesRouter from "./episodes";
 import orMedicationsRouter from "./orMedications";
+import postopOrdersRouter from "./postopOrders";
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use(inventoryRouter);
 router.use(installationsRouter);
 router.use(episodesRouter);
 router.use(orMedicationsRouter);
+router.use(postopOrdersRouter);
 
 export default router;
