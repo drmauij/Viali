@@ -12,14 +12,17 @@ import {
 } from "@/components/anesthesia/AnesthesiaDocumentation";
 import { OpInventory } from "@/components/anesthesia/OpInventory";
 import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
-import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
 import { PacuBedSelector, PacuBedSquare } from "@/components/anesthesia/PacuBedSelector";
 import { StaffTab } from "@/components/anesthesia/StaffTab";
-import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
 import { IntraOpTab } from "@/pages/anesthesia/op/IntraOpTab";
 import { CountsSterileTab } from "@/pages/anesthesia/op/CountsSterileTab";
 import { AllergiesDialog } from "@/pages/anesthesia/op/AllergiesDialog";
 import { IntraoperativeMedicationsCard } from "@/components/anesthesia/IntraoperativeMedicationsCard";
+import { OrdersGlanceCard } from "@/components/anesthesia/postop/OrdersGlanceCard";
+import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
+import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
+import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
+import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
@@ -229,6 +232,11 @@ export default function Op() {
     const pacuBed = surgeryRooms.find((room: any) => room.id === surgery.pacuBedId);
     return pacuBed?.name || null;
   }, [surgery?.pacuBedId, surgeryRooms]);
+
+  // Postoperative order set hooks
+  const postopOrderSet = usePostopOrderSet(anesthesiaRecord?.id);
+  const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
+  const [orderEditorOpen, setOrderEditorOpen] = useState(false);
 
   // Check if X2 marker is set (enables mode toggle)
   const hasX2Marker = useMemo(() => {
@@ -1281,28 +1289,49 @@ export default function Op() {
           {/* PACU Documentation Tab - Only visible in PACU mode */}
           {isPacuMode && (
             <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4" data-testid="tab-content-pacu">
-              {/* Two-column layout: Bed square on left, PostOpInfoCard on right */}
+              {/* Top row: Bed square + Orders at a glance */}
               <div className="flex gap-4 items-start">
-                {/* Floating bed square on the left */}
-                <PacuBedSquare 
+                <PacuBedSquare
                   surgeryId={surgeryId}
                   pacuBedName={pacuBedName}
                   pacuBedId={surgery?.pacuBedId}
                 />
-                {/* Post-operative information card on the right */}
                 <div className="flex-1">
-                  <PostOpInfoCard postOpData={postOpData} pacuBedName={pacuBedName} pacuBedId={surgery?.pacuBedId} surgeryId={surgeryId} hideBedSquare />
+                  <OrdersGlanceCard
+                    items={postopOrderSet.data?.orderSet.items ?? []}
+                    templateName={postopTemplates.data?.find(t => t.id === postopOrderSet.data?.orderSet.templateId)?.name ?? null}
+                    onEdit={() => setOrderEditorOpen(true)}
+                    canEdit={!anesthesiaRecord?.isLocked}
+                  />
                 </div>
               </div>
-              {/* Two-column responsive layout for medication cards */}
+
+              {/* Bottom row: Tasks panel + Intraop meds */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <MedicationScheduleCard postOpData={postOpData} />
-                <IntraoperativeMedicationsCard 
-                  medications={medicationsData || []} 
+                <PostopTasksPanel
+                  items={postopOrderSet.data?.orderSet.items ?? []}
+                  plannedEvents={postopOrderSet.data?.plannedEvents ?? []}
+                  now={Date.now()}
+                  onMarkDone={(eventId) => postopOrderSet.markDone.mutate(eventId)}
+                />
+                <IntraoperativeMedicationsCard
+                  medications={medicationsData || []}
                   items={inventoryItems || []}
                   patientWeight={patientWeight}
                 />
               </div>
+
+              {/* Order set editor dialog */}
+              <OrderSetEditorDialog
+                open={orderEditorOpen}
+                onOpenChange={setOrderEditorOpen}
+                initial={{
+                  items: postopOrderSet.data?.orderSet.items ?? [],
+                  templateId: postopOrderSet.data?.orderSet.templateId ?? null,
+                }}
+                templates={postopTemplates.data ?? []}
+                onSave={(payload) => postopOrderSet.save.mutate(payload)}
+              />
             </TabsContent>
           )}
 
