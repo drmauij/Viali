@@ -19,6 +19,7 @@ import {
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { PostopOrderItem } from "./postopOrderItems";
 
 // Session storage table (mandatory for Replit Auth)
 export const sessions = pgTable(
@@ -2420,6 +2421,48 @@ export const inventoryCommits = pgTable("inventory_commits", {
   index("idx_inventory_commits_unit").on(table.unitId),
 ]);
 
+// Postop order templates (hospital-level)
+export const postopOrderTemplates = pgTable("postop_order_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  items: jsonb("items").$type<PostopOrderItem[]>().notNull().default(sql`'[]'::jsonb`),
+  procedureCode: varchar("procedure_code"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Postop order set (one per anesthesia record for now)
+export const postopOrderSets = pgTable("postop_order_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique()
+    .references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").references(() => postopOrderTemplates.id, { onDelete: "set null" }),
+  items: jsonb("items").$type<PostopOrderItem[]>().notNull().default(sql`'[]'::jsonb`),
+  signedBy: varchar("signed_by").references(() => users.id),
+  signedAt: timestamp("signed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Planned events derived from an order set
+export const postopPlannedEvents = pgTable("postop_planned_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderSetId: varchar("order_set_id").notNull()
+    .references(() => postopOrderSets.id, { onDelete: "cascade" }),
+  itemId: varchar("item_id").notNull(),
+  kind: varchar("kind", { enum: ["medication", "vitals_check", "task", "iv_fluid"] }).notNull(),
+  plannedAt: timestamp("planned_at").notNull(),
+  plannedEndAt: timestamp("planned_end_at"),
+  payloadSnapshot: jsonb("payload_snapshot").notNull(),
+  status: varchar("status", { enum: ["planned", "done", "missed", "cancelled"] }).notNull().default("planned"),
+  doneAt: timestamp("done_at"),
+  doneBy: varchar("done_by").references(() => users.id),
+  doneValue: jsonb("done_value"),
+});
+
 // Audit Trail (Immutable log of all changes for compliance)
 export const auditTrail = pgTable("audit_trail", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3785,6 +3828,11 @@ export type InventoryCommit = typeof inventoryCommits.$inferSelect;
 export type InsertInventoryCommit = z.infer<typeof insertInventoryCommitSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;
 export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
+export type PostopOrderTemplate = typeof postopOrderTemplates.$inferSelect;
+export type PostopOrderSet = typeof postopOrderSets.$inferSelect;
+export type PostopPlannedEvent = typeof postopPlannedEvents.$inferSelect;
+export const insertPostopOrderTemplateSchema = createInsertSchema(postopOrderTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPostopOrderSetSchema = createInsertSchema(postopOrderSets).omit({ id: true, createdAt: true, updatedAt: true });
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 
