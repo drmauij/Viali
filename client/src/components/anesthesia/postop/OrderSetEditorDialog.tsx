@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,12 +23,16 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
   const itemTypeLabels = useItemTypeLabels();
 
+  // Only sync from initial when the dialog opens (closed → open transition).
+  // Do NOT re-sync while already open — that would wipe user edits.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpen.current) {
       setItems(initial.items);
       setTemplateId(initial.templateId);
     }
-  }, [initial, open]);
+    wasOpen.current = open;
+  }, [open]);
 
   const applyTemplate = (tid: string) => {
     const tpl = templates.find(t => t.id === tid);
