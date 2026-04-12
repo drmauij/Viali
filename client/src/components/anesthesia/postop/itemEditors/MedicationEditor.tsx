@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
 export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<MedicationItem>) {
+  const { t } = useTranslation();
   const hospital = useActiveHospital();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,12 +49,12 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
   return (
     <div className="border rounded-md p-3 space-y-2">
       <div className="flex justify-between items-center">
-        <span className="text-xs uppercase text-muted-foreground font-medium">Medikation</span>
+        <span className="text-xs uppercase text-muted-foreground font-medium">{t('postopOrders.editor.medication', 'Medication')}</span>
         <Button size="icon" variant="ghost" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className="text-xs">Medikament</Label>
+          <Label className="text-xs">{t('postopOrders.editor.drug', 'Medication')}</Label>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -62,7 +64,7 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
                 className="w-full justify-between font-normal h-9 text-sm"
               >
                 <span className="truncate">
-                  {item.medicationRef || 'Medikament wählen...'}
+                  {item.medicationRef || t('postopOrders.editor.selectMedication', 'Choose medication...')}
                 </span>
                 {item.medicationRef ? (
                   <X
@@ -80,7 +82,7 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
             <PopoverContent className="w-[300px] p-0" align="start">
               <Command shouldFilter={false}>
                 <CommandInput
-                  placeholder="Medikament suchen..."
+                  placeholder={t('postopOrders.editor.searchMedication', 'Search medication...')}
                   value={searchQuery}
                   onValueChange={setSearchQuery}
                 />
@@ -92,10 +94,10 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
                         onClick={() => addFreeText(searchQuery)}
                       >
                         <Plus className="h-4 w-4 mr-1 inline" />
-                        "{searchQuery.trim()}" als Freitext hinzufügen
+                        {t('postopOrders.editor.addAsFreeText', 'Add "{{text}}" as free text', { text: searchQuery.trim() })}
                       </button>
                     ) : (
-                      'Kein Medikament gefunden'
+                      t('postopOrders.editor.noMedicationFound', 'No medication found')
                     )}
                   </CommandEmpty>
                   <CommandGroup>
@@ -121,7 +123,7 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
                         onSelect={() => addFreeText(searchQuery)}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        "{searchQuery.trim()}" als Freitext hinzufügen
+                        {t('postopOrders.editor.addAsFreeText', 'Add "{{text}}" as free text', { text: searchQuery.trim() })}
                       </CommandItem>
                     </CommandGroup>
                   )}
@@ -131,13 +133,13 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
           </Popover>
         </div>
         <div>
-          <Label className="text-xs">Dosis</Label>
+          <Label className="text-xs">{t('postopOrders.editor.dose', 'Dose')}</Label>
           <Input value={item.dose} onChange={e => onChange({ ...item, dose: e.target.value })} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className="text-xs">Applikation</Label>
+          <Label className="text-xs">{t('postopOrders.editor.route', 'Route')}</Label>
           <Select value={item.route} onValueChange={v => onChange({ ...item, route: v as MedicationItem['route'] })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -149,30 +151,30 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
           </Select>
         </div>
         <div>
-          <Label className="text-xs">Modus</Label>
+          <Label className="text-xs">{t('postopOrders.editor.mode', 'Mode')}</Label>
           <Select value={item.scheduleMode} onValueChange={v => onChange({ ...item, scheduleMode: v as MedicationItem['scheduleMode'] })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="scheduled">Planmässig</SelectItem>
-              <SelectItem value="prn">Bei Bedarf</SelectItem>
+              <SelectItem value="scheduled">{t('postopOrders.editor.scheduled', 'Scheduled')}</SelectItem>
+              <SelectItem value="prn">{t('postopOrders.editor.prn', 'PRN (as needed)')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
       {item.scheduleMode === 'scheduled' && (
         <div>
-          <Label className="text-xs">Frequenz</Label>
-          <Input value={item.frequency ?? ''} onChange={e => onChange({ ...item, frequency: e.target.value })} placeholder="z.B. q8h, 3x täglich" />
+          <Label className="text-xs">{t('postopOrders.editor.frequency', 'Frequency')}</Label>
+          <Input value={item.frequency ?? ''} onChange={e => onChange({ ...item, frequency: e.target.value })} placeholder={t('postopOrders.editor.frequencyPlaceholder', 'e.g. q8h, 3x daily')} />
         </div>
       )}
       {item.scheduleMode === 'prn' && (
         <div>
-          <Label className="text-xs">Max. pro Tag</Label>
+          <Label className="text-xs">{t('postopOrders.editor.maxPerDay', 'Max per day')}</Label>
           <Input type="number" value={item.prnMaxPerDay ?? ''} onChange={e => onChange({ ...item, prnMaxPerDay: e.target.value ? Number(e.target.value) : undefined })} />
         </div>
       )}
       <div>
-        <Label className="text-xs">Bemerkung</Label>
+        <Label className="text-xs">{t('postopOrders.editor.note', 'Note')}</Label>
         <Input value={item.note ?? ''} onChange={e => onChange({ ...item, note: e.target.value })} />
       </div>
     </div>

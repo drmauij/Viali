@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus } from 'lucide-react';
 import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
-import { ItemEditor, ITEM_TYPE_LABELS } from './itemEditors';
+import { ItemEditor, useItemTypeLabels } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
 
 interface Props {
@@ -17,8 +18,10 @@ interface Props {
 }
 
 export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, onSave }: Props) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<PostopOrderItem[]>(initial.items);
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
+  const itemTypeLabels = useItemTypeLabels();
 
   useEffect(() => {
     if (open) {
@@ -51,23 +54,23 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Postoperative Verordnungen</DialogTitle>
+          <DialogTitle>{t('postopOrders.editor.dialogTitle', 'Postoperative Orders')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-2 pb-2 border-b">
-          <span className="text-sm text-muted-foreground">Template:</span>
+          <span className="text-sm text-muted-foreground">{t('postopOrders.template', 'Template')}:</span>
           <Select value={templateId ?? ''} onValueChange={applyTemplate}>
-            <SelectTrigger className="w-[260px]"><SelectValue placeholder="Vorlage wählen..." /></SelectTrigger>
+            <SelectTrigger className="w-[260px]"><SelectValue placeholder={t('postopOrders.editor.selectTemplate', 'Choose template...')} /></SelectTrigger>
             <SelectContent>
               {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-1" /> Hinzufügen</Button>
+              <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-1" /> {t('postopOrders.addItem', 'Add Item')}</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {(Object.entries(ITEM_TYPE_LABELS) as [PostopOrderItemType, string][]).map(([t, label]) => (
+              {(Object.entries(itemTypeLabels) as [PostopOrderItemType, string][]).map(([t, label]) => (
                 <DropdownMenuItem key={t} onClick={() => addItem(t)}>{label}</DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -77,7 +80,7 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
         <div className="space-y-3 py-2">
           {items.length === 0 && (
             <div className="text-sm text-muted-foreground py-4 text-center">
-              Keine Einträge — wählen Sie eine Vorlage oder fügen Sie Einträge hinzu.
+              {t('postopOrders.editor.noItems', 'No items — choose a template or add items above.')}
             </div>
           )}
           {items.map(item => (
@@ -91,8 +94,8 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={() => { onSave({ items, templateId }); onOpenChange(false); }}>Speichern</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('postopOrders.cancel', 'Cancel')}</Button>
+          <Button onClick={() => { onSave({ items, templateId }); onOpenChange(false); }}>{t('postopOrders.save', 'Save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

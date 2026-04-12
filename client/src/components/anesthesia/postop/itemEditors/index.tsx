@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { PostopOrderItem, PostopOrderItemType } from '@shared/postopOrderItems';
 import { MobilizationEditor } from './MobilizationEditor';
 import { PositioningEditor } from './PositioningEditor';
@@ -35,6 +36,25 @@ export function ItemEditor(props: ItemEditorProps) {
   }
 }
 
+export function useItemTypeLabels(): Record<PostopOrderItemType, string> {
+  const { t } = useTranslation();
+  return {
+    mobilization: t('postopOrders.editor.mobilization', 'Mobilization'),
+    positioning: t('postopOrders.editor.positioning', 'Positioning'),
+    drain: t('postopOrders.editor.drain', 'Drainage'),
+    nutrition: t('postopOrders.editor.nutrition', 'Nutrition'),
+    wound_care: t('postopOrders.editor.woundCare', 'Wound Care'),
+    vitals_monitoring: t('postopOrders.editor.vitalsMonitoring', 'Vitals Monitoring'),
+    medication: t('postopOrders.editor.medication', 'Medication'),
+    iv_fluid: t('postopOrders.editor.ivFluid', 'IV Fluid'),
+    lab: t('postopOrders.editor.lab', 'Lab'),
+    task: t('postopOrders.editor.task', 'Task'),
+    bz_sliding_scale: t('postopOrders.editor.bzSlidingScale', 'BG Sliding Scale'),
+    free_text: t('postopOrders.editor.freeText', 'Free Text'),
+  };
+}
+
+/** @deprecated Use useItemTypeLabels() hook instead */
 export const ITEM_TYPE_LABELS: Record<PostopOrderItemType, string> = {
   mobilization: 'Mobilisation',
   positioning: 'Lagerung',
