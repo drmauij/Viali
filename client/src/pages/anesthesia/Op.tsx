@@ -1366,6 +1366,20 @@ export default function Op() {
                 }}
                 templates={postopTemplates.data ?? []}
                 onSave={(payload) => postopOrderSet.save.mutate(payload)}
+                hospitalId={activeHospital?.id}
+                onSaveAsTemplate={(payload) => {
+                  if (payload.overwriteId) {
+                    postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
+                  } else {
+                    postopTemplates.create.mutate({
+                      hospitalId: activeHospital?.id ?? '',
+                      name: payload.name,
+                      description: null,
+                      items: payload.items,
+                      procedureCode: null,
+                    });
+                  }
+                }}
               />
             </TabsContent>
           )}
@@ -2099,6 +2113,20 @@ export default function Op() {
               }}
               templates={postopTemplates.data ?? []}
               onSave={(payload) => postopOrderSet.save.mutate(payload)}
+              hospitalId={activeHospital?.id}
+              onSaveAsTemplate={(payload) => {
+                if (payload.overwriteId) {
+                  postopTemplates.update.mutate({ id: payload.overwriteId, patch: { items: payload.items } });
+                } else {
+                  postopTemplates.create.mutate({
+                    hospitalId: activeHospital?.id ?? '',
+                    name: payload.name,
+                    description: null,
+                    items: payload.items,
+                    procedureCode: null,
+                  });
+                }
+              }}
             />
           </TabsContent>
           )}

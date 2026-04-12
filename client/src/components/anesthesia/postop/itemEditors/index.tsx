@@ -17,6 +17,7 @@ export interface ItemEditorProps<T extends PostopOrderItem = PostopOrderItem> {
   item: T;
   onChange: (item: T) => void;
   onRemove: () => void;
+  hospitalId?: string;
 }
 
 export function ItemEditor(props: ItemEditorProps) {

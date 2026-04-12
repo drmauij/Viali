@@ -6788,7 +6788,12 @@
       "sectionMeds": "Medikamente",
       "sectionLabs": "Labor",
       "sectionOther": "Sonstiges",
-      "text": "Text"
+      "text": "Text",
+      "saveAsTemplate": "Als Vorlage speichern",
+      "templateNamePrompt": "Name der Vorlage:",
+      "saveAsNew": "Als neue Vorlage speichern",
+      "overwrite": "Überschreiben",
+      "configureMedication": "Neues Medikament konfigurieren"
     }
   },
   "todoList": {

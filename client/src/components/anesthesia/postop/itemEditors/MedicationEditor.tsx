@@ -7,16 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Trash2, Plus, ChevronsUpDown, X } from 'lucide-react';
+import { Trash2, Plus, ChevronsUpDown, X, Settings } from 'lucide-react';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
+import { MedicationConfigDialog } from '@/components/anesthesia/MedicationConfigDialog';
 import type { MedicationItem } from '@shared/postopOrderItems';
 import type { ItemEditorProps } from './index';
 
-export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<MedicationItem>) {
+export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemEditorProps<MedicationItem>) {
   const { t } = useTranslation();
   const hospital = useActiveHospital();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [configOpen, setConfigOpen] = useState(false);
 
   const { data: inventoryItems = [] } = useQuery<any[]>({
     queryKey: [`/api/items/${hospital?.id}?unitId=${hospital?.unitId}`],
@@ -50,7 +52,19 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
     <div className="border rounded-md p-3 space-y-2">
       <div className="flex justify-between items-center">
         <span className="text-xs uppercase text-muted-foreground font-medium">{t('postopOrders.editor.medication', 'Medication')}</span>
-        <Button size="icon" variant="ghost" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
+        <div className="flex items-center gap-1">
+          {(hospitalId || hospital?.id) && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setConfigOpen(true)}
+              title={t('postopOrders.editor.configureMedication', 'Configure new medication')}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          )}
+          <Button size="icon" variant="ghost" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -177,6 +191,17 @@ export function MedicationEditor({ item, onChange, onRemove }: ItemEditorProps<M
         <Label className="text-xs">{t('postopOrders.editor.note', 'Note')}</Label>
         <Input value={item.note ?? ''} onChange={e => onChange({ ...item, note: e.target.value })} />
       </div>
+
+      {(hospitalId || hospital?.id) && (
+        <MedicationConfigDialog
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          administrationGroup={null}
+          activeHospitalId={hospitalId ?? hospital?.id}
+          activeUnitId={hospital?.unitId}
+          onSaveSuccess={() => setConfigOpen(false)}
+        />
+      )}
     </div>
   );
 }

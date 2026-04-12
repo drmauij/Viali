@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Save } from 'lucide-react';
 import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
 import { ItemEditor, useItemTypeLabels } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
@@ -15,9 +15,11 @@ interface Props {
   initial: { items: PostopOrderItem[]; templateId: string | null };
   templates: TemplateRow[];
   onSave: (payload: { items: PostopOrderItem[]; templateId: string | null }) => void;
+  onSaveAsTemplate?: (payload: { name: string; items: PostopOrderItem[]; overwriteId?: string }) => void;
+  hospitalId?: string;
 }
 
-export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, onSave }: Props) {
+export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, onSave, onSaveAsTemplate, hospitalId }: Props) {
   const { t } = useTranslation();
   const [items, setItems] = useState<PostopOrderItem[]>(initial.items);
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
@@ -93,12 +95,37 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
               item={item}
               onChange={(next) => updateItem(item.id, next)}
               onRemove={() => removeItem(item.id)}
+              hospitalId={hospitalId}
             />
           ))}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('postopOrders.cancel', 'Cancel')}</Button>
+          {onSaveAsTemplate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={items.length === 0}>
+                  <Save className="w-4 h-4 mr-1" />
+                  {t('postopOrders.editor.saveAsTemplate', 'Save as template')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => {
+                  const name = window.prompt(t('postopOrders.editor.templateNamePrompt', 'Template name:'));
+                  if (name?.trim()) onSaveAsTemplate({ name: name.trim(), items });
+                }}>
+                  {t('postopOrders.editor.saveAsNew', 'Save as new template')}
+                </DropdownMenuItem>
+                {templates.length > 0 && <DropdownMenuSeparator />}
+                {templates.map(tpl => (
+                  <DropdownMenuItem key={tpl.id} onClick={() => onSaveAsTemplate({ name: tpl.name, items, overwriteId: tpl.id })}>
+                    {t('postopOrders.editor.overwrite', 'Overwrite')}: {tpl.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button onClick={() => { onSave({ items, templateId }); onOpenChange(false); }}>{t('postopOrders.save', 'Save')}</Button>
         </DialogFooter>
       </DialogContent>

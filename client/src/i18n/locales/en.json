@@ -6687,7 +6687,12 @@
       "sectionMeds": "Medications",
       "sectionLabs": "Lab",
       "sectionOther": "Other",
-      "text": "Text"
+      "text": "Text",
+      "saveAsTemplate": "Save as template",
+      "templateNamePrompt": "Template name:",
+      "saveAsNew": "Save as new template",
+      "overwrite": "Overwrite",
+      "configureMedication": "Configure new medication"
     }
   },
   "todoList": {
