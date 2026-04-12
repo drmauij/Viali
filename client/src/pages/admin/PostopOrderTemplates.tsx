@@ -12,7 +12,8 @@ export default function PostopOrderTemplatesPage() {
   const { t } = useTranslation();
   const hospital = useActiveHospital();
   const { data: templates = [], create, update, remove } = usePostopOrderTemplates(hospital?.id);
-  const [editing, setEditing] = useState<TemplateRow | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = editingId ? templates.find(t => t.id === editingId) ?? null : null;
   const [itemsEditorOpen, setItemsEditorOpen] = useState(false);
 
   return (
@@ -39,7 +40,7 @@ export default function PostopOrderTemplatesPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">{tpl.name}</CardTitle>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => { setEditing(tpl); setItemsEditorOpen(true); }}>
+                <Button size="icon" variant="ghost" onClick={() => { setEditingId(tpl.id); setItemsEditorOpen(true); }}>
                   <Pencil className="w-4 h-4" />
                 </Button>
                 <Button size="icon" variant="ghost" onClick={() => remove.mutate(tpl.id)}>
@@ -69,7 +70,7 @@ export default function PostopOrderTemplatesPage() {
       {editing && (
         <OrderSetEditorDialog
           open={itemsEditorOpen}
-          onOpenChange={(v) => { setItemsEditorOpen(v); if (!v) setEditing(null); }}
+          onOpenChange={(v) => { setItemsEditorOpen(v); if (!v) setEditingId(null); }}
           initial={{ items: editing.items, templateId: null }}
           templates={[]}
           onSave={({ items }) => update.mutate({ id: editing.id, patch: { items } })}
