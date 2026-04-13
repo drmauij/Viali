@@ -7150,7 +7150,11 @@
     "syncAbsences": "Sync Absences",
     "arrived": "Arrived",
     "noShowConfirm": "Mark this appointment as No-Show? The patient did not attend.",
-    "undoNoShow": "Undo No-Show"
+    "undoNoShow": "Undo No-Show",
+    "updateStatus": "Update status",
+    "cancelAppointment": "Cancel appointment",
+    "reactivate": "Reactivate",
+    "noShow": "No-Show"
   },
   "dischargeMedications": {
     "addNew": "Add Discharge Medications",

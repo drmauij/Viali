@@ -713,36 +713,14 @@ export default function ClinicCalendar({
       
       const appointmentDate = new Date(appt.appointmentDate);
       
-      // Use actual times when available (for in_progress/completed appointments)
-      let start: Date;
-      let end: Date;
-      
-      const actualStart = (appt as any).actualStartTime;
-      const actualEnd = (appt as any).actualEndTime;
-      
-      if (actualStart) {
-        // Use actual start time, but keep the original appointment date
-        const actualStartDate = new Date(actualStart);
-        start = new Date(appointmentDate);
-        start.setHours(actualStartDate.getHours(), actualStartDate.getMinutes(), 0, 0);
-      } else {
-        // Fall back to scheduled time
-        const [startHour, startMin] = (appt.startTime || "09:00").split(':').map(Number);
-        start = new Date(appointmentDate);
-        start.setHours(startHour, startMin, 0, 0);
-      }
+      // Always use scheduled times for calendar positioning so the layout stays readable
+      const [startHour, startMin] = (appt.startTime || "09:00").split(':').map(Number);
+      const start = new Date(appointmentDate);
+      start.setHours(startHour, startMin, 0, 0);
 
-      if (actualEnd) {
-        // Use actual end time, but keep the original appointment date
-        const actualEndDate = new Date(actualEnd);
-        end = new Date(appointmentDate);
-        end.setHours(actualEndDate.getHours(), actualEndDate.getMinutes(), 0, 0);
-      } else {
-        // Fall back to scheduled end time
-        const [endHour, endMin] = (appt.endTime || "09:30").split(':').map(Number);
-        end = new Date(appointmentDate);
-        end.setHours(endHour, endMin, 0, 0);
-      }
+      const [endHour, endMin] = (appt.endTime || "09:30").split(':').map(Number);
+      const end = new Date(appointmentDate);
+      end.setHours(endHour, endMin, 0, 0);
       
       return {
         id: appt.id,

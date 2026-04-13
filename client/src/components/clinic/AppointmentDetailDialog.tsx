@@ -11,6 +11,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +47,7 @@ import {
   LogIn,
   Megaphone,
   MessageSquare,
+  ChevronDown,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -650,131 +658,135 @@ export default function AppointmentDetailDialog({
                   </Button>
                 </div>
               ) : (
-                <>
-                  {/* Primary action row */}
-                  <div className="flex flex-wrap gap-2">
-                    {appointment.status === 'scheduled' && (
+                <div className="flex items-center justify-between w-full">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
                         disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-confirm-appointment"
+                        data-testid="button-update-status"
                       >
-                        <Check className="h-4 w-4 mr-1" />
-                        {t('appointments.confirm', 'Confirm')}
+                        {updateAppointmentMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                        )}
+                        {t('appointments.updateStatus', 'Update status')}
                       </Button>
-                    )}
-                    {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-600"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'arrived' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-arrived-appointment"
-                      >
-                        <LogIn className="h-4 w-4 mr-1" />
-                        {t('appointments.arrived', 'Arrived')}
-                      </Button>
-                    )}
-                    {(appointment.status === 'arrived') && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'in_progress' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-start-appointment"
-                      >
-                        {t('appointments.start', 'Start')}
-                      </Button>
-                    )}
-                    {appointment.status === 'in_progress' && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'completed' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-complete-appointment"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        {t('appointments.complete', 'Complete')}
-                      </Button>
-                    )}
-                    {appointment.status === 'no_show' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'scheduled' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-undo-no-show"
-                      >
-                        <Undo2 className="h-4 w-4 mr-1" />
-                        {t('appointments.undoNoShow', 'Undo No-Show')}
-                      </Button>
-                    )}
-                    {appointment.status === 'cancelled' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-300 dark:border-green-700 dark:hover:bg-green-900/20"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-reactivate-appointment"
-                      >
-                        <Undo2 className="h-4 w-4 mr-1" />
-                        {t('appointments.reactivate', 'Wiederherstellen')}
-                      </Button>
-                    )}
-                  </div>
-                  {/* Secondary actions row */}
-                  {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-900/20"
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {/* Forward-progress actions based on current status */}
+                      {appointment.status === 'scheduled' && (
+                        <DropdownMenuItem
+                          className="text-green-700 focus:text-green-700 dark:text-green-400 dark:focus:text-green-400"
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
+                          data-testid="button-confirm-appointment"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          {t('appointments.confirm', 'Confirm')}
+                        </DropdownMenuItem>
+                      )}
+                      {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                        <DropdownMenuItem
+                          className="text-teal-700 focus:text-teal-700 dark:text-teal-400 dark:focus:text-teal-400"
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'arrived' })}
+                          data-testid="button-arrived-appointment"
+                        >
+                          <LogIn className="h-4 w-4 mr-2" />
+                          {t('appointments.arrived', 'Arrived')}
+                        </DropdownMenuItem>
+                      )}
+                      {appointment.status === 'arrived' && (
+                        <DropdownMenuItem
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'in_progress' })}
+                          data-testid="button-start-appointment"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          {t('appointments.start', 'Start')}
+                        </DropdownMenuItem>
+                      )}
+                      {appointment.status === 'in_progress' && (
+                        <DropdownMenuItem
+                          className="text-green-700 focus:text-green-700 dark:text-green-400 dark:focus:text-green-400"
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'completed' })}
+                          data-testid="button-complete-appointment"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          {t('appointments.complete', 'Complete')}
+                        </DropdownMenuItem>
+                      )}
+                      {/* Undo actions for terminal states */}
+                      {appointment.status === 'no_show' && (
+                        <DropdownMenuItem
+                          className="text-green-700 focus:text-green-700 dark:text-green-400 dark:focus:text-green-400"
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'scheduled' })}
+                          data-testid="button-undo-no-show"
+                        >
+                          <Undo2 className="h-4 w-4 mr-2" />
+                          {t('appointments.undoNoShow', 'Undo No-Show')}
+                        </DropdownMenuItem>
+                      )}
+                      {appointment.status === 'cancelled' && (
+                        <DropdownMenuItem
+                          className="text-green-700 focus:text-green-700 dark:text-green-400 dark:focus:text-green-400"
+                          onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'confirmed' })}
+                          data-testid="button-reactivate-appointment"
+                        >
+                          <Undo2 className="h-4 w-4 mr-2" />
+                          {t('appointments.reactivate', 'Reactivate')}
+                        </DropdownMenuItem>
+                      )}
+                      {/* Negative actions for active appointments */}
+                      {(appointment.status === 'scheduled' || appointment.status === 'confirmed' || appointment.status === 'arrived') && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-purple-700 focus:text-purple-700 dark:text-purple-400 dark:focus:text-purple-400"
+                            onClick={() => {
+                              if (window.confirm(t('appointments.noShowConfirm', 'Mark this appointment as No-Show? The patient did not attend.'))) {
+                                updateAppointmentMutation.mutate({ id: appointment.id, status: 'no_show' });
+                              }
+                            }}
+                            data-testid="button-no-show-appointment"
+                          >
+                            <UserX className="h-4 w-4 mr-2" />
+                            {t('appointments.noShow', 'No-Show')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'cancelled' })}
+                            data-testid="button-cancel-appointment"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            {t('appointments.cancelAppointment', 'Cancel appointment')}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {/* Delete — always available */}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
                         onClick={() => {
-                          if (window.confirm(t('appointments.noShowConfirm', 'Mark this appointment as No-Show? The patient did not attend.'))) {
-                            updateAppointmentMutation.mutate({ id: appointment.id, status: 'no_show' });
+                          if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
+                            deleteAppointmentMutation.mutate(appointment.id);
                           }
                         }}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-no-show-appointment"
+                        data-testid="button-delete-appointment"
                       >
-                        <UserX className="h-4 w-4 mr-1" />
-                        {t('appointments.noShow', 'No-Show')}
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ id: appointment.id, status: 'cancelled' })}
-                        disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                        data-testid="button-cancel-appointment"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        {t('appointments.cancel', 'Cancel')}
-                      </Button>
-                    </div>
-                  )}
-                  {/* Delete always at bottom */}
-                  <div className="flex justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
-                          deleteAppointmentMutation.mutate(appointment.id);
-                        }
-                      }}
-                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
-                      data-testid="button-delete-appointment"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      {t('appointments.delete', 'Delete')}
-                    </Button>
-                  </div>
-                </>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {t('appointments.delete', 'Delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {t('common.close', 'Close')}
+                  </Button>
+                </div>
               )}
             </DialogFooter>
           </>

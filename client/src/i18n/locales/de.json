@@ -7251,7 +7251,11 @@
     "syncAbsences": "Abwesenheiten synchronisieren",
     "arrived": "Eingetroffen",
     "noShowConfirm": "Diesen Termin als No-Show markieren? Der Patient ist nicht erschienen.",
-    "undoNoShow": "No-Show rückgängig"
+    "undoNoShow": "No-Show rückgängig",
+    "updateStatus": "Status ändern",
+    "cancelAppointment": "Termin absagen",
+    "reactivate": "Wiederherstellen",
+    "noShow": "No-Show"
   },
   "dischargeMedications": {
     "addNew": "Entlassungsmedikation hinzufügen",
