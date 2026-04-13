@@ -59,6 +59,7 @@ interface FormData {
   surgeryNotes: string;
   diagnosis: string;
   coverageType: string;
+  stayType: "" | "ambulant" | "overnight";
   wishedDate: string;
   wishedTimeFrom: number | null;
   wishedTimeTo: number | null;
@@ -137,6 +138,7 @@ export default function ExternalSurgeryRequest() {
     surgeryNotes: '',
     diagnosis: '',
     coverageType: '',
+    stayType: '',
     wishedDate: '',
     wishedTimeFrom: null,
     wishedTimeTo: null,
@@ -857,6 +859,25 @@ export default function ExternalSurgeryRequest() {
                     placeholder={t('surgery.externalRequest.diagnosisPlaceholder', 'e.g. ICD-10 code or description')}
                     data-testid="input-diagnosis"
                   />
+                </div>
+
+                {/* Stay Type (Aufenthaltsart) */}
+                <div className="space-y-2">
+                  <Label htmlFor="stayType">
+                    {t('surgery.externalRequest.stayType')}
+                  </Label>
+                  <Select
+                    value={formData.stayType || undefined}
+                    onValueChange={(value) => updateField('stayType', value)}
+                  >
+                    <SelectTrigger data-testid="select-stay-type">
+                      <SelectValue placeholder={t('surgery.externalRequest.stayTypePlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ambulant">{t('surgery.externalRequest.stayTypeAmbulant')}</SelectItem>
+                      <SelectItem value="overnight">{t('surgery.externalRequest.stayTypeOvernight')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Section Divider: Scheduling */}

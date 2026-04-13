@@ -106,6 +106,7 @@ const externalSurgeryRequestSchema = z.object({
   surgeryNotes: z.string().optional(),
   diagnosis: z.string().optional().nullable().transform(v => v === '' ? null : v),
   coverageType: z.string().optional().nullable().transform(v => v === '' ? null : v),
+  stayType: z.enum(["ambulant", "overnight"]).optional().nullable().or(z.literal("").transform(() => null)),
   wishedDate: z.string().min(1, "Wished date is required"),
   wishedTimeFrom: z.number().int().min(0).max(1440).optional().nullable(),
   wishedTimeTo: z.number().int().min(0).max(1440).optional().nullable(),
@@ -831,6 +832,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       noPreOpRequired: request.withAnesthesia === false,
       diagnosis: request.diagnosis || null,
       coverageType: request.coverageType || null,
+      stayType: request.stayType || null,
     });
     
     await storage.updateExternalSurgeryRequest(id, {
