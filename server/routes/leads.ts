@@ -9,6 +9,7 @@ import logger from "../logger";
 import { createHash, randomBytes } from "crypto";
 import { calculateNameSimilarity } from "../services/patientDeduplication";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
+import { sendAppointmentNotification } from "./clinic";
 
 const router = Router();
 
@@ -791,7 +792,11 @@ router.post(
         })
         .where(eq(leads.id, leadId));
 
-      // 7. Return result
+      // 7. Send appointment confirmation to patient
+      sendAppointmentNotification(appointment.id, hospitalId, 'confirmation')
+        .catch(err => logger.error({ err, appointmentId: appointment.id }, "Failed to send confirmation after lead conversion"));
+
+      // 8. Return result
       return res.json({ status: "converted", patientId: resolvedPatientId, appointmentId: appointment.id });
     } catch (err) {
       logger.error({ err, leadId: req.params.leadId }, "Error converting lead");
