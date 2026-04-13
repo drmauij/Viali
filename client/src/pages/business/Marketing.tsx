@@ -161,6 +161,7 @@ type ReferralEvent = {
   createdAt: string;
   patientFirstName: string | null;
   patientLastName: string | null;
+  treatmentName: string | null;
 };
 
 export default function Marketing() {
@@ -614,6 +615,7 @@ export default function Marketing() {
                           <TableHead>{t('common.patient', 'Patient')}</TableHead>
                           <TableHead>{t('business.referrals.source', 'Source')}</TableHead>
                           <TableHead>{t('business.referrals.detail', 'Detail')}</TableHead>
+                          <TableHead>{t('business.referrals.treatment', 'Treatment')}</TableHead>
                           <TableHead>{t('business.referrals.campaign', 'Campaign')}</TableHead>
                           <TableHead>{t('business.referrals.keyword', 'Keyword')}</TableHead>
                           <TableHead>{t('business.referrals.clickIds', 'Click IDs')}</TableHead>
@@ -622,7 +624,7 @@ export default function Marketing() {
                       </TableHeader>
                       <TableBody>
                         {referralEvents.map((ev) => {
-                          const hasClickIds = ev.gclid || ev.gbraid || ev.wbraid || ev.fbclid || ev.ttclid || ev.msclkid || ev.metaLeadId || ev.metaFormId;
+                          const hasClickIds = ev.gclid || ev.gbraid || ev.wbraid || ev.fbclid || ev.ttclid || ev.msclkid || ev.metaLeadId || ev.metaFormId || ev.campaignId || ev.adsetId || ev.adId;
                           return (
                             <TableRow key={ev.id}>
                               <TableCell className="whitespace-nowrap text-sm">
@@ -641,6 +643,9 @@ export default function Marketing() {
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">
                                 {ev.sourceDetail || '—'}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {ev.treatmentName || '—'}
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">
                                 {ev.campaign || ev.utmCampaign || '—'}
@@ -689,6 +694,21 @@ export default function Marketing() {
                                     {ev.metaFormId && (
                                       <Badge variant="outline" className="text-xs font-mono bg-blue-500/10 text-blue-600 border-blue-300" title={ev.metaFormId}>
                                         form
+                                      </Badge>
+                                    )}
+                                    {ev.campaignId && (
+                                      <Badge variant="outline" className="text-xs font-mono bg-purple-500/10 text-purple-600 border-purple-300" title={ev.campaignId}>
+                                        campaign: {ev.campaignId.slice(0, 8)}…
+                                      </Badge>
+                                    )}
+                                    {ev.adsetId && (
+                                      <Badge variant="outline" className="text-xs font-mono bg-purple-500/10 text-purple-600 border-purple-300" title={ev.adsetId}>
+                                        adset: {ev.adsetId.slice(0, 8)}…
+                                      </Badge>
+                                    )}
+                                    {ev.adId && (
+                                      <Badge variant="outline" className="text-xs font-mono bg-purple-500/10 text-purple-600 border-purple-300" title={ev.adId}>
+                                        ad: {ev.adId.slice(0, 8)}…
                                       </Badge>
                                     )}
                                   </div>

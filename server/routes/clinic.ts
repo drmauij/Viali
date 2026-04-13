@@ -687,6 +687,10 @@ const bookingSchema = z.object({
   utmTerm: z.string().max(500).nullish(),
   utmContent: z.string().max(500).nullish(),
   refParam: z.string().max(500).nullish(),
+  // Ad platform campaign attribution
+  campaignId: z.string().max(500).nullish(),
+  adsetId: z.string().max(500).nullish(),
+  adId: z.string().max(500).nullish(),
   // Ad platform click IDs
   gclid: z.string().max(500).nullish(),
   gbraid: z.string().max(500).nullish(),
@@ -784,7 +788,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       });
 
       // Save referral event if any referral data present
-      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid || parsed.data.igshid || parsed.data.li_fat_id || parsed.data.twclid) {
+      if (parsed.data.referralSource || parsed.data.utmSource || parsed.data.refParam || parsed.data.campaignId || parsed.data.gclid || parsed.data.fbclid || parsed.data.ttclid || parsed.data.msclkid || parsed.data.gbraid || parsed.data.wbraid || parsed.data.igshid || parsed.data.li_fat_id || parsed.data.twclid) {
         const { referralEvents } = await import("@shared/schema");
         // Infer source from click IDs when no explicit source provided
         let inferredSource = parsed.data.referralSource || "other";
@@ -827,6 +831,10 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           igshid: parsed.data.igshid || null,
           li_fat_id: parsed.data.li_fat_id || null,
           twclid: parsed.data.twclid || null,
+          campaignId: parsed.data.campaignId || null,
+          campaignName: null,
+          adsetId: parsed.data.adsetId || null,
+          adId: parsed.data.adId || null,
           captureMethod: parsed.data.captureMethod || "manual",
         });
       }

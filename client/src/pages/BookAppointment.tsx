@@ -149,6 +149,10 @@ export default function BookAppointment() {
   const utmTerm = searchParams.get("utm_term");
   const utmContent = searchParams.get("utm_content");
   const refParam = searchParams.get("ref");
+  // Ad platform campaign attribution
+  const campaignId = searchParams.get("campaign_id");
+  const adsetId = searchParams.get("adset_id");
+  const adId = searchParams.get("ad_id");
   // Ad platform click IDs
   const gclid = searchParams.get("gclid");
   const gbraid = searchParams.get("gbraid");
@@ -531,6 +535,9 @@ export default function BookAppointment() {
           utmTerm,
           utmContent,
           refParam,
+          campaignId,
+          adsetId,
+          adId,
           gclid,
           gbraid,
           wbraid,
@@ -582,7 +589,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, campaignId, adsetId, adId, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
 
   const handleDetailsContinue = () => {
     if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim())) return;

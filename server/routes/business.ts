@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments } from "@shared/schema";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments, clinicServices } from "@shared/schema";
 import { eq, and, inArray, ne, desc, gte, lte, isNull, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
@@ -1902,9 +1902,12 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
         createdAt: referralEvents.createdAt,
         patientFirstName: patients.firstName,
         patientLastName: patients.surname,
+        treatmentName: clinicServices.name,
       })
       .from(referralEvents)
       .innerJoin(patients, eq(referralEvents.patientId, patients.id))
+      .leftJoin(clinicAppointments, eq(referralEvents.appointmentId, clinicAppointments.id))
+      .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
       .where(and(
         eq(referralEvents.hospitalId, hospitalId),
         before ? sql`${referralEvents.createdAt} < ${before}` : sql`1=1`
