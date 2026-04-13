@@ -4559,6 +4559,9 @@
       "both": "Beide"
     },
     "antibioseProphylaxe": "Antibiotika-Prophylaxe erforderlich",
+    "stayType": "Aufenthaltsart",
+    "stayTypeAmbulant": "Ambulant",
+    "stayTypeOvernight": "Mit Übernachtung",
     "surgery": {
       "noAnesthesia": "Ohne Anästhesie (nur Lokalanästhesie)"
     },
@@ -5134,6 +5137,10 @@
       "coverageTypeKrankenkasse": "Krankenkasse",
       "coverageTypeOther": "Andere...",
       "diagnosisPlaceholder": "z.B. ICD-10-Code oder Beschreibung",
+      "stayType": "Aufenthaltsart",
+      "stayTypePlaceholder": "Bitte wählen...",
+      "stayTypeAmbulant": "Ambulant",
+      "stayTypeOvernight": "Mit Übernachtung",
       "additionalInfo": "Zusätzliche Informationen...",
       "patientInformation": "Patienten Daten",
       "birthday": "Geburtsdatum",

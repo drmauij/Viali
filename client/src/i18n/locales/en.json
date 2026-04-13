@@ -4478,6 +4478,9 @@
       "both": "Both"
     },
     "antibioseProphylaxe": "Antibiotic Prophylaxis Required",
+    "stayType": "Stay Type",
+    "stayTypeAmbulant": "Outpatient",
+    "stayTypeOvernight": "Overnight Stay",
     "surgery": {
       "noAnesthesia": "Without Anesthesia (local anesthesia only)"
     },
@@ -5053,6 +5056,10 @@
       "coverageTypeKrankenkasse": "Insurance",
       "coverageTypeOther": "Other...",
       "diagnosisPlaceholder": "e.g. ICD-10 code or description",
+      "stayType": "Stay Type",
+      "stayTypePlaceholder": "Please select...",
+      "stayTypeAmbulant": "Outpatient",
+      "stayTypeOvernight": "Overnight Stay",
       "additionalInfo": "Additional information...",
       "patientInformation": "Patient Information",
       "birthday": "Birthday",
