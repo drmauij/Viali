@@ -26,6 +26,7 @@ export interface SurgeryFormFieldsProps {
   startTime: string;
   duration: number;
   admissionTime: string;
+  stayType: string;
   plannedSurgery: string;
   selectedChopCode: string;
   surgeonId: string;
@@ -46,6 +47,7 @@ export interface SurgeryFormFieldsProps {
   onStartTimeChange: (v: string) => void;
   onDurationChange: (v: number) => void;
   onAdmissionTimeChange: (v: string) => void;
+  onStayTypeChange: (v: string) => void;
   onPlannedSurgeryChange: (v: string) => void;
   onSelectedChopCodeChange: (v: string) => void;
   onSurgeonIdChange: (v: string) => void;
@@ -73,12 +75,12 @@ export interface SurgeryFormFieldsProps {
 }
 
 export function SurgeryFormFields({
-  surgeryRoomId, surgeryDate, startTime, duration, admissionTime,
+  surgeryRoomId, surgeryDate, startTime, duration, admissionTime, stayType,
   plannedSurgery, selectedChopCode, surgeonId, notes, diagnosis, coverageType, implantDetails,
   surgerySide, noPreOpRequired, antibioseProphylaxe,
   patientPosition, leftArmPosition, rightArmPosition,
   onSurgeryRoomIdChange, onSurgeryDateChange, onStartTimeChange,
-  onDurationChange, onAdmissionTimeChange, onPlannedSurgeryChange,
+  onDurationChange, onAdmissionTimeChange, onStayTypeChange, onPlannedSurgeryChange,
   onSelectedChopCodeChange, onSurgeonIdChange, onNotesChange, onDiagnosisChange,
   onCoverageTypeChange, onImplantDetailsChange, onSurgerySideChange, onNoPreOpRequiredChange,
   onAntibioseProphylaxeChange, onPatientPositionChange,
@@ -280,6 +282,22 @@ export function SurgeryFormFields({
           </div>
         )}
       </div>
+
+      {/* Stay Type (Ambulant / Übernachtung) */}
+      {!isSlotReservation && !isRoomBlock && (
+        <div className="space-y-1">
+          <Label>{t('anesthesia.stayType', 'Stay Type')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+          <Select value={stayType || undefined} onValueChange={onStayTypeChange} disabled={disabled}>
+            <SelectTrigger data-testid={tid("select-stay-type")}>
+              <SelectValue placeholder={t('surgery.externalRequest.stayTypePlaceholder', 'Select...')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ambulant">{t('anesthesia.stayTypeAmbulant', 'Outpatient')}</SelectItem>
+              <SelectItem value="overnight">{t('anesthesia.stayTypeOvernight', 'Overnight Stay')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {!isSlotReservation && (
         <>

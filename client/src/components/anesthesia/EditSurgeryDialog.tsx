@@ -57,6 +57,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [notes, setNotes] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [coverageType, setCoverageType] = useState("");
+  const [stayType, setStayType] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
   const [surgeryStatus, setSurgeryStatus] = useState<"planned" | "in-progress" | "completed" | "cancelled">("planned");
@@ -208,6 +209,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setNotes(surgery.notes || "");
       setDiagnosis(surgery.diagnosis || "");
       setCoverageType(surgery.coverageType || "");
+      setStayType(surgery.stayType || "");
       setImplantDetails(surgery.implantDetails || "");
       setPlanningStatus(surgery.planningStatus || "pre-registered");
       setSurgeryStatus(surgery.status || "planned");
@@ -261,6 +263,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         notes: notes || null,
         diagnosis: diagnosis || null,
         coverageType: coverageType || null,
+        stayType: stayType || null,
         admissionTime: admissionTimeISO,
         implantDetails: implantDetails || null,
         status: surgeryStatus,
@@ -603,6 +606,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 notes={notes}
                 diagnosis={diagnosis}
                 coverageType={coverageType}
+                stayType={stayType}
                 implantDetails={implantDetails}
                 surgerySide={surgerySide}
                 noPreOpRequired={noPreOpRequired}
@@ -621,6 +625,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onNotesChange={setNotes}
                 onDiagnosisChange={setDiagnosis}
                 onCoverageTypeChange={setCoverageType}
+                onStayTypeChange={setStayType}
                 onImplantDetailsChange={setImplantDetails}
                 onSurgerySideChange={(v) => setSurgerySide(v as typeof surgerySide)}
                 onNoPreOpRequiredChange={setNoPreOpRequired}
