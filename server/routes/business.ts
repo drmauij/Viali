@@ -1928,7 +1928,7 @@ router.patch('/api/business/:hospitalId/referral-events/:eventId', isAuthenticat
     const { hospitalId, eventId } = req.params;
     const { source, sourceDetail } = req.body;
 
-    const validSources = ['social', 'search_engine', 'llm', 'word_of_mouth', 'belegarzt', 'other'];
+    const validSources = ['social', 'search_engine', 'llm', 'word_of_mouth', 'belegarzt', 'marketing', 'other'];
     if (source && !validSources.includes(source)) {
       return res.status(400).json({ message: `source must be one of: ${validSources.join(', ')}` });
     }
