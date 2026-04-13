@@ -202,16 +202,16 @@ export function PatientInfoHeader({
                     }
                   </p>
                 )}
-                {preOpAssessment && (
+                {(preOpAssessment?.height || preOpAssessment?.weight || patient?.weight) && (
                   <div className="flex items-center gap-3 font-semibold text-sm">
-                    {preOpAssessment.height && (
+                    {preOpAssessment?.height && (
                       <>
                         <span className="text-foreground">{preOpAssessment.height} {t('anesthesia.op.cm')}</span>
                         <span className="text-muted-foreground">•</span>
                       </>
                     )}
-                    {preOpAssessment.weight && (
-                      <span className="text-foreground">{preOpAssessment.weight} {t('anesthesia.op.kg')}</span>
+                    {(preOpAssessment?.weight || patient?.weight) && (
+                      <span className="text-foreground">{preOpAssessment?.weight || patient?.weight} {t('anesthesia.op.kg')}</span>
                     )}
                   </div>
                 )}

@@ -25,6 +25,7 @@ import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
 import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
+import { QuestionnaireImportDialog } from "@/components/anesthesia/dialogs/QuestionnaireImportDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { CameraConnectionDialog } from "@/components/anesthesia/dialogs/CameraConnectionDialog";
 import { UnifiedAnesthesiaSetsDialog } from "@/components/anesthesia/dialogs/UnifiedAnesthesiaSetsDialog";
@@ -651,6 +652,8 @@ export default function Op() {
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [showQuestionnaireImportDialog, setShowQuestionnaireImportDialog] = useState(false);
+  const hasShownQuestionnaireImportRef = useRef(false);
   const [otherAllergies, setOtherAllergies] = useState("");
   const [cave, setCave] = useState("");
   
@@ -791,6 +794,12 @@ export default function Op() {
     enabled: !!activeHospital?.id && !!activeHospital?.unitId && activeHospital?.unitType === 'anesthesia',
   });
 
+  // Fetch questionnaire links in surgery mode to check for importable data
+  const { data: questionnaireLinks = [] } = useQuery<any[]>({
+    queryKey: [`/api/questionnaire/patient/${patient?.id}/links`],
+    enabled: !!patient?.id && isSurgeryMode,
+  });
+
   // Group items by folder and sort alphabetically
   const groupedItems = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -913,9 +922,10 @@ export default function Op() {
   // Use ref to track if we've already shown the dialog to prevent reopening after save
   const hasShownWeightDialogRef = useRef(false);
   
-  // Reset the ref whenever surgeryId changes (switching between surgeries)
+  // Reset the refs whenever surgeryId changes (switching between surgeries)
   useEffect(() => {
     hasShownWeightDialogRef.current = false;
+    hasShownQuestionnaireImportRef.current = false;
   }, [surgeryId]);
   
   useEffect(() => {
