@@ -1124,6 +1124,90 @@ function buildQuestionnaireSubmittedEmail(
   return { subject, html };
 }
 
+export async function sendQuestionnaireReceivedConfirmation(
+  toEmail: string,
+  hospitalName: string,
+  hospitalPhone: string | null,
+  hospitalEmail: string | null,
+  language: string = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Fragebogen erhalten — ${hospitalName}`
+      : `Questionnaire received — ${hospitalName}`;
+
+    // Build contact info footer if available
+    let contactHtml = '';
+    if (hospitalPhone || hospitalEmail) {
+      const contactLines: string[] = [];
+      if (hospitalPhone) contactLines.push(`<strong>${isGerman ? 'Telefon' : 'Phone'}:</strong> ${hospitalPhone}`);
+      if (hospitalEmail) contactLines.push(`<strong>E-Mail:</strong> ${hospitalEmail}`);
+      contactHtml = `
+        <div class="details">
+          <p><strong>${isGerman ? 'Kontakt' : 'Contact'}:</strong></p>
+          ${contactLines.map(l => `<p>${l}</p>`).join('')}
+        </div>
+      `;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${hospitalName}</h1>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag,' : 'Hello,'}</p>
+              <p>${isGerman
+                ? 'Vielen Dank! Ihr Fragebogen wurde erfolgreich an uns gesendet. Wir melden uns bei Ihnen.'
+                : 'Thank you! Your questionnaire has been received. We\'ll be in touch soon.'}</p>
+              ${contactHtml}
+            </div>
+            <div class="footer">
+              <p>${hospitalName}</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      logger.error('[Email] Failed to send questionnaire confirmation to patient:', error);
+      return { success: false, error };
+    }
+
+    logger.info(`[Email] Sent questionnaire confirmation to patient at ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error('[Email] Error sending questionnaire confirmation:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendSurgerySummaryEmail(
   toEmail: string,
   patientName: string,
