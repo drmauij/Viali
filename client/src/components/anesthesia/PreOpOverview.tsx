@@ -11,6 +11,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { ALL_REGIONAL_BLOCKS } from "@/lib/anesthesiaBlocks";
+import { QuestionnaireTab } from "@/components/questionnaire/QuestionnaireTab";
 
 type PreOpAssessmentData = {
   // General Data
@@ -170,6 +171,15 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     enabled: !!surgeryId,
   });
 
+  const { data: questionnaireLinks = [] } = useQuery<any[]>({
+    queryKey: [`/api/questionnaire/patient/${patientId}/links`],
+    enabled: !!patientId && addons.questionnaire,
+  });
+
+  const submittedLinks = questionnaireLinks.filter(
+    (link: any) => link.status === 'submitted' && link.response
+  );
+
   const getSelectedItems = (record: Record<string, boolean>, labels: Record<string, string>) => {
     return Object.entries(record || {})
       .filter(([_, value]) => value)
@@ -201,10 +211,24 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             </Button>
           </div>
         )}
-        <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-          <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
-        </div>
-        
+        {submittedLinks.length > 0 ? (
+          <QuestionnaireTab
+            patientId={patientId!}
+            hospitalId={hospitalId!}
+            canWrite={false}
+            questionnaireLinks={questionnaireLinks}
+            onOpenSendDialog={() => setSendDialogOpen(true)}
+            patientRecord={patientName ? {
+              firstName: patientName.split(', ')[1],
+              surname: patientName.split(', ')[0],
+            } : undefined}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+            <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>
+          </div>
+        )}
+
         {/* Send Questionnaire Dialog */}
         {patientId && patientName && (
           <SendQuestionnaireDialog
@@ -612,6 +636,26 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
               </CardContent>
             </Card>
           )}
+        </div>
+      )}
+
+      {/* Questionnaire responses - visible alongside pre-op data */}
+      {submittedLinks.length > 0 && patientId && hospitalId && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+            {t('anesthesia.preop.questionnaireResponses', 'Questionnaire Responses')}
+          </h3>
+          <QuestionnaireTab
+            patientId={patientId}
+            hospitalId={hospitalId}
+            canWrite={false}
+            questionnaireLinks={questionnaireLinks}
+            onOpenSendDialog={() => setSendDialogOpen(true)}
+            patientRecord={patientName ? {
+              firstName: patientName.split(', ')[1],
+              surname: patientName.split(', ')[0],
+            } : undefined}
+          />
         </div>
       )}
 
