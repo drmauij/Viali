@@ -132,6 +132,9 @@ export async function setupAuth(app: Express) {
         const user = await upsertUser(profile);
         
         // Check if user is allowed to login
+        if (user.archivedAt) {
+          return done(null, false, { message: "Your account has been deactivated. Please contact an administrator." });
+        }
         if (user.canLogin === false) {
           return done(null, false, { message: "Your account is not enabled for app access." });
         }
@@ -227,12 +230,23 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  // Check if user account has been archived (invalidate existing sessions)
+  try {
+    const dbUser = await storage.getUser(user.id);
+    if (!dbUser || dbUser.archivedAt) {
+      req.logout(() => {});
+      return res.status(401).json({ message: "Your account has been deactivated." });
+    }
+  } catch {
+    // If DB lookup fails, allow request to proceed rather than lock out all users
+  }
+
   // Check if user must change password (for local auth users)
   const isPasswordChangeEndpoint = req.path === '/api/auth/change-password' || req.path === '/api/auth/user';
   if (user.mustChangePassword && !isPasswordChangeEndpoint) {
-    return res.status(403).json({ 
-      message: "Password change required", 
-      mustChangePassword: true 
+    return res.status(403).json({
+      message: "Password change required",
+      mustChangePassword: true
     });
   }
 

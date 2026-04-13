@@ -108,6 +108,10 @@ router.post('/api/auth/login', async (req, res) => {
     }
 
     // Check if user is allowed to login
+    if (user.archivedAt) {
+      logAuthEvent(req, { userId: user.id, email, eventType: 'login_failed', failureReason: 'account_archived' });
+      return res.status(403).json({ message: "Your account has been deactivated. Please contact an administrator." });
+    }
     if (user.canLogin === false) {
       logAuthEvent(req, { userId: user.id, email, eventType: 'login_failed', failureReason: 'account_disabled' });
       return res.status(403).json({ message: "Your account is not enabled for app access. Please contact an administrator." });
