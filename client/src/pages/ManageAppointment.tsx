@@ -340,17 +340,6 @@ export default function ManageAppointment() {
           </Card>
         )}
 
-        {/* Notes Card */}
-        {info.notes && (
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("Anmerkungen", "Notes")}
-              </p>
-              <p className="text-gray-700">{info.notes}</p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* No-Show Fee Notice */}
         {info.noShowFeeMessage && (
