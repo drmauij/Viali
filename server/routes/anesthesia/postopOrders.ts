@@ -87,8 +87,8 @@ router.get('/api/anesthesia/records/:recordId/postop-orders', isAuthenticated, r
     if (!orderSet) {
       return res.json(null);
     }
-    const events = await postopOrdersStorage.listPlannedEvents(orderSet.id);
-    res.json({ orderSet, events });
+    const plannedEvents = await postopOrdersStorage.listPlannedEvents(orderSet.id);
+    res.json({ orderSet, plannedEvents });
   } catch (error) {
     logger.error("Error fetching postop order set:", error);
     res.status(500).json({ message: "Failed to fetch order set" });
@@ -113,8 +113,8 @@ router.put('/api/anesthesia/records/:recordId/postop-orders', isAuthenticated, r
     const planned = planEvents(items, Date.now(), HORIZON_HOURS);
     await postopOrdersStorage.replacePlannedEvents(orderSet.id, planned);
 
-    const events = await postopOrdersStorage.listPlannedEvents(orderSet.id);
-    res.json({ orderSet, events });
+    const plannedEvents = await postopOrdersStorage.listPlannedEvents(orderSet.id);
+    res.json({ orderSet, plannedEvents });
   } catch (error) {
     logger.error("Error upserting postop order set:", error);
     res.status(500).json({ message: "Failed to upsert order set" });
