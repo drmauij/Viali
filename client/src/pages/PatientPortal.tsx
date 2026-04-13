@@ -1775,36 +1775,26 @@ function PatientPortalContent({ token }: { token: string }) {
                 {/* Content */}
                 <div className="flex-1 pb-2">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.step1Title}</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{step1Complete ? t.step1Done : t.step1Title}</h3>
                     <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
-                    {step1Complete ? t.step1Done : step1InProgress ? t.step1InProgress : t.step1Desc}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant={step1Complete ? 'outline' : 'default'}
-                    onClick={() => navigate(data.questionnaireUrl)}
-                    className="w-full sm:w-auto"
-                    data-testid="button-questionnaire"
-                  >
-                    {step1Complete
-                      ? t.viewQuestionnaire
-                      : step1InProgress
-                        ? t.continueQuestionnaire
-                        : t.fillQuestionnaire}
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                  {step1Complete && (
+                  {!step1Complete && (
+                    <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+                      {step1InProgress ? t.step1InProgress : t.step1Desc}
+                    </p>
+                  )}
+                  {!step1Complete && (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={handleUpdateQuestionnaire}
-                      className="w-full sm:w-auto mt-2"
-                      data-testid="button-update-questionnaire"
+                      variant="default"
+                      onClick={() => navigate(data.questionnaireUrl)}
+                      className="w-full sm:w-auto"
+                      data-testid="button-questionnaire"
                     >
-                      <PenLine className="h-4 w-4 mr-1" />
-                      {t.updateQuestionnaire}
+                      {step1InProgress
+                        ? t.continueQuestionnaire
+                        : t.fillQuestionnaire}
+                      <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   )}
 

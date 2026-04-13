@@ -1582,36 +1582,56 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
       submittedAt: submitted.submittedAt,
     });
 
-    // Fire-and-forget: send confirmation to patient via the same channel the link was sent through
+    // Fire-and-forget: send confirmation to patient (SMS first, email as fallback)
     (async () => {
       try {
-        // Only confirm for links that were explicitly sent via SMS or email by staff
-        // General/walk-in links (no smsSentTo and no emailSentTo) are skipped
         const lang: 'de' | 'en' = link.language === 'de' ? 'de' : 'en';
         const patientFirstName = submitted.patientFirstName || '';
+        const patientPhone = submitted.patientPhone || link.smsSentTo || null;
+        const patientEmail = submitted.patientEmail || link.emailSentTo || null;
+
+        if (!patientPhone && !patientEmail) return; // No contact info available
 
         const hospital = await storage.getHospital(link.hospitalId);
         if (!hospital) return;
 
-        if (link.smsSentTo) {
-          // Confirm via SMS
+        if (patientPhone) {
+          // Confirm via SMS (preferred channel)
           const message = lang === 'de'
             ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospital.name} gesendet. Wir melden uns bei Ihnen.`
             : `Thank you! Your questionnaire has been received by ${hospital.name}. We'll be in touch soon.`;
 
-          const result = await sendSms(link.smsSentTo, message, link.hospitalId);
+          const result = await sendSms(patientPhone, message, link.hospitalId);
           if (!result.success) {
-            logger.error(`[Questionnaire] Failed to send confirmation SMS to ${link.smsSentTo}:`, result.error);
+            logger.error(`[Questionnaire] Failed to send confirmation SMS to ${patientPhone}:`, result.error);
+            // Fall through to email if SMS fails
+            if (patientEmail) {
+              const hospitalPhone = hospital.companyPhone || null;
+              const hospitalEmail = hospital.companyEmail || null;
+              const emailResult = await sendQuestionnaireReceivedConfirmation(
+                patientEmail,
+                hospital.name,
+                hospitalPhone,
+                hospitalEmail,
+                patientFirstName,
+                lang
+              );
+              if (!emailResult.success) {
+                logger.error(`[Questionnaire] Fallback email also failed for ${patientEmail}:`, emailResult.error);
+              } else {
+                logger.info(`[Questionnaire] Sent confirmation email (SMS fallback) to ${patientEmail}`);
+              }
+            }
           } else {
-            logger.info(`[Questionnaire] Sent confirmation SMS to ${link.smsSentTo}`);
+            logger.info(`[Questionnaire] Sent confirmation SMS to ${patientPhone}`);
           }
-        } else if (link.emailSentTo) {
-          // Confirm via email
+        } else if (patientEmail) {
+          // Confirm via email (no phone available)
           const hospitalPhone = hospital.companyPhone || null;
           const hospitalEmail = hospital.companyEmail || null;
 
           const result = await sendQuestionnaireReceivedConfirmation(
-            link.emailSentTo,
+            patientEmail,
             hospital.name,
             hospitalPhone,
             hospitalEmail,
@@ -1619,12 +1639,11 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
             lang
           );
           if (!result.success) {
-            logger.error(`[Questionnaire] Failed to send confirmation email to ${link.emailSentTo}:`, result.error);
+            logger.error(`[Questionnaire] Failed to send confirmation email to ${patientEmail}:`, result.error);
           } else {
-            logger.info(`[Questionnaire] Sent confirmation email to ${link.emailSentTo}`);
+            logger.info(`[Questionnaire] Sent confirmation email to ${patientEmail}`);
           }
         }
-        // else: general/walk-in link — no confirmation sent
       } catch (err) {
         logger.error('[Questionnaire] Error sending patient confirmation:', err);
       }
