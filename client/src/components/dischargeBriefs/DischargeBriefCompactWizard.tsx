@@ -1075,7 +1075,9 @@ export function DischargeBriefCompactWizard({
           setTemplateManagerOpen(open);
           if (!open) {
             queryClient.invalidateQueries({
-              queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+              predicate: (query) =>
+                typeof query.queryKey[0] === "string" &&
+                query.queryKey[0].startsWith(`/api/discharge-brief-templates/${hospitalId}`),
             });
           }
         }}

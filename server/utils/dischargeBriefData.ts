@@ -965,32 +965,24 @@ You MUST include a concise surgery summary with these details (extract from Surg
     }
   }
 
-  // When a template is provided, it defines the structure — but mandatory clinical sections take priority
+  // When a template is provided, use it as the base document — just inject real data
   if (templateContent?.trim()) {
-    return `You are a medical documentation assistant generating a ${briefLabel}.
-${mandatorySummaries}
+    return `You are a medical documentation assistant. The user provides clinical data and a template document.
 
-## Template
-Use the following template as the PREFERRED structure and tone for the brief.
-Fill in each section with the provided clinical data.
-Keep headings, order, and tone as close to the template as possible.
+Your job is simple: take the template below and produce the final brief by injecting the real clinical data into it.
 
-If the template does not include a section for the mandatory clinical data above, ADD those sections in a logical position (typically before follow-up / discharge instructions).
-The clinical data ends with REQUIRED OUTPUT SECTIONS — you MUST include those sections in your response, even if they don't match a template heading.
+## Instructions
+1. Start from the template HTML EXACTLY as given — keep every heading, every section, every paragraph.
+2. Where the template contains example/placeholder text that matches available clinical data, REPLACE that text with the real data.
+3. Where clinical data is available but the template has no matching section, ADD a new section at the end.
+4. Where the template has text but NO matching clinical data exists, keep the template text as-is — it serves as a structural example the doctor will edit manually.
+5. NEVER invent clinical details. Only inject data that is explicitly present in the clinical data below.
+6. Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them.
+7. Write in ${langName}.
+8. Output clean HTML only (no markdown).
 
----
-${templateContent}
----
-
-## Rules
-- Write the brief in ${langName}
-- Base the content ONLY on the provided clinical data — do not invent information
-- Keep placeholders like [NAME_1], [DATE_1] etc. intact — do NOT replace them
-- If follow-up appointment data is provided, use the exact dates and times from the data — do not invent appointment dates
-- If a template section has no matching clinical data, keep the section heading but note that no data was available ("keine Daten vorhanden")
-- Output as clean HTML. Use <h2> and <h3> for section headings, <p> for paragraphs, <strong> for bold, <em> for italic, <ul><li> for bullet lists, <ol><li> for numbered lists, <table> for tabular data, and <hr> for separators. Do NOT use markdown formatting.
-- IMPORTANT: When listing medications (discharge medications, prescriptions, or any medication list), ALWAYS use an HTML table with columns for Medication, Quantity, Route, Frequency, and Notes. Never list medications as bullet points or plain text.
-- Be concise but thorough`;
+## Template (this is your starting document):
+${templateContent}`;
   }
 
   // No template — use default section structure

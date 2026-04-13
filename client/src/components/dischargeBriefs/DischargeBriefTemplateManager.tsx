@@ -91,33 +91,26 @@ interface DischargeBriefTemplateManagerProps {
   units?: UnitInfo[];
 }
 
-const BRIEF_TYPES = [
-  { value: "_all", label: "All Brief Types" },
-  { value: "surgery_discharge", label: "Surgery Discharge" },
-  { value: "anesthesia_discharge", label: "Anesthesia Discharge" },
-  { value: "anesthesia_overnight_discharge", label: "Anesthesia + Overnight" },
-  { value: "surgery_report", label: "Surgery Report" },
-  { value: "surgery_estimate", label: "Surgery Estimate" },
-  { value: "generic", label: "Generic" },
-];
+// Brief type value keys (labels resolved inside component via t())
+const BRIEF_TYPE_VALUES = [
+  "_all",
+  "surgery_discharge",
+  "anesthesia_discharge",
+  "anesthesia_overnight_discharge",
+  "surgery_report",
+  "surgery_estimate",
+  "generic",
+] as const;
 
-// Brief types for assignment (excludes _all)
-const ASSIGNABLE_BRIEF_TYPES = BRIEF_TYPES.filter((bt) => bt.value !== "_all");
-
-const BRIEF_TYPE_LABELS: Record<string, string> = {
-  surgery_discharge: "Surgery",
-  anesthesia_discharge: "Anesthesia",
-  anesthesia_overnight_discharge: "Anesthesia + Overnight",
-  surgery_report: "Surgery Report",
-  surgery_estimate: "Surgery Estimate",
-  generic: "Generic",
-  _all: "All Types",
-};
-
-const VISIBILITY_LABELS: Record<string, string> = {
-  personal: "Personal",
-  unit: "Unit",
-  hospital: "Hospital",
+// Translation keys for each brief type value
+const BRIEF_TYPE_I18N: Record<string, { key: string; fallback: string }> = {
+  _all: { key: "dischargeBriefs.types.all", fallback: "All Brief Types" },
+  surgery_discharge: { key: "dischargeBriefs.types.surgeryDischarge", fallback: "Surgery Discharge" },
+  anesthesia_discharge: { key: "dischargeBriefs.types.anesthesiaDischarge", fallback: "Anesthesia Discharge" },
+  anesthesia_overnight_discharge: { key: "dischargeBriefs.types.anesthesiaOvernightDischarge", fallback: "Anesthesia + Overnight" },
+  surgery_report: { key: "dischargeBriefs.types.surgeryReport", fallback: "Surgery Report" },
+  surgery_estimate: { key: "dischargeBriefs.types.surgeryEstimate", fallback: "Surgery Estimate" },
+  generic: { key: "dischargeBriefs.types.generic", fallback: "Generic" },
 };
 
 type BulkAction = "delete" | "changeBriefType" | "changeVisibility";
@@ -134,6 +127,19 @@ export function DischargeBriefTemplateManager({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
+  // Translated brief type helpers
+  const briefTypeLabel = (value: string) => {
+    const entry = BRIEF_TYPE_I18N[value];
+    return entry ? t(entry.key, entry.fallback) : value;
+  };
+  const BRIEF_TYPES = BRIEF_TYPE_VALUES.map((v) => ({ value: v, label: briefTypeLabel(v) }));
+  const ASSIGNABLE_BRIEF_TYPES = BRIEF_TYPES.filter((bt) => bt.value !== "_all");
+  const VISIBILITY_LABELS: Record<string, string> = {
+    personal: t("dischargeBriefs.templates.visibilityPersonal", "Personal"),
+    unit: t("dischargeBriefs.templates.visibilityUnit", "Unit"),
+    hospital: t("dischargeBriefs.templates.visibilityHospital", "Hospital"),
+  };
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] =
     useState<DischargeBriefTemplate | null>(null);
@@ -149,7 +155,7 @@ export function DischargeBriefTemplateManager({
 
   // Bulk import state
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
-  const [bulkImportBriefType, setBulkImportBriefType] = useState("_auto");
+  const [bulkImportBriefType, setBulkImportBriefType] = useState("");
   const [pendingBulkFiles, setPendingBulkFiles] = useState<File[]>([]);
   const [bulkFiles, setBulkFiles] = useState<
     Array<{
@@ -428,7 +434,7 @@ export function DischargeBriefTemplateManager({
     setBulkFiles(
       fileList.map((f) => ({ name: f.name, status: "pending" as const })),
     );
-    setBulkImportBriefType("_auto");
+    setBulkImportBriefType("");
     setBulkImportOpen(true);
   };
 
@@ -499,7 +505,9 @@ export function DischargeBriefTemplateManager({
     setBulkImporting(false);
     setPendingBulkFiles([]);
     queryClient.invalidateQueries({
-      queryKey: [`/api/discharge-brief-templates/${hospitalId}`],
+      predicate: (query) =>
+        typeof query.queryKey[0] === "string" &&
+        query.queryKey[0].startsWith(`/api/discharge-brief-templates/${hospitalId}`),
     });
   };
 
@@ -742,7 +750,7 @@ export function DischargeBriefTemplateManager({
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-foreground break-words">{tpl.name}</h3>
                         <Badge variant="outline" className="text-xs">
-                          {BRIEF_TYPE_LABELS[tpl.briefType ?? "_all"] || tpl.briefType || "All Types"}
+                          {briefTypeLabel(tpl.briefType ?? "_all")}
                         </Badge>
                         <Badge
                           variant={tpl.visibility === "hospital" ? "default" : tpl.visibility === "unit" ? "secondary" : "outline"}
@@ -1152,7 +1160,7 @@ export function DischargeBriefTemplateManager({
                 onValueChange={setBulkImportBriefType}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={t("dischargeBriefs.templates.bulkImportSelectType", "Select brief type...")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_auto">
@@ -1230,7 +1238,7 @@ export function DischargeBriefTemplateManager({
                 >
                   {t("common.cancel", "Cancel")}
                 </Button>
-                <Button onClick={startBulkImport}>
+                <Button onClick={startBulkImport} disabled={!bulkImportBriefType}>
                   <Upload className="h-4 w-4 mr-1" />
                   {t("dischargeBriefs.templates.startImport", "Start Import")}
                 </Button>

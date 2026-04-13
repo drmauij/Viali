@@ -255,6 +255,12 @@ export function DischargeBriefEditor({
       queryClient.invalidateQueries({
         queryKey: [`/api/discharge-briefs/${briefId}`],
       });
+      // Also invalidate the briefs list so the card reflects the unlocked state
+      if (brief?.patientId) {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/patients/${brief.patientId}/discharge-briefs`],
+        });
+      }
       setUnlockDialogOpen(false);
       setUnlockReason("");
       toast({ title: t("dischargeBrief.unlocked", "Brief unlocked") });

@@ -259,6 +259,7 @@ router.post(
       if (templateId) {
         const template = await getDischargeBriefTemplateById(templateId);
         templateContent = template?.templateContent || null;
+        logger.info(`Brief generation: templateId=${templateId}, templateFound=${!!template}, contentLength=${templateContent?.length ?? 0}`);
       }
 
       // 6. Build prompts
@@ -271,8 +272,13 @@ router.post(
       }
 
       // Reinforce mandatory clinical sections at the end of user message (recency bias)
-      const suffix = buildUserMessageSuffix(blocks, briefType);
-      if (suffix) userMessage += suffix;
+      // Skip when a template is provided — the template defines the structure,
+      // and the system prompt already instructs the AI to add missing clinical
+      // sections. The REQUIRED suffix would override the template layout.
+      if (!templateContent?.trim()) {
+        const suffix = buildUserMessageSuffix(blocks, briefType);
+        if (suffix) userMessage += suffix;
+      }
 
       // 7. Create the brief record first (to get ID for audit linking)
       const brief = await createDischargeBrief({
