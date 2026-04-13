@@ -11,6 +11,7 @@ interface QuestionnaireImportDialogProps {
   onOpenChange: (open: boolean) => void;
   patientId: string;
   patientName: string;
+  surgeryId?: string;
   questionnaireAllergies: string[];
   questionnaireAllergiesNotes: string;
   questionnaireWeight: string;
@@ -21,6 +22,7 @@ export function QuestionnaireImportDialog({
   onOpenChange,
   patientId,
   patientName,
+  surgeryId,
   questionnaireAllergies,
   questionnaireAllergiesNotes,
   questionnaireWeight,
@@ -49,7 +51,27 @@ export function QuestionnaireImportDialog({
 
       await apiRequest("PATCH", `/api/patients/${patientId}`, updates);
 
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}`] });
+      // Also update the pre-op assessment weight if one exists for this surgery
+      if (surgeryId && hasWeight) {
+        try {
+          const preOpRes = await fetch(`/api/anesthesia/preop/surgery/${surgeryId}`, { credentials: 'include' });
+          if (preOpRes.ok) {
+            const preOp = await preOpRes.json();
+            if (preOp?.id) {
+              await apiRequest("PATCH", `/api/anesthesia/preop/${preOp.id}`, { weight: questionnaireWeight });
+            }
+          }
+        } catch (e) {
+          // Non-critical — patient record was already updated
+          console.warn("Could not update pre-op weight:", e);
+        }
+      }
+
+      // Force refetch patient and pre-op data to refresh header display
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: [`/api/patients/${patientId}`] }),
+        surgeryId ? queryClient.refetchQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] }) : Promise.resolve(),
+      ]);
 
       toast({
         title: t('common.success'),

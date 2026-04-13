@@ -96,6 +96,7 @@ interface PreOpOverviewProps {
   patientName?: string;
   patientEmail?: string | null;
   patientPhone?: string | null;
+  questionnaireLinks?: any[];
 }
 
 function useIllnessLabels() {
@@ -157,7 +158,7 @@ function useInstallationLabels() {
   } as Record<string, string>;
 }
 
-export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, patientEmail, patientPhone }: PreOpOverviewProps) {
+export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, patientEmail, patientPhone, questionnaireLinks: externalLinks }: PreOpOverviewProps) {
   const { t } = useTranslation();
   const { createTodo, isPending: isTodoPending } = useCreateTodo(hospitalId);
   const canWrite = useCanWrite();
@@ -171,10 +172,12 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     enabled: !!surgeryId,
   });
 
-  const { data: questionnaireLinks = [] } = useQuery<any[]>({
+  const { data: fetchedLinks = [] } = useQuery<any[]>({
     queryKey: [`/api/questionnaire/patient/${patientId}/links`],
-    enabled: !!patientId && addons.questionnaire,
+    enabled: !!patientId,
   });
+
+  const questionnaireLinks = (externalLinks && externalLinks.length > 0) ? externalLinks : fetchedLinks;
 
   const submittedLinks = questionnaireLinks.filter(
     (link: any) => link.status === 'submitted' && link.response
@@ -211,7 +214,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             </Button>
           </div>
         )}
-        {submittedLinks.length > 0 ? (
+        {questionnaireLinks.length > 0 ? (
           <QuestionnaireTab
             patientId={patientId!}
             hospitalId={hospitalId!}
@@ -421,6 +424,35 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
     data.specialNotes?.trim();
 
   if (!hasAnyData) {
+    // Assessment exists but has no relevant data — show questionnaire if available
+    if (questionnaireLinks.length > 0) {
+      return (
+        <div className="space-y-4 p-4">
+          <QuestionnaireTab
+            patientId={patientId!}
+            hospitalId={hospitalId!}
+            canWrite={false}
+            questionnaireLinks={questionnaireLinks}
+            onOpenSendDialog={() => setSendDialogOpen(true)}
+            patientRecord={patientName ? {
+              firstName: patientName.split(', ')[1],
+              surname: patientName.split(', ')[0],
+            } : undefined}
+          />
+          {patientId && patientName && (
+            <SendQuestionnaireDialog
+              open={sendDialogOpen}
+              onOpenChange={setSendDialogOpen}
+              patientId={patientId}
+              patientName={patientName}
+              patientEmail={patientEmail}
+              patientPhone={patientPhone}
+              surgeryId={surgeryId}
+            />
+          )}
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
         <p>{t('anesthesia.preop.noAssessmentData', 'No assessment data')}</p>

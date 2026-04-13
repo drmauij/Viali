@@ -305,7 +305,7 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, requi
 
     const { patientId } = req.params;
     const links = await storage.getQuestionnaireLinksForPatient(patientId);
-    
+
     // Filter to only links for this hospital
     const hospitalLinks = links.filter(l => l.hospitalId === hospitalId);
     

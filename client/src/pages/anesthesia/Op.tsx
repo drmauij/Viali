@@ -1118,6 +1118,7 @@ export default function Op() {
           onOpenChange={setShowQuestionnaireImportDialog}
           patientId={patient.id}
           patientName={`${patient.firstName} ${patient.surname}`}
+          surgeryId={surgeryId}
           questionnaireAllergies={resp.allergies || []}
           questionnaireAllergiesNotes={resp.allergiesNotes || ''}
           questionnaireWeight={resp.weight || ''}
@@ -1567,13 +1568,14 @@ export default function Op() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <PreOpOverview 
-                surgeryId={surgeryId!} 
+              <PreOpOverview
+                surgeryId={surgeryId!}
                 hospitalId={activeHospital?.id}
                 patientId={patient?.id}
                 patientName={patient ? `${patient.surname}, ${patient.firstName}` : undefined}
                 patientEmail={patient?.email}
                 patientPhone={patient?.phone}
+                questionnaireLinks={isSurgeryMode ? questionnaireLinks : undefined}
               />
             )}
           </TabsContent>

@@ -655,21 +655,26 @@ export function QuestionnaireTab({
                 )}
                 {fieldDiffMap.has("patientPhone") && (
                   <div className="space-y-1">
-                    <Label className="text-xs text-amber-600 font-medium">
+                    <Label className={cn("text-xs text-muted-foreground", canWrite && "text-amber-600 font-medium")}>
                       {t("questionnaireTab.phone", "Phone")}
                     </Label>
-                    <PhoneInputWithCountry
-                      value={editedData.patientPhone || ""}
-                      onChange={(v) => updateField("patientPhone", v)}
-                      disabled={!canWrite}
-                      className="ring-1 ring-amber-400"
-                    />
-                    <DiffResolver
-                      diff={fieldDiffMap.get("patientPhone")!}
-                      onResolve={resolveField}
-                      canWrite={canWrite}
-                      t={t}
-                    />
+                    {canWrite ? (
+                      <>
+                        <PhoneInputWithCountry
+                          value={editedData.patientPhone || ""}
+                          onChange={(v) => updateField("patientPhone", v)}
+                          className="ring-1 ring-amber-400"
+                        />
+                        <DiffResolver
+                          diff={fieldDiffMap.get("patientPhone")!}
+                          onResolve={resolveField}
+                          canWrite={canWrite}
+                          t={t}
+                        />
+                      </>
+                    ) : (
+                      <p className="text-sm py-2 px-3 bg-muted/50 rounded-md min-h-[36px]">{editedData.patientPhone || "–"}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -697,11 +702,7 @@ export function QuestionnaireTab({
                 <Label className="text-xs text-muted-foreground">
                   {t("questionnaireTab.bmi", "BMI")}
                 </Label>
-                <Input
-                  value={computeBmi(editedData.height, editedData.weight) ?? "–"}
-                  readOnly
-                  className="bg-muted cursor-default"
-                />
+                <p className="text-sm py-2 px-3 bg-muted/50 rounded-md min-h-[36px]">{computeBmi(editedData.height, editedData.weight) ?? "–"}</p>
               </div>
             </div>
 
@@ -1008,19 +1009,27 @@ export function QuestionnaireTab({
                 onChange={(v) => updateField("pregnancyStatus", v)}
                 readOnly={!canWrite}
               />
-              <div className="flex items-center gap-2 pt-6">
-                <Checkbox
-                  id="breastfeeding"
-                  checked={editedData.breastfeeding || false}
-                  onCheckedChange={(checked) =>
-                    updateField("breastfeeding", !!checked)
-                  }
-                  disabled={!canWrite}
+              {canWrite ? (
+                <div className="flex items-center gap-2 pt-6">
+                  <Checkbox
+                    id="breastfeeding"
+                    checked={editedData.breastfeeding || false}
+                    onCheckedChange={(checked) =>
+                      updateField("breastfeeding", !!checked)
+                    }
+                  />
+                  <Label htmlFor="breastfeeding" className="font-normal">
+                    {t("questionnaireTab.breastfeeding", "Breastfeeding")}
+                  </Label>
+                </div>
+              ) : (
+                <Field
+                  label={t("questionnaireTab.breastfeeding", "Breastfeeding")}
+                  value={editedData.breastfeeding ? t("common.yes", "Yes") : t("common.no", "No")}
+                  onChange={() => {}}
+                  readOnly
                 />
-                <Label htmlFor="breastfeeding" className="font-normal">
-                  {t("questionnaireTab.breastfeeding", "Breastfeeding")}
-                </Label>
-              </div>
+              )}
             </div>
             <TextAreaField
               label={t("questionnaireTab.womanHealthNotes", "Notes")}
@@ -1062,11 +1071,14 @@ export function QuestionnaireTab({
                   <Label className="text-xs text-muted-foreground">
                     {t("questionnaireTab.caregiverPhone", "Phone")}
                   </Label>
-                  <PhoneInputWithCountry
-                    value={editedData.outpatientCaregiverPhone || ""}
-                    onChange={(v) => updateField("outpatientCaregiverPhone", v)}
-                    disabled={!canWrite}
-                  />
+                  {canWrite ? (
+                    <PhoneInputWithCountry
+                      value={editedData.outpatientCaregiverPhone || ""}
+                      onChange={(v) => updateField("outpatientCaregiverPhone", v)}
+                    />
+                  ) : (
+                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md min-h-[36px]">{editedData.outpatientCaregiverPhone || "–"}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1181,14 +1193,20 @@ function Field({
   onChange: (v: string) => void;
   readOnly: boolean;
 }) {
+  if (readOnly) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <p className="text-sm py-2 px-3 bg-muted/50 rounded-md min-h-[36px]">{value || "–"}</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        className={cn(readOnly && "bg-muted cursor-default")}
       />
     </div>
   );
@@ -1205,14 +1223,22 @@ function TextAreaField({
   onChange: (v: string) => void;
   readOnly: boolean;
 }) {
+  if (readOnly) {
+    if (!value?.trim()) return null;
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <p className="text-sm py-2 px-3 bg-muted/50 rounded-md whitespace-pre-wrap">{value}</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        className={cn("min-h-[60px]", readOnly && "bg-muted cursor-default")}
+        className="min-h-[60px]"
       />
     </div>
   );
@@ -1311,6 +1337,14 @@ function ComparisonField({
   displayTransform?: (v: string) => string;
 }) {
   const displayValue = displayTransform ? displayTransform(value) : value;
+  if (readOnly) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <p className="text-sm py-2 px-3 bg-muted/50 rounded-md min-h-[36px]">{displayValue || "–"}</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       <Label className={cn(
@@ -1319,27 +1353,11 @@ function ComparisonField({
       )}>
         {label}
       </Label>
-      {displayTransform ? (
-        <Input
-          value={displayValue}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          className={cn(
-            readOnly && "bg-muted cursor-default",
-            diff && "ring-1 ring-amber-400"
-          )}
-        />
-      ) : (
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          className={cn(
-            readOnly && "bg-muted cursor-default",
-            diff && "ring-1 ring-amber-400"
-          )}
-        />
-      )}
+      <Input
+        value={displayTransform ? displayValue : value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(diff && "ring-1 ring-amber-400")}
+      />
       {diff && (
         <DiffResolver diff={diff} onResolve={onResolve} canWrite={canWrite} t={t} />
       )}
