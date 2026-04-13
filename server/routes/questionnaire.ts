@@ -1582,7 +1582,7 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
       submittedAt: submitted.submittedAt,
     });
 
-    // Fire-and-forget: send confirmation to patient (SMS first, email as fallback)
+    // Fire-and-forget: send confirmation to patient (email first to save costs, SMS as fallback)
     (async () => {
       try {
         const lang: 'de' | 'en' = link.language === 'de' ? 'de' : 'en';
@@ -1595,38 +1595,8 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
         const hospital = await storage.getHospital(link.hospitalId);
         if (!hospital) return;
 
-        if (patientPhone) {
-          // Confirm via SMS (preferred channel)
-          const message = lang === 'de'
-            ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospital.name} gesendet. Wir melden uns bei Ihnen.`
-            : `Thank you! Your questionnaire has been received by ${hospital.name}. We'll be in touch soon.`;
-
-          const result = await sendSms(patientPhone, message, link.hospitalId);
-          if (!result.success) {
-            logger.error(`[Questionnaire] Failed to send confirmation SMS to ${patientPhone}:`, result.error);
-            // Fall through to email if SMS fails
-            if (patientEmail) {
-              const hospitalPhone = hospital.companyPhone || null;
-              const hospitalEmail = hospital.companyEmail || null;
-              const emailResult = await sendQuestionnaireReceivedConfirmation(
-                patientEmail,
-                hospital.name,
-                hospitalPhone,
-                hospitalEmail,
-                patientFirstName,
-                lang
-              );
-              if (!emailResult.success) {
-                logger.error(`[Questionnaire] Fallback email also failed for ${patientEmail}:`, emailResult.error);
-              } else {
-                logger.info(`[Questionnaire] Sent confirmation email (SMS fallback) to ${patientEmail}`);
-              }
-            }
-          } else {
-            logger.info(`[Questionnaire] Sent confirmation SMS to ${patientPhone}`);
-          }
-        } else if (patientEmail) {
-          // Confirm via email (no phone available)
+        if (patientEmail) {
+          // Confirm via email (preferred — no cost)
           const hospitalPhone = hospital.companyPhone || null;
           const hospitalEmail = hospital.companyEmail || null;
 
@@ -1640,8 +1610,32 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
           );
           if (!result.success) {
             logger.error(`[Questionnaire] Failed to send confirmation email to ${patientEmail}:`, result.error);
+            // Fall through to SMS if email fails
+            if (patientPhone) {
+              const message = lang === 'de'
+                ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospital.name} gesendet. Wir melden uns bei Ihnen.`
+                : `Thank you! Your questionnaire has been received by ${hospital.name}. We'll be in touch soon.`;
+              const smsResult = await sendSms(patientPhone, message, link.hospitalId);
+              if (!smsResult.success) {
+                logger.error(`[Questionnaire] Fallback SMS also failed for ${patientPhone}:`, smsResult.error);
+              } else {
+                logger.info(`[Questionnaire] Sent confirmation SMS (email fallback) to ${patientPhone}`);
+              }
+            }
           } else {
             logger.info(`[Questionnaire] Sent confirmation email to ${patientEmail}`);
+          }
+        } else if (patientPhone) {
+          // Confirm via SMS (no email available)
+          const message = lang === 'de'
+            ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospital.name} gesendet. Wir melden uns bei Ihnen.`
+            : `Thank you! Your questionnaire has been received by ${hospital.name}. We'll be in touch soon.`;
+
+          const result = await sendSms(patientPhone, message, link.hospitalId);
+          if (!result.success) {
+            logger.error(`[Questionnaire] Failed to send confirmation SMS to ${patientPhone}:`, result.error);
+          } else {
+            logger.info(`[Questionnaire] Sent confirmation SMS to ${patientPhone}`);
           }
         }
       } catch (err) {
