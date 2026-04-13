@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -679,6 +686,7 @@ export default function SurgerySummaryDialog({
                           duration != null ? `${duration} min` : null,
                           room?.name,
                           surgery.surgeon ? (surgery.surgeonPhone ? `${surgery.surgeon} (${surgery.surgeonPhone})` : surgery.surgeon) : null,
+                          surgery.stayType === 'overnight' ? (i18n.language === 'de' ? 'Mit Übernachtung' : 'Overnight') : surgery.stayType === 'ambulant' ? (i18n.language === 'de' ? 'Ambulant' : 'Outpatient') : null,
                           surgery.status === 'cancelled' ? 'CANCELLED' : null
                         ].filter(Boolean).join(', ')}
                       </div>
@@ -981,74 +989,76 @@ export default function SurgerySummaryDialog({
         </div>
 
         {/* Footer with Buttons */}
-        <div className="shrink-0 bg-background border-t px-6 py-4 flex flex-wrap gap-2 justify-between">
-          <div className="flex gap-2">
-            {surgery?.patientId && patient && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={handleDownloadPDF}
-                  disabled={isDownloadingPdf}
-                  data-testid="button-download-pdf-summary"
-                >
-                  {isDownloadingPdf ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {t('anesthesia.op.generatingPdf')}
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      {t('anesthesia.op.downloadPdf')}
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePrintWristband}
-                  data-testid="button-print-wristband-summary"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  {t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setSendSummaryDialogOpen(true)}
-                  data-testid="button-send-surgeon-summary"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {t('anesthesia.surgerySummary.sendSummary', 'Send Summary')}
-                </Button>
-              </>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="text-destructive border-destructive/30 hover:bg-destructive/10"
-              onClick={() => setShowArchiveConfirm(true)}
-              disabled={archiveMutation.isPending}
-              data-testid="button-delete-archive-summary"
-            >
-              {archiveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : !surgery?.patientId ? (
-                <Trash2 className="h-4 w-4 mr-2" />
-              ) : (
-                <Archive className="h-4 w-4 mr-2" />
+        <div className="shrink-0 bg-background border-t px-6 py-4 flex items-center justify-between">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isDownloadingPdf || archiveMutation.isPending}
+                data-testid="button-actions-summary"
+              >
+                {(isDownloadingPdf || archiveMutation.isPending) ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                )}
+                {t('common.actions', 'Actions')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {surgery?.patientId && patient && (
+                <>
+                  <DropdownMenuItem
+                    onClick={handleDownloadPDF}
+                    disabled={isDownloadingPdf}
+                    data-testid="button-download-pdf-summary"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {t('anesthesia.op.downloadPdf')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handlePrintWristband}
+                    data-testid="button-print-wristband-summary"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    {t('anesthesia.patientDetail.printWristband', 'Print Wristband')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setSendSummaryDialogOpen(true)}
+                    data-testid="button-send-surgeon-summary"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    {t('anesthesia.surgerySummary.sendSummary', 'Send Summary')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
               )}
-              {!surgery?.patientId
-                ? t('common.delete', 'Delete')
-                : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-close-summary"
-            >
-              {t('common.close')}
-            </Button>
-          </div>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setShowArchiveConfirm(true)}
+                disabled={archiveMutation.isPending}
+                data-testid="button-delete-archive-summary"
+              >
+                {!surgery?.patientId ? (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                ) : (
+                  <Archive className="h-4 w-4 mr-2" />
+                )}
+                {!surgery?.patientId
+                  ? t('common.delete', 'Delete')
+                  : t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            data-testid="button-close-summary"
+          >
+            {t('common.close')}
+          </Button>
         </div>
       </DialogContent>
       

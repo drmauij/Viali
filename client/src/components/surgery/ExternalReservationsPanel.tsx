@@ -342,6 +342,11 @@ export function ScheduleDialog({ request, open, onOpenChange, onScheduled, surge
                 {t('surgery.externalRequests.coverageType')}: {request.coverageType}
               </p>
             )}
+            {request.stayType && (
+              <p className="text-sm">
+                {t('anesthesia.stayType', 'Stay Type')}: {request.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight Stay') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
+              </p>
+            )}
             {request.surgeryNotes && (
               <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
             )}
@@ -1056,6 +1061,12 @@ export function ExternalReservationsPanel({
                     </p>
                     <p className="text-muted-foreground">{request.diagnosis}</p>
                   </div>
+                )}
+
+                {request.stayType && (
+                  <p className="text-sm">
+                    {t('anesthesia.stayType', 'Stay Type')}: {request.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight Stay') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
+                  </p>
                 )}
 
                 {request.surgeryNotes && (

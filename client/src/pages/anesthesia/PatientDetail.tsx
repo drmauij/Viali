@@ -2938,6 +2938,14 @@ export default function PatientDetail() {
                   <div className="flex items-center gap-3">
                     <FileText className="h-5 w-5 text-primary" />
                     <h3 className="font-semibold text-lg">{surgery.plannedSurgery}</h3>
+                    {surgery.stayType && (
+                      <Badge variant="outline" className={cn(
+                        "text-xs",
+                        surgery.stayType === 'overnight' ? "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300" : "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300"
+                      )}>
+                        {surgery.stayType === 'overnight' ? t('anesthesia.stayTypeOvernight', 'Overnight') : t('anesthesia.stayTypeAmbulant', 'Outpatient')}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(surgery.status)}>
