@@ -1587,16 +1587,17 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
       try {
         // Only confirm for links that were explicitly sent via SMS or email by staff
         // General/walk-in links (no smsSentTo and no emailSentTo) are skipped
-        const lang = (link.language as 'de' | 'en') || 'de';
+        const lang: 'de' | 'en' = link.language === 'de' ? 'de' : 'en';
         const patientFirstName = submitted.patientFirstName || '';
+
+        const hospital = await storage.getHospital(link.hospitalId);
+        if (!hospital) return;
 
         if (link.smsSentTo) {
           // Confirm via SMS
-          const hospital = await storage.getHospital(link.hospitalId);
-          const hospitalName = hospital?.name || 'Hospital';
           const message = lang === 'de'
-            ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospitalName} gesendet. Wir melden uns bei Ihnen.`
-            : `Thank you! Your questionnaire has been received by ${hospitalName}. We'll be in touch soon.`;
+            ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospital.name} gesendet. Wir melden uns bei Ihnen.`
+            : `Thank you! Your questionnaire has been received by ${hospital.name}. We'll be in touch soon.`;
 
           const result = await sendSms(link.smsSentTo, message, link.hospitalId);
           if (!result.success) {
@@ -1606,14 +1607,12 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
           }
         } else if (link.emailSentTo) {
           // Confirm via email
-          const hospital = await storage.getHospital(link.hospitalId);
-          const hospitalName = hospital?.name || 'Hospital';
-          const hospitalPhone = hospital?.companyPhone || null;
-          const hospitalEmail = hospital?.companyEmail || null;
+          const hospitalPhone = hospital.companyPhone || null;
+          const hospitalEmail = hospital.companyEmail || null;
 
           const result = await sendQuestionnaireReceivedConfirmation(
             link.emailSentTo,
-            hospitalName,
+            hospital.name,
             hospitalPhone,
             hospitalEmail,
             patientFirstName,
