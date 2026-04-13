@@ -2317,7 +2317,8 @@
       "generalData": "Allgemeine Daten",
       "airway": "Atemweg",
       "fasting": "Nuechternheit",
-      "lastClear": "Letzte klare Fluessigkeit"
+      "lastClear": "Letzte klare Fluessigkeit",
+      "questionnaireResponses": "Fragebogen-Antworten"
     },
     "pacu": {
       "title": "Aufwachraum",
@@ -4797,6 +4798,14 @@
       "partialMatch": "Teilweise Übereinstimmung",
       "confirmAssociate": "Zuordnen & Importieren",
       "formSent": "Formular gesendet"
+    },
+    "questionnaireImport": {
+      "title": "Fragebogendaten verfügbar",
+      "description": "{{name}} hat noch keine Gewichts- oder Allergieinformationen, aber ein ausgefüllter Fragebogen ist vorhanden. Basisdaten importieren?",
+      "importButton": "Importieren",
+      "importSuccess": "Patientendaten aus Fragebogen importiert",
+      "importError": "Import fehlgeschlagen",
+      "noRelevantData": "Der Fragebogen enthält keine Gewichts- oder Allergiedaten zum Importieren."
     },
     "opDetail": {
       "title": "OP-Dokumentation",

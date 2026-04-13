@@ -2236,7 +2236,8 @@
       "generalData": "General Data",
       "airway": "Airway",
       "fasting": "Fasting",
-      "lastClear": "Last Clear"
+      "lastClear": "Last Clear",
+      "questionnaireResponses": "Questionnaire Responses"
     },
     "pacu": {
       "title": "Post-Anesthesia Care Unit",
@@ -4716,6 +4717,14 @@
       "partialMatch": "Partial Match",
       "confirmAssociate": "Associate & Import",
       "formSent": "Form sent"
+    },
+    "questionnaireImport": {
+      "title": "Questionnaire Data Available",
+      "description": "{{name}} has no weight or allergy information yet, but a completed questionnaire is available. Import basic patient data?",
+      "importButton": "Import",
+      "importSuccess": "Patient data imported from questionnaire",
+      "importError": "Failed to import data",
+      "noRelevantData": "Questionnaire has no weight or allergy data to import."
     },
     "opDetail": {
       "title": "Surgery Documentation",
