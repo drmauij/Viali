@@ -1003,7 +1003,8 @@ export const surgeries = pgTable("surgeries", {
 
   // Scheduling
   admissionTime: timestamp("admission_time"), // Patient arrival time (Eintritt)
-  
+  stayType: varchar("stay_type", { enum: ["ambulant", "overnight"] }), // Ambulant or with overnight stay
+
   // Business/Billing
   price: decimal("price", { precision: 10, scale: 2 }), // Surgery price
   coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
@@ -5246,6 +5247,7 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   surgeryNotes: text("surgery_notes"),
   diagnosis: text("diagnosis"),
   coverageType: varchar("coverage_type"), // Kostenträger: Selbstzahler, Krankenkasse, etc.
+  stayType: varchar("stay_type", { enum: ["ambulant", "overnight"] }), // Ambulant or with overnight stay
   wishedDate: date("wished_date").notNull(),
   wishedTimeFrom: integer("wished_time_from"), // Minutes since midnight, e.g. 480 = 08:00
   wishedTimeTo: integer("wished_time_to"), // Minutes since midnight, e.g. 840 = 14:00
