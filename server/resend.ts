@@ -1129,7 +1129,8 @@ export async function sendQuestionnaireReceivedConfirmation(
   hospitalName: string,
   hospitalPhone: string | null,
   hospitalEmail: string | null,
-  language: string = 'de'
+  patientFirstName: string,
+  language: 'de' | 'en' = 'de'
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -1173,7 +1174,7 @@ export async function sendQuestionnaireReceivedConfirmation(
               <h1>${hospitalName}</h1>
             </div>
             <div class="content">
-              <p>${isGerman ? 'Guten Tag,' : 'Hello,'}</p>
+              <p>${isGerman ? `Guten Tag ${patientFirstName},` : `Hello ${patientFirstName},`}</p>
               <p>${isGerman
                 ? 'Vielen Dank! Ihr Fragebogen wurde erfolgreich an uns gesendet. Wir melden uns bei Ihnen.'
                 : 'Thank you! Your questionnaire has been received. We\'ll be in touch soon.'}</p>
