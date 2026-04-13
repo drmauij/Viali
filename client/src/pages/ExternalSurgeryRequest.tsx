@@ -326,7 +326,7 @@ export default function ExternalSurgeryRequest() {
         const baseValid = formData.patientFirstName && formData.patientLastName &&
                formData.patientBirthday && formData.patientPhone &&
                formData.patientStreet && formData.patientPostalCode && formData.patientCity &&
-               formData.coverageType;
+               formData.coverageType && formData.stayType;
         if (formData.coverageType === 'Krankenkasse') {
           return baseValid && formData.diagnosis;
         }
@@ -864,7 +864,7 @@ export default function ExternalSurgeryRequest() {
                 {/* Stay Type (Aufenthaltsart) */}
                 <div className="space-y-2">
                   <Label htmlFor="stayType">
-                    {t('surgery.externalRequest.stayType')}
+                    {t('surgery.externalRequest.stayType')} *
                   </Label>
                   <Select
                     value={formData.stayType || undefined}
