@@ -3065,6 +3065,7 @@
       "specialNotesPlaceholder": "Enter any special notes or considerations...",
       "medications": "Medications",
       "anticoagulationMedications": "Anticoagulation Medications",
+      "anticoagulationSuffix": "Anticoagulation",
       "otherAnticoagulationMedications": "Other anticoagulation medications (free text)...",
       "otherAnticoagulationPlaceholder": "Other anticoagulation medications (free text)...",
       "generalMedications": "General Medications",

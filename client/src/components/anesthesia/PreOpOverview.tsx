@@ -321,8 +321,8 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
   ].filter(section => section.items.length > 0 || section.notes?.trim());
 
   const allMedications = [
-    ...(data.anticoagulationMeds || []).map(m => `${m} (Anticoagulation)`),
-    data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (Anticoagulation)` : '',
+    ...(data.anticoagulationMeds || []).map(m => `${m} (${t('anesthesia.patientDetail.anticoagulationSuffix', 'Anticoagulation')})`),
+    data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (${t('anesthesia.patientDetail.anticoagulationSuffix', 'Anticoagulation')})` : '',
     ...(data.generalMeds || []),
     data.generalMedsOther
   ].filter(Boolean);

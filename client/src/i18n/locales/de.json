@@ -3146,6 +3146,7 @@
       "specialNotesPlaceholder": "Besondere Hinweise oder Überlegungen eingeben...",
       "medications": "Medikamente",
       "anticoagulationMedications": "Antikoagulationsmedikamente",
+      "anticoagulationSuffix": "Antikoagulation",
       "otherAnticoagulationMedications": "Andere Antikoagulationsmedikamente (Freitext)...",
       "otherAnticoagulationPlaceholder": "Andere Antikoagulationsmedikamente (Freitext)...",
       "generalMedications": "Allgemeine Medikamente",
