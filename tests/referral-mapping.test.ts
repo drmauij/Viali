@@ -176,37 +176,37 @@ describe("resolveReferralFromParams", () => {
 });
 
 describe("marketing utm sources", () => {
-  // UTM_SOURCE_MAP entries — these must return source=other with a friendly detail
-  // so new Flows / newsletter bookings get clean source_detail strings.
+  // UTM_SOURCE_MAP entries — these must return source=marketing with a friendly detail
+  // so new Flows / newsletter bookings get categorized under Marketing.
 
-  it("maps klaviyo to other/Klaviyo", () => {
+  it("maps klaviyo to marketing/Klaviyo", () => {
     const result = mapUtmToReferral({ utmSource: "klaviyo" });
-    expect(result).toEqual({ source: "other", sourceDetail: "Klaviyo", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "Klaviyo", captureMethod: "utm" });
   });
 
-  it("maps mailchimp to other/Mailchimp", () => {
+  it("maps mailchimp to marketing/Mailchimp", () => {
     const result = mapUtmToReferral({ utmSource: "mailchimp" });
-    expect(result).toEqual({ source: "other", sourceDetail: "Mailchimp", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "Mailchimp", captureMethod: "utm" });
   });
 
-  it("maps brevo to other/Brevo", () => {
+  it("maps brevo to marketing/Brevo", () => {
     const result = mapUtmToReferral({ utmSource: "brevo" });
-    expect(result).toEqual({ source: "other", sourceDetail: "Brevo", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "Brevo", captureMethod: "utm" });
   });
 
-  it("maps sendgrid to other/SendGrid", () => {
+  it("maps sendgrid to marketing/SendGrid", () => {
     const result = mapUtmToReferral({ utmSource: "sendgrid" });
-    expect(result).toEqual({ source: "other", sourceDetail: "SendGrid", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "SendGrid", captureMethod: "utm" });
   });
 
-  it("maps whatsapp_campaign to other/WhatsApp Campaign", () => {
+  it("maps whatsapp_campaign to marketing/WhatsApp Campaign", () => {
     const result = mapUtmToReferral({ utmSource: "whatsapp_campaign" });
-    expect(result).toEqual({ source: "other", sourceDetail: "WhatsApp Campaign", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "WhatsApp Campaign", captureMethod: "utm" });
   });
 
   it("klaviyo mapping is case-insensitive (matches Peter Schmid's 'Klaviyo')", () => {
     const result = mapUtmToReferral({ utmSource: "Klaviyo" });
-    expect(result).toEqual({ source: "other", sourceDetail: "Klaviyo", captureMethod: "utm" });
+    expect(result).toEqual({ source: "marketing", sourceDetail: "Klaviyo", captureMethod: "utm" });
   });
 });
 

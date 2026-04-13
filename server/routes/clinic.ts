@@ -678,7 +678,7 @@ const bookingSchema = z.object({
   phone: z.string().min(1).max(30),
   notes: z.string().min(1).max(1000),
   // Referral fields
-  referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"]).nullish(),
+  referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "marketing", "other"]).nullish(),
   referralSourceDetail: z.string().max(500).nullish(),
   captureMethod: z.enum(["manual", "utm", "ref", "staff"]).nullish(),
   utmSource: z.string().max(500).nullish(),
@@ -2430,7 +2430,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
             hospitalId,
             patientId: appointment.patientId,
             appointmentId: appointment.id,
-            source: referralSource as "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "other",
+            source: referralSource as "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "marketing" | "other",
             sourceDetail: referralSourceDetail || undefined,
             captureMethod: "staff",
             ...(referralCreatedAt ? { createdAt: parseLeadDate(referralCreatedAt) } : {}),
@@ -2587,7 +2587,7 @@ router.put('/api/clinic/:hospitalId/appointments/:appointmentId/referral', isAut
     const { hospitalId, appointmentId } = req.params;
     const { source, sourceDetail } = req.body;
 
-    if (!source || !["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"].includes(source)) {
+    if (!source || !["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "marketing", "other"].includes(source)) {
       return res.status(400).json({ message: "Invalid referral source" });
     }
 

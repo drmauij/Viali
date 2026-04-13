@@ -6525,7 +6525,7 @@ export const referralEvents = pgTable("referral_events", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
   appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),
-  source: varchar("source", { enum: ["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "other"] }).notNull(),
+  source: varchar("source", { enum: ["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "marketing", "other"] }).notNull(),
   sourceDetail: varchar("source_detail"),
   utmSource: varchar("utm_source"),
   utmMedium: varchar("utm_medium"),

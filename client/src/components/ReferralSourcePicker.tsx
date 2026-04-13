@@ -1,5 +1,6 @@
 import {
   Bot,
+  Mail,
   Megaphone,
   MoreHorizontal,
   Search,
@@ -21,6 +22,7 @@ export interface ReferralSourcePickerProps {
     llm: string;
     wordOfMouth: string;
     belegarzt: string;
+    marketing: string;
     other: string;
     whichOne: string;
     facebook: string;
@@ -39,6 +41,7 @@ const sources = [
   { value: "llm", labelField: "llm" as const, icon: Bot },
   { value: "word_of_mouth", labelField: "wordOfMouth" as const, icon: Users },
   { value: "belegarzt", labelField: "belegarzt" as const, icon: Stethoscope },
+  { value: "marketing", labelField: "marketing" as const, icon: Mail },
   { value: "other", labelField: "other" as const, icon: MoreHorizontal },
 ];
 
@@ -150,6 +153,17 @@ export function ReferralSourcePicker({ value, detail, onChange, labels }: Referr
             value={detail}
             onChange={(e) => onChange(value, e.target.value)}
             placeholder={labels.wordOfMouthPlaceholder}
+          />
+        </div>
+      )}
+
+      {/* Free text for marketing */}
+      {value === "marketing" && (
+        <div className="max-w-[360px] mx-auto border rounded-xl p-3 bg-white dark:bg-slate-800">
+          <Input
+            value={detail}
+            onChange={(e) => onChange(value, e.target.value)}
+            placeholder={labels.otherPlaceholder}
           />
         </div>
       )}

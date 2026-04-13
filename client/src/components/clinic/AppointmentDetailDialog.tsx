@@ -553,6 +553,7 @@ export default function AppointmentDetailDialog({
                         <SelectItem value="llm">{t('referral.llm', 'AI / ChatGPT')}</SelectItem>
                         <SelectItem value="word_of_mouth">{t('referral.wordOfMouth', 'Word of Mouth')}</SelectItem>
                         <SelectItem value="belegarzt">{t('referral.belegarzt', 'Belegarzt')}</SelectItem>
+                        <SelectItem value="marketing">{t('referral.marketing', 'Marketing')}</SelectItem>
                         <SelectItem value="other">{t('referral.other', 'Other')}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -579,7 +580,7 @@ export default function AppointmentDetailDialog({
                         </SelectContent>
                       </Select>
                     )}
-                    {(referralSource === "word_of_mouth" || referralSource === "other") && (
+                    {(referralSource === "word_of_mouth" || referralSource === "marketing" || referralSource === "other") && (
                       <Input
                         value={referralSourceDetail}
                         onChange={(e) => setReferralSourceDetail(e.target.value)}
@@ -623,6 +624,7 @@ export default function AppointmentDetailDialog({
                         {referralEvent.source === 'llm' && t('referral.llm', 'AI / ChatGPT')}
                         {referralEvent.source === 'word_of_mouth' && t('referral.wordOfMouth', 'Word of Mouth')}
                         {referralEvent.source === 'belegarzt' && t('referral.belegarzt', 'Belegarzt')}
+                        {referralEvent.source === 'marketing' && t('referral.marketing', 'Marketing')}
                         {referralEvent.source === 'other' && t('referral.other', 'Other')}
                         {referralEvent.sourceDetail && (
                           <span className="text-muted-foreground font-normal"> — {referralEvent.sourceDetail}</span>

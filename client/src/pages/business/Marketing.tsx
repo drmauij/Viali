@@ -107,6 +107,7 @@ const REFERRAL_COLORS: Record<string, string> = {
   llm: "#8b5cf6",
   word_of_mouth: "#f59e0b",
   belegarzt: "#ec4899",
+  marketing: "#14b8a6",
   other: "#6b7280",
 };
 
@@ -116,6 +117,7 @@ const REFERRAL_LABELS: Record<string, string> = {
   llm: "AI Assistant",
   word_of_mouth: "Personal Recommendation",
   belegarzt: "Referring Doctor",
+  marketing: "Marketing",
   other: "Other",
 };
 
@@ -809,6 +811,7 @@ export default function Marketing() {
                         <SelectItem value="llm">LLM / AI</SelectItem>
                         <SelectItem value="word_of_mouth">Word of Mouth</SelectItem>
                         <SelectItem value="belegarzt">Belegarzt</SelectItem>
+                        <SelectItem value="marketing">Marketing</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>

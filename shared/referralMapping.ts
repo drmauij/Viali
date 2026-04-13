@@ -1,4 +1,4 @@
-export type ReferralSource = "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "other";
+export type ReferralSource = "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "marketing" | "other";
 export type CaptureMethod = "manual" | "utm" | "ref";
 
 interface MappedReferral {
@@ -41,14 +41,14 @@ export function isMarketingUtmSource(utmSource: string | null | undefined): bool
 }
 
 const UTM_SOURCE_MAP: Record<string, { source: ReferralSource; detail: string }> = {
-  newsletter: { source: "other", detail: "Newsletter" },
-  email_campaign: { source: "other", detail: "Email Campaign" },
-  sms_campaign: { source: "other", detail: "SMS Campaign" },
-  whatsapp_campaign: { source: "other", detail: "WhatsApp Campaign" },
-  klaviyo: { source: "other", detail: "Klaviyo" },
-  mailchimp: { source: "other", detail: "Mailchimp" },
-  brevo: { source: "other", detail: "Brevo" },
-  sendgrid: { source: "other", detail: "SendGrid" },
+  newsletter: { source: "marketing", detail: "Newsletter" },
+  email_campaign: { source: "marketing", detail: "Email Campaign" },
+  sms_campaign: { source: "marketing", detail: "SMS Campaign" },
+  whatsapp_campaign: { source: "marketing", detail: "WhatsApp Campaign" },
+  klaviyo: { source: "marketing", detail: "Klaviyo" },
+  mailchimp: { source: "marketing", detail: "Mailchimp" },
+  brevo: { source: "marketing", detail: "Brevo" },
+  sendgrid: { source: "marketing", detail: "SendGrid" },
   google: { source: "search_engine", detail: "Google" },
   bing: { source: "search_engine", detail: "Bing" },
   facebook: { source: "social", detail: "Facebook" },

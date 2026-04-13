@@ -64,7 +64,7 @@ type Service = {
 
 const BOOKING_REFERRAL_LABELS: Record<string, {
   title: string; hint: string; social: string; searchEngine: string; llm: string;
-  wordOfMouth: string; belegarzt: string; other: string; whichOne: string;
+  wordOfMouth: string; belegarzt: string; marketing: string; other: string; whichOne: string;
   facebook: string; instagram: string; tiktok: string; google: string; bing: string;
   wordOfMouthPlaceholder: string; otherPlaceholder: string;
 }> = {
@@ -72,7 +72,7 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
     title: "Wie haben Sie uns gefunden?",
     hint: "Damit helfen Sie uns, unseren Service zu verbessern.",
     social: "Social Media", searchEngine: "Suchmaschine", llm: "KI-Assistent",
-    wordOfMouth: "Empfehlung", belegarzt: "Zuweisender Arzt", other: "Andere",
+    wordOfMouth: "Empfehlung", belegarzt: "Zuweisender Arzt", marketing: "Marketing", other: "Andere",
     whichOne: "Welche Plattform?",
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
     google: "Google", bing: "Bing",
@@ -83,7 +83,7 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
     title: "How did you find us?",
     hint: "This helps us improve our service.",
     social: "Social Media", searchEngine: "Search Engine", llm: "AI Assistant",
-    wordOfMouth: "Word of Mouth", belegarzt: "Referring Doctor", other: "Other",
+    wordOfMouth: "Word of Mouth", belegarzt: "Referring Doctor", marketing: "Marketing", other: "Other",
     whichOne: "Which platform?",
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
     google: "Google", bing: "Bing",
@@ -94,7 +94,7 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
     title: "Come ci ha trovati?",
     hint: "Questo ci aiuta a migliorare il servizio.",
     social: "Social Media", searchEngine: "Motore di ricerca", llm: "Assistente IA",
-    wordOfMouth: "Passaparola", belegarzt: "Medico referente", other: "Altro",
+    wordOfMouth: "Passaparola", belegarzt: "Medico referente", marketing: "Marketing", other: "Altro",
     whichOne: "Quale piattaforma?",
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
     google: "Google", bing: "Bing",
@@ -105,7 +105,7 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
     title: "¿Cómo nos encontró?",
     hint: "Esto nos ayuda a mejorar nuestro servicio.",
     social: "Redes Sociales", searchEngine: "Buscador", llm: "Asistente IA",
-    wordOfMouth: "Recomendación", belegarzt: "Médico referente", other: "Otro",
+    wordOfMouth: "Recomendación", belegarzt: "Médico referente", marketing: "Marketing", other: "Otro",
     whichOne: "¿Qué plataforma?",
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
     google: "Google", bing: "Bing",
@@ -116,7 +116,7 @@ const BOOKING_REFERRAL_LABELS: Record<string, {
     title: "Comment nous avez-vous trouvés?",
     hint: "Cela nous aide à améliorer notre service.",
     social: "Réseaux Sociaux", searchEngine: "Moteur de recherche", llm: "Assistant IA",
-    wordOfMouth: "Bouche à oreille", belegarzt: "Médecin référent", other: "Autre",
+    wordOfMouth: "Bouche à oreille", belegarzt: "Médecin référent", marketing: "Marketing", other: "Autre",
     whichOne: "Quelle plateforme?",
     facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok",
     google: "Google", bing: "Bing",
