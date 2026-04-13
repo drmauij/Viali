@@ -25,6 +25,7 @@ import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
 import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
+import { QuestionnaireImportDialog } from "@/components/anesthesia/dialogs/QuestionnaireImportDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { CameraConnectionDialog } from "@/components/anesthesia/dialogs/CameraConnectionDialog";
 import { UnifiedAnesthesiaSetsDialog } from "@/components/anesthesia/dialogs/UnifiedAnesthesiaSetsDialog";
@@ -651,6 +652,8 @@ export default function Op() {
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [showQuestionnaireImportDialog, setShowQuestionnaireImportDialog] = useState(false);
+  const hasShownQuestionnaireImportRef = useRef(false);
   const [otherAllergies, setOtherAllergies] = useState("");
   const [cave, setCave] = useState("");
   
@@ -791,6 +794,12 @@ export default function Op() {
     enabled: !!activeHospital?.id && !!activeHospital?.unitId && activeHospital?.unitType === 'anesthesia',
   });
 
+  // Fetch questionnaire links in surgery mode to check for importable data
+  const { data: questionnaireLinks = [] } = useQuery<any[]>({
+    queryKey: [`/api/questionnaire/patient/${patient?.id}/links`],
+    enabled: !!patient?.id && isSurgeryMode,
+  });
+
   // Group items by folder and sort alphabetically
   const groupedItems = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -913,29 +922,49 @@ export default function Op() {
   // Use ref to track if we've already shown the dialog to prevent reopening after save
   const hasShownWeightDialogRef = useRef(false);
   
-  // Reset the ref whenever surgeryId changes (switching between surgeries)
+  // Reset the refs whenever surgeryId changes (switching between surgeries)
   useEffect(() => {
     hasShownWeightDialogRef.current = false;
+    hasShownQuestionnaireImportRef.current = false;
   }, [surgeryId]);
   
   useEffect(() => {
-    // Only show once per surgery load, and only if we haven't already shown it
-    if (!isPreOpLoading && !isPatientLoading && !showWeightDialog && surgeryId && !hasShownWeightDialogRef.current) {
-      // Skip weight dialog entirely in surgery mode - weight is only needed for anesthesia
-      // (medication dosing calculations, tidal volume, etc.)
+    if (!isPreOpLoading && !isPatientLoading && surgeryId) {
       if (isSurgeryMode) {
-        console.log('[WEIGHT-DIALOG] Skipping weight dialog - surgery mode does not require weight');
-        return;
-      }
-      // Show if no preOp assessment OR preOp assessment exists without weight
-      const shouldShow = !preOpAssessment || (preOpAssessment && !patientWeight);
-      if (shouldShow) {
-        console.log('[WEIGHT-DIALOG] Opening weight dialog - preOp missing or weight missing');
-        setShowWeightDialog(true);
-        hasShownWeightDialogRef.current = true; // Mark as shown
+        // Surgery mode: check patient-level data and offer questionnaire import
+        if (!hasShownQuestionnaireImportRef.current && !showQuestionnaireImportDialog) {
+          const patientHasWeight = !!patient?.weight;
+          const patientHasAllergies = (patient?.allergies && patient.allergies.length > 0) || !!patient?.otherAllergies;
+
+          if (!patientHasWeight || !patientHasAllergies) {
+            // Check if there's a submitted questionnaire with data to import
+            const submittedLink = questionnaireLinks.find(
+              (link: any) => link.status === 'submitted' && link.response
+            );
+            if (submittedLink?.response) {
+              const resp = submittedLink.response;
+              const qHasWeight = !!resp.weight;
+              const qHasAllergies = (resp.allergies && resp.allergies.length > 0) || !!resp.allergiesNotes;
+
+              if (qHasWeight || qHasAllergies) {
+                setShowQuestionnaireImportDialog(true);
+                hasShownQuestionnaireImportRef.current = true;
+              }
+            }
+          }
+        }
+      } else {
+        // Anesthesia mode: existing weight dialog behavior
+        if (!showWeightDialog && !hasShownWeightDialogRef.current) {
+          const shouldShow = !preOpAssessment || (preOpAssessment && !patientWeight);
+          if (shouldShow) {
+            setShowWeightDialog(true);
+            hasShownWeightDialogRef.current = true;
+          }
+        }
       }
     }
-  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId, isSurgeryMode]);
+  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId, isSurgeryMode, patient, questionnaireLinks, showQuestionnaireImportDialog]);
   
   // Handle weight save - create preOp assessment if it doesn't exist
   const handleWeightSave = async (weight: string) => {
@@ -1077,7 +1106,26 @@ export default function Op() {
       />
     )}
     
-    <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog} onOpenChange={handleDialogChange}>
+    {showQuestionnaireImportDialog && patient && (() => {
+      const submittedLink = questionnaireLinks.find(
+        (link: any) => link.status === 'submitted' && link.response
+      );
+      const resp = submittedLink?.response;
+      if (!resp) return null;
+      return (
+        <QuestionnaireImportDialog
+          open={showQuestionnaireImportDialog}
+          onOpenChange={setShowQuestionnaireImportDialog}
+          patientId={patient.id}
+          patientName={`${patient.firstName} ${patient.surname}`}
+          questionnaireAllergies={resp.allergies || []}
+          questionnaireAllergiesNotes={resp.allergiesNotes || ''}
+          questionnaireWeight={resp.weight || ''}
+        />
+      );
+    })()}
+
+    <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog && !showQuestionnaireImportDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId || t('opCalendar.slotReserved', 'SLOT RESERVED')}</h2>
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>

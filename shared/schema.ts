@@ -847,6 +847,7 @@ export const patients = pgTable("patients", {
   // Medical Information
   allergies: text("allergies").array(),
   otherAllergies: text("other_allergies"),
+  weight: varchar("weight"),
   internalNotes: text("internal_notes"),
   
   // Audit

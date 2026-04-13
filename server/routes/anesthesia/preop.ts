@@ -125,6 +125,13 @@ router.post('/api/anesthesia/preop', isAuthenticated, requireStrictHospitalAcces
       }
     }
 
+    // Sync weight to patient record (same pattern as allergies)
+    if (req.body.weight !== undefined && req.body.weight !== null && req.body.weight !== '') {
+      if (surgery.patientId) {
+        await storage.updatePatient(surgery.patientId, { weight: req.body.weight });
+      }
+    }
+
     const newAssessment = await storage.createPreOpAssessment(validatedData);
     
     res.status(201).json(newAssessment);
@@ -155,17 +162,24 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireStrictHospital
 
     if (req.body.allergies !== undefined || req.body.allergiesOther !== undefined) {
       const patientUpdates: any = {};
-      
+
       if (req.body.allergies !== undefined) {
         patientUpdates.allergies = req.body.allergies;
       }
-      
+
       if (req.body.allergiesOther !== undefined) {
         patientUpdates.otherAllergies = req.body.allergiesOther;
       }
-      
+
       if (surgery.patientId) {
         await storage.updatePatient(surgery.patientId, patientUpdates);
+      }
+    }
+
+    // Sync weight to patient record (same pattern as allergies)
+    if (req.body.weight !== undefined && req.body.weight !== null && req.body.weight !== '') {
+      if (surgery.patientId) {
+        await storage.updatePatient(surgery.patientId, { weight: req.body.weight });
       }
     }
 
