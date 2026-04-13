@@ -368,6 +368,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.changeSignature": "Change signature",
     "questionnaire.submit.privacy": "Privacy Consent",
     "questionnaire.submit.privacyText": "I consent to the processing of my personal and health data for the purpose of my medical treatment. I confirm that the information provided is accurate to the best of my knowledge.",
+    "questionnaire.submit.signatureRequired": "Please sign the questionnaire before submitting",
     "questionnaire.submit.privacyRequired": "You must accept the privacy consent to submit the questionnaire",
     "questionnaire.personal.smsConsent": "I agree to receive SMS notifications",
     "questionnaire.personal.smsConsentText": "I consent to receive appointment reminders and important notifications via SMS to the phone number provided above.",
@@ -544,6 +545,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.changeSignature": "Unterschrift ändern",
     "questionnaire.submit.privacy": "Datenschutz-Einwilligung",
     "questionnaire.submit.privacyText": "Ich willige in die Verarbeitung meiner persönlichen und gesundheitlichen Daten zum Zweck meiner medizinischen Behandlung ein. Ich bestätige, dass die gemachten Angaben nach bestem Wissen korrekt sind.",
+    "questionnaire.submit.signatureRequired": "Bitte unterschreiben Sie den Fragebogen vor dem Absenden",
     "questionnaire.submit.privacyRequired": "Sie müssen der Datenschutzerklärung zustimmen, um den Fragebogen abzusenden",
     "questionnaire.personal.smsConsent": "Ich stimme dem Empfang von SMS-Benachrichtigungen zu",
     "questionnaire.personal.smsConsentText": "Ich willige ein, Terminerinnerungen und wichtige Benachrichtigungen per SMS an die oben angegebene Telefonnummer zu erhalten.",
@@ -720,6 +722,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.changeSignature": "Cambiare firma",
     "questionnaire.submit.privacy": "Consenso alla privacy",
     "questionnaire.submit.privacyText": "Acconsento al trattamento dei miei dati personali e sanitari ai fini del mio trattamento medico. Confermo che le informazioni fornite sono accurate al meglio delle mie conoscenze.",
+    "questionnaire.submit.signatureRequired": "Si prega di firmare il questionario prima dell'invio",
     "questionnaire.submit.privacyRequired": "Deve accettare il consenso alla privacy per inviare il questionario",
     "questionnaire.personal.smsConsent": "Acconsento a ricevere notifiche SMS",
     "questionnaire.personal.smsConsentText": "Acconsento a ricevere promemoria di appuntamenti e notifiche importanti via SMS al numero di telefono indicato sopra.",
@@ -896,6 +899,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.changeSignature": "Cambiar firma",
     "questionnaire.submit.privacy": "Consentimiento de privacidad",
     "questionnaire.submit.privacyText": "Consiento el tratamiento de mis datos personales y de salud con el fin de mi tratamiento médico. Confirmo que la información proporcionada es correcta según mi conocimiento.",
+    "questionnaire.submit.signatureRequired": "Por favor firme el cuestionario antes de enviarlo",
     "questionnaire.submit.privacyRequired": "Debe aceptar el consentimiento de privacidad para enviar el cuestionario",
     "questionnaire.personal.smsConsent": "Acepto recibir notificaciones por SMS",
     "questionnaire.personal.smsConsentText": "Consiento recibir recordatorios de citas y notificaciones importantes por SMS al número de teléfono indicado arriba.",
@@ -1072,6 +1076,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.changeSignature": "Changer la signature",
     "questionnaire.submit.privacy": "Consentement de confidentialité",
     "questionnaire.submit.privacyText": "Je consens au traitement de mes données personnelles et de santé aux fins de mon traitement médical. Je confirme que les informations fournies sont exactes au meilleur de ma connaissance.",
+    "questionnaire.submit.signatureRequired": "Veuillez signer le questionnaire avant de l'envoyer",
     "questionnaire.submit.privacyRequired": "Vous devez accepter le consentement de confidentialité pour envoyer le questionnaire",
     "questionnaire.personal.smsConsent": "J'accepte de recevoir des notifications par SMS",
     "questionnaire.personal.smsConsentText": "Je consens à recevoir des rappels de rendez-vous et des notifications importantes par SMS au numéro de téléphone indiqué ci-dessus.",
@@ -1864,7 +1869,7 @@ export default function PatientQuestionnaire({ resolvedToken, isHospitalLink }: 
               <Button
                 onClick={handleSubmit}
                 className="flex-1 bg-green-600 hover:bg-green-700"
-                disabled={submitMutation.isPending || !formData.privacyConsent || !formData.patientPhone}
+                disabled={submitMutation.isPending || !formData.privacyConsent || !formData.signature || !formData.patientPhone}
                 data-testid="button-submit"
               >
                 {submitMutation.isPending ? (
@@ -3397,6 +3402,12 @@ function SubmitStep({ formData, updateField, t, onOpenSignature, submitError }: 
         </div>
       </div>
 
+      {!formData.signature && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{t("questionnaire.submit.signatureRequired")}</AlertDescription>
+        </Alert>
+      )}
       {!formData.privacyConsent && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
