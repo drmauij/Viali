@@ -14,7 +14,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
-import { sendQuestionnaireSubmittedNotificationBatch } from "../resend";
+import { sendQuestionnaireSubmittedNotificationBatch, sendQuestionnaireReceivedConfirmation } from "../resend";
 import { notifyQuestionnaireSubmitted } from "../socket";
 import { inArray } from "drizzle-orm";
 import logger from "../logger";
@@ -1581,6 +1581,55 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
       message: "Questionnaire submitted successfully",
       submittedAt: submitted.submittedAt,
     });
+
+    // Fire-and-forget: send confirmation to patient via the same channel the link was sent through
+    (async () => {
+      try {
+        // Only confirm for links that were explicitly sent via SMS or email by staff
+        // General/walk-in links (no smsSentTo and no emailSentTo) are skipped
+        const lang = (link.language as 'de' | 'en') || 'de';
+        const patientFirstName = submitted.patientFirstName || '';
+
+        if (link.smsSentTo) {
+          // Confirm via SMS
+          const hospital = await storage.getHospital(link.hospitalId);
+          const hospitalName = hospital?.name || 'Hospital';
+          const message = lang === 'de'
+            ? `Vielen Dank! Ihr Fragebogen wurde erfolgreich an ${hospitalName} gesendet. Wir melden uns bei Ihnen.`
+            : `Thank you! Your questionnaire has been received by ${hospitalName}. We'll be in touch soon.`;
+
+          const result = await sendSms(link.smsSentTo, message, link.hospitalId);
+          if (!result.success) {
+            logger.error(`[Questionnaire] Failed to send confirmation SMS to ${link.smsSentTo}:`, result.error);
+          } else {
+            logger.info(`[Questionnaire] Sent confirmation SMS to ${link.smsSentTo}`);
+          }
+        } else if (link.emailSentTo) {
+          // Confirm via email
+          const hospital = await storage.getHospital(link.hospitalId);
+          const hospitalName = hospital?.name || 'Hospital';
+          const hospitalPhone = hospital?.companyPhone || null;
+          const hospitalEmail = hospital?.companyEmail || null;
+
+          const result = await sendQuestionnaireReceivedConfirmation(
+            link.emailSentTo,
+            hospitalName,
+            hospitalPhone,
+            hospitalEmail,
+            patientFirstName,
+            lang
+          );
+          if (!result.success) {
+            logger.error(`[Questionnaire] Failed to send confirmation email to ${link.emailSentTo}:`, result.error);
+          } else {
+            logger.info(`[Questionnaire] Sent confirmation email to ${link.emailSentTo}`);
+          }
+        }
+        // else: general/walk-in link — no confirmation sent
+      } catch (err) {
+        logger.error('[Questionnaire] Error sending patient confirmation:', err);
+      }
+    })();
 
     // Fire-and-forget: notify clinic users for general (unassociated) submissions
     (async () => {
