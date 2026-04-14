@@ -953,8 +953,8 @@ export function VitalsSwimlane({
       {/* Ghost markers for planned vitals checks */}
       {ghostMarkers.length > 0 && (
         <div
-          className="absolute left-0 right-0 pointer-events-none z-20"
-          style={{ top: VITALS_TOP - 14, height: 12 }}
+          className="absolute left-0 right-0 pointer-events-none z-40"
+          style={{ top: VITALS_TOP + 2, height: 12 }}
           data-testid="vitals-planned-overlay"
         >
           {ghostMarkers.map(m => {
