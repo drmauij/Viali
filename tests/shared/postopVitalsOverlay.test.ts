@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyPlannedCheck,
   checkDeviation,
+  PARAM_ROW_ORDER,
   type PlannedVitalsCheckLike,
   type VitalsMonitoringItemLike,
 } from '@shared/postopVitalsOverlay';
@@ -30,6 +31,17 @@ describe('classifyPlannedCheck', () => {
 
   it('returns "cancelled" when status is cancelled', () => {
     expect(classifyPlannedCheck(mk(0, 'cancelled'), 1_000_000)).toBe('cancelled');
+  });
+
+  it('returns "overdue" when status is missed (regardless of time)', () => {
+    const now = 1_000_000;
+    expect(classifyPlannedCheck(mk(now - 10_000, 'missed'), now)).toBe('overdue');
+    expect(classifyPlannedCheck(mk(now + 10_000, 'missed'), now)).toBe('overdue');
+  });
+
+  it('returns "upcoming" when plannedAt equals now (strict less-than boundary)', () => {
+    const now = 1_000_000;
+    expect(classifyPlannedCheck(mk(now), now)).toBe('upcoming');
   });
 });
 
@@ -64,5 +76,11 @@ describe('checkDeviation', () => {
     expect(checkDeviation(80, item(90))).toEqual({ kind: 'low', action: undefined });
     expect(checkDeviation(160, item(undefined, 140))).toEqual({ kind: 'high', action: undefined });
     expect(checkDeviation(120, item(90))).toEqual({ kind: 'ok' });
+  });
+});
+
+describe('PARAM_ROW_ORDER', () => {
+  it('contains all expected vitals parameters in canonical order', () => {
+    expect(PARAM_ROW_ORDER).toEqual(['BP', 'pulse', 'temp', 'spo2', 'bz']);
   });
 });
