@@ -61,7 +61,7 @@ export function VitalsSwimlane({
   isTouchDevice,
   onBulkVitalsOpen,
   onVitalPointEdit,
-  plannedVitalsChecks, // Task 3 will add rendering logic; prop accepted here for interface completeness
+  plannedVitalsChecks,
 }: VitalsSwimlaneProps) {
   const { t } = useTranslation();
   const {
