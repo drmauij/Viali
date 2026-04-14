@@ -1,0 +1,108 @@
+import type { Express, Request, Response } from "express";
+import { z } from "zod";
+import {
+  getCachedAnalysis,
+  isFresh,
+} from "../storage/marketingAiAnalyses";
+import { getOrCreateAnalysis } from "../services/marketingAiAnalyzer";
+import logger from "../logger";
+
+const bodySchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  force: z.boolean().optional(),
+});
+
+function resolveLanguage(req: Request): "en" | "de" {
+  const raw =
+    (req as any).i18n?.language ??
+    (req.headers["accept-language"] as string | undefined) ??
+    "en";
+  return raw.toLowerCase().startsWith("de") ? "de" : "en";
+}
+
+function requireAccess(req: Request, res: Response): boolean {
+  const role = (req as any).activeHospital?.role;
+  if (!["admin", "manager", "marketing"].includes(role)) {
+    res.status(403).json({ error: "forbidden" });
+    return false;
+  }
+  return true;
+}
+
+export function registerMarketingAiRoutes(app: Express): void {
+  app.get(
+    "/api/business/:hospitalId/ai-analysis",
+    async (req: Request, res: Response) => {
+      if (!requireAccess(req, res)) return;
+      const hospitalId = req.params.hospitalId;
+      const activeHospitalId = (req as any).activeHospital?.hospitalId;
+      if (hospitalId !== activeHospitalId)
+        return void res.status(403).json({ error: "forbidden" });
+
+      const startDate = String(req.query.startDate ?? "");
+      const endDate = String(req.query.endDate ?? "");
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(endDate) ||
+        startDate > endDate
+      ) {
+        return void res.status(400).json({ error: "invalid date range" });
+      }
+
+      const language = resolveLanguage(req);
+      const row = await getCachedAnalysis({
+        hospitalId,
+        startDate,
+        endDate,
+        language,
+      });
+      if (!row) return void res.status(404).json({ error: "no cache" });
+
+      return void res.json({
+        payload: row.payload,
+        generatedAt: row.generatedAt,
+        generatedBy: row.generatedBy,
+        cached: true,
+        stale: !isFresh(row),
+      });
+    },
+  );
+
+  app.post(
+    "/api/business/:hospitalId/ai-analysis",
+    async (req: Request, res: Response) => {
+      if (!requireAccess(req, res)) return;
+      const hospitalId = req.params.hospitalId;
+      const activeHospitalId = (req as any).activeHospital?.hospitalId;
+      if (hospitalId !== activeHospitalId)
+        return void res.status(403).json({ error: "forbidden" });
+
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return void res.status(400).json({ error: "invalid body" });
+      const { startDate, endDate, force = false } = parsed.data;
+      if (startDate > endDate)
+        return void res.status(400).json({ error: "invalid date range" });
+
+      if (force && (req as any).activeHospital?.role !== "admin") {
+        return void res.status(403).json({ error: "admin required for regenerate" });
+      }
+
+      const userId = (req as any).user?.id;
+      try {
+        const result = await getOrCreateAnalysis({
+          hospitalId,
+          startDate,
+          endDate,
+          language: resolveLanguage(req),
+          userId,
+          force,
+        });
+        return void res.json(result);
+      } catch (err) {
+        logger.error({ err }, "marketing ai analysis failed");
+        return void res.status(502).json({ error: "analysis_failed" });
+      }
+    },
+  );
+}

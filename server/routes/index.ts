@@ -34,6 +34,7 @@ import shiftsRouter from "./shifts";
 import websiteRouter from "./website";
 import flowsRouter from "./flows";
 import publicDocsRouter from "./publicDocs";
+import { registerMarketingAiRoutes } from "./marketingAi";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -44,6 +45,7 @@ export function registerDomainRoutes(app: Express) {
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);
   app.use(businessRouter);
+  registerMarketingAiRoutes(app);
   app.use(clinicRouter);
   app.use(surgeonChecklistsRouter);
   app.use(chatRouter);
