@@ -3,6 +3,7 @@ import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
+import { requireAdminRole } from "./middleware";
 import { 
   clinicInvoices, 
   clinicInvoiceItems,
@@ -2735,6 +2736,97 @@ router.put('/api/clinic/:hospitalId/appointments/:appointmentId/referral', isAut
     res.status(500).json({ message: "Failed to update referral source" });
   }
 });
+
+// Admin-only: import referral attribution from a lead onto an existing appointment.
+// Used to rescue manually-created appointments that were never linked to their lead.
+router.post(
+  '/api/clinic/:hospitalId/appointments/:appointmentId/referral/import-from-lead',
+  isAuthenticated,
+  requireStrictHospitalAccess,
+  requireAdminRole as any,
+  async (req: any, res) => {
+    try {
+      const { hospitalId, appointmentId } = req.params;
+      const bodySchema = z.object({ leadId: z.string().min(1) });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid body", errors: parsed.error.errors });
+      }
+      const { leadId } = parsed.data;
+
+      const { referralEvents, leads } = await import("@shared/schema");
+      const { mapLeadToReferralFields } = await import("@shared/leadToReferralMapping");
+
+      // 1. Load + validate appointment
+      const appointment = await storage.getClinicAppointment(appointmentId);
+      if (!appointment || appointment.hospitalId !== hospitalId) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      if (appointment.appointmentType === "internal") {
+        return res.status(409).json({ message: "Referral does not apply to internal appointments" });
+      }
+      if (!appointment.patientId) {
+        return res.status(400).json({ message: "Appointment has no patient" });
+      }
+
+      // 2. Load + validate lead
+      const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+      if (!lead || lead.hospitalId !== hospitalId) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // 3. Derive referral fields from lead
+      const referralFields = mapLeadToReferralFields(lead);
+
+      // 4. Upsert referral event for this appointment
+      const [existingEvent] = await db
+        .select()
+        .from(referralEvents)
+        .where(and(
+          eq(referralEvents.appointmentId, appointmentId),
+          eq(referralEvents.hospitalId, hospitalId),
+        ))
+        .limit(1);
+
+      let referralEventId: string;
+      if (existingEvent) {
+        const [updated] = await db
+          .update(referralEvents)
+          .set(referralFields)
+          .where(eq(referralEvents.id, existingEvent.id))
+          .returning({ id: referralEvents.id });
+        referralEventId = updated.id;
+      } else {
+        const [created] = await db
+          .insert(referralEvents)
+          .values({
+            hospitalId,
+            patientId: appointment.patientId,
+            appointmentId,
+            ...referralFields,
+          })
+          .returning({ id: referralEvents.id });
+        referralEventId = created.id;
+      }
+
+      // 5. Link lead to appointment; convert unless already closed
+      const nextStatus = lead.status === "closed" ? "closed" : "converted";
+      await db
+        .update(leads)
+        .set({
+          appointmentId,
+          status: nextStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(leads.id, leadId));
+
+      res.json({ referralEventId, leadId });
+    } catch (error) {
+      logger.error("Error importing referral from lead:", error);
+      res.status(500).json({ message: "Failed to import referral from lead" });
+    }
+  }
+);
 
 // Delete appointment
 router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
