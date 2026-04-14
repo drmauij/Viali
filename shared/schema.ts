@@ -6805,3 +6805,53 @@ export const flowEvents = pgTable("flow_events", {
 ]);
 
 export type FlowEvent = typeof flowEvents.$inferSelect;
+
+// Marketing AI Analyses cache table
+export const marketingAiAnalyses = pgTable(
+  "marketing_ai_analyses",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    hospitalId: varchar("hospital_id")
+      .notNull()
+      .references(() => hospitals.id, { onDelete: "cascade" }),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    language: text("language").notNull(), // 'en' | 'de'
+    payload: jsonb("payload")
+      .$type<{
+        summary: string[];
+        trends: string[];
+        insights: string[];
+        suggestedActions: string[];
+      }>()
+      .notNull(),
+    inputHash: text("input_hash").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    generatedBy: varchar("generated_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    uniqueIndex("marketing_ai_analyses_unique_range").on(
+      t.hospitalId,
+      t.startDate,
+      t.endDate,
+      t.language,
+    ),
+  ],
+);
+
+export type MarketingAiAnalysis = typeof marketingAiAnalyses.$inferSelect;
+export type NewMarketingAiAnalysis = typeof marketingAiAnalyses.$inferInsert;
+
+export const marketingAiAnalysisPayloadSchema = z.object({
+  summary: z.array(z.string().max(300)).min(1).max(3),
+  trends: z.array(z.string().max(300)).max(3),
+  insights: z.array(z.string().max(300)).max(3),
+  suggestedActions: z.array(z.string().max(300)).max(3),
+});
+export type MarketingAiAnalysisPayload = z.infer<
+  typeof marketingAiAnalysisPayloadSchema
+>;
