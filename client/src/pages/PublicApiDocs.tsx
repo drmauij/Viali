@@ -144,7 +144,7 @@ export default function PublicApiDocs() {
             <h2 className="text-xl font-semibold mt-8 mb-2">Base URL</h2>
             <p>
               Replace <code className="mx-1 px-1.5 py-0.5 rounded bg-muted text-sm">https://&lt;your-viali-host&gt;</code>{" "}
-              in the examples with the host your clinic runs on (e.g. <code className="px-1 py-0.5 rounded bg-muted text-sm">https://app.viali.ch</code>).
+              in the examples with the host your clinic runs on (e.g. <code className="px-1 py-0.5 rounded bg-muted text-sm">https://use.viali.app</code>).
             </p>
           </section>
 
