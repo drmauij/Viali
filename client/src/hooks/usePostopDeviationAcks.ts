@@ -47,7 +47,10 @@ export function useResolveDeviation(anesthesiaRecordId: string) {
         ...body,
         anesthesiaRecordId,
       });
-      if (!res.ok) throw new Error('Failed to resolve deviation');
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Failed to resolve deviation: ${res.status} ${errBody}`);
+      }
       return res.json();
     },
     onSuccess: () => {

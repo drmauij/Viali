@@ -1126,13 +1126,19 @@ export function VitalsSwimlane({
           kind={openAlert.kind}
           action={openAlert.action}
           onResolve={async (note) => {
-            await resolveMutation.mutateAsync({
-              parameter: openAlert.parameter,
-              recordedAt: new Date(openAlert.timestamp).toISOString(),
-              recordedValue: openAlert.value,
-              boundKind: openAlert.kind,
-              note,
-            });
+            try {
+              await resolveMutation.mutateAsync({
+                parameter: openAlert.parameter,
+                recordedAt: new Date(openAlert.timestamp).toISOString(),
+                recordedValue: openAlert.value,
+                boundKind: openAlert.kind,
+                note,
+              });
+            } catch (err) {
+              console.error('Resolve deviation failed:', err);
+              alert(`Failed to resolve: ${(err as Error).message}`);
+              throw err;
+            }
           }}
         />
       )}
