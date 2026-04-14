@@ -4,6 +4,7 @@ import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
+import { classifyPlannedCheck, PARAM_ROW_ORDER } from '@shared/postopVitalsOverlay';
 
 /**
  * VitalsSwimlane Component
@@ -867,6 +868,23 @@ export function VitalsSwimlane({
     }
   };
 
+  // Ghost markers for planned vitals checks (Task 3)
+  const nowMs = Date.now();
+  const _visibleStart = currentZoomStart ?? data.startTime;
+  const _visibleEnd = currentZoomEnd ?? data.endTime;
+  const _visibleRange = _visibleEnd - _visibleStart;
+
+  const ghostMarkers = (plannedVitalsChecks ?? [])
+    .filter(c => c.status !== 'cancelled')
+    .filter(c => c.plannedAt >= _visibleStart && c.plannedAt <= _visibleEnd)
+    .map(c => {
+      const classification = classifyPlannedCheck({ plannedAt: c.plannedAt, status: c.status }, nowMs);
+      const xFraction = (c.plannedAt - _visibleStart) / _visibleRange;
+      const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 4px)`;
+      const paramRowIndex = PARAM_ROW_ORDER.indexOf(c.parameter);
+      return { ...c, classification, leftPosition, paramRowIndex };
+    });
+
   // Determine cursor style based on tool mode
   const getCursorStyle = () => {
     if (activeToolMode === 'edit') {
@@ -880,6 +898,46 @@ export function VitalsSwimlane({
 
   return (
     <>
+      {/* Ghost markers for planned vitals checks */}
+      {ghostMarkers.length > 0 && (
+        <div
+          className="absolute left-0 right-0 pointer-events-none z-20"
+          style={{ top: VITALS_TOP - 14, height: 12 }}
+          data-testid="vitals-planned-overlay"
+        >
+          {ghostMarkers.map(m => {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const upcoming = m.classification === 'upcoming';
+            const bgColor = upcoming
+              ? (isDarkMode ? '#1e3a5f' : '#eff6ff')
+              : (isDarkMode ? '#92400e' : '#fef3c7');
+            const borderColor = upcoming ? '#93c5fd' : '#f59e0b';
+            const textColor = upcoming
+              ? (isDarkMode ? '#93c5fd' : '#1e40af')
+              : (isDarkMode ? '#fcd34d' : '#92400e');
+            return (
+              <div
+                key={m.id}
+                className="absolute flex items-center px-1 rounded-sm text-[9px] font-medium whitespace-nowrap pointer-events-auto"
+                style={{
+                  left: m.leftPosition,
+                  top: 0,
+                  backgroundColor: bgColor,
+                  borderColor,
+                  color: textColor,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  height: 12,
+                }}
+                title={`${m.parameter.toUpperCase()} check planned at ${new Date(m.plannedAt).toLocaleTimeString()}`}
+              >
+                {m.parameter.toUpperCase()}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Interactive layer for vitals entry */}
       <div
         data-vitals-overlay="true"
