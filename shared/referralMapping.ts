@@ -1,5 +1,5 @@
 export type ReferralSource = "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "marketing" | "other";
-export type CaptureMethod = "manual" | "utm" | "ref";
+export type CaptureMethod = "manual" | "utm" | "ref" | "staff";
 
 interface MappedReferral {
   source: ReferralSource;

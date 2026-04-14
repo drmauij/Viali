@@ -11,6 +11,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -48,6 +59,7 @@ import {
   Megaphone,
   MessageSquare,
   ChevronDown,
+  ClipboardPaste,
 } from "lucide-react";
 import { parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -125,6 +137,14 @@ export default function AppointmentDetailDialog({
   const [referralSource, setReferralSource] = useState('');
   const [referralSourceDetail, setReferralSourceDetail] = useState('');
 
+  // Admin-only paste-from-lead state
+  const activeHospital = useActiveHospital();
+  const isAdmin = activeHospital?.role === "admin";
+  const [pastePreview, setPastePreview] = useState<
+    | null
+    | { leadId: string; firstName: string; lastName: string; summary: string; source: string }
+  >(null);
+
   const { data: referralEvent } = useQuery<{
     id: string;
     source: string;
@@ -159,6 +179,68 @@ export default function AppointmentDetailDialog({
       toast({ title: t('appointments.referralUpdateError', 'Failed to update referral source'), variant: "destructive" });
     },
   });
+
+  const importReferralMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return apiRequest(
+        "POST",
+        `/api/clinic/${hospitalId}/appointments/${appointment?.id}/referral/import-from-lead`,
+        { leadId }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/clinic/${hospitalId}/appointments/${appointment?.id}/referral`],
+      });
+      queryClient.invalidateQueries({
+        predicate: (q) => {
+          const key = q.queryKey[0];
+          return typeof key === "string" && key.includes(`/api/clinic/${hospitalId}/appointments`);
+        },
+      });
+      toast({ title: t("appointments.referralImported", "Referral imported from lead") });
+      setPastePreview(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.message ?? t("appointments.referralImportError", "Failed to import referral");
+      toast({ title: msg, variant: "destructive" });
+      setPastePreview(null);
+    },
+  });
+
+  const handlePasteFromLead = async () => {
+    try {
+      const raw = await navigator.clipboard.readText();
+      if (!raw) {
+        toast({ title: t("appointments.noClipboardReferral", "No valid lead referral on the clipboard"), variant: "destructive" });
+        return;
+      }
+      let payload: any;
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        toast({ title: t("appointments.noClipboardReferral", "No valid lead referral on the clipboard"), variant: "destructive" });
+        return;
+      }
+      if (payload?.__viali_payload_type !== "lead_referral_v1" || !payload?.leadId) {
+        toast({ title: t("appointments.noClipboardReferral", "No valid lead referral on the clipboard"), variant: "destructive" });
+        return;
+      }
+      if (payload.hospitalId !== hospitalId) {
+        toast({ title: t("appointments.referralCrossHospital", "That lead belongs to another hospital"), variant: "destructive" });
+        return;
+      }
+      setPastePreview({
+        leadId: payload.leadId,
+        firstName: payload.firstName ?? "",
+        lastName: payload.lastName ?? "",
+        summary: payload.summary ?? "",
+        source: payload.source ?? "",
+      });
+    } catch {
+      toast({ title: t("appointments.noClipboardReferral", "No valid lead referral on the clipboard"), variant: "destructive" });
+    }
+  };
 
   const { data: services = [] } = useQuery<ClinicService[]>({
     queryKey: [`/api/clinic/${hospitalId}/services?unitId=${unitId}`],
@@ -530,14 +612,29 @@ export default function AppointmentDetailDialog({
                     {t('appointments.referralSource', 'Referral Source')}
                   </p>
                   {!editReferral && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => setEditReferral(true)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={handlePasteFromLead}
+                          disabled={importReferralMutation.isPending}
+                          data-testid="button-paste-from-lead"
+                        >
+                          <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+                          {t("appointments.pasteFromLead", "Paste from lead")}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setEditReferral(true)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
 
@@ -805,6 +902,37 @@ export default function AppointmentDetailDialog({
           patientPhone={appointment.patient.phone}
         />
       )}
+
+      <AlertDialog open={!!pastePreview} onOpenChange={(o) => { if (!o) setPastePreview(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("appointments.confirmImportReferralTitle", "Import referral from lead?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("appointments.confirmImportReferralBody", "Import referral from {{name}} — {{summary}}. This will overwrite the current referral source for this appointment.", {
+                name: `${pastePreview?.firstName ?? ""} ${pastePreview?.lastName ?? ""}`.trim(),
+                summary: pastePreview?.summary || pastePreview?.source || "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={importReferralMutation.isPending}>
+              {t("common.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (pastePreview) importReferralMutation.mutate(pastePreview.leadId);
+              }}
+              disabled={importReferralMutation.isPending}
+            >
+              {importReferralMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              {t("appointments.import", "Import")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
