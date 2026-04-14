@@ -3892,6 +3892,7 @@ export const clinicServices = pgTable("clinic_services", {
   isShared: boolean("is_shared").default(false).notNull(),
   isInvoiceable: boolean("is_invoiceable").default(false), // Whether service appears in invoice service picker
   code: varchar("code"), // Alphanumeric booking code for public website linking
+  serviceGroup: varchar("service_group"), // Optional grouping for booking filters (e.g. "brust", "gesicht")
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

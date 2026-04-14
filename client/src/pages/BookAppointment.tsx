@@ -56,6 +56,7 @@ type Service = {
   description: string | null;
   durationMinutes: number | null;
   code: string | null;
+  serviceGroup: string | null;
   sortOrder: number;
   providerIds: string[];
 };
@@ -139,6 +140,7 @@ export default function BookAppointment() {
   const isEmbed = searchParams.get("embed") === "true";
   const preselectedProviderId = searchParams.get("provider");
   const serviceCode = searchParams.get("service");
+  const serviceGroupParam = searchParams.get("service_group");
   const prefillFirstName = searchParams.get("firstName");
   const prefillSurname = searchParams.get("surname");
   const prefillEmail = searchParams.get("email");
@@ -246,8 +248,21 @@ export default function BookAppointment() {
       .then(async (res) => {
         if (!res.ok) return;
         const body = await res.json();
-        const list: Service[] = body.services ?? [];
+        const allServices: Service[] = body.services ?? [];
+
+        // Apply service_group filter if present and at least one service matches
+        let list = allServices;
+        if (serviceGroupParam) {
+          const filtered = allServices.filter(s => s.serviceGroup === serviceGroupParam);
+          if (filtered.length > 0) {
+            list = filtered;
+          }
+          // If no match, fall back to all (don't break the page for mistyped groups)
+        }
+
         setServices(list);
+
+        // Priority 1: ?service= deep-link
         if (serviceCode) {
           const match = list.find(s => s.code === serviceCode);
           if (match) {
@@ -255,12 +270,20 @@ export default function BookAppointment() {
             return;
           }
         }
+
+        // Priority 2: single match from service_group → auto-select and skip
+        if (serviceGroupParam && list !== allServices && list.length === 1) {
+          setSelectedTreatment(list[0]);
+          setStep('provider');
+          return;
+        }
+
         if (list.length > 0) {
           setStep('treatment');
         }
       })
       .catch(() => { /* non-fatal */ });
-  }, [token, serviceCode]);
+  }, [token, serviceCode, serviceGroupParam]);
 
   // ─── Service info prefill for ?service= deep links ───────────
   // We never auto-select a provider here — the patient always sees the

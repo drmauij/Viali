@@ -18,7 +18,7 @@ import {
   ProviderTimeOff,
   clinicDayNotes,
 } from "@shared/schema";
-import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike } from "drizzle-orm";
+import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
 // Cal.com integration is legacy — booking is now native via /book
@@ -950,6 +950,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
         isShared: clinicServices.isShared,
         isInvoiceable: clinicServices.isInvoiceable,
         code: clinicServices.code,
+        serviceGroup: clinicServices.serviceGroup,
         sortOrder: clinicServices.sortOrder,
         createdAt: clinicServices.createdAt,
         updatedAt: clinicServices.updatedAt,
@@ -1067,7 +1068,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, providerIds: providerIdsInput } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, providerIds: providerIdsInput } = req.body;
 
     // Validate code format if provided
     if (code !== undefined && code !== null && code !== '') {
@@ -1088,6 +1089,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
     if (code !== undefined) updateData.code = code === '' ? null : code;
+    if (serviceGroup !== undefined) updateData.serviceGroup = serviceGroup || null;
 
     const [updated] = await db
       .update(clinicServices)
@@ -1217,6 +1219,104 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
   } catch (error) {
     logger.error("Error bulk setting billable status:", error);
     res.status(500).json({ message: "Failed to update billable status" });
+  }
+});
+
+// Get distinct service groups used in the hospital (for combobox suggestions)
+router.get('/api/clinic/:hospitalId/service-groups', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const rows = await db
+      .selectDistinct({ serviceGroup: clinicServices.serviceGroup })
+      .from(clinicServices)
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          isNotNull(clinicServices.serviceGroup),
+        )
+      );
+    const groups = rows
+      .map(r => r.serviceGroup)
+      .filter((g): g is string => !!g && g.trim().length > 0)
+      .sort();
+    res.json({ groups });
+  } catch (error) {
+    logger.error("Error fetching service groups:", error);
+    res.status(500).json({ message: "Failed to fetch service groups" });
+  }
+});
+
+// Bulk update provider assignments (set=replace, add=append) for multiple services
+router.post('/api/clinic/:hospitalId/services/bulk-update-providers', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { serviceIds, providerIds, mode } = req.body;
+
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+      return res.status(400).json({ message: "Service IDs are required" });
+    }
+    if (!Array.isArray(providerIds)) {
+      return res.status(400).json({ message: "providerIds must be an array" });
+    }
+    if (mode !== 'set' && mode !== 'add') {
+      return res.status(400).json({ message: "mode must be 'set' or 'add'" });
+    }
+
+    // Verify all services belong to this hospital
+    const owned = await db
+      .select({ id: clinicServices.id })
+      .from(clinicServices)
+      .where(and(
+        eq(clinicServices.hospitalId, hospitalId),
+        inArray(clinicServices.id, serviceIds),
+      ));
+    const ownedIds = new Set(owned.map(r => r.id));
+    const validIds = serviceIds.filter((id: string) => ownedIds.has(id));
+
+    for (const serviceId of validIds) {
+      if (mode === 'set') {
+        await storage.setServiceProviders(serviceId, providerIds);
+      } else {
+        const existing = await storage.getProvidersByServiceId(serviceId);
+        const merged = Array.from(new Set([...existing, ...providerIds]));
+        await storage.setServiceProviders(serviceId, merged);
+      }
+    }
+
+    res.json({ updatedCount: validIds.length, mode });
+  } catch (error) {
+    logger.error("Error bulk updating providers:", error);
+    res.status(500).json({ message: "Failed to update providers" });
+  }
+});
+
+// Bulk update service group (null to clear) for multiple services
+router.post('/api/clinic/:hospitalId/services/bulk-update-group', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { serviceIds, serviceGroup } = req.body;
+
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+      return res.status(400).json({ message: "Service IDs are required" });
+    }
+    if (serviceGroup !== null && typeof serviceGroup !== 'string') {
+      return res.status(400).json({ message: "serviceGroup must be a string or null" });
+    }
+
+    const normalized = typeof serviceGroup === 'string' ? (serviceGroup.trim() || null) : null;
+
+    await db
+      .update(clinicServices)
+      .set({ serviceGroup: normalized, updatedAt: new Date() })
+      .where(and(
+        eq(clinicServices.hospitalId, hospitalId),
+        inArray(clinicServices.id, serviceIds),
+      ));
+
+    res.json({ updatedCount: serviceIds.length, serviceGroup: normalized });
+  } catch (error) {
+    logger.error("Error bulk updating group:", error);
+    res.status(500).json({ message: "Failed to update group" });
   }
 });
 
