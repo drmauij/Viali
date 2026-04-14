@@ -1645,6 +1645,7 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
   description: string | null;
   durationMinutes: number | null;
   code: string | null;
+  serviceGroup: string | null;
   sortOrder: number;
   providerIds: string[];
 }>> {
@@ -1658,6 +1659,7 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
       description: clinicServices.description,
       durationMinutes: clinicServices.durationMinutes,
       code: clinicServices.code,
+      serviceGroup: clinicServices.serviceGroup,
       sortOrder: clinicServices.sortOrder,
     })
     .from(clinicServices)
@@ -1690,6 +1692,7 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
       description: s.description,
       durationMinutes: s.durationMinutes,
       code: s.code,
+      serviceGroup: s.serviceGroup,
       sortOrder: s.sortOrder ?? 0,
       providerIds: byService.get(s.id) ?? [],
     }))

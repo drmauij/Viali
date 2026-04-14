@@ -950,6 +950,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
         isShared: clinicServices.isShared,
         isInvoiceable: clinicServices.isInvoiceable,
         code: clinicServices.code,
+        serviceGroup: clinicServices.serviceGroup,
         sortOrder: clinicServices.sortOrder,
         createdAt: clinicServices.createdAt,
         updatedAt: clinicServices.updatedAt,
@@ -1067,7 +1068,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, providerIds: providerIdsInput } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, providerIds: providerIdsInput } = req.body;
 
     // Validate code format if provided
     if (code !== undefined && code !== null && code !== '') {
@@ -1088,6 +1089,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
     if (code !== undefined) updateData.code = code === '' ? null : code;
+    if (serviceGroup !== undefined) updateData.serviceGroup = serviceGroup || null;
 
     const [updated] = await db
       .update(clinicServices)
