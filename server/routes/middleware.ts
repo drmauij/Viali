@@ -100,7 +100,7 @@ export async function requireWritePermission(
 }
 
 export async function requireAdminRole(
-  req: AuthenticatedRequest,
+  req: any,
   res: Response,
   next: NextFunction
 ) {

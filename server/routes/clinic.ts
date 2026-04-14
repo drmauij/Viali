@@ -2743,8 +2743,8 @@ router.post(
   '/api/clinic/:hospitalId/appointments/:appointmentId/referral/import-from-lead',
   isAuthenticated,
   requireStrictHospitalAccess,
-  requireAdminRole as any,
-  async (req: any, res) => {
+  requireAdminRole,
+  async (req, res) => {
     try {
       const { hospitalId, appointmentId } = req.params;
       const bodySchema = z.object({ leadId: z.string().min(1) });
