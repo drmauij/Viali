@@ -1,6 +1,73 @@
 import { Link } from "wouter";
 import { useEffect } from "react";
 
+type Param = { name: string; type: string; example: string; notes?: string };
+
+function ParamTable({ params }: { params: Param[] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            <th className="text-left font-medium px-3 py-2">Name</th>
+            <th className="text-left font-medium px-3 py-2">Type</th>
+            <th className="text-left font-medium px-3 py-2">Example</th>
+            <th className="text-left font-medium px-3 py-2">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {params.map((p) => (
+            <tr key={p.name} className="border-t">
+              <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{p.name}</td>
+              <td className="px-3 py-2 text-muted-foreground">{p.type}</td>
+              <td className="px-3 py-2 font-mono text-xs">{p.example}</td>
+              <td className="px-3 py-2 text-muted-foreground">{p.notes ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const BOOKING_PARAMS_SERVICE: Param[] = [
+  { name: "service", type: "string", example: "rhinoplasty", notes: "Service code to preselect" },
+  { name: "service_group", type: "string", example: "aesthetic-face", notes: "Filter services by group" },
+  { name: "provider", type: "uuid", example: "a1b2c3d4-…", notes: "Preselect a specific provider" },
+];
+const BOOKING_PARAMS_PREFILL: Param[] = [
+  { name: "firstName", type: "string", example: "Maria", notes: "Prefill patient first name" },
+  { name: "surname", type: "string", example: "Müller", notes: "Prefill patient surname" },
+  { name: "email", type: "string", example: "maria@example.com" },
+  { name: "phone", type: "string", example: "+41791234567" },
+];
+const BOOKING_PARAMS_UTM: Param[] = [
+  { name: "utm_source", type: "string", example: "google" },
+  { name: "utm_medium", type: "string", example: "cpc" },
+  { name: "utm_campaign", type: "string", example: "spring-2026" },
+  { name: "utm_term", type: "string", example: "brustvergroesserung" },
+  { name: "utm_content", type: "string", example: "ad-variant-a" },
+];
+const BOOKING_PARAMS_CLICKIDS: Param[] = [
+  { name: "gclid", type: "string", example: "abc123…", notes: "Google Ads click ID" },
+  { name: "gbraid", type: "string", example: "0AAAAA…", notes: "Google Ads (iOS app)" },
+  { name: "wbraid", type: "string", example: "0AAAAA…", notes: "Google Ads (web→app)" },
+  { name: "fbclid", type: "string", example: "IwAR0…", notes: "Meta click ID" },
+  { name: "ttclid", type: "string", example: "E.C.…", notes: "TikTok click ID" },
+  { name: "msclkid", type: "string", example: "abc123", notes: "Microsoft Ads click ID" },
+  { name: "igshid", type: "string", example: "MzRlO…", notes: "Instagram share ID" },
+  { name: "li_fat_id", type: "string", example: "abc123", notes: "LinkedIn click ID" },
+  { name: "twclid", type: "string", example: "abc123", notes: "Twitter/X click ID" },
+];
+const BOOKING_PARAMS_MISC: Param[] = [
+  { name: "ref", type: "string", example: "partner-site", notes: "Free-form referrer label" },
+  { name: "campaign_id", type: "string", example: "12345" },
+  { name: "adset_id", type: "string", example: "67890" },
+  { name: "ad_id", type: "string", example: "24680" },
+  { name: "promo", type: "string", example: "SPRING20", notes: "Promo code to apply" },
+  { name: "embed", type: "boolean", example: "true", notes: "Hides chrome for iframe embedding" },
+];
+
 const SECTIONS: Array<{ id: string; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "booking-link", label: "Booking link (/book)" },
@@ -72,6 +139,38 @@ export default function PublicApiDocs() {
               Replace <code className="mx-1 px-1.5 py-0.5 rounded bg-muted text-sm">https://&lt;your-viali-host&gt;</code>{" "}
               in the examples with the host your clinic runs on (e.g. <code className="px-1 py-0.5 rounded bg-muted text-sm">https://app.viali.ch</code>).
             </p>
+          </section>
+
+          <section id="booking-link">
+            <h2 className="text-2xl font-bold tracking-tight mb-2">Booking link (/book)</h2>
+            <p className="text-muted-foreground mb-6">
+              The public booking page each hospital publishes at <code className="px-1 py-0.5 rounded bg-muted text-sm">/book/&lt;HOSPITAL_BOOKING_TOKEN&gt;</code>.
+              No API key needed — the booking token in the URL identifies the hospital. Append query parameters to preselect a service,
+              prefill patient fields, or attach campaign tracking.
+            </p>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Service selection</h3>
+            <ParamTable params={BOOKING_PARAMS_SERVICE} />
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Patient prefill</h3>
+            <ParamTable params={BOOKING_PARAMS_PREFILL} />
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">UTM tracking</h3>
+            <ParamTable params={BOOKING_PARAMS_UTM} />
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Ad click IDs</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Captured on the lead record and echoed back through the Conversions API so ad platforms can match conversions to clicks.
+            </p>
+            <ParamTable params={BOOKING_PARAMS_CLICKIDS} />
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Misc</h3>
+            <ParamTable params={BOOKING_PARAMS_MISC} />
+
+            <h3 className="text-lg font-semibold mt-8 mb-2">Example</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`https://<your-viali-host>/book/<HOSPITAL_BOOKING_TOKEN>?service=rhinoplasty&firstName=Maria&email=maria@example.com&utm_source=google&utm_campaign=spring-2026&gclid=abc123`}
+            </pre>
           </section>
         </main>
       </div>
