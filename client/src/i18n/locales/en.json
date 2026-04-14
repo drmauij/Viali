@@ -6788,6 +6788,11 @@
       "saveAsNew": "Save as new template",
       "overwrite": "Overwrite",
       "configureMedication": "Configure new medication"
+    },
+    "vitalsOverlay": {
+      "checkPlannedAt": "{{parameter}} check planned at {{time}}",
+      "belowMin": "↓ Below min",
+      "aboveMax": "↑ Above max"
     }
   },
   "todoList": {

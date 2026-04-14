@@ -988,9 +988,8 @@ export function VitalsSwimlane({
                   borderStyle: 'dashed',
                   height: 12,
                 }}
-                title={`${m.parameter.toUpperCase()} check planned at ${new Date(m.plannedAt).toLocaleTimeString()}`}
+                title={t('postopOrders.vitalsOverlay.checkPlannedAt', { parameter: m.parameter.toUpperCase(), time: new Date(m.plannedAt).toLocaleTimeString() })}
               >
-                {/* TODO(Task 7): i18n the title attribute */}
                 {m.parameter.toUpperCase()}
               </div>
             );
@@ -1073,10 +1072,9 @@ export function VitalsSwimlane({
             if (!bounds) return null;
             const result = checkDeviation(hoverInfo.value, bounds);
             if (result.kind === 'ok') return null;
-            // TODO(Task 7): i18n '↓ Below min' / '↑ Above max' literals
             return (
               <div className="mt-1 px-1 py-0.5 rounded text-[10px] bg-amber-100 text-amber-900 border border-amber-400 dark:bg-amber-900/50 dark:text-amber-200">
-                {result.kind === 'low' ? '↓ Below min' : '↑ Above max'}
+                {result.kind === 'low' ? t('postopOrders.vitalsOverlay.belowMin') : t('postopOrders.vitalsOverlay.aboveMax')}
                 {result.action ? `: ${result.action}` : ''}
               </div>
             );

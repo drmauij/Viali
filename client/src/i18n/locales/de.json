@@ -6889,6 +6889,11 @@
       "saveAsNew": "Als neue Vorlage speichern",
       "overwrite": "Überschreiben",
       "configureMedication": "Neues Medikament konfigurieren"
+    },
+    "vitalsOverlay": {
+      "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}",
+      "belowMin": "↓ Unter Minimum",
+      "aboveMax": "↑ Über Maximum"
     }
   },
   "todoList": {
