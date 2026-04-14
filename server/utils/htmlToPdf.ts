@@ -36,10 +36,13 @@ function formatDateByHospital(dateStr: string, format?: string | null): string {
 }
 
 const BRIEF_TYPE_LABELS: Record<string, Record<string, string>> = {
-  surgery_discharge: { de: "Austrittsbrief – Chirurgie", en: "Discharge Letter – Surgery" },
-  anesthesia_discharge: { de: "Austrittsbrief – Anästhesie", en: "Discharge Letter – Anesthesia" },
-  anesthesia_overnight_discharge: { de: "Austrittsbrief – Anästhesie (Übernachtung)", en: "Discharge Letter – Anesthesia (Overnight)" },
+  surgery_discharge: { de: "Chirurgischer Austrittsbericht", en: "Surgery Discharge" },
+  anesthesia_discharge: { de: "Anästhesie-Austrittsbericht", en: "Anesthesia Discharge" },
+  anesthesia_overnight_discharge: { de: "Anästhesie + Übernachtung", en: "Anesthesia + Overnight" },
   prescription: { de: "Rezept", en: "Prescription" },
+  surgery_report: { de: "OP-Bericht", en: "Surgery Report" },
+  surgery_estimate: { de: "Kostenvoranschlag", en: "Surgery Estimate" },
+  generic: { de: "Allgemein", en: "Generic" },
 };
 
 /** Replace Unicode characters unsupported by jsPDF's default WinAnsi encoding with ASCII equivalents. */
@@ -686,7 +689,7 @@ export async function renderDischargeBriefPdf(
   const lang = opts.language || 'de';
   const briefTypeLabel = BRIEF_TYPE_LABELS[opts.briefType]?.[lang]
     || BRIEF_TYPE_LABELS[opts.briefType]?.de
-    || (lang === 'de' ? 'Austrittsbrief' : 'Discharge Letter');
+    || (lang === 'de' ? 'Allgemein' : 'Generic');
   pdf.setFontSize(12);
   pdf.setFont("helvetica", "bold");
   pdf.text(
