@@ -1127,13 +1127,22 @@ export function VitalsSwimlane({
           action={openAlert.action}
           onResolve={async (note) => {
             try {
-              await resolveMutation.mutateAsync({
-                parameter: openAlert.parameter,
-                recordedAt: new Date(openAlert.timestamp).toISOString(),
-                recordedValue: openAlert.value,
-                boundKind: openAlert.kind,
-                note,
-              });
+              // Bulk-resolve: acknowledge every currently-unresolved deviation for the same parameter.
+              // Each gets its own ack row so per-value audit (time, value) is preserved.
+              const toResolve = deviationAlerts.filter(
+                a => !a.acknowledged && a.parameter === openAlert.parameter
+              );
+              await Promise.all(
+                toResolve.map(a =>
+                  resolveMutation.mutateAsync({
+                    parameter: a.parameter,
+                    recordedAt: new Date(a.timestamp).toISOString(),
+                    recordedValue: a.value,
+                    boundKind: a.kind,
+                    note,
+                  })
+                )
+              );
             } catch (err) {
               console.error('Resolve deviation failed:', err);
               alert(`Failed to resolve: ${(err as Error).message}`);
