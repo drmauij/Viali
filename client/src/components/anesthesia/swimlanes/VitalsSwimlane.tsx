@@ -100,6 +100,7 @@ export function VitalsSwimlane({
 
   // State for hover tooltip (remains local to this component)
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
+  const [hoveredRecordedPoint, setHoveredRecordedPoint] = useState<{ type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'; id: string; time: number; value: number } | null>(null);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0);
   const [lastAction, setLastAction] = useState<{ type: 'hr' | 'bp' | 'spo2'; data?: VitalPoint; bpData?: { sys: VitalPoint; dia: VitalPoint } } | null>(null);
 
@@ -200,6 +201,14 @@ export function VitalsSwimlane({
       setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
     } else {
       setHoverInfo(null);
+    }
+
+    // Highlight the recorded point the cursor is near (edit mode, not dragging)
+    if (activeToolMode === 'edit' && !isDragging) {
+      const hit = findVitalPointAtClick(time, y, rect);
+      setHoveredRecordedPoint(hit);
+    } else {
+      setHoveredRecordedPoint(null);
     }
   };
 
@@ -938,6 +947,29 @@ export function VitalsSwimlane({
 
   return (
     <>
+      {/* Hover highlight ring over the recorded point under the cursor (edit mode) */}
+      {hoveredRecordedPoint && (() => {
+        const isSpO2 = hoveredRecordedPoint.type === 'spo2';
+        const yPercent = isSpO2
+          ? 1 - ((hoveredRecordedPoint.value - 45) / 60)
+          : 1 - (hoveredRecordedPoint.value / 240);
+        const topPx = VITALS_TOP + yPercent * VITALS_HEIGHT;
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        if (visibleRange <= 0) return null;
+        const xFraction = (hoveredRecordedPoint.time - visibleStart) / visibleRange;
+        const leftCalc = `calc(200px + ${xFraction} * (100% - 210px))`;
+        return (
+          <div
+            className="absolute z-35 pointer-events-none"
+            style={{ left: leftCalc, top: `${topPx}px`, transform: 'translate(-50%, -50%)' }}
+            data-testid="vitals-hover-ring"
+          >
+            <div className="w-6 h-6 rounded-full border-2 border-white/80 bg-white/10 shadow-lg" />
+          </div>
+        );
+      })()}
       {/* Ghost markers for planned vitals checks */}
       {ghostMarkers.length > 0 && (
         <div
@@ -1000,6 +1032,7 @@ export function VitalsSwimlane({
         onMouseMove={handleVitalsMouseMove}
         onMouseLeave={() => {
           setHoverInfo(null);
+          setHoveredRecordedPoint(null);
           // Cancel drag if mouse leaves overlay
           if (isDragging) {
             setSelectedPoint(null);
