@@ -6093,6 +6093,8 @@
   "surgeryPlanning": {
     "calendarView": "Kalender",
     "tableView": "Tabelle",
+    "filterBySurgeon": "Nach Operateur filtern",
+    "allSurgeons": "Alle Operateure",
     "compactView": "Kompaktansicht",
     "extendedView": "Erweiterte Ansicht",
     "currentAndFuture": "Aktuell & Zukünftig",

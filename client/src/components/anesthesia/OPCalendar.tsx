@@ -123,6 +123,7 @@ interface OPCalendarProps {
   tapSelectedRequest?: import("@shared/schema").ExternalSurgeryRequest | null;
   onTapSlotWithSelection?: (info: { start: Date; resource?: string }) => void;
   onSearchSelect?: (surgeryId: string, patientId: string | null, date: Date) => void;
+  surgeonFilter?: string | null;
 }
 
 interface RoomStaffAssignment {
@@ -256,7 +257,7 @@ function DroppableRoomHeader({
   );
 }
 
-export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, onSearchSelect }: OPCalendarProps) {
+export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOutside, tapSelectedRequest, onTapSlotWithSelection, onSearchSelect, surgeonFilter }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
   // Create date-fns localizer based on i18n language
@@ -490,7 +491,10 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   // Transform surgeries into calendar events
   // Uses actual O1 (Surgical Incision) time as start and O2-O1 for duration when available
   const calendarEvents: CalendarEvent[] = useMemo(() => {
-    return surgeries.map((surgery: any) => {
+    const filtered = surgeonFilter
+      ? surgeries.filter((s: any) => s.surgeonId === surgeonFilter)
+      : surgeries;
+    return filtered.map((surgery: any) => {
       const isSlotReservation = !surgery.patientId;
       const patient = surgery.patientId ? allPatients.find((p: any) => p.id === surgery.patientId) : null;
       const patientName = isSlotReservation
@@ -592,7 +596,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         timeMarkers: surgery.timeMarkers || null,
       };
     });
-  }, [surgeries, allPatients, surgeryRooms, allSurgeryRooms]);
+  }, [surgeries, allPatients, surgeryRooms, allSurgeryRooms, surgeonFilter]);
 
   // Convert surgery rooms to resources
   const resources = useMemo(() => {

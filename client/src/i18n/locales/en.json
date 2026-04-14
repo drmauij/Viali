@@ -5997,6 +5997,8 @@
   "surgeryPlanning": {
     "calendarView": "Calendar",
     "tableView": "Table",
+    "filterBySurgeon": "Filter by surgeon",
+    "allSurgeons": "All surgeons",
     "compactView": "Compact View",
     "extendedView": "Extended View",
     "currentAndFuture": "Current & Future",

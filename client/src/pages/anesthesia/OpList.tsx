@@ -3,10 +3,11 @@ import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, TableProperties, FileText, ChevronDown, ChevronUp, Filter, Check } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
@@ -86,6 +87,26 @@ export default function OpList() {
     return (saved === "current" || saved === "past") ? saved : "current";
   });
   const [isCompactView, setIsCompactView] = useState(true);
+
+  // Surgeon filter — single-select, resets on reload (intentionally not persisted)
+  const [surgeonFilter, setSurgeonFilter] = useState<string | null>(null);
+  const [surgeonFilterOpen, setSurgeonFilterOpen] = useState(false);
+
+  const { data: surgeons = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/surgeons`, activeHospital?.id],
+    queryFn: async () => {
+      if (!activeHospital?.id) return [];
+      const response = await fetch(`/api/surgeons?hospitalId=${activeHospital.id}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  const selectedSurgeonName = useMemo(
+    () => surgeons.find((s) => s.id === surgeonFilter)?.name ?? null,
+    [surgeons, surgeonFilter],
+  );
 
   // Split panel state (desktop only)
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(openRequestsFromUrl);
@@ -367,6 +388,7 @@ export default function OpList() {
       tapSelectedRequest={tapSelectedRequest}
       onTapSlotWithSelection={handleTapSlotWithSelection}
       onSearchSelect={handleSearchSelect}
+      surgeonFilter={surgeonFilter}
     />
   );
 
@@ -464,6 +486,66 @@ export default function OpList() {
               {t('surgeryPlanning.tableView')}
             </ToggleGroupItem>
           </ToggleGroup>
+
+          {/* Surgeon Filter */}
+          <Popover open={surgeonFilterOpen} onOpenChange={setSurgeonFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={surgeonFilter ? "default" : "outline"}
+                size="icon"
+                className="relative"
+                aria-label={t('surgeryPlanning.filterBySurgeon')}
+                title={selectedSurgeonName ?? t('surgeryPlanning.filterBySurgeon')}
+                data-testid="button-surgeon-filter"
+              >
+                <Filter className="h-4 w-4" />
+                {surgeonFilter && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-1">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                {t('surgeryPlanning.filterBySurgeon')}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSurgeonFilter(null);
+                  setSurgeonFilterOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
+                  surgeonFilter === null && "font-medium"
+                )}
+                data-testid="surgeon-filter-all"
+              >
+                <span>{t('surgeryPlanning.allSurgeons')}</span>
+                {surgeonFilter === null && <Check className="h-4 w-4" />}
+              </button>
+              <div className="my-1 h-px bg-border" />
+              <div className="max-h-72 overflow-y-auto">
+                {surgeons.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSurgeonFilter(s.id);
+                      setSurgeonFilterOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
+                      surgeonFilter === s.id && "font-medium"
+                    )}
+                    data-testid={`surgeon-filter-option-${s.id}`}
+                  >
+                    <span className="truncate">{s.name}</span>
+                    {surgeonFilter === s.id && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -544,6 +626,7 @@ export default function OpList() {
                 showFilters={true}
                 contained
                 compactView={isCompactView}
+                surgeonFilter={surgeonFilter}
               />
             </TabsContent>
             <TabsContent value="past" className="flex-1 min-h-0 mt-2">
@@ -565,6 +648,7 @@ export default function OpList() {
                 showFilters={true}
                 contained
                 compactView={isCompactView}
+                surgeonFilter={surgeonFilter}
               />
             </TabsContent>
           </Tabs>

@@ -82,6 +82,8 @@ interface SurgeryPlanningTableProps {
   contained?: boolean;
   /** Externally controlled compact view — hides internal toggle when provided */
   compactView?: boolean;
+  /** Restrict rows to a single surgeonId (null/undefined = no filter) */
+  surgeonFilter?: string | null;
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -971,6 +973,7 @@ export function SurgeryPlanningTable({
   showFilters = true,
   contained = false,
   compactView,
+  surgeonFilter,
 }: SurgeryPlanningTableProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -1383,10 +1386,15 @@ export function SurgeryPlanningTable({
     }));
   };
   
+  const filteredSurgeries = useMemo(
+    () => (surgeonFilter ? surgeries.filter((s) => (s as any).surgeonId === surgeonFilter) : surgeries),
+    [surgeries, surgeonFilter],
+  );
+
   const sortedSurgeries = useMemo(() => {
-    if (!sortState.field || !sortState.direction) return surgeries;
-    
-    return [...surgeries].sort((a, b) => {
+    if (!sortState.field || !sortState.direction) return filteredSurgeries;
+
+    return [...filteredSurgeries].sort((a, b) => {
       let aVal: any;
       let bVal: any;
       
@@ -1413,7 +1421,7 @@ export function SurgeryPlanningTable({
       if (aVal > bVal) return sortState.direction === "asc" ? 1 : -1;
       return 0;
     });
-  }, [surgeries, sortState, patientMap]);
+  }, [filteredSurgeries, sortState, patientMap]);
   
   // Group surgeries by day
   const groupedByDay = useMemo(() => {
