@@ -72,6 +72,8 @@ export default function ClinicServices() {
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
   const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
   const [bulkMoveTargetUnitId, setBulkMoveTargetUnitId] = useState<string>("");
+  const [bulkProvidersDialogOpen, setBulkProvidersDialogOpen] = useState(false);
+  const [bulkProviderIds, setBulkProviderIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -285,6 +287,29 @@ export default function ClinicServices() {
         title: msg,
         description: errMsg || undefined,
         variant: data.errors?.length ? "default" : "default",
+      });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), variant: "destructive" });
+    },
+  });
+
+  const bulkUpdateProvidersMutation = useMutation({
+    mutationFn: async ({ serviceIds, providerIds, mode }: { serviceIds: string[]; providerIds: string[]; mode: 'set' | 'add' }) => {
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-update-providers`, {
+        serviceIds, providerIds, mode,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      setBulkProvidersDialogOpen(false);
+      setBulkProviderIds([]);
+      toast({
+        title: t('common.success'),
+        description: `${data.updatedCount || 0} service(s) updated (${data.mode})`,
       });
     },
     onError: () => {
@@ -515,6 +540,18 @@ export default function ClinicServices() {
             >
               <ReceiptText className="h-4 w-4 mr-2" />
               {t('clinic.services.setNotBillable', 'Set Not Billable')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBulkProviderIds([]);
+                setBulkProvidersDialogOpen(true);
+              }}
+              disabled={selectedServices.size === 0}
+              data-testid="button-bulk-update-providers"
+            >
+              Update Providers ({selectedServices.size})
             </Button>
             <Button
               variant="ghost"
@@ -899,6 +936,59 @@ export default function ClinicServices() {
               data-testid="button-confirm-bulk-move"
             >
               {bulkMoveMutation.isPending ? t('common.moving', 'Moving...') : t('clinic.services.moveServices', 'Move Services')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Providers Dialog */}
+      <Dialog open={bulkProvidersDialogOpen} onOpenChange={setBulkProvidersDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Providers for {selectedServices.size} Service(s)</DialogTitle>
+            <DialogDescription>
+              "Set" replaces the provider list entirely. "Add" appends to existing without removing any.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-60 overflow-y-auto space-y-2 py-2">
+            {bookableProviders.map(p => (
+              <label key={p.userId} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={bulkProviderIds.includes(p.userId)}
+                  onCheckedChange={(checked) => {
+                    setBulkProviderIds(prev =>
+                      checked ? [...prev, p.userId] : prev.filter(id => id !== p.userId)
+                    );
+                  }}
+                />
+                <span>{p.user.firstName} {p.user.lastName}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkProvidersDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => bulkUpdateProvidersMutation.mutate({
+                serviceIds: Array.from(selectedServices),
+                providerIds: bulkProviderIds,
+                mode: 'add',
+              })}
+              disabled={bulkProviderIds.length === 0 || bulkUpdateProvidersMutation.isPending}
+            >
+              Add Providers
+            </Button>
+            <Button
+              onClick={() => bulkUpdateProvidersMutation.mutate({
+                serviceIds: Array.from(selectedServices),
+                providerIds: bulkProviderIds,
+                mode: 'set',
+              })}
+              disabled={bulkUpdateProvidersMutation.isPending}
+            >
+              Set Providers
             </Button>
           </DialogFooter>
         </DialogContent>
