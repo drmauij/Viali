@@ -609,7 +609,7 @@ router.post(
         return res.status(400).json({ message: "Patient has no portal link" });
       }
 
-      const portalUrl = `${process.env.APP_URL || "https://app.viali.ch"}/patient-portal/${link.token}`;
+      const portalUrl = `${process.env.APP_URL || "https://use.viali.app"}/patient-portal/${link.token}`;
 
       // Get hospital info for the notification
       const [hospital] = await db

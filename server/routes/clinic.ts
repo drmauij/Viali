@@ -3144,7 +3144,7 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
           const { sendTimeOffRequestEmail } = await import('../resend');
           const providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
           const language = (hospital.defaultLanguage as 'de' | 'en') || 'de';
-          const deepLinkUrl = `${process.env.APP_URL || 'https://app.viali.ch'}/business/staff`;
+          const deepLinkUrl = `${process.env.APP_URL || 'https://use.viali.app'}/business/staff`;
 
           for (const manager of managers) {
             if (manager.user.email) {
