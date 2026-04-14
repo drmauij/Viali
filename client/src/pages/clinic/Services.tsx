@@ -74,6 +74,8 @@ export default function ClinicServices() {
   const [bulkMoveTargetUnitId, setBulkMoveTargetUnitId] = useState<string>("");
   const [bulkProvidersDialogOpen, setBulkProvidersDialogOpen] = useState(false);
   const [bulkProviderIds, setBulkProviderIds] = useState<string[]>([]);
+  const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false);
+  const [bulkGroupValue, setBulkGroupValue] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -287,6 +289,32 @@ export default function ClinicServices() {
         title: msg,
         description: errMsg || undefined,
         variant: data.errors?.length ? "default" : "default",
+      });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), variant: "destructive" });
+    },
+  });
+
+  const bulkUpdateGroupMutation = useMutation({
+    mutationFn: async ({ serviceIds, serviceGroup }: { serviceIds: string[]; serviceGroup: string | null }) => {
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-update-group`, {
+        serviceIds, serviceGroup,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'service-groups'] });
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      setBulkGroupDialogOpen(false);
+      setBulkGroupValue("");
+      toast({
+        title: t('common.success'),
+        description: data.serviceGroup
+          ? `${data.updatedCount || 0} service(s) set to group "${data.serviceGroup}"`
+          : `${data.updatedCount || 0} service(s) cleared`,
       });
     },
     onError: () => {
@@ -552,6 +580,18 @@ export default function ClinicServices() {
               data-testid="button-bulk-update-providers"
             >
               Update Providers ({selectedServices.size})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBulkGroupValue("");
+                setBulkGroupDialogOpen(true);
+              }}
+              disabled={selectedServices.size === 0}
+              data-testid="button-bulk-update-group"
+            >
+              Update Group ({selectedServices.size})
             </Button>
             <Button
               variant="ghost"
@@ -989,6 +1029,50 @@ export default function ClinicServices() {
               disabled={bulkUpdateProvidersMutation.isPending}
             >
               Set Providers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Group Dialog */}
+      <Dialog open={bulkGroupDialogOpen} onOpenChange={setBulkGroupDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Group for {selectedServices.size} Service(s)</DialogTitle>
+            <DialogDescription>
+              "Set" assigns the selected group to all. "Clear" removes the group entirely.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <ServiceGroupCombobox
+              value={bulkGroupValue}
+              onChange={setBulkGroupValue}
+              suggestions={groupSuggestions}
+              placeholder="Select or type a group..."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkGroupDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => bulkUpdateGroupMutation.mutate({
+                serviceIds: Array.from(selectedServices),
+                serviceGroup: null,
+              })}
+              disabled={bulkUpdateGroupMutation.isPending}
+            >
+              Clear Group
+            </Button>
+            <Button
+              onClick={() => bulkUpdateGroupMutation.mutate({
+                serviceIds: Array.from(selectedServices),
+                serviceGroup: bulkGroupValue.trim() || null,
+              })}
+              disabled={!bulkGroupValue.trim() || bulkUpdateGroupMutation.isPending}
+            >
+              Set Group
             </Button>
           </DialogFooter>
         </DialogContent>
