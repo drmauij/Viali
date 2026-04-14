@@ -208,8 +208,8 @@ export function VitalsSwimlane({
    * Returns the point that is closest vertically to the click (with ID)
    */
   const findVitalPointAtClick = (clickTime: number, clickY: number, rect: DOMRect) => {
-    const TIME_THRESHOLD = 30000; // 30 seconds tolerance
-    const PIXEL_THRESHOLD = 20; // 20 pixels vertical tolerance
+    const TIME_THRESHOLD = 60000; // 60 seconds tolerance
+    const PIXEL_THRESHOLD = 35; // 35 pixels vertical tolerance
     
     const yPercent = clickY / rect.height;
     let closestPoint: { type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'; id: string; time: number; value: number } | null = null;
