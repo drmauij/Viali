@@ -1386,10 +1386,7 @@ export function SurgeryPlanningTable({
     }));
   };
   
-  const filteredSurgeries = useMemo(
-    () => (surgeonFilter ? surgeries.filter((s) => (s as any).surgeonId === surgeonFilter) : surgeries),
-    [surgeries, surgeonFilter],
-  );
+  const filteredSurgeries = surgeries;
 
   const sortedSurgeries = useMemo(() => {
     if (!sortState.field || !sortState.direction) return filteredSurgeries;
@@ -1684,7 +1681,11 @@ export function SurgeryPlanningTable({
                 <TableRow
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
-                    surgery.isSuspended && "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400"
+                    surgery.isSuspended && "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400",
+                    surgeonFilter && (surgery as any).surgeonId === surgeonFilter &&
+                      "bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-l-yellow-400 dark:border-l-yellow-500",
+                    surgeonFilter && (surgery as any).surgeonId !== surgeonFilter &&
+                      "opacity-40 grayscale"
                   )}
                   onClick={() => toggleRowExpand(surgery.id)}
                   data-testid={`row-surgery-${surgery.id}`}

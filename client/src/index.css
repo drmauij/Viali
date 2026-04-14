@@ -1365,6 +1365,26 @@
   min-height: 72px;
 }
 
+/* Surgeon-filter highlighting: own surgeon's events pop with amber bg + yellow outline */
+.rbc-event.rbc-event-own-surgery {
+  background-color: #f59e0b !important; /* amber-500 */
+  border-color: #d97706 !important;
+  outline: 3px solid #facc15 !important; /* yellow-400 */
+  outline-offset: -2px !important;
+  z-index: 2 !important;
+}
+[data-theme="dark"] .rbc-event.rbc-event-own-surgery {
+  background-color: #b45309 !important; /* amber-700 */
+  border-color: #92400e !important;
+  outline-color: #fde047 !important; /* yellow-300 */
+}
+
+/* Other surgeons' events fade to background but remain visible */
+.rbc-event.rbc-event-other-surgery {
+  opacity: 0.35 !important;
+  filter: grayscale(0.85) !important;
+}
+
 [data-theme="dark"] .rbc-event {
 }
 

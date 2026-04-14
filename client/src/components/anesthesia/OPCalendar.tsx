@@ -56,6 +56,9 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   surgeonName?: string | null;
+  surgeonId?: string | null;
+  isOwnSurgery?: boolean;
+  isOtherSurgery?: boolean;
   assistantNames?: string[];
   isCancelled: boolean;
   isSuspended: boolean;
@@ -491,10 +494,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   // Transform surgeries into calendar events
   // Uses actual O1 (Surgical Incision) time as start and O2-O1 for duration when available
   const calendarEvents: CalendarEvent[] = useMemo(() => {
-    const filtered = surgeonFilter
-      ? surgeries.filter((s: any) => s.surgeonId === surgeonFilter)
-      : surgeries;
-    return filtered.map((surgery: any) => {
+    return surgeries.map((surgery: any) => {
       const isSlotReservation = !surgery.patientId;
       const patient = surgery.patientId ? allPatients.find((p: any) => p.id === surgery.patientId) : null;
       const patientName = isSlotReservation
@@ -583,6 +583,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           }
           return null;
         })(),
+        surgeonId: surgery.surgeonId ?? null,
+        isOwnSurgery: surgeonFilter ? surgery.surgeonId === surgeonFilter : false,
+        isOtherSurgery: surgeonFilter ? surgery.surgeonId !== surgeonFilter : false,
         assistantNames: (surgery.assistants ?? []).map((a: any) => a.name),
         isCancelled,
         isSuspended,
@@ -596,6 +599,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         timeMarkers: surgery.timeMarkers || null,
       };
     });
+    // surgeonFilter included so events are rebuilt with fresh isOwnSurgery/isOtherSurgery flags.
   }, [surgeries, allPatients, surgeryRooms, allSurgeryRooms, surgeonFilter]);
 
   // Convert surgery rooms to resources
@@ -605,6 +609,30 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       title: room.name,
     }));
   }, [surgeryRooms]);
+
+  // Surgeon-filter highlighting: directly apply classes to rendered .rbc-event nodes.
+  // RBC's eventPropGetter path doesn't reliably re-apply styles when only filter
+  // state changes, so we post-process the DOM instead — correlating event wrappers
+  // to surgeries via the EventComponent's data-testid="event-<surgeryId>".
+  useEffect(() => {
+    const apply = () => {
+      const wrappers = document.querySelectorAll<HTMLElement>('.rbc-event');
+      wrappers.forEach((el) => {
+        const testEl = el.querySelector('[data-testid^="event-"]') as HTMLElement | null;
+        const testid = testEl?.dataset.testid ?? '';
+        const surgeryId = testid.startsWith('event-') ? testid.slice(6) : '';
+        const ev = calendarEvents.find((e) => e.surgeryId === surgeryId);
+        el.classList.remove('rbc-event-own-surgery', 'rbc-event-other-surgery');
+        if (!ev || !surgeonFilter) return;
+        if (ev.isOwnSurgery) el.classList.add('rbc-event-own-surgery');
+        else if (ev.isOtherSurgery) el.classList.add('rbc-event-other-surgery');
+      });
+    };
+    apply();
+    // Re-apply after RBC finishes its own layout work
+    const raf = requestAnimationFrame(apply);
+    return () => cancelAnimationFrame(raf);
+  }, [surgeonFilter, calendarEvents, currentView, selectedDate]);
 
   // Force calendar container width in day view so header and body columns align
   const calendarMinWidth = useMemo(() => {
@@ -1110,12 +1138,25 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
       }
     }
 
+    const isOwnSurgery = !!event.isOwnSurgery;
+    const isOtherSurgery = !!event.isOtherSurgery;
+
+    // When surgeon filter is active, "own" surgeries get a distinct highlight color
+    // so they pop visually even without box-shadow (which can be clipped).
+    if (isOwnSurgery && !event.isCancelled && !event.isSuspended && !isRoomBlockEvent) {
+      backgroundColor = isDark ? '#b45309' : '#f59e0b'; // amber-700 / amber-500
+      borderColor = isDark ? '#92400e' : '#d97706';
+    }
+
+    let opacity = (event.isCancelled || event.isSuspended) ? 0.7 : 1;
+    if (isOtherSurgery) opacity = 0.35;
+
     const style: any = {
       backgroundColor,
       borderColor,
       color: '#ffffff',
       borderRadius: '4px',
-      opacity: (event.isCancelled || event.isSuspended) ? 0.7 : 1,
+      opacity,
       border: (event.isSuspended || isSlotReservationEvent) ? '2px dashed' : '1px solid',
       display: 'block',
       textDecoration: event.isCancelled ? 'line-through' : 'none',
@@ -1125,9 +1166,23 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           : 'repeating-linear-gradient(135deg, #b91c1c, #b91c1c 6px, #7f1d1d 6px, #7f1d1d 12px)',
         border: `3px solid ${isDark ? '#7f1d1d' : '#991b1b'}`,
       }),
+      ...(isOtherSurgery && {
+        filter: 'grayscale(0.8)',
+      }),
+      ...(isOwnSurgery && {
+        outline: isDark ? '2px solid #fde047' : '2px solid #ca8a04',
+        outlineOffset: '-1px',
+        zIndex: 2,
+      }),
     };
 
-    return { style };
+    const className = isOwnSurgery
+      ? 'rbc-event-own-surgery'
+      : isOtherSurgery
+        ? 'rbc-event-other-surgery'
+        : undefined;
+
+    return { style, className };
   }, []);
 
   // Derive pre-op assessment status for a surgery
@@ -1647,6 +1702,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
               patients={allPatients}
               selectedDate={selectedDate}
               closures={closures}
+              surgeonFilter={surgeonFilter}
               onEventClick={(surgeryId) => {
                 const surgery = surgeries.find(s => s.id === surgeryId);
                 if (surgery && onEventClick) {

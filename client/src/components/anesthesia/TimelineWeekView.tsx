@@ -41,6 +41,7 @@ interface TimelineWeekViewProps {
   onSlotSelect?: (roomId: string, start: Date, end: Date) => void;
   onDayClick?: (date: Date) => void;
   getPreOpStatus?: (surgeryId: string) => PreOpStatusInfo;
+  surgeonFilter?: string | null;
 }
 
 interface DragState {
@@ -81,6 +82,7 @@ export default function TimelineWeekView({
   onSlotSelect,
   onDayClick,
   getPreOpStatus,
+  surgeonFilter,
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
@@ -687,6 +689,9 @@ export default function TimelineWeekView({
                   const isRoomBlock = surgery.plannedSurgery === '__ROOM_BLOCK__';
                   const isSlotReservation = !surgery.patientId && !isRoomBlock;
 
+                  const isOwnSurgeon = !!surgeonFilter && surgery.surgeonId === surgeonFilter;
+                  const isOtherSurgeon = !!surgeonFilter && !isOwnSurgeon;
+
                   return (
                     <div
                       key={surgery.id}
@@ -698,7 +703,9 @@ export default function TimelineWeekView({
                         isTruncatedStart ? "rounded-b" : "rounded-t",
                         isTruncatedEnd ? "rounded-t" : "rounded-b",
                         !isTruncatedStart && !isTruncatedEnd && "rounded",
-                        qDot && !isRoomBlock && !isSlotReservation && "pr-3"
+                        qDot && !isRoomBlock && !isSlotReservation && "pr-3",
+                        isOwnSurgeon && "!bg-amber-500 dark:!bg-amber-700 !border-amber-600 dark:!border-amber-800 !text-white ring-2 ring-yellow-400 ring-inset z-10",
+                        isOtherSurgeon && "opacity-70 grayscale-[0.5]",
                       )}
                       style={{ top, height: Math.max(height - 2, 28), left, right, width, ...getRoomBlockStyle(surgery) }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
