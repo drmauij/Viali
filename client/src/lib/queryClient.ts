@@ -1,6 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
-import * as Sentry from "@sentry/react";
 import "@/utils/demoMode"; // Installs global fetch interceptor for demo-mode anonymisation
 
 function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null; role: string | null } {
@@ -46,22 +45,8 @@ async function throwIfResNotOk(res: Response, url?: string) {
       }
     }
     
-    // Report API errors to Sentry, but skip expected 401s on auth endpoints
-    const isExpected401 = res.status === 401 && (url?.includes('/api/auth/') || res.url.includes('/api/auth/'));
-    if (!isExpected401) {
-      Sentry.captureException(error, {
-        tags: {
-          type: "api_error",
-          status: res.status,
-          url: url || res.url,
-        },
-        extra: {
-          response: text,
-          statusText: res.statusText,
-        },
-      });
-    }
-    
+    // Sentry capture is handled globally by the fetch interceptor in main.tsx,
+    // which covers raw fetch() callsites too. No per-request capture here.
     throw error;
   }
 }

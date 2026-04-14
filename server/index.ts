@@ -158,6 +158,51 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+
+      // Report any non-2xx API response to Sentry so no 4xx/5xx goes unnoticed.
+      // The error-middleware below also captures thrown errors with stack traces;
+      // this listener covers deliberate res.status(4xx).json(...) calls that
+      // never throw (e.g. Zod validation failures, 404s, 409 conflicts).
+      // Skip if the error middleware already reported this request.
+      const alreadyCaptured = (res as any).locals?.sentryCaptured === true;
+      if (
+        process.env.SENTRY_DSN &&
+        res.statusCode >= 400 &&
+        !alreadyCaptured
+      ) {
+        // Known-noisy expected responses: skip so the signal stays useful.
+        const isExpected401 =
+          res.statusCode === 401 && path.startsWith("/api/auth/");
+        const isRateLimited = res.statusCode === 429;
+        if (!isExpected401 && !isRateLimited) {
+          Sentry.captureMessage(
+            `${res.statusCode} ${req.method} ${path}`,
+            {
+              level: res.statusCode >= 500 ? "error" : "warning",
+              tags: {
+                type: "api_response_error",
+                status: String(res.statusCode),
+                method: req.method,
+                path,
+              },
+              extra: {
+                query: req.query,
+                userId: (req as any).user?.id,
+                response: capturedJsonResponse
+                  ? JSON.stringify(capturedJsonResponse).slice(0, 2000)
+                  : undefined,
+                durationMs: duration,
+              },
+              fingerprint: [
+                "api-response-error",
+                String(res.statusCode),
+                req.method,
+                path,
+              ],
+            },
+          );
+        }
+      }
     }
   });
 
@@ -190,7 +235,10 @@ app.use((req, res, next) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
 
-      // Report server errors to Sentry (4xx and 5xx)
+      // Report server errors to Sentry (4xx and 5xx) — captureException
+      // preserves the stack trace, which is more useful than the finish-
+      // listener's captureMessage for thrown errors. Flag the response so
+      // the finish listener skips duplicate capture.
       Sentry.captureException(err, {
         tags: {
           type: "api_error",
@@ -203,6 +251,8 @@ app.use((req, res, next) => {
           userId: (req as any).user?.id,
         },
       });
+      (res as any).locals = (res as any).locals || {};
+      (res as any).locals.sentryCaptured = true;
 
       res.status(status).json({ message });
     });
