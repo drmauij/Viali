@@ -22,7 +22,7 @@ import {
 import { Copy, RefreshCw, Eye, EyeOff, AlertTriangle, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-interface LeadConfig {
+interface ApiKeyConfig {
   configured: boolean;
   enabled: boolean;
   webhookUrl: string;
@@ -41,7 +41,7 @@ export function ApiKeyCard() {
 
   const hospitalId = activeHospital?.id;
 
-  const { data: config, isLoading } = useQuery<LeadConfig>({
+  const { data: config, isLoading } = useQuery<ApiKeyConfig>({
     queryKey: [`/api/admin/${hospitalId}/lead-config`],
     enabled: !!hospitalId,
   });
@@ -236,7 +236,7 @@ export function ApiKeyCard() {
           <a
             href="/api"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             data-testid="link-api-docs"
           >
