@@ -6,12 +6,29 @@ import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
 import { classifyPlannedCheck, checkDeviation } from '@shared/postopVitalsOverlay';
 
+// Map from the swimlane's recorded vital type to the order-set parameter key.
+// 'hr' → 'pulse' (HR is called "pulse" in order sets)
+// 'bp-sys' → 'BP' (order sets have a single BP item calibrated for systolic)
+// 'bp-dia' → null (deliberately excluded: the BP bound is calibrated for systolic;
+//   mapping diastolic to the same bound produces false positives, e.g. a normal
+//   65 diastolic flagging "below min" set for a 90 systolic threshold)
+// 'spo2' → 'spo2'
+// 'temp' and 'bz' are not tracked on this swimlane — returns null.
+function mapRecordedToOrderParam(recordedType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'): 'BP' | 'pulse' | 'spo2' | null {
+  if (recordedType === 'hr') return 'pulse';
+  if (recordedType === 'bp-sys') return 'BP';
+  // 'bp-dia' deliberately returns null: the BP bound in the order set is calibrated
+  // for systolic; diastolic readings against systolic bounds produce false positives.
+  if (recordedType === 'spo2') return 'spo2';
+  return null;
+}
+
 /**
  * VitalsSwimlane Component
- * 
+ *
  * Renders the interactive overlay for the vitals chart (HR, BP, SpO2).
  * Handles mouse/touch interactions for adding and editing vital sign data points.
- * 
+ *
  * Also exports utility functions for generating ECharts configuration:
  * - generateVitalsYAxes: Y-axis configuration for BP/HR and SpO2
  * - generateVitalsSeries: Chart series for HR, BP, SpO2 lines and symbols
@@ -880,20 +897,9 @@ export function VitalsSwimlane({
     return map;
   }, [plannedVitalsChecks]);
 
-  // Map from the swimlane's recorded vital type to the order-set parameter key.
-  // 'hr' → 'pulse' (HR is called "pulse" in order sets)
-  // 'bp-sys' and 'bp-dia' → 'BP' (order sets have a single BP item; deviation checked against systolic for both)
-  // 'spo2' → 'spo2'
-  // 'temp' and 'bz' are not tracked on this swimlane — returns null.
-  function mapRecordedToOrderParam(recordedType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'): 'BP' | 'pulse' | 'spo2' | null {
-    if (recordedType === 'hr') return 'pulse';
-    if (recordedType === 'bp-sys' || recordedType === 'bp-dia') return 'BP';
-    if (recordedType === 'spo2') return 'spo2';
-    return null;
-  }
-
-  // Derive the currently-hovered recorded parameter from the existing tool-mode state.
-  // Returns null when no parameter can be inferred (e.g. no active tool mode).
+  // Only meaningful when hoverInfo is truthy. selectedPoint can be set without an active hover
+  // (between mousedown and first mousemove during drag), so this can return non-null while no
+  // hover is active — the tooltip's outer `hoverInfo &&` guard handles that.
   function deriveHoveredRecordedType(): 'hr' | 'bp-sys' | 'bp-dia' | 'spo2' | null {
     if (activeToolMode === 'edit' && selectedPoint) {
       if (selectedPoint.type === 'hr') return 'hr';
@@ -1067,6 +1073,7 @@ export function VitalsSwimlane({
             if (!bounds) return null;
             const result = checkDeviation(hoverInfo.value, bounds);
             if (result.kind === 'ok') return null;
+            // TODO(Task 7): i18n '↓ Below min' / '↑ Above max' literals
             return (
               <div className="mt-1 px-1 py-0.5 rounded text-[10px] bg-amber-100 text-amber-900 border border-amber-400 dark:bg-amber-900/50 dark:text-amber-200">
                 {result.kind === 'low' ? '↓ Below min' : '↑ Above max'}
