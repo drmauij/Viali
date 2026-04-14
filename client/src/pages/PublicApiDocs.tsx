@@ -172,6 +172,87 @@ export default function PublicApiDocs() {
 {`https://<your-viali-host>/book/<HOSPITAL_BOOKING_TOKEN>?service=rhinoplasty&firstName=Maria&email=maria@example.com&utm_source=google&utm_campaign=spring-2026&gclid=abc123`}
             </pre>
           </section>
+
+          <section id="leads-webhook">
+            <h2 className="text-2xl font-bold tracking-tight mb-2">Leads Webhook</h2>
+            <p className="text-muted-foreground mb-6">
+              Forward leads from your website contact form or Meta Lead Ads (via Make/Zapier) into Viali.
+              Each lead becomes a record in the business inbox with full UTM / click ID attribution.
+            </p>
+
+            <div className="rounded-lg border p-3 bg-muted/30 font-mono text-sm mb-6">
+              POST /api/webhooks/leads/&lt;HOSPITAL_ID&gt;?key=&lt;YOUR_API_KEY&gt;
+            </div>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Required fields</h3>
+            <ul className="list-disc ml-5 space-y-1 text-sm">
+              <li><code>source</code> — <code>fb</code>, <code>ig</code>, <code>website</code>, or any free-form label</li>
+              <li><code>first_name</code>, <code>last_name</code></li>
+              <li>At least one of <code>email</code> or <code>phone</code></li>
+            </ul>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Meta (Facebook / Instagram) leads</h3>
+            <p className="text-sm mb-2">Also require: <code>lead_id</code>, <code>form_id</code>, <code>operation</code>.</p>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Website leads</h3>
+            <p className="text-sm mb-2">
+              May also include <code>message</code>, any UTM params, and any of the ad click IDs listed under
+              {" "}<a href="#booking-link" className="underline">Booking link</a>.
+            </p>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Response</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`{
+  "status": "received",
+  "id": "lead-uuid"
+}`}
+            </pre>
+            <p className="text-sm text-muted-foreground mt-2">
+              Use the returned <code>id</code> to deep-link to the lead in Viali at{" "}
+              <code className="px-1 py-0.5 rounded bg-muted">/leads/&lt;id&gt;</code>.
+            </p>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Error responses</h3>
+            <ul className="list-disc ml-5 space-y-1 text-sm">
+              <li><code>401</code> — missing or invalid <code>key</code></li>
+              <li><code>403</code> — webhook is disabled for this hospital</li>
+              <li><code>400</code> — validation failed (missing required field)</li>
+            </ul>
+
+            <h3 className="text-lg font-semibold mt-8 mb-2">Example — website contact form</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`curl -X POST "https://<your-viali-host>/api/webhooks/leads/YOUR_HOSPITAL_ID?key=YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": "website",
+    "first_name": "Maria",
+    "last_name": "Müller",
+    "email": "maria@example.com",
+    "phone": "+41791234567",
+    "message": "Interested in rhinoplasty",
+    "utm_source": "google",
+    "utm_medium": "cpc",
+    "utm_campaign": "spring-2026",
+    "gclid": "abc123"
+  }'`}
+            </pre>
+
+            <h3 className="text-lg font-semibold mt-8 mb-2">Example — Meta Lead Ads (via Make)</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`curl -X POST "https://<your-viali-host>/api/webhooks/leads/YOUR_HOSPITAL_ID?key=YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": "fb",
+    "lead_id": "123456789",
+    "form_id": "987654321",
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "jane@example.com",
+    "phone": "+41791234567",
+    "operation": "Rhinoplasty"
+  }'`}
+            </pre>
+          </section>
         </main>
       </div>
     </div>
