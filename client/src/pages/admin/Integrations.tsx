@@ -29,7 +29,7 @@ import { CumulationRulesCard } from "./components/CumulationRulesCard";
 import { TpwRatesCard } from "./components/TpwRatesCard";
 import { VisionAiProviderCard } from "./components/VisionAiProviderCard";
 import { CardReaderTab } from "./components/CardReaderTab";
-import { LeadWebhookCard } from "./components/LeadWebhookCard";
+import { ApiKeyCard } from "./components/ApiKeyCard";
 
 export default function Integrations() {
   const { t } = useTranslation();
@@ -1087,7 +1087,7 @@ export default function Integrations() {
 
         {/* ── Tab 6: Leads ────────────────────────────────────────────── */}
         <TabsContent value="leads">
-          <LeadWebhookCard />
+          <ApiKeyCard />
         </TabsContent>
 
           </div>{/* end tab content area */}
