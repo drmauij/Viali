@@ -411,7 +411,7 @@ export default function OpList() {
                 trigger={
                   <Button
                     variant="outline"
-                    className="relative"
+                    className="relative border-violet-500/70 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:text-violet-300 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
                     data-testid="button-external-requests"
                   >
                     <FileText className="mr-2 h-4 w-4" />
@@ -424,7 +424,12 @@ export default function OpList() {
               // Desktop: toggle split panel
               <Button
                 variant={requestsPanelOpen ? "default" : "outline"}
-                className="relative"
+                className={cn(
+                  "relative",
+                  requestsPanelOpen
+                    ? "bg-violet-600 hover:bg-violet-700 text-white"
+                    : "border-violet-500/70 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:text-violet-300 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
+                )}
                 data-testid="button-external-requests"
                 onClick={() => setRequestsPanelOpen(p => !p)}
               >

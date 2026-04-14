@@ -9,11 +9,17 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import SignaturePad from "@/components/SignaturePad";
 import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature, FileText, MoreHorizontal } from "lucide-react";
 import { formatDate, formatDateHeader, formatMonthYear, formatTime as formatTimeUtil, getDateFnsTimeFormat, formatDateForInput } from "@/lib/dateUtils";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
@@ -1501,50 +1507,51 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
             <span className="hidden sm:inline">{t('opCalendar.month')}</span>
           </Button>
           {activeHospital && currentView === "day" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={generateDayPdf}
-              data-testid="button-download-pdf"
-              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-            >
-              <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-              <span className="hidden sm:inline">{t('opCalendar.pdf')}</span>
-            </Button>
-          )}
-          {activeHospital && currentView === "day" && activeHospital.role === 'admin' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPlanStaffDialogOpen(true)}
-              data-testid="button-plan-staff"
-              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-            >
-              <Users className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-              <span className="hidden sm:inline">{t('opCalendar.planStaff')}</span>
-            </Button>
-          )}
-          {activeHospital && currentView === "day" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (notesBannerHidden && dayNotesData?.notes?.trim()) {
-                  setNotesBannerHidden(false);
-                  sessionStorage.setItem('oplist_notes_banner_hidden', 'false');
-                } else {
-                  setDayNotesDialogOpen(true);
-                }
-              }}
-              data-testid="button-day-notes"
-              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm relative"
-            >
-              <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-              <span className="hidden sm:inline">{t('dayNotes.title', 'Day Notes')}</span>
-              {notesBannerHidden && dayNotesData?.notes?.trim() && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
-              )}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-op-actions"
+                  className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm relative"
+                >
+                  <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">{t('common.more', 'More')}</span>
+                  {notesBannerHidden && dayNotesData?.notes?.trim() && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={generateDayPdf} data-testid="menu-download-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  {t('opCalendar.pdf')}
+                </DropdownMenuItem>
+                {activeHospital.role === 'admin' && (
+                  <DropdownMenuItem onClick={() => setPlanStaffDialogOpen(true)} data-testid="menu-plan-staff">
+                    <Users className="h-4 w-4 mr-2" />
+                    {t('opCalendar.planStaff')}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (notesBannerHidden && dayNotesData?.notes?.trim()) {
+                      setNotesBannerHidden(false);
+                      sessionStorage.setItem('oplist_notes_banner_hidden', 'false');
+                    } else {
+                      setDayNotesDialogOpen(true);
+                    }
+                  }}
+                  data-testid="menu-day-notes"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {t('dayNotes.title', 'Day Notes')}
+                  {notesBannerHidden && dayNotesData?.notes?.trim() && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-amber-500" />
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

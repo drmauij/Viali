@@ -82,6 +82,7 @@
   },
   "common": {
     "name": "Name",
+    "more": "Mehr",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "saved": "Gespeichert",

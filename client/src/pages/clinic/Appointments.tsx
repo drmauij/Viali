@@ -45,6 +45,7 @@ import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import { LeadsPanel, LeadsBadge, ScheduleLeadDialog } from "@/components/leads/LeadsPanel";
 import { draggedLead } from "@/components/leads/useLeadDrag";
 import type { Lead } from "@shared/schema";
@@ -348,6 +349,11 @@ export default function ClinicAppointments() {
               variant={leadsPanelOpen ? "default" : "outline"}
               size="sm"
               onClick={() => setLeadsPanelOpen(p => !p)}
+              className={cn(
+                leadsPanelOpen
+                  ? "bg-violet-600 hover:bg-violet-700 text-white"
+                  : "border-violet-500/70 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:text-violet-300 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
+              )}
             >
               <MessageSquare className="h-4 w-4 mr-1" />
               Leads
