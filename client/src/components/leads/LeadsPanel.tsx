@@ -57,6 +57,8 @@ import {
   RefreshCw,
   CalendarPlus,
   Copy,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -67,8 +69,10 @@ interface LeadWithSummary extends Lead {
   lastContactAt: string | null;
 }
 
+type LeadContactWithUser = LeadContact & { userName: string | null };
+
 interface LeadDetail extends Lead {
-  contacts: LeadContact[];
+  contacts: LeadContactWithUser[];
 }
 
 interface FuzzyMatchCandidate {
@@ -228,6 +232,7 @@ function ContactLogDialog({
   const [outcome, setOutcome] = useState<string>("");
   const [note, setNote] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
+  const [referralOpen, setReferralOpen] = useState(false);
 
   const detailUrl = `/api/business/${hospitalId}/leads/${lead.id}`;
   const leadsQueryKey = `/api/business/${hospitalId}/leads?limit=50`;
@@ -352,76 +357,45 @@ function ContactLogDialog({
                 <Copy className="h-3 w-3" />
               </button>
             </div>
-            {(lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
-              <div className="space-y-1 text-xs text-muted-foreground border-t pt-2 mt-1">
-                {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
-                {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
-                {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
-                {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
-                {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+            <div className="pt-2 mt-1 border-t">
+              <div className="flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => setReferralOpen((v) => !v)}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  data-testid="button-toggle-referral-info"
+                >
+                  {referralOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  <span>{t("leads.referralInfo", "Referral info")}</span>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(buildLeadReferralClipboardPayload(lead));
+                      toast({ title: t("leads.referralCopied", "Referral info copied") });
+                    } catch {
+                      toast({ title: t("leads.referralCopyFailed", "Copy failed"), variant: "destructive" });
+                    }
+                  }}
+                  data-testid="button-copy-lead-referral"
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  {t("leads.copyReferral", "Copy referral")}
+                </Button>
               </div>
-            )}
-            <div className="pt-2 mt-1 border-t flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{t("leads.referralInfo", "Referral info")}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(buildLeadReferralClipboardPayload(lead));
-                    toast({ title: t("leads.referralCopied", "Referral info copied") });
-                  } catch {
-                    toast({ title: t("leads.referralCopyFailed", "Copy failed"), variant: "destructive" });
-                  }
-                }}
-                data-testid="button-copy-lead-referral"
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                {t("leads.copyReferral", "Copy referral")}
-              </Button>
+              {referralOpen && (lead.utmSource || lead.utmMedium || lead.utmCampaign) && (
+                <div className="space-y-1 text-xs text-muted-foreground pt-2">
+                  {lead.utmSource && <p>{t("leads.source", "Source")}: {lead.utmSource}</p>}
+                  {lead.utmMedium && <p>{t("leads.medium", "Medium")}: {lead.utmMedium}</p>}
+                  {lead.utmCampaign && <p>{t("leads.campaign", "Campaign")}: {lead.utmCampaign}</p>}
+                  {lead.utmTerm && <p>{t("leads.searchTerm", "Search term")}: {lead.utmTerm}</p>}
+                  {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Contact history — all visible, no inner scroll */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">{t("leads.history", "History")} ({detail?.contacts?.length ?? 0})</Label>
-            {detail?.contacts && detail.contacts.length > 0 ? (
-              <div className="space-y-2">
-                {detail.contacts.map((c) => {
-                  const contactDate = new Date(c.createdAt);
-                  // Guard against future dates (timezone mismatch)
-                  const isFuture = contactDate.getTime() > Date.now();
-                  const displayDate = isFuture
-                    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "short" }).format(contactDate)
-                    : formatDistanceToNow(contactDate, { addSuffix: true, locale: dateLocale });
-                  return (
-                    <div
-                      key={c.id}
-                      className="text-sm border rounded-md p-2 space-y-0.5"
-                    >
-                      <div className="flex justify-between">
-                        <span className="font-medium">
-                          {outcomeLabels[c.outcome] ?? c.outcome}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {displayDate}
-                        </span>
-                      </div>
-                      {c.note && (
-                        <p className="text-xs text-muted-foreground">{c.note}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : detailLoading ? (
-              <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
-            ) : detailError ? (
-              <p className="text-xs text-destructive">Error: {(detailError as any)?.message ?? "Failed to load"}</p>
-            ) : detail ? (
-              <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
-            ) : null}
           </div>
 
           {/* Log contact form */}
@@ -458,6 +432,53 @@ function ContactLogDialog({
               <MessageSquare className="h-4 w-4 mr-2" />
               {t("leads.logContact", "Log contact")}
             </Button>
+          </div>
+
+          {/* Contact history — all visible, no inner scroll */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs text-muted-foreground">{t("leads.history", "History")} ({detail?.contacts?.length ?? 0})</Label>
+            {detail?.contacts && detail.contacts.length > 0 ? (
+              <div className="space-y-2">
+                {detail.contacts.map((c) => {
+                  const contactDate = new Date(c.createdAt);
+                  // Guard against future dates (timezone mismatch)
+                  const isFuture = contactDate.getTime() > Date.now();
+                  const displayDate = isFuture
+                    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "short" }).format(contactDate)
+                    : formatDistanceToNow(contactDate, { addSuffix: true, locale: dateLocale });
+                  return (
+                    <div
+                      key={c.id}
+                      className="text-sm border rounded-md p-2 space-y-0.5"
+                    >
+                      <div className="flex justify-between">
+                        <span className="font-medium">
+                          {outcomeLabels[c.outcome] ?? c.outcome}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {displayDate}
+                        </span>
+                      </div>
+                      {c.note && (
+                        <p className="text-xs text-muted-foreground">{c.note}</p>
+                      )}
+                      {c.userName && (
+                        <p className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {c.userName}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : detailLoading ? (
+              <p className="text-xs text-muted-foreground">{t("common.loading", "Loading...")}</p>
+            ) : detailError ? (
+              <p className="text-xs text-destructive">Error: {(detailError as any)?.message ?? "Failed to load"}</p>
+            ) : detail ? (
+              <p className="text-xs text-muted-foreground">{t("leads.noContacts", "No contact attempts yet")}</p>
+            ) : null}
           </div>
         </div>
 
