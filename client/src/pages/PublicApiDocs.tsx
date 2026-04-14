@@ -44,7 +44,7 @@ export default function PublicApiDocs() {
           </nav>
         </aside>
 
-        <main className="min-w-0 space-y-16 prose-headings:scroll-mt-20">
+        <main className="min-w-0 space-y-16 [&_h1]:scroll-mt-20 [&_h2]:scroll-mt-20 [&_h3]:scroll-mt-20">
           {/* Sections added in subsequent tasks */}
         </main>
       </div>
