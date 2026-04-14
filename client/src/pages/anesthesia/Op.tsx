@@ -1336,6 +1336,29 @@ export default function Op() {
                         status: e.status,
                       }))
                   }
+                  plannedVitalsChecks={
+                    (postopOrderSet.data?.plannedEvents ?? [])
+                      .filter(e => e.kind === 'vitals_check')
+                      .map(e => {
+                        const snapshot = e.payloadSnapshot as {
+                          parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
+                          min?: number;
+                          max?: number;
+                          actionLow?: string;
+                          actionHigh?: string;
+                        };
+                        return {
+                          id: e.id,
+                          parameter: snapshot.parameter,
+                          plannedAt: new Date(e.plannedAt).getTime(),
+                          status: e.status,
+                          min: snapshot.min,
+                          max: snapshot.max,
+                          actionLow: snapshot.actionLow,
+                          actionHigh: snapshot.actionHigh,
+                        };
+                      })
+                  }
                   onSaveCovariates={async (data) => {
                     if (!surgeryId) return;
                     const payload: Record<string, string> = {};

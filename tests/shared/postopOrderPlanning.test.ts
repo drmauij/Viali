@@ -79,4 +79,26 @@ describe('planEvents', () => {
     const b = planEvents(items, anchor, horizonH);
     expect(a).toEqual(b);
   });
+
+  it('vitals_monitoring planned events carry full min/max/action payload in snapshot', () => {
+    const item: PostopOrderItem = {
+      id: 'v1',
+      type: 'vitals_monitoring',
+      parameter: 'BP',
+      frequency: 'q1h',
+      min: 90,
+      max: 140,
+      actionLow: 'Give 500ml Ringer',
+      actionHigh: 'Call surgeon',
+    };
+    const testAnchor = new Date('2026-04-14T08:00:00Z').getTime();
+    const events = planEvents([item], testAnchor, 4);
+    expect(events.length).toBeGreaterThan(0);
+    const snap = events[0].payloadSnapshot as any;
+    expect(snap.parameter).toBe('BP');
+    expect(snap.min).toBe(90);
+    expect(snap.max).toBe(140);
+    expect(snap.actionLow).toBe('Give 500ml Ringer');
+    expect(snap.actionHigh).toBe('Call surgeon');
+  });
 });

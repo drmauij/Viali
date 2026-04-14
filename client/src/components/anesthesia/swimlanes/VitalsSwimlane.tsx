@@ -1,16 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from "react-i18next";
 import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
+import { classifyPlannedCheck, checkDeviation } from '@shared/postopVitalsOverlay';
+
+// Map from the swimlane's recorded vital type to the order-set parameter key.
+// 'hr' → 'pulse' (HR is called "pulse" in order sets)
+// 'bp-sys' → 'BP' (order sets have a single BP item calibrated for systolic)
+// 'bp-dia' → null (deliberately excluded: the BP bound is calibrated for systolic;
+//   mapping diastolic to the same bound produces false positives, e.g. a normal
+//   65 diastolic flagging "below min" set for a 90 systolic threshold)
+// 'spo2' → 'spo2'
+// 'temp' and 'bz' are not tracked on this swimlane — returns null.
+function mapRecordedToOrderParam(recordedType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'): 'BP' | 'pulse' | 'spo2' | null {
+  if (recordedType === 'hr') return 'pulse';
+  if (recordedType === 'bp-sys') return 'BP';
+  // 'bp-dia' deliberately returns null: the BP bound in the order set is calibrated
+  // for systolic; diastolic readings against systolic bounds produce false positives.
+  if (recordedType === 'spo2') return 'spo2';
+  return null;
+}
 
 /**
  * VitalsSwimlane Component
- * 
+ *
  * Renders the interactive overlay for the vitals chart (HR, BP, SpO2).
  * Handles mouse/touch interactions for adding and editing vital sign data points.
- * 
+ *
  * Also exports utility functions for generating ECharts configuration:
  * - generateVitalsYAxes: Y-axis configuration for BP/HR and SpO2
  * - generateVitalsSeries: Chart series for HR, BP, SpO2 lines and symbols
@@ -24,6 +42,16 @@ interface VitalsSwimlaneProps {
   isTouchDevice: boolean;
   onBulkVitalsOpen?: (time: number) => void;
   onVitalPointEdit?: (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', id: string, time: number, value: number) => void;
+  plannedVitalsChecks?: Array<{
+    id: string;
+    parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
+    plannedAt: number;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+    min?: number;
+    max?: number;
+    actionLow?: string;
+    actionHigh?: string;
+  }>;
 }
 
 export function VitalsSwimlane({
@@ -33,6 +61,7 @@ export function VitalsSwimlane({
   isTouchDevice,
   onBulkVitalsOpen,
   onVitalPointEdit,
+  plannedVitalsChecks,
 }: VitalsSwimlaneProps) {
   const { t } = useTranslation();
   const {
@@ -856,6 +885,58 @@ export function VitalsSwimlane({
     }
   };
 
+  // Bounds map: first entry per parameter wins (order sets may have multiple checks per parameter)
+  // Used to show deviation hints in the hover tooltip.
+  const parameterBounds = useMemo(() => {
+    const map: Partial<Record<'BP' | 'pulse' | 'temp' | 'spo2' | 'bz', { min?: number; max?: number; actionLow?: string; actionHigh?: string }>> = {};
+    for (const c of plannedVitalsChecks ?? []) {
+      if (!map[c.parameter]) {
+        map[c.parameter] = { min: c.min, max: c.max, actionLow: c.actionLow, actionHigh: c.actionHigh };
+      }
+    }
+    return map;
+  }, [plannedVitalsChecks]);
+
+  // Only meaningful when hoverInfo is truthy. selectedPoint can be set without an active hover
+  // (between mousedown and first mousemove during drag), so this can return non-null while no
+  // hover is active — the tooltip's outer `hoverInfo &&` guard handles that.
+  function deriveHoveredRecordedType(): 'hr' | 'bp-sys' | 'bp-dia' | 'spo2' | null {
+    if (activeToolMode === 'edit' && selectedPoint) {
+      if (selectedPoint.type === 'hr') return 'hr';
+      if (selectedPoint.type === 'bp-sys') return 'bp-sys';
+      if (selectedPoint.type === 'bp-dia') return 'bp-dia';
+      if (selectedPoint.type === 'spo2') return 'spo2';
+    }
+    if (activeToolMode === 'hr') return 'hr';
+    if (activeToolMode === 'spo2') return 'spo2';
+    if (activeToolMode === 'bp') {
+      return bpEntryMode === 'sys' ? 'bp-sys' : 'bp-dia';
+    }
+    if (activeToolMode === 'blend') {
+      if (blendSequenceStep === 'sys') return 'bp-sys';
+      if (blendSequenceStep === 'dia') return 'bp-dia';
+      if (blendSequenceStep === 'hr') return 'hr';
+      if (blendSequenceStep === 'spo2') return 'spo2';
+    }
+    return null;
+  }
+
+  // Ghost markers for planned vitals checks (Task 3)
+  const nowMs = Date.now();
+  const _visibleStart = currentZoomStart ?? data.startTime;
+  const _visibleEnd = currentZoomEnd ?? data.endTime;
+  const _visibleRange = _visibleEnd - _visibleStart;
+
+  const ghostMarkers = (plannedVitalsChecks ?? [])
+    .filter(c => c.status !== 'cancelled')
+    .filter(c => c.plannedAt >= _visibleStart && c.plannedAt <= _visibleEnd)
+    .map(c => {
+      const classification = classifyPlannedCheck({ plannedAt: c.plannedAt, status: c.status }, nowMs);
+      const xFraction = (c.plannedAt - _visibleStart) / _visibleRange;
+      const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 4px)`;
+      return { ...c, classification, leftPosition };
+    });
+
   // Determine cursor style based on tool mode
   const getCursorStyle = () => {
     if (activeToolMode === 'edit') {
@@ -869,6 +950,53 @@ export function VitalsSwimlane({
 
   return (
     <>
+      {/* Ghost markers for planned vitals checks */}
+      {ghostMarkers.length > 0 && (
+        <div
+          className="absolute left-0 right-0 pointer-events-none z-40"
+          style={{ top: VITALS_TOP + 2, height: 12 }}
+          data-testid="vitals-planned-overlay"
+        >
+          {ghostMarkers.map(m => {
+            let bgColor: string;
+            let borderColor: string;
+            let textColor: string;
+            if (m.classification === 'done') {
+              bgColor = isDark ? '#166534' : '#dcfce7';
+              borderColor = '#16a34a';
+              textColor = isDark ? '#86efac' : '#166534';
+            } else if (m.classification === 'overdue') {
+              bgColor = isDark ? '#92400e' : '#fef3c7';
+              borderColor = '#f59e0b';
+              textColor = isDark ? '#fcd34d' : '#92400e';
+            } else { // upcoming
+              bgColor = isDark ? '#1e3a5f' : '#eff6ff';
+              borderColor = '#93c5fd';
+              textColor = isDark ? '#93c5fd' : '#1e40af';
+            }
+            return (
+              <div
+                key={m.id}
+                className="absolute flex items-center px-1 rounded-sm text-[9px] font-medium whitespace-nowrap pointer-events-auto"
+                style={{
+                  left: m.leftPosition,
+                  top: 0,
+                  backgroundColor: bgColor,
+                  borderColor,
+                  color: textColor,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  height: 12,
+                }}
+                title={t('postopOrders.vitalsOverlay.checkPlannedAt', { parameter: m.parameter.toUpperCase(), time: new Date(m.plannedAt).toLocaleTimeString() })}
+              >
+                {m.parameter.toUpperCase()}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Interactive layer for vitals entry */}
       <div
         data-vitals-overlay="true"
@@ -934,6 +1062,23 @@ export function VitalsSwimlane({
             {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `${t('anesthesia.timeline.vitals.hr', 'HR')}: ${hoverInfo.value}`}
             {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `${t('anesthesia.timeline.vitals.spo2', 'SpO2')}: ${hoverInfo.value}%`}
           </div>
+          {/* Deviation hint: shown when hovered value breaches the planned order-set bounds */}
+          {(() => {
+            const recordedType = deriveHoveredRecordedType();
+            if (!recordedType) return null;
+            const orderParam = mapRecordedToOrderParam(recordedType);
+            if (!orderParam) return null;
+            const bounds = parameterBounds[orderParam];
+            if (!bounds) return null;
+            const result = checkDeviation(hoverInfo.value, bounds);
+            if (result.kind === 'ok') return null;
+            return (
+              <div className="mt-1 px-1 py-0.5 rounded text-[10px] bg-amber-100 text-amber-900 border border-amber-400 dark:bg-amber-900/50 dark:text-amber-200">
+                {result.kind === 'low' ? t('postopOrders.vitalsOverlay.belowMin') : t('postopOrders.vitalsOverlay.aboveMax')}
+                {result.action ? `: ${result.action}` : ''}
+              </div>
+            );
+          })()}
         </div>
       )}
     </>
