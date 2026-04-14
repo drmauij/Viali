@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from "react-i18next";
 import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
-import { classifyPlannedCheck } from '@shared/postopVitalsOverlay';
+import { classifyPlannedCheck, checkDeviation } from '@shared/postopVitalsOverlay';
 
 /**
  * VitalsSwimlane Component
@@ -868,6 +868,53 @@ export function VitalsSwimlane({
     }
   };
 
+  // Bounds map: first entry per parameter wins (order sets may have multiple checks per parameter)
+  // Used to show deviation hints in the hover tooltip.
+  const parameterBounds = useMemo(() => {
+    const map: Partial<Record<'BP' | 'pulse' | 'temp' | 'spo2' | 'bz', { min?: number; max?: number; actionLow?: string; actionHigh?: string }>> = {};
+    for (const c of plannedVitalsChecks ?? []) {
+      if (!map[c.parameter]) {
+        map[c.parameter] = { min: c.min, max: c.max, actionLow: c.actionLow, actionHigh: c.actionHigh };
+      }
+    }
+    return map;
+  }, [plannedVitalsChecks]);
+
+  // Map from the swimlane's recorded vital type to the order-set parameter key.
+  // 'hr' → 'pulse' (HR is called "pulse" in order sets)
+  // 'bp-sys' and 'bp-dia' → 'BP' (order sets have a single BP item; deviation checked against systolic for both)
+  // 'spo2' → 'spo2'
+  // 'temp' and 'bz' are not tracked on this swimlane — returns null.
+  function mapRecordedToOrderParam(recordedType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'): 'BP' | 'pulse' | 'spo2' | null {
+    if (recordedType === 'hr') return 'pulse';
+    if (recordedType === 'bp-sys' || recordedType === 'bp-dia') return 'BP';
+    if (recordedType === 'spo2') return 'spo2';
+    return null;
+  }
+
+  // Derive the currently-hovered recorded parameter from the existing tool-mode state.
+  // Returns null when no parameter can be inferred (e.g. no active tool mode).
+  function deriveHoveredRecordedType(): 'hr' | 'bp-sys' | 'bp-dia' | 'spo2' | null {
+    if (activeToolMode === 'edit' && selectedPoint) {
+      if (selectedPoint.type === 'hr') return 'hr';
+      if (selectedPoint.type === 'bp-sys') return 'bp-sys';
+      if (selectedPoint.type === 'bp-dia') return 'bp-dia';
+      if (selectedPoint.type === 'spo2') return 'spo2';
+    }
+    if (activeToolMode === 'hr') return 'hr';
+    if (activeToolMode === 'spo2') return 'spo2';
+    if (activeToolMode === 'bp') {
+      return bpEntryMode === 'sys' ? 'bp-sys' : 'bp-dia';
+    }
+    if (activeToolMode === 'blend') {
+      if (blendSequenceStep === 'sys') return 'bp-sys';
+      if (blendSequenceStep === 'dia') return 'bp-dia';
+      if (blendSequenceStep === 'hr') return 'hr';
+      if (blendSequenceStep === 'spo2') return 'spo2';
+    }
+    return null;
+  }
+
   // Ghost markers for planned vitals checks (Task 3)
   const nowMs = Date.now();
   const _visibleStart = currentZoomStart ?? data.startTime;
@@ -1010,6 +1057,23 @@ export function VitalsSwimlane({
             {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `${t('anesthesia.timeline.vitals.hr', 'HR')}: ${hoverInfo.value}`}
             {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `${t('anesthesia.timeline.vitals.spo2', 'SpO2')}: ${hoverInfo.value}%`}
           </div>
+          {/* Deviation hint: shown when hovered value breaches the planned order-set bounds */}
+          {(() => {
+            const recordedType = deriveHoveredRecordedType();
+            if (!recordedType) return null;
+            const orderParam = mapRecordedToOrderParam(recordedType);
+            if (!orderParam) return null;
+            const bounds = parameterBounds[orderParam];
+            if (!bounds) return null;
+            const result = checkDeviation(hoverInfo.value, bounds);
+            if (result.kind === 'ok') return null;
+            return (
+              <div className="mt-1 px-1 py-0.5 rounded text-[10px] bg-amber-100 text-amber-900 border border-amber-400 dark:bg-amber-900/50 dark:text-amber-200">
+                {result.kind === 'low' ? '↓ Below min' : '↑ Above max'}
+                {result.action ? `: ${result.action}` : ''}
+              </div>
+            );
+          })()}
         </div>
       )}
     </>
