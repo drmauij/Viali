@@ -1145,7 +1145,6 @@ export function VitalsSwimlane({
               );
             } catch (err) {
               console.error('Resolve deviation failed:', err);
-              alert(`Failed to resolve: ${(err as Error).message}`);
               throw err;
             }
           }}
