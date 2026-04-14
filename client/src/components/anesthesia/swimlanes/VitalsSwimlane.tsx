@@ -962,11 +962,11 @@ export function VitalsSwimlane({
         const leftCalc = `calc(200px + ${xFraction} * (100% - 210px))`;
         return (
           <div
-            className="absolute z-35 pointer-events-none"
-            style={{ left: leftCalc, top: `${topPx}px`, transform: 'translate(-50%, -50%)' }}
+            className="absolute pointer-events-none"
+            style={{ left: leftCalc, top: `${topPx}px`, transform: 'translate(-50%, -50%)', zIndex: 35 }}
             data-testid="vitals-hover-ring"
           >
-            <div className="w-6 h-6 rounded-full border-2 border-white/80 bg-white/10 shadow-lg" />
+            <div className="w-6 h-6 rounded-full border-2 border-white/80 bg-white/20 shadow-lg" />
           </div>
         );
       })()}
