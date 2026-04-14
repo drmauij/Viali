@@ -135,6 +135,12 @@ describe("mapLeadToReferralFields", () => {
     expect(result.adId).toBe("ad-1");
   });
 
+  it("prefers fb/ig source over gclid presence (Meta-pixel + GA tags on same page)", () => {
+    const result = mapLeadToReferralFields(buildLead({ source: "fb", gclid: "GCL123" }));
+    expect(result.source).toBe("social");
+    expect(result.sourceDetail).toBe("Facebook Lead Form");
+  });
+
   it("converts null tracking fields to undefined (Drizzle-friendly)", () => {
     const result = mapLeadToReferralFields(buildLead({ source: "website" }));
     expect(result.utmSource).toBeUndefined();

@@ -1,7 +1,5 @@
 import type { Lead } from "./schema";
-
-type ReferralSource = "social" | "search_engine" | "llm" | "word_of_mouth" | "belegarzt" | "marketing" | "other";
-type CaptureMethod = "manual" | "utm" | "ref" | "staff";
+import type { CaptureMethod, ReferralSource } from "./referralMapping";
 
 export interface LeadReferralFields {
   source: ReferralSource;
@@ -30,6 +28,7 @@ export interface LeadReferralFields {
   adId?: string;
 }
 
+// Strip DB nulls to undefined so Drizzle omits the column on spread insert.
 function nz(v: string | null | undefined): string | undefined {
   return v ? v : undefined;
 }
