@@ -332,3 +332,89 @@ export async function runAnalysis(
 
   throw new Error("Invalid AI response after retry");
 }
+
+// ─── Orchestrator ─────────────────────────────────────────────────────────────
+
+import crypto from "node:crypto";
+import {
+  getCachedAnalysis,
+  upsertAnalysis,
+  isFresh,
+  type CacheLookup,
+} from "../storage/marketingAiAnalyses";
+import type { MarketingAiAnalysis } from "@shared/schema";
+
+export interface GetOrCreateArgs extends CacheLookup {
+  userId: string;
+  force: boolean;
+}
+
+export interface AnalysisResult {
+  payload: MarketingAiAnalysisPayload;
+  generatedAt: Date;
+  generatedBy: string;
+  cached: boolean;
+  stale: boolean;
+}
+
+export function hashStats(stats: AggregatedStats): string {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(stats))
+    .digest("hex");
+}
+
+export function emptyPayload(language: "en" | "de"): MarketingAiAnalysisPayload {
+  const msg =
+    language === "de"
+      ? "Keine Daten im ausgewählten Zeitraum."
+      : "No data in selected range.";
+  return { summary: [msg], trends: [], insights: [], suggestedActions: [] };
+}
+
+export async function getOrCreateAnalysis(
+  args: GetOrCreateArgs,
+): Promise<AnalysisResult> {
+  const cached = await getCachedAnalysis(args);
+  if (cached && !args.force && isFresh(cached)) {
+    return {
+      payload: cached.payload,
+      generatedAt: new Date(cached.generatedAt),
+      generatedBy: cached.generatedBy,
+      cached: true,
+      stale: false,
+    };
+  }
+
+  // Dynamic self-import so Vitest's module mock can intercept buildAggregatedStats
+  // and runAnalysis when running under test (vi.mock partial mock pattern).
+  // In production this resolves the same module from the registry (no extra cost).
+  const self = await import("./marketingAiAnalyzer");
+
+  const stats = await self.buildAggregatedStats(args);
+
+  let payload: MarketingAiAnalysisPayload;
+  if (stats.funnel.leads === 0 && stats.totals.adSpend === 0) {
+    payload = emptyPayload(args.language);
+  } else {
+    payload = await self.runAnalysis(stats, args.language);
+  }
+
+  const row = await upsertAnalysis({
+    hospitalId: args.hospitalId,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    language: args.language,
+    payload,
+    inputHash: hashStats(stats),
+    generatedBy: args.userId,
+  });
+
+  return {
+    payload: row.payload,
+    generatedAt: new Date(row.generatedAt),
+    generatedBy: row.generatedBy,
+    cached: false,
+    stale: false,
+  };
+}
