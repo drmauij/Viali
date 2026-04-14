@@ -38,11 +38,12 @@ export default function Integrations() {
   const [, navigate] = useLocation();
 
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["galexis", "sms", "cameras", "cardreader", "tardoc", "api", "leads"];
   // Legacy alias: ?tab=leads still resolves to the API Key tab
   const normalizedUrlTab = urlTab === "leads" ? "api" : urlTab;
-  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc" | "api">(
-    normalizedUrlTab && validTabs.includes(normalizedUrlTab) ? normalizedUrlTab as any : "galexis"
+  type IntegrationsTab = "galexis" | "sms" | "cameras" | "cardreader" | "tardoc" | "api";
+  const validTabs: IntegrationsTab[] = ["galexis", "sms", "cameras", "cardreader", "tardoc", "api"];
+  const [activeTab, setActiveTab] = useState<IntegrationsTab>(
+    normalizedUrlTab && (validTabs as string[]).includes(normalizedUrlTab) ? normalizedUrlTab as IntegrationsTab : "galexis"
   );
 
   const isAdmin = activeHospital?.role === "admin";

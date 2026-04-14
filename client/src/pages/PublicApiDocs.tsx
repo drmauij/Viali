@@ -78,6 +78,13 @@ const SECTIONS: Array<{ id: string; label: string }> = [
 export default function PublicApiDocs() {
   useEffect(() => {
     document.title = "Viali API — documentation for third-party integrations";
+    let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "description";
+      document.head.appendChild(meta);
+    }
+    meta.content = "HTTP API reference for Viali clinics: booking link parameters, leads webhook, and conversions API.";
   }, []);
 
   return (
