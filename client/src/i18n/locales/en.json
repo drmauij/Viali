@@ -6790,9 +6790,15 @@
       "configureMedication": "Configure new medication"
     },
     "vitalsOverlay": {
-      "checkPlannedAt": "{{parameter}} check planned at {{time}}",
-      "belowMin": "↓ Below min",
-      "aboveMax": "↑ Above max"
+      "checkPlannedAt": "{{parameter}} check planned at {{time}}"
+    },
+    "deviationAlerts": {
+      "title": "Resolve deviation",
+      "belowMin": "Below minimum",
+      "aboveMax": "Above maximum",
+      "actionLabel": "Action",
+      "notePlaceholder": "Optional: describe the action taken",
+      "resolve": "Resolve"
     }
   },
   "todoList": {
