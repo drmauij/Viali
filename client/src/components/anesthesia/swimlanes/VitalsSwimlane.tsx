@@ -4,7 +4,7 @@ import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
-import { classifyPlannedCheck, PARAM_ROW_ORDER } from '@shared/postopVitalsOverlay';
+import { classifyPlannedCheck } from '@shared/postopVitalsOverlay';
 
 /**
  * VitalsSwimlane Component
@@ -881,8 +881,7 @@ export function VitalsSwimlane({
       const classification = classifyPlannedCheck({ plannedAt: c.plannedAt, status: c.status }, nowMs);
       const xFraction = (c.plannedAt - _visibleStart) / _visibleRange;
       const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 4px)`;
-      const paramRowIndex = PARAM_ROW_ORDER.indexOf(c.parameter);
-      return { ...c, classification, leftPosition, paramRowIndex };
+      return { ...c, classification, leftPosition };
     });
 
   // Determine cursor style based on tool mode
@@ -906,15 +905,22 @@ export function VitalsSwimlane({
           data-testid="vitals-planned-overlay"
         >
           {ghostMarkers.map(m => {
-            const isDarkMode = document.documentElement.classList.contains('dark');
-            const upcoming = m.classification === 'upcoming';
-            const bgColor = upcoming
-              ? (isDarkMode ? '#1e3a5f' : '#eff6ff')
-              : (isDarkMode ? '#92400e' : '#fef3c7');
-            const borderColor = upcoming ? '#93c5fd' : '#f59e0b';
-            const textColor = upcoming
-              ? (isDarkMode ? '#93c5fd' : '#1e40af')
-              : (isDarkMode ? '#fcd34d' : '#92400e');
+            let bgColor: string;
+            let borderColor: string;
+            let textColor: string;
+            if (m.classification === 'done') {
+              bgColor = isDark ? '#166534' : '#dcfce7';
+              borderColor = '#16a34a';
+              textColor = isDark ? '#86efac' : '#166534';
+            } else if (m.classification === 'overdue') {
+              bgColor = isDark ? '#92400e' : '#fef3c7';
+              borderColor = '#f59e0b';
+              textColor = isDark ? '#fcd34d' : '#92400e';
+            } else { // upcoming
+              bgColor = isDark ? '#1e3a5f' : '#eff6ff';
+              borderColor = '#93c5fd';
+              textColor = isDark ? '#93c5fd' : '#1e40af';
+            }
             return (
               <div
                 key={m.id}
@@ -931,6 +937,7 @@ export function VitalsSwimlane({
                 }}
                 title={`${m.parameter.toUpperCase()} check planned at ${new Date(m.plannedAt).toLocaleTimeString()}`}
               >
+                {/* TODO(Task 7): i18n the title attribute */}
                 {m.parameter.toUpperCase()}
               </div>
             );
