@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ClinicService, Unit } from "@shared/schema";
+import { ServiceGroupCombobox } from "@/components/ServiceGroupCombobox";
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
@@ -80,6 +81,7 @@ export default function ClinicServices() {
     isShared: false,
     isInvoiceable: false,
     code: "",
+    serviceGroup: "",
     providerIds: [] as string[],
   });
 
@@ -139,6 +141,18 @@ export default function ClinicServices() {
     enabled: !!hospitalId,
   });
 
+  // Fetch existing service groups for group combobox suggestions
+  const { data: groupData } = useQuery<{ groups: string[] }>({
+    queryKey: ['/api/clinic', hospitalId, 'service-groups'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/service-groups`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch groups');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+  const groupSuggestions = groupData?.groups ?? [];
+
   // Fetch booking token for building the booking URL
   const { data: bookingTokenData } = useQuery<{ bookingToken: string | null }>({
     queryKey: [`/api/admin/${hospitalId}/booking-token`],
@@ -148,11 +162,12 @@ export default function ClinicServices() {
   const [copiedBookingUrl, setCopiedBookingUrl] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; providerIds: string[] }) => {
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroup: string | null; providerIds: string[] }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'service-groups'] });
       setDialogOpen(false);
       resetForm();
       toast({ title: t('clinic.services.created') });
@@ -163,11 +178,12 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; providerIds: string[] }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroup: string | null; providerIds: string[] }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'service-groups'] });
       setDialogOpen(false);
       setEditingService(null);
       resetForm();
@@ -325,7 +341,7 @@ export default function ClinicServices() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", providerIds: [] });
+    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", serviceGroup: "", providerIds: [] });
   };
 
   const handleOpenCreate = () => {
@@ -344,6 +360,7 @@ export default function ClinicServices() {
       isShared: service.isShared || false,
       isInvoiceable: (service as any).isInvoiceable || false,
       code: service.code || "",
+      serviceGroup: (service as any).serviceGroup || "",
       providerIds: service.providerIds || [],
     });
     setDialogOpen(true);
@@ -359,6 +376,7 @@ export default function ClinicServices() {
     const price = formData.price ? formData.price : null;
 
     const code = formData.code.trim() || null;
+    const serviceGroup = formData.serviceGroup.trim() || null;
 
     if (editingService) {
       updateMutation.mutate({
@@ -370,6 +388,7 @@ export default function ClinicServices() {
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
         code,
+        serviceGroup,
         providerIds: formData.providerIds,
       });
     } else {
@@ -381,6 +400,7 @@ export default function ClinicServices() {
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
         code,
+        serviceGroup,
         providerIds: formData.providerIds,
       });
     }
@@ -555,6 +575,12 @@ export default function ClinicServices() {
                     {service.description && (
                       <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
                     )}
+                    {(service.code || (service as any).serviceGroup) && (
+                      <div className="flex gap-2 mt-1 text-xs text-muted-foreground items-center flex-wrap">
+                        {service.code && <span className="font-mono">#{service.code}</span>}
+                        {(service as any).serviceGroup && <Badge variant="outline" className="text-xs">{(service as any).serviceGroup}</Badge>}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-2">
                       <p className="text-lg font-semibold text-primary">
                         {formatPrice(service.price)}
@@ -690,6 +716,18 @@ export default function ClinicServices() {
                   {t('clinic.services.bookingCodeHint', 'Alphanumeric code used for direct booking links')}
                 </p>
               )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="serviceGroup">Group</Label>
+              <ServiceGroupCombobox
+                value={formData.serviceGroup}
+                onChange={(val) => setFormData({ ...formData, serviceGroup: val })}
+                suggestions={groupSuggestions}
+                placeholder="No group"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used to filter treatments on the booking page via <code>?service_group=</code> URL param.
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
