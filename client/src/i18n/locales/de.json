@@ -1824,6 +1824,29 @@
     "errorAccessing": "Kamerazugriff nicht möglich. Bitte überprüfen Sie die Berechtigungen."
   },
   "anesthesia": {
+    "orMedications": {
+      "doneEditing": "Fertig",
+      "configure": "Konfigurieren",
+      "dualCardWarning": "Es wurden Medikamente sowohl in der neuen Karte als auch in der alten Karte für diesen Eintrag erfasst. Bitte verwenden Sie pro Eintrag nur ein System, um doppelte Bestandsbuchungen zu vermeiden.",
+      "noGroupsAdmin": "Keine OP-Medikamentengruppen konfiguriert. Klicken Sie unten auf „+ Gruppe hinzufügen“, um zu beginnen.",
+      "noGroups": "Gruppen konfigurieren, um zu beginnen",
+      "addGroup": "+ Gruppe hinzufügen",
+      "noMedsInGroup": "Noch keine Medikamente in dieser Gruppe",
+      "noMedsConfigured": "Keine Medikamente konfiguriert",
+      "removeMed": "Medikament entfernen",
+      "addMedication": "+ Medikament hinzufügen",
+      "newGroup": "Neue Gruppe",
+      "groupDescription": "Gruppen organisieren Medikamente auf der OP-Karte.",
+      "groupName": "Gruppenname",
+      "groupNamePlaceholder": "z. B. Lokalanästhetika",
+      "medicationAdded": "Medikament hinzugefügt",
+      "medicationAddedDescription": "Das Medikament wurde dieser Gruppe hinzugefügt.",
+      "addMedicationTitle": "Medikament hinzufügen",
+      "addMedicationDesc": "Medikament hinzufügen zu",
+      "contentPerUnit": "Inhalt pro Einheit (z. B. 10 ml, 200 mg)",
+      "contentPerUnitPlaceholder": "z. B. 10 ml",
+      "unit": "Einheit"
+    },
     "patients": {
       "title": "Patienten",
       "subtitle": "Patienten-Stammdaten",

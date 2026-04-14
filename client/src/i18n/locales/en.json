@@ -1743,6 +1743,29 @@
     "errorAccessing": "Unable to access camera. Please check permissions."
   },
   "anesthesia": {
+    "orMedications": {
+      "doneEditing": "Done",
+      "configure": "Configure",
+      "dualCardWarning": "Medications have been recorded in both the new card and the legacy card for this record. Please use only one system per record to avoid duplicate inventory entries.",
+      "noGroupsAdmin": "No OR medication groups configured. Click '+ Add Group' below to get started.",
+      "noGroups": "Configure groups to get started",
+      "addGroup": "+ Add Group",
+      "noMedsInGroup": "No medications in this group yet",
+      "noMedsConfigured": "No medications configured",
+      "removeMed": "Remove medication",
+      "addMedication": "+ Add Medication",
+      "newGroup": "New Group",
+      "groupDescription": "Groups organize medications on the OR card.",
+      "groupName": "Group name",
+      "groupNamePlaceholder": "e.g. Local Anesthetics",
+      "medicationAdded": "Medication added",
+      "medicationAddedDescription": "The medication has been added to this group.",
+      "addMedicationTitle": "Add Medication",
+      "addMedicationDesc": "Add a medication to",
+      "contentPerUnit": "Content per unit (e.g. 10ml, 200mg)",
+      "contentPerUnitPlaceholder": "e.g. 10ml",
+      "unit": "Unit"
+    },
     "patients": {
       "title": "Patients",
       "subtitle": "Patient master list",

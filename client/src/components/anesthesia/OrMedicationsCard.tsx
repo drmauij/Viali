@@ -847,7 +847,7 @@ function AddMedicationDialog({ open, onOpenChange, groupId, groupName, hospitalI
             <Input
               value={ampuleContent}
               onChange={(e) => setAmpuleContent(e.target.value)}
-              placeholder="e.g. 10ml"
+              placeholder={t("anesthesia.orMedications.contentPerUnitPlaceholder", "e.g. 10ml")}
             />
           </div>
 
