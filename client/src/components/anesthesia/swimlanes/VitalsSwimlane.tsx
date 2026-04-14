@@ -24,6 +24,16 @@ interface VitalsSwimlaneProps {
   isTouchDevice: boolean;
   onBulkVitalsOpen?: (time: number) => void;
   onVitalPointEdit?: (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', id: string, time: number, value: number) => void;
+  plannedVitalsChecks?: Array<{
+    id: string;
+    parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
+    plannedAt: number;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+    min?: number;
+    max?: number;
+    actionLow?: string;
+    actionHigh?: string;
+  }>;
 }
 
 export function VitalsSwimlane({
@@ -33,6 +43,7 @@ export function VitalsSwimlane({
   isTouchDevice,
   onBulkVitalsOpen,
   onVitalPointEdit,
+  plannedVitalsChecks, // Task 3 will add rendering logic; prop accepted here for interface completeness
 }: VitalsSwimlaneProps) {
   const { t } = useTranslation();
   const {

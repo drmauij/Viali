@@ -278,6 +278,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     title: string;
     status: 'planned' | 'done' | 'missed' | 'cancelled';
   }>;
+  plannedVitalsChecks?: Array<{
+    id: string;
+    parameter: 'BP' | 'pulse' | 'temp' | 'spo2' | 'bz';
+    plannedAt: number;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+    min?: number;
+    max?: number;
+    actionLow?: string;
+    actionHigh?: string;
+  }>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -293,6 +303,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   patientCovariateData, // Patient weight/height from preOp assessment for PK simulation
   onSaveCovariates, // Callback to save missing weight/height to preOp assessment
   plannedTaskEvents, // Planned task events from postop order set for timeline pills
+  plannedVitalsChecks, // Planned vitals checks from postop order set for VitalsSwimlane ghost markers
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -5894,16 +5905,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             editType = 'spo2';
           }
           
-          setEditingValue({ 
-            type: editType, 
-            time, 
-            value, 
+          setEditingValue({
+            type: editType,
+            time,
+            value,
             index: 0,
             originalTime: time,
-            pointId 
+            pointId
           });
           setEditDialogOpen(true);
         }}
+        plannedVitalsChecks={plannedVitalsChecks}
       />
 
       {/* EventsSwimlane Component - Interactive layers and rendering for events and time markers */}
