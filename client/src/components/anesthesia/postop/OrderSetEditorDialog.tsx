@@ -1,13 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Pill, Activity, ClipboardList, StickyNote, ChevronDown, ChevronRight } from 'lucide-react';
 import { createEmptyItem, type PostopOrderItem, type PostopOrderItemType } from '@shared/postopOrderItems';
-import { ItemEditor, useItemTypeLabels } from './itemEditors';
+import { ItemEditor, useItemTypeLabels, ITEM_CATEGORY, CATEGORY_ORDER, useCategoryLabels, type ItemCategory } from './itemEditors';
 import type { TemplateRow } from '@/hooks/usePostopOrderTemplates';
+import { AiPasteOrders } from './AiPasteOrders';
+
+const CATEGORY_ICON: Record<ItemCategory, React.ComponentType<{ className?: string }>> = {
+  medication: Pill,
+  monitoring: Activity,
+  care: ClipboardList,
+  notes: StickyNote,
+};
 
 interface Props {
   open: boolean;
@@ -24,6 +32,20 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
   const [items, setItems] = useState<PostopOrderItem[]>(initial.items);
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
   const itemTypeLabels = useItemTypeLabels();
+  const categoryLabels = useCategoryLabels();
+  const [collapsed, setCollapsed] = useState<Record<ItemCategory, boolean>>({
+    medication: false, monitoring: false, care: false, notes: false,
+  });
+
+  // Group items by category, newest first within each.
+  const grouped = useMemo(() => {
+    const map: Record<ItemCategory, PostopOrderItem[]> = {
+      medication: [], monitoring: [], care: [], notes: [],
+    };
+    for (const it of items) map[ITEM_CATEGORY[it.type]].push(it);
+    for (const k of CATEGORY_ORDER) map[k].reverse();
+    return map;
+  }, [items]);
 
   // Only sync from initial when the dialog opens (closed → open transition).
   // Do NOT re-sync while already open — that would wipe user edits.
@@ -45,7 +67,13 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
   };
 
   const addItem = (type: PostopOrderItemType) => {
-    setItems([...items, createEmptyItem(type, crypto.randomUUID())]);
+    setItems([createEmptyItem(type, crypto.randomUUID()), ...items]);
+    setCollapsed(c => ({ ...c, [ITEM_CATEGORY[type]]: false }));
+  };
+
+  const appendItems = (newItems: PostopOrderItem[]) => {
+    // Prepend so newest is on top; accept items as-is from AI parse.
+    setItems([...newItems.slice().reverse(), ...items]);
   };
 
   const updateItem = (id: string, next: PostopOrderItem) => {
@@ -83,21 +111,51 @@ export function OrderSetEditorDialog({ open, onOpenChange, initial, templates, o
           </DropdownMenu>
         </div>
 
-        <div className="space-y-3 py-2">
+        <AiPasteOrders
+          hospitalId={hospitalId}
+          existingItems={items}
+          onApply={appendItems}
+        />
+
+        <div className="space-y-4 py-2">
           {items.length === 0 && (
             <div className="text-sm text-muted-foreground py-4 text-center">
               {t('postopOrders.editor.noItems', 'No items — choose a template or add items above.')}
             </div>
           )}
-          {items.map(item => (
-            <ItemEditor
-              key={item.id}
-              item={item}
-              onChange={(next) => updateItem(item.id, next)}
-              onRemove={() => removeItem(item.id)}
-              hospitalId={hospitalId}
-            />
-          ))}
+          {CATEGORY_ORDER.map(cat => {
+            const group = grouped[cat];
+            if (group.length === 0) return null;
+            const Icon = CATEGORY_ICON[cat];
+            const isCollapsed = collapsed[cat];
+            return (
+              <div key={cat} className="border rounded-md">
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(c => ({ ...c, [cat]: !c[cat] }))}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-accent/50 rounded-t-md"
+                >
+                  {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <Icon className="w-4 h-4 text-muted-foreground" />
+                  <span>{categoryLabels[cat]}</span>
+                  <span className="text-xs text-muted-foreground ml-1">({group.length})</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="space-y-3 p-3 pt-0">
+                    {group.map(item => (
+                      <ItemEditor
+                        key={item.id}
+                        item={item}
+                        onChange={(next) => updateItem(item.id, next)}
+                        onRemove={() => removeItem(item.id)}
+                        hospitalId={hospitalId}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <DialogFooter>

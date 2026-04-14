@@ -2,8 +2,12 @@ import { Router } from "express";
 import { isAuthenticated } from "../../auth/google";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
 import { postopOrdersStorage } from "../../storage/postopOrders";
+import { createAuditLog } from "../../storage/anesthesia";
+import { parsePostopOrders } from "../../services/postopOrderAIParser";
 import { planEvents } from "@shared/postopOrderPlanning";
 import logger from "../../logger";
+
+const AUDIT_RECORD_TYPE = "postop_order_template";
 
 const HORIZON_HOURS = 24;
 
@@ -34,6 +38,16 @@ router.post('/api/anesthesia/postop-orders/templates', isAuthenticated, requireS
     const template = await postopOrdersStorage.createTemplate({
       hospitalId, name, description, items, sortOrder, procedureCode,
     });
+    if (req.user?.id) {
+      await createAuditLog({
+        recordType: AUDIT_RECORD_TYPE,
+        recordId: template.id,
+        action: "create",
+        userId: req.user.id,
+        oldValue: null,
+        newValue: { hospitalId, name, description, items, sortOrder, procedureCode },
+      });
+    }
     res.status(201).json(template);
   } catch (error) {
     logger.error("Error creating postop order template:", error);
@@ -56,6 +70,22 @@ router.patch('/api/anesthesia/postop-orders/templates/:id', isAuthenticated, req
       ...(sortOrder !== undefined && { sortOrder }),
       ...(procedureCode !== undefined && { procedureCode }),
     });
+    if (req.user?.id) {
+      await createAuditLog({
+        recordType: AUDIT_RECORD_TYPE,
+        recordId: id,
+        action: "update",
+        userId: req.user.id,
+        oldValue: {
+          name: existing.name, description: existing.description, items: existing.items,
+          sortOrder: existing.sortOrder, procedureCode: existing.procedureCode,
+        },
+        newValue: {
+          name: template.name, description: template.description, items: template.items,
+          sortOrder: template.sortOrder, procedureCode: template.procedureCode,
+        },
+      });
+    }
     res.json(template);
   } catch (error) {
     logger.error("Error updating postop order template:", error);
@@ -71,10 +101,42 @@ router.delete('/api/anesthesia/postop-orders/templates/:id', isAuthenticated, re
       return res.status(404).json({ message: "Template not found" });
     }
     await postopOrdersStorage.deleteTemplate(id);
+    if (req.user?.id) {
+      await createAuditLog({
+        recordType: AUDIT_RECORD_TYPE,
+        recordId: id,
+        action: "delete",
+        userId: req.user.id,
+        oldValue: {
+          hospitalId: existing.hospitalId, name: existing.name, description: existing.description,
+          items: existing.items, sortOrder: existing.sortOrder, procedureCode: existing.procedureCode,
+        },
+        newValue: null,
+      });
+    }
     res.status(204).send();
   } catch (error) {
     logger.error("Error deleting postop order template:", error);
     res.status(500).json({ message: "Failed to delete template" });
+  }
+});
+
+// --- AI parse (no audit; preview only until user saves template) ---
+
+router.post('/api/anesthesia/postop-orders/ai-parse', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, unitId, text } = req.body ?? {};
+    if (!hospitalId || !unitId || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ message: "hospitalId, unitId, and non-empty text are required" });
+    }
+    if (text.length > 4000) {
+      return res.status(400).json({ message: "text too long (max 4000 chars)" });
+    }
+    const result = await parsePostopOrders(text, hospitalId, unitId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error("Error parsing postop orders with AI:", error);
+    res.status(500).json({ message: error?.message || "Failed to parse orders" });
   }
 });
 

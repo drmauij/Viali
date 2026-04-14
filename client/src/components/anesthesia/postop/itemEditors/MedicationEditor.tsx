@@ -25,16 +25,47 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
     enabled: !!hospital?.id && !!hospital?.unitId,
   });
 
+  // Collapse entries that share the same canonical pharmacy name (e.g. one row with
+  // a friendly short name + the same product re-imported with the full catalog string).
+  const dedupedItems = useMemo(() => {
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[.,/()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    const groups = new Map<string, any>();
+    for (const inv of inventoryItems) {
+      const name: string = inv.name ?? '';
+      const desc: string = inv.description ?? '';
+      const canonical = desc.length > name.length ? desc : name;
+      const key = normalize(canonical);
+      if (!key) continue;
+      const existing = groups.get(key);
+      if (!existing) {
+        groups.set(key, inv);
+        continue;
+      }
+      // Prefer the entry whose name differs from its description (friendlier label).
+      const existingFriendly = (existing.name ?? '') !== (existing.description ?? '');
+      const currentFriendly = name !== desc;
+      if (currentFriendly && !existingFriendly) {
+        groups.set(key, inv);
+      } else if (currentFriendly === existingFriendly &&
+                 (name?.length ?? Infinity) < (existing.name?.length ?? Infinity)) {
+        groups.set(key, inv);
+      }
+    }
+    return Array.from(groups.values());
+  }, [inventoryItems]);
+
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return inventoryItems.slice(0, 50);
+    if (!searchQuery.trim()) return dedupedItems.slice(0, 50);
     const q = searchQuery.toLowerCase();
-    return inventoryItems
+    return dedupedItems
       .filter((inv: any) =>
         inv.name?.toLowerCase().includes(q) ||
         inv.description?.toLowerCase().includes(q)
       )
       .slice(0, 50);
-  }, [inventoryItems, searchQuery]);
+  }, [dedupedItems, searchQuery]);
 
   const selectItem = (inv: any) => {
     onChange({ ...item, medicationRef: inv.name });
@@ -182,9 +213,32 @@ export function MedicationEditor({ item, onChange, onRemove, hospitalId }: ItemE
         </div>
       )}
       {item.scheduleMode === 'prn' && (
-        <div>
-          <Label className="text-xs">{t('postopOrders.editor.maxPerDay', 'Max per day')}</Label>
-          <Input type="number" value={item.prnMaxPerDay ?? ''} onChange={e => onChange({ ...item, prnMaxPerDay: e.target.value ? Number(e.target.value) : undefined })} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">{t('postopOrders.editor.maxPerDay', 'Max per day')}</Label>
+            <Input
+              type="number"
+              min={1}
+              value={item.prnMaxPerDay ?? ''}
+              onChange={e => onChange({ ...item, prnMaxPerDay: e.target.value ? Number(e.target.value) : undefined })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">{t('postopOrders.editor.minIntervalH', 'Min hours between doses')}</Label>
+            <Input
+              type="number"
+              min={1}
+              placeholder="e.g. 8"
+              value={item.prnMaxPerInterval?.intervalH ?? ''}
+              onChange={e => {
+                const h = e.target.value ? Number(e.target.value) : undefined;
+                onChange({
+                  ...item,
+                  prnMaxPerInterval: h ? { count: item.prnMaxPerInterval?.count ?? 1, intervalH: h } : undefined,
+                });
+              }}
+            />
+          </div>
         </div>
       )}
       <div>

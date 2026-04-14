@@ -55,6 +55,35 @@ export function useItemTypeLabels(): Record<PostopOrderItemType, string> {
   };
 }
 
+export type ItemCategory = 'medication' | 'monitoring' | 'care' | 'notes';
+
+export const ITEM_CATEGORY: Record<PostopOrderItemType, ItemCategory> = {
+  medication: 'medication',
+  iv_fluid: 'medication',
+  bz_sliding_scale: 'medication',
+  vitals_monitoring: 'monitoring',
+  lab: 'monitoring',
+  mobilization: 'care',
+  positioning: 'care',
+  drain: 'care',
+  nutrition: 'care',
+  wound_care: 'care',
+  task: 'care',
+  free_text: 'notes',
+};
+
+export const CATEGORY_ORDER: ItemCategory[] = ['medication', 'monitoring', 'care', 'notes'];
+
+export function useCategoryLabels(): Record<ItemCategory, string> {
+  const { t } = useTranslation();
+  return {
+    medication: t('postopOrders.category.medication', 'Medication'),
+    monitoring: t('postopOrders.category.monitoring', 'Monitoring & Labs'),
+    care: t('postopOrders.category.care', 'Care & Tasks'),
+    notes: t('postopOrders.category.notes', 'Notes'),
+  };
+}
+
 /** @deprecated Use useItemTypeLabels() hook instead */
 export const ITEM_TYPE_LABELS: Record<PostopOrderItemType, string> = {
   mobilization: 'Mobilisation',
