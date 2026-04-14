@@ -148,6 +148,25 @@ function sourceLabel(source: string): string {
   }
 }
 
+function buildLeadReferralClipboardPayload(lead: LeadWithSummary | Lead): string {
+  // Compact human-readable summary for the paste-confirmation dialog
+  const summaryParts: string[] = [];
+  if (lead.utmSource) summaryParts.push(lead.utmSource);
+  if (lead.utmMedium) summaryParts.push(lead.utmMedium.toUpperCase());
+  if (lead.utmCampaign) summaryParts.push(lead.utmCampaign);
+  const summary = summaryParts.length > 0 ? summaryParts.join(" • ") : sourceLabel(lead.source);
+
+  return JSON.stringify({
+    __viali_payload_type: "lead_referral_v1",
+    hospitalId: lead.hospitalId,
+    leadId: lead.id,
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    source: lead.source,
+    summary,
+  });
+}
+
 // ── Contact summary text ─────────────────────────────────────────────────
 
 function contactSummary(lead: LeadWithSummary, t: (key: string, fallback: string, opts?: Record<string, unknown>) => string): string | null {
@@ -342,6 +361,26 @@ function ContactLogDialog({
                 {lead.gclid && <p>Google Click ID: {lead.gclid.slice(0, 12)}...</p>}
               </div>
             )}
+            <div className="pt-2 mt-1 border-t flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{t("leads.referralInfo", "Referral info")}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(buildLeadReferralClipboardPayload(lead));
+                    toast({ title: t("leads.referralCopied", "Referral info copied") });
+                  } catch {
+                    toast({ title: t("leads.referralCopyFailed", "Copy failed"), variant: "destructive" });
+                  }
+                }}
+                data-testid="button-copy-lead-referral"
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                {t("leads.copyReferral", "Copy referral")}
+              </Button>
+            </div>
           </div>
 
           {/* Contact history — all visible, no inner scroll */}
