@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "../db";
+import { marketingAiAnalysisPayloadSchema, type MarketingAiAnalysisPayload } from "@shared/schema";
+import logger from "../logger";
 
 export interface AggregatedStats {
   dateRange: { start: string; end: string; days: number };
@@ -229,4 +231,104 @@ export async function buildAggregatedStats(
       avgCpa: totalPaid ? adSpend / totalPaid : null,
     },
   };
+}
+
+// ─── Claude caller + validator ────────────────────────────────────────────────
+
+const ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929";
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+
+const SYSTEM_PROMPT = `You are a marketing analyst for an aesthetic clinic. You receive compact JSON with funnel counts (leads → booked → attended → paid) and ad-performance per source/campaign for a selected date range.
+
+Produce a concise analysis with this exact JSON shape — no markdown, no prose outside JSON:
+
+{
+  "summary": string[],          // 1-3 short plain-text bullets; overall picture
+  "trends": string[],           // 0-3 directional observations
+  "insights": string[],         // 0-3 non-obvious patterns or outliers
+  "suggestedActions": string[]  // 0-3 concrete next steps
+}
+
+Rules:
+1. Each string max 300 chars, no markdown, no bullet characters.
+2. Be specific and quantitative when numbers allow.
+3. If the sample is very small (e.g. leads < 10), say so in "summary" and keep other arrays short or empty.
+4. Do NOT invent data not present in the input.
+5. Avoid generic advice — ground every action in a concrete signal from the data.
+6. Respond in the language code specified by the user message ("en" or "de").
+7. Output ONLY the JSON object.`;
+
+async function callClaude(
+  stats: AggregatedStats,
+  language: "en" | "de",
+  strict: boolean,
+): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+  const userMessage = `Language: "${language}"\n\nStats:\n${JSON.stringify(stats)}${
+    strict
+      ? '\n\nReturn ONLY a valid JSON object matching the shape. No prose.'
+      : ""
+  }`;
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 1200,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    logger.error({ status: res.status, body }, "anthropic api error");
+    throw new Error(`Anthropic API error: ${res.status}`);
+  }
+
+  const data = (await res.json()) as any;
+  const text = data?.content?.[0]?.text;
+  if (typeof text !== "string") throw new Error("Anthropic API error: empty response");
+  return text;
+}
+
+function tryParse(text: string): MarketingAiAnalysisPayload | null {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]);
+    const result = marketingAiAnalysisPayloadSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function runAnalysis(
+  stats: AggregatedStats,
+  language: "en" | "de",
+): Promise<MarketingAiAnalysisPayload> {
+  const first = await callClaude(stats, language, false);
+  const parsed = tryParse(first);
+  if (parsed) return parsed;
+
+  logger.warn("AI analysis first attempt invalid, retrying strict");
+  const second = await callClaude(stats, language, true);
+  const parsedRetry = tryParse(second);
+  if (parsedRetry) return parsedRetry;
+
+  throw new Error("Invalid AI response after retry");
 }
