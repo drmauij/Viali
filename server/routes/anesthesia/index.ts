@@ -13,6 +13,7 @@ import installationsRouter from "./installations";
 import episodesRouter from "./episodes";
 import orMedicationsRouter from "./orMedications";
 import postopOrdersRouter from "./postopOrders";
+import postopDeviationAcksRouter from "./postopDeviationAcks";
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use(installationsRouter);
 router.use(episodesRouter);
 router.use(orMedicationsRouter);
 router.use(postopOrdersRouter);
+router.use(postopDeviationAcksRouter);
 
 export default router;
