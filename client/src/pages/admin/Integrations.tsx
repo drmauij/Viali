@@ -29,7 +29,7 @@ import { CumulationRulesCard } from "./components/CumulationRulesCard";
 import { TpwRatesCard } from "./components/TpwRatesCard";
 import { VisionAiProviderCard } from "./components/VisionAiProviderCard";
 import { CardReaderTab } from "./components/CardReaderTab";
-import { LeadWebhookCard } from "./components/LeadWebhookCard";
+import { ApiKeyCard } from "./components/ApiKeyCard";
 
 export default function Integrations() {
   const { t } = useTranslation();
@@ -38,9 +38,12 @@ export default function Integrations() {
   const [, navigate] = useLocation();
 
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const validTabs = ["galexis", "sms", "cameras", "cardreader", "tardoc", "leads"];
-  const [activeTab, setActiveTab] = useState<"galexis" | "sms" | "cameras" | "cardreader" | "tardoc" | "leads">(
-    urlTab && validTabs.includes(urlTab) ? urlTab as any : "galexis"
+  // Legacy alias: ?tab=leads still resolves to the API Key tab
+  const normalizedUrlTab = urlTab === "leads" ? "api" : urlTab;
+  type IntegrationsTab = "galexis" | "sms" | "cameras" | "cardreader" | "tardoc" | "api";
+  const validTabs: IntegrationsTab[] = ["galexis", "sms", "cameras", "cardreader", "tardoc", "api"];
+  const [activeTab, setActiveTab] = useState<IntegrationsTab>(
+    normalizedUrlTab && (validTabs as string[]).includes(normalizedUrlTab) ? normalizedUrlTab as IntegrationsTab : "galexis"
   );
 
   const isAdmin = activeHospital?.role === "admin";
@@ -484,9 +487,9 @@ export default function Integrations() {
               <i className="fas fa-file-invoice mr-2 shrink-0"></i>
               <span className="truncate">TARDOC</span>
             </TabsTrigger>
-            <TabsTrigger value="leads" data-testid="tab-leads" className="justify-start md:w-full">
-              <i className="fas fa-plug mr-2 shrink-0"></i>
-              <span className="truncate">Leads</span>
+            <TabsTrigger value="api" data-testid="tab-api" className="justify-start md:w-full">
+              <i className="fas fa-key mr-2 shrink-0"></i>
+              <span className="truncate">API Key</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1085,9 +1088,9 @@ export default function Integrations() {
           </div>
         </TabsContent>
 
-        {/* ── Tab 6: Leads ────────────────────────────────────────────── */}
-        <TabsContent value="leads">
-          <LeadWebhookCard />
+        {/* ── Tab 6: API Key ──────────────────────────────────────────── */}
+        <TabsContent value="api">
+          <ApiKeyCard />
         </TabsContent>
 
           </div>{/* end tab content area */}
