@@ -3,6 +3,7 @@ import type { Response, NextFunction } from "express";
 import { db } from "../db";
 import { eq, and, desc, sql, lt } from "drizzle-orm";
 import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
+import { mapLeadToReferralFields } from "@shared/leadToReferralMapping";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
 import logger from "../logger";
@@ -737,48 +738,12 @@ router.post(
         .returning({ id: clinicAppointments.id });
 
       // 5. Create referral event — map source and copy UTM/click IDs
-      const isMetaSource = lead.source === 'fb' || lead.source === 'ig';
-      let referralSource: 'social' | 'search_engine' | 'other';
-      let referralSourceDetail: string;
-
-      if (isMetaSource) {
-        referralSource = 'social';
-        referralSourceDetail = lead.source === 'ig' ? 'Instagram Lead Form' : 'Facebook Lead Form';
-      } else if (lead.gclid || lead.msclkid) {
-        referralSource = 'search_engine';
-        referralSourceDetail = 'Website Contact Form';
-      } else {
-        referralSource = 'other';
-        referralSourceDetail = 'Website Contact Form';
-      }
-
+      const referralFields = mapLeadToReferralFields(lead);
       await db.insert(referralEvents).values({
         hospitalId,
         patientId: resolvedPatientId,
         appointmentId: appointment.id,
-        source: referralSource,
-        sourceDetail: referralSourceDetail,
-        captureMethod: 'staff',
-        metaLeadId: lead.metaLeadId || undefined,
-        metaFormId: lead.metaFormId || undefined,
-        utmSource: lead.utmSource || undefined,
-        utmMedium: lead.utmMedium || undefined,
-        utmCampaign: lead.utmCampaign || undefined,
-        utmTerm: lead.utmTerm || undefined,
-        utmContent: lead.utmContent || undefined,
-        gclid: lead.gclid || undefined,
-        gbraid: lead.gbraid || undefined,
-        wbraid: lead.wbraid || undefined,
-        fbclid: lead.fbclid || undefined,
-        ttclid: lead.ttclid || undefined,
-        msclkid: lead.msclkid || undefined,
-        igshid: lead.igshid || undefined,
-        li_fat_id: lead.li_fat_id || undefined,
-        twclid: lead.twclid || undefined,
-        campaignId: lead.campaignId || undefined,
-        campaignName: lead.campaignName || undefined,
-        adsetId: lead.adsetId || undefined,
-        adId: lead.adId || undefined,
+        ...referralFields,
       });
 
       // 6. Update lead status
