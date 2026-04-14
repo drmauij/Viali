@@ -4,24 +4,11 @@ import { VITAL_ICON_PATHS } from '@/lib/vitalIconPaths';
 import { createLucideIconSeries } from '@/utils/chartUtils';
 import { useTimelineContext } from '../TimelineContext';
 import type { VitalPoint } from '@/hooks/useVitalsState';
-import { classifyPlannedCheck, checkDeviation } from '@shared/postopVitalsOverlay';
+import { classifyPlannedCheck } from '@shared/postopVitalsOverlay';
+import { detectDeviations, type DeviationAlert } from '@shared/postopDeviationAlerts';
+import { DeviationResolveDialog } from '../postop/DeviationResolveDialog';
+import { useResolveDeviation } from '@/hooks/usePostopDeviationAcks';
 
-// Map from the swimlane's recorded vital type to the order-set parameter key.
-// 'hr' → 'pulse' (HR is called "pulse" in order sets)
-// 'bp-sys' → 'BP' (order sets have a single BP item calibrated for systolic)
-// 'bp-dia' → null (deliberately excluded: the BP bound is calibrated for systolic;
-//   mapping diastolic to the same bound produces false positives, e.g. a normal
-//   65 diastolic flagging "below min" set for a 90 systolic threshold)
-// 'spo2' → 'spo2'
-// 'temp' and 'bz' are not tracked on this swimlane — returns null.
-function mapRecordedToOrderParam(recordedType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'): 'BP' | 'pulse' | 'spo2' | null {
-  if (recordedType === 'hr') return 'pulse';
-  if (recordedType === 'bp-sys') return 'BP';
-  // 'bp-dia' deliberately returns null: the BP bound in the order set is calibrated
-  // for systolic; diastolic readings against systolic bounds produce false positives.
-  if (recordedType === 'spo2') return 'spo2';
-  return null;
-}
 
 /**
  * VitalsSwimlane Component
@@ -52,6 +39,13 @@ interface VitalsSwimlaneProps {
     actionLow?: string;
     actionHigh?: string;
   }>;
+  deviationAcknowledgments?: Array<{
+    parameter: "pulse" | "BP" | "spo2";
+    recordedAt: string;
+    recordedValue: number;
+    boundKind: "low" | "high";
+    resolvedBy: string;
+  }>;
 }
 
 export function VitalsSwimlane({
@@ -62,6 +56,7 @@ export function VitalsSwimlane({
   onBulkVitalsOpen,
   onVitalPointEdit,
   plannedVitalsChecks,
+  deviationAcknowledgments,
 }: VitalsSwimlaneProps) {
   const { t } = useTranslation();
   const {
@@ -86,6 +81,7 @@ export function VitalsSwimlane({
     setPendingSysValue,
     isProcessingClick,
     setIsProcessingClick,
+    anesthesiaRecordId,
   } = useTimelineContext();
 
   const {
@@ -885,42 +881,6 @@ export function VitalsSwimlane({
     }
   };
 
-  // Bounds map: first entry per parameter wins (order sets may have multiple checks per parameter)
-  // Used to show deviation hints in the hover tooltip.
-  const parameterBounds = useMemo(() => {
-    const map: Partial<Record<'BP' | 'pulse' | 'temp' | 'spo2' | 'bz', { min?: number; max?: number; actionLow?: string; actionHigh?: string }>> = {};
-    for (const c of plannedVitalsChecks ?? []) {
-      if (!map[c.parameter]) {
-        map[c.parameter] = { min: c.min, max: c.max, actionLow: c.actionLow, actionHigh: c.actionHigh };
-      }
-    }
-    return map;
-  }, [plannedVitalsChecks]);
-
-  // Only meaningful when hoverInfo is truthy. selectedPoint can be set without an active hover
-  // (between mousedown and first mousemove during drag), so this can return non-null while no
-  // hover is active — the tooltip's outer `hoverInfo &&` guard handles that.
-  function deriveHoveredRecordedType(): 'hr' | 'bp-sys' | 'bp-dia' | 'spo2' | null {
-    if (activeToolMode === 'edit' && selectedPoint) {
-      if (selectedPoint.type === 'hr') return 'hr';
-      if (selectedPoint.type === 'bp-sys') return 'bp-sys';
-      if (selectedPoint.type === 'bp-dia') return 'bp-dia';
-      if (selectedPoint.type === 'spo2') return 'spo2';
-    }
-    if (activeToolMode === 'hr') return 'hr';
-    if (activeToolMode === 'spo2') return 'spo2';
-    if (activeToolMode === 'bp') {
-      return bpEntryMode === 'sys' ? 'bp-sys' : 'bp-dia';
-    }
-    if (activeToolMode === 'blend') {
-      if (blendSequenceStep === 'sys') return 'bp-sys';
-      if (blendSequenceStep === 'dia') return 'bp-dia';
-      if (blendSequenceStep === 'hr') return 'hr';
-      if (blendSequenceStep === 'spo2') return 'spo2';
-    }
-    return null;
-  }
-
   // Ghost markers for planned vitals checks (Task 3)
   const nowMs = Date.now();
   const _visibleStart = currentZoomStart ?? data.startTime;
@@ -936,6 +896,34 @@ export function VitalsSwimlane({
       const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 4px)`;
       return { ...c, classification, leftPosition };
     });
+
+  // Deviation alerts computation (Phase 2.1 Task 8)
+  const deviationAlerts = useMemo(() => {
+    const recorded = [
+      ...vitalsState.hrRecords.map(r => ({ id: r.id, type: 'hr' as const, timestamp: r.timestamp, value: r.value })),
+      ...vitalsState.bpRecords.flatMap(r => [
+        { id: `${r.id}-sys`, type: 'bp-sys' as const, timestamp: r.timestamp, value: r.sys },
+        { id: `${r.id}-dia`, type: 'bp-dia' as const, timestamp: r.timestamp, value: r.dia },
+      ]),
+      ...vitalsState.spo2Records.map(r => ({ id: r.id, type: 'spo2' as const, timestamp: r.timestamp, value: r.value })),
+    ];
+    const bounds = (plannedVitalsChecks ?? []).map(c => ({
+      parameter: c.parameter,
+      min: c.min, max: c.max, actionLow: c.actionLow, actionHigh: c.actionHigh,
+    }));
+    const acks = (deviationAcknowledgments ?? []).map(a => ({
+      parameter: a.parameter,
+      recordedAt: new Date(a.recordedAt).getTime(),
+      recordedValue: a.recordedValue,
+      boundKind: a.boundKind,
+      resolvedBy: a.resolvedBy,
+    }));
+    return detectDeviations(recorded, bounds, acks);
+  }, [vitalsState.hrRecords, vitalsState.bpRecords, vitalsState.spo2Records, plannedVitalsChecks, deviationAcknowledgments]);
+
+  // Dialog state for deviation resolve (Phase 2.1 Task 8)
+  const [openAlert, setOpenAlert] = useState<DeviationAlert | null>(null);
+  const resolveMutation = useResolveDeviation(anesthesiaRecordId ?? '');
 
   // Determine cursor style based on tool mode
   const getCursorStyle = () => {
@@ -1062,24 +1050,58 @@ export function VitalsSwimlane({
             {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `${t('anesthesia.timeline.vitals.hr', 'HR')}: ${hoverInfo.value}`}
             {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `${t('anesthesia.timeline.vitals.spo2', 'SpO2')}: ${hoverInfo.value}%`}
           </div>
-          {/* Deviation hint: shown when hovered value breaches the planned order-set bounds */}
-          {(() => {
-            const recordedType = deriveHoveredRecordedType();
-            if (!recordedType) return null;
-            const orderParam = mapRecordedToOrderParam(recordedType);
-            if (!orderParam) return null;
-            const bounds = parameterBounds[orderParam];
-            if (!bounds) return null;
-            const result = checkDeviation(hoverInfo.value, bounds);
-            if (result.kind === 'ok') return null;
+        </div>
+      )}
+
+      {/* Deviation alert badges (Phase 2.1 Task 8) */}
+      {deviationAlerts.length > 0 && (
+        <div className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none z-40">
+          {deviationAlerts.map(alert => {
+            if (alert.timestamp < _visibleStart || alert.timestamp > _visibleEnd) return null;
+            const yPercent = alert.parameter === 'spo2'
+              ? 1 - ((alert.value - 45) / 60)
+              : 1 - (alert.value / 240);
+            const topPx = VITALS_TOP + yPercent * VITALS_HEIGHT;
+            const xFraction = (alert.timestamp - _visibleStart) / _visibleRange;
+            const leftCalc = `calc(200px + ${xFraction} * (100% - 210px))`;
             return (
-              <div className="mt-1 px-1 py-0.5 rounded text-[10px] bg-amber-100 text-amber-900 border border-amber-400 dark:bg-amber-900/50 dark:text-amber-200">
-                {result.kind === 'low' ? t('postopOrders.vitalsOverlay.belowMin') : t('postopOrders.vitalsOverlay.aboveMax')}
-                {result.action ? `: ${result.action}` : ''}
+              <div
+                key={`${alert.recordedId}-${alert.kind}`}
+                style={{ position: 'absolute', left: leftCalc, top: `${topPx}px`, transform: 'translate(12px, -50%)', pointerEvents: 'auto' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenAlert(alert)}
+                  className={`w-4 h-4 rounded-full text-white text-[10px] font-bold leading-none flex items-center justify-center shadow-md transition-colors ${alert.acknowledged ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'}`}
+                  aria-label={alert.acknowledged ? 'Deviation acknowledged' : 'Deviation alert'}
+                >
+                  !
+                </button>
               </div>
             );
-          })()}
+          })}
         </div>
+      )}
+
+      {/* Deviation resolve dialog (Phase 2.1 Task 8) */}
+      {openAlert && (
+        <DeviationResolveDialog
+          open={!!openAlert}
+          onOpenChange={(o) => { if (!o) setOpenAlert(null); }}
+          parameter={openAlert.parameter}
+          value={openAlert.value}
+          kind={openAlert.kind}
+          action={openAlert.action}
+          onResolve={async (note) => {
+            await resolveMutation.mutateAsync({
+              parameter: openAlert.parameter,
+              recordedAt: new Date(openAlert.timestamp).toISOString(),
+              recordedValue: openAlert.value,
+              boundKind: openAlert.kind,
+              note,
+            });
+          }}
+        />
       )}
     </>
   );

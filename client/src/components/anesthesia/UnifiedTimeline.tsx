@@ -288,6 +288,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     actionLow?: string;
     actionHigh?: string;
   }>;
+  deviationAcknowledgments?: Array<{
+    parameter: "pulse" | "BP" | "spo2";
+    recordedAt: string;
+    recordedValue: number;
+    boundKind: "low" | "high";
+    resolvedBy: string;
+  }>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -304,6 +311,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   onSaveCovariates, // Callback to save missing weight/height to preOp assessment
   plannedTaskEvents, // Planned task events from postop order set for timeline pills
   plannedVitalsChecks, // Planned vitals checks from postop order set for VitalsSwimlane ghost markers
+  deviationAcknowledgments, // Deviation acknowledgments for VitalsSwimlane badges
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -5916,6 +5924,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setEditDialogOpen(true);
         }}
         plannedVitalsChecks={plannedVitalsChecks}
+        deviationAcknowledgments={deviationAcknowledgments}
       />
 
       {/* EventsSwimlane Component - Interactive layers and rendering for events and time markers */}
