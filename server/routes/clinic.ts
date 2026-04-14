@@ -677,7 +677,7 @@ const bookingSchema = z.object({
   surname: z.string().min(1).max(100),
   email: z.string().email().max(255),
   phone: z.string().min(1).max(30),
-  notes: z.string().min(1).max(1000),
+  notes: z.string().max(1000).optional().default(""),
   // Referral fields
   referralSource: z.enum(["social", "search_engine", "llm", "word_of_mouth", "belegarzt", "marketing", "other"]).nullish(),
   referralSourceDetail: z.string().max(500).nullish(),
