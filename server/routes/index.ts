@@ -33,6 +33,7 @@ import leadsRouter from "./leads";
 import shiftsRouter from "./shifts";
 import websiteRouter from "./website";
 import flowsRouter from "./flows";
+import publicDocsRouter from "./publicDocs";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -69,4 +70,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(shiftsRouter);
   app.use(websiteRouter);
   app.use(flowsRouter);
+  app.use(publicDocsRouter);
 }
