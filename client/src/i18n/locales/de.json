@@ -6891,9 +6891,15 @@
       "configureMedication": "Neues Medikament konfigurieren"
     },
     "vitalsOverlay": {
-      "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}",
-      "belowMin": "↓ Unter Minimum",
-      "aboveMax": "↑ Über Maximum"
+      "checkPlannedAt": "{{parameter}}-Kontrolle geplant um {{time}}"
+    },
+    "deviationAlerts": {
+      "title": "Abweichung bestätigen",
+      "belowMin": "Unter Minimum",
+      "aboveMax": "Über Maximum",
+      "actionLabel": "Aktion",
+      "notePlaceholder": "Optional: beschreibe die ergriffene Maßnahme",
+      "resolve": "Bestätigen"
     }
   },
   "todoList": {

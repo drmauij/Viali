@@ -22,6 +22,7 @@ import { OrdersGlanceCard } from "@/components/anesthesia/postop/OrdersGlanceCar
 import { PostopTasksPanel } from "@/components/anesthesia/postop/PostopTasksPanel";
 import { OrderSetEditorDialog } from "@/components/anesthesia/postop/OrderSetEditorDialog";
 import { usePostopOrderSet } from "@/hooks/usePostopOrderSet";
+import { useDeviationAcks } from "@/hooks/usePostopDeviationAcks";
 import { usePostopOrderTemplates } from "@/hooks/usePostopOrderTemplates";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
@@ -238,6 +239,7 @@ export default function Op() {
   // Postoperative order set hooks
   const postopOrderSet = usePostopOrderSet(anesthesiaRecord?.id);
   const postopTemplates = usePostopOrderTemplates(activeHospital?.id);
+  const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
   const [orderEditorOpen, setOrderEditorOpen] = useState(false);
 
   // Check if X2 marker is set (enables mode toggle)
@@ -1336,6 +1338,7 @@ export default function Op() {
                         status: e.status,
                       }))
                   }
+                  deviationAcknowledgments={deviationAcks.data ?? []}
                   plannedVitalsChecks={
                     (postopOrderSet.data?.plannedEvents ?? [])
                       .filter(e => e.kind === 'vitals_check')

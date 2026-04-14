@@ -2465,6 +2465,23 @@ export const postopPlannedEvents = pgTable("postop_planned_events", {
   doneValue: jsonb("done_value"),
 });
 
+// Deviation acknowledgments — clinician sign-off when a monitored value breaches a threshold
+export const postopDeviationAcknowledgments = pgTable("postop_deviation_acknowledgments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  parameter: text("parameter").notNull(),
+  recordedAt: timestamp("recorded_at").notNull(),
+  recordedValue: integer("recorded_value").notNull(),
+  boundKind: text("bound_kind").notNull(),
+  resolvedBy: varchar("resolved_by").notNull().references(() => users.id),
+  resolvedAt: timestamp("resolved_at").notNull().defaultNow(),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type PostopDeviationAcknowledgment = typeof postopDeviationAcknowledgments.$inferSelect;
+export type NewPostopDeviationAcknowledgment = typeof postopDeviationAcknowledgments.$inferInsert;
+
 // Audit Trail (Immutable log of all changes for compliance)
 export const auditTrail = pgTable("audit_trail", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
