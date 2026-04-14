@@ -253,6 +253,58 @@ export default function PublicApiDocs() {
   }'`}
             </pre>
           </section>
+
+          <section id="conversions-api">
+            <h2 className="text-2xl font-bold tracking-tight mb-2">Conversions API</h2>
+            <p className="text-muted-foreground mb-6">
+              Pull conversion events for ad-platform reporting (Google Ads offline conversions,
+              Meta Conversions API, etc.). Useful as the source for a scheduled Make / Zapier flow
+              that pushes conversions back to your ad platforms.
+            </p>
+
+            <div className="rounded-lg border p-3 bg-muted/30 font-mono text-sm mb-6">
+              GET /api/webhooks/conversions/&lt;HOSPITAL_ID&gt;?key=&lt;YOUR_API_KEY&gt;
+            </div>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Query parameters</h3>
+            <ul className="list-disc ml-5 space-y-1 text-sm">
+              <li><code>key</code> — your API key <em>(required)</em></li>
+              <li><code>platform</code> — <code>meta_forms</code>, <code>meta_ads</code>, or <code>google_ads</code> <em>(optional — omit to get all platforms)</em></li>
+              <li><code>level</code> — <code>kept</code>, <code>surgery_planned</code>, or <code>paid</code> <em>(optional — omit to get all levels)</em></li>
+              <li><code>from</code> / <code>to</code> — ISO date range filter, e.g. <code>2026-01-01</code> <em>(optional)</em></li>
+            </ul>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Conversion levels</h3>
+            <ul className="list-disc ml-5 space-y-1 text-sm">
+              <li><code>kept</code> — the patient showed up to their appointment (arrived, in progress, or completed).</li>
+              <li><code>surgery_planned</code> — a surgery has been scheduled for this patient.</li>
+              <li><code>paid</code> — the surgery has been paid for.</li>
+            </ul>
+
+            <h3 className="text-lg font-semibold mt-6 mb-2">Response</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`[
+  {
+    "lead_id": "123456789",
+    "event_name": "lead_converted",
+    "event_time": 1712700000,
+    "lead_value": "5000",
+    "currency": "CHF",
+    "platform": "meta_forms",
+    "level": "kept"
+  }
+]`}
+            </pre>
+            <p className="text-sm text-muted-foreground mt-2">
+              Each result includes <code>platform</code> and <code>level</code> so you can filter on your end when
+              pulling everything at once.
+            </p>
+
+            <h3 className="text-lg font-semibold mt-8 mb-2">Example — Meta Lead Forms "kept" conversions</h3>
+            <pre className="text-xs overflow-x-auto rounded-lg border bg-muted p-3">
+{`curl "https://<your-viali-host>/api/webhooks/conversions/YOUR_HOSPITAL_ID?key=YOUR_API_KEY&platform=meta_forms&level=kept&from=2026-01-01&to=2026-04-10"`}
+            </pre>
+          </section>
         </main>
       </div>
     </div>
