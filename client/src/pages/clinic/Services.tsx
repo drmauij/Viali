@@ -41,7 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ClinicService, Unit } from "@shared/schema";
-import { ServiceGroupCombobox } from "@/components/ServiceGroupCombobox";
+import { ServiceGroupsMultiSelect } from "@/components/ServiceGroupsMultiSelect";
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
@@ -75,7 +75,9 @@ export default function ClinicServices() {
   const [bulkProvidersDialogOpen, setBulkProvidersDialogOpen] = useState(false);
   const [bulkProviderIds, setBulkProviderIds] = useState<string[]>([]);
   const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false);
-  const [bulkGroupValue, setBulkGroupValue] = useState("");
+  const [bulkGroupValue, setBulkGroupValue] = useState<string[]>([]);
+
+  const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -85,7 +87,7 @@ export default function ClinicServices() {
     isShared: false,
     isInvoiceable: false,
     code: "",
-    serviceGroup: "",
+    serviceGroups: [] as string[],
     providerIds: [] as string[],
   });
 
@@ -145,28 +147,27 @@ export default function ClinicServices() {
     enabled: !!hospitalId,
   });
 
-  // Fetch existing service groups for group combobox suggestions
-  const { data: groupData } = useQuery<{ groups: string[] }>({
-    queryKey: ['/api/clinic', hospitalId, 'service-groups'],
-    queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/service-groups`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch groups');
-      return res.json();
-    },
-    enabled: !!hospitalId,
-  });
-  const groupSuggestions = groupData?.groups ?? [];
-
   // Fetch booking token for building the booking URL
   const { data: bookingTokenData } = useQuery<{ bookingToken: string | null }>({
     queryKey: [`/api/admin/${hospitalId}/booking-token`],
     enabled: !!hospitalId,
   });
 
+  const { data: allGroupsData } = useQuery<{ groups: string[] }>({
+    queryKey: ["/api/clinic", hospitalId, "service-groups"],
+    enabled: !!hospitalId,
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/service-groups`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load groups");
+      return res.json();
+    },
+  });
+  const allGroups = allGroupsData?.groups ?? [];
+
   const [copiedBookingUrl, setCopiedBookingUrl] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroup: string | null; providerIds: string[] }) => {
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroups: string[]; providerIds: string[] }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
@@ -182,7 +183,7 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroup: string | null; providerIds: string[] }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroups: string[]; providerIds: string[] }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
@@ -297,9 +298,9 @@ export default function ClinicServices() {
   });
 
   const bulkUpdateGroupMutation = useMutation({
-    mutationFn: async ({ serviceIds, serviceGroup }: { serviceIds: string[]; serviceGroup: string | null }) => {
+    mutationFn: async ({ serviceIds, serviceGroups }: { serviceIds: string[]; serviceGroups: string[] }) => {
       const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-update-group`, {
-        serviceIds, serviceGroup,
+        serviceIds, serviceGroups,
       });
       return response.json();
     },
@@ -309,11 +310,11 @@ export default function ClinicServices() {
       setIsBulkMode(false);
       setSelectedServices(new Set());
       setBulkGroupDialogOpen(false);
-      setBulkGroupValue("");
+      setBulkGroupValue([]);
       toast({
         title: t('common.success'),
-        description: data.serviceGroup
-          ? `${data.updatedCount || 0} service(s) set to group "${data.serviceGroup}"`
+        description: data.serviceGroups?.length
+          ? `${data.updatedCount || 0} service(s) set to groups: ${data.serviceGroups.join(', ')}`
           : `${data.updatedCount || 0} service(s) cleared`,
       });
     },
@@ -394,7 +395,7 @@ export default function ClinicServices() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", serviceGroup: "", providerIds: [] });
+    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", serviceGroups: [], providerIds: [] });
   };
 
   const handleOpenCreate = () => {
@@ -413,7 +414,7 @@ export default function ClinicServices() {
       isShared: service.isShared || false,
       isInvoiceable: (service as any).isInvoiceable || false,
       code: service.code || "",
-      serviceGroup: (service as any).serviceGroup || "",
+      serviceGroups: (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []),
       providerIds: service.providerIds || [],
     });
     setDialogOpen(true);
@@ -429,7 +430,6 @@ export default function ClinicServices() {
     const price = formData.price ? formData.price : null;
 
     const code = formData.code.trim() || null;
-    const serviceGroup = formData.serviceGroup.trim() || null;
 
     if (editingService) {
       updateMutation.mutate({
@@ -441,7 +441,7 @@ export default function ClinicServices() {
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
         code,
-        serviceGroup,
+        serviceGroups: formData.serviceGroups,
         providerIds: formData.providerIds,
       });
     } else {
@@ -453,7 +453,7 @@ export default function ClinicServices() {
         isShared: formData.isShared,
         isInvoiceable: formData.isInvoiceable,
         code,
-        serviceGroup,
+        serviceGroups: formData.serviceGroups,
         providerIds: formData.providerIds,
       });
     }
@@ -466,11 +466,16 @@ export default function ClinicServices() {
   };
 
   const filteredServices = useMemo(() => {
-    return services.filter(service => 
-      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (service.description?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [services, searchTerm]);
+    return services.filter(service => {
+      const matchesSearch =
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (!matchesSearch) return false;
+      if (activeGroupFilter === null) return true;
+      const groups = (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
+      return groups.includes(activeGroupFilter);
+    });
+  }, [services, searchTerm, activeGroupFilter]);
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
@@ -585,7 +590,7 @@ export default function ClinicServices() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setBulkGroupValue("");
+                setBulkGroupValue([]);
                 setBulkGroupDialogOpen(true);
               }}
               disabled={selectedServices.size === 0}
@@ -604,6 +609,28 @@ export default function ClinicServices() {
           </div>
         )}
       </div>
+
+      {allGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <Badge
+            variant={activeGroupFilter === null ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setActiveGroupFilter(null)}
+          >
+            {t("common.all", "All")}
+          </Badge>
+          {allGroups.map(g => (
+            <Badge
+              key={g}
+              variant={activeGroupFilter === g ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setActiveGroupFilter(g)}
+            >
+              {g}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -652,10 +679,12 @@ export default function ClinicServices() {
                     {service.description && (
                       <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
                     )}
-                    {(service.code || (service as any).serviceGroup) && (
+                    {(service.code || (service as any).serviceGroups?.length || (service as any).serviceGroup) && (
                       <div className="flex gap-2 mt-1 text-xs text-muted-foreground items-center flex-wrap">
                         {service.code && <span className="font-mono">#{service.code}</span>}
-                        {(service as any).serviceGroup && <Badge variant="outline" className="text-xs">{(service as any).serviceGroup}</Badge>}
+                        {((service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : [])).map((g: string) => (
+                          <Badge key={g} variant="outline" className="text-xs">{g}</Badge>
+                        ))}
                       </div>
                     )}
                     <div className="flex items-center gap-3 mt-2">
@@ -795,12 +824,11 @@ export default function ClinicServices() {
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="serviceGroup">Group</Label>
-              <ServiceGroupCombobox
-                value={formData.serviceGroup}
-                onChange={(val) => setFormData({ ...formData, serviceGroup: val })}
-                suggestions={groupSuggestions}
-                placeholder="No group"
+              <Label>Groups</Label>
+              <ServiceGroupsMultiSelect
+                hospitalId={hospitalId!}
+                value={formData.serviceGroups}
+                onChange={(v) => setFormData({ ...formData, serviceGroups: v })}
               />
               <p className="text-xs text-muted-foreground">
                 Used to filter treatments on the booking page via <code>?service_group=</code> URL param.
@@ -1038,17 +1066,16 @@ export default function ClinicServices() {
       <Dialog open={bulkGroupDialogOpen} onOpenChange={setBulkGroupDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Group for {selectedServices.size} Service(s)</DialogTitle>
+            <DialogTitle>Update Groups for {selectedServices.size} Service(s)</DialogTitle>
             <DialogDescription>
-              "Set" assigns the selected group to all. "Clear" removes the group entirely.
+              "Set Groups" assigns the selected groups to all. "Clear Groups" removes all groups.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <ServiceGroupCombobox
+            <ServiceGroupsMultiSelect
+              hospitalId={hospitalId!}
               value={bulkGroupValue}
               onChange={setBulkGroupValue}
-              suggestions={groupSuggestions}
-              placeholder="Select or type a group..."
             />
           </div>
           <DialogFooter>
@@ -1059,20 +1086,20 @@ export default function ClinicServices() {
               variant="destructive"
               onClick={() => bulkUpdateGroupMutation.mutate({
                 serviceIds: Array.from(selectedServices),
-                serviceGroup: null,
+                serviceGroups: [],
               })}
               disabled={bulkUpdateGroupMutation.isPending}
             >
-              Clear Group
+              Clear Groups
             </Button>
             <Button
               onClick={() => bulkUpdateGroupMutation.mutate({
                 serviceIds: Array.from(selectedServices),
-                serviceGroup: bulkGroupValue.trim() || null,
+                serviceGroups: bulkGroupValue,
               })}
-              disabled={!bulkGroupValue.trim() || bulkUpdateGroupMutation.isPending}
+              disabled={bulkGroupValue.length === 0 || bulkUpdateGroupMutation.isPending}
             >
-              Set Group
+              Set Groups
             </Button>
           </DialogFooter>
         </DialogContent>

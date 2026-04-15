@@ -1520,6 +1520,13 @@
       "when": 1776900000000,
       "tag": "0216_marketing_ai_analyses",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0217_clinic_services_groups_jsonb",
+      "breakpoints": true
     }
   ]
 }

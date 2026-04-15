@@ -952,6 +952,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
         isInvoiceable: clinicServices.isInvoiceable,
         code: clinicServices.code,
         serviceGroup: clinicServices.serviceGroup,
+        serviceGroups: clinicServices.serviceGroups,
         sortOrder: clinicServices.sortOrder,
         createdAt: clinicServices.createdAt,
         updatedAt: clinicServices.updatedAt,
@@ -1022,6 +1023,15 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHo
     // Treat empty string as null
     if (serviceData.code === '') serviceData.code = null;
 
+    // Dual-write: keep serviceGroup (legacy VARCHAR) and serviceGroups (JSONB) in sync
+    if (Array.isArray(serviceData.serviceGroups)) {
+      // New clients: serviceGroups is source of truth
+      serviceData.serviceGroup = serviceData.serviceGroups[0] ?? null;
+    } else if (serviceData.serviceGroup !== undefined) {
+      // Legacy clients: derive serviceGroups from serviceGroup
+      serviceData.serviceGroups = serviceData.serviceGroup ? [serviceData.serviceGroup] : [];
+    }
+
     const validatedData = insertClinicServiceSchema.parse({
       ...serviceData,
       hospitalId,
@@ -1069,7 +1079,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, providerIds: providerIdsInput } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, serviceGroups, providerIds: providerIdsInput } = req.body;
 
     // Validate code format if provided
     if (code !== undefined && code !== null && code !== '') {
@@ -1090,7 +1100,15 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
     if (code !== undefined) updateData.code = code === '' ? null : code;
-    if (serviceGroup !== undefined) updateData.serviceGroup = serviceGroup || null;
+    if (serviceGroups !== undefined && Array.isArray(serviceGroups)) {
+      // New clients: serviceGroups is the source of truth; dual-write legacy field
+      updateData.serviceGroups = serviceGroups;
+      updateData.serviceGroup = serviceGroups[0] ?? null;
+    } else if (serviceGroup !== undefined) {
+      // Legacy clients: only serviceGroup provided; dual-write to new field
+      updateData.serviceGroup = serviceGroup || null;
+      updateData.serviceGroups = serviceGroup ? [serviceGroup] : [];
+    }
 
     const [updated] = await db
       .update(clinicServices)
@@ -1227,19 +1245,20 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
 router.get('/api/clinic/:hospitalId/service-groups', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const rows = await db
-      .selectDistinct({ serviceGroup: clinicServices.serviceGroup })
-      .from(clinicServices)
-      .where(
-        and(
-          eq(clinicServices.hospitalId, hospitalId),
-          isNotNull(clinicServices.serviceGroup),
-        )
-      );
-    const groups = rows
-      .map(r => r.serviceGroup)
-      .filter((g): g is string => !!g && g.trim().length > 0)
-      .sort();
+    const result = await db.execute(sql`
+      SELECT DISTINCT g FROM (
+        SELECT jsonb_array_elements_text(service_groups) AS g
+        FROM clinic_services
+        WHERE hospital_id = ${hospitalId}
+        UNION
+        SELECT service_group AS g
+        FROM clinic_services
+        WHERE hospital_id = ${hospitalId} AND service_group IS NOT NULL
+      ) t
+      WHERE g IS NOT NULL AND trim(g) <> ''
+      ORDER BY g
+    `);
+    const groups = (result.rows as Array<{ g: string }>).map(r => r.g);
     res.json({ groups });
   } catch (error) {
     logger.error("Error fetching service groups:", error);
@@ -1295,26 +1314,37 @@ router.post('/api/clinic/:hospitalId/services/bulk-update-providers', isAuthenti
 router.post('/api/clinic/:hospitalId/services/bulk-update-group', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { serviceIds, serviceGroup } = req.body;
+    const { serviceIds, serviceGroup, serviceGroups } = req.body;
 
     if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
       return res.status(400).json({ message: "Service IDs are required" });
     }
-    if (serviceGroup !== null && typeof serviceGroup !== 'string') {
-      return res.status(400).json({ message: "serviceGroup must be a string or null" });
-    }
 
-    const normalized = typeof serviceGroup === 'string' ? (serviceGroup.trim() || null) : null;
+    let normalizedGroup: string | null;
+    let normalizedGroups: string[];
+
+    if (Array.isArray(serviceGroups)) {
+      // New clients: serviceGroups is source of truth
+      normalizedGroups = serviceGroups.map((g: string) => g.trim()).filter(Boolean);
+      normalizedGroup = normalizedGroups[0] ?? null;
+    } else {
+      // Legacy clients: only serviceGroup provided
+      if (serviceGroup !== null && typeof serviceGroup !== 'string') {
+        return res.status(400).json({ message: "serviceGroup must be a string or null" });
+      }
+      normalizedGroup = typeof serviceGroup === 'string' ? (serviceGroup.trim() || null) : null;
+      normalizedGroups = normalizedGroup ? [normalizedGroup] : [];
+    }
 
     await db
       .update(clinicServices)
-      .set({ serviceGroup: normalized, updatedAt: new Date() })
+      .set({ serviceGroup: normalizedGroup, serviceGroups: normalizedGroups, updatedAt: new Date() })
       .where(and(
         eq(clinicServices.hospitalId, hospitalId),
         inArray(clinicServices.id, serviceIds),
       ));
 
-    res.json({ updatedCount: serviceIds.length, serviceGroup: normalized });
+    res.json({ updatedCount: serviceIds.length, serviceGroup: normalizedGroup, serviceGroups: normalizedGroups });
   } catch (error) {
     logger.error("Error bulk updating group:", error);
     res.status(500).json({ message: "Failed to update group" });
