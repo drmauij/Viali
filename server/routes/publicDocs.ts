@@ -37,7 +37,7 @@ No API key needed — the booking token in the URL identifies the hospital. Appe
 | Name | Type | Example | Notes |
 |---|---|---|---|
 | \`service\` | string | \`rhinoplasty\` | Service code to preselect |
-| \`service_group\` | string | \`aesthetic-face\` | Filter services by group |
+| \`service_group\` | string | \`aesthetic-face\` | Filter services that belong to this group (a service may belong to multiple groups) |
 | \`provider\` | uuid | \`a1b2c3d4-…\` | Preselect a specific provider |
 
 ### Patient prefill
