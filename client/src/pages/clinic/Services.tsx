@@ -77,6 +77,8 @@ export default function ClinicServices() {
   const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false);
   const [bulkGroupValue, setBulkGroupValue] = useState<string[]>([]);
 
+  const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -150,6 +152,17 @@ export default function ClinicServices() {
     queryKey: [`/api/admin/${hospitalId}/booking-token`],
     enabled: !!hospitalId,
   });
+
+  const { data: allGroupsData } = useQuery<{ groups: string[] }>({
+    queryKey: ["/api/clinic", hospitalId, "service-groups"],
+    enabled: !!hospitalId,
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/service-groups`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load groups");
+      return res.json();
+    },
+  });
+  const allGroups = allGroupsData?.groups ?? [];
 
   const [copiedBookingUrl, setCopiedBookingUrl] = useState(false);
 
@@ -453,11 +466,16 @@ export default function ClinicServices() {
   };
 
   const filteredServices = useMemo(() => {
-    return services.filter(service => 
-      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (service.description?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [services, searchTerm]);
+    return services.filter(service => {
+      const matchesSearch =
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (!matchesSearch) return false;
+      if (activeGroupFilter === null) return true;
+      const groups = (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
+      return groups.includes(activeGroupFilter);
+    });
+  }, [services, searchTerm, activeGroupFilter]);
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
@@ -591,6 +609,28 @@ export default function ClinicServices() {
           </div>
         )}
       </div>
+
+      {allGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <Badge
+            variant={activeGroupFilter === null ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setActiveGroupFilter(null)}
+          >
+            {t("common.all", "All")}
+          </Badge>
+          {allGroups.map(g => (
+            <Badge
+              key={g}
+              variant={activeGroupFilter === g ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setActiveGroupFilter(g)}
+            >
+              {g}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
