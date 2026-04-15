@@ -35,20 +35,24 @@ When the user says "check db for deploy", run this full checklist:
 4. Confirm the Drizzle journal (`migrations/meta/_journal.json`) includes the latest migration entry
 5. Report result: safe to deploy, or list what needs fixing
 
-## Public API documentation — keep in sync
+## Public API documentation — single source of truth
 
-Viali publishes its public API at `/api` (React page in `client/src/pages/PublicApiDocs.tsx`) and a machine-readable index at `/llms.txt` (served by `server/routes/publicDocs.ts`). These are the docs third parties and AI agents rely on.
+Viali's public API docs live in **one file**: the `PUBLIC_API_MD` string in `server/routes/publicDocs.ts`. That file feeds:
 
-**Whenever you add, remove, or change the shape of a publicly-exposed endpoint or URL parameter, update these docs in the same commit.** This includes:
+- `/api.md` — raw Markdown for AI agents, Make/Zapier, third-party scripts
+- `/api` — human-friendly rendered version (`client/src/pages/PublicApiDocs.tsx` fetches `/api.md` and renders it with react-markdown)
+- `/llms.txt` — agent index pointing at `/api.md`
 
-- New webhook endpoints under `/api/webhooks/*` or any other public-facing route — add a new section to `PublicApiDocs.tsx` (and an `id` to `SECTIONS`) and a new link in `LLMS_TXT` if it warrants its own entry.
-- New, removed, or renamed URL parameters on `/book/:token` — update the relevant `BOOKING_PARAMS_*` array in `PublicApiDocs.tsx`.
-- Changes to the leads webhook payload fields or the conversions API response schema — update the corresponding section.
-- Changes to error codes, auth behavior, or rate limits — reflect them in the docs.
+**Whenever you add, remove, or change the shape of a publicly-exposed endpoint or URL parameter, update `PUBLIC_API_MD` in the same commit.** This includes:
+
+- New webhook endpoints under `/api/webhooks/*` or any other public-facing route
+- New, removed, or renamed URL parameters on `/book/:token`
+- Changes to the leads webhook payload fields or the conversions API response schema
+- Changes to error codes, auth behavior, or rate limits
 
 If a change is internal-only (auth-gated admin endpoints, not public webhooks), no docs update is needed.
 
-When in doubt: the `/api` page should always describe the current behavior of every endpoint documented there. If you can't make it match the code, flag it rather than letting it drift.
+`tests/public-docs.test.ts` enforces that every documented endpoint path, required field, and error code is present in the served markdown — adding a new public endpoint without updating `PUBLIC_API_MD` should make those tests fail, so update the tests to match the new surface area.
 
 ## Cal.com integration (LEGACY)
 
