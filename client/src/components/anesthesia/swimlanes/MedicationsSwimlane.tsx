@@ -9,7 +9,8 @@ import { assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import { useTranslation } from "react-i18next";
 import { classifyPlannedMedEvent } from "@shared/postopMedicationExecution";
 import { PostopAdministerDialog } from "../postop/PostopAdministerDialog";
-import { useMarkPostopEventDone } from "@/hooks/usePostopMedAdmin";
+import { useMarkPostopEventDone, useAdministerPrn } from "@/hooks/usePostopMedAdmin";
+import { PrnStrip, type PrnItem } from "../postop/PrnStrip";
 import { deriveBolusUnit } from "@/lib/pharmacokinetics/rate-conversion";
 import type {
   RateInfusionSegment,
@@ -492,8 +493,8 @@ export function MedicationsSwimlane({
   onRateManageDialogOpen,
   onRateSelectionDialogOpen,
   plannedMedEvents,
-  prnItems: _prnItems,                 // Task 9 will render these
-  prnAdmins: _prnAdmins,               // Task 9 will render these
+  prnItems,
+  prnAdmins,
 }: MedicationsSwimlaneProps) {
   const {
     medicationState,
@@ -581,6 +582,10 @@ export function MedicationsSwimlane({
 
   // State for planned med event admin dialog
   const [openPlannedEvent, setOpenPlannedEvent] = useState<NonNullable<typeof plannedMedEvents>[number] | null>(null);
+
+  // State and mutation for PRN admin dialog
+  const [openPrnItem, setOpenPrnItem] = useState<PrnItem | null>(null);
+  const prnAdminMut = useAdministerPrn(anesthesiaRecordId ?? "");
 
   // Mutation hooks
   const updateMedicationMutation = useUpdateMedication(anesthesiaRecordId);
@@ -1622,6 +1627,20 @@ export function MedicationsSwimlane({
         );
       })()}
       
+      {/* PRN Strip — rendered below all drug rows */}
+      {prnItems && prnItems.length > 0 && (
+        <div className="absolute left-0 right-0" style={{
+          top: `${(swimlanePositions[swimlanePositions.length - 1]?.top ?? 0) + (swimlanePositions[swimlanePositions.length - 1]?.height ?? 0) + 4}px`,
+          zIndex: 30,
+        }}>
+          <PrnStrip
+            items={prnItems}
+            admins={prnAdmins ?? []}
+            onTap={(item) => setOpenPrnItem(item)}
+          />
+        </div>
+      )}
+
       {/* Infusion Start Edit Dialog */}
       <InfusionStartEditDialog
         open={showInfusionEditDialog}
@@ -1661,6 +1680,35 @@ export function MedicationsSwimlane({
               doneValue: { actualDose, actualTime, note },
             });
             setOpenPlannedEvent(null);
+          }}
+        />
+      )}
+
+      {/* Postop PRN Administer Dialog */}
+      {openPrnItem && (
+        <PostopAdministerDialog
+          open={!!openPrnItem}
+          onOpenChange={(o) => { if (!o) setOpenPrnItem(null); }}
+          medicationRef={openPrnItem.medicationRef}
+          dose={openPrnItem.dose}
+          route={openPrnItem.route}
+          plannedAt={new Date()}
+          onConfirm={async ({ actualDose, actualTime, note }) => {
+            // Compute admin timestamp: today's date with the HH:MM the user entered
+            const now = new Date();
+            const [h, m] = actualTime.split(':').map(Number);
+            const administered = new Date(now);
+            administered.setHours(h, m, 0, 0);
+            await prnAdminMut.mutateAsync({
+              anesthesiaRecordId: anesthesiaRecordId ?? "",
+              itemId: openPrnItem.id,
+              medicationRef: openPrnItem.medicationRef,
+              dose: actualDose,
+              route: openPrnItem.route,
+              administeredAt: administered.toISOString(),
+              note,
+            });
+            setOpenPrnItem(null);
           }}
         />
       )}
