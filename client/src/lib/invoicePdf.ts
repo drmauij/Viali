@@ -151,7 +151,7 @@ export async function generateInvoicePdf(
     if (anesthesiaRecord?.id) {
       parallelFetches.push(
         fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
-        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}`, { credentials: "include" }),
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}/report`, { credentials: "include" }),
       );
     }
 

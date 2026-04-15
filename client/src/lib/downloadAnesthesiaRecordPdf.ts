@@ -93,7 +93,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
         fetch(`/api/anesthesia/vitals/snapshot/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
         fetch(`/api/anesthesia/positions/${anesthesiaRecord.id}`, { credentials: "include" }),
-        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}`, { credentials: "include" }),
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecord.id}/report`, { credentials: "include" }),
         fetch(`/api/or-medications/${anesthesiaRecord.id}`, { credentials: "include" }),
       ]);
 

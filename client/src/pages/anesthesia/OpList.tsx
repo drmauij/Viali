@@ -189,9 +189,9 @@ export default function OpList() {
     setSummaryOpen(true);
   };
 
-  const handleSearchSelect = (surgeryId: string, _patientId: string | null, _date: Date) => {
+  const handleSearchSelect = (surgeryId: string, patientId: string | null, _date: Date) => {
     setSelectedSurgeryId(surgeryId);
-    setSelectedPatientId(null);
+    setSelectedPatientId(patientId);
     setSummaryOpen(true);
   };
 

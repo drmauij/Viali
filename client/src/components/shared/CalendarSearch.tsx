@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 export interface CalendarSearchResult {
   id: string;
+  patientId: string | null;
   patientName: string;
   date: string;
   time: string | null;
@@ -73,6 +74,7 @@ export default function CalendarSearch({ type, hospitalId, onSelect, onClear }: 
   // Map raw API results to CalendarSearchResult
   const results: CalendarSearchResult[] = rawResults.map((r: any) => ({
     id: r.id,
+    patientId: r.patientId ?? null,
     patientName: r.patientName,
     date: r.date,
     time: r.time || r.startTime || null,

@@ -3217,6 +3217,93 @@ export async function getInventoryUsageById(id: string): Promise<InventoryUsage 
   return usage || null;
 }
 
+// Aggregated inventory usage for reports/PDF: merges committed items (from
+// non-rolled-back inventory_commits) with any still-pending inventory_usage rows.
+// Committed items get deleted from inventory_usage on commit, so the PDF previously
+// only saw stragglers (overrides with qty 0, manual entries added post-commit).
+export async function getInventoryUsageForReport(anesthesiaRecordId: string) {
+  const pending = await getInventoryUsage(anesthesiaRecordId);
+
+  const commits = await db
+    .select()
+    .from(inventoryCommits)
+    .where(
+      and(
+        eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId),
+        isNull(inventoryCommits.rolledBackAt),
+      ),
+    );
+
+  const committedQtyByItem = new Map<string, number>();
+  for (const commit of commits) {
+    for (const it of commit.items || []) {
+      committedQtyByItem.set(it.itemId, (committedQtyByItem.get(it.itemId) || 0) + Number(it.quantity || 0));
+    }
+  }
+
+  type ReportRow = Awaited<ReturnType<typeof getInventoryUsage>>[number];
+  const merged = new Map<string, ReportRow>();
+  for (const row of pending) {
+    merged.set(row.itemId, { ...row });
+  }
+
+  const committedItemIds = Array.from(committedQtyByItem.keys());
+  if (committedItemIds.length > 0) {
+    const infoRows = await db
+      .select({
+        itemId: items.id,
+        itemName: items.name,
+        itemUnit: items.unit,
+        unitId: items.unitId,
+        unitName: units.name,
+        pharmacode: itemCodes.pharmacode,
+        gtin: itemCodes.gtin,
+      })
+      .from(items)
+      .innerJoin(units, eq(items.unitId, units.id))
+      .leftJoin(itemCodes, eq(items.id, itemCodes.itemId))
+      .where(inArray(items.id, committedItemIds));
+
+    for (const info of infoRows) {
+      const committedQty = committedQtyByItem.get(info.itemId) || 0;
+      const existing = merged.get(info.itemId);
+      if (existing) {
+        const pendingQty = existing.overrideQty != null
+          ? Number(existing.overrideQty)
+          : Number(existing.calculatedQty || 0);
+        existing.calculatedQty = (committedQty + pendingQty) as any;
+        existing.overrideQty = null;
+        existing.overrideReason = null;
+      } else {
+        merged.set(info.itemId, {
+          id: `commit:${info.itemId}`,
+          anesthesiaRecordId,
+          itemId: info.itemId,
+          calculatedQty: committedQty as any,
+          overrideQty: null,
+          overrideReason: null,
+          overriddenBy: null,
+          overriddenAt: null,
+          createdAt: null,
+          updatedAt: null,
+          itemName: info.itemName,
+          itemUnit: info.itemUnit,
+          unitId: info.unitId,
+          unitName: info.unitName,
+          pharmacode: info.pharmacode,
+          gtin: info.gtin,
+        } as ReportRow);
+      }
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) => {
+    const un = (a.unitName || '').localeCompare(b.unitName || '');
+    if (un !== 0) return un;
+    return (a.itemName || '').localeCompare(b.itemName || '');
+  });
+}
+
 export async function calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
   const allMedications = await db
     .select()

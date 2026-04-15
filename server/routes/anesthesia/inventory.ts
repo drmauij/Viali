@@ -26,6 +26,17 @@ router.get('/api/anesthesia/inventory/:recordId', isAuthenticated, requireStrict
   }
 });
 
+router.get('/api/anesthesia/inventory/:recordId/report', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const inventory = await storage.getInventoryUsageForReport(recordId);
+    res.json(inventory);
+  } catch (error) {
+    logger.error("Error fetching inventory report:", error);
+    res.status(500).json({ message: "Failed to fetch inventory report" });
+  }
+});
+
 router.post('/api/anesthesia/inventory/:recordId/calculate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { recordId } = req.params;

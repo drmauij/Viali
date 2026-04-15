@@ -665,6 +665,7 @@ export interface IStorage {
   
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
+  getInventoryUsageForReport(anesthesiaRecordId: string): Promise<any[]>;
   calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
   updateInventoryUsage(id: string, overrideQty: number, overrideReason: string, overriddenBy: string): Promise<InventoryUsage>;
   
@@ -1410,6 +1411,7 @@ export class DatabaseStorage implements IStorage {
   updatePeripheralBlock = anesthesiaStorage.updatePeripheralBlock;
   deletePeripheralBlock = anesthesiaStorage.deletePeripheralBlock;
   getInventoryUsage = anesthesiaStorage.getInventoryUsage;
+  getInventoryUsageForReport = anesthesiaStorage.getInventoryUsageForReport;
   getInventoryUsageById = anesthesiaStorage.getInventoryUsageById;
   calculateInventoryUsage = anesthesiaStorage.calculateInventoryUsage;
   updateInventoryUsage = anesthesiaStorage.updateInventoryUsage;

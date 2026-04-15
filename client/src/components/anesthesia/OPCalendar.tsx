@@ -1088,7 +1088,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     const newDate = new Date(result.date + "T00:00:00");
     setSelectedDate(newDate);
     if (onSearchSelect) {
-      onSearchSelect(result.id, null, newDate);
+      onSearchSelect(result.id, result.patientId, newDate);
     }
   }, [selectedDate, onSearchSelect]);
 
