@@ -9,6 +9,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import MarketingAiInsights from "./MarketingAiInsights";
 import { Redirect } from "wouter";
 import {
   HelpCircle,
@@ -374,6 +375,12 @@ export default function Marketing() {
       </div>
 
       <div className="space-y-4">
+          <MarketingAiInsights
+            hospitalId={activeHospital?.id ?? ""}
+            startDate={referralFrom}
+            endDate={referralTo}
+          />
+
           {/* Date range filter */}
           <Card>
             <CardContent className="pt-6">
