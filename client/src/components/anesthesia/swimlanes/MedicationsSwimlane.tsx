@@ -440,6 +440,25 @@ export interface MedicationsSwimlaneProps {
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
   onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string; sessionId?: string; itemId?: string; isRunning?: boolean; administrationUnit?: string | null; ampuleUnit?: string | null }, time: number, input: string) => void;
   onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[]; itemId?: string; administrationUnit?: string | null }) => void;
+  plannedMedEvents?: Array<{
+    id: string;
+    itemId: string;
+    plannedAt: number;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+    medicationRef: string;
+    dose: string;
+    route: 'po' | 'iv' | 'sc' | 'im';
+    doneAt?: number | null;
+  }>;
+  prnItems?: Array<{
+    id: string;
+    medicationRef: string;
+    dose: string;
+    route: 'po' | 'iv' | 'sc' | 'im';
+    prnMaxPerDay?: number;
+    prnMaxPerInterval?: { intervalH: number; count: number };
+  }>;
+  prnAdmins?: Array<{ itemId: string; administeredAt: number }>;
 }
 
 /**
@@ -469,6 +488,9 @@ export function MedicationsSwimlane({
   onRateSheetOpen,
   onRateManageDialogOpen,
   onRateSelectionDialogOpen,
+  plannedMedEvents: _plannedMedEvents, // Task 7 will render these
+  prnItems: _prnItems,                 // Task 7 will render these
+  prnAdmins: _prnAdmins,               // Task 7 will render these
 }: MedicationsSwimlaneProps) {
   const {
     medicationState,

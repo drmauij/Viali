@@ -295,6 +295,25 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     boundKind: "low" | "high";
     resolvedBy: string;
   }>;
+  plannedMedEvents?: Array<{
+    id: string;
+    itemId: string;
+    plannedAt: number;
+    status: 'planned' | 'done' | 'missed' | 'cancelled';
+    medicationRef: string;
+    dose: string;
+    route: 'po' | 'iv' | 'sc' | 'im';
+    doneAt?: number | null;
+  }>;
+  prnItems?: Array<{
+    id: string;
+    medicationRef: string;
+    dose: string;
+    route: 'po' | 'iv' | 'sc' | 'im';
+    prnMaxPerDay?: number;
+    prnMaxPerInterval?: { intervalH: number; count: number };
+  }>;
+  prnAdmins?: Array<{ itemId: string; administeredAt: number }>;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -312,6 +331,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   plannedTaskEvents, // Planned task events from postop order set for timeline pills
   plannedVitalsChecks, // Planned vitals checks from postop order set for VitalsSwimlane ghost markers
   deviationAcknowledgments, // Deviation acknowledgments for VitalsSwimlane badges
+  plannedMedEvents, // Planned medication events from postop order set (Task 7 renders them)
+  prnItems, // PRN medication items from postop order set (Task 7 renders them)
+  prnAdmins, // PRN administrations derived from done planned events (Task 7 renders them)
 }, ref) {
   const chartRef = useRef<any>(null);
   const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
@@ -6042,6 +6064,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setPendingRateSelection(pending);
           setShowRateSelectionDialog(true);
         }}
+        plannedMedEvents={plannedMedEvents}
+        prnItems={prnItems}
+        prnAdmins={prnAdmins}
       />
 
       {/* VentilationSwimlane Component - Interactive layers and rendering for ventilation parameters and modes */}
