@@ -23,6 +23,10 @@ const pacuShortItems: PostopOrderItem[] = [
   { id: id(), type: 'task', title: 'Motorik-Check nach Regionalanästhesie', when: 'ad_hoc', actionHint: 'Vor Entlassung Sensibilität und Motorik prüfen' },
   { id: id(), type: 'task', title: 'Verlängerte Überwachung (Risiko-Patient)', when: 'ad_hoc' },
   { id: id(), type: 'task', title: 'Keine oralen Antikoagulanzien für 24h', when: 'conditional', condition: 'nach Regionalanästhesie' },
+  // PRN pain medications
+  { id: id(), type: 'medication', medicationRef: 'Paracetamol', dose: '1000 mg', route: 'iv', scheduleMode: 'prn', prnMaxPerDay: 4, prnMaxPerInterval: { intervalH: 6, count: 1 } },
+  { id: id(), type: 'medication', medicationRef: 'Ibuprofen', dose: '400 mg', route: 'po', scheduleMode: 'prn', prnMaxPerDay: 3, prnMaxPerInterval: { intervalH: 8, count: 1 } },
+  { id: id(), type: 'medication', medicationRef: 'Novalgin', dose: '1000 mg', route: 'iv', scheduleMode: 'prn', prnMaxPerDay: 4, prnMaxPerInterval: { intervalH: 6, count: 1 } },
 ];
 
 const overnightItems: PostopOrderItem[] = [

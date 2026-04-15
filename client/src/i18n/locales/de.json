@@ -6920,6 +6920,15 @@
       "actionLabel": "Aktion",
       "notePlaceholder": "Optional: beschreibe die ergriffene Maßnahme",
       "resolve": "Bestätigen"
+    },
+    "medExecution": {
+      "administerTitle": "Medikament verabreichen",
+      "actualDose": "Tatsächliche Dosis",
+      "actualTime": "Tatsächliche Uhrzeit",
+      "notePlaceholder": "Notiz (Beobachtungen, Abweichungen)",
+      "confirm": "Verabreichung bestätigen",
+      "prnStripLabel": "Bedarf",
+      "capReached": "Maximum erreicht"
     }
   },
   "todoList": {

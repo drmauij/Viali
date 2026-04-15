@@ -242,6 +242,58 @@ export default function Op() {
   const deviationAcks = useDeviationAcks(anesthesiaRecord?.id);
   const [orderEditorOpen, setOrderEditorOpen] = useState(false);
 
+  // Phase 3: planned medication events + PRN items derived from postop order set
+  const postopMedData = useMemo(() => {
+    const orderSet = postopOrderSet.data;
+    if (!orderSet) return { plannedMedEvents: [], prnItems: [] };
+    const items = orderSet.orderSet?.items ?? [];
+    const planned = orderSet.plannedEvents ?? [];
+
+    const plannedMedEvents = planned
+      .filter(e => e.kind === 'medication')
+      .map(e => {
+        const snap = e.payloadSnapshot as any;
+        return {
+          id: e.id,
+          itemId: e.itemId,
+          plannedAt: new Date(e.plannedAt).getTime(),
+          status: e.status as 'planned' | 'done' | 'missed' | 'cancelled',
+          medicationRef: snap?.medicationRef ?? '',
+          dose: snap?.dose ?? '',
+          route: (snap?.route ?? 'po') as 'po' | 'iv' | 'sc' | 'im',
+          doneAt: e.doneAt ? new Date(e.doneAt).getTime() : null,
+        };
+      });
+
+    const prnItems = items
+      .filter((i: any) => i.type === 'medication' && i.scheduleMode === 'prn')
+      .map((i: any) => ({
+        id: i.id,
+        medicationRef: i.medicationRef,
+        dose: i.dose,
+        route: i.route,
+        prnMaxPerDay: i.prnMaxPerDay,
+        prnMaxPerInterval: i.prnMaxPerInterval,
+      }));
+
+    return { plannedMedEvents, prnItems };
+  }, [postopOrderSet.data]);
+
+  // Phase 3: PRN administrations derived from done planned events with scheduleMode='prn'
+  const prnAdmins = useMemo(() => {
+    const planned = postopOrderSet.data?.plannedEvents ?? [];
+    return planned
+      .filter(e => {
+        if (e.kind !== 'medication' || e.status !== 'done') return false;
+        const snap = e.payloadSnapshot as any;
+        return snap?.scheduleMode === 'prn';
+      })
+      .map(e => ({
+        itemId: e.itemId,
+        administeredAt: e.doneAt ? new Date(e.doneAt).getTime() : new Date(e.plannedAt).getTime(),
+      }));
+  }, [postopOrderSet.data]);
+
   // Check if X2 marker is set (enables mode toggle)
   const hasX2Marker = useMemo(() => {
     if (!anesthesiaRecord?.timeMarkers) return false;
@@ -1362,6 +1414,9 @@ export default function Op() {
                         };
                       })
                   }
+                  plannedMedEvents={postopMedData.plannedMedEvents}
+                  prnItems={postopMedData.prnItems}
+                  prnAdmins={prnAdmins}
                   onSaveCovariates={async (data) => {
                     if (!surgeryId) return;
                     const payload: Record<string, string> = {};

@@ -6819,6 +6819,15 @@
       "actionLabel": "Action",
       "notePlaceholder": "Optional: describe the action taken",
       "resolve": "Resolve"
+    },
+    "medExecution": {
+      "administerTitle": "Administer medication",
+      "actualDose": "Actual dose",
+      "actualTime": "Actual time",
+      "notePlaceholder": "Optional note (observations, deviations)",
+      "confirm": "Confirm administration",
+      "prnStripLabel": "PRN",
+      "capReached": "Maximum reached"
     }
   },
   "todoList": {
