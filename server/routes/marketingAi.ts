@@ -28,6 +28,17 @@ async function rolesForHospital(userId: string, hospitalId: string): Promise<str
   return hospitals.filter(h => h.id === hospitalId).map(h => h.role).filter(Boolean) as string[];
 }
 
+async function resolveUserName(userId: string): Promise<string> {
+  try {
+    const u = await storage.getUser(userId);
+    if (!u) return userId;
+    const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+    return name || (u as any).email || userId;
+  } catch {
+    return userId;
+  }
+}
+
 async function requireMarketingAccess(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
@@ -73,7 +84,7 @@ export function registerMarketingAiRoutes(app: Express): void {
       return void res.json({
         payload: row.payload,
         generatedAt: row.generatedAt,
-        generatedBy: row.generatedBy,
+        generatedBy: await resolveUserName(row.generatedBy),
         cached: true,
         stale: !isFresh(row),
       });
@@ -108,7 +119,10 @@ export function registerMarketingAiRoutes(app: Express): void {
           userId,
           force,
         });
-        return void res.json(result);
+        return void res.json({
+          ...result,
+          generatedBy: await resolveUserName(result.generatedBy),
+        });
       } catch (err: any) {
         logger.error({ err }, "marketing ai analysis failed");
         console.error("[marketing-ai] generation failed:", err?.stack ?? err);
