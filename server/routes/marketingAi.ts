@@ -109,9 +109,14 @@ export function registerMarketingAiRoutes(app: Express): void {
           force,
         });
         return void res.json(result);
-      } catch (err) {
+      } catch (err: any) {
         logger.error({ err }, "marketing ai analysis failed");
-        return void res.status(502).json({ error: "analysis_failed" });
+        console.error("[marketing-ai] generation failed:", err?.stack ?? err);
+        const detail =
+          process.env.NODE_ENV !== "production"
+            ? { message: err?.message ?? String(err), stack: err?.stack }
+            : undefined;
+        return void res.status(502).json({ error: "analysis_failed", detail });
       }
     },
   );

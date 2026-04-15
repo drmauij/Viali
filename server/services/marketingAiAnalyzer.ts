@@ -169,7 +169,7 @@ export async function buildAggregatedStats(
     FROM classified c
     LEFT JOIN ad_budgets ab
       ON ab.hospital_id = ${hospitalId}
-      AND ab.funnel = c.funnel
+      AND ab.funnel::text = c.funnel
       AND ab.month = c.month
     WHERE c.funnel IS NOT NULL
     GROUP BY c.funnel, c.month
