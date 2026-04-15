@@ -5867,6 +5867,26 @@
       "noData": "No referral data for the selected period.",
       "funnelStages": "Funnel Stages",
       "export": "Export CSV"
+    },
+    "marketing": {
+      "aiInsights": {
+        "title": "AI Insights",
+        "description": "An AI-generated read of your funnel and ad performance for the selected period.",
+        "generateButton": "Generate insights",
+        "regenerateButton": "Regenerate",
+        "loading": "Analyzing your marketing data…",
+        "errorTitle": "Couldn't generate analysis",
+        "errorRetry": "Try again",
+        "generatedBy": "Generated {{when}} by {{user}}",
+        "staleNotice": "This analysis is more than 7 days old.",
+        "noDataForRange": "No data in selected range.",
+        "sections": {
+          "summary": "Summary",
+          "trends": "Trends",
+          "insights": "Insights",
+          "suggestedActions": "Suggested actions"
+        }
+      }
     }
   },
   "leads": {

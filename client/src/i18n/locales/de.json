@@ -5963,6 +5963,26 @@
       "noData": "Keine Empfehlungsdaten für den ausgewählten Zeitraum.",
       "funnelStages": "Trichterstufen",
       "export": "CSV exportieren"
+    },
+    "marketing": {
+      "aiInsights": {
+        "title": "KI-Analyse",
+        "description": "Eine KI-generierte Auswertung deines Funnels und deiner Anzeigenleistung für den gewählten Zeitraum.",
+        "generateButton": "Analyse erstellen",
+        "regenerateButton": "Neu erstellen",
+        "loading": "Marketingdaten werden analysiert…",
+        "errorTitle": "Analyse konnte nicht erstellt werden",
+        "errorRetry": "Erneut versuchen",
+        "generatedBy": "Erstellt {{when}} von {{user}}",
+        "staleNotice": "Diese Analyse ist älter als 7 Tage.",
+        "noDataForRange": "Keine Daten im gewählten Zeitraum.",
+        "sections": {
+          "summary": "Zusammenfassung",
+          "trends": "Trends",
+          "insights": "Erkenntnisse",
+          "suggestedActions": "Empfohlene Maßnahmen"
+        }
+      }
     }
   },
   "leads": {
