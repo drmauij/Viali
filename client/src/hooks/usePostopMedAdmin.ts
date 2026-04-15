@@ -1,20 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-// Approach (B): client must supply itemsId and groupId explicitly because
-// MedicationItem only stores medicationRef (free text) + dose string — no
-// inventory FK or administration group FK is embedded in the order-set item.
-//
-// The server adminSchema field for the dose amount is called "dose" (not "quantity"),
-// so this interface mirrors that exactly.
 export interface PrnAdminInput {
   anesthesiaRecordId: string;
-  itemId: string;        // postop order item id (for PRN tracking client-side)
-  itemsId: string;       // inventory items.id FK — resolved by the caller
-  groupId: string;       // administration_groups.id FK — resolved by the caller
+  itemId: string;        // postop order item id (the PRN item being administered)
   medicationRef: string; // display name, e.g. "Paracetamol"
   dose: string;          // dose amount string, e.g. "1000"
-  unit: string;          // e.g. "mg", "ml"
   route: "po" | "iv" | "sc" | "im";
   administeredAt: string; // ISO datetime string
   note?: string;
@@ -32,15 +23,9 @@ export function useAdministerPrn(anesthesiaRecordId: string) {
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate postop order set (planned events + order items)
-      // Key format from usePostopOrderSet.ts:8
+      // PRN admins write to postop_planned_events — only the order set query needs invalidating
       qc.invalidateQueries({
         queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}/postop-orders`],
-      });
-      // Invalidate or-medications so the new row appears on the swimlane/card
-      // Key format from OrMedicationsCard.tsx:128
-      qc.invalidateQueries({
-        queryKey: [`/api/or-medications/${anesthesiaRecordId}`],
       });
     },
   });
