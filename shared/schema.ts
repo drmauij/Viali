@@ -2468,7 +2468,7 @@ export const postopPlannedEvents = pgTable("postop_planned_events", {
 // Deviation acknowledgments — clinician sign-off when a monitored value breaches a threshold
 export const postopDeviationAcknowledgments = pgTable("postop_deviation_acknowledgments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
   parameter: text("parameter").notNull(),
   recordedAt: timestamp("recorded_at").notNull(),
   recordedValue: integer("recorded_value").notNull(),
@@ -2477,7 +2477,13 @@ export const postopDeviationAcknowledgments = pgTable("postop_deviation_acknowle
   resolvedAt: timestamp("resolved_at").notNull().defaultNow(),
   note: text("note"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  foreignKey({
+    columns: [table.anesthesiaRecordId],
+    foreignColumns: [anesthesiaRecords.id],
+    name: "deviation_ack_anesthesia_record_id_fk",
+  }).onDelete("cascade"),
+]);
 
 export type PostopDeviationAcknowledgment = typeof postopDeviationAcknowledgments.$inferSelect;
 export type NewPostopDeviationAcknowledgment = typeof postopDeviationAcknowledgments.$inferInsert;
