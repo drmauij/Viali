@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Droplet } from "lucide-react";
 import { useTimelineContext } from "../TimelineContext";
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
@@ -7,6 +7,9 @@ import { RateChangeEditDialog } from "../dialogs/RateChangeEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import { assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import { useTranslation } from "react-i18next";
+import { classifyPlannedMedEvent } from "@shared/postopMedicationExecution";
+import { PostopAdministerDialog } from "../postop/PostopAdministerDialog";
+import { useMarkPostopEventDone } from "@/hooks/usePostopMedAdmin";
 import { deriveBolusUnit } from "@/lib/pharmacokinetics/rate-conversion";
 import type {
   RateInfusionSegment,
@@ -488,9 +491,9 @@ export function MedicationsSwimlane({
   onRateSheetOpen,
   onRateManageDialogOpen,
   onRateSelectionDialogOpen,
-  plannedMedEvents: _plannedMedEvents, // Task 7 will render these
-  prnItems: _prnItems,                 // Task 7 will render these
-  prnAdmins: _prnAdmins,               // Task 7 will render these
+  plannedMedEvents,
+  prnItems: _prnItems,                 // Task 9 will render these
+  prnAdmins: _prnAdmins,               // Task 9 will render these
 }: MedicationsSwimlaneProps) {
   const {
     medicationState,
@@ -576,9 +579,13 @@ export function MedicationsSwimlane({
   } | null>(null);
   const [showRateChangeEditDialog, setShowRateChangeEditDialog] = useState(false);
 
+  // State for planned med event admin dialog
+  const [openPlannedEvent, setOpenPlannedEvent] = useState<NonNullable<typeof plannedMedEvents>[number] | null>(null);
+
   // Mutation hooks
   const updateMedicationMutation = useUpdateMedication(anesthesiaRecordId);
   const deleteMedicationMutation = useDeleteMedication(anesthesiaRecordId);
+  const markDone = useMarkPostopEventDone(anesthesiaRecordId ?? "");
 
   // Helper: Get active rate session
   const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
@@ -627,8 +634,73 @@ export function MedicationsSwimlane({
     }
   };
   
+  // Compute planned med pills for the strip overlay
+  const plannedPills = useMemo(() => {
+    if (!plannedMedEvents) return [];
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    if (visibleRange <= 0) return [];
+    const nowMs = Date.now();
+
+    return plannedMedEvents
+      .filter(ev => ev.status !== 'cancelled')
+      .filter(ev => ev.plannedAt >= visibleStart && ev.plannedAt <= visibleEnd)
+      .map(ev => {
+        const classification = classifyPlannedMedEvent({ plannedAt: ev.plannedAt, status: ev.status }, nowMs);
+        const xFraction = (ev.plannedAt - visibleStart) / visibleRange;
+        const leftCalc = `calc(200px + ${xFraction} * (100% - 210px))`;
+        return { ev, classification, leftCalc };
+      });
+  }, [plannedMedEvents, currentZoomStart, currentZoomEnd, data.startTime, data.endTime]);
+
   return (
     <>
+      {/* Planned Med Pills Strip — sits above drug rows, one row per scheduled event */}
+      {plannedPills.length > 0 && (() => {
+        // Place the strip just above the first drug row; fall back to top:0 if no rows
+        const firstRowTop = swimlanePositions[0]?.top ?? 0;
+        const stripTop = Math.max(firstRowTop - 16, 0);
+        return (
+          <div
+            className="absolute left-0 right-0 pointer-events-none"
+            style={{ top: `${stripTop}px`, height: 14, zIndex: 35 }}
+            data-testid="planned-med-strip"
+          >
+            {plannedPills.map(({ ev, classification, leftCalc }) => {
+              const isDone = classification === 'done';
+              const isOverdue = classification === 'overdue';
+              const bg = isDone
+                ? 'bg-green-600 hover:bg-green-700'
+                : isOverdue
+                  ? 'bg-amber-500 hover:bg-amber-600'
+                  : 'bg-blue-500/70 hover:bg-blue-500/90';
+              const borderStyle = isDone ? 'solid' : 'dashed';
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => { if (!isDone) setOpenPlannedEvent(ev); }}
+                  disabled={isDone}
+                  className={`absolute text-[10px] px-1.5 py-0 rounded-sm font-medium text-white border border-white/50 ${bg} ${isDone ? 'cursor-default' : 'cursor-pointer'}`}
+                  style={{
+                    left: leftCalc,
+                    top: 0,
+                    transform: 'translateX(-50%)',
+                    borderStyle,
+                    pointerEvents: 'auto',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={`${ev.medicationRef} ${ev.dose} — ${new Date(ev.plannedAt).toLocaleTimeString()}`}
+                >
+                  {ev.medicationRef}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Bolus Medication Markers - Tick marks for bolus doses only */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
         // Only include medication items
@@ -1573,6 +1645,25 @@ export function MedicationsSwimlane({
         onDelete={handleDeleteRateChange}
         formatTime={formatTime}
       />
+
+      {/* Postop Planned Med Administer Dialog */}
+      {openPlannedEvent && (
+        <PostopAdministerDialog
+          open={!!openPlannedEvent}
+          onOpenChange={(o) => { if (!o) setOpenPlannedEvent(null); }}
+          medicationRef={openPlannedEvent.medicationRef}
+          dose={openPlannedEvent.dose}
+          route={openPlannedEvent.route}
+          plannedAt={new Date(openPlannedEvent.plannedAt)}
+          onConfirm={async ({ actualDose, actualTime, note }) => {
+            await markDone.mutateAsync({
+              eventId: openPlannedEvent.id,
+              doneValue: { actualDose, actualTime, note },
+            });
+            setOpenPlannedEvent(null);
+          }}
+        />
+      )}
     </>
   );
 }
