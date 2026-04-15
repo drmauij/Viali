@@ -57,9 +57,18 @@ type Service = {
   durationMinutes: number | null;
   code: string | null;
   serviceGroup: string | null;
+  serviceGroups?: string[];
   sortOrder: number;
   providerIds: string[];
 };
+
+function serviceBelongsToGroup(
+  s: { serviceGroups?: string[]; serviceGroup?: string | null },
+  group: string,
+): boolean {
+  const groups = s.serviceGroups ?? (s.serviceGroup ? [s.serviceGroup] : []);
+  return groups.includes(group);
+}
 
 // ─── Referral Labels ─────────────────────────────────────────────────
 
@@ -253,7 +262,7 @@ export default function BookAppointment() {
         // Apply service_group filter if present and at least one service matches
         let list = allServices;
         if (serviceGroupParam) {
-          const filtered = allServices.filter(s => s.serviceGroup === serviceGroupParam);
+          const filtered = allServices.filter(s => serviceBelongsToGroup(s, serviceGroupParam));
           if (filtered.length > 0) {
             list = filtered;
           }
