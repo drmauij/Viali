@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, RefreshCw } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { formatDistanceToNow } from "date-fns";
@@ -49,6 +49,8 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
     enabled: !!hospitalId && !!startDate && !!endDate,
   });
 
+  const [expanded, setExpanded] = useState(false);
+
   const generate = useMutation({
     mutationFn: async (force: boolean) => {
       const res = await apiRequest(
@@ -61,6 +63,7 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
     },
     onSuccess: (fresh) => {
       queryClient.setQueryData(key, fresh);
+      setExpanded(true);
     },
   });
 
@@ -77,98 +80,132 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
 
   const current = generate.data ?? data;
 
+  const hasResult = !!current && !generate.isPending;
+
   return (
     <Card className="mb-6" data-testid="marketing-ai-insights">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
+      <CardHeader
+        className={hasResult ? "cursor-pointer py-3" : undefined}
+        onClick={hasResult ? () => setExpanded((v) => !v) : undefined}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               {t("business.marketing.aiInsights.title")}
+              {hasResult && !expanded && (
+                <span className="text-xs font-normal text-muted-foreground truncate">
+                  · {t("business.marketing.aiInsights.generatedBy", {
+                    when: formatDistanceToNow(new Date(current!.generatedAt), { addSuffix: true }),
+                    user: current!.generatedBy,
+                  })}
+                </span>
+              )}
             </CardTitle>
-            <CardDescription>
-              {t("business.marketing.aiInsights.description")}
-            </CardDescription>
+            {(!hasResult || expanded) && (
+              <CardDescription>
+                {t("business.marketing.aiInsights.description")}
+              </CardDescription>
+            )}
           </div>
-          {current && !generate.isPending && (
-            <div className="flex gap-2">
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => generate.mutate(true)}
-                  data-testid="regenerate-button"
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  {t("business.marketing.aiInsights.regenerateButton")}
+          <div className="flex items-center gap-2 shrink-0">
+            {hasResult && isAdmin && expanded && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  generate.mutate(true);
+                }}
+                data-testid="regenerate-button"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                {t("business.marketing.aiInsights.regenerateButton")}
+              </Button>
+            )}
+            {hasResult && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((v) => !v);
+                }}
+                aria-label={expanded ? "Collapse" : "Expand"}
+                data-testid="toggle-button"
+              >
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      {(!hasResult || expanded) && (
+        <CardContent>
+          {loadingCache && <div className="text-sm text-muted-foreground">…</div>}
+
+          {!loadingCache && !current && !generate.isPending && !generate.error && (
+            <Button onClick={() => generate.mutate(false)} data-testid="generate-button">
+              <Sparkles className="h-4 w-4 mr-2" />
+              {t("business.marketing.aiInsights.generateButton")}
+            </Button>
+          )}
+
+          {generate.isPending && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("business.marketing.aiInsights.loading")}
+            </div>
+          )}
+
+          {generate.error && !generate.isPending && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">
+                {t("business.marketing.aiInsights.errorTitle")}
+              </p>
+              <Button size="sm" onClick={() => generate.mutate(false)}>
+                {t("business.marketing.aiInsights.errorRetry")}
+              </Button>
+            </div>
+          )}
+
+          {hasResult && (
+            <div className={current!.stale ? "opacity-60 space-y-4" : "space-y-4"}>
+              {current!.stale && (
+                <p className="text-xs text-muted-foreground">
+                  {t("business.marketing.aiInsights.staleNotice")}
+                </p>
+              )}
+              {sections!.map(({ label, items }) => (
+                items.length > 0 && (
+                  <div key={label}>
+                    <h4 className="text-sm font-semibold mb-1">{label}</h4>
+                    <ul className="list-disc ml-5 space-y-1">
+                      {items.map((it, i) => (
+                        <li key={i} className="text-sm">{it}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              ))}
+              <p className="text-xs text-muted-foreground">
+                {t("business.marketing.aiInsights.generatedBy", {
+                  when: formatDistanceToNow(new Date(current!.generatedAt), { addSuffix: true }),
+                  user: current!.generatedBy,
+                })}
+              </p>
+              {current!.stale && (
+                <Button size="sm" onClick={() => generate.mutate(false)} data-testid="generate-new-button">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {t("business.marketing.aiInsights.generateButton")}
                 </Button>
               )}
             </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loadingCache && <div className="text-sm text-muted-foreground">…</div>}
-
-        {!loadingCache && !current && !generate.isPending && !generate.error && (
-          <Button onClick={() => generate.mutate(false)} data-testid="generate-button">
-            <Sparkles className="h-4 w-4 mr-2" />
-            {t("business.marketing.aiInsights.generateButton")}
-          </Button>
-        )}
-
-        {generate.isPending && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t("business.marketing.aiInsights.loading")}
-          </div>
-        )}
-
-        {generate.error && !generate.isPending && (
-          <div className="space-y-2">
-            <p className="text-sm text-destructive">
-              {t("business.marketing.aiInsights.errorTitle")}
-            </p>
-            <Button size="sm" onClick={() => generate.mutate(false)}>
-              {t("business.marketing.aiInsights.errorRetry")}
-            </Button>
-          </div>
-        )}
-
-        {current && !generate.isPending && (
-          <div className={current.stale ? "opacity-60 space-y-4" : "space-y-4"}>
-            {current.stale && (
-              <p className="text-xs text-muted-foreground">
-                {t("business.marketing.aiInsights.staleNotice")}
-              </p>
-            )}
-            {sections!.map(({ label, items }) => (
-              items.length > 0 && (
-                <div key={label}>
-                  <h4 className="text-sm font-semibold mb-1">{label}</h4>
-                  <ul className="list-disc ml-5 space-y-1">
-                    {items.map((it, i) => (
-                      <li key={i} className="text-sm">{it}</li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            ))}
-            <p className="text-xs text-muted-foreground">
-              {t("business.marketing.aiInsights.generatedBy", {
-                when: formatDistanceToNow(new Date(current.generatedAt), { addSuffix: true }),
-                user: current.generatedBy,
-              })}
-            </p>
-            {current.stale && (
-              <Button size="sm" onClick={() => generate.mutate(false)} data-testid="generate-new-button">
-                <Sparkles className="h-4 w-4 mr-2" />
-                {t("business.marketing.aiInsights.generateButton")}
-              </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }
