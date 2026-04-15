@@ -11,21 +11,26 @@ vi.mock("../server/storage/marketingAiAnalyses", () => ({
   isFresh: vi.fn(),
 }));
 
-// Minimal test harness replicating the middleware — in practice, import the
-// real express app. Adjust this once the real app is wired up.
+vi.mock("../server/auth/google", () => ({
+  isAuthenticated: (req: any, _res: any, next: any) => next(),
+}));
+
 import { getOrCreateAnalysis } from "../server/services/marketingAiAnalyzer";
 import {
   getCachedAnalysis,
   isFresh,
 } from "../server/storage/marketingAiAnalyses";
+import { storage } from "../server/storage";
 import { registerMarketingAiRoutes } from "../server/routes/marketingAi";
 
 function buildApp(role: "admin" | "manager" | "marketing" | "staff") {
+  vi.spyOn(storage, "getUserHospitals").mockResolvedValue([
+    { id: "h1", role } as any,
+  ]);
   const app = express();
   app.use(express.json());
   app.use((req: any, _res, next) => {
     req.user = { id: "u1" };
-    req.activeHospital = { hospitalId: "h1", role };
     req.i18n = { language: "en" };
     next();
   });

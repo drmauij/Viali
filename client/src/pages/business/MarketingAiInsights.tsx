@@ -38,12 +38,12 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
   const { data, isLoading: loadingCache } = useQuery<AnalysisResponse | null>({
     queryKey: key,
     queryFn: async () => {
-      const res = await apiRequest(
-        "GET",
+      const res = await fetch(
         `/api/business/${hospitalId}/ai-analysis?startDate=${startDate}&endDate=${endDate}`,
+        { credentials: "include" },
       );
       if (res.status === 404) return null;
-      if (!res.ok) throw new Error("fetch failed");
+      if (!res.ok) throw new Error(`fetch failed (${res.status})`);
       return (await res.json()) as AnalysisResponse;
     },
     enabled: !!hospitalId && !!startDate && !!endDate,

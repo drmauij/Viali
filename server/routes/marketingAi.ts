@@ -1,10 +1,12 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import {
   getCachedAnalysis,
   isFresh,
 } from "../storage/marketingAiAnalyses";
 import { getOrCreateAnalysis } from "../services/marketingAiAnalyzer";
+import { isAuthenticated } from "../auth/google";
+import { storage } from "../storage";
 import logger from "../logger";
 
 const bodySchema = z.object({
@@ -21,25 +23,34 @@ function resolveLanguage(req: Request): "en" | "de" {
   return raw.toLowerCase().startsWith("de") ? "de" : "en";
 }
 
-function requireAccess(req: Request, res: Response): boolean {
-  const role = (req as any).activeHospital?.role;
-  if (!["admin", "manager", "marketing"].includes(role)) {
-    res.status(403).json({ error: "forbidden" });
-    return false;
+async function rolesForHospital(userId: string, hospitalId: string): Promise<string[]> {
+  const hospitals = await storage.getUserHospitals(userId);
+  return hospitals.filter(h => h.id === hospitalId).map(h => h.role).filter(Boolean) as string[];
+}
+
+async function requireMarketingAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "unauthorized" });
+    const { hospitalId } = req.params;
+    const roles = await rolesForHospital(userId, hospitalId);
+    const allowed = roles.some(r => r === "admin" || r === "manager" || r === "marketing");
+    if (!allowed) return res.status(403).json({ error: "forbidden" });
+    req.marketingRoles = roles;
+    next();
+  } catch (err) {
+    logger.error({ err }, "marketing ai auth check failed");
+    res.status(500).json({ error: "auth_check_failed" });
   }
-  return true;
 }
 
 export function registerMarketingAiRoutes(app: Express): void {
   app.get(
     "/api/business/:hospitalId/ai-analysis",
+    isAuthenticated,
+    requireMarketingAccess,
     async (req: Request, res: Response) => {
-      if (!requireAccess(req, res)) return;
       const hospitalId = req.params.hospitalId;
-      const activeHospitalId = (req as any).activeHospital?.hospitalId;
-      if (hospitalId !== activeHospitalId)
-        return void res.status(403).json({ error: "forbidden" });
-
       const startDate = String(req.query.startDate ?? "");
       const endDate = String(req.query.endDate ?? "");
       if (
@@ -71,12 +82,10 @@ export function registerMarketingAiRoutes(app: Express): void {
 
   app.post(
     "/api/business/:hospitalId/ai-analysis",
-    async (req: Request, res: Response) => {
-      if (!requireAccess(req, res)) return;
+    isAuthenticated,
+    requireMarketingAccess,
+    async (req: any, res: Response) => {
       const hospitalId = req.params.hospitalId;
-      const activeHospitalId = (req as any).activeHospital?.hospitalId;
-      if (hospitalId !== activeHospitalId)
-        return void res.status(403).json({ error: "forbidden" });
 
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return void res.status(400).json({ error: "invalid body" });
@@ -84,11 +93,12 @@ export function registerMarketingAiRoutes(app: Express): void {
       if (startDate > endDate)
         return void res.status(400).json({ error: "invalid date range" });
 
-      if (force && (req as any).activeHospital?.role !== "admin") {
+      const roles: string[] = req.marketingRoles ?? [];
+      if (force && !roles.includes("admin")) {
         return void res.status(403).json({ error: "admin required for regenerate" });
       }
 
-      const userId = (req as any).user?.id;
+      const userId = req.user?.id;
       try {
         const result = await getOrCreateAnalysis({
           hospitalId,
