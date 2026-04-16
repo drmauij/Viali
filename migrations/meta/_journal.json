@@ -1534,6 +1534,13 @@
       "when": 1777100000000,
       "tag": "0218_postop_deviation_acks_fk_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0219_external_surgery_declined_tracking",
+      "breakpoints": true
     }
   ]
 }

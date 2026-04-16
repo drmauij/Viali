@@ -487,7 +487,11 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
     if (status !== undefined) updates.status = status;
     if (internalNotes !== undefined) updates.internalNotes = internalNotes;
     if (declineReason !== undefined) updates.declineReason = declineReason;
-    
+    if (status === 'declined' && request.status !== 'declined') {
+      updates.declinedAt = new Date();
+      updates.declinedBy = userId;
+    }
+
     const updated = await storage.updateExternalSurgeryRequest(id, updates);
 
     res.json(updated);
@@ -507,6 +511,11 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
           const wishedDate = request.wishedDate || '';
           const hospitalName = hospital?.name || '';
 
+          const declinedByUser = await storage.getUser(userId);
+          const declinedByName = declinedByUser
+            ? `${declinedByUser.firstName || ''} ${declinedByUser.lastName || ''}`.trim() || declinedByUser.email || ''
+            : '';
+
           let emailSent = false;
           if (request.surgeonEmail) {
             const result = await sendExternalSurgeryDeclineNotification(
@@ -517,7 +526,8 @@ router.patch('/api/external-surgery-requests/:id', isAuthenticated, requireWrite
               surgeryName,
               wishedDate,
               updates.declineReason || request.declineReason || undefined,
-              lang
+              lang,
+              declinedByName || undefined
             );
             emailSent = result.success;
           }

@@ -5315,6 +5315,8 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
   scheduledAt: timestamp("scheduled_at"),
   scheduledBy: varchar("scheduled_by").references(() => users.id),
+  declinedAt: timestamp("declined_at"),
+  declinedBy: varchar("declined_by").references(() => users.id),
 }, (table) => [
   index("idx_external_surgery_requests_hospital").on(table.hospitalId),
   index("idx_external_surgery_requests_status").on(table.status),
@@ -5327,6 +5329,8 @@ export const insertExternalSurgeryRequestSchema = createInsertSchema(externalSur
   updatedAt: true,
   scheduledAt: true,
   scheduledBy: true,
+  declinedAt: true,
+  declinedBy: true,
   surgeryId: true,
   patientId: true,
   confirmationEmailSent: true,

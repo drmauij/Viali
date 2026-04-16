@@ -405,7 +405,8 @@ export async function sendExternalSurgeryDeclineNotification(
   surgeryName: string,
   wishedDate: string,
   declineReason?: string,
-  language: 'de' | 'en' = 'de'
+  language: 'de' | 'en' = 'de',
+  declinedByName?: string
 ) {
   try {
     const { client, fromEmail } = getResendClient();
@@ -445,6 +446,7 @@ export async function sendExternalSurgeryDeclineNotification(
                 <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryName}</p>
                 <p><strong>${isGerman ? 'Gewünschtes Datum' : 'Requested Date'}:</strong> ${wishedDate}</p>
                 ${declineReason ? `<p><strong>${isGerman ? 'Begründung' : 'Reason'}:</strong> ${declineReason}</p>` : ''}
+                ${declinedByName ? `<p><strong>${isGerman ? 'Abgelehnt von' : 'Declined by'}:</strong> ${declinedByName}</p>` : ''}
               </div>
 
               <p>${isGerman
