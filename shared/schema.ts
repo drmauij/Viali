@@ -15,6 +15,7 @@ import {
   unique,
   date,
   foreignKey,
+  check,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -1067,7 +1068,10 @@ export const surgeries = pgTable("surgeries", {
   // Pre-surgery reminder tracking
   reminderSent: boolean("reminder_sent").default(false),
   reminderSentAt: timestamp("reminder_sent_at"),
-  
+
+  // Clinic appointment link (optional — for surgeries booked via clinic calendar)
+  appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: "set null" }),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1083,6 +1087,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_payment_status").on(table.paymentStatus),
   index("idx_surgeries_archived").on(table.isArchived),
   index("idx_surgeries_calcom").on(table.calcomBusyBlockUid),
+  index("idx_surgeries_appointment").on(table.appointmentId),
 ]);
 
 // Surgery Assistants - Join table linking surgeries to assistant surgeons
@@ -3974,6 +3979,70 @@ export const clinicInvoiceItems = pgTable("clinic_invoice_items", {
   index("idx_clinic_invoice_items_invoice").on(table.invoiceId),
   index("idx_clinic_invoice_items_item").on(table.itemId),
   index("idx_clinic_invoice_items_service").on(table.serviceId),
+]);
+
+// ========== TREATMENTS (aesthetic sessions) ==========
+
+export const treatments = pgTable("treatments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id),
+  appointmentId: varchar("appointment_id").references(() => clinicAppointments.id, { onDelete: "set null" }),
+  providerId: varchar("provider_id").notNull().references(() => users.id),
+  performedAt: timestamp("performed_at", { withTimezone: true }).notNull(),
+  status: varchar("status").notNull().default("draft"),
+  signature: text("signature"),
+  signedBy: varchar("signed_by").references(() => users.id),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  amendedBy: varchar("amended_by").references(() => users.id),
+  amendedAt: timestamp("amended_at", { withTimezone: true }),
+  invoiceId: varchar("invoice_id").references(() => clinicInvoices.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_treatments_hospital").on(table.hospitalId),
+  index("idx_treatments_patient_performed").on(table.patientId, table.performedAt),
+  index("idx_treatments_appointment").on(table.appointmentId),
+]);
+
+export const treatmentLines = pgTable("treatment_lines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  treatmentId: varchar("treatment_id").notNull().references(() => treatments.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").references(() => clinicServices.id),
+  itemId: varchar("item_id").references(() => items.id),
+  lotId: varchar("lot_id").references(() => lots.id, { onDelete: "set null" }),
+  lotNumber: varchar("lot_number"),
+  dose: varchar("dose"),
+  doseUnit: varchar("dose_unit"),
+  zones: jsonb("zones").$type<string[]>().default(sql`'[]'::jsonb`).notNull(),
+  notes: text("notes"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  total: decimal("total", { precision: 10, scale: 2 }),
+  lineOrder: integer("line_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_treatment_lines_treatment").on(table.treatmentId, table.lineOrder),
+  index("idx_treatment_lines_item").on(table.itemId),
+  check("treatment_lines_service_or_item_check", sql`${table.serviceId} IS NOT NULL OR ${table.itemId} IS NOT NULL`),
+]);
+
+export const treatmentItemConfigs = pgTable("treatment_item_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: "set null" }),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: "cascade" }),
+  defaultServiceId: varchar("default_service_id").references(() => clinicServices.id, { onDelete: "set null" }),
+  defaultDose: varchar("default_dose"),
+  defaultDoseUnit: varchar("default_dose_unit"),
+  defaultZones: jsonb("default_zones").$type<string[]>().default(sql`'[]'::jsonb`).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  onDemandOnly: boolean("on_demand_only").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("uniq_treatment_item_configs_hospital_item").on(table.hospitalId, table.itemId),
 ]);
 
 // Clinic Services Insert Schema
@@ -6883,3 +6952,59 @@ export const marketingAiAnalysisPayloadSchema = z.object({
 export type MarketingAiAnalysisPayload = z.infer<
   typeof marketingAiAnalysisPayloadSchema
 >;
+
+// ========== TREATMENTS RELATIONS ==========
+
+export const treatmentsRelations = relations(treatments, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [treatments.hospitalId], references: [hospitals.id] }),
+  unit: one(units, { fields: [treatments.unitId], references: [units.id] }),
+  patient: one(patients, { fields: [treatments.patientId], references: [patients.id] }),
+  appointment: one(clinicAppointments, { fields: [treatments.appointmentId], references: [clinicAppointments.id] }),
+  provider: one(users, { fields: [treatments.providerId], references: [users.id], relationName: "treatment_provider" }),
+  signer: one(users, { fields: [treatments.signedBy], references: [users.id], relationName: "treatment_signer" }),
+  amender: one(users, { fields: [treatments.amendedBy], references: [users.id], relationName: "treatment_amender" }), // amender: relation kept for future UI display of who amended
+  invoice: one(clinicInvoices, { fields: [treatments.invoiceId], references: [clinicInvoices.id] }),
+  lines: many(treatmentLines),
+}));
+
+export const treatmentLinesRelations = relations(treatmentLines, ({ one }) => ({
+  treatment: one(treatments, { fields: [treatmentLines.treatmentId], references: [treatments.id] }),
+  service: one(clinicServices, { fields: [treatmentLines.serviceId], references: [clinicServices.id] }),
+  item: one(items, { fields: [treatmentLines.itemId], references: [items.id] }),
+  lot: one(lots, { fields: [treatmentLines.lotId], references: [lots.id] }),
+}));
+
+export const treatmentItemConfigsRelations = relations(treatmentItemConfigs, ({ one }) => ({
+  hospital: one(hospitals, { fields: [treatmentItemConfigs.hospitalId], references: [hospitals.id] }),
+  unit: one(units, { fields: [treatmentItemConfigs.unitId], references: [units.id] }),
+  item: one(items, { fields: [treatmentItemConfigs.itemId], references: [items.id] }),
+  defaultService: one(clinicServices, { fields: [treatmentItemConfigs.defaultServiceId], references: [clinicServices.id] }),
+}));
+
+// ========== TREATMENTS INSERT SCHEMAS + TYPES ==========
+
+export const insertTreatmentSchema = createInsertSchema(treatments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  signedAt: true,
+  amendedAt: true,
+});
+
+export const insertTreatmentLineSchema = createInsertSchema(treatmentLines).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTreatmentItemConfigSchema = createInsertSchema(treatmentItemConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Treatment = typeof treatments.$inferSelect;
+export type InsertTreatment = z.infer<typeof insertTreatmentSchema>;
+export type TreatmentLine = typeof treatmentLines.$inferSelect;
+export type InsertTreatmentLine = z.infer<typeof insertTreatmentLineSchema>;
+export type TreatmentItemConfig = typeof treatmentItemConfigs.$inferSelect;
+export type InsertTreatmentItemConfig = z.infer<typeof insertTreatmentItemConfigSchema>;
