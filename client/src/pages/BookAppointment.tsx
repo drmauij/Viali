@@ -716,7 +716,7 @@ export default function BookAppointment() {
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
       {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
-      {!isEmbed && <FreeConsultationBadge isDark={isDark} />}
+      <FreeConsultationBadge isDark={isDark} />
       <div className={cn(
         'grid gap-6 items-start grid-cols-1 [&>*]:min-w-0',
         !isEmbed && 'lg:grid-cols-[280px_1fr]',
