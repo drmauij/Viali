@@ -98,13 +98,34 @@ function PageLoader() {
   );
 }
 
+function SaveRedirectAndGoHome() {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    const target = window.location.pathname + window.location.search;
+    if (target !== "/" && !target.startsWith("/reset-password")) {
+      sessionStorage.setItem("postLoginRedirect", target);
+    }
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  return <PageLoader />;
+}
+
 function HomeRedirect() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
 
   useEffect(() => {
+    const postLoginRedirect = sessionStorage.getItem("postLoginRedirect");
+    if (postLoginRedirect && postLoginRedirect !== "/") {
+      sessionStorage.removeItem("postLoginRedirect");
+      navigate(postLoginRedirect, { replace: true });
+      return;
+    }
+
     const savedModule = localStorage.getItem("activeModule");
-    
+
     if (savedModule === "anesthesia") {
       navigate("/anesthesia/op", { replace: true });
       return;
@@ -227,6 +248,7 @@ function Router() {
             <>
               <Route path="/" component={Landing} />
               <Route path="/reset-password" component={ResetPassword} />
+              <Route path="/:rest*" component={SaveRedirectAndGoHome} />
             </>
           ) : (
             <>
