@@ -202,3 +202,38 @@ describe("addBulkVitals", () => {
     expect(data.bp ?? []).toHaveLength(ROUNDS);
   });
 });
+
+describe("BP sys/dia inversion guard", () => {
+  const ts = new Date("2026-04-16T12:00:00.000Z").toISOString();
+
+  it("addBPPoint rejects sys < dia", async () => {
+    await expect(
+      addBPPoint(testRecordId, ts, 80, 120),
+    ).rejects.toThrow(/systolic.*diastolic/i);
+
+    const snapshot = await getClinicalSnapshot(testRecordId);
+    expect((snapshot.data as any).bp ?? []).toHaveLength(0);
+  });
+
+  it("addBPPoint accepts sys === dia", async () => {
+    await addBPPoint(testRecordId, ts, 100, 100);
+    const snapshot = await getClinicalSnapshot(testRecordId);
+    expect((snapshot.data as any).bp).toHaveLength(1);
+  });
+
+  it("addBulkVitals rejects sys < dia", async () => {
+    await expect(
+      addBulkVitals(testRecordId, ts, {
+        hr: 72,
+        bp: { sys: 70, dia: 110 },
+      }),
+    ).rejects.toThrow(/systolic.*diastolic/i);
+
+    // Whole call must abort: HR must NOT be persisted either, since the
+    // bulk write should be all-or-nothing.
+    const snapshot = await getClinicalSnapshot(testRecordId);
+    const data = snapshot.data as any;
+    expect(data.bp ?? []).toHaveLength(0);
+    expect(data.hr ?? []).toHaveLength(0);
+  });
+});

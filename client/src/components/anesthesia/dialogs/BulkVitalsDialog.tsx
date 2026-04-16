@@ -94,6 +94,22 @@ export function BulkVitalsDialog({
       return;
     }
 
+    // Reject inverted BP entries — sys < dia is biologically impossible and
+    // almost always a typo. We refuse rather than auto-swap so the user
+    // notices and corrects the values themselves.
+    if (sysValue !== null && diaValue !== null && !isNaN(sysValue) && !isNaN(diaValue) && sysValue < diaValue) {
+      toast({
+        title: t('dialogs.invalidBloodPressure', 'Invalid blood pressure'),
+        description: t(
+          'dialogs.systolicMustExceedDiastolic',
+          'Systolic ({{sys}}) must be greater than or equal to diastolic ({{dia}}).',
+          { sys: sysValue, dia: diaValue },
+        ),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Collect other vitals
     if (heartRate.trim()) {
       const hrValue = parseFloat(heartRate.trim());

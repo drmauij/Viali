@@ -3653,6 +3653,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
     }
 
+    // Auto-correct inverted BP from the AI extractor. The OCR layer
+    // sometimes mislabels which monitor row is sys vs dia (depends on the
+    // monitor brand/layout); when sys < dia it's almost always a swap, not
+    // a real reading. We swap and surface a warning so the clinician can
+    // double-check.
+    if (
+      bulkVitalsPayload.bp &&
+      bulkVitalsPayload.bp.sys < bulkVitalsPayload.bp.dia
+    ) {
+      const original = bulkVitalsPayload.bp;
+      bulkVitalsPayload.bp = { sys: original.dia, dia: original.sys };
+      warningItems.push(
+        `BP swapped ${original.sys}/${original.dia} → ${bulkVitalsPayload.bp.sys}/${bulkVitalsPayload.bp.dia}`,
+      );
+    }
+
     // Persist all collected vitals in a single atomic call. Awaiting here
     // ensures the snapshot is updated before we invalidate, so the chart
     // re-fetches the final committed state instead of an in-flight one.

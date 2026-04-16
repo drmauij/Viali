@@ -1563,6 +1563,14 @@ export async function addVitalPoint(
   });
 }
 
+function assertBPNotInverted(sys: number, dia: number): void {
+  if (sys < dia) {
+    throw new Error(
+      `Invalid blood pressure: systolic (${sys}) must be greater than or equal to diastolic (${dia}).`
+    );
+  }
+}
+
 export async function addBPPoint(
   anesthesiaRecordId: string,
   timestamp: string,
@@ -1570,6 +1578,7 @@ export async function addBPPoint(
   dia: number,
   mean?: number
 ): Promise<ClinicalSnapshot> {
+  assertBPNotInverted(sys, dia);
   return withSnapshotLock(anesthesiaRecordId, async (tx, snapshot) => {
     const newPoint = { id: randomUUID(), timestamp, sys, dia, mean };
     const currentBP = (snapshot.data as any).bp || [];
@@ -1600,6 +1609,7 @@ export async function addBulkVitals(
     bp?: { sys: number; dia: number; mean?: number };
   }
 ): Promise<ClinicalSnapshot> {
+  if (vitals.bp) assertBPNotInverted(vitals.bp.sys, vitals.bp.dia);
   return withSnapshotLock(anesthesiaRecordId, async (tx, snapshot) => {
     const data = snapshot.data as any;
     const updatedData: any = { ...data };
