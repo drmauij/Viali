@@ -1454,22 +1454,90 @@ export default function Op() {
                 </div>
               </div>
 
-              {/* Legacy postop info from anesthesia record */}
-              {(postOpData.postOpDestination || postOpData.postOpNotes || postOpData.complications) && (
-                <Card>
-                  <CardContent className="py-3 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
-                    {postOpData.postOpDestination && (
-                      <div><span className="text-muted-foreground">Destination: </span><span className="font-medium">{postOpData.postOpDestination.toUpperCase()}</span></div>
-                    )}
-                    {postOpData.postOpNotes && (
-                      <div className="col-span-2"><span className="text-muted-foreground">Notes: </span><span>{postOpData.postOpNotes}</span></div>
-                    )}
-                    {postOpData.complications && (
-                      <div className="col-span-2"><span className="text-muted-foreground">Complications: </span><span className="text-destructive">{postOpData.complications}</span></div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+              {/* Legacy postop info from anesthesia record (read-only summary) */}
+              {(() => {
+                const ponvLabels: Record<string, string> = {
+                  ondansetron: t('anesthesia.op.ondansetron'),
+                  droperidol: t('anesthesia.op.droperidol'),
+                  haloperidol: t('anesthesia.op.haloperidol'),
+                  dexamethasone: t('anesthesia.op.dexamethasone'),
+                };
+                const ambulatoryLabels: Record<string, string> = {
+                  repeatAntibioticAfter4h: t('anesthesia.op.repeatAntibioticAfter4h'),
+                  osasObservation: t('anesthesia.op.osasObservation'),
+                  escortRequired: t('anesthesia.op.escortRequired'),
+                  postBlockMotorCheck: t('anesthesia.op.postBlockMotorCheck'),
+                  extendedObservation: t('anesthesia.op.extendedObservation'),
+                  noOralAnticoagulants24h: t('anesthesia.op.noOralAnticoagulants24h'),
+                };
+                const ponvSelected = Object.entries(postOpData.ponvProphylaxis ?? {})
+                  .filter(([, v]) => v === true)
+                  .map(([k]) => ponvLabels[k] ?? k);
+                const ambulatorySelected = Object.entries(postOpData.ambulatoryCare ?? {})
+                  .filter(([k, v]) => k !== 'notes' && v === true)
+                  .map(([k]) => ambulatoryLabels[k] ?? k);
+                const ambulatoryNotes = postOpData.ambulatoryCare?.notes ?? '';
+                const hasBasic = !!(postOpData.postOpDestination || postOpData.postOpNotes || postOpData.complications);
+                const hasMedTimings = !!(postOpData.paracetamolTime || postOpData.nsarTime || postOpData.novalginTime);
+                const hasPonv = ponvSelected.length > 0;
+                const hasAmbulatory = ambulatorySelected.length > 0 || !!ambulatoryNotes;
+                if (!hasBasic && !hasMedTimings && !hasPonv && !hasAmbulatory) return null;
+                return (
+                  <Card>
+                    <CardContent className="py-3 space-y-3 text-sm">
+                      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t('postopOrders.legacyFields')}
+                      </div>
+                      {hasBasic && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
+                          {postOpData.postOpDestination && (
+                            <div><span className="text-muted-foreground">Destination: </span><span className="font-medium">{postOpData.postOpDestination.toUpperCase()}</span></div>
+                          )}
+                          {postOpData.postOpNotes && (
+                            <div className="col-span-2"><span className="text-muted-foreground">Notes: </span><span>{postOpData.postOpNotes}</span></div>
+                          )}
+                          {postOpData.complications && (
+                            <div className="col-span-2"><span className="text-muted-foreground">Complications: </span><span className="text-destructive">{postOpData.complications}</span></div>
+                          )}
+                        </div>
+                      )}
+                      {hasMedTimings && (
+                        <div>
+                          <div className="font-medium mb-1">Medication Timing</div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1">
+                            {postOpData.paracetamolTime && (
+                              <div><span className="text-muted-foreground">Paracetamol: </span><span>{postOpData.paracetamolTime}</span></div>
+                            )}
+                            {postOpData.nsarTime && (
+                              <div><span className="text-muted-foreground">NSAR: </span><span>{postOpData.nsarTime}</span></div>
+                            )}
+                            {postOpData.novalginTime && (
+                              <div><span className="text-muted-foreground">Novalgin: </span><span>{postOpData.novalginTime}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {hasPonv && (
+                        <div>
+                          <span className="font-medium">{t('anesthesia.op.ponvProphylaxis')}: </span>
+                          <span>{ponvSelected.join(', ')}</span>
+                        </div>
+                      )}
+                      {hasAmbulatory && (
+                        <div>
+                          <div className="font-medium mb-1">{t('anesthesia.op.ambulatoryCareInstructions')}</div>
+                          {ambulatorySelected.length > 0 && (
+                            <div>{ambulatorySelected.join(', ')}</div>
+                          )}
+                          {ambulatoryNotes && (
+                            <div className="mt-1"><span className="text-muted-foreground">{t('anesthesia.op.ambulatoryCareNotes')}: </span><span>{ambulatoryNotes}</span></div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Bottom row: Tasks panel + Intraop meds */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
