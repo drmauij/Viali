@@ -90,7 +90,26 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
     }
 
     const newMedication = await storage.createAnesthesiaMedication(validatedData);
-    
+
+    // Heal the paired infusion_start record: if this is an infusion_stop linked
+    // to a session, make sure the start's endTimestamp is set so inventory calc
+    // and "running" badges stay consistent even if the client-side update failed.
+    if (newMedication.type === 'infusion_stop' && newMedication.infusionSessionId) {
+      try {
+        const [startRecord] = await db
+          .select({ id: anesthesiaMedications.id, endTimestamp: anesthesiaMedications.endTimestamp })
+          .from(anesthesiaMedications)
+          .where(eq(anesthesiaMedications.id, newMedication.infusionSessionId));
+        if (startRecord && !startRecord.endTimestamp) {
+          await storage.updateAnesthesiaMedication(startRecord.id, {
+            endTimestamp: new Date(newMedication.timestamp),
+          });
+        }
+      } catch (healError) {
+        logger.error('[INFUSION-HEAL] Failed to backfill endTimestamp:', healError);
+      }
+    }
+
     broadcastAnesthesiaUpdate({
       recordId: validatedData.anesthesiaRecordId,
       section: 'medications',

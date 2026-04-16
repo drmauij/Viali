@@ -3437,14 +3437,14 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     if (isTci) {
       const startMeds = meds.filter((m: any) => m.type === 'infusion_start');
       const stopMeds = meds.filter((m: any) => m.type === 'infusion_stop');
-      
+
       const usedStartIds = new Set<string>();
       let totalDose = 0;
-      
+
       for (const stopMed of stopMeds) {
         const matchingStart = startMeds.find((start: any) => {
           if (usedStartIds.has(start.id)) return false;
-          
+
           if (stopMed.infusionSessionId && stopMed.infusionSessionId === start.id) {
             return true;
           }
@@ -3455,8 +3455,10 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
           }
           return false;
         });
-        
-        if (matchingStart && matchingStart.endTimestamp) {
+
+        // When matched by sessionId the pairing is guaranteed, so endTimestamp
+        // is not required (the legacy time-proximity branch already enforces it)
+        if (matchingStart) {
           usedStartIds.add(matchingStart.id);
           const doseValue = parseFloat(stopMed.dose?.match(/[\d.]+/)?.[0] || '0');
           totalDose += doseValue;

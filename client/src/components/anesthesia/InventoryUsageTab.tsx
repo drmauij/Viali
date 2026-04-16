@@ -202,9 +202,16 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     calculateInventory();
     
     // Check if there are any running rate-controlled infusions
-    const hasRunningInfusions = medications.some(
-      (med: any) => med.type === 'infusion_start' && !med.endTimestamp
-    );
+    // Treat a start as stopped if a matching infusion_stop record exists, even
+    // when endTimestamp wasn't written back (avoids pointless 60s recalc loops)
+    const hasRunningInfusions = medications.some((startMed: any) => {
+      if (startMed.type !== 'infusion_start') return false;
+      if (startMed.endTimestamp) return false;
+      const hasLinkedStop = medications.some(
+        (m: any) => m.type === 'infusion_stop' && m.infusionSessionId === startMed.id
+      );
+      return !hasLinkedStop;
+    });
     
     // If there are running infusions, update calculation every 60 seconds
     if (hasRunningInfusions) {
@@ -304,13 +311,19 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   };
 
   // Check if an item has a running rate-controlled infusion
+  // An infusion is "stopped" if EITHER endTimestamp is set OR a matching
+  // infusion_stop record exists (by sessionId). Checking both avoids stale
+  // "running" badges when endTimestamp failed to write but the stop record did.
   const isRunningInfusion = (itemId: string) => {
-    return medications.some(
-      (med: any) => 
-        med.itemId === itemId && 
-        med.type === 'infusion_start' && 
-        !med.endTimestamp
-    );
+    return medications.some((startMed: any) => {
+      if (startMed.itemId !== itemId) return false;
+      if (startMed.type !== 'infusion_start') return false;
+      if (startMed.endTimestamp) return false;
+      const hasLinkedStop = medications.some(
+        (m: any) => m.type === 'infusion_stop' && m.infusionSessionId === startMed.id
+      );
+      return !hasLinkedStop;
+    });
   };
 
   // Get final quantity for an item
