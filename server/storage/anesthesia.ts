@@ -2,6 +2,7 @@ import { db } from "../db";
 import {
   eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull, isNotNull,
 } from "drizzle-orm";
+import { commitUsage } from "./inventoryCommit";
 import { alias } from "drizzle-orm/pg-core";
 import { randomUUID } from "crypto";
 import {
@@ -3945,6 +3946,7 @@ export async function commitInventoryUsage(
       let newUnits: number;
       
       if (itemData.unit === "Single unit") {
+        // Read current qty for the audit log, then delegate the actual decrement
         const [stockLevel] = await db
           .select()
           .from(stockLevels)
@@ -3955,24 +3957,18 @@ export async function commitInventoryUsage(
             )
           )
           .limit(1);
-        
+
         currentUnits = stockLevel?.qtyOnHand || 0;
         newUnits = Math.max(0, currentUnits - item.quantity);
-        
-        if (stockLevel) {
-          await db
-            .update(stockLevels)
-            .set({ qtyOnHand: newUnits, updatedAt: new Date() })
-            .where(eq(stockLevels.id, stockLevel.id));
-        } else {
-          await db
-            .insert(stockLevels)
-            .values({
-              itemId: item.itemId,
-              unitId: itemData.unitId,
-              qtyOnHand: newUnits,
-            });
-        }
+
+        // Note: read-then-write happens via two separate selects (here for audit metadata,
+        // then again inside commitUsage). Acceptable for single-user surgical workflows;
+        // if concurrent edits become possible, wrap both in a single SELECT FOR UPDATE.
+        await commitUsage({
+          hospitalId: itemData.hospitalId,
+          unitId: itemData.unitId,
+          entries: [{ itemId: item.itemId, lotId: null, quantity: item.quantity }],
+        });
       } else {
         currentUnits = parseInt(String(itemData.currentUnits || 0));
         newUnits = Math.max(0, currentUnits - item.quantity);
