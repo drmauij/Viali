@@ -3294,6 +3294,23 @@ export const addBPPointSchema = z.object({
   mean: z.number().optional(),
 });
 
+export const addBulkVitalsSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  vitals: z.object({
+    hr: z.number().optional(),
+    spo2: z.number().optional(),
+    temp: z.number().optional(),
+    bp: z
+      .object({
+        sys: z.number(),
+        dia: z.number(),
+        mean: z.number().optional(),
+      })
+      .optional(),
+  }),
+});
+
 export const updateVitalPointSchema = z.object({
   pointId: z.string(),
   value: z.number().optional(),

@@ -6,6 +6,7 @@ import {
   insertVitalsSnapshotSchema,
   addVitalPointSchema,
   addBPPointSchema,
+  addBulkVitalsSchema,
   updateVitalPointSchema,
   updateBPPointSchema,
   addRhythmPointSchema,
@@ -112,6 +113,37 @@ router.post('/api/anesthesia/vitals/points', isAuthenticated, requireStrictHospi
     }
     logger.error("Error adding vital point:", error);
     res.status(500).json({ message: "Failed to add vital point" });
+  }
+});
+
+router.post('/api/anesthesia/vitals/bulk', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const validatedData = addBulkVitalsSchema.parse(req.body);
+    const recordId = validatedData.anesthesiaRecordId;
+
+    const updatedSnapshot = await storage.addBulkVitals(
+      recordId,
+      validatedData.timestamp,
+      validatedData.vitals,
+    );
+
+    broadcastAnesthesiaUpdate({
+      recordId,
+      section: 'vitals',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.status(201).json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error adding bulk vitals:", error);
+    res.status(500).json({ message: "Failed to add bulk vitals" });
   }
 });
 

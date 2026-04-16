@@ -528,6 +528,16 @@ export interface IStorage {
   getClinicalSnapshotsByRecordIds(anesthesiaRecordIds: string[]): Promise<ClinicalSnapshot[]>;
   addVitalPoint(anesthesiaRecordId: string, vitalType: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
   addBPPoint(anesthesiaRecordId: string, timestamp: string, sys: number, dia: number, mean?: number): Promise<ClinicalSnapshot>;
+  addBulkVitals(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    vitals: {
+      hr?: number;
+      spo2?: number;
+      temp?: number;
+      bp?: { sys: number; dia: number; mean?: number };
+    }
+  ): Promise<ClinicalSnapshot>;
   updateVitalPoint(pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteVitalPoint(pointId: string): Promise<ClinicalSnapshot | null>;
   addRhythmPoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
@@ -1338,6 +1348,7 @@ export class DatabaseStorage implements IStorage {
   getClinicalSnapshotsByRecordIds = anesthesiaStorage.getClinicalSnapshotsByRecordIds;
   addVitalPoint = anesthesiaStorage.addVitalPoint;
   addBPPoint = anesthesiaStorage.addBPPoint;
+  addBulkVitals = anesthesiaStorage.addBulkVitals;
   updateBPPoint = anesthesiaStorage.updateBPPoint;
   updateVitalPoint = anesthesiaStorage.updateVitalPoint;
   deleteVitalPoint = anesthesiaStorage.deleteVitalPoint;

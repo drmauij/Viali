@@ -3455,13 +3455,21 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!extractedData) return;
 
     const { vitals, ventilation, tof, pumps, timestamp, parameters } = extractedData;
-    
+
     // Import validation utilities
     const { validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
     const { findStandardParameter } = await import('@shared/monitorParameters');
-    
+
     let addedItems: string[] = [];
     let warningItems: string[] = [];
+    // Collect vitals into a single payload so they persist atomically via the
+    // bulk endpoint. Firing HR/SpO2/BP as separate mutations races on the
+    // server's JSONB read-modify-write and causes lost writes.
+    const bulkVitalsPayload: {
+      hr?: number;
+      spo2?: number;
+      bp?: { sys: number; dia: number };
+    } = {};
 
     // Handle NEW FORMAT with parameters array
     if (parameters && Array.isArray(parameters)) {
@@ -3480,34 +3488,25 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           }
         }
         
-        // Route to appropriate state - NEW: Use React Query mutations
         if (param.standardName === 'HR') {
-          addVitalPointMutation.mutate({
-            vitalType: 'hr',
-            timestamp: new Date(timestamp).toISOString(),
-            value,
-          });
+          bulkVitalsPayload.hr = value;
           addedItems.push('HR');
         } else if (param.standardName === 'SpO2') {
-          addVitalPointMutation.mutate({
-            vitalType: 'spo2',
-            timestamp: new Date(timestamp).toISOString(),
-            value,
-          });
+          bulkVitalsPayload.spo2 = value;
           addedItems.push('SpO2');
         }
       });
-      
+
       // Handle BP separately since it needs both sys and dia
       const sysBP = vitalParams.find((p: any) => p.standardName === 'SysBP');
       const diaBP = vitalParams.find((p: any) => p.standardName === 'DiaBP');
       if (sysBP && diaBP) {
         let sysValue = sysBP.value;
         let diaValue = diaBP.value;
-        
+
         const sysDef = findStandardParameter('SysBP');
         const diaDef = findStandardParameter('DiaBP');
-        
+
         if (sysDef?.min !== undefined && sysDef?.max !== undefined) {
           if (sysValue < sysDef.min || sysValue > sysDef.max) {
             const clamped = Math.max(sysDef.min, Math.min(sysDef.max, sysValue));
@@ -3522,13 +3521,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             diaValue = clamped;
           }
         }
-        
-        // NEW: Use React Query mutation for BP
-        addBPPointMutation.mutate({
-          timestamp: new Date(timestamp).toISOString(),
-          sys: sysValue,
-          dia: diaValue,
-        });
+
+        bulkVitalsPayload.bp = { sys: sysValue, dia: diaValue };
         addedItems.push('BP');
       }
       
@@ -3605,7 +3599,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         addedItems.push('TOF (logged)');
       }
     } else {
-      // OLD FORMAT: Handle vitals using mutations
+      // OLD FORMAT: collect vitals into bulk payload
       if (vitals?.hr !== null && vitals?.hr !== undefined) {
         let hr = vitals.hr;
         if (!validateVitalRange('hr', hr)) {
@@ -3613,11 +3607,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           warningItems.push(`HR ${hr}→${clamped} (out of range)`);
           hr = clamped;
         }
-        addVitalPointMutation.mutate({
-          vitalType: 'hr',
-          timestamp: new Date(timestamp).toISOString(),
-          value: hr
-        });
+        bulkVitalsPayload.hr = hr;
         addedItems.push('HR');
       }
       if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
@@ -3633,11 +3623,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           warningItems.push(`DiaBP ${diaBP}→${clamped}`);
           diaBP = clamped;
         }
-        addBPPointMutation.mutate({
-          timestamp: new Date(timestamp).toISOString(),
-          sys: sysBP,
-          dia: diaBP
-        });
+        bulkVitalsPayload.bp = { sys: sysBP, dia: diaBP };
         addedItems.push('BP');
       }
       if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
@@ -3647,11 +3633,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           warningItems.push(`SpO2 ${spo2}→${clamped}`);
           spo2 = clamped;
         }
-        addVitalPointMutation.mutate({
-          vitalType: 'spo2',
-          timestamp: new Date(timestamp).toISOString(),
-          value: spo2
-        });
+        bulkVitalsPayload.spo2 = spo2;
         addedItems.push('SpO2');
       }
 
@@ -3671,10 +3653,29 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
     }
 
-    let description = addedItems.length > 0 
-      ? `Added: ${addedItems.join(', ')}` 
+    // Persist all collected vitals in a single atomic call. Awaiting here
+    // ensures the snapshot is updated before we invalidate, so the chart
+    // re-fetches the final committed state instead of an in-flight one.
+    if (Object.keys(bulkVitalsPayload).length > 0 && anesthesiaRecordId) {
+      try {
+        await apiRequest('POST', '/api/anesthesia/vitals/bulk', {
+          anesthesiaRecordId,
+          timestamp: new Date(timestamp).toISOString(),
+          vitals: bulkVitalsPayload,
+        });
+        queryClient.invalidateQueries({
+          queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+        });
+      } catch (error) {
+        console.error('[AI-Vitals] Error saving via bulk API:', error);
+        warningItems.push('Vitals save failed');
+      }
+    }
+
+    let description = addedItems.length > 0
+      ? `Added: ${addedItems.join(', ')}`
       : 'No data extracted from image';
-    
+
     // Add warning items if any values were clamped
     if (warningItems.length > 0) {
       description += ` | Adjusted: ${warningItems.join(', ')}`;

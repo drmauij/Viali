@@ -1503,36 +1503,64 @@ export async function getClinicalSnapshotsByRecordIds(
     .where(inArray(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordIds));
 }
 
+// Locks the snapshot row inside a transaction so concurrent writers serialize
+// instead of clobbering each other via lost updates on the JSONB blob.
+async function withSnapshotLock<T>(
+  anesthesiaRecordId: string,
+  fn: (
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    snapshot: ClinicalSnapshot,
+  ) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    let [snapshot] = await tx
+      .select()
+      .from(clinicalSnapshots)
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+      .for("update");
+
+    if (!snapshot) {
+      // Use ON CONFLICT to safely create the row even if another transaction
+      // beat us to it; then re-select with FOR UPDATE to acquire the lock.
+      await tx
+        .insert(clinicalSnapshots)
+        .values({ anesthesiaRecordId, data: {} })
+        .onConflictDoNothing({ target: clinicalSnapshots.anesthesiaRecordId });
+      [snapshot] = await tx
+        .select()
+        .from(clinicalSnapshots)
+        .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+        .for("update");
+    }
+
+    return fn(tx, snapshot);
+  });
+}
+
 export async function addVitalPoint(
   anesthesiaRecordId: string,
   vitalType: string,
   timestamp: string,
   value: number
 ): Promise<ClinicalSnapshot> {
-  const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
-  
-  const newPoint = {
-    id: randomUUID(),
-    timestamp,
-    value,
-  };
-  
-  const currentPoints = (snapshot.data as any)[vitalType] || [];
-  const updatedData = {
-    ...snapshot.data,
-    [vitalType]: [...currentPoints, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
-  };
-  
-  const [updated] = await db
-    .update(clinicalSnapshots)
-    .set({ 
-      data: updatedData,
-      updatedAt: new Date(),
-    })
-    .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
-    .returning();
-  
-  return updated;
+  return withSnapshotLock(anesthesiaRecordId, async (tx, snapshot) => {
+    const newPoint = { id: randomUUID(), timestamp, value };
+    const currentPoints = (snapshot.data as any)[vitalType] || [];
+    const updatedData = {
+      ...snapshot.data,
+      [vitalType]: [...currentPoints, newPoint].sort((a, b) =>
+        a.timestamp.localeCompare(b.timestamp)
+      ),
+    };
+
+    const [updated] = await tx
+      .update(clinicalSnapshots)
+      .set({ data: updatedData, updatedAt: new Date() })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+
+    return updated;
+  });
 }
 
 export async function addBPPoint(
@@ -1542,32 +1570,73 @@ export async function addBPPoint(
   dia: number,
   mean?: number
 ): Promise<ClinicalSnapshot> {
-  const snapshot = await getClinicalSnapshot(anesthesiaRecordId);
-  
-  const newPoint = {
-    id: randomUUID(),
-    timestamp,
-    sys,
-    dia,
-    mean,
-  };
-  
-  const currentBP = (snapshot.data as any).bp || [];
-  const updatedData = {
-    ...snapshot.data,
-    bp: [...currentBP, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
-  };
-  
-  const [updated] = await db
-    .update(clinicalSnapshots)
-    .set({ 
-      data: updatedData,
-      updatedAt: new Date(),
-    })
-    .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
-    .returning();
-  
-  return updated;
+  return withSnapshotLock(anesthesiaRecordId, async (tx, snapshot) => {
+    const newPoint = { id: randomUUID(), timestamp, sys, dia, mean };
+    const currentBP = (snapshot.data as any).bp || [];
+    const updatedData = {
+      ...snapshot.data,
+      bp: [...currentBP, newPoint].sort((a, b) =>
+        a.timestamp.localeCompare(b.timestamp)
+      ),
+    };
+
+    const [updated] = await tx
+      .update(clinicalSnapshots)
+      .set({ data: updatedData, updatedAt: new Date() })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+
+    return updated;
+  });
+}
+
+export async function addBulkVitals(
+  anesthesiaRecordId: string,
+  timestamp: string,
+  vitals: {
+    hr?: number;
+    spo2?: number;
+    temp?: number;
+    bp?: { sys: number; dia: number; mean?: number };
+  }
+): Promise<ClinicalSnapshot> {
+  return withSnapshotLock(anesthesiaRecordId, async (tx, snapshot) => {
+    const data = snapshot.data as any;
+    const updatedData: any = { ...data };
+
+    const scalarKeys = ["hr", "spo2", "temp"] as const;
+    for (const key of scalarKeys) {
+      const value = vitals[key];
+      if (value === undefined || value === null) continue;
+      const newPoint = { id: randomUUID(), timestamp, value };
+      const current = data[key] || [];
+      updatedData[key] = [...current, newPoint].sort((a: any, b: any) =>
+        a.timestamp.localeCompare(b.timestamp)
+      );
+    }
+
+    if (vitals.bp) {
+      const newBP = {
+        id: randomUUID(),
+        timestamp,
+        sys: vitals.bp.sys,
+        dia: vitals.bp.dia,
+        mean: vitals.bp.mean,
+      };
+      const currentBP = data.bp || [];
+      updatedData.bp = [...currentBP, newBP].sort((a: any, b: any) =>
+        a.timestamp.localeCompare(b.timestamp)
+      );
+    }
+
+    const [updated] = await tx
+      .update(clinicalSnapshots)
+      .set({ data: updatedData, updatedAt: new Date() })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+
+    return updated;
+  });
 }
 
 export async function updateBPPoint(
