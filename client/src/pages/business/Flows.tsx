@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import {
-  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag,
+  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag, Zap,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AutomationsTab } from "@/components/flows/automations/AutomationsTab";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -114,6 +115,11 @@ export default function Flows() {
             <Tag className="h-4 w-4" />
             {t("flows.tabs.promoCodes", "Promo Codes")}
             {(promoCodes as any[]).length > 0 && <Badge variant="secondary" className="ml-1">{(promoCodes as any[]).length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="automations" className="gap-2">
+            <Zap className="h-4 w-4" />
+            Automatisierungen
+            <Badge className="ml-1 bg-purple-600 text-white hover:bg-purple-600">NEU</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -273,6 +279,10 @@ export default function Flows() {
               </Table>
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="automations" className="mt-4">
+          <AutomationsTab />
         </TabsContent>
       </Tabs>
     </div>
