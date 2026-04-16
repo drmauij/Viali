@@ -248,7 +248,7 @@ function Router() {
             <>
               <Route path="/" component={Landing} />
               <Route path="/reset-password" component={ResetPassword} />
-              <Route path="/:rest*" component={SaveRedirectAndGoHome} />
+              <Route component={SaveRedirectAndGoHome} />
             </>
           ) : (
             <>
