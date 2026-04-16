@@ -11,7 +11,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { ReferralSourcePicker } from "@/components/ReferralSourcePicker";
 import { resolveReferralFromParams } from "@shared/referralMapping";
 import { de } from "date-fns/locale";
-import { Gift } from "lucide-react";
+import { Gift, BadgeCheck } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -716,9 +716,10 @@ export default function BookAppointment() {
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
       {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
+      {!isEmbed && <FreeConsultationBadge isDark={isDark} />}
       <div className={cn(
-        'grid gap-6 items-start',
-        isEmbed ? 'grid-cols-1' : 'lg:grid-cols-[280px_1fr]',
+        'grid gap-6 items-start grid-cols-1 [&>*]:min-w-0',
+        !isEmbed && 'lg:grid-cols-[280px_1fr]',
       )}>
         {/* Sticky sidebar on large screens; stacked header on small/medium + embed */}
         {!isEmbed ? (
@@ -1402,6 +1403,24 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function FreeConsultationBadge({ isDark }: { isDark: boolean }) {
+  return (
+    <div
+      role="status"
+      aria-label="Kostenlose Beratung"
+      className={cn(
+        "fixed top-3 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shadow-md backdrop-blur pointer-events-none",
+        isDark
+          ? "bg-emerald-500/90 text-white ring-1 ring-emerald-300/40"
+          : "bg-emerald-500 text-white ring-1 ring-emerald-600/20",
+      )}
+    >
+      <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.5} />
+      Kostenlose Beratung
     </div>
   );
 }
