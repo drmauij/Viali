@@ -17,6 +17,7 @@ import {
   clinicAppointments,
   clinicServices,
   clinicServiceProviders,
+  serviceFolders,
   timebutlerConfig,
   calcomConfig,
   calcomProviderMappings,
@@ -47,6 +48,8 @@ import {
   type ClinicAppointment,
   type InsertClinicAppointment,
   type ClinicService,
+  type ServiceFolder,
+  type InsertServiceFolder,
   type TimebutlerConfig,
   type InsertTimebutlerConfig,
   type CalcomConfig,
@@ -2492,4 +2495,60 @@ export async function markAppointmentActionTokenUsed(token: string): Promise<voi
       usedAt: new Date(),
     })
     .where(eq(appointmentActionTokens.token, token));
+}
+
+// ---------- Service Folders ----------
+
+export async function getServiceFolders(hospitalId: string, unitId: string): Promise<ServiceFolder[]> {
+  return await db
+    .select()
+    .from(serviceFolders)
+    .where(and(eq(serviceFolders.hospitalId, hospitalId), eq(serviceFolders.unitId, unitId)))
+    .orderBy(asc(serviceFolders.sortOrder), asc(serviceFolders.name));
+}
+
+export async function getServiceFolder(id: string): Promise<ServiceFolder | undefined> {
+  const [row] = await db.select().from(serviceFolders).where(eq(serviceFolders.id, id));
+  return row;
+}
+
+export async function createServiceFolder(folder: InsertServiceFolder): Promise<ServiceFolder> {
+  const [created] = await db.insert(serviceFolders).values(folder).returning();
+  return created;
+}
+
+export async function updateServiceFolder(id: string, updates: Partial<ServiceFolder>): Promise<ServiceFolder> {
+  const [updated] = await db
+    .update(serviceFolders)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(serviceFolders.id, id))
+    .returning();
+  return updated;
+}
+
+export async function deleteServiceFolder(id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(clinicServices)
+      .set({ folderId: null })
+      .where(eq(clinicServices.folderId, id));
+    await tx.delete(serviceFolders).where(eq(serviceFolders.id, id));
+  });
+}
+
+export async function bulkMoveServicesToFolder(
+  hospitalId: string,
+  serviceIds: string[],
+  folderId: string | null,
+): Promise<number> {
+  if (serviceIds.length === 0) return 0;
+  const result = await db
+    .update(clinicServices)
+    .set({ folderId, updatedAt: new Date() })
+    .where(and(
+      eq(clinicServices.hospitalId, hospitalId),
+      inArray(clinicServices.id, serviceIds),
+    ))
+    .returning({ id: clinicServices.id });
+  return result.length;
 }
