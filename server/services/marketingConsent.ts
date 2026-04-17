@@ -49,10 +49,12 @@ export function appendUnsubscribeFooter(
   const copy = FOOTER_COPY[locale] ?? FOOTER_COPY.de;
   const url = `${baseUrl}/unsubscribe/${token}`;
   const footer = `
-<hr style="border:none;border-top:1px solid #ccc;margin:24px 0;" />
-<p style="font-size:12px;color:#666;font-family:Arial,sans-serif;text-align:center;">
-  ${copy.intro}<br />
-  <a href="${url}" style="color:#666;">${copy.link}</a>
-</p>`;
+<div style="max-width:600px;margin:0 auto;padding:0 20px;font-family:Arial,sans-serif;">
+  <hr style="border:none;border-top:1px solid #ccc;margin:24px 0;" />
+  <p style="font-size:12px;color:#666;text-align:center;line-height:1.4;">
+    ${copy.intro}<br />
+    <a href="${url}" style="color:#666;">${copy.link}</a>
+  </p>
+</div>`;
   return html + footer;
 }
