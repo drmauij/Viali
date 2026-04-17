@@ -75,9 +75,9 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     enabled: !!hospitalId,
   });
 
-  // Debounced count query
+  // Debounced count query. Empty filters → "all patients" (backend handles it).
   const fetchCount = useCallback(async () => {
-    if (!hospitalId || filters.length === 0) {
+    if (!hospitalId) {
       onCountChange(null);
       return;
     }
@@ -251,18 +251,21 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
         <Button variant="outline" size="sm" onClick={addFilter} className="gap-1">
           <Plus className="h-3.5 w-3.5" /> {t("flows.segment.addRule", "Add Rule")}
         </Button>
-        {filters.length > 0 && (
-          <div className="flex items-center gap-2">
-            {counting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : patientCount !== null ? (
-              <Badge className="bg-primary gap-1">
-                <Users className="h-3 w-3" />
-                {patientCount} {t("flows.segment.patients", "Patients")}
-              </Badge>
-            ) : null}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {counting ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : patientCount !== null ? (
+            <Badge className="bg-primary gap-1">
+              <Users className="h-3 w-3" />
+              {patientCount} {t("flows.segment.patients", "Patients")}
+              {filters.length === 0 && (
+                <span className="opacity-80">
+                  {" "}· {t("flows.segment.allPatients", "All Patients")}
+                </span>
+              )}
+            </Badge>
+          ) : null}
+        </div>
       </div>
     </div>
   );

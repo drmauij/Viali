@@ -70,14 +70,12 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         if (pc) setPromoCode(pc.code);
       }
 
-      // Mark sections as completed based on what data exists, and jump to the right step
+      // Mark sections as completed based on what data exists, and jump to the right step.
+      // Segment is always considered complete on resume — an empty filters array is a
+      // valid "all patients" selection, not an incomplete step.
       const done = new Set<Section>();
-      let nextStep: Section = "segment";
-
-      if (existingFlow.segmentFilters?.length > 0) {
-        done.add("segment");
-        nextStep = "channel";
-      }
+      let nextStep: Section = "channel";
+      done.add("segment");
       if (existingFlow.channel) {
         done.add("channel");
         nextStep = "compose";
@@ -206,7 +204,8 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     }
   };
 
-  const isReady = filters.length > 0 && channel !== null && !!messageContent;
+  // Empty filters = "all patients" is valid; require only a channel + message.
+  const isReady = channel !== null && !!messageContent;
 
   return (
     <div className="p-4 space-y-3 max-w-3xl mx-auto">
@@ -242,7 +241,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
           value:
             filters.length > 0
               ? `${filters.length} ${t("flows.segment.filtersActive", "Filter(s) active")}${patientCount !== null ? ` · ${patientCount} ${t("flows.segment.patients", "Patients")}` : ""}`
-              : t("flows.segment.allPatients", "All Patients"),
+              : `${t("flows.segment.allPatients", "All Patients")}${patientCount !== null ? ` · ${patientCount} ${t("flows.segment.patients", "Patients")}` : ""}`,
           onChange: () => goTo("segment"),
         }}
       >
