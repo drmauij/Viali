@@ -8009,6 +8009,7 @@
     "createInvoice": "Rechnung erstellen",
     "openInvoice": "Rechnung öffnen",
     "amend": "Ändern",
+    "loadAppointmentsFailed": "Termine konnten nicht geladen werden",
     "fields": {
       "service": "Anwendung",
       "item": "Präparat",

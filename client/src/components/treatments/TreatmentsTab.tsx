@@ -16,6 +16,11 @@ import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TreatmentEditor } from "./TreatmentEditor";
+import { TodayAppointmentDialog, type TodayAppointmentRow } from "./TodayAppointmentDialog";
+import {
+  filterLinkableAppointments,
+  todayLocalDateString,
+} from "./appointmentLinkHelpers";
 import type { Treatment, TreatmentLine } from "@shared/schema";
 
 type TreatmentWithLines = Treatment & { lines: TreatmentLine[] };
@@ -47,6 +52,8 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   );
   // Appointment to pre-link when opening a new treatment from the Appointments tab
   const [pendingAppointmentId, setPendingAppointmentId] = useState<string | undefined>();
+  const [todayDialogOpen, setTodayDialogOpen] = useState(false);
+  const [todayAppointments, setTodayAppointments] = useState<TodayAppointmentRow[]>([]);
 
   useEffect(() => {
     if (defaultOpenForAppointmentId) {
@@ -118,6 +125,52 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
     return { servicesMap: svc, itemsMap: itm };
   }, [treatments]);
 
+  const handleNewTreatment = async () => {
+    const today = todayLocalDateString();
+    try {
+      const raw = await qc.fetchQuery<any[]>({
+        queryKey: ["today-appts-for-link", hospitalId, patientId, today],
+        queryFn: () =>
+          apiRequest(
+            "GET",
+            `/api/clinic/${hospitalId}/appointments?patientId=${patientId}&startDate=${today}&endDate=${today}`,
+          ).then((r) => r.json()),
+        staleTime: 30_000,
+      });
+
+      const linkable = filterLinkableAppointments(raw).map((a: any) => {
+        const first = a.users?.firstName ?? a.providerFirstName ?? null;
+        const last = a.users?.lastName ?? a.providerLastName ?? null;
+        const providerName = [first, last].filter(Boolean).join(" ") || null;
+        return {
+          id: a.id,
+          startTime: a.startTime,
+          status: a.status,
+          providerName,
+          serviceName: a.clinic_services?.name ?? null,
+        } as TodayAppointmentRow;
+      });
+
+      if (linkable.length === 0) {
+        setPendingAppointmentId(undefined);
+        setEditing("new");
+        return;
+      }
+
+      setTodayAppointments(linkable);
+      setTodayDialogOpen(true);
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: t("treatments.loadAppointmentsFailed", "Could not load appointments"),
+        description: err?.message ?? "",
+      });
+      // Fail open — let the user proceed without linking
+      setPendingAppointmentId(undefined);
+      setEditing("new");
+    }
+  };
+
   if (editing !== null) {
     const existingTreatment =
       editing === "new" ? undefined : (editing as TreatmentWithLines);
@@ -140,7 +193,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
         <h3 className="text-lg font-semibold">
           {t("treatments.title", "Treatments")}
         </h3>
-        <Button onClick={() => setEditing("new")} size="sm">
+        <Button onClick={handleNewTreatment} size="sm">
           <Plus className="h-4 w-4 mr-1" />
           {t("treatments.newTreatment", "New Treatment")}
         </Button>
@@ -283,6 +336,22 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
           </TableBody>
         </Table>
       )}
+
+      <TodayAppointmentDialog
+        open={todayDialogOpen}
+        onOpenChange={setTodayDialogOpen}
+        appointments={todayAppointments}
+        onLink={(id) => {
+          setTodayDialogOpen(false);
+          setPendingAppointmentId(id);
+          setEditing("new");
+        }}
+        onSkip={() => {
+          setTodayDialogOpen(false);
+          setPendingAppointmentId(undefined);
+          setEditing("new");
+        }}
+      />
     </div>
   );
 }

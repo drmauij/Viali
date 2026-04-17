@@ -7992,6 +7992,7 @@
     "createInvoice": "Create Invoice",
     "openInvoice": "Open Invoice",
     "amend": "Amend",
+    "loadAppointmentsFailed": "Could not load appointments",
     "fields": {
       "service": "Service (Anwendung)",
       "item": "Product (Präparat)",
