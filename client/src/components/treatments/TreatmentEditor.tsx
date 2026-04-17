@@ -21,6 +21,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TreatmentLineDialog } from "./TreatmentLineDialog";
 import { TreatmentPalette } from "./TreatmentPalette";
+import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
 import { HistorySummaryCard } from "./HistorySummaryCard";
 import SignaturePad from "@/components/SignaturePad";
 import type { Treatment, TreatmentLine, TreatmentItemConfig } from "@shared/schema";
@@ -63,6 +64,9 @@ export function TreatmentEditor({
   const [editingLine, setEditingLine] = useState<
     Partial<TreatmentLine> | undefined
   >(undefined);
+
+  // Palette config dialog
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
 
   // Signature pad state
   const [signPadOpen, setSignPadOpen] = useState(false);
@@ -388,11 +392,12 @@ export function TreatmentEditor({
           </div>
 
           {/* Palette */}
-          {!isLocked && configs.length > 0 && (
+          {!isLocked && (
             <TreatmentPalette
               configs={configs}
               itemsMap={itemsMap}
               onPick={applyConfig}
+              onConfigure={() => setConfigDialogOpen(true)}
             />
           )}
 
@@ -558,6 +563,14 @@ export function TreatmentEditor({
           signMutation.mutate(sig);
         }}
         title={t("treatments.signatureTitle", "Provider Signature")}
+      />
+
+      {/* Treatment palette config dialog */}
+      <TreatmentItemConfigDialog
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        hospitalId={hospitalId}
+        unitId={unitId}
       />
     </div>
   );
