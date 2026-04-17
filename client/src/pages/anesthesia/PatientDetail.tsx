@@ -63,6 +63,7 @@ import { InvoiceDetailDialog } from "@/components/clinic/InvoiceDetailDialog";
 import AppointmentDetailDialog, { type AppointmentWithDetails, STATUS_COLORS, getStatusLabel } from "@/components/clinic/AppointmentDetailDialog";
 import { BookingDialog } from "@/pages/clinic/Appointments";
 import { parseISO } from "date-fns";
+import { TreatmentsTab } from "@/components/treatments/TreatmentsTab";
 
 export default function PatientDetail() {
   const { t, i18n } = useTranslation();
@@ -149,6 +150,11 @@ export default function PatientDetail() {
   const [editBirthdayDisplay, setEditBirthdayDisplay] = useState('');
   const [selectedAppointmentForDetail, setSelectedAppointmentForDetail] = useState<AppointmentWithDetails | null>(null);
   const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
+
+  // --- Main-tab state (controlled for cross-tab navigation) ---
+  const [activeMainTab, setActiveMainTab] = useState("notes");
+  // When set, the treatments tab auto-opens the editor pre-linked to this appointment
+  const [treatmentAppointmentId, setTreatmentAppointmentId] = useState<string | undefined>();
 
   // --- Compact wizard + brief editor/audit state ---
   const [compactWizardOpen, setCompactWizardOpen] = useState(false);
@@ -2057,7 +2063,7 @@ export default function PatientDetail() {
       </AlertDialog>
 
       {/* Main Content Tabs - Notes, Surgeries, Documents, Invoices, and Medications */}
-      <Tabs defaultValue="notes" className="w-full">
+      <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
         <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 mb-4">
           <TabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="notes" data-testid="tab-notes" className="whitespace-nowrap">
@@ -2071,6 +2077,9 @@ export default function PatientDetail() {
               {surgeries && surgeries.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{surgeries.length}</Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="treatments" data-testid="tab-treatments" className="whitespace-nowrap">
+              {t("treatments.tab")}
             </TabsTrigger>
             <TabsTrigger value="documents" data-testid="tab-documents" className="whitespace-nowrap">
               {t('anesthesia.patientDetail.documents', 'Documents')}
@@ -3149,6 +3158,17 @@ export default function PatientDetail() {
           )}
         </TabsContent>
 
+        <TabsContent value="treatments" className="mt-0">
+          {patient && activeHospital && (
+            <TreatmentsTab
+              patientId={patient.id}
+              hospitalId={patient.hospitalId}
+              unitId={activeHospital.unitId ?? null}
+              defaultOpenForAppointmentId={treatmentAppointmentId}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="documents" className="mt-0">
           <div className="space-y-6">
             {/* Documents + Briefs — unified in one section */}
@@ -3426,6 +3446,19 @@ export default function PatientDetail() {
                     <Badge className={`${STATUS_COLORS[appt.status]?.bg || ''} ${STATUS_COLORS[appt.status]?.text || ''} shrink-0`}>
                       {getStatusLabel(appt.status, t)}
                     </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTreatmentAppointmentId(appt.id);
+                        setActiveMainTab("treatments");
+                      }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 mr-1" />
+                      {t("treatments.startTreatment")}
+                    </Button>
                   </div>
                 ))}
             </div>

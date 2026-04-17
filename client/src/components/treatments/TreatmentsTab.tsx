@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ interface Props {
   patientId: string;
   hospitalId: string;
   unitId?: string | null;
+  defaultOpenForAppointmentId?: string;
 }
 
 const STATUS_VARIANT: Record<
@@ -36,7 +37,7 @@ const STATUS_VARIANT: Record<
   amended: "destructive",
 };
 
-export function TreatmentsTab({ patientId, hospitalId, unitId }: Props) {
+export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForAppointmentId }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -44,6 +45,15 @@ export function TreatmentsTab({ patientId, hospitalId, unitId }: Props) {
   const [editing, setEditing] = useState<TreatmentWithLines | null | "new">(
     null,
   );
+  // Appointment to pre-link when opening a new treatment from the Appointments tab
+  const [pendingAppointmentId, setPendingAppointmentId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (defaultOpenForAppointmentId) {
+      setPendingAppointmentId(defaultOpenForAppointmentId);
+      setEditing("new");
+    }
+  }, [defaultOpenForAppointmentId]);
 
   const { data: treatments = [], isLoading } = useQuery<TreatmentWithLines[]>({
     queryKey: ["treatments", patientId],
@@ -116,9 +126,10 @@ export function TreatmentsTab({ patientId, hospitalId, unitId }: Props) {
         patientId={patientId}
         hospitalId={hospitalId}
         unitId={unitId}
+        appointmentId={editing === "new" ? pendingAppointmentId : undefined}
         existing={existingTreatment}
-        onSaved={() => setEditing(null)}
-        onCancel={() => setEditing(null)}
+        onSaved={() => { setEditing(null); setPendingAppointmentId(undefined); }}
+        onCancel={() => { setEditing(null); setPendingAppointmentId(undefined); }}
       />
     );
   }
