@@ -8025,6 +8025,25 @@
       "signed": "Signiert",
       "invoiced": "Verrechnet",
       "amended": "Geändert"
+    },
+    "linkAppointmentDialog": {
+      "title": "Heutigen Termin verknüpfen?",
+      "prompt": "Diese Patientin/dieser Patient hat heute einen Termin. Mit dieser Behandlung verknüpfen?",
+      "skip": "Überspringen",
+      "link": "Verknüpfen",
+      "generalAppt": "Allgemein"
+    },
+    "noAppointmentBanner": {
+      "title": "Kein Termin mit dieser Behandlung verknüpft.",
+      "hint": "Für die Conversion-Auswertung ist ein Termin empfohlen.",
+      "linkButton": "Termin verknüpfen"
+    },
+    "pickAppointment": {
+      "title": "Termin verknüpfen",
+      "dateLabel": "Datum",
+      "empty": "Keine Termine für diese Patientin/diesen Patienten am {{date}}.",
+      "link": "Verknüpfen",
+      "cancel": "Abbrechen"
     }
   }
 }

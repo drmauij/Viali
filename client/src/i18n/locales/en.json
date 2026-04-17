@@ -8008,6 +8008,25 @@
       "signed": "Signed",
       "invoiced": "Invoiced",
       "amended": "Amended"
+    },
+    "linkAppointmentDialog": {
+      "title": "Link today's appointment?",
+      "prompt": "This patient has an appointment today. Link this treatment to it?",
+      "skip": "Skip",
+      "link": "Link",
+      "generalAppt": "General"
+    },
+    "noAppointmentBanner": {
+      "title": "No appointment linked to this treatment.",
+      "hint": "Conversion tracking works best with an appointment.",
+      "linkButton": "Link appointment"
+    },
+    "pickAppointment": {
+      "title": "Link an appointment",
+      "dateLabel": "Date",
+      "empty": "No appointments for this patient on {{date}}.",
+      "link": "Link",
+      "cancel": "Cancel"
     }
   }
 }
