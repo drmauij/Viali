@@ -682,7 +682,11 @@ router.post(
       const hospital = await storage.getHospital(hId);
       const clinicName = hospital?.name || body.hospitalName || "Premium Aesthetic Clinic";
       const clinicWebsite = hospital?.companyWebsite || "";
-      const clinicLogo = hospital?.companyLogoUrl || "";
+      const rawClinicLogo = hospital?.companyLogoUrl || "";
+      // Only pass HTTP(S) logo URLs to the LLM. Data URLs (base64 images) would
+      // be regurgitated byte-for-byte into the streamed output, producing
+      // minutes-long responses and garbage data — see flows AI compose incident.
+      const clinicLogo = /^https?:\/\//i.test(rawClinicLogo) ? rawClinicLogo : "";
 
       // Fetch brand reference — prefer user-provided URL over clinic default
       let effectiveReferenceUrl = (body.referenceUrl || clinicWebsite || "").trim();
