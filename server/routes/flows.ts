@@ -467,9 +467,36 @@ const composeSchema = z.object({
     .optional(),
 });
 
-// Fetch screenshot of a website via thum.io (cached per session; TTL 1h)
+// Fetch screenshot of a website (cached per session; TTL 1h).
+// Primary: local Playwright (fast, ~2–5s). Fallback: thum.io → microlink.
 const screenshotCache = new Map<string, { base64: string; expiresAt: number }>();
 const SCREENSHOT_CACHE_TTL = 60 * 60 * 1000;
+const PLAYWRIGHT_TIMEOUT_MS = 8000;
+
+async function renderScreenshotWithPlaywright(url: string): Promise<Buffer | null> {
+  let browser: import("playwright").Browser | null = null;
+  try {
+    const { chromium } = await import("playwright");
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      viewport: { width: 1200, height: 900 },
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    });
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "networkidle", timeout: PLAYWRIGHT_TIMEOUT_MS });
+    const buf = await page.screenshot({ type: "png", fullPage: false });
+    return buf;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(`[flows] playwright screenshot failed: ${msg}`);
+    return null;
+  } finally {
+    if (browser) {
+      try { await browser.close(); } catch { /* ignore */ }
+    }
+  }
+}
 
 async function fetchWebsiteScreenshot(url: string): Promise<string> {
   const cached = screenshotCache.get(url);
@@ -478,7 +505,17 @@ async function fetchWebsiteScreenshot(url: string): Promise<string> {
     return cached.base64;
   }
 
-  // Try multiple screenshot services in sequence (fallback chain)
+  // 1) Try local Playwright first (fast path)
+  const t0 = Date.now();
+  const localBuf = await renderScreenshotWithPlaywright(url);
+  if (localBuf && localBuf.byteLength >= 1000) {
+    const base64 = localBuf.toString("base64");
+    logger.info(`[flows] playwright screenshot success: ${localBuf.byteLength} bytes in ${Date.now() - t0}ms`);
+    screenshotCache.set(url, { base64, expiresAt: Date.now() + SCREENSHOT_CACHE_TTL });
+    return base64;
+  }
+
+  // 2) Fall back to external services
   const services = [
     `https://image.thum.io/get/width/1200/noanimate/${url}`,
     `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`,
@@ -506,7 +543,7 @@ async function fetchWebsiteScreenshot(url: string): Promise<string> {
         continue;
       }
       const base64 = Buffer.from(buf).toString("base64");
-      logger.info(`[flows] screenshot success: ${buf.byteLength} bytes`);
+      logger.info(`[flows] screenshot success (fallback): ${buf.byteLength} bytes`);
       screenshotCache.set(url, { base64, expiresAt: Date.now() + SCREENSHOT_CACHE_TTL });
       return base64;
     } catch (err) {
