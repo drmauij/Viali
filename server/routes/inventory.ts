@@ -81,6 +81,13 @@ router.get('/api/folders/:hospitalId', isAuthenticated, requireStrictHospitalAcc
         if (surgeryUnit) {
           effectiveUnitId = surgeryUnit.id;
         }
+      } else if (moduleType === 'treatment') {
+        const hospital = await storage.getHospital(hospitalId);
+        const sourceType = hospital?.treatmentInventorySourceUnitType || 'clinic';
+        const sourceUnit = units.find(u => u.type === sourceType);
+        if (sourceUnit) {
+          effectiveUnitId = sourceUnit.id;
+        }
       }
     }
 
@@ -239,6 +246,13 @@ router.get('/api/items/:hospitalId', isAuthenticated, requireStrictHospitalAcces
         const surgeryUnit = units.find(u => u.type === 'or');
         if (surgeryUnit) {
           effectiveUnitId = surgeryUnit.id;
+        }
+      } else if (moduleType === 'treatment') {
+        const hospital = await storage.getHospital(hospitalId);
+        const sourceType = hospital?.treatmentInventorySourceUnitType || 'clinic';
+        const sourceUnit = units.find(u => u.type === sourceType);
+        if (sourceUnit) {
+          effectiveUnitId = sourceUnit.id;
         }
       }
     }

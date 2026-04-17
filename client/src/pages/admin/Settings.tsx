@@ -57,6 +57,7 @@ export default function SettingsPage() {
     runwayWarningDays: 7,
     runwayLookbackDays: 30,
     defaultAdmissionOffsetMinutes: 60,
+    treatmentInventorySourceUnitType: "clinic" as "clinic" | "or",
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
     appointmentReminderDisabled: false,
@@ -166,6 +167,7 @@ export default function SettingsPage() {
         runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
         defaultAdmissionOffsetMinutes: fullHospitalData.defaultAdmissionOffsetMinutes ?? 60,
+        treatmentInventorySourceUnitType: (fullHospitalData.treatmentInventorySourceUnitType ?? "clinic") as "clinic" | "or",
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
         appointmentReminderDisabled: fullHospitalData.appointmentReminderDisabled ?? false,
@@ -1215,6 +1217,27 @@ export default function SettingsPage() {
                       data-testid="input-admission-offset-inline"
                     />
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.admissionOffsetHint")}</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="treatment-inventory-source-inline">{t("admin.treatmentInventorySource")}</Label>
+                    <Select
+                      value={hospitalForm.treatmentInventorySourceUnitType}
+                      onValueChange={(value) =>
+                        setHospitalForm(prev => ({
+                          ...prev,
+                          treatmentInventorySourceUnitType: value as "clinic" | "or",
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="treatment-inventory-source-inline" data-testid="select-treatment-inventory-source-inline">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="clinic">{t("admin.treatmentInventorySourceClinic")}</SelectItem>
+                        <SelectItem value="or">{t("admin.treatmentInventorySourceOr")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.treatmentInventorySourceHint")}</p>
                   </div>
                 </div>
 

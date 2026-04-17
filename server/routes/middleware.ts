@@ -146,6 +146,11 @@ export async function getEffectiveUnitId(
     } else if (moduleType === "surgery") {
       const surgeryUnit = units.find((u) => u.type === 'or');
       if (surgeryUnit) return surgeryUnit.id;
+    } else if (moduleType === "treatment") {
+      const hospital = await storage.getHospital(hospitalId);
+      const sourceType = hospital?.treatmentInventorySourceUnitType || 'clinic';
+      const sourceUnit = units.find((u) => u.type === sourceType);
+      if (sourceUnit) return sourceUnit.id;
     }
   }
 

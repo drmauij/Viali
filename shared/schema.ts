@@ -113,6 +113,8 @@ export const hospitals = pgTable("hospitals", {
   runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
   // Admission time defaults
   defaultAdmissionOffsetMinutes: integer("default_admission_offset_minutes").default(60).notNull(), // Minutes before planned start when the patient should arrive
+  // Treatment module inventory source — which unit's items are used in aesthetic treatments
+  treatmentInventorySourceUnitType: varchar("treatment_inventory_source_unit_type", { enum: ["clinic", "or"] }).default("clinic").notNull(),
   // Billing add-on services - per-record fees
   addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF/record)
   addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF/record)

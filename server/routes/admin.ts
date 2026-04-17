@@ -41,6 +41,7 @@ const updateHospitalSchema = z.object({
   timezone: z.string().optional(),
   defaultLanguage: z.enum(["de", "en"]).optional(),
   defaultAdmissionOffsetMinutes: z.number().int().min(0).max(1440).optional(),
+  treatmentInventorySourceUnitType: z.enum(["clinic", "or"]).optional(),
 });
 
 const updateUnitSchema = z.object({
