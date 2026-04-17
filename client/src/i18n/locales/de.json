@@ -7245,11 +7245,13 @@
     "status": {
       "scheduled": "Geplant",
       "confirmed": "Bestätigt",
+      "arrived": "Eingetroffen",
+      "in_progress": "Läuft",
       "inProgress": "Laufend",
       "completed": "Abgeschlossen",
       "cancelled": "Abgesagt",
-      "noShow": "Nicht erschienen",
-      "arrived": "Eingetroffen"
+      "no_show": "Nicht erschienen",
+      "noShow": "Nicht erschienen"
     },
     "statusLabel": "Status",
     "internalMeeting": "Internes Meeting",
@@ -8009,6 +8011,7 @@
     "createInvoice": "Rechnung erstellen",
     "openInvoice": "Rechnung öffnen",
     "amend": "Ändern",
+    "loadAppointmentsFailed": "Termine konnten nicht geladen werden",
     "fields": {
       "service": "Anwendung",
       "item": "Präparat",
@@ -8025,6 +8028,25 @@
       "signed": "Signiert",
       "invoiced": "Verrechnet",
       "amended": "Geändert"
+    },
+    "linkAppointmentDialog": {
+      "title": "Heutigen Termin verknüpfen?",
+      "prompt": "Diese Patientin/dieser Patient hat heute einen Termin. Mit dieser Behandlung verknüpfen?",
+      "skip": "Überspringen",
+      "link": "Verknüpfen",
+      "generalAppt": "Allgemein"
+    },
+    "noAppointmentBanner": {
+      "title": "Kein Termin mit dieser Behandlung verknüpft.",
+      "hint": "Für die Conversion-Auswertung ist ein Termin empfohlen.",
+      "linkButton": "Termin verknüpfen"
+    },
+    "pickAppointment": {
+      "title": "Termin verknüpfen",
+      "dateLabel": "Datum",
+      "empty": "Keine Termine für diese Patientin/diesen Patienten am {{date}}.",
+      "link": "Verknüpfen",
+      "cancel": "Abbrechen"
     }
   }
 }
