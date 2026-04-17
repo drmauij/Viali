@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/components/ThemeProvider";
 import SegmentBuilder, { type SegmentFilter } from "@/components/flows/SegmentBuilder";
 import ChannelPicker, { type Channel } from "@/components/flows/ChannelPicker";
 import OfferSection from "@/components/flows/OfferSection";
@@ -26,6 +27,8 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const { toast } = useToast();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   const [name, setName] = useState(t("flows.newCampaign", "New Campaign"));
   const [activeSection, setActiveSection] = useState<Section>("segment");
@@ -234,7 +237,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 1 — Segment */}
       <BookingSection
         status={sectionStatus("segment")}
-        isDark={false}
+        isDark={isDark}
         summary={{
           icon: <Users className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.segment.title", "Target Audience"),
@@ -265,7 +268,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 2 — Channel */}
       <BookingSection
         status={sectionStatus("channel")}
-        isDark={false}
+        isDark={isDark}
         summary={{
           icon: <Radio className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.channel.label", "Channel"),
@@ -282,7 +285,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 3 — Compose */}
       <BookingSection
         status={sectionStatus("compose")}
-        isDark={false}
+        isDark={isDark}
         summary={{
           icon: <MessageSquare className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.compose.label", "Message"),
@@ -320,7 +323,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 4 — Offer */}
       <BookingSection
         status={sectionStatus("offer")}
-        isDark={false}
+        isDark={isDark}
         summary={{
           icon: <Tag className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.offer.label", "Offer"),
@@ -348,7 +351,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 5 — Review + Send */}
       <BookingSection
         status={sectionStatus("review")}
-        isDark={false}
+        isDark={isDark}
         summary={{
           icon: <Send className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.review.label", "Send"),
