@@ -1541,6 +1541,13 @@
       "when": 1777200000000,
       "tag": "0219_external_surgery_declined_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0220_hospital_admission_offset",
+      "breakpoints": true
     }
   ]
 }
