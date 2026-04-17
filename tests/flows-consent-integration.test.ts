@@ -41,6 +41,8 @@ vi.mock("../server/email", () => ({ getUncachableResendClient: vi.fn() }));
 
 import flowsRouter from "../server/routes/flows";
 import { storage } from "../server/storage";
+import { generateUnsubscribeToken } from "../server/services/marketingUnsubscribeToken";
+import { appendUnsubscribeFooter } from "../server/services/marketingConsent";
 
 function buildApp() {
   vi.spyOn(storage, "getUserHospitals").mockResolvedValue([
@@ -118,5 +120,29 @@ describe("POST /api/business/:hospitalId/flows/segment-count with consent", () =
     expect(text.length).toBeGreaterThan(0);
     expect(text).not.toContain("sms_marketing_consent");
     expect(text).not.toContain("email_marketing_consent");
+  });
+});
+
+describe("email footer integration (unit)", () => {
+  // These are unit-level assertions that the building blocks compose correctly.
+  // A full send-loop integration test would require stubbing Resend, the Drizzle
+  // select chain, AND the patient-messages insert — brittle for the payoff.
+  // We rely on Task 3's helper tests + Task 2's token tests for correctness
+  // of the pieces, and on the compose test below for the wiring.
+
+  it("generated token is embedded verbatim in the footer link", () => {
+    process.env.MARKETING_UNSUBSCRIBE_SECRET = "test-secret";
+    const token = generateUnsubscribeToken("pat_42", "hosp_9");
+    const baseHtml =
+      '<div style="max-width:600px;margin:0 auto;"><p>Hello</p></div>';
+    const html = appendUnsubscribeFooter(
+      baseHtml,
+      token,
+      "https://viali.app",
+      "de",
+    );
+    expect(html).toContain(baseHtml);
+    expect(html).toContain(`https://viali.app/unsubscribe/${token}`);
+    delete process.env.MARKETING_UNSUBSCRIBE_SECRET;
   });
 });

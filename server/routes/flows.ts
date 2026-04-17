@@ -17,7 +17,8 @@ import logger from "../logger";
 import { z } from "zod";
 import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
-import { consentConditionsFor } from "../services/marketingConsent";
+import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
+import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
 import OpenAI from "openai";
 
 const router = Router();
@@ -876,6 +877,7 @@ router.post(
         eq(patients.hospitalId, hospitalId),
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
+        ...consentConditionsFor(flow.channel),
       ];
 
       let needsAppointmentJoin = false;
@@ -1030,21 +1032,24 @@ router.post(
             try {
               const { client, fromEmail } = await getUncachableResendClient();
               const subject = flow.messageSubject || "Nachricht von Ihrer Praxis";
-              const emailPayload: {
-                from: string;
-                to: string;
-                subject: string;
-                html: string;
-              } = {
+              const baseHtml =
+                flow.channel === "html_email"
+                  ? message
+                  : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`;
+              const token = generateUnsubscribeToken(patient.id, hospitalId);
+              const baseUrl = `${req.protocol}://${req.get("host")}`;
+              const htmlWithFooter = appendUnsubscribeFooter(
+                baseHtml,
+                token,
+                baseUrl,
+                "de",
+              );
+              await client.emails.send({
                 from: fromEmail,
                 to: patient.email,
                 subject,
-                html:
-                  flow.channel === "html_email"
-                    ? message
-                    : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`,
-              };
-              await client.emails.send(emailPayload);
+                html: htmlWithFooter,
+              });
               sendSuccess = true;
             } catch (e) {
               logger.error("[flows] email send error:", e);
