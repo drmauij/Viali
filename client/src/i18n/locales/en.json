@@ -1324,6 +1324,8 @@
     "runwayWarningHint": "Below this is critical",
     "runwayLookbackDays": "Usage Analysis Period",
     "runwayLookbackHint": "Days to analyze usage",
+    "admissionOffsetMinutes": "Default admission offset (minutes)",
+    "admissionOffsetHint": "How many minutes before surgery start patients should arrive by default. Used when rescheduling suggests a new admission time.",
     "addLocation": "Add Location",
     "editLocation": "Edit Location",
     "locationName": "Location Name",

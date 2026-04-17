@@ -40,6 +40,7 @@ const updateHospitalSchema = z.object({
   hourFormat: z.enum(["24h", "12h"]).optional(),
   timezone: z.string().optional(),
   defaultLanguage: z.enum(["de", "en"]).optional(),
+  defaultAdmissionOffsetMinutes: z.number().int().min(0).max(1440).optional(),
 });
 
 const updateUnitSchema = z.object({

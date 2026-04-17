@@ -56,6 +56,7 @@ export default function SettingsPage() {
     runwayTargetDays: 14,
     runwayWarningDays: 7,
     runwayLookbackDays: 30,
+    defaultAdmissionOffsetMinutes: 60,
     questionnaireDisabled: false,
     preSurgeryReminderDisabled: false,
     appointmentReminderDisabled: false,
@@ -164,6 +165,7 @@ export default function SettingsPage() {
         runwayTargetDays: fullHospitalData.runwayTargetDays ?? 14,
         runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
+        defaultAdmissionOffsetMinutes: fullHospitalData.defaultAdmissionOffsetMinutes ?? 60,
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
         preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
         appointmentReminderDisabled: fullHospitalData.appointmentReminderDisabled ?? false,
@@ -1155,7 +1157,7 @@ export default function SettingsPage() {
             <TabsContent value="runway" className="mt-4">
               <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
                 <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
                     <Label htmlFor="runway-target-inline">{t("admin.runwayTargetDays")}</Label>
                     <Input
@@ -1194,6 +1196,25 @@ export default function SettingsPage() {
                       data-testid="input-runway-lookback-inline"
                     />
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayLookbackHint")}</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="admission-offset-inline">{t("admin.admissionOffsetMinutes")}</Label>
+                    <Input
+                      id="admission-offset-inline"
+                      type="number"
+                      min={0}
+                      max={1440}
+                      value={hospitalForm.defaultAdmissionOffsetMinutes}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10);
+                        setHospitalForm(prev => ({
+                          ...prev,
+                          defaultAdmissionOffsetMinutes: Number.isNaN(parsed) ? 60 : parsed,
+                        }));
+                      }}
+                      data-testid="input-admission-offset-inline"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.admissionOffsetHint")}</p>
                   </div>
                 </div>
 

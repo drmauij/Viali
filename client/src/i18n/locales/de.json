@@ -1405,6 +1405,8 @@
     "runwayWarningHint": "Darunter ist kritisch",
     "runwayLookbackDays": "Analyse-Zeitraum",
     "runwayLookbackHint": "Tage für Nutzungsanalyse",
+    "admissionOffsetMinutes": "Standard-Eintrittszeit (Minuten)",
+    "admissionOffsetHint": "Wie viele Minuten vor OP-Beginn Patienten standardmässig eintreffen sollen. Wird beim Umplanen für die Vorschlagszeit verwendet.",
     "addLocation": "Standort hinzufügen",
     "editLocation": "Standort bearbeiten",
     "locationName": "Standortname",
