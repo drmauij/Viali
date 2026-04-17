@@ -14,14 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   pickNearestToNow,
-  type LinkableAppointment,
+  type NormalizedAppointmentRow,
 } from "./appointmentLinkHelpers";
 
-export type TodayAppointmentRow = LinkableAppointment & {
-  startTime: string;
-  providerName?: string | null;
-  serviceName?: string | null;
-};
+export type TodayAppointmentRow = NormalizedAppointmentRow;
 
 interface Props {
   open: boolean;
@@ -102,7 +98,7 @@ export function TodayAppointmentDialog({
                   t("treatments.linkAppointmentDialog.generalAppt", "General")}
               </span>
               <Badge variant="secondary" className="text-xs">
-                {a.status}
+                {t(`appointments.status.${a.status}`, a.status)}
               </Badge>
             </Label>
           ))}

@@ -1,5 +1,39 @@
 import { format } from "date-fns";
 
+export const APPOINTMENT_FETCH_STALE_MS = 30_000;
+
+export type ApiAppointment = {
+  id: string;
+  startTime: string;
+  status: string;
+  // joined fields (leftJoin results from the existing endpoint)
+  providerFirstName?: string | null;
+  providerLastName?: string | null;
+  users?: { firstName?: string | null; lastName?: string | null } | null;
+  clinic_services?: { name?: string | null } | null;
+};
+
+export type NormalizedAppointmentRow = {
+  id: string;
+  startTime: string;
+  status: string;
+  providerName: string | null;
+  serviceName: string | null;
+};
+
+export function normalizeApptRow(a: ApiAppointment): NormalizedAppointmentRow {
+  const first = a.users?.firstName ?? a.providerFirstName ?? null;
+  const last = a.users?.lastName ?? a.providerLastName ?? null;
+  const providerName = [first, last].filter(Boolean).join(" ") || null;
+  return {
+    id: a.id,
+    startTime: a.startTime,
+    status: a.status,
+    providerName,
+    serviceName: a.clinic_services?.name ?? null,
+  };
+}
+
 export const LINKABLE_APPOINTMENT_STATUSES = [
   "scheduled",
   "confirmed",

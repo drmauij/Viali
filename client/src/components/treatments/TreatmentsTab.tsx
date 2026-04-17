@@ -20,6 +20,9 @@ import { TodayAppointmentDialog, type TodayAppointmentRow } from "./TodayAppoint
 import {
   filterLinkableAppointments,
   todayLocalDateString,
+  normalizeApptRow,
+  type ApiAppointment,
+  APPOINTMENT_FETCH_STALE_MS,
 } from "./appointmentLinkHelpers";
 import type { Treatment, TreatmentLine } from "@shared/schema";
 
@@ -54,6 +57,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   const [pendingAppointmentId, setPendingAppointmentId] = useState<string | undefined>();
   const [todayDialogOpen, setTodayDialogOpen] = useState(false);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointmentRow[]>([]);
+  const [fetchingAppointments, setFetchingAppointments] = useState(false);
 
   useEffect(() => {
     if (defaultOpenForAppointmentId) {
@@ -126,30 +130,21 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
   }, [treatments]);
 
   const handleNewTreatment = async () => {
+    if (fetchingAppointments) return;
+    setFetchingAppointments(true);
     const today = todayLocalDateString();
     try {
-      const raw = await qc.fetchQuery<any[]>({
+      const raw = await qc.fetchQuery<ApiAppointment[]>({
         queryKey: ["today-appts-for-link", hospitalId, patientId, today],
         queryFn: () =>
           apiRequest(
             "GET",
             `/api/clinic/${hospitalId}/appointments?patientId=${patientId}&startDate=${today}&endDate=${today}`,
           ).then((r) => r.json()),
-        staleTime: 30_000,
+        staleTime: APPOINTMENT_FETCH_STALE_MS,
       });
 
-      const linkable = filterLinkableAppointments(raw).map((a: any) => {
-        const first = a.users?.firstName ?? a.providerFirstName ?? null;
-        const last = a.users?.lastName ?? a.providerLastName ?? null;
-        const providerName = [first, last].filter(Boolean).join(" ") || null;
-        return {
-          id: a.id,
-          startTime: a.startTime,
-          status: a.status,
-          providerName,
-          serviceName: a.clinic_services?.name ?? null,
-        } as TodayAppointmentRow;
-      });
+      const linkable = filterLinkableAppointments(raw).map(normalizeApptRow);
 
       if (linkable.length === 0) {
         setPendingAppointmentId(undefined);
@@ -165,9 +160,10 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
         title: t("treatments.loadAppointmentsFailed", "Could not load appointments"),
         description: err?.message ?? "",
       });
-      // Fail open — let the user proceed without linking
       setPendingAppointmentId(undefined);
       setEditing("new");
+    } finally {
+      setFetchingAppointments(false);
     }
   };
 
@@ -193,7 +189,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
         <h3 className="text-lg font-semibold">
           {t("treatments.title", "Treatments")}
         </h3>
-        <Button onClick={handleNewTreatment} size="sm">
+        <Button onClick={handleNewTreatment} disabled={fetchingAppointments} size="sm">
           <Plus className="h-4 w-4 mr-1" />
           {t("treatments.newTreatment", "New Treatment")}
         </Button>

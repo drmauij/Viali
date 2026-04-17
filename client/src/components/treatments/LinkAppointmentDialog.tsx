@@ -24,18 +24,9 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   filterLinkableAppointments,
   todayLocalDateString,
+  type ApiAppointment,
+  normalizeApptRow,
 } from "./appointmentLinkHelpers";
-
-type ApiAppointment = {
-  id: string;
-  startTime: string;
-  status: string;
-  // joined fields (leftJoin results from the existing endpoint)
-  providerFirstName?: string | null;
-  providerLastName?: string | null;
-  users?: { firstName?: string | null; lastName?: string | null } | null;
-  clinic_services?: { name?: string | null } | null;
-};
 
 interface Props {
   open: boolean;
@@ -43,25 +34,6 @@ interface Props {
   patientId: string;
   hospitalId: string;
   onLink: (appointmentId: string) => void;
-}
-
-function normalizeApptRow(a: ApiAppointment): {
-  id: string;
-  startTime: string;
-  status: string;
-  providerName: string | null;
-  serviceName: string | null;
-} {
-  const first = a.users?.firstName ?? a.providerFirstName ?? null;
-  const last = a.users?.lastName ?? a.providerLastName ?? null;
-  const providerName = [first, last].filter(Boolean).join(" ") || null;
-  return {
-    id: a.id,
-    startTime: a.startTime,
-    status: a.status,
-    providerName,
-    serviceName: a.clinic_services?.name ?? null,
-  };
 }
 
 export function LinkAppointmentDialog({
@@ -181,7 +153,7 @@ export function LinkAppointmentDialog({
                       )}
                   </span>
                   <Badge variant="secondary" className="text-xs">
-                    {a.status}
+                    {t(`appointments.status.${a.status}`, a.status)}
                   </Badge>
                 </Label>
               ))}

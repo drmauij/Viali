@@ -7245,11 +7245,13 @@
     "status": {
       "scheduled": "Geplant",
       "confirmed": "Bestätigt",
+      "arrived": "Eingetroffen",
+      "in_progress": "Läuft",
       "inProgress": "Laufend",
       "completed": "Abgeschlossen",
       "cancelled": "Abgesagt",
-      "noShow": "Nicht erschienen",
-      "arrived": "Eingetroffen"
+      "no_show": "Nicht erschienen",
+      "noShow": "Nicht erschienen"
     },
     "statusLabel": "Status",
     "internalMeeting": "Internes Meeting",
