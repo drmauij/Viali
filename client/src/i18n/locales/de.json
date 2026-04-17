@@ -5357,7 +5357,12 @@
       "setBillable": "Abrechenbar",
       "setNotBillable": "Nicht abrechenbar",
       "duration": "Dauer (Min.)",
-      "durationPlaceholder": "Optional"
+      "durationPlaceholder": "Optional",
+      "bulkMoveToFolder": "In Ordner verschieben",
+      "bulkMoveToFolderSuccess": "{{count}} Dienstleistung(en) verschoben",
+      "bulkMoveToFolderFailed": "Verschieben in Ordner fehlgeschlagen",
+      "folderFilterAll": "Alle Dienstleistungen",
+      "folderFilterNone": "Kein Ordner"
     },
     "appointments": {
       "provider": "Anbieter",
@@ -8107,6 +8112,19 @@
       "link": "Verknüpfen",
       "cancel": "Abbrechen"
     }
+  },
+  "folders": {
+    "title": "Ordner",
+    "allItems": "Alle",
+    "noFolder": "Kein Ordner",
+    "newFolder": "Neuer Ordner",
+    "renameFolder": "Ordner umbenennen",
+    "deleteFolder": "Ordner löschen",
+    "deleteFolderConfirm": "Diesen Ordner löschen? Inhalte werden nach „Kein Ordner“ verschoben.",
+    "folderName": "Ordnername",
+    "emptyFolder": "Keine Einträge in diesem Ordner.",
+    "moveToFolder": "In Ordner verschieben",
+    "moveToRoot": "In Stammordner verschieben"
   },
   "admissionCongruence": {
     "modalTitle": "Eintrittszeit nach Umplanung prüfen",

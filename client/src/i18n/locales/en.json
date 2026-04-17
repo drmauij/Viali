@@ -5276,7 +5276,12 @@
       "setBillable": "Set Billable",
       "setNotBillable": "Set Not Billable",
       "duration": "Duration (min)",
-      "durationPlaceholder": "Optional"
+      "durationPlaceholder": "Optional",
+      "bulkMoveToFolder": "Move to folder",
+      "bulkMoveToFolderSuccess": "{{count}} service(s) moved",
+      "bulkMoveToFolderFailed": "Failed to move services to folder",
+      "folderFilterAll": "All services",
+      "folderFilterNone": "No folder"
     },
     "appointments": {
       "provider": "Provider",
@@ -8090,6 +8095,19 @@
       "link": "Link",
       "cancel": "Cancel"
     }
+  },
+  "folders": {
+    "title": "Folders",
+    "allItems": "All",
+    "noFolder": "No folder",
+    "newFolder": "New folder",
+    "renameFolder": "Rename folder",
+    "deleteFolder": "Delete folder",
+    "deleteFolderConfirm": "Delete this folder? Contents will be moved to no folder.",
+    "folderName": "Folder name",
+    "emptyFolder": "No items in this folder.",
+    "moveToFolder": "Move to folder",
+    "moveToRoot": "Move to root"
   },
   "admissionCongruence": {
     "modalTitle": "Admission time looks wrong after rescheduling",
