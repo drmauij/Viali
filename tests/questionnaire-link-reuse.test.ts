@@ -185,3 +185,127 @@ describe("getRecentSubmittedQuestionnaireLink", () => {
     expect(got).toBeUndefined();
   });
 });
+
+import { resolveQuestionnaireLinkForDispatch } from "../server/services/questionnaire-dispatch";
+import { getQuestionnaireLink } from "../server/storage/questionnaires";
+
+describe("resolveQuestionnaireLinkForDispatch", () => {
+  it("creates a new pending link when no recent submission exists", async () => {
+    const p = await makePatient();
+    const s = await makeSurgery(p.id);
+    const before = (await db.select().from(patientQuestionnaireLinks)).length;
+    const result = await resolveQuestionnaireLinkForDispatch({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: p.id,
+      surgeryId: s.id,
+      surgeryDate: s.plannedDate as Date,
+      validityDays: 90,
+    });
+    createdLinkIds.push(result.link.id);
+    const after = (await db.select().from(patientQuestionnaireLinks)).length;
+    expect(after).toBe(before + 1);
+    expect(result.reused).toBe(false);
+    expect(result.link.status).toBe("pending");
+    expect(result.hasValidQuestionnaire).toBe(false);
+  });
+
+  it("reuses a recent submitted link without creating a new row", async () => {
+    const p = await makePatient();
+    const s = await makeSurgery(p.id);
+    const expiredPast = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const submittedAt = new Date(Date.now() - 26 * 24 * 60 * 60 * 1000);
+    const existing = await makeLink({
+      patientId: p.id,
+      status: "submitted",
+      submittedAt,
+      expiresAt: expiredPast,
+    });
+    const before = (await db.select().from(patientQuestionnaireLinks)).length;
+    const result = await resolveQuestionnaireLinkForDispatch({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: p.id,
+      surgeryId: s.id,
+      surgeryDate: s.plannedDate as Date,
+      validityDays: 90,
+    });
+    const after = (await db.select().from(patientQuestionnaireLinks)).length;
+    expect(after).toBe(before);
+    expect(result.reused).toBe(true);
+    expect(result.link.id).toBe(existing.id);
+    expect(result.link.status).toBe("submitted");
+    expect(result.hasValidQuestionnaire).toBe(true);
+    // Expiry must have been extended past surgery date
+    const refreshed = await getQuestionnaireLink(existing.id);
+    expect(refreshed!.expiresAt!.getTime()).toBeGreaterThan(s.plannedDate!.getTime());
+  });
+
+  it("does not extend expiry if it is already past surgery+14d", async () => {
+    const p = await makePatient();
+    const s = await makeSurgery(p.id);
+    const farFuture = new Date(s.plannedDate!.getTime() + 60 * 24 * 60 * 60 * 1000);
+    const existing = await makeLink({
+      patientId: p.id,
+      status: "submitted",
+      submittedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      expiresAt: farFuture,
+    });
+    await resolveQuestionnaireLinkForDispatch({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: p.id,
+      surgeryId: s.id,
+      surgeryDate: s.plannedDate as Date,
+      validityDays: 90,
+    });
+    const refreshed = await getQuestionnaireLink(existing.id);
+    expect(refreshed!.expiresAt!.getTime()).toBe(farFuture.getTime());
+  });
+
+  it("creates a new pending link when the only submission is older than the validity window", async () => {
+    const p = await makePatient();
+    const s = await makeSurgery(p.id);
+    await makeLink({
+      patientId: p.id,
+      status: "submitted",
+      submittedAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000),
+    });
+    const result = await resolveQuestionnaireLinkForDispatch({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: p.id,
+      surgeryId: s.id,
+      surgeryDate: s.plannedDate as Date,
+      validityDays: 90,
+    });
+    createdLinkIds.push(result.link.id);
+    expect(result.reused).toBe(false);
+    expect(result.link.status).toBe("pending");
+    expect(result.hasValidQuestionnaire).toBe(false);
+  });
+
+  it("running twice for the same surgery is idempotent (no extra rows, no further extension)", async () => {
+    const p = await makePatient();
+    const s = await makeSurgery(p.id);
+    const submittedAt = new Date(Date.now() - 26 * 24 * 60 * 60 * 1000);
+    const existing = await makeLink({
+      patientId: p.id,
+      status: "submitted",
+      submittedAt,
+      expiresAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    });
+    const args = {
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: p.id,
+      surgeryId: s.id,
+      surgeryDate: s.plannedDate as Date,
+      validityDays: 90,
+    };
+    await resolveQuestionnaireLinkForDispatch(args);
+    const afterFirst = await getQuestionnaireLink(existing.id);
+    const before = (await db.select().from(patientQuestionnaireLinks)).length;
+    const result = await resolveQuestionnaireLinkForDispatch(args);
+    const after = (await db.select().from(patientQuestionnaireLinks)).length;
+    expect(after).toBe(before);
+    expect(result.reused).toBe(true);
+    const afterSecond = await getQuestionnaireLink(existing.id);
+    expect(afterSecond!.expiresAt!.getTime()).toBe(afterFirst!.expiresAt!.getTime());
+  });
+});
