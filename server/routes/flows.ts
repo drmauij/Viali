@@ -17,6 +17,8 @@ import logger from "../logger";
 import { z } from "zod";
 import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
+import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
+import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
 import OpenAI from "openai";
 
 const router = Router();
@@ -163,6 +165,7 @@ router.delete(
 // ─── Segment Count ────────────────────────────────────────────
 
 const segmentFilterSchema = z.object({
+  channel: z.enum(["sms", "email", "html_email"]).optional(),
   filters: z.array(
     z.object({
       field: z.enum([
@@ -185,12 +188,13 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { hospitalId } = req.params;
-      const { filters } = segmentFilterSchema.parse(req.body);
+      const { channel, filters } = segmentFilterSchema.parse(req.body);
 
       const baseConditions: any[] = [
         eq(patients.hospitalId, hospitalId),
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
+        ...(channel ? consentConditionsFor(channel) : []),
       ];
 
       let needsAppointmentJoin = false;
@@ -873,6 +877,7 @@ router.post(
         eq(patients.hospitalId, hospitalId),
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
+        ...consentConditionsFor(flow.channel),
       ];
 
       let needsAppointmentJoin = false;
@@ -995,6 +1000,13 @@ router.post(
       let sentCount = 0;
       let failCount = 0;
 
+      // Prefer the explicitly-configured production URL — request-derived URL
+      // would yield http:// without `app.set("trust proxy", ...)` and is also
+      // attacker-influenceable via the Host header.
+      const baseUrl =
+        process.env.PUBLIC_BASE_URL ||
+        `${req.protocol}://${req.get("host")}`;
+
       for (const patient of patientResults) {
         try {
           let message = flow.messageTemplate!;
@@ -1018,7 +1030,9 @@ router.post(
           let sendSuccess = false;
 
           if (flow.channel === "sms" && patient.phone) {
-            const result = await sendSms(patient.phone, message, hospitalId);
+            const token = generateUnsubscribeToken(patient.id, hospitalId);
+            const smsWithFooter = `${message}\n\nAbmelden: ${baseUrl}/unsubscribe/${token}`;
+            const result = await sendSms(patient.phone, smsWithFooter, hospitalId);
             sendSuccess = result.success;
           } else if (
             (flow.channel === "email" || flow.channel === "html_email") &&
@@ -1027,21 +1041,23 @@ router.post(
             try {
               const { client, fromEmail } = await getUncachableResendClient();
               const subject = flow.messageSubject || "Nachricht von Ihrer Praxis";
-              const emailPayload: {
-                from: string;
-                to: string;
-                subject: string;
-                html: string;
-              } = {
+              const baseHtml =
+                flow.channel === "html_email"
+                  ? message
+                  : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`;
+              const token = generateUnsubscribeToken(patient.id, hospitalId);
+              const htmlWithFooter = appendUnsubscribeFooter(
+                baseHtml,
+                token,
+                baseUrl,
+                "de",
+              );
+              await client.emails.send({
                 from: fromEmail,
                 to: patient.email,
                 subject,
-                html:
-                  flow.channel === "html_email"
-                    ? message
-                    : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`,
-              };
-              await client.emails.send(emailPayload);
+                html: htmlWithFooter,
+              });
               sendSuccess = true;
             } catch (e) {
               logger.error("[flows] email send error:", e);

@@ -215,6 +215,24 @@ Each result includes \`platform\` and \`level\` so you can filter on your end wh
 \`\`\`bash
 curl "https://<your-viali-host>/api/webhooks/conversions/YOUR_HOSPITAL_ID?key=YOUR_API_KEY&platform=meta_forms&level=kept&from=2026-01-01&to=2026-04-10"
 \`\`\`
+
+---
+
+## Unsubscribe link
+
+Marketing emails sent via the Flows feature include a one-click unsubscribe link in their footer:
+
+\`\`\`
+GET /unsubscribe/:token[?channel=sms|email|all]
+\`\`\`
+
+- \`token\` is an HMAC-signed value binding a patient id and hospital id, generated server-side and embedded in every marketing email footer. Tokens never expire.
+- \`channel\` is optional; \`all\` (default) turns off both SMS and email marketing for the patient. \`sms\` or \`email\` scopes the unsubscribe to one channel.
+- Returns HTTP 200 + a small German confirmation page on success.
+- Returns HTTP 400 + an error page for invalid or malformed tokens. No authentication header is ever required.
+- Patient records stay intact; only the \`sms_marketing_consent\`, \`email_marketing_consent\`, and \`marketing_unsubscribed_at\` fields change.
+
+This endpoint is intended for end-users (patients) clicking the link from an email — it is not part of the integration API surface.
 `;
 
 export const LLMS_TXT = `# Viali API

@@ -33,6 +33,7 @@ import leadsRouter from "./leads";
 import shiftsRouter from "./shifts";
 import websiteRouter from "./website";
 import flowsRouter from "./flows";
+import marketingUnsubscribeRouter from "./marketingUnsubscribe";
 import publicDocsRouter from "./publicDocs";
 import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
@@ -73,6 +74,7 @@ export function registerDomainRoutes(app: Express) {
   app.use(shiftsRouter);
   app.use(websiteRouter);
   app.use(flowsRouter);
+  app.use(marketingUnsubscribeRouter);
   app.use(publicDocsRouter);
   app.use(treatmentsRouter);
 }
