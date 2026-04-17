@@ -1332,7 +1332,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         continue;
       }
 
-      // Mark this patient as processed before sending (prevents duplicates from concurrent jobs)
+      // Mark this patient as processed within this batch (prevents duplicates when one patient has multiple surgeries)
       processedPatientIds.add(surgery.patientId);
 
       // Reuse a recent submitted/reviewed link if one exists; otherwise create a new pending one.
@@ -1340,7 +1340,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         hospitalId,
         patientId: surgery.patientId,
         surgeryId: surgery.surgeryId,
-        surgeryDate: surgery.plannedDate as Date,
+        surgeryDate: surgery.plannedDate,
         validityDays: QUESTIONNAIRE_VALIDITY_DAYS,
       });
       const newLink = resolved.link;
