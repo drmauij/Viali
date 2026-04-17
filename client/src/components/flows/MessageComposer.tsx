@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/resizable";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -96,8 +96,13 @@ function EmailPreview({
 
 function HtmlEmailPreview({ content }: { content: string }) {
   const { t } = useTranslation();
+  // If the AI returned a full HTML document, render it as-is — wrapping it in
+  // another <body> produces invalid nested documents that render blank.
+  const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(content);
   const srcDoc = content
-    ? `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
+    ? looksLikeFullDoc
+      ? content
+      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
     : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
 
   return (
@@ -217,8 +222,53 @@ function AiChatPanel({
           previousMessages: messages,
         }
       );
-      const data = await res.json();
-      let aiContent = data.message || data.content || "";
+
+      const contentType = res.headers.get("content-type") || "";
+      let aiContent = "";
+
+      if (contentType.includes("text/event-stream") && res.body) {
+        // Streaming path (html_email via Anthropic). Fill the preview as chunks
+        // arrive so the user sees progress instead of staring at a spinner.
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const stripFences = (s: string) =>
+          s.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "");
+        const stripSubject = (s: string) =>
+          s.replace(/^Subject:\s*.+?[\n\r]+/i, "");
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() || "";
+          for (const frame of frames) {
+            const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+            try {
+              const json = JSON.parse(dataLine.slice(6));
+              if (typeof json.text === "string") {
+                aiContent += json.text;
+                // Live-update the preview with a cleaned best-effort view
+                const live = stripSubject(stripFences(aiContent)).trim();
+                if (live) onMessageGenerated(live);
+              } else if (json.error) {
+                throw new Error(String(json.error));
+              }
+            } catch (e) {
+              // If it was a JSON parse failure, ignore; otherwise rethrow
+              if (e instanceof SyntaxError) continue;
+              throw e;
+            }
+          }
+        }
+      } else {
+        const data = await res.json();
+        aiContent = data.message || data.content || "";
+      }
+
       // Strip markdown code fences (```html ... ```)
       aiContent = aiContent.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
       // For email channels, extract subject if AI included one
@@ -229,7 +279,7 @@ function AiChatPanel({
           aiContent = aiContent.replace(/^Subject:\s*.+?[\n\r]+/i, "").trim();
         }
       }
-      // Send full content to preview, but show only a short summary in chat
+      // Send final cleaned content to preview
       if (aiContent) {
         onMessageGenerated(aiContent);
       }
@@ -468,20 +518,55 @@ export default function MessageComposer({
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ESC to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen]);
+
+  const wrapperClass = isFullscreen
+    ? "fixed inset-0 z-50 bg-background p-6 flex flex-col space-y-3 overflow-hidden"
+    : "space-y-3";
+  const aiPaneStyle = isFullscreen
+    ? { flex: "1 1 auto", minHeight: 0 }
+    : { height: "420px" };
 
   return (
-    <div className="space-y-3">
-      <Tabs defaultValue="ai">
-        <TabsList>
-          <TabsTrigger value="ai">{t("flows.compose.tabAi", "AI Chat")}</TabsTrigger>
-          {channel !== "html_email" && (
-            <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
-          )}
-        </TabsList>
+    <div className={wrapperClass}>
+      <Tabs defaultValue="ai" className={isFullscreen ? "flex-1 flex flex-col min-h-0" : undefined}>
+        <div className="flex items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="ai">{t("flows.compose.tabAi", "AI Chat")}</TabsTrigger>
+            {channel !== "html_email" && (
+              <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
+            )}
+          </TabsList>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setIsFullscreen((v) => !v)}
+            aria-label={isFullscreen
+              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
+              : t("flows.compose.enterFullscreen", "Expand to fullscreen")}
+            title={isFullscreen
+              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
+              : t("flows.compose.enterFullscreen", "Expand to fullscreen")}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
 
         {/* AI Chat Tab */}
-        <TabsContent value="ai" className="mt-3">
-          <div className="border rounded-lg overflow-hidden" style={{ height: "420px" }}>
+        <TabsContent value="ai" className={isFullscreen ? "mt-3 flex-1 min-h-0" : "mt-3"}>
+          <div className="border rounded-lg overflow-hidden h-full" style={aiPaneStyle}>
             <ResizablePanelGroup direction="horizontal">
               {/* Chat panel – 40% */}
               <ResizablePanel defaultSize={40} minSize={25}>

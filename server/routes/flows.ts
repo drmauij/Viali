@@ -479,13 +479,15 @@ async function renderScreenshotWithPlaywright(url: string): Promise<Buffer | nul
     const { chromium } = await import("playwright");
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      viewport: { width: 1200, height: 900 },
+      viewport: { width: 1000, height: 700 },
       userAgent:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: "networkidle", timeout: PLAYWRIGHT_TIMEOUT_MS });
-    const buf = await page.screenshot({ type: "png", fullPage: false });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: PLAYWRIGHT_TIMEOUT_MS });
+    // Short settle for above-the-fold paint without waiting for full networkidle
+    await page.waitForTimeout(400);
+    const buf = await page.screenshot({ type: "jpeg", quality: 70, fullPage: false });
     return buf;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -755,7 +757,7 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
                 type: "image",
                 source: {
                   type: "base64",
-                  media_type: "image/png",
+                  media_type: "image/jpeg",
                   data: screenshotBase64,
                 },
               },
@@ -787,7 +789,16 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
           logger.info(`[flows] sending text-only to Claude (${typeof lastContent === "string" ? lastContent.length : "?"} chars)`);
         }
 
-        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        // Stream the Anthropic response to the client via SSE so the preview
+        // fills in progressively instead of blocking for ~90s.
+        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache, no-transform");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+        (res as any).flushHeaders?.();
+
+        const tStream = Date.now();
+        const upstream = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "x-api-key": ANTHROPIC_API_KEY,
@@ -799,20 +810,62 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
             max_tokens: 4096,
             system: systemPrompt,
             messages,
+            stream: true,
           }),
         });
-        if (!resp.ok) {
-          const errText = await resp.text();
-          logger.error(`[flows] Anthropic API ${resp.status}: ${errText.slice(0, 500)}`);
-          throw new Error(`Anthropic API ${resp.status}: ${errText}`);
+        if (!upstream.ok || !upstream.body) {
+          const errText = await upstream.text();
+          logger.error(`[flows] Anthropic API ${upstream.status}: ${errText.slice(0, 500)}`);
+          res.write(`data: ${JSON.stringify({ error: `Anthropic API ${upstream.status}` })}\n\n`);
+          res.end();
+          return;
         }
-        const data = (await resp.json()) as {
-          content: Array<{ type: string; text?: string }>;
-        };
-        responseText = data.content
-          .filter((b) => b.type === "text")
-          .map((b) => b.text)
-          .join("\n");
+
+        const reader = upstream.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let firstChunkAt = 0;
+        let totalChars = 0;
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            // Anthropic SSE frames are separated by blank lines (\n\n)
+            const frames = buffer.split("\n\n");
+            buffer = frames.pop() || "";
+            for (const frame of frames) {
+              for (const line of frame.split("\n")) {
+                if (!line.startsWith("data: ")) continue;
+                const payload = line.slice(6).trim();
+                if (!payload || payload === "[DONE]") continue;
+                try {
+                  const json = JSON.parse(payload);
+                  if (
+                    json.type === "content_block_delta" &&
+                    json.delta?.type === "text_delta" &&
+                    typeof json.delta.text === "string"
+                  ) {
+                    if (!firstChunkAt) firstChunkAt = Date.now();
+                    totalChars += json.delta.text.length;
+                    res.write(`data: ${JSON.stringify({ text: json.delta.text })}\n\n`);
+                  }
+                } catch { /* ignore non-JSON keepalive lines */ }
+              }
+            }
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.error(`[flows] stream error: ${msg}`);
+          res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+        }
+
+        logger.info(
+          `[flows] stream done: first chunk in ${firstChunkAt ? firstChunkAt - tStream : -1}ms, total ${totalChars} chars in ${Date.now() - tStream}ms`
+        );
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+        return;
       } else if (MISTRAL_API_KEY) {
         const client = new OpenAI({
           apiKey: MISTRAL_API_KEY,
