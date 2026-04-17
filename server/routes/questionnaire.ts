@@ -2412,10 +2412,10 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     
     // Get questionnaire status
     const response = await storage.getQuestionnaireResponseByLinkId(link.id);
-    const questionnaireStatus = link.status === 'submitted' 
-      ? 'completed' 
-      : response 
-        ? 'in_progress' 
+    const questionnaireStatus = link.status === 'submitted' || link.status === 'reviewed'
+      ? 'completed'
+      : response
+        ? 'in_progress'
         : 'not_started';
     
     res.json({

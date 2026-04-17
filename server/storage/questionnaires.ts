@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, ne, desc, asc, isNull, inArray } from "drizzle-orm";
+import { eq, and, ne, desc, asc, isNull, inArray, gt, or } from "drizzle-orm";
 import {
   patientQuestionnaireLinks,
   patientQuestionnaireResponses,
@@ -73,6 +73,37 @@ export async function updateQuestionnaireLink(id: string, updates: Partial<Patie
     .where(eq(patientQuestionnaireLinks.id, id))
     .returning();
   return updated;
+}
+
+/**
+ * Returns the most recently submitted (or reviewed) questionnaire link for a
+ * patient at a hospital, IF its submission timestamp is within `validityDays`
+ * of now. Used by the auto-dispatch worker to decide whether to reuse an
+ * existing link instead of creating a fresh pending one.
+ */
+export async function getRecentSubmittedQuestionnaireLink(
+  hospitalId: string,
+  patientId: string,
+  validityDays: number,
+): Promise<PatientQuestionnaireLink | undefined> {
+  const cutoff = new Date(Date.now() - validityDays * 24 * 60 * 60 * 1000);
+  const [link] = await db
+    .select()
+    .from(patientQuestionnaireLinks)
+    .where(
+      and(
+        eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+        eq(patientQuestionnaireLinks.patientId, patientId),
+        or(
+          eq(patientQuestionnaireLinks.status, "submitted"),
+          eq(patientQuestionnaireLinks.status, "reviewed"),
+        ),
+        gt(patientQuestionnaireLinks.submittedAt, cutoff),
+      ),
+    )
+    .orderBy(desc(patientQuestionnaireLinks.submittedAt))
+    .limit(1);
+  return link;
 }
 
 export async function invalidateQuestionnaireLink(id: string): Promise<void> {
