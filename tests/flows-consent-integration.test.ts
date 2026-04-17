@@ -92,6 +92,7 @@ describe("POST /api/business/:hospitalId/flows/segment-count with consent", () =
     const text = extractSqlStrings(capturedWhereArgs[0]);
     expect(text).toContain("sms_marketing_consent");
     expect(text).toContain("marketing_unsubscribed_at");
+    expect(text).not.toContain("email_marketing_consent");
   });
 
   it("includes email consent conditions when channel=html_email", async () => {
@@ -102,6 +103,7 @@ describe("POST /api/business/:hospitalId/flows/segment-count with consent", () =
     expect(res.status).toBe(200);
     const text = extractSqlStrings(capturedWhereArgs[0]);
     expect(text).toContain("email_marketing_consent");
+    expect(text).not.toContain("sms_marketing_consent");
   });
 
   it("omits consent conditions when channel is absent", async () => {
@@ -111,6 +113,9 @@ describe("POST /api/business/:hospitalId/flows/segment-count with consent", () =
       .send({ filters: [] });
     expect(res.status).toBe(200);
     const text = extractSqlStrings(capturedWhereArgs[0]);
+    // Guard against silent walker failure: if extractSqlStrings returns "",
+    // the .not.toContain checks below would pass for the wrong reason.
+    expect(text.length).toBeGreaterThan(0);
     expect(text).not.toContain("sms_marketing_consent");
     expect(text).not.toContain("email_marketing_consent");
   });
