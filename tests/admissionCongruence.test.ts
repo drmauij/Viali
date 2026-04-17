@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkAdmissionCongruence } from "../shared/admissionCongruence";
+import { checkAdmissionCongruence, applyServerAdmissionFallback } from "../shared/admissionCongruence";
 
 const TZ = "Europe/Zurich";
 
@@ -98,5 +98,54 @@ describe("checkAdmissionCongruence", () => {
       hospitalTimeZone: TZ,
     });
     expect(result.reason).not.toBe("wrongDay");
+  });
+});
+
+describe("applyServerAdmissionFallback", () => {
+  const TZ = "Europe/Zurich";
+
+  it("shifts admission when plannedDate moves to a new day and body omits admissionTime", () => {
+    const updated = applyServerAdmissionFallback({
+      bodyHasAdmissionTimeKey: false,
+      newPlannedDate: d("2026-05-02T08:30:00+02:00"),
+      storedAdmissionTime: d("2026-05-01T12:00:00+02:00"),
+      defaultOffsetMinutes: 60,
+      hospitalTimeZone: TZ,
+    });
+    expect(updated).not.toBeNull();
+    expect(updated!.toISOString()).toBe(d("2026-05-02T07:30:00+02:00").toISOString());
+  });
+
+  it("returns null when body explicitly includes admissionTime", () => {
+    const updated = applyServerAdmissionFallback({
+      bodyHasAdmissionTimeKey: true,
+      newPlannedDate: d("2026-05-02T08:30:00+02:00"),
+      storedAdmissionTime: d("2026-05-01T12:00:00+02:00"),
+      defaultOffsetMinutes: 60,
+      hospitalTimeZone: TZ,
+    });
+    expect(updated).toBeNull();
+  });
+
+  it("returns null when stored admission is null", () => {
+    const updated = applyServerAdmissionFallback({
+      bodyHasAdmissionTimeKey: false,
+      newPlannedDate: d("2026-05-02T08:30:00+02:00"),
+      storedAdmissionTime: null,
+      defaultOffsetMinutes: 60,
+      hospitalTimeZone: TZ,
+    });
+    expect(updated).toBeNull();
+  });
+
+  it("returns null when plannedDate stays on the same local day", () => {
+    const updated = applyServerAdmissionFallback({
+      bodyHasAdmissionTimeKey: false,
+      newPlannedDate: d("2026-05-01T08:30:00+02:00"),
+      storedAdmissionTime: d("2026-05-01T12:00:00+02:00"),
+      defaultOffsetMinutes: 60,
+      hospitalTimeZone: TZ,
+    });
+    expect(updated).toBeNull();
   });
 });

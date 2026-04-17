@@ -55,3 +55,31 @@ export function checkAdmissionCongruence(
 
   return { severity: "none", reason: "none", suggestedAdmission };
 }
+
+export interface ServerAdmissionFallbackInput {
+  bodyHasAdmissionTimeKey: boolean;
+  newPlannedDate: Date;
+  storedAdmissionTime: Date | null;
+  defaultOffsetMinutes: number;
+  hospitalTimeZone: string;
+}
+
+/**
+ * Returns a shifted admission Date when the caller changed plannedDate to a
+ * new local day without sending a new admissionTime. Returns null otherwise.
+ * Explicit caller intent (admissionTime present as a key, even null) always wins.
+ */
+export function applyServerAdmissionFallback(
+  input: ServerAdmissionFallbackInput,
+): Date | null {
+  const { bodyHasAdmissionTimeKey, newPlannedDate, storedAdmissionTime, defaultOffsetMinutes, hospitalTimeZone } = input;
+
+  if (bodyHasAdmissionTimeKey) return null;
+  if (!storedAdmissionTime) return null;
+
+  if (localDayKey(storedAdmissionTime, hospitalTimeZone) === localDayKey(newPlannedDate, hospitalTimeZone)) {
+    return null;
+  }
+
+  return new Date(newPlannedDate.getTime() - defaultOffsetMinutes * 60 * 1000);
+}

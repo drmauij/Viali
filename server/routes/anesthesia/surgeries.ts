@@ -17,6 +17,7 @@ import { eq, ilike, or, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { requireWriteAccess, requireStrictHospitalAccess, requireSurgeryPlanAccess, userHasPermission } from "../../utils";
 import logger from "../../logger";
+import { maybeShiftAdmissionTime } from "./surgeryAdmissionFallback";
 
 const router = Router();
 
@@ -375,6 +376,21 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'clinicRoomId') && req.body.clinicRoomId) {
       updateData.pacuBedId = null;
+    }
+
+    if (updateData.plannedDate instanceof Date) {
+      const hospital = await storage.getHospital(surgery.hospitalId);
+      if (hospital) {
+        const { shifted } = maybeShiftAdmissionTime({
+          reqBody: req.body,
+          updateData,
+          storedSurgery: surgery,
+          hospital,
+        });
+        if (shifted) {
+          logger.info(`[surgeries.PATCH] Auto-shifted admission time for surgery ${id} (old day ≠ new day)`);
+        }
+      }
     }
 
     if (updateData.isSuspended === true && !surgery.isSuspended) {
