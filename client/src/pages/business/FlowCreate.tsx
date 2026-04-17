@@ -234,7 +234,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 1 — Segment */}
       <BookingSection
         status={sectionStatus("segment")}
-        isDark={true}
+        isDark={false}
         summary={{
           icon: <Users className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.segment.title", "Target Audience"),
@@ -265,7 +265,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 2 — Channel */}
       <BookingSection
         status={sectionStatus("channel")}
-        isDark={true}
+        isDark={false}
         summary={{
           icon: <Radio className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.channel.label", "Channel"),
@@ -282,7 +282,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 3 — Compose */}
       <BookingSection
         status={sectionStatus("compose")}
-        isDark={true}
+        isDark={false}
         summary={{
           icon: <MessageSquare className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.compose.label", "Message"),
@@ -320,7 +320,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 4 — Offer */}
       <BookingSection
         status={sectionStatus("offer")}
-        isDark={true}
+        isDark={false}
         summary={{
           icon: <Tag className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.offer.label", "Offer"),
@@ -348,7 +348,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       {/* 5 — Review + Send */}
       <BookingSection
         status={sectionStatus("review")}
-        isDark={true}
+        isDark={false}
         summary={{
           icon: <Send className="h-4 w-4 text-muted-foreground" />,
           label: t("flows.review.label", "Send"),
