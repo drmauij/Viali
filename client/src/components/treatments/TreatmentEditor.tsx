@@ -23,6 +23,9 @@ import { TreatmentLineDialog } from "./TreatmentLineDialog";
 import { TreatmentPalette } from "./TreatmentPalette";
 import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
 import { HistorySummaryCard } from "./HistorySummaryCard";
+import { NoAppointmentBanner } from "./NoAppointmentBanner";
+import { LinkAppointmentDialog } from "./LinkAppointmentDialog";
+import { isTreatmentLocked } from "./appointmentLinkHelpers";
 import SignaturePad from "@/components/SignaturePad";
 import type { Treatment, TreatmentLine, TreatmentItemConfig } from "@shared/schema";
 
@@ -40,7 +43,7 @@ export function TreatmentEditor({
   patientId,
   hospitalId,
   unitId,
-  appointmentId,
+  appointmentId: initialAppointmentId,
   existing,
   onSaved,
   onCancel,
@@ -48,6 +51,11 @@ export function TreatmentEditor({
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const [appointmentId, setAppointmentId] = useState<string | null>(
+    existing?.appointmentId ?? initialAppointmentId ?? null,
+  );
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   // Form state
   const [performedAt, setPerformedAt] = useState<Date>(
@@ -345,11 +353,27 @@ export function TreatmentEditor({
     });
   };
 
-  const isLocked =
-    existing?.status === "signed" || existing?.status === "invoiced";
+  const isLocked = isTreatmentLocked(existing?.status);
 
   return (
     <div className="space-y-4">
+      {appointmentId == null && (
+        <NoAppointmentBanner
+          treatmentStatus={existing?.status}
+          onLinkClick={() => setLinkDialogOpen(true)}
+        />
+      )}
+      <LinkAppointmentDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        patientId={patientId}
+        hospitalId={hospitalId}
+        onLink={(id) => {
+          setAppointmentId(id);
+          setLinkDialogOpen(false);
+        }}
+      />
+
       {/* History summary */}
       {history.length > 0 && (
         <HistorySummaryCard

@@ -57,7 +57,13 @@ export function todayLocalDateString(now: Date = new Date()): string {
   return format(now, "yyyy-MM-dd");
 }
 
+export const BANNER_ACTIONABLE_STATUSES = ["draft", "amended"] as const;
+
 export function canActOnBanner(status?: string): boolean {
   if (!status) return true;
-  return status === "draft" || status === "amended";
+  return (BANNER_ACTIONABLE_STATUSES as readonly string[]).includes(status);
+}
+
+export function isTreatmentLocked(status?: string): boolean {
+  return status === "signed" || status === "invoiced";
 }

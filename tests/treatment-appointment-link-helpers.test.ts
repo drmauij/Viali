@@ -5,6 +5,7 @@ import {
   pickNearestToNow,
   todayLocalDateString,
   canActOnBanner,
+  isTreatmentLocked,
 } from "../client/src/components/treatments/appointmentLinkHelpers";
 
 type Appt = { id: string; startTime: string; status: string };
@@ -78,5 +79,28 @@ describe("canActOnBanner", () => {
   });
   it("allows undefined (new treatment — no status yet)", () => {
     expect(canActOnBanner(undefined)).toBe(true);
+  });
+});
+
+describe("isTreatmentLocked", () => {
+  it("locks signed and invoiced", () => {
+    expect(isTreatmentLocked("signed")).toBe(true);
+    expect(isTreatmentLocked("invoiced")).toBe(true);
+  });
+  it("does not lock draft, amended, or undefined", () => {
+    expect(isTreatmentLocked("draft")).toBe(false);
+    expect(isTreatmentLocked("amended")).toBe(false);
+    expect(isTreatmentLocked(undefined)).toBe(false);
+  });
+});
+
+describe("pickNearestToNow tie-breaking", () => {
+  it("returns the first equidistant appointment in input order", () => {
+    const appts = [
+      { id: "a", startTime: "09:00", status: "scheduled" },
+      { id: "b", startTime: "14:00", status: "scheduled" },
+    ];
+    const now = new Date("2026-04-17T11:30:00"); // 150 min from each
+    expect(pickNearestToNow(appts, now)?.id).toBe("a");
   });
 });
