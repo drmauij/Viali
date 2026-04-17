@@ -1405,6 +1405,8 @@
     "runwayWarningHint": "Darunter ist kritisch",
     "runwayLookbackDays": "Analyse-Zeitraum",
     "runwayLookbackHint": "Tage für Nutzungsanalyse",
+    "inventoryTab": "Lager",
+    "inventoryTabDescription": "Bestandsalarme und die Einheit, aus der das Behandlungsmodul die Produkte lädt.",
     "admissionOffsetMinutes": "Standard-Eintrittszeit (Minuten)",
     "admissionOffsetHint": "Wie viele Minuten vor OP-Beginn Patienten standardmässig eintreffen sollen. Wird beim Umplanen für die Vorschlagszeit verwendet.",
     "treatmentInventorySource": "Lagerquelle für Behandlungen",

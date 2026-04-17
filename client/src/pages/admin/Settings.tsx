@@ -774,8 +774,8 @@ export default function SettingsPage() {
                 {t("admin.regionalPreferences", "Regional Preferences")}
               </TabsTrigger>
               <TabsTrigger value="runway">
-                <i className="fas fa-chart-line mr-2"></i>
-                {t("admin.stockRunwayAlerts", "Stock Runway Alerts")}
+                <i className="fas fa-boxes-stacked mr-2"></i>
+                {t("admin.inventoryTab", "Inventory")}
               </TabsTrigger>
             </TabsList>
 
@@ -1155,10 +1155,10 @@ export default function SettingsPage() {
               </div>
             </TabsContent>
 
-            {/* Stock Runway Alerts Sub-Tab */}
+            {/* Inventory Sub-Tab */}
             <TabsContent value="runway" className="mt-4">
               <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
-                <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
+                <p className="text-sm text-muted-foreground mb-4">{t("admin.inventoryTabDescription")}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
                     <Label htmlFor="runway-target-inline">{t("admin.runwayTargetDays")}</Label>

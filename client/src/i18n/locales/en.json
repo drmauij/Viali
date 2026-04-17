@@ -1324,6 +1324,8 @@
     "runwayWarningHint": "Below this is critical",
     "runwayLookbackDays": "Usage Analysis Period",
     "runwayLookbackHint": "Days to analyze usage",
+    "inventoryTab": "Inventory",
+    "inventoryTabDescription": "Stock alert thresholds and the unit whose inventory feeds the Treatment module.",
     "admissionOffsetMinutes": "Default admission offset (minutes)",
     "admissionOffsetHint": "How many minutes before surgery start patients should arrive by default. Used when rescheduling suggests a new admission time.",
     "treatmentInventorySource": "Treatment inventory source",
