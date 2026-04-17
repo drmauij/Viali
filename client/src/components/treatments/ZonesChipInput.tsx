@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +24,7 @@ export function ZonesChipInput({
   suggestions = [],
   placeholder,
 }: Props) {
+  const { t } = useTranslation();
   const [text, setText] = useState("");
 
   const filtered = useMemo(
@@ -62,7 +64,7 @@ export function ZonesChipInput({
       </div>
       <Command className="border rounded-md">
         <CommandInput
-          placeholder={placeholder ?? "Add zone…"}
+          placeholder={placeholder ?? t("treatments.addZone", "Add zone…")}
           value={text}
           onValueChange={setText}
           onKeyDown={(e) => {
@@ -75,7 +77,7 @@ export function ZonesChipInput({
         <CommandList>
           {filtered.length === 0 && text && (
             <CommandItem onSelect={() => addZone(text)}>
-              Add &quot;{text}&quot;
+              {t("treatments.addValue", "Add \"{{value}}\"", { value: text })}
             </CommandItem>
           )}
           {filtered.map((s) => (
@@ -84,7 +86,7 @@ export function ZonesChipInput({
             </CommandItem>
           ))}
           {filtered.length === 0 && !text && (
-            <CommandEmpty>Type to search or add…</CommandEmpty>
+            <CommandEmpty>{t("treatments.typeToSearchOrAdd", "Type to search or add…")}</CommandEmpty>
           )}
         </CommandList>
       </Command>
