@@ -35,6 +35,7 @@ import websiteRouter from "./website";
 import flowsRouter from "./flows";
 import publicDocsRouter from "./publicDocs";
 import { registerMarketingAiRoutes } from "./marketingAi";
+import treatmentsRouter from "./treatments";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -73,4 +74,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(websiteRouter);
   app.use(flowsRouter);
   app.use(publicDocsRouter);
+  app.use(treatmentsRouter);
 }

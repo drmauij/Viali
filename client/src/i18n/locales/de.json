@@ -7996,5 +7996,35 @@
         "sortOrder": "Sortierung"
       }
     }
+  },
+  "treatments": {
+    "tab": "Behandlungen",
+    "newTreatment": "Neue Behandlung",
+    "startTreatment": "Behandlung starten",
+    "title": "Behandlung",
+    "previousTreatments": "Frühere Behandlungen",
+    "addLine": "Position hinzufügen",
+    "saveDraft": "Entwurf speichern",
+    "signAndLock": "Signieren & sperren",
+    "createInvoice": "Rechnung erstellen",
+    "openInvoice": "Rechnung öffnen",
+    "amend": "Ändern",
+    "fields": {
+      "service": "Anwendung",
+      "item": "Präparat",
+      "lot": "Charge",
+      "dose": "Dosis",
+      "doseUnit": "Einheit",
+      "zones": "Zonen",
+      "notes": "Besonderheiten",
+      "unitPrice": "Einzelpreis",
+      "total": "Gesamt"
+    },
+    "status": {
+      "draft": "Entwurf",
+      "signed": "Signiert",
+      "invoiced": "Verrechnet",
+      "amended": "Geändert"
+    }
   }
 }

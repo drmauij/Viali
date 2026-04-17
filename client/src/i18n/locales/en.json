@@ -7979,5 +7979,35 @@
         "sortOrder": "Sort order"
       }
     }
+  },
+  "treatments": {
+    "tab": "Treatments",
+    "newTreatment": "New Treatment",
+    "startTreatment": "Start Treatment",
+    "title": "Treatment",
+    "previousTreatments": "Previous treatments",
+    "addLine": "Add line",
+    "saveDraft": "Save Draft",
+    "signAndLock": "Sign & Lock",
+    "createInvoice": "Create Invoice",
+    "openInvoice": "Open Invoice",
+    "amend": "Amend",
+    "fields": {
+      "service": "Service (Anwendung)",
+      "item": "Product (Präparat)",
+      "lot": "Lot / Charge",
+      "dose": "Dose",
+      "doseUnit": "Unit",
+      "zones": "Zones",
+      "notes": "Notes",
+      "unitPrice": "Unit price",
+      "total": "Total"
+    },
+    "status": {
+      "draft": "Draft",
+      "signed": "Signed",
+      "invoiced": "Invoiced",
+      "amended": "Amended"
+    }
   }
 }
