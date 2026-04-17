@@ -860,11 +860,18 @@ export const patients = pgTable("patients", {
   isArchived: boolean("is_archived").default(false).notNull(),
   archivedAt: timestamp("archived_at"),
   archivedBy: varchar("archived_by").references(() => users.id),
+
+  // Marketing consent (opt-out model — existing patients default to reachable,
+  // flipped false when patient unsubscribes). See docs/superpowers/plans/2026-04-16-flows-compliance-foundation.md
+  smsMarketingConsent: boolean("sms_marketing_consent").default(true).notNull(),
+  emailMarketingConsent: boolean("email_marketing_consent").default(true).notNull(),
+  marketingUnsubscribedAt: timestamp("marketing_unsubscribed_at"),
 }, (table) => [
   index("idx_patients_hospital").on(table.hospitalId),
   index("idx_patients_surname").on(table.surname),
   index("idx_patients_number").on(table.hospitalId, table.patientNumber),
   index("idx_patients_archived").on(table.isArchived),
+  index("idx_patients_marketing_consent").on(table.hospitalId, table.smsMarketingConsent, table.emailMarketingConsent),
 ]);
 
 // Patient Documents - Staff-uploaded files for patients (separate from questionnaire uploads)
