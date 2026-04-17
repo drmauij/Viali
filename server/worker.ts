@@ -8,6 +8,7 @@ import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from './sms';
+import { resolveQuestionnaireLinkForDispatch } from "./services/questionnaire-dispatch";
 import logger from "./logger";
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
@@ -1313,13 +1314,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     }
     
     try {
-      // Direct check: verify no existing link for this patient+hospital (catches race conditions
-      // and links created manually where emailSent/smsSent flags might not be set)
+      // Skip entirely if there's an active pending/started link — notification was already sent.
       const existingLinks = await storage.getQuestionnaireLinksForPatient(surgery.patientId);
-      const validityDate = new Date();
-      validityDate.setDate(validityDate.getDate() - QUESTIONNAIRE_VALIDITY_DAYS);
-
-      // Active pending link means notification was already sent and not yet filled — skip entirely
       const hasActivePendingLink = existingLinks.some(l =>
         l.hospitalId === hospitalId &&
         (l.status === 'pending' || l.status === 'started') &&
@@ -1336,35 +1332,22 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         continue;
       }
 
-      // Submitted/reviewed links only count as valid if within 90 days
-      const hasRecentSubmittedLink = existingLinks.some(l =>
-        l.hospitalId === hospitalId &&
-        (l.status === 'submitted' || l.status === 'reviewed') &&
-        l.submittedAt && new Date(l.submittedAt) > validityDate
-      );
-      if (hasRecentSubmittedLink && !hasValidQuestionnaire) {
-        hasValidQuestionnaire = true;
-        logger.info(`[Worker] ${patientName} has recently submitted questionnaire link - will send portal-only notification`);
-      }
-
       // Mark this patient as processed before sending (prevents duplicates from concurrent jobs)
       processedPatientIds.add(surgery.patientId);
 
-      // Generate a questionnaire link
-      const linkToken = randomUUID();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 14); // 14 day expiry
-      
-      // Create the questionnaire link
-      const newLink = await storage.createQuestionnaireLink({
+      // Reuse a recent submitted/reviewed link if one exists; otherwise create a new pending one.
+      const resolved = await resolveQuestionnaireLinkForDispatch({
         hospitalId,
         patientId: surgery.patientId,
         surgeryId: surgery.surgeryId,
-        token: linkToken,
-        expiresAt,
-        status: 'pending',
-        language: 'de',
+        surgeryDate: surgery.plannedDate as Date,
+        validityDays: QUESTIONNAIRE_VALIDITY_DAYS,
       });
+      const newLink = resolved.link;
+      const linkToken = resolved.link.token;
+      if (resolved.hasValidQuestionnaire) {
+        hasValidQuestionnaire = true;
+      }
       
       // Get relevant info flyers for this surgery (surgery room unit + anesthesia module)
       const flyers = await getRelevantInfoFlyers(hospitalId, surgery.surgeryRoomId);
