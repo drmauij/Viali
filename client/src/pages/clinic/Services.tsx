@@ -92,6 +92,8 @@ export default function ClinicServices() {
   const [bulkProviderIds, setBulkProviderIds] = useState<string[]>([]);
   const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false);
   const [bulkGroupValue, setBulkGroupValue] = useState<string[]>([]);
+  const [bulkFolderDialogOpen, setBulkFolderDialogOpen] = useState(false);
+  const [bulkFolderTargetId, setBulkFolderTargetId] = useState<string | "none">("none");
 
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
 
@@ -381,6 +383,43 @@ export default function ClinicServices() {
     },
     onError: () => {
       toast({ title: t('common.error'), variant: "destructive" });
+    },
+  });
+
+  const bulkMoveToFolderMutation = useMutation({
+    mutationFn: async () => {
+      const folderId = bulkFolderTargetId === "none" ? null : bulkFolderTargetId;
+      const selected = Array.from(selectedServices);
+      const res = await apiRequest(
+        "POST",
+        `/api/clinic/${hospitalId}/services/bulk-move-to-folder`,
+        { serviceIds: selected, folderId },
+      );
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      if (folderAdapter) {
+        queryClient.invalidateQueries({ queryKey: folderAdapter.foldersQueryKey });
+      }
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      setBulkFolderDialogOpen(false);
+      setBulkFolderTargetId("none");
+      toast({
+        title: t(
+          "clinic.services.bulkMoveToFolderSuccess",
+          `${data.movedCount || 0} service(s) moved`,
+          { count: data.movedCount || 0 },
+        ),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: t("clinic.services.bulkMoveToFolderFailed", "Failed to move services to folder"),
+        description: error.message,
+      });
     },
   });
 
@@ -687,6 +726,15 @@ export default function ClinicServices() {
               data-testid="button-bulk-update-group"
             >
               Update Group ({selectedServices.size})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkFolderDialogOpen(true)}
+              disabled={selectedServices.size === 0}
+              data-testid="button-bulk-move-to-folder"
+            >
+              {t("clinic.services.bulkMoveToFolder", "Move to folder")}
             </Button>
             <Button
               variant="ghost"
@@ -1214,6 +1262,45 @@ export default function ClinicServices() {
               disabled={bulkGroupValue.length === 0 || bulkUpdateGroupMutation.isPending}
             >
               Set Groups
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Move to Folder Dialog */}
+      <Dialog open={bulkFolderDialogOpen} onOpenChange={setBulkFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("clinic.services.bulkMoveToFolder", "Move to folder")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>{t("folders.moveToFolder", "Move to folder")}</Label>
+            <Select
+              value={bulkFolderTargetId}
+              onValueChange={(v) => setBulkFolderTargetId(v as string | "none")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("folders.moveToRoot", "Move to root")}</SelectItem>
+                {folders.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkFolderDialogOpen(false)}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button
+              disabled={bulkMoveToFolderMutation.isPending}
+              onClick={() => bulkMoveToFolderMutation.mutate()}
+            >
+              {t("common.move", "Move")}
             </Button>
           </DialogFooter>
         </DialogContent>
