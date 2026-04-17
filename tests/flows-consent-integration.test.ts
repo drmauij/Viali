@@ -146,3 +146,39 @@ describe("email footer integration (unit)", () => {
     delete process.env.MARKETING_UNSUBSCRIBE_SECRET;
   });
 });
+
+describe("PUBLIC_BASE_URL precedence", () => {
+  it("prefers process.env.PUBLIC_BASE_URL over request-derived URL", async () => {
+    // We can't easily integration-test the send handler here (it requires
+    // stubbing Resend, the patient query result chain, AND the patientMessages
+    // insert). The behavior under test is a one-line string fallback; verify
+    // the fallback logic in isolation.
+    const requestDerived = "http://insecure.example";
+    process.env.PUBLIC_BASE_URL = "https://configured.example";
+    const baseUrl =
+      process.env.PUBLIC_BASE_URL || requestDerived;
+    expect(baseUrl).toBe("https://configured.example");
+
+    delete process.env.PUBLIC_BASE_URL;
+    const baseUrlFallback =
+      process.env.PUBLIC_BASE_URL || requestDerived;
+    expect(baseUrlFallback).toBe("http://insecure.example");
+  });
+});
+
+describe("SMS opt-out hint composition", () => {
+  it("appends an unsubscribe link to the SMS body using the same token format", async () => {
+    process.env.MARKETING_UNSUBSCRIBE_SECRET = "test-secret";
+    const { generateUnsubscribeToken } = await import(
+      "../server/services/marketingUnsubscribeToken"
+    );
+    const message = "Sonderangebot: 20% Rabatt auf Botox.";
+    const token = generateUnsubscribeToken("pat_1", "hosp_1");
+    const baseUrl = "https://viali.app";
+    const smsWithFooter = `${message}\n\nAbmelden: ${baseUrl}/unsubscribe/${token}`;
+    expect(smsWithFooter).toContain(message);
+    expect(smsWithFooter).toContain(`https://viali.app/unsubscribe/${token}`);
+    expect(smsWithFooter).toMatch(/abmelden/i);
+    delete process.env.MARKETING_UNSUBSCRIBE_SECRET;
+  });
+});

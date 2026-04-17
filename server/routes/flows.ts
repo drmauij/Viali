@@ -1000,6 +1000,13 @@ router.post(
       let sentCount = 0;
       let failCount = 0;
 
+      // Prefer the explicitly-configured production URL — request-derived URL
+      // would yield http:// without `app.set("trust proxy", ...)` and is also
+      // attacker-influenceable via the Host header.
+      const baseUrl =
+        process.env.PUBLIC_BASE_URL ||
+        `${req.protocol}://${req.get("host")}`;
+
       for (const patient of patientResults) {
         try {
           let message = flow.messageTemplate!;
@@ -1023,7 +1030,9 @@ router.post(
           let sendSuccess = false;
 
           if (flow.channel === "sms" && patient.phone) {
-            const result = await sendSms(patient.phone, message, hospitalId);
+            const token = generateUnsubscribeToken(patient.id, hospitalId);
+            const smsWithFooter = `${message}\n\nAbmelden: ${baseUrl}/unsubscribe/${token}`;
+            const result = await sendSms(patient.phone, smsWithFooter, hospitalId);
             sendSuccess = result.success;
           } else if (
             (flow.channel === "email" || flow.channel === "html_email") &&
@@ -1037,7 +1046,6 @@ router.post(
                   ? message
                   : `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;"><p style="white-space:pre-wrap;line-height:1.6;">${message}</p></div>`;
               const token = generateUnsubscribeToken(patient.id, hospitalId);
-              const baseUrl = `${req.protocol}://${req.get("host")}`;
               const htmlWithFooter = appendUnsubscribeFooter(
                 baseHtml,
                 token,
