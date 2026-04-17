@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import type { PatientQuestionnaireLink } from "@shared/schema";
 
 const POSTOP_BUFFER_DAYS = 14;
+const PENDING_LINK_VALIDITY_DAYS = 14;
 
 export interface ResolveLinkArgs {
   hospitalId: string;
@@ -60,7 +61,9 @@ export async function resolveQuestionnaireLinkForDispatch(
     return { link, reused: true, hasValidQuestionnaire: true };
   }
 
-  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(
+    Date.now() + PENDING_LINK_VALIDITY_DAYS * 24 * 60 * 60 * 1000,
+  );
   const newLink = await storage.createQuestionnaireLink({
     hospitalId,
     patientId,
