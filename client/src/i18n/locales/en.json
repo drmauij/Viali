@@ -7981,5 +7981,20 @@
         "sortOrder": "Sort order"
       }
     }
+  },
+  "admissionCongruence": {
+    "modalTitle": "Admission time looks wrong after rescheduling",
+    "reasonAfterStart": "The saved admission time is now after the new surgery start.",
+    "reasonWrongDay": "The saved admission time is on a different day than the new surgery start.",
+    "currentLabel": "Current admission time",
+    "newStartLabel": "New surgery start",
+    "suggestedLabel": "Suggested admission time",
+    "customLabel": "Custom admission time",
+    "useSuggested": "Use suggested",
+    "saveCustom": "Save custom",
+    "keepCurrent": "Keep current anyway",
+    "cancel": "Cancel",
+    "toastDrifted": "Surgery moved. Admission time may be off.",
+    "toastAdjustButton": "Adjust"
   }
 }
