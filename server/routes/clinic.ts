@@ -1092,6 +1092,14 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       }
     }
 
+    // Validate folderId belongs to this hospital (null = remove from folder, allowed without check)
+    if (folderId !== undefined && folderId !== null && folderId !== '') {
+      const folder = await storage.getServiceFolder(folderId);
+      if (!folder || folder.hospitalId !== hospitalId) {
+        return res.status(400).json({ message: "Invalid folderId for hospital" });
+      }
+    }
+
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;

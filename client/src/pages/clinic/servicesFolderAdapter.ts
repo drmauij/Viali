@@ -3,7 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export function buildServicesFolderAdapter(hospitalId: string, unitId: string): FolderAdapter {
   const foldersQueryKey = ["service-folders", hospitalId, unitId] as const;
-  const itemsQueryKey = [`/api/clinic/${hospitalId}/services`, unitId] as const;
+  const itemsQueryKey = ['/api/clinic', hospitalId, 'services', unitId] as const;
   return {
     foldersQueryKey,
     itemsQueryKey,
