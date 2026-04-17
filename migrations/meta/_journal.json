@@ -1555,6 +1555,13 @@
       "when": 1777400000000,
       "tag": "0221_patient_marketing_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1777500000000,
+      "tag": "0222_hospital_admission_offset",
+      "breakpoints": true
     }
   ]
 }

@@ -1405,6 +1405,8 @@
     "runwayWarningHint": "Darunter ist kritisch",
     "runwayLookbackDays": "Analyse-Zeitraum",
     "runwayLookbackHint": "Tage für Nutzungsanalyse",
+    "admissionOffsetMinutes": "Standard-Eintrittszeit (Minuten)",
+    "admissionOffsetHint": "Wie viele Minuten vor OP-Beginn Patienten standardmässig eintreffen sollen. Wird beim Umplanen für die Vorschlagszeit verwendet.",
     "addLocation": "Standort hinzufügen",
     "editLocation": "Standort bearbeiten",
     "locationName": "Standortname",
@@ -8048,5 +8050,20 @@
       "link": "Verknüpfen",
       "cancel": "Abbrechen"
     }
+  },
+  "admissionCongruence": {
+    "modalTitle": "Eintrittszeit nach Umplanung prüfen",
+    "reasonAfterStart": "Die gespeicherte Eintrittszeit liegt nach dem neuen OP-Beginn.",
+    "reasonWrongDay": "Die gespeicherte Eintrittszeit ist an einem anderen Tag als der neue OP-Beginn.",
+    "currentLabel": "Aktuelle Eintrittszeit",
+    "newStartLabel": "Neuer OP-Beginn",
+    "suggestedLabel": "Vorschlag",
+    "customLabel": "Eintrittszeit manuell",
+    "useSuggested": "Vorschlag übernehmen",
+    "saveCustom": "Manuell speichern",
+    "keepCurrent": "Trotzdem beibehalten",
+    "cancel": "Abbrechen",
+    "toastDrifted": "OP verschoben. Eintrittszeit könnte nicht mehr passen.",
+    "toastAdjustButton": "Anpassen"
   }
 }

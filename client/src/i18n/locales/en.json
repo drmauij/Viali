@@ -1324,6 +1324,8 @@
     "runwayWarningHint": "Below this is critical",
     "runwayLookbackDays": "Usage Analysis Period",
     "runwayLookbackHint": "Days to analyze usage",
+    "admissionOffsetMinutes": "Default admission offset (minutes)",
+    "admissionOffsetHint": "How many minutes before surgery start patients should arrive by default. Used when rescheduling suggests a new admission time.",
     "addLocation": "Add Location",
     "editLocation": "Edit Location",
     "locationName": "Location Name",
@@ -8031,5 +8033,20 @@
       "link": "Link",
       "cancel": "Cancel"
     }
+  },
+  "admissionCongruence": {
+    "modalTitle": "Admission time looks wrong after rescheduling",
+    "reasonAfterStart": "The saved admission time is now after the new surgery start.",
+    "reasonWrongDay": "The saved admission time is on a different day than the new surgery start.",
+    "currentLabel": "Current admission time",
+    "newStartLabel": "New surgery start",
+    "suggestedLabel": "Suggested admission time",
+    "customLabel": "Custom admission time",
+    "useSuggested": "Use suggested",
+    "saveCustom": "Save custom",
+    "keepCurrent": "Keep current anyway",
+    "cancel": "Cancel",
+    "toastDrifted": "Surgery moved. Admission time may be off.",
+    "toastAdjustButton": "Adjust"
   }
 }

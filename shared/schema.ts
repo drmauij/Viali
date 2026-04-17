@@ -111,6 +111,8 @@ export const hospitals = pgTable("hospitals", {
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
   runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
+  // Admission time defaults
+  defaultAdmissionOffsetMinutes: integer("default_admission_offset_minutes").default(60).notNull(), // Minutes before planned start when the patient should arrive
   // Billing add-on services - per-record fees
   addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF/record)
   addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF/record)

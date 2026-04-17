@@ -37,6 +37,9 @@ import { cn } from "@/lib/utils";
 import { draggedRequest } from "@/components/surgery/useExternalRequestDrag";
 import CalendarSearch from "@/components/shared/CalendarSearch";
 import type { CalendarSearchResult } from "@/components/shared/CalendarSearch";
+import { ToastAction } from "@/components/ui/toast";
+import { checkAdmissionCongruence } from "@shared/admissionCongruence";
+import { AdmissionCongruenceDialog, type AdmissionCongruenceChoice } from "./AdmissionCongruenceDialog";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -75,6 +78,7 @@ interface CalendarEvent {
     label: string;
     time: number | null;
   }> | null;
+  admissionTime?: string | null;
 }
 
 type CalendarResource = {
@@ -287,6 +291,24 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
   const { toast } = useToast();
   const [staffBoxOpen, setStaffBoxOpen] = useState(true);
   const preSearchDateRef = useRef<Date | null>(null);
+
+  // Fetch hospital config for timezone + admission offset
+  const { data: hospitalConfig } = useQuery<{ timezone?: string; defaultAdmissionOffsetMinutes?: number }>({
+    queryKey: [`/api/admin/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+  const hospitalTimeZone = hospitalConfig?.timezone || "Europe/Zurich";
+  const defaultOffsetMinutes = hospitalConfig?.defaultAdmissionOffsetMinutes ?? 60;
+
+  // Admission congruence dialog state
+  const [congruencePending, setCongruencePending] = useState<null | {
+    surgeryId: string;
+    newPlannedDate: Date;
+    newEnd: Date;
+    newRoomId: string | null;
+    result: ReturnType<typeof checkAdmissionCongruence>;
+    currentAdmission: Date | null;
+  }>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -597,6 +619,7 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         clinicRoomName: clinicRoom?.name || null,
         questionnaireStatus: surgery.questionnaireStatus || null,
         timeMarkers: surgery.timeMarkers || null,
+        admissionTime: surgery.admissionTime ?? null,
       };
     });
     // surgeonFilter included so events are rebuilt with fresh isOwnSurgery/isOtherSurgery flags.
@@ -975,65 +998,134 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
     }
   };
 
+  // Shared PATCH helper for rescheduling (drop + resize)
+  const sendReschedulePatch = useCallback(async ({
+    surgeryId, start, end, newRoomId, admissionOverrideISO,
+  }: {
+    surgeryId: string;
+    start: Date;
+    end: Date;
+    newRoomId: string | null;
+    admissionOverrideISO: string | null | undefined;
+  }) => {
+    try {
+      const body: any = {
+        plannedDate: start.toISOString(),
+        actualEndTime: end.toISOString(),
+      };
+      if (newRoomId !== null) body.surgeryRoomId = newRoomId;
+      if (admissionOverrideISO !== undefined) body.admissionTime = admissionOverrideISO;
+
+      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, body);
+
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
+      toast({ title: t("opCalendar.surgeryRescheduled"), description: t("opCalendar.surgeryRescheduledDesc") });
+    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
+      toast({ title: t("opCalendar.rescheduleFailed"), description: t("opCalendar.rescheduleFailedDesc"), variant: "destructive" });
+    }
+  }, [toast, t]);
+
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
     if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
-    const newRoomId = resourceId || event.resource;
-    
-    try {
-      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        plannedDate: start.toISOString(),
-        actualEndTime: end.toISOString(),
-        surgeryRoomId: newRoomId,
+    const newRoomId = resourceId || event.resource || null;
+
+    const storedAdmission = event.admissionTime ? new Date(event.admissionTime) : null;
+    const storedPlanned = event.start ? new Date(event.start) : null;
+
+    const result = checkAdmissionCongruence({
+      oldPlannedDate: storedPlanned,
+      oldAdmissionTime: storedAdmission,
+      newPlannedDate: start,
+      defaultOffsetMinutes,
+      hospitalTimeZone,
+    });
+
+    if (result.severity === "invalid") {
+      setCongruencePending({
+        surgeryId,
+        newPlannedDate: start,
+        newEnd: end,
+        newRoomId,
+        result,
+        currentAdmission: storedAdmission,
       });
-      
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
-      
+      return;
+    }
+
+    await sendReschedulePatch({ surgeryId, start, end, newRoomId, admissionOverrideISO: undefined });
+
+    if (result.severity === "drifted") {
       toast({
-        title: t('opCalendar.surgeryRescheduled'),
-        description: t('opCalendar.surgeryRescheduledDesc'),
-      });
-    } catch (error) {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
-      toast({
-        title: t('opCalendar.rescheduleFailed'),
-        description: t('opCalendar.rescheduleFailedDesc'),
-        variant: "destructive",
+        title: t("admissionCongruence.toastDrifted"),
+        action: (
+          <ToastAction
+            altText={t("admissionCongruence.toastAdjustButton")}
+            onClick={() => setCongruencePending({
+              surgeryId, newPlannedDate: start, newEnd: end, newRoomId,
+              result, currentAdmission: storedAdmission,
+            })}
+            data-testid="button-admission-toast-adjust"
+          >
+            {t("admissionCongruence.toastAdjustButton")}
+          </ToastAction>
+        ),
       });
     }
-  }, [toast, canPlanSurgery]);
+  }, [toast, canPlanSurgery, defaultOffsetMinutes, hospitalTimeZone, t, sendReschedulePatch]);
 
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     if (!canPlanSurgery) return;
     const surgeryId = event.surgeryId;
-    
-    try {
-      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        plannedDate: start.toISOString(),
-        actualEndTime: end.toISOString(),
+
+    const startChanged = event.start && new Date(event.start).getTime() !== start.getTime();
+    if (!startChanged) {
+      await sendReschedulePatch({ surgeryId, start, end, newRoomId: null, admissionOverrideISO: undefined });
+      return;
+    }
+
+    const storedAdmission = event.admissionTime ? new Date(event.admissionTime) : null;
+    const storedPlanned = event.start ? new Date(event.start) : null;
+    const result = checkAdmissionCongruence({
+      oldPlannedDate: storedPlanned,
+      oldAdmissionTime: storedAdmission,
+      newPlannedDate: start,
+      defaultOffsetMinutes,
+      hospitalTimeZone,
+    });
+
+    if (result.severity === "invalid") {
+      setCongruencePending({
+        surgeryId, newPlannedDate: start, newEnd: end, newRoomId: null,
+        result, currentAdmission: storedAdmission,
       });
-      
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
-      
+      return;
+    }
+
+    await sendReschedulePatch({ surgeryId, start, end, newRoomId: null, admissionOverrideISO: undefined });
+
+    if (result.severity === "drifted") {
       toast({
-        title: "Surgery Duration Updated",
-        description: "Surgery duration has been updated successfully.",
-      });
-    } catch (error) {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
-      toast({
-        title: "Update Failed",
-        description: "Failed to update surgery duration. Please try again.",
-        variant: "destructive",
+        title: t("admissionCongruence.toastDrifted"),
+        action: (
+          <ToastAction
+            altText={t("admissionCongruence.toastAdjustButton")}
+            onClick={() => setCongruencePending({
+              surgeryId, newPlannedDate: start, newEnd: end, newRoomId: null,
+              result, currentAdmission: storedAdmission,
+            })}
+          >
+            {t("admissionCongruence.toastAdjustButton")}
+          </ToastAction>
+        ),
       });
     }
-  }, [toast, canPlanSurgery]);
+  }, [toast, canPlanSurgery, defaultOffsetMinutes, hospitalTimeZone, t, sendReschedulePatch]);
 
   // Detect if the currently selected day falls within a closure
   const dayClosure = useMemo(() => {
@@ -2278,6 +2370,35 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
           </div>
         )}
       </DragOverlay>
+
+      <AdmissionCongruenceDialog
+        open={!!congruencePending}
+        result={congruencePending?.result ?? null}
+        currentAdmission={congruencePending?.currentAdmission ?? null}
+        newPlannedDate={congruencePending?.newPlannedDate ?? new Date()}
+        hospitalTimeZone={hospitalTimeZone}
+        onResolve={(choice) => {
+          const pending = congruencePending;
+          setCongruencePending(null);
+          if (!pending) return;
+          if (choice.kind === "cancel") {
+            queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+            return;
+          }
+          const admissionOverrideISO =
+            choice.kind === "useSuggested" ? pending.result.suggestedAdmission.toISOString() :
+            choice.kind === "custom" ? choice.admissionTime.toISOString() :
+            null;
+          const overrideArg = choice.kind === "keepCurrent" ? undefined : admissionOverrideISO;
+          sendReschedulePatch({
+            surgeryId: pending.surgeryId,
+            start: pending.newPlannedDate,
+            end: pending.newEnd,
+            newRoomId: pending.newRoomId,
+            admissionOverrideISO: overrideArg,
+          });
+        }}
+      />
       </>
     </DndContext>
   );
