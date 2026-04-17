@@ -6,6 +6,9 @@ interface UnsubscribePayload {
   v: 1;        // schema version
 }
 
+// SESSION_SECRET fallback is deliberate for local dev only. In production the
+// dedicated MARKETING_UNSUBSCRIBE_SECRET must be set so rotating the session
+// secret does not invalidate every outstanding unsubscribe link.
 function getSecret(): string {
   const s =
     process.env.MARKETING_UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET;

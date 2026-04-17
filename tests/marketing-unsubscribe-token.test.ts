@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   generateUnsubscribeToken,
   verifyUnsubscribeToken,
@@ -7,6 +7,10 @@ import {
 describe("marketingUnsubscribeToken", () => {
   beforeEach(() => {
     process.env.MARKETING_UNSUBSCRIBE_SECRET = "test-secret-abc123";
+  });
+
+  afterEach(() => {
+    delete process.env.MARKETING_UNSUBSCRIBE_SECRET;
   });
 
   it("round-trips a valid token", () => {
@@ -18,8 +22,12 @@ describe("marketingUnsubscribeToken", () => {
   it("rejects a tampered payload", () => {
     const token = generateUnsubscribeToken("pat_1", "hosp_1");
     const [payload, sig] = token.split(".");
-    // flip a character in the payload
-    const tamperedPayload = payload.slice(0, -1) + (payload.slice(-1) === "A" ? "B" : "A");
+    // Flip a middle character — safer than touching the trailing char where
+    // some bits may be masked off during base64url decoding.
+    const mid = Math.floor(payload.length / 2);
+    const original = payload[mid];
+    const replacement = original === "A" ? "B" : "A";
+    const tamperedPayload = payload.slice(0, mid) + replacement + payload.slice(mid + 1);
     expect(() => verifyUnsubscribeToken(`${tamperedPayload}.${sig}`)).toThrow(/invalid/i);
   });
 
