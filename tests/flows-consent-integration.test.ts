@@ -147,21 +147,21 @@ describe("email footer integration (unit)", () => {
   });
 });
 
-describe("PUBLIC_BASE_URL precedence", () => {
-  it("prefers process.env.PUBLIC_BASE_URL over request-derived URL", async () => {
+describe("PRODUCTION_URL precedence", () => {
+  it("prefers process.env.PRODUCTION_URL over request-derived URL", async () => {
     // We can't easily integration-test the send handler here (it requires
     // stubbing Resend, the patient query result chain, AND the patientMessages
     // insert). The behavior under test is a one-line string fallback; verify
     // the fallback logic in isolation.
     const requestDerived = "http://insecure.example";
-    process.env.PUBLIC_BASE_URL = "https://configured.example";
+    process.env.PRODUCTION_URL = "https://configured.example";
     const baseUrl =
-      process.env.PUBLIC_BASE_URL || requestDerived;
+      process.env.PRODUCTION_URL || requestDerived;
     expect(baseUrl).toBe("https://configured.example");
 
-    delete process.env.PUBLIC_BASE_URL;
+    delete process.env.PRODUCTION_URL;
     const baseUrlFallback =
-      process.env.PUBLIC_BASE_URL || requestDerived;
+      process.env.PRODUCTION_URL || requestDerived;
     expect(baseUrlFallback).toBe("http://insecure.example");
   });
 });

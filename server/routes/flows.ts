@@ -1004,7 +1004,7 @@ router.post(
       // would yield http:// without `app.set("trust proxy", ...)` and is also
       // attacker-influenceable via the Host header.
       const baseUrl =
-        process.env.PUBLIC_BASE_URL ||
+        process.env.PRODUCTION_URL ||
         `${req.protocol}://${req.get("host")}`;
 
       for (const patient of patientResults) {
