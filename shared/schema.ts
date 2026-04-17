@@ -3950,6 +3950,7 @@ export const clinicServices = pgTable("clinic_services", {
   code: varchar("code"), // Alphanumeric booking code for public website linking
   serviceGroup: varchar("service_group"), // Optional grouping for booking filters (e.g. "brust", "gesicht")
   serviceGroups: jsonb("service_groups").$type<string[]>().default(sql`'[]'::jsonb`).notNull(),
+  folderId: varchar("folder_id").references(() => serviceFolders.id),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -3959,6 +3960,21 @@ export const clinicServices = pgTable("clinic_services", {
   uniqueIndex("idx_clinic_services_hospital_code")
     .on(table.hospitalId, table.code)
     .where(sql`code IS NOT NULL`),
+  index("idx_clinic_services_folder").on(table.folderId),
+]);
+
+// Folders for organizing clinic services (parallel to items `folders`)
+export const serviceFolders = pgTable("service_folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  name: varchar("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_service_folders_hospital").on(table.hospitalId),
+  index("idx_service_folders_unit").on(table.unitId),
 ]);
 
 // Clinic Service Providers - Maps services to bookable providers
@@ -4062,6 +4078,15 @@ export const insertClinicServiceSchema = createInsertSchema(clinicServices).omit
   createdAt: true,
   updatedAt: true,
 });
+
+// Service Folders Insert Schema + Types
+export const insertServiceFolderSchema = createInsertSchema(serviceFolders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ServiceFolder = typeof serviceFolders.$inferSelect;
+export type InsertServiceFolder = z.infer<typeof insertServiceFolderSchema>;
 
 // Clinic Invoice Insert Schemas
 export const insertClinicInvoiceSchema = createInsertSchema(clinicInvoices, {

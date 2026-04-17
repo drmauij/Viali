@@ -42,6 +42,22 @@ import {
 } from "@/components/ui/select";
 import type { ClinicService, Unit } from "@shared/schema";
 import { ServiceGroupsMultiSelect } from "@/components/ServiceGroupsMultiSelect";
+import { DndContext, type DragEndEvent, useDraggable } from "@dnd-kit/core";
+import { FolderTree, FolderDialog, useFolderTreeState, useFolderMutations } from "@/components/folders";
+import type { Folder } from "@/components/folders";
+import { buildServicesFolderAdapter } from "./servicesFolderAdapter";
+
+function DraggableService({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 }
+    : undefined;
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes} style={style}>
+      {children}
+    </div>
+  );
+}
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
@@ -76,6 +92,8 @@ export default function ClinicServices() {
   const [bulkProviderIds, setBulkProviderIds] = useState<string[]>([]);
   const [bulkGroupDialogOpen, setBulkGroupDialogOpen] = useState(false);
   const [bulkGroupValue, setBulkGroupValue] = useState<string[]>([]);
+  const [bulkFolderDialogOpen, setBulkFolderDialogOpen] = useState(false);
+  const [bulkFolderTargetId, setBulkFolderTargetId] = useState<string | "none">("none");
 
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
 
@@ -119,6 +137,28 @@ export default function ClinicServices() {
       return res.json();
     },
     enabled: !!hospitalId && !!unitId,
+  });
+
+  const folderAdapter = useMemo(
+    () => (hospitalId && unitId ? buildServicesFolderAdapter(hospitalId, unitId) : null),
+    [hospitalId, unitId],
+  );
+  const folderTree = useFolderTreeState();
+  const folderMut = useFolderMutations(folderAdapter ?? {
+    foldersQueryKey: ["noop-folders"],
+    itemsQueryKey: ["noop-items"],
+    listFolders: async () => [],
+    createFolder: async () => ({ id: "", name: "", sortOrder: 0 }),
+    updateFolder: async () => ({ id: "", name: "", sortOrder: 0 }),
+    deleteFolder: async () => {},
+    bulkSortFolders: async () => {},
+    moveItemToFolder: async () => {},
+  });
+
+  const { data: folders = [] } = useQuery<Folder[]>({
+    queryKey: folderAdapter?.foldersQueryKey ?? ["service-folders-disabled"],
+    queryFn: () => folderAdapter!.listFolders(),
+    enabled: !!folderAdapter,
   });
 
   // Fetch all units for bulk move
@@ -346,6 +386,43 @@ export default function ClinicServices() {
     },
   });
 
+  const bulkMoveToFolderMutation = useMutation({
+    mutationFn: async () => {
+      const folderId = bulkFolderTargetId === "none" ? null : bulkFolderTargetId;
+      const selected = Array.from(selectedServices);
+      const res = await apiRequest(
+        "POST",
+        `/api/clinic/${hospitalId}/services/bulk-move-to-folder`,
+        { serviceIds: selected, folderId },
+      );
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      if (folderAdapter) {
+        queryClient.invalidateQueries({ queryKey: folderAdapter.foldersQueryKey });
+      }
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      setBulkFolderDialogOpen(false);
+      setBulkFolderTargetId("none");
+      toast({
+        title: t(
+          "clinic.services.bulkMoveToFolderSuccess",
+          `${data.movedCount || 0} service(s) moved`,
+          { count: data.movedCount || 0 },
+        ),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: t("clinic.services.bulkMoveToFolderFailed", "Failed to move services to folder"),
+        description: error.message,
+      });
+    },
+  });
+
   const handleBulkImport = () => {
     const rawLines = importText.trim().split('\n').filter(l => l.trim());
     if (rawLines.length === 0) {
@@ -471,11 +548,42 @@ export default function ClinicServices() {
         service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
       if (!matchesSearch) return false;
+      if (folderTree.selectedFolderId === "none") {
+        if ((service as any).folderId) return false;
+      } else if (folderTree.selectedFolderId !== null) {
+        if ((service as any).folderId !== folderTree.selectedFolderId) return false;
+      }
       if (activeGroupFilter === null) return true;
       const groups = (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
       return groups.includes(activeGroupFilter);
     });
-  }, [services, searchTerm, activeGroupFilter]);
+  }, [services, searchTerm, activeGroupFilter, folderTree.selectedFolderId]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || !folderAdapter) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    if (activeId.startsWith("folder-") && overId.startsWith("folder-")) {
+      const fromId = activeId.replace("folder-", "");
+      const toId = overId.replace("folder-", "");
+      if (fromId === toId || toId === "none") return;
+      const from = folders.findIndex((f) => f.id === fromId);
+      const to = folders.findIndex((f) => f.id === toId);
+      if (from === -1 || to === -1) return;
+      const arr = [...folders];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      folderMut.bulkSortFolders.mutate(arr);
+      return;
+    }
+
+    if (overId.startsWith("folder-")) {
+      const target = overId === "folder-none" ? null : overId.replace("folder-", "");
+      folderMut.moveItem.mutate({ itemId: activeId, folderId: target });
+    }
+  };
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
@@ -495,7 +603,28 @@ export default function ClinicServices() {
   }
 
   return (
-    <div className="p-4 space-y-4 pb-24">
+    <DndContext onDragEnd={handleDragEnd}>
+    <div className="p-4 pb-24">
+      <div className="flex gap-4">
+        <aside className="w-60 shrink-0 border-r pr-3">
+          <FolderTree
+            folders={folders}
+            selectedFolderId={folderTree.selectedFolderId}
+            onSelect={folderTree.setSelectedFolderId}
+            onCreateClick={folderTree.openCreate}
+            onRenameClick={folderTree.openRename}
+            onDeleteClick={(id) => {
+              if (window.confirm(t("folders.deleteFolderConfirm", "Delete this folder? Items will be moved to root."))) {
+                folderMut.deleteFolder.mutate(id);
+              }
+            }}
+            expanded={folderTree.expanded}
+            onToggleExpand={folderTree.toggleExpanded}
+            allLabel={t("clinic.services.folderFilterAll", "All services")}
+            noneLabel={t("clinic.services.folderFilterNone", "No folder")}
+          />
+        </aside>
+        <div className="flex-1 min-w-0 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[120px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -599,6 +728,15 @@ export default function ClinicServices() {
               Update Group ({selectedServices.size})
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkFolderDialogOpen(true)}
+              disabled={selectedServices.size === 0}
+              data-testid="button-bulk-move-to-folder"
+            >
+              {t("clinic.services.bulkMoveToFolder", "Move to folder")}
+            </Button>
+            <Button
               variant="ghost"
               size="sm"
               onClick={exitBulkMode}
@@ -647,8 +785,8 @@ export default function ClinicServices() {
       ) : (
         <div className="space-y-3">
           {filteredServices.map((service) => (
-            <Card 
-              key={service.id} 
+            <DraggableService key={service.id} id={service.id}>
+            <Card
               data-testid={`card-service-${service.id}`}
               className={isBulkMode && selectedServices.has(service.id) ? "ring-2 ring-primary" : ""}
             >
@@ -724,9 +862,33 @@ export default function ClinicServices() {
                 </div>
               </CardContent>
             </Card>
+            </DraggableService>
           ))}
         </div>
       )}
+        </div>
+      </div>
+
+      <FolderDialog
+        open={folderTree.dialogOpen}
+        onOpenChange={folderTree.setDialogOpen}
+        mode={folderTree.editingFolderId ? "rename" : "create"}
+        value={folderTree.dialogName}
+        onChange={folderTree.setDialogName}
+        isSubmitting={folderMut.createFolder.isPending || folderMut.renameFolder.isPending}
+        onSubmit={() => {
+          if (folderTree.editingFolderId) {
+            folderMut.renameFolder.mutate(
+              { id: folderTree.editingFolderId, name: folderTree.dialogName },
+              { onSuccess: () => folderTree.setDialogOpen(false) },
+            );
+          } else {
+            folderMut.createFolder.mutate(folderTree.dialogName, {
+              onSuccess: () => folderTree.setDialogOpen(false),
+            });
+          }
+        }}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
@@ -1104,6 +1266,46 @@ export default function ClinicServices() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Move to Folder Dialog */}
+      <Dialog open={bulkFolderDialogOpen} onOpenChange={setBulkFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("clinic.services.bulkMoveToFolder", "Move to folder")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>{t("folders.moveToFolder", "Move to folder")}</Label>
+            <Select
+              value={bulkFolderTargetId}
+              onValueChange={(v) => setBulkFolderTargetId(v as string | "none")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("folders.moveToRoot", "Move to root")}</SelectItem>
+                {folders.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkFolderDialogOpen(false)}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button
+              disabled={bulkMoveToFolderMutation.isPending}
+              onClick={() => bulkMoveToFolderMutation.mutate()}
+            >
+              {t("common.move", "Move")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+    </DndContext>
   );
 }

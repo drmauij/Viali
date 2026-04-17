@@ -1665,6 +1665,12 @@ export class DatabaseStorage implements IStorage {
   createExternalSurgeryRequestDocument = clinicStorage.createExternalSurgeryRequestDocument;
   getPendingExternalSurgeryRequestsCount = clinicStorage.getPendingExternalSurgeryRequestsCount;
   getPendingTimeOffCount = clinicStorage.getPendingTimeOffCount;
+  getServiceFolders = clinicStorage.getServiceFolders;
+  getServiceFolder = clinicStorage.getServiceFolder;
+  createServiceFolder = clinicStorage.createServiceFolder;
+  updateServiceFolder = clinicStorage.updateServiceFolder;
+  deleteServiceFolder = clinicStorage.deleteServiceFolder;
+  bulkMoveServicesToFolder = clinicStorage.bulkMoveServicesToFolder;
 
   // ========== WORKTIME LOG OPERATIONS ==========
   getWorktimeLogs = worktimeStorage.getWorktimeLogs;

@@ -386,7 +386,7 @@ export function TreatmentLineDialog({
               <Input
                 value={doseUnit}
                 onChange={(e) => setDoseUnit(e.target.value)}
-                placeholder="units"
+                placeholder={t("treatments.unitPlaceholder", "units")}
               />
             </div>
           </div>
