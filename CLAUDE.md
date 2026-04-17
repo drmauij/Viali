@@ -58,6 +58,17 @@ If a change is internal-only (auth-gated admin endpoints, not public webhooks), 
 
 Cal.com is **no longer used** for booking — all appointment booking is now handled natively in Viali via `/book`. Do NOT call `syncAvailabilityToCalcom` or any Cal.com sync functions from new code. The Cal.com service files and DB tables (`calcom_config`, `calcom_provider_mappings`) still exist but are legacy/inactive.
 
+## Datetime / timezone rule
+
+When handling datetime objects — display, input parsing, day-boundary comparisons, or anything that turns a wall-clock string into an absolute instant — **always respect the hospital's timezone** configured in `/admin → Settings → Regional Preferences → Timezone` (`hospitals.timezone`, default `Europe/Zurich`). The same applies to regional formatting (date format: european/american; hour format: 24h/12h).
+
+- For **display**, use the helpers in `client/src/lib/dateUtils.ts` (`formatDateTime`, `formatDate`, `formatTime`, `formatDateTimeForInput`). They already read the hospital's regional config applied globally via `applyHospitalSettings`.
+- For **input parsing**, use `dateTimeLocalToISO` — not raw `new Date(value)`, which silently double-counts the local offset.
+- For **day-boundary / congruence checks** (e.g. "is admission on the same day as surgery?"), always format both instants in the hospital timezone before comparing (see `shared/admissionCongruence.ts` `localDayKey` for the pattern using `Intl.DateTimeFormat("en-CA", { timeZone })`).
+- Never hardcode `"Europe/Zurich"`, `"de-CH"`, or specific date formats in components. Reach for the centralized helpers.
+
+If the helpers don't cover a case, extend them there rather than branching locally.
+
 ## Communication
 
 Use simple, everyday language.

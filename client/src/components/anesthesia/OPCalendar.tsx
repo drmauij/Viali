@@ -1061,7 +1061,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
     if (result.severity === "drifted") {
       toast({
+        variant: "warning",
         title: t("admissionCongruence.toastDrifted"),
+        description: t("admissionCongruence.toastDriftedDesc"),
         action: (
           <ToastAction
             altText={t("admissionCongruence.toastAdjustButton")}
@@ -1111,7 +1113,9 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
 
     if (result.severity === "drifted") {
       toast({
+        variant: "warning",
         title: t("admissionCongruence.toastDrifted"),
+        description: t("admissionCongruence.toastDriftedDesc"),
         action: (
           <ToastAction
             altText={t("admissionCongruence.toastAdjustButton")}
@@ -2376,7 +2380,6 @@ export default function OPCalendar({ onEventClick, onEditSurgery, onDropFromOuts
         result={congruencePending?.result ?? null}
         currentAdmission={congruencePending?.currentAdmission ?? null}
         newPlannedDate={congruencePending?.newPlannedDate ?? new Date()}
-        hospitalTimeZone={hospitalTimeZone}
         onResolve={(choice) => {
           const pending = congruencePending;
           setCongruencePending(null);

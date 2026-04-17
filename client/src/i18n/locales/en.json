@@ -8047,6 +8047,7 @@
     "keepCurrent": "Keep current anyway",
     "cancel": "Cancel",
     "toastDrifted": "Surgery moved. Admission time may be off.",
+    "toastDriftedDesc": "The patient reminder SMS may show the wrong arrival time.",
     "toastAdjustButton": "Adjust"
   }
 }

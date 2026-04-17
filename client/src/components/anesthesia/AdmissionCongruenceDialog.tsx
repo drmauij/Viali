@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AdmissionCongruenceResult } from "@shared/admissionCongruence";
+import { formatDateTime, formatDateTimeForInput, dateTimeLocalToISO } from "@/lib/dateUtils";
 
 export type AdmissionCongruenceChoice =
   | { kind: "useSuggested" }
@@ -24,51 +25,7 @@ interface Props {
   result: AdmissionCongruenceResult | null;
   currentAdmission: Date | null;
   newPlannedDate: Date;
-  hospitalTimeZone: string;
   onResolve: (choice: AdmissionCongruenceChoice) => void;
-}
-
-function formatDisplay(date: Date, tz: string): string {
-  return new Intl.DateTimeFormat("de-CH", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function toInputValue(date: Date, tz: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const get = (t: string) => parts.find(p => p.type === t)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
-
-function fromInputValue(value: string, tz: string): Date {
-  const naive = new Date(value);
-  const offsetMinutes = (() => {
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      timeZoneName: "shortOffset",
-    }).formatToParts(naive);
-    const offsetPart = fmt.find(p => p.type === "timeZoneName")?.value ?? "GMT+0";
-    const match = /GMT([+-]?\d+)(?::(\d+))?/.exec(offsetPart);
-    if (!match) return 0;
-    const sign = match[1].startsWith("-") ? -1 : 1;
-    const hours = Math.abs(parseInt(match[1], 10));
-    const mins = match[2] ? parseInt(match[2], 10) : 0;
-    return sign * (hours * 60 + mins);
-  })();
-  return new Date(naive.getTime() - offsetMinutes * 60 * 1000);
 }
 
 export function AdmissionCongruenceDialog({
@@ -76,7 +33,6 @@ export function AdmissionCongruenceDialog({
   result,
   currentAdmission,
   newPlannedDate,
-  hospitalTimeZone,
   onResolve,
 }: Props) {
   const { t } = useTranslation();
@@ -84,9 +40,9 @@ export function AdmissionCongruenceDialog({
 
   useEffect(() => {
     if (open && result) {
-      setCustomValue(toInputValue(result.suggestedAdmission, hospitalTimeZone));
+      setCustomValue(formatDateTimeForInput(result.suggestedAdmission));
     }
-  }, [open, result, hospitalTimeZone]);
+  }, [open, result]);
 
   if (!result) return null;
 
@@ -109,19 +65,19 @@ export function AdmissionCongruenceDialog({
           <div>
             <Label>{t("admissionCongruence.currentLabel")}</Label>
             <div className="text-sm text-muted-foreground">
-              {currentAdmission ? formatDisplay(currentAdmission, hospitalTimeZone) : "—"}
+              {currentAdmission ? formatDateTime(currentAdmission) : "—"}
             </div>
           </div>
           <div>
             <Label>{t("admissionCongruence.newStartLabel")}</Label>
             <div className="text-sm text-muted-foreground">
-              {formatDisplay(newPlannedDate, hospitalTimeZone)}
+              {formatDateTime(newPlannedDate)}
             </div>
           </div>
           <div>
             <Label>{t("admissionCongruence.suggestedLabel")}</Label>
             <div className="text-sm font-medium">
-              {formatDisplay(result.suggestedAdmission, hospitalTimeZone)}
+              {formatDateTime(result.suggestedAdmission)}
             </div>
           </div>
           <div>
@@ -146,8 +102,8 @@ export function AdmissionCongruenceDialog({
           <Button
             variant="outline"
             onClick={() => {
-              const parsed = fromInputValue(customValue, hospitalTimeZone);
-              onResolve({ kind: "custom", admissionTime: parsed });
+              const iso = dateTimeLocalToISO(customValue);
+              onResolve({ kind: "custom", admissionTime: new Date(iso) });
             }}
             data-testid="button-admission-custom"
           >

@@ -1009,7 +1009,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         result={congruencePending?.result ?? null}
         currentAdmission={surgery?.admissionTime ? new Date(surgery.admissionTime) : null}
         newPlannedDate={congruencePending?.newPlannedDate ?? new Date()}
-        hospitalTimeZone={hospitalTimeZone}
         onResolve={(choice: AdmissionCongruenceChoice) => {
           const pending = congruencePending;
           setCongruencePending(null);

@@ -8064,6 +8064,7 @@
     "keepCurrent": "Trotzdem beibehalten",
     "cancel": "Abbrechen",
     "toastDrifted": "OP verschoben. Eintrittszeit könnte nicht mehr passen.",
+    "toastDriftedDesc": "Die Erinnerungs-SMS an die Patientin/den Patienten zeigt eventuell die falsche Ankunftszeit.",
     "toastAdjustButton": "Anpassen"
   }
 }
