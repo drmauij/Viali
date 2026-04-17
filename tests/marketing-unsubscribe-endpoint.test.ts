@@ -71,7 +71,8 @@ describe("GET /unsubscribe/:token", () => {
 
   it("returns 400 for invalid token signature", async () => {
     const app = buildApp();
-    // Build a token then tamper the signature
+    // Build a token then tamper the signature. Splitting on "." is safe because
+    // base64url encoding is dot-free — the token is exactly <payloadB64>.<sigB64>.
     const token = generateUnsubscribeToken("pat_1", "hosp_1");
     const [payload] = token.split(".");
     const res = await request(app).get(`/unsubscribe/${payload}.deadbeef`);
@@ -85,5 +86,16 @@ describe("GET /unsubscribe/:token", () => {
     const res = await request(app).get("/unsubscribe/garbage");
     expect(res.status).toBe(400);
     expect(setMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 + HTML error page when the DB update rejects", async () => {
+    whereMock.mockRejectedValueOnce(new Error("db down"));
+    const app = buildApp();
+    const token = generateUnsubscribeToken("pat_1", "hosp_1");
+    const res = await request(app).get(`/unsubscribe/${token}`);
+    expect(res.status).toBe(500);
+    expect(res.headers["content-type"]).toMatch(/html/);
+    // Must still return HTML, not leak the error message
+    expect(res.text).not.toContain("db down");
   });
 });

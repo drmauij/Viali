@@ -59,13 +59,24 @@ router.get("/unsubscribe/:token", async (req: Request, res: Response) => {
   );
 });
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function renderPage({ title, body }: { title: string; body: string }): string {
+  const safeTitle = escapeHtml(title);
+  const safeBody = escapeHtml(body);
   return `<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${title}</title>
+  <title>${safeTitle}</title>
   <style>
     body { font-family: system-ui, -apple-system, Arial, sans-serif; background:#f5f5f5; margin:0; padding:40px 20px; color:#222; }
     .card { max-width:480px; margin:0 auto; background:#fff; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
@@ -75,8 +86,8 @@ function renderPage({ title, body }: { title: string; body: string }): string {
 </head>
 <body>
   <div class="card">
-    <h1>${title}</h1>
-    <p>${body}</p>
+    <h1>${safeTitle}</h1>
+    <p>${safeBody}</p>
   </div>
 </body>
 </html>`;
