@@ -17,6 +17,7 @@ import logger from "../logger";
 import { z } from "zod";
 import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
+import { consentConditionsFor } from "../services/marketingConsent";
 import OpenAI from "openai";
 
 const router = Router();
@@ -163,6 +164,7 @@ router.delete(
 // ─── Segment Count ────────────────────────────────────────────
 
 const segmentFilterSchema = z.object({
+  channel: z.enum(["sms", "email", "html_email"]).optional(),
   filters: z.array(
     z.object({
       field: z.enum([
@@ -185,12 +187,13 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { hospitalId } = req.params;
-      const { filters } = segmentFilterSchema.parse(req.body);
+      const { channel, filters } = segmentFilterSchema.parse(req.body);
 
       const baseConditions: any[] = [
         eq(patients.hospitalId, hospitalId),
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
+        ...(channel ? consentConditionsFor(channel) : []),
       ];
 
       let needsAppointmentJoin = false;

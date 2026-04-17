@@ -253,6 +253,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
             onChange={setFilters}
             patientCount={patientCount}
             onCountChange={setPatientCount}
+            channel={channel ?? undefined}
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("segment", "channel")}>

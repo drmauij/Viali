@@ -23,9 +23,10 @@ interface Props {
   onChange: (filters: SegmentFilter[]) => void;
   patientCount: number | null;
   onCountChange: (count: number | null) => void;
+  channel?: string;
 }
 
-export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange }: Props) {
+export default function SegmentBuilder({ filters, onChange, patientCount, onCountChange, channel }: Props) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
@@ -87,6 +88,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     try {
       const res = await apiRequest("POST", `/api/business/${hospitalId}/flows/segment-count`, {
         filters,
+        channel,
       });
       const data = await res.json();
       onCountChange(data.count);
@@ -95,7 +97,7 @@ export default function SegmentBuilder({ filters, onChange, patientCount, onCoun
     } finally {
       setCounting(false);
     }
-  }, [hospitalId, filters, onCountChange]);
+  }, [hospitalId, filters, channel, onCountChange]);
 
   useEffect(() => {
     const timer = setTimeout(fetchCount, 500);
