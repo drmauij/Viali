@@ -11,6 +11,7 @@ import {
   insertClinicInvoiceSchema,
   insertClinicInvoiceItemSchema,
   insertClinicServiceSchema,
+  insertServiceFolderSchema,
   patients,
   items,
   itemCodes,
@@ -1079,7 +1080,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, serviceGroups, providerIds: providerIdsInput } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, serviceGroups, folderId, providerIds: providerIdsInput } = req.body;
 
     // Validate code format if provided
     if (code !== undefined && code !== null && code !== '') {
@@ -1100,6 +1101,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
     if (code !== undefined) updateData.code = code === '' ? null : code;
+    if (folderId !== undefined) updateData.folderId = folderId === '' ? null : folderId;
     if (serviceGroups !== undefined && Array.isArray(serviceGroups)) {
       // New clients: serviceGroups is the source of truth; dual-write legacy field
       updateData.serviceGroups = serviceGroups;
@@ -1238,6 +1240,104 @@ router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticate
   } catch (error) {
     logger.error("Error bulk setting billable status:", error);
     res.status(500).json({ message: "Failed to update billable status" });
+  }
+});
+
+// ---------- Service Folders ----------
+
+router.get('/api/clinic/:hospitalId/service-folders', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    if (!unitId) return res.status(400).json({ message: "unitId is required" });
+    const folders = await storage.getServiceFolders(hospitalId, unitId as string);
+    res.json(folders);
+  } catch (error) {
+    logger.error("Error fetching service folders:", error);
+    res.status(500).json({ message: "Failed to fetch service folders" });
+  }
+});
+
+router.post('/api/clinic/:hospitalId/service-folders', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const parsed = insertServiceFolderSchema.parse({ ...req.body, hospitalId });
+    const folder = await storage.createServiceFolder(parsed);
+    res.status(201).json(folder);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    logger.error("Error creating service folder:", error);
+    res.status(500).json({ message: "Failed to create service folder" });
+  }
+});
+
+router.patch('/api/clinic/:hospitalId/service-folders/bulk-sort', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { folders } = req.body as { folders: { id: string; sortOrder: number }[] };
+    if (!Array.isArray(folders)) return res.status(400).json({ message: "folders array required" });
+
+    let updatedCount = 0;
+    for (const f of folders) {
+      if (!f.id || f.sortOrder === undefined) continue;
+      const existing = await storage.getServiceFolder(f.id);
+      if (!existing || existing.hospitalId !== hospitalId) continue;
+      await storage.updateServiceFolder(f.id, { sortOrder: f.sortOrder });
+      updatedCount++;
+    }
+    res.json({ message: "Sort order updated", updatedCount });
+  } catch (error) {
+    logger.error("Error bulk-sorting service folders:", error);
+    res.status(500).json({ message: "Failed to update sort order" });
+  }
+});
+
+router.patch('/api/clinic/:hospitalId/service-folders/:folderId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, folderId } = req.params;
+    const folder = await storage.getServiceFolder(folderId);
+    if (!folder || folder.hospitalId !== hospitalId) return res.status(404).json({ message: "Folder not found" });
+    const updated = await storage.updateServiceFolder(folderId, { name: req.body.name });
+    res.json(updated);
+  } catch (error) {
+    logger.error("Error updating service folder:", error);
+    res.status(500).json({ message: "Failed to update service folder" });
+  }
+});
+
+router.delete('/api/clinic/:hospitalId/service-folders/:folderId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, folderId } = req.params;
+    const folder = await storage.getServiceFolder(folderId);
+    if (!folder || folder.hospitalId !== hospitalId) return res.status(404).json({ message: "Folder not found" });
+    await storage.deleteServiceFolder(folderId);
+    res.json({ message: "Folder deleted successfully" });
+  } catch (error) {
+    logger.error("Error deleting service folder:", error);
+    res.status(500).json({ message: "Failed to delete service folder" });
+  }
+});
+
+router.post('/api/clinic/:hospitalId/services/bulk-move-to-folder', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { serviceIds, folderId } = req.body as { serviceIds: string[]; folderId: string | null };
+    if (!Array.isArray(serviceIds)) return res.status(400).json({ message: "serviceIds array required" });
+
+    if (folderId) {
+      const folder = await storage.getServiceFolder(folderId);
+      if (!folder || folder.hospitalId !== hospitalId) {
+        return res.status(400).json({ message: "Invalid folderId for hospital" });
+      }
+    }
+
+    const movedCount = await storage.bulkMoveServicesToFolder(hospitalId, serviceIds, folderId);
+    res.json({ message: "Services moved", movedCount });
+  } catch (error) {
+    logger.error("Error bulk-moving services to folder:", error);
+    res.status(500).json({ message: "Failed to move services" });
   }
 });
 
