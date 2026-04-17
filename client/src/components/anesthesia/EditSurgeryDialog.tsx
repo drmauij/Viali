@@ -23,6 +23,8 @@ import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { SurgeryFormFields } from "./SurgeryFormFields";
+import { checkAdmissionCongruence } from "@shared/admissionCongruence";
+import { AdmissionCongruenceDialog, type AdmissionCongruenceChoice } from "./AdmissionCongruenceDialog";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -78,6 +80,23 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
     enabled: !!surgeryId,
   });
+
+  // Fetch hospital for timezone + defaultAdmissionOffsetMinutes
+  const { data: hospital } = useQuery<{ timezone?: string; defaultAdmissionOffsetMinutes?: number }>({
+    queryKey: [`/api/admin/${surgery?.hospitalId}`],
+    enabled: !!surgery?.hospitalId,
+  });
+  const hospitalTimeZone = hospital?.timezone || "Europe/Zurich";
+  const defaultOffsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? 60;
+
+  // Congruence dialog state
+  const [congruencePending, setCongruencePending] = useState<null | {
+    newPlannedDate: Date;
+    result: ReturnType<typeof checkAdmissionCongruence>;
+  }>(null);
+
+  // Saving state (replaces updateMutation.isPending in the UI)
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch surgery rooms (only OP type for surgery room assignment)
   const { data: allSurgeryRooms = [] } = useQuery<any[]>({
@@ -233,53 +252,66 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     }
   }, [surgery]);
 
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: async () => {
-      const [year, month, day] = surgeryDate.split('-').map(Number);
-      const [hour, minute] = startTime.split(':').map(Number);
-      const startDate = new Date(year, month - 1, day, hour, minute);
+  // Build the PATCH payload. If overrideAdmissionISO is provided (including null),
+  // it is used as-is; otherwise the admission time is derived from form state.
+  function buildPayload(overrideAdmissionISO?: string | null): { body: Record<string, unknown>; newPlannedDate: Date } {
+    const [year, month, day] = surgeryDate.split('-').map(Number);
+    const [hour, minute] = startTime.split(':').map(Number);
+    const newPlannedDate = new Date(year, month - 1, day, hour, minute);
 
-      const endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + duration);
+    const endDate = new Date(newPlannedDate);
+    endDate.setMinutes(endDate.getMinutes() + duration);
 
-      const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
+    const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
 
-      let admissionTimeISO = null;
-      if (admissionTime) {
-        const [admHour, admMinute] = admissionTime.split(':').map(Number);
-        const admissionDate = new Date(year, month - 1, day, admHour, admMinute);
-        admissionTimeISO = admissionDate.toISOString();
-      }
+    let admissionTimeISO: string | null;
+    if (overrideAdmissionISO !== undefined) {
+      admissionTimeISO = overrideAdmissionISO;
+    } else if (admissionTime) {
+      const [admHour, admMinute] = admissionTime.split(':').map(Number);
+      admissionTimeISO = new Date(year, month - 1, day, admHour, admMinute).toISOString();
+    } else {
+      admissionTimeISO = null;
+    }
 
-      const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        plannedDate: startDate.toISOString(),
-        actualEndTime: endDate.toISOString(),
-        plannedSurgery,
-        chopCode: selectedChopCode || null,
-        surgeryRoomId,
-        surgeon: matchedSurgeon?.name || null,
-        surgeonId: surgeonId || null,
-        notes: notes || null,
-        diagnosis: diagnosis || null,
-        coverageType: coverageType || null,
-        stayType: stayType || null,
-        admissionTime: admissionTimeISO,
-        implantDetails: implantDetails || null,
-        status: surgeryStatus,
-        planningStatus,
-        noPreOpRequired,
-        surgerySide: surgerySide || null,
-        antibioseProphylaxe,
-        patientId: selectedPatientId || null,
-        patientPosition: patientPosition || null,
-        leftArmPosition: leftArmPosition || null,
-        rightArmPosition: rightArmPosition || null,
-        assistantIds,
-      });
-      return response.json();
-    },
-    onSuccess: () => {
+    const body: Record<string, unknown> = {
+      plannedDate: newPlannedDate.toISOString(),
+      actualEndTime: endDate.toISOString(),
+      plannedSurgery,
+      chopCode: selectedChopCode || null,
+      surgeryRoomId,
+      surgeon: matchedSurgeon?.name || null,
+      surgeonId: surgeonId || null,
+      notes: notes || null,
+      diagnosis: diagnosis || null,
+      coverageType: coverageType || null,
+      stayType: stayType || null,
+      admissionTime: admissionTimeISO,
+      implantDetails: implantDetails || null,
+      status: surgeryStatus,
+      planningStatus,
+      noPreOpRequired,
+      surgerySide: surgerySide || null,
+      antibioseProphylaxe,
+      patientId: selectedPatientId || null,
+      patientPosition: patientPosition || null,
+      leftArmPosition: leftArmPosition || null,
+      rightArmPosition: rightArmPosition || null,
+      assistantIds,
+    };
+    return { body, newPlannedDate };
+  }
+
+  async function performPatch(body: Record<string, unknown>) {
+    const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, body);
+    return response.json();
+  }
+
+  async function runSave(overrideISO?: string | null) {
+    setIsSaving(true);
+    try {
+      const { body } = buildPayload(overrideISO);
+      await performPatch(body);
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -299,15 +331,16 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         description: t('anesthesia.editSurgery.surgeryUpdatedDescription'),
       });
       onClose();
-    },
-    onError: () => {
+    } catch {
       toast({
         title: t('common.updateFailed'),
         description: t('anesthesia.editSurgery.failedToUpdate'),
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   // Archive mutation
   const archiveMutation = useMutation({
@@ -396,7 +429,25 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       });
       return;
     }
-    updateMutation.mutate();
+
+    const { newPlannedDate } = buildPayload();
+    const oldAdmissionTime = surgery?.admissionTime ? new Date(surgery.admissionTime) : null;
+    const oldPlannedDate = surgery?.plannedDate ? new Date(surgery.plannedDate) : null;
+
+    const result = checkAdmissionCongruence({
+      oldPlannedDate,
+      oldAdmissionTime,
+      newPlannedDate,
+      defaultOffsetMinutes,
+      hospitalTimeZone,
+    });
+
+    if (result.severity === "invalid") {
+      setCongruencePending({ newPlannedDate, result });
+      return;
+    }
+
+    runSave();
   };
 
   const handleArchive = () => {
@@ -829,11 +880,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 <>
                   <Button
                     onClick={handleUpdate}
-                    disabled={updateMutation.isPending || archiveMutation.isPending}
+                    disabled={isSaving || archiveMutation.isPending}
                     data-testid="button-update-surgery"
                     className="w-full sm:flex-1"
                   >
-                    {updateMutation.isPending ? (
+                    {isSaving ? (
                       <>{t('anesthesia.editSurgery.updating')}</>
                     ) : (
                       <>
@@ -845,7 +896,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   <Button
                     variant="outline"
                     onClick={onClose}
-                    disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                    disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
                     data-testid="button-cancel-surgery"
                     className="w-full sm:flex-1"
                   >
@@ -856,7 +907,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <Button
                       variant="outline"
                       onClick={() => suspendMutation.mutate({ isSuspended: false, suspendedReason: null })}
-                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
                       data-testid="button-unsuspend-surgery"
                       className="w-full sm:flex-1 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
                     >
@@ -873,7 +924,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <Button
                       variant="outline"
                       onClick={() => setShowSuspendDialog(true)}
-                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
                       data-testid="button-suspend-surgery"
                       className="w-full sm:flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
                     >
@@ -885,7 +936,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <Button
                       variant="outline"
                       onClick={handleArchive}
-                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      disabled={archiveMutation.isPending || isSaving || suspendMutation.isPending}
                       data-testid="button-archive-surgery"
                       className="w-full sm:flex-1"
                     >
@@ -951,6 +1002,28 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Admission Congruence Dialog */}
+      <AdmissionCongruenceDialog
+        open={!!congruencePending}
+        result={congruencePending?.result ?? null}
+        currentAdmission={surgery?.admissionTime ? new Date(surgery.admissionTime) : null}
+        newPlannedDate={congruencePending?.newPlannedDate ?? new Date()}
+        hospitalTimeZone={hospitalTimeZone}
+        onResolve={(choice: AdmissionCongruenceChoice) => {
+          const pending = congruencePending;
+          setCongruencePending(null);
+          if (!pending) return;
+          if (choice.kind === "cancel") return;
+          if (choice.kind === "useSuggested") {
+            runSave(pending.result.suggestedAdmission.toISOString());
+          } else if (choice.kind === "custom") {
+            runSave(choice.admissionTime.toISOString());
+          } else if (choice.kind === "keepCurrent") {
+            runSave();
+          }
+        }}
+      />
 
       {/* Suspend Confirmation Dialog */}
       <AlertDialog open={showSuspendDialog} onOpenChange={(open) => {
