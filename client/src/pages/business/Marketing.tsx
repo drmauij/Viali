@@ -400,21 +400,23 @@ export default function Marketing() {
 
           {/* Tabs: Sources (default) | Recent Events | Conversion Funnel */}
           <Tabs defaultValue="sources" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="sources" data-testid="tab-marketing-sources">
-                {t('business.referrals.sourcesTab', 'How patients found us')}
-              </TabsTrigger>
-              <TabsTrigger value="events" data-testid="tab-marketing-events">
-                <List className="h-4 w-4 mr-1" />
-                {t('business.referrals.recentEvents', 'Recent Referral Events')}
-              </TabsTrigger>
-              <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
-                {t('business.referrals.conversionTab', 'Conversion Funnel')}
-              </TabsTrigger>
-              <TabsTrigger value="ads" data-testid="tab-marketing-ads">
-                {t('business.referrals.adsTab', 'Ad Performance')}
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto scrollbar-hide">
+              <TabsList>
+                <TabsTrigger value="sources" data-testid="tab-marketing-sources">
+                  {t('business.referrals.sourcesTab', 'How patients found us')}
+                </TabsTrigger>
+                <TabsTrigger value="events" data-testid="tab-marketing-events">
+                  <List className="h-4 w-4 mr-1" />
+                  {t('business.referrals.recentEvents', 'Recent Referral Events')}
+                </TabsTrigger>
+                <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
+                  {t('business.referrals.conversionTab', 'Conversion Funnel')}
+                </TabsTrigger>
+                <TabsTrigger value="ads" data-testid="tab-marketing-ads">
+                  {t('business.referrals.adsTab', 'Ad Performance')}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="sources" className="space-y-4">
           {/* Sample size indicator */}
