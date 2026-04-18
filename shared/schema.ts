@@ -6920,9 +6920,13 @@ export const flowExecutions = pgTable("flow_executions", {
   status: varchar("status", { length: 20 }).default("pending").notNull(),
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+  resendEmailId: varchar("resend_email_id"),
 }, (table) => [
   index("idx_flow_executions_flow").on(table.flowId),
   index("idx_flow_executions_patient").on(table.patientId),
+  index("idx_flow_executions_resend_email_id")
+    .on(table.resendEmailId)
+    .where(sql`${table.resendEmailId} IS NOT NULL`),
 ]);
 
 export type FlowExecution = typeof flowExecutions.$inferSelect;
