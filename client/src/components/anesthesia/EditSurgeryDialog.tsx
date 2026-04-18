@@ -23,8 +23,6 @@ import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { SurgeryFormFields } from "./SurgeryFormFields";
-import { checkAdmissionCongruence } from "@shared/admissionCongruence";
-import { AdmissionCongruenceDialog, type AdmissionCongruenceChoice } from "./AdmissionCongruenceDialog";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -86,17 +84,35 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     queryKey: [`/api/admin/${surgery?.hospitalId}`],
     enabled: !!surgery?.hospitalId,
   });
-  const hospitalTimeZone = hospital?.timezone || "Europe/Zurich";
   const defaultOffsetMinutes = hospital?.defaultAdmissionOffsetMinutes ?? 60;
-
-  // Congruence dialog state
-  const [congruencePending, setCongruencePending] = useState<null | {
-    newPlannedDate: Date;
-    result: ReturnType<typeof checkAdmissionCongruence>;
-  }>(null);
 
   // Saving state (replaces updateMutation.isPending in the UI)
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline notice shown under the admission field after auto-adjustment
+  const [admissionAdjustedNotice, setAdmissionAdjustedNotice] = useState<string | null>(null);
+
+  function handleStartTimeChange(newStart: string) {
+    setStartTime(newStart);
+    const match = /^(\d{2}):(\d{2})$/.exec(newStart);
+    if (!match) return;
+    const startMinutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+    const admMinutes = startMinutes - defaultOffsetMinutes;
+    if (admMinutes < 0) return;
+    const ah = Math.floor(admMinutes / 60);
+    const am = admMinutes % 60;
+    const nextAdmission = `${String(ah).padStart(2, "0")}:${String(am).padStart(2, "0")}`;
+    if (nextAdmission === admissionTime) return;
+    setAdmissionTime(nextAdmission);
+    setAdmissionAdjustedNotice(
+      t("admissionCongruence.inlineAdjusted", { offset: defaultOffsetMinutes }),
+    );
+  }
+
+  function handleAdmissionTimeChange(v: string) {
+    setAdmissionTime(v);
+    setAdmissionAdjustedNotice(null);
+  }
 
   // Fetch surgery rooms (only OP type for surgery room assignment)
   const { data: allSurgeryRooms = [] } = useQuery<any[]>({
@@ -429,24 +445,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       });
       return;
     }
-
-    const { newPlannedDate } = buildPayload();
-    const oldAdmissionTime = surgery?.admissionTime ? new Date(surgery.admissionTime) : null;
-    const oldPlannedDate = surgery?.plannedDate ? new Date(surgery.plannedDate) : null;
-
-    const result = checkAdmissionCongruence({
-      oldPlannedDate,
-      oldAdmissionTime,
-      newPlannedDate,
-      defaultOffsetMinutes,
-      hospitalTimeZone,
-    });
-
-    if (result.severity === "invalid") {
-      setCongruencePending({ newPlannedDate, result });
-      return;
-    }
-
     runSave();
   };
 
@@ -667,9 +665,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 rightArmPosition={rightArmPosition}
                 onSurgeryRoomIdChange={setSurgeryRoomId}
                 onSurgeryDateChange={setSurgeryDate}
-                onStartTimeChange={setStartTime}
+                onStartTimeChange={handleStartTimeChange}
                 onDurationChange={setDuration}
-                onAdmissionTimeChange={setAdmissionTime}
+                onAdmissionTimeChange={handleAdmissionTimeChange}
                 onPlannedSurgeryChange={setPlannedSurgery}
                 onSelectedChopCodeChange={setSelectedChopCode}
                 onSurgeonIdChange={setSurgeonId}
@@ -693,6 +691,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 onAssistantIdsChange={setAssistantIds}
                 disabled={!canWrite}
                 testIdPrefix="edit-"
+                admissionAdjustedNoticeText={admissionAdjustedNotice}
               />
 
               </TabsContent>
@@ -1002,27 +1001,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Admission Congruence Dialog */}
-      <AdmissionCongruenceDialog
-        open={!!congruencePending}
-        result={congruencePending?.result ?? null}
-        currentAdmission={surgery?.admissionTime ? new Date(surgery.admissionTime) : null}
-        newPlannedDate={congruencePending?.newPlannedDate ?? new Date()}
-        onResolve={(choice: AdmissionCongruenceChoice) => {
-          const pending = congruencePending;
-          setCongruencePending(null);
-          if (!pending) return;
-          if (choice.kind === "cancel") return;
-          if (choice.kind === "useSuggested") {
-            runSave(pending.result.suggestedAdmission.toISOString());
-          } else if (choice.kind === "custom") {
-            runSave(choice.admissionTime.toISOString());
-          } else if (choice.kind === "keepCurrent") {
-            runSave();
-          }
-        }}
-      />
 
       {/* Suspend Confirmation Dialog */}
       <AlertDialog open={showSuspendDialog} onOpenChange={(open) => {

@@ -8124,6 +8124,8 @@
     "cancel": "Cancel",
     "toastDrifted": "Surgery moved. Admission time may be off.",
     "toastDriftedDesc": "The patient reminder SMS may show the wrong arrival time.",
-    "toastAdjustButton": "Adjust"
+    "toastAdjusted": "Admission time auto-adjusted",
+    "toastAdjustedDesc": "Set to {{offset}} minutes before the new surgery start, per hospital default.",
+    "inlineAdjusted": "Auto-adjusted to {{offset}} min before start"
   }
 }

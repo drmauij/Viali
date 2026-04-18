@@ -72,6 +72,7 @@ export interface SurgeryFormFieldsProps {
   isRoomBlock?: boolean;
   disabled?: boolean;
   testIdPrefix?: string;
+  admissionAdjustedNoticeText?: string | null;
 }
 
 export function SurgeryFormFields({
@@ -89,6 +90,7 @@ export function SurgeryFormFields({
   surgeryRooms, surgeons, hospitalId,
   isSlotReservation = false, isRoomBlock = false,
   disabled = false, testIdPrefix = "",
+  admissionAdjustedNoticeText = null,
 }: SurgeryFormFieldsProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -279,6 +281,14 @@ export function SurgeryFormFields({
               disabled={disabled}
               data-testid={tid("input-admission-time")}
             />
+            {admissionAdjustedNoticeText && (
+              <p
+                className="text-xs text-amber-600 dark:text-amber-400 mt-1"
+                data-testid={tid("text-admission-adjusted-notice")}
+              >
+                {admissionAdjustedNoticeText}
+              </p>
+            )}
           </div>
         )}
       </div>

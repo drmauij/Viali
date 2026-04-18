@@ -8141,6 +8141,8 @@
     "cancel": "Abbrechen",
     "toastDrifted": "OP verschoben. Eintrittszeit könnte nicht mehr passen.",
     "toastDriftedDesc": "Die Erinnerungs-SMS an die Patientin/den Patienten zeigt eventuell die falsche Ankunftszeit.",
-    "toastAdjustButton": "Anpassen"
+    "toastAdjusted": "Eintrittszeit automatisch angepasst",
+    "toastAdjustedDesc": "Gesetzt auf {{offset}} Minuten vor dem neuen OP-Beginn (Klinik-Standard).",
+    "inlineAdjusted": "Automatisch auf {{offset}} Min. vor OP-Beginn gesetzt"
   }
 }
