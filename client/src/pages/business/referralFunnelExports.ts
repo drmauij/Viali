@@ -34,6 +34,12 @@ export type FunnelRow = {
   payment_date: string | null;
   surgery_planned_date: string | null;
   surgeon_id: string | null;
+  // Treatment outcome (parallel to surgery). A row with treatment_id set
+  // means the referral's appointment converted into a signed treatment.
+  treatment_id: string | null;
+  treatment_status: string | null;          // always "signed" when present (SQL filter)
+  treatment_performed_at: string | null;
+  treatment_total: string | null;           // numeric as string — sum of treatment_lines.total
 };
 
 export type ConversionLevel = "kept" | "surgery_planned" | "paid";
