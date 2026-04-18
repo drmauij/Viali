@@ -67,22 +67,24 @@ export function exportAnonymizedCsv(rows: FunnelRow[]) {
     "referral_date", "source", "source_detail", "capture_method",
     "appointment_status", "appointment_date", "provider_name",
     "surgery_status", "payment_status", "price_chf", "payment_date",
+    "treatment_status", "treatment_total_chf", "treatment_performed_at",
     "days_to_conversion",
   ].join(",");
 
   const csvRows = rows.map((r) => {
+    // Days from referral to the conversion timestamp (paid or treatment signed)
+    const conversionTs = r.payment_date ?? r.treatment_performed_at;
     const daysToConversion =
-      r.payment_date && r.referral_date
+      conversionTs && r.referral_date
         ? Math.round(
-            (new Date(r.payment_date).getTime() -
+            (new Date(conversionTs).getTime() -
               new Date(r.referral_date).getTime()) /
               (1000 * 60 * 60 * 24),
           )
         : "";
-    const providerName =
-      r.provider_first_name
-        ? `${r.provider_first_name} ${r.provider_last_name ?? ""}`.trim()
-        : "";
+    const providerName = r.provider_first_name
+      ? `${r.provider_first_name} ${r.provider_last_name ?? ""}`.trim()
+      : "";
     return [
       r.referral_date?.slice(0, 10) ?? "",
       r.source,
@@ -95,6 +97,9 @@ export function exportAnonymizedCsv(rows: FunnelRow[]) {
       r.payment_status ?? "",
       r.price ?? "",
       r.payment_date ?? "",
+      r.treatment_status ?? "",
+      r.treatment_total ?? "",
+      r.treatment_performed_at ?? "",
       daysToConversion,
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -183,9 +188,11 @@ export function matchesConversionLevel(r: FunnelRow, level: ConversionLevel): bo
     case "kept":
       return KEPT_STATUSES.includes(r.appointment_status || "");
     case "surgery_planned":
-      return !!r.surgery_id;
+      // "Converted" — surgery planned OR treatment signed
+      return !!r.surgery_id || !!r.treatment_id;
     case "paid":
-      return !!r.payment_date;
+      // Surgery paid OR treatment signed (treatment signed = paid by design)
+      return !!r.payment_date || r.treatment_status === "signed";
   }
 }
 
@@ -194,14 +201,18 @@ export function getConversionTimestamp(r: FunnelRow, level: ConversionLevel): st
     case "kept":
       return r.appointment_date;
     case "surgery_planned":
-      return r.surgery_planned_date;
+      return r.surgery_planned_date ?? r.treatment_performed_at;
     case "paid":
-      return r.payment_date;
+      return r.payment_date ?? r.treatment_performed_at;
   }
 }
 
 export function getConversionValue(r: FunnelRow): string {
-  return r.price || "";
+  // Prefer surgery price (when present), fall back to treatment total.
+  // A row will have only one set in practice; no double-counting.
+  if (r.price) return r.price;
+  if (r.treatment_total) return r.treatment_total;
+  return "";
 }
 
 export function exportGoogleAdsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
