@@ -17,7 +17,7 @@
 ## File Structure
 
 **New files:**
-- `migrations/0222_flow_executions_resend_email_id.sql` — idempotent ALTER + partial index
+- `migrations/0225_flow_executions_resend_email_id.sql` — idempotent ALTER + partial index
 - `server/services/svixSignature.ts` — `verifySvixSignature()` (HMAC-SHA256 with replay protection)
 - `server/services/marketingMetricsQuery.ts` — `summarizeFlows(hospitalId, since)` and `flowDetail(flowId)` query helpers
 - `server/routes/marketingWebhooks.ts` — `POST /api/webhooks/resend` handler
@@ -27,10 +27,10 @@
 - `tests/marketing-metrics-query.test.ts`
 
 **Modified files:**
-- `shared/schema.ts:6896` — add `resendEmailId` column + partial index to `flow_executions`
-- `server/routes/index.ts:36-78` — register `marketingWebhooksRouter` between `marketingUnsubscribeRouter` and `publicDocsRouter`
-- `server/routes/flows.ts:1032-1034` — add `params.set("utm_content", flow.id)` to booking URL builder
-- `server/routes/flows.ts:1092` — capture `sendResult.data?.id` and persist on `flow_executions`
+- `shared/schema.ts` (around line 6916 — verify with grep) — add `resendEmailId` column + partial index to `flow_executions`
+- `server/routes/index.ts` — register `marketingWebhooksRouter` between `marketingUnsubscribeRouter` and `publicDocsRouter`
+- `server/routes/flows.ts` (around line 1089-1091) — add `params.set("utm_content", flow.id)` to booking URL builder
+- `server/routes/flows.ts` (around line 1149) — capture `sendResult.data?.id` and persist on `flow_executions`
 - `server/routes/flows.ts` (end of file) — add two new GET endpoints: `/metrics/summary` and `/:flowId/metrics`
 - `client/src/App.tsx` — register `/business/flows/:id/metrics` route
 - `client/src/pages/business/Flows.tsx:29-34` — kill `DUMMY_STATS`, fetch real summary, per-row mini-strip, "View metrics" link
@@ -42,9 +42,9 @@
 ## Task 1: Schema + idempotent migration
 
 **Files:**
-- Modify: `shared/schema.ts` (`flowExecutions` table, currently around line 6889)
-- Create: `migrations/0222_flow_executions_resend_email_id.sql`
-- Modify: `migrations/meta/_journal.json`
+- Modify: `shared/schema.ts` (`flowExecutions` table, currently around line 6916)
+- Create: `migrations/0225_flow_executions_resend_email_id.sql`
+- Modify: `migrations/meta/_journal.json` (current last idx is 224 with when=1777700000000; this task adds idx 225 with when=1777800000000)
 
 - [ ] **Step 1: Add column + partial index to schema.ts**
 
@@ -72,10 +72,10 @@ Preserve all existing columns and the existing two indexes — only ADD the new 
 
 - [ ] **Step 2: Write the migration SQL**
 
-Create `migrations/0222_flow_executions_resend_email_id.sql`:
+Create `migrations/0225_flow_executions_resend_email_id.sql`:
 
 ```sql
--- Migration 0222: track Resend message IDs on flow executions
+-- Migration 0225: track Resend message IDs on flow executions
 -- Lets the webhook map incoming events back to a flow_execution row.
 -- Partial index — most rows have NULL (SMS sends, transactional sends).
 -- Idempotent.
@@ -90,19 +90,19 @@ CREATE INDEX IF NOT EXISTS "idx_flow_executions_resend_email_id"
 
 - [ ] **Step 3: Register migration in journal**
 
-Open `migrations/meta/_journal.json`. The current last entry is `idx: 221, when: 1777400000000`. Append a new entry (insert a comma after the current last `}`):
+Open `migrations/meta/_journal.json`. The current last entry is `idx: 224, when: 1777700000000, tag: "0224_service_folders"`. Append a new entry (insert a comma after the current last `}`):
 
 ```json
     ,{
-      "idx": 222,
+      "idx": 225,
       "version": "7",
-      "when": 1777500000000,
-      "tag": "0222_flow_executions_resend_email_id",
+      "when": 1777800000000,
+      "tag": "0225_flow_executions_resend_email_id",
       "breakpoints": true
     }
 ```
 
-Make sure the closing `]` and `}` at the end of the file remain intact and the `when` (`1777500000000`) is the new highest value in the file.
+Make sure the closing `]` and `}` at the end of the file remain intact and the `when` (`1777800000000`) is the new highest value in the file.
 
 - [ ] **Step 4: Verify typecheck passes**
 
@@ -120,7 +120,7 @@ Expected: no-op, no error (the `IF NOT EXISTS` guards skip).
 
 ```bash
 cd /home/mau/viali-flows-event-tracking
-git add shared/schema.ts migrations/0222_flow_executions_resend_email_id.sql migrations/meta/_journal.json
+git add shared/schema.ts migrations/0225_flow_executions_resend_email_id.sql migrations/meta/_journal.json
 git commit -m "feat(flows): track Resend message id on flow_executions"
 ```
 
@@ -711,12 +711,12 @@ git commit -m "feat(flows): Resend webhook handler with consent auto-opt-out on 
 ## Task 4: Capture Resend message id + add utm_content to send loop
 
 **Files:**
-- Modify: `server/routes/flows.ts:1032-1034` (UTM params block)
-- Modify: `server/routes/flows.ts:1092` (email send block)
+- Modify: `server/routes/flows.ts:1089-1091` (UTM params block)
+- Modify: `server/routes/flows.ts:1149` (email send block)
 
 - [ ] **Step 1: Add utm_content to UTM params**
 
-In `server/routes/flows.ts`, find the URL builder around line 1032–1034:
+In `server/routes/flows.ts`, find the URL builder around line 1089–1091:
 
 ```typescript
       params.set("utm_source", flow.channel === "sms" ? "sms_campaign" : "email_campaign");
@@ -736,7 +736,7 @@ Add one line below `utm_campaign`:
 
 - [ ] **Step 2: Capture Resend message id at send time**
 
-In the same file, find the email-send block around lines 1092–1098. Currently:
+In the same file, find the email-send block around lines 1149–1154. Currently:
 
 ```typescript
               await client.emails.send({
