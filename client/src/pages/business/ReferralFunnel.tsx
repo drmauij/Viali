@@ -68,13 +68,15 @@ type FunnelMetrics = {
   kept: number;
   noShow: number;
   cancelled: number;
-  surgeryPlanned: number;
-  paid: number;
+  surgeryPlanned: number;       // count where surgery_id present
+  treatmentPerformed: number;   // count where treatment_id present
+  converted: number;            // surgery OR treatment (union, de-duplicated)
+  paid: number;                 // surgery paid OR treatment signed
   noShowRate: number;
   cancellationRate: number;
-  leadToSurgeryRate: number;
-  aptToSurgeryRate: number;
-  surgeryToPaidRate: number;
+  leadToConversionRate: number;
+  aptToConversionRate: number;
+  conversionToPaidRate: number;
   fullFunnelRate: number;
   totalRevenue: number;
   avgDaysToConversion: number | null;
@@ -138,25 +140,30 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     KEPT_STATUSES.includes(r.appointment_status || ""),
   );
   const noShow = withAppt.filter((r) => r.appointment_status === "no_show");
-  const cancelled = withAppt.filter(
-    (r) => r.appointment_status === "cancelled",
-  );
+  const cancelled = withAppt.filter((r) => r.appointment_status === "cancelled");
+
   const surgeryPlanned = rows.filter((r) => r.surgery_id);
-  const paid = surgeryPlanned.filter((r) => r.payment_date);
+  const treatmentPerformed = rows.filter((r) => r.treatment_id);
+  const converted = rows.filter((r) => r.surgery_id || r.treatment_id);
+  const paid = rows.filter((r) => r.payment_date || r.treatment_status === "signed");
+
   const totalRevenue = paid.reduce(
-    (sum, r) => sum + parseFloat(r.price || "0"),
+    (sum, r) =>
+      sum + parseFloat(r.price || "0") + parseFloat(r.treatment_total || "0"),
     0,
   );
 
+  // Days from referral to either payment_date or treatment_performed_at (whichever applies)
   const conversionDays = paid
-    .filter((r) => r.payment_date && r.referral_date)
-    .map(
-      (r) =>
-        (new Date(r.payment_date!).getTime() -
-          new Date(r.referral_date).getTime()) /
-        (1000 * 60 * 60 * 24),
-    )
-    .filter((d) => d >= 0);
+    .map((r) => {
+      const ts = r.payment_date ?? r.treatment_performed_at;
+      if (!ts || !r.referral_date) return null;
+      return (new Date(ts).getTime() - new Date(r.referral_date).getTime())
+        / (1000 * 60 * 60 * 24);
+    })
+    .filter((d): d is number => d !== null && d >= 0);
+
+  const attendedCount = confirmed.length + kept.length;
 
   return {
     totalReferrals: total,
@@ -166,24 +173,21 @@ function computeMetrics(rows: FunnelRow[]): FunnelMetrics {
     noShow: noShow.length,
     cancelled: cancelled.length,
     surgeryPlanned: surgeryPlanned.length,
+    treatmentPerformed: treatmentPerformed.length,
+    converted: converted.length,
     paid: paid.length,
     noShowRate: withAppt.length > 0 ? noShow.length / withAppt.length : 0,
-    cancellationRate:
-      withAppt.length > 0 ? cancelled.length / withAppt.length : 0,
-    leadToSurgeryRate: total > 0 ? surgeryPlanned.length / total : 0,
-    aptToSurgeryRate:
-      confirmed.length + kept.length > 0
-        ? surgeryPlanned.length / (confirmed.length + kept.length)
-        : 0,
-    surgeryToPaidRate:
-      surgeryPlanned.length > 0 ? paid.length / surgeryPlanned.length : 0,
+    cancellationRate: withAppt.length > 0 ? cancelled.length / withAppt.length : 0,
+    leadToConversionRate: total > 0 ? converted.length / total : 0,
+    aptToConversionRate:
+      attendedCount > 0 ? converted.length / attendedCount : 0,
+    conversionToPaidRate:
+      converted.length > 0 ? paid.length / converted.length : 0,
     fullFunnelRate: total > 0 ? paid.length / total : 0,
     totalRevenue,
     avgDaysToConversion:
       conversionDays.length > 0
-        ? Math.round(
-            conversionDays.reduce((a, b) => a + b, 0) / conversionDays.length,
-          )
+        ? Math.round(conversionDays.reduce((a, b) => a + b, 0) / conversionDays.length)
         : null,
   };
 }
@@ -412,7 +416,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
       referrals: t("business.funnel.referrals", "Referrals"),
       appointments: t("business.funnel.appointments", "Appointments"),
       kept: t("business.funnel.kept", "Kept"),
-      surgeryPlanned: t("business.funnel.surgeryPlanned", "Surgery Planned"),
+      surgeryPlanned: t("business.funnel.converted", "Converted"),
       paid: t("business.funnel.paid", "Paid"),
     };
 
@@ -438,7 +442,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
             entry[src] = m.kept;
             break;
           case "surgeryPlanned":
-            entry[src] = m.surgeryPlanned;
+            entry[src] = m.converted;
             break;
           case "paid":
             entry[src] = m.paid;
@@ -630,24 +634,24 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
             />
             <KpiCard
               label={t(
-                "business.funnel.leadToSurgery",
-                "Referral \u2192 Surgery",
+                "business.funnel.leadToConversion",
+                "Referral \u2192 Converted",
               )}
-              value={`${metrics.surgeryPlanned} (${pct(metrics.leadToSurgeryRate)})`}
+              value={`${metrics.converted} (${pct(metrics.leadToConversionRate)})`}
             />
             <KpiCard
               label={t(
-                "business.funnel.aptToSurgery",
-                "Appointment \u2192 Surgery",
+                "business.funnel.aptToConversion",
+                "Appointment \u2192 Converted",
               )}
-              value={`${metrics.surgeryPlanned} (${pct(metrics.aptToSurgeryRate)})`}
+              value={`${metrics.converted} (${pct(metrics.aptToConversionRate)})`}
             />
             <KpiCard
               label={t(
-                "business.funnel.surgeryToPaid",
-                "Surgery \u2192 Paid",
+                "business.funnel.conversionToPaid",
+                "Converted \u2192 Paid",
               )}
-              value={`${metrics.paid} (${pct(metrics.surgeryToPaidRate)})`}
+              value={`${metrics.paid} (${pct(metrics.conversionToPaidRate)})`}
             />
             <KpiCard
               label={t("business.funnel.fullFunnel", "Full Funnel")}
@@ -723,22 +727,16 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                       {t("business.funnel.surgery", "Surgery")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t(
-                        "business.funnel.leadToSurgery",
-                        "Ref\u2192Surgery",
-                      )}
+                      {t("business.funnel.treatment", "Treatment")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t(
-                        "business.funnel.aptToSurgery",
-                        "Apt\u2192Surgery",
-                      )}
+                      {t("business.funnel.refToConv", "Ref\u2192Conv")}
                     </TableHead>
                     <TableHead className="text-right">
-                      {t(
-                        "business.funnel.surgeryToPaid",
-                        "Surgery\u2192Paid",
-                      )}
+                      {t("business.funnel.aptToConv", "Apt\u2192Conv")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("business.funnel.convToPaid", "Conv\u2192Paid")}
                     </TableHead>
                     <TableHead className="text-right">
                       {t("business.funnel.fullFunnel", "Full Funnel")}
@@ -757,80 +755,47 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                       <TableCell className={isSubRow ? "pl-8 text-sm" : "font-medium"}>
                         {isSubRow ? `↳ ${subLabel}` : bucketLabel(source)}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {m.totalReferrals}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {m.kept}
-                      </TableCell>
+                      <TableCell className="text-right">{m.totalReferrals}</TableCell>
+                      <TableCell className="text-right">{m.kept}</TableCell>
                       <TableCell className="text-right">
                         {m.noShow} <span className="text-muted-foreground text-xs">({pct(m.noShowRate)})</span>
                       </TableCell>
                       <TableCell className="text-right">
                         {m.cancelled} <span className="text-muted-foreground text-xs">({pct(m.cancellationRate)})</span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {m.surgeryPlanned}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {pct(m.leadToSurgeryRate)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {pct(m.aptToSurgeryRate)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {pct(m.surgeryToPaidRate)}
-                      </TableCell>
+                      <TableCell className="text-right">{m.surgeryPlanned}</TableCell>
+                      <TableCell className="text-right">{m.treatmentPerformed}</TableCell>
+                      <TableCell className="text-right">{pct(m.leadToConversionRate)}</TableCell>
+                      <TableCell className="text-right">{pct(m.aptToConversionRate)}</TableCell>
+                      <TableCell className="text-right">{pct(m.conversionToPaidRate)}</TableCell>
                       <TableCell className="text-right">
                         {m.paid} <span className="text-muted-foreground text-xs">({pct(m.fullFunnelRate)})</span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {CHF.format(m.totalRevenue)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {m.avgDaysToConversion ?? "\u2014"}
-                      </TableCell>
+                      <TableCell className="text-right">{CHF.format(m.totalRevenue)}</TableCell>
+                      <TableCell className="text-right">{m.avgDaysToConversion ?? "\u2014"}</TableCell>
                     </TableRow>
                   ))}
                   {/* Footer totals */}
                   <TableRow className="font-semibold border-t-2">
                     <TableCell>Total</TableCell>
-                    <TableCell className="text-right">
-                      {metrics.totalReferrals}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {metrics.confirmed}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {metrics.kept}
-                    </TableCell>
+                    <TableCell className="text-right">{metrics.totalReferrals}</TableCell>
+                    <TableCell className="text-right">{metrics.kept}</TableCell>
                     <TableCell className="text-right">
                       {metrics.noShow} <span className="text-muted-foreground text-xs">({pct(metrics.noShowRate)})</span>
                     </TableCell>
                     <TableCell className="text-right">
                       {metrics.cancelled} <span className="text-muted-foreground text-xs">({pct(metrics.cancellationRate)})</span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {metrics.surgeryPlanned}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {pct(metrics.leadToSurgeryRate)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {pct(metrics.aptToSurgeryRate)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {pct(metrics.surgeryToPaidRate)}
-                    </TableCell>
+                    <TableCell className="text-right">{metrics.surgeryPlanned}</TableCell>
+                    <TableCell className="text-right">{metrics.treatmentPerformed}</TableCell>
+                    <TableCell className="text-right">{pct(metrics.leadToConversionRate)}</TableCell>
+                    <TableCell className="text-right">{pct(metrics.aptToConversionRate)}</TableCell>
+                    <TableCell className="text-right">{pct(metrics.conversionToPaidRate)}</TableCell>
                     <TableCell className="text-right">
                       {metrics.paid} <span className="text-muted-foreground text-xs">({pct(metrics.fullFunnelRate)})</span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {CHF.format(metrics.totalRevenue)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {metrics.avgDaysToConversion ?? "\u2014"}
-                    </TableCell>
+                    <TableCell className="text-right">{CHF.format(metrics.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{metrics.avgDaysToConversion ?? "\u2014"}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -1137,7 +1102,7 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="kept">{t("business.funnel.levelKept", "Attended")}</SelectItem>
-                      <SelectItem value="surgery_planned">{t("business.funnel.levelSurgery", "Surgery Planned")}</SelectItem>
+                      <SelectItem value="surgery_planned">{t("business.funnel.levelConverted", "Converted")}</SelectItem>
                       <SelectItem value="paid">{t("business.funnel.levelPaid", "Paid")}</SelectItem>
                     </SelectContent>
                   </Select>
