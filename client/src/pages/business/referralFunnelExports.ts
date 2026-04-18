@@ -216,7 +216,7 @@ export function getConversionValue(r: FunnelRow): string {
 }
 
 export function exportGoogleAdsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
-  const conversionName = level === "kept" ? "Appointment Kept" : level === "surgery_planned" ? "Surgery Planned" : "Paid";
+  const conversionName = level === "kept" ? "Appointment Kept" : level === "surgery_planned" ? "Converted" : "Paid";
   const filtered = rows.filter((r) => (r.gclid || r.gbraid || r.wbraid) && matchesConversionLevel(r, level));
 
   const header = "Google Click ID,Click Type,Conversion Name,Conversion Time,Conversion Value,Conversion Currency";
@@ -233,7 +233,7 @@ export function exportGoogleAdsCsv(rows: FunnelRow[], level: ConversionLevel, cu
 }
 
 export function exportMetaAdsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
-  const eventName = level === "kept" ? "Lead" : level === "surgery_planned" ? "Schedule" : "Purchase";
+  const eventName = level === "kept" ? "Lead" : level === "surgery_planned" ? "Converted" : "Purchase";
   const filtered = rows.filter((r) => (r.fbclid || r.igshid) && matchesConversionLevel(r, level));
 
   const header = "event_name,event_time,fbc,value,currency,action_source";
@@ -252,7 +252,7 @@ export function exportMetaAdsCsv(rows: FunnelRow[], level: ConversionLevel, curr
 }
 
 export function exportMetaFormsCsv(rows: FunnelRow[], level: ConversionLevel, currency: string, from: string, to: string) {
-  const eventName = level === "kept" ? "lead_converted" : level === "surgery_planned" ? "lead_surgery_planned" : "lead_paid";
+  const eventName = level === "kept" ? "lead_attended" : level === "surgery_planned" ? "lead_converted" : "lead_paid";
   const filtered = rows.filter((r) => r.meta_lead_id && matchesConversionLevel(r, level));
 
   const header = "lead_id,event_name,event_time,lead_value,currency";
