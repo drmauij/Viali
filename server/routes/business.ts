@@ -2010,59 +2010,84 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarke
     const whereClause = sql.join(conditions, sql` AND `);
 
     const result = await db.execute(sql`
-      SELECT
-        re.id AS referral_id,
-        re.source,
-        re.source_detail,
-        re.created_at AS referral_date,
-        re.patient_id,
-        re.capture_method,
-        CASE WHEN re.gclid IS NOT NULL OR re.gbraid IS NOT NULL OR re.wbraid IS NOT NULL OR re.fbclid IS NOT NULL OR re.igshid IS NOT NULL OR re.ttclid IS NOT NULL OR re.msclkid IS NOT NULL OR re.li_fat_id IS NOT NULL OR re.twclid IS NOT NULL OR re.meta_lead_id IS NOT NULL OR re.meta_form_id IS NOT NULL THEN true ELSE false END AS has_click_id,
-        re.gclid,
-        re.gbraid,
-        re.wbraid,
-        re.fbclid,
-        re.igshid,
-        re.meta_lead_id,
-        re.meta_form_id,
-        re.utm_source,
-        re.utm_campaign,
-        -- Unified campaign label: prefer the name from the ad-platform webhook
-        -- (e.g. Meta Ads Manager campaign_name) and fall back to the URL's
-        -- utm_campaign tag. This gives one "Campaign" field across sources.
-        COALESCE(re.campaign_name, re.utm_campaign) AS campaign,
-        re.campaign_id,
-        re.campaign_name,
-        ca.id AS appointment_id,
-        ca.status AS appointment_status,
-        ca.provider_id,
-        ca.appointment_date,
-        u.first_name AS provider_first_name,
-        u.last_name AS provider_last_name,
-        s.id AS surgery_id,
-        s.status AS surgery_status,
-        s.payment_status,
-        s.price,
-        s.payment_date,
-        s.planned_date AS surgery_planned_date,
-        s.surgeon_id
-      FROM referral_events re
-      LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
-      LEFT JOIN users u ON u.id = ca.provider_id
-      LEFT JOIN LATERAL (
-        SELECT s2.id, s2.status, s2.payment_status, s2.price, s2.payment_date, s2.planned_date, s2.surgeon_id
-        FROM surgeries s2
-        WHERE s2.patient_id = re.patient_id
-          AND s2.hospital_id = re.hospital_id
-          AND s2.planned_date >= re.created_at
-          AND s2.is_archived = false
-          AND COALESCE(s2.is_suspended, false) = false
-        ORDER BY s2.planned_date ASC
-        LIMIT 1
-      ) s ON true
-      WHERE ${whereClause}
-      ORDER BY re.created_at DESC
-    `);
+  SELECT
+    re.id AS referral_id,
+    re.source,
+    re.source_detail,
+    re.created_at AS referral_date,
+    re.patient_id,
+    re.capture_method,
+    CASE WHEN re.gclid IS NOT NULL OR re.gbraid IS NOT NULL OR re.wbraid IS NOT NULL OR re.fbclid IS NOT NULL OR re.igshid IS NOT NULL OR re.ttclid IS NOT NULL OR re.msclkid IS NOT NULL OR re.li_fat_id IS NOT NULL OR re.twclid IS NOT NULL OR re.meta_lead_id IS NOT NULL OR re.meta_form_id IS NOT NULL THEN true ELSE false END AS has_click_id,
+    re.gclid,
+    re.gbraid,
+    re.wbraid,
+    re.fbclid,
+    re.igshid,
+    re.meta_lead_id,
+    re.meta_form_id,
+    re.utm_source,
+    re.utm_campaign,
+    COALESCE(re.campaign_name, re.utm_campaign) AS campaign,
+    re.campaign_id,
+    re.campaign_name,
+    ca.id AS appointment_id,
+    ca.status AS appointment_status,
+    ca.provider_id,
+    ca.appointment_date,
+    u.first_name AS provider_first_name,
+    u.last_name AS provider_last_name,
+    s.id AS surgery_id,
+    s.status AS surgery_status,
+    s.payment_status,
+    s.price,
+    s.payment_date,
+    s.planned_date AS surgery_planned_date,
+    s.surgeon_id,
+    tr.id AS treatment_id,
+    tr.status AS treatment_status,
+    tr.performed_at AS treatment_performed_at,
+    tr.total AS treatment_total
+  FROM referral_events re
+  LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
+  LEFT JOIN users u ON u.id = ca.provider_id
+  LEFT JOIN LATERAL (
+    SELECT s2.id, s2.status, s2.payment_status, s2.price, s2.payment_date, s2.planned_date, s2.surgeon_id
+    FROM surgeries s2
+    WHERE s2.patient_id = re.patient_id
+      AND s2.hospital_id = re.hospital_id
+      AND s2.planned_date >= re.created_at
+      AND s2.is_archived = false
+      AND COALESCE(s2.is_suspended, false) = false
+    ORDER BY s2.planned_date ASC
+    LIMIT 1
+  ) s ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      t.id,
+      t.status,
+      t.performed_at,
+      (SELECT COALESCE(SUM(tl.total), 0)
+       FROM treatment_lines tl
+       WHERE tl.treatment_id = t.id) AS total
+    FROM treatments t
+    WHERE t.hospital_id = re.hospital_id
+      AND t.status = 'signed'
+      AND (
+        t.appointment_id = re.appointment_id
+        OR (
+          t.appointment_id IS NULL
+          AND t.patient_id = re.patient_id
+          AND ca.appointment_date IS NOT NULL
+          AND date_trunc('day', t.performed_at AT TIME ZONE 'UTC')
+              = date_trunc('day', ca.appointment_date AT TIME ZONE 'UTC')
+        )
+      )
+    ORDER BY t.performed_at ASC
+    LIMIT 1
+  ) tr ON true
+  WHERE ${whereClause}
+  ORDER BY re.created_at DESC
+`);
 
     res.json(result.rows);
   } catch (error: any) {
