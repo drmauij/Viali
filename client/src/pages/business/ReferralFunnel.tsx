@@ -510,6 +510,19 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
           <h2 className="text-xl font-semibold">
             {t("business.funnel.title", "Conversion Funnel")}
           </h2>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="text-sm">
+                {t(
+                  "business.funnel.convertedHelp",
+                  "A \"Converted\" referral is one whose appointment led to either a planned surgery or a signed treatment (Botox, fillers, etc.). The split between the two is shown in the matrix table below — Surgery and Treatment are counted in separate columns.",
+                )}
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         {filtered.length > 0 && (
           <Button

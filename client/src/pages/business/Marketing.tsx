@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DateInput } from "@/components/ui/date-input";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -591,6 +592,29 @@ export default function Marketing() {
             )}
           </ChartCard>
 
+          {/* Tabs: Conversion Funnel (default) | Recent Events */}
+          <Tabs defaultValue="conversion" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
+                {t('business.referrals.conversionTab', 'Conversion Funnel')}
+              </TabsTrigger>
+              <TabsTrigger value="events" data-testid="tab-marketing-events">
+                <List className="h-4 w-4 mr-1" />
+                {t('business.referrals.recentEvents', 'Recent Referral Events')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="conversion">
+              <ReferralFunnel
+                hospitalId={activeHospital?.id}
+                from={referralFrom}
+                to={referralTo}
+                currency={activeHospital?.currency || "CHF"}
+                onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
+              />
+            </TabsContent>
+
+            <TabsContent value="events">
           {/* Recent referral events table */}
           <Card>
             <CardHeader>
@@ -797,6 +821,8 @@ export default function Marketing() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* Edit Referral Dialog */}
           {editingReferral && (
@@ -849,14 +875,6 @@ export default function Marketing() {
             </Dialog>
           )}
 
-          {/* Conversion Funnel Analytics */}
-          <ReferralFunnel
-            hospitalId={activeHospital?.id}
-            from={referralFrom}
-            to={referralTo}
-            currency={activeHospital?.currency || "CHF"}
-            onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
-          />
       </div>
     </div>
   );
