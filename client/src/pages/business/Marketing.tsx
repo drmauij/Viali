@@ -398,6 +398,22 @@ export default function Marketing() {
             </CardContent>
           </Card>
 
+          {/* Tabs: Sources (default) | Recent Events | Conversion Funnel */}
+          <Tabs defaultValue="sources" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="sources" data-testid="tab-marketing-sources">
+                {t('business.referrals.sourcesTab', 'How patients found us')}
+              </TabsTrigger>
+              <TabsTrigger value="events" data-testid="tab-marketing-events">
+                <List className="h-4 w-4 mr-1" />
+                {t('business.referrals.recentEvents', 'Recent Referral Events')}
+              </TabsTrigger>
+              <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
+                {t('business.referrals.conversionTab', 'Conversion Funnel')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sources" className="space-y-4">
           {/* Sample size indicator */}
           {referralData && (
             <div className="text-sm text-muted-foreground px-1">
@@ -592,26 +608,6 @@ export default function Marketing() {
             )}
           </ChartCard>
 
-          {/* Tabs: Conversion Funnel (default) | Recent Events */}
-          <Tabs defaultValue="conversion" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
-                {t('business.referrals.conversionTab', 'Conversion Funnel')}
-              </TabsTrigger>
-              <TabsTrigger value="events" data-testid="tab-marketing-events">
-                <List className="h-4 w-4 mr-1" />
-                {t('business.referrals.recentEvents', 'Recent Referral Events')}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="conversion">
-              <ReferralFunnel
-                hospitalId={activeHospital?.id}
-                from={referralFrom}
-                to={referralTo}
-                currency={activeHospital?.currency || "CHF"}
-                onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
-              />
             </TabsContent>
 
             <TabsContent value="events">
@@ -821,6 +817,16 @@ export default function Marketing() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+
+            <TabsContent value="conversion">
+              <ReferralFunnel
+                hospitalId={activeHospital?.id}
+                from={referralFrom}
+                to={referralTo}
+                currency={activeHospital?.currency || "CHF"}
+                onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
+              />
             </TabsContent>
           </Tabs>
 
