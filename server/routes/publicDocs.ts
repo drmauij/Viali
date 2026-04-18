@@ -189,8 +189,20 @@ GET /api/webhooks/conversions/<HOSPITAL_ID>?key=<YOUR_API_KEY>
 ### Conversion levels
 
 - \`kept\` — the patient showed up to their appointment (arrived, in progress, or completed).
-- \`surgery_planned\` — a surgery has been scheduled for this patient.
-- \`paid\` — the surgery has been paid for.
+- \`surgery_planned\` — **the appointment converted to a real clinical outcome**: either a surgery was scheduled for this patient, or a treatment (Botox, fillers, other in-clinic procedures) was performed and signed.
+- \`paid\` — the conversion has been settled: the surgery has been paid for, **or** a treatment has been signed (signed treatments count as paid — clinics may bill them via an embedded or external invoicing system, so the signature is the authoritative "done and billable" signal).
+
+The \`surgery_planned\` level name is retained for backward compatibility; treat it as a general "converted" signal that covers both surgical and treatment outcomes. Clinics that only do one or the other still see consistent data — the unused path simply contributes nothing.
+
+### Event names per platform and level
+
+| Level | Google Ads \`conversion_name\` / Meta Ads \`event_name\` | Meta Forms \`event_name\` |
+| --- | --- | --- |
+| \`kept\` | \`Appointment Kept\` / \`Lead\` | \`lead_attended\` |
+| \`surgery_planned\` | \`Converted\` / \`Converted\` | \`lead_converted\` |
+| \`paid\` | \`Paid\` / \`Purchase\` | \`lead_paid\` |
+
+Conversion value (\`conversion_value\` / \`value\` / \`lead_value\`) is the surgery price when a surgery is the conversion, or the summed treatment-line total when a treatment is the conversion.
 
 ### Response
 
@@ -198,7 +210,7 @@ GET /api/webhooks/conversions/<HOSPITAL_ID>?key=<YOUR_API_KEY>
 [
   {
     "lead_id": "123456789",
-    "event_name": "lead_converted",
+    "event_name": "lead_attended",
     "event_time": 1712700000,
     "lead_value": "5000",
     "currency": "CHF",

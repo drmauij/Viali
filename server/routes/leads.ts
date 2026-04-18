@@ -323,7 +323,11 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
         s.id AS surgery_id,
         s.price,
         s.payment_date,
-        s.planned_date AS surgery_planned_date
+        s.planned_date AS surgery_planned_date,
+        tr.id AS treatment_id,
+        tr.status AS treatment_status,
+        tr.performed_at AS treatment_performed_at,
+        tr.total AS treatment_total
       FROM referral_events re
       LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
       LEFT JOIN LATERAL (
@@ -337,6 +341,29 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
         ORDER BY s2.planned_date ASC
         LIMIT 1
       ) s ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          t.id,
+          t.status,
+          t.performed_at,
+          (SELECT COALESCE(SUM(tl.total), 0)
+           FROM treatment_lines tl
+           WHERE tl.treatment_id = t.id) AS total
+        FROM treatments t
+        WHERE t.hospital_id = re.hospital_id
+          AND t.status = 'signed'
+          AND (
+            t.appointment_id = re.appointment_id
+            OR (
+              t.appointment_id IS NULL
+              AND t.patient_id = re.patient_id
+              AND ca.appointment_date IS NOT NULL
+              AND (t.performed_at AT TIME ZONE 'UTC')::date = ca.appointment_date
+            )
+          )
+        ORDER BY t.performed_at ASC
+        LIMIT 1
+      ) tr ON true
       WHERE ${whereClause}
       ORDER BY re.created_at DESC
     `);
@@ -347,9 +374,12 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
     const toUnix = (ts: string | null) =>
       ts ? Math.floor(new Date(ts).getTime() / 1000) : null;
 
+    // "surgery_planned" level is retained as the query param key for backward compat
+    // but semantically means "converted" — surgery scheduled OR treatment signed.
+    // "paid" covers surgery paid OR treatment signed (treatment signed = paid by design).
     const getRowLevel = (r: any): string | null => {
-      if (r.payment_date) return "paid";
-      if (r.surgery_id) return "surgery_planned";
+      if (r.payment_date || r.treatment_status === "signed") return "paid";
+      if (r.surgery_id || r.treatment_id) return "surgery_planned";
       if (KEPT_STATUSES.includes(r.appointment_status || "")) return "kept";
       return null;
     };
@@ -357,19 +387,23 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
     const getLevelTimestamp = (r: any, lvl: string) => {
       switch (lvl) {
         case "kept": return r.appointment_date;
-        case "surgery_planned": return r.surgery_planned_date;
-        case "paid": return r.payment_date;
+        case "surgery_planned": return r.surgery_planned_date ?? r.treatment_performed_at;
+        case "paid": return r.payment_date ?? r.treatment_performed_at;
         default: return null;
       }
     };
 
     const getLevelEventName = (lvl: string, plat: string) => {
       if (plat === "meta_forms") {
-        return lvl === "kept" ? "lead_converted" : lvl === "surgery_planned" ? "lead_surgery_planned" : "lead_paid";
+        return lvl === "kept" ? "lead_attended" : lvl === "surgery_planned" ? "lead_converted" : "lead_paid";
       }
       // meta_ads and google_ads use same names
-      return lvl === "kept" ? "Lead" : lvl === "surgery_planned" ? "Schedule" : "Purchase";
+      return lvl === "kept" ? "Lead" : lvl === "surgery_planned" ? "Converted" : "Purchase";
     };
+
+    // Row-level value: prefer surgery price, fall back to treatment total.
+    const getRowValue = (r: any): string =>
+      r.price ? String(r.price) : r.treatment_total ? String(r.treatment_total) : "";
 
     const getRowPlatform = (r: any): string | null => {
       if (r.meta_lead_id) return "meta_forms";
@@ -393,6 +427,7 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
       const eventName = getLevelEventName(rowLevel, rowPlatform);
       const eventTime = toUnix(getLevelTimestamp(r, rowLevel));
 
+      const rowValue = getRowValue(r);
       if (rowPlatform === "meta_forms") {
         conversions.push({
           platform: "meta_forms",
@@ -400,7 +435,7 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
           lead_id: r.meta_lead_id,
           event_name: eventName,
           event_time: eventTime,
-          lead_value: r.price || "",
+          lead_value: rowValue,
           currency,
         });
       } else if (rowPlatform === "meta_ads") {
@@ -413,7 +448,7 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
           event_name: eventName,
           event_time: eventTime,
           fbc,
-          value: r.price || "",
+          value: rowValue,
           currency,
           action_source: "website",
         });
@@ -427,7 +462,7 @@ router.get("/api/webhooks/conversions/:hospitalId", async (req, res) => {
           click_type: clickType,
           conversion_name: eventName,
           conversion_time: getLevelTimestamp(r, rowLevel) || "",
-          conversion_value: r.price || "",
+          conversion_value: rowValue,
           conversion_currency: currency,
         });
       }
