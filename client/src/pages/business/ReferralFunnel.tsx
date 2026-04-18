@@ -59,6 +59,17 @@ interface ReferralFunnelProps {
   to: string;
   currency?: string;
   onEarliestDate?: (date: string) => void;
+  /**
+   * Which sections to render.
+   * - "all" (default): every section — title, filters, KPIs, funnel chart, matrix,
+   *   ad budgets, ad performance, feed-back-to-platforms.
+   * - "conversion": filters + KPIs + funnel chart + matrix. No ad-spend sections.
+   * - "ads": filters + ad budgets + ad performance + feed-back-to-platforms. No funnel analytics.
+   *
+   * Lets the Marketing page split this component across two tabs while keeping
+   * data fetching and filter state centralized here.
+   */
+  view?: "all" | "conversion" | "ads";
 }
 
 type FunnelMetrics = {
@@ -221,7 +232,9 @@ function classifyFunnel(r: FunnelRow): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate }: ReferralFunnelProps) {
+export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF", onEarliestDate, view = "all" }: ReferralFunnelProps) {
+  const showConversion = view === "all" || view === "conversion";
+  const showAds = view === "all" || view === "ads";
   const { t } = useTranslation();
   const { toast } = useToast();
   const [providerFilter, setProviderFilter] = useState("all");
@@ -508,23 +521,27 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
           <h2 className="text-xl font-semibold">
-            {t("business.funnel.title", "Conversion Funnel")}
+            {view === "ads"
+              ? t("business.funnel.adPerformanceTitle", "Ad Performance")
+              : t("business.funnel.title", "Conversion Funnel")}
           </h2>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="text-sm">
-                {t(
-                  "business.funnel.convertedHelp",
-                  "A \"Converted\" referral is one whose appointment led to either a planned surgery or a signed treatment (Botox, fillers, etc.). The split between the two is shown in the matrix table below — Surgery and Treatment are counted in separate columns.",
-                )}
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          {showConversion && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-sm">
+                  {t(
+                    "business.funnel.convertedHelp",
+                    "A \"Converted\" referral is one whose appointment led to either a planned surgery or a signed treatment (Botox, fillers, etc.). The split between the two is shown in the matrix table below — Surgery and Treatment are counted in separate columns.",
+                  )}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
-        {filtered.length > 0 && (
+        {showConversion && filtered.length > 0 && (
           <Button
             variant="outline"
             size="sm"
@@ -627,6 +644,8 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
 
       {filtered.length > 0 && (
         <>
+          {showConversion && (
+            <>
           {/* ── KPI cards ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
@@ -815,6 +834,11 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
             </CardContent>
           </Card>
 
+            </>
+          )}
+
+          {showAds && (
+            <>
           {/* ── Ad Budgets Table ─────────────────────────────────────────── */}
           <Card className="mt-6">
             <CardHeader className="pb-3">
@@ -1153,6 +1177,8 @@ export default function ReferralFunnel({ hospitalId, from, to, currency = "CHF",
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
         </>
       )}
     </div>

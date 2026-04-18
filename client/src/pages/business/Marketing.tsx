@@ -411,6 +411,9 @@ export default function Marketing() {
               <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
                 {t('business.referrals.conversionTab', 'Conversion Funnel')}
               </TabsTrigger>
+              <TabsTrigger value="ads" data-testid="tab-marketing-ads">
+                {t('business.referrals.adsTab', 'Ad Performance')}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="sources" className="space-y-4">
@@ -826,6 +829,18 @@ export default function Marketing() {
                 to={referralTo}
                 currency={activeHospital?.currency || "CHF"}
                 onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
+                view="conversion"
+              />
+            </TabsContent>
+
+            <TabsContent value="ads">
+              <ReferralFunnel
+                hospitalId={activeHospital?.id}
+                from={referralFrom}
+                to={referralTo}
+                currency={activeHospital?.currency || "CHF"}
+                onEarliestDate={(d) => { if (!referralFrom) setReferralFrom(d); }}
+                view="ads"
               />
             </TabsContent>
           </Tabs>
