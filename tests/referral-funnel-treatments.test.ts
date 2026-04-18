@@ -280,4 +280,82 @@ describe("/referral-funnel — treatment strong link", () => {
     const row = res.body.find((r: any) => r.source === marker);
     expect(row.treatment_id).toBeNull();
   });
+
+  it("ignores draft (unsigned) treatments", async () => {
+    const marker = markerSource();
+
+    const [appt] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: new Date(),
+      startTime: "10:00",
+      endTime: "10:30",
+      durationMinutes: 30,
+      status: "completed",
+    } as any).returning();
+    createdApptIds.push(appt.id);
+
+    const [ref] = await db.insert(referralEvents).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      appointmentId: appt.id,
+      source: marker,
+      captureMethod: "manual",
+    } as any).returning();
+    createdReferralIds.push(ref.id);
+
+    const [tr] = await db.insert(treatments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentId: appt.id,
+      performedAt: new Date(),
+      status: "draft",         // NOT signed
+    } as any).returning();
+    createdTreatmentIds.push(tr.id);
+
+    const res = await request(buildApp())
+      .get(`/api/business/${TEST_HOSPITAL_ID}/referral-funnel`)
+      .expect(200);
+
+    const row = res.body.find((r: any) => r.source === marker);
+    expect(row.treatment_id).toBeNull();
+  });
+
+  it("returns null treatment fields when referral has no treatment", async () => {
+    const marker = markerSource();
+
+    const [appt] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: new Date(),
+      startTime: "10:00",
+      endTime: "10:30",
+      durationMinutes: 30,
+      status: "scheduled",
+    } as any).returning();
+    createdApptIds.push(appt.id);
+
+    const [ref] = await db.insert(referralEvents).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      appointmentId: appt.id,
+      source: marker,
+      captureMethod: "manual",
+    } as any).returning();
+    createdReferralIds.push(ref.id);
+
+    const res = await request(buildApp())
+      .get(`/api/business/${TEST_HOSPITAL_ID}/referral-funnel`)
+      .expect(200);
+
+    const row = res.body.find((r: any) => r.source === marker);
+    expect(row.treatment_id).toBeNull();
+    expect(row.treatment_status).toBeNull();
+    expect(row.treatment_total).toBeNull();
+  });
 });
