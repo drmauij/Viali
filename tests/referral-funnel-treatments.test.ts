@@ -1,5 +1,5 @@
 // tests/referral-funnel-treatments.test.ts
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import { db, pool } from "../server/db";
@@ -90,6 +90,22 @@ function markerSource() {
 }
 
 describe("/referral-funnel — treatment strong link", () => {
+  // Clean up between tests so null-FK treatments from one test don't leak into the next
+  afterEach(async () => {
+    if (createdTreatmentIds.length) {
+      await db.delete(treatments).where(inArray(treatments.id, createdTreatmentIds));
+      createdTreatmentIds.length = 0;
+    }
+    if (createdReferralIds.length) {
+      await db.delete(referralEvents).where(inArray(referralEvents.id, createdReferralIds));
+      createdReferralIds.length = 0;
+    }
+    if (createdApptIds.length) {
+      await db.delete(clinicAppointments).where(inArray(clinicAppointments.id, createdApptIds));
+      createdApptIds.length = 0;
+    }
+  });
+
   it("attaches a treatment when treatments.appointment_id = referral's appointment_id", async () => {
     const marker = markerSource();
 
@@ -196,5 +212,72 @@ describe("/referral-funnel — treatment strong link", () => {
     const row = res.body.find((r: any) => r.source === marker);
     expect(row.treatment_id).toBe(tr.id);
     expect(Number(row.treatment_total)).toBe(150);
+  });
+
+  it("does NOT weak-match a treatment whose appointment_id points to a different appointment", async () => {
+    const marker = markerSource();
+    const today = new Date();
+
+    // Referral's appointment
+    const [apptA] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: today,
+      startTime: "10:00",
+      endTime: "10:30",
+      durationMinutes: 30,
+      status: "completed",
+    } as any).returning();
+    createdApptIds.push(apptA.id);
+
+    // A different appointment on the same day
+    const [apptB] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: today,
+      startTime: "11:00",
+      endTime: "11:30",
+      durationMinutes: 30,
+      status: "completed",
+    } as any).returning();
+    createdApptIds.push(apptB.id);
+
+    const [ref] = await db.insert(referralEvents).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      appointmentId: apptA.id,
+      source: marker,
+      captureMethod: "manual",
+    } as any).returning();
+    createdReferralIds.push(ref.id);
+
+    // Treatment explicitly linked to apptB, not apptA → must NOT attach to this referral
+    const [tr] = await db.insert(treatments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentId: apptB.id,
+      performedAt: today,
+      status: "signed",
+    } as any).returning();
+    createdTreatmentIds.push(tr.id);
+
+    await db.insert(treatmentLines).values({
+      treatmentId: tr.id,
+      serviceId: testServiceId,
+      unitPrice: "999.00",
+      total: "999.00",
+    } as any);
+
+    const res = await request(buildApp())
+      .get(`/api/business/${TEST_HOSPITAL_ID}/referral-funnel`)
+      .expect(200);
+
+    const row = res.body.find((r: any) => r.source === marker);
+    expect(row.treatment_id).toBeNull();
   });
 });
