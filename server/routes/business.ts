@@ -2078,8 +2078,7 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarke
           t.appointment_id IS NULL
           AND t.patient_id = re.patient_id
           AND ca.appointment_date IS NOT NULL
-          AND date_trunc('day', t.performed_at AT TIME ZONE 'UTC')
-              = date_trunc('day', ca.appointment_date AT TIME ZONE 'UTC')
+          AND (t.performed_at AT TIME ZONE 'UTC')::date = ca.appointment_date
         )
       )
     ORDER BY t.performed_at ASC

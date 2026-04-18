@@ -144,4 +144,57 @@ describe("/referral-funnel — treatment strong link", () => {
     expect(Number(row.treatment_total)).toBe(250);
     expect(row.surgery_id).toBeNull();
   });
+
+  it("attaches a same-day treatment when treatments.appointment_id is null (weak fallback)", async () => {
+    const marker = markerSource();
+    const today = new Date();
+
+    const [appt] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: today,
+      startTime: "10:00",
+      endTime: "10:30",
+      durationMinutes: 30,
+      status: "completed",
+    } as any).returning();
+    createdApptIds.push(appt.id);
+
+    const [ref] = await db.insert(referralEvents).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      appointmentId: appt.id,
+      source: marker,
+      captureMethod: "manual",
+    } as any).returning();
+    createdReferralIds.push(ref.id);
+
+    const [tr] = await db.insert(treatments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentId: null,             // no FK — weak fallback path
+      performedAt: today,
+      status: "signed",
+    } as any).returning();
+    createdTreatmentIds.push(tr.id);
+
+    // No explicit cleanup: treatment_lines cascades on treatments delete (shared/schema.ts).
+    await db.insert(treatmentLines).values({
+      treatmentId: tr.id,
+      serviceId: testServiceId,
+      unitPrice: "150.00",
+      total: "150.00",
+    } as any);
+
+    const res = await request(buildApp())
+      .get(`/api/business/${TEST_HOSPITAL_ID}/referral-funnel`)
+      .expect(200);
+
+    const row = res.body.find((r: any) => r.source === marker);
+    expect(row.treatment_id).toBe(tr.id);
+    expect(Number(row.treatment_total)).toBe(150);
+  });
 });
