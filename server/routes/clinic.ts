@@ -954,6 +954,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
         code: clinicServices.code,
         serviceGroup: clinicServices.serviceGroup,
         serviceGroups: clinicServices.serviceGroups,
+        folderId: clinicServices.folderId,
         sortOrder: clinicServices.sortOrder,
         createdAt: clinicServices.createdAt,
         updatedAt: clinicServices.updatedAt,

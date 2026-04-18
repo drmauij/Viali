@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check, Upload } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check, Upload, Folder as FolderIcon, FolderPlus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -42,26 +43,114 @@ import {
 } from "@/components/ui/select";
 import type { ClinicService, Unit } from "@shared/schema";
 import { ServiceGroupsMultiSelect } from "@/components/ServiceGroupsMultiSelect";
-import { DndContext, type DragEndEvent, useDraggable } from "@dnd-kit/core";
-import { FolderTree, FolderDialog, useFolderTreeState, useFolderMutations } from "@/components/folders";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { FolderDialog, useFolderMutations } from "@/components/folders";
 import type { Folder } from "@/components/folders";
 import { buildServicesFolderAdapter } from "./servicesFolderAdapter";
-
-function DraggableService({ id, children }: { id: string; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 }
-    : undefined;
-  return (
-    <div ref={setNodeRef} {...listeners} {...attributes} style={style}>
-      {children}
-    </div>
-  );
-}
+import { DraggableItem, DroppableFolder } from "@/pages/items/DragDropComponents";
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
   providerIds?: string[];
+}
+
+interface ServiceCardProps {
+  service: ServiceWithUnit;
+  isBulkMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onEdit: (s: ServiceWithUnit) => void;
+  onDelete: (s: ServiceWithUnit) => void;
+  formatPrice: (price: string | null) => string;
+  t: TFunction;
+}
+
+function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, onDelete, formatPrice, t }: ServiceCardProps) {
+  const groups: string[] = (service as any).serviceGroups ??
+    ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
+  return (
+    <Card
+      data-testid={`card-service-${service.id}`}
+      className={isBulkMode && isSelected ? "ring-2 ring-primary" : ""}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          {isBulkMode && (
+            <div className="mr-3 pt-1">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect(service.id)}
+                data-testid={`checkbox-service-${service.id}`}
+              />
+            </div>
+          )}
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={isBulkMode ? () => onToggleSelect(service.id) : undefined}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-medium">{service.name}</h3>
+              {service.isShared && (
+                <Badge variant="secondary" className="text-xs">
+                  <Share2 className="h-3 w-3 mr-1" />
+                  {t('clinic.services.shared')}
+                </Badge>
+              )}
+            </div>
+            {service.description && (
+              <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+            )}
+            {(service.code || groups.length > 0) && (
+              <div className="flex gap-2 mt-1 text-xs text-muted-foreground items-center flex-wrap">
+                {service.code && <span className="font-mono">#{service.code}</span>}
+                {groups.map((g) => (
+                  <Badge key={g} variant="outline" className="text-xs">{g}</Badge>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <p className="text-lg font-semibold text-primary">
+                {formatPrice(service.price)}
+              </p>
+              {service.durationMinutes && (
+                <Badge variant="outline" className="text-xs">
+                  {service.durationMinutes} min
+                </Badge>
+              )}
+            </div>
+          </div>
+          {!isBulkMode && (
+            <div className="flex gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(service)}
+                data-testid={`button-edit-service-${service.id}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(service)}
+                data-testid={`button-delete-service-${service.id}`}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 interface BookableProvider {
@@ -96,6 +185,18 @@ export default function ClinicServices() {
   const [bulkFolderTargetId, setBulkFolderTargetId] = useState<string | "none">("none");
 
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
+
+  // Folder UI state (inline vertical pattern, like /inventory)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [folderDialogName, setFolderDialogName] = useState("");
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{ overId: string; position: "above" | "below" } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   const [formData, setFormData] = useState({
     name: "",
@@ -143,7 +244,6 @@ export default function ClinicServices() {
     () => (hospitalId && unitId ? buildServicesFolderAdapter(hospitalId, unitId) : null),
     [hospitalId, unitId],
   );
-  const folderTree = useFolderTreeState();
   const folderMut = useFolderMutations(folderAdapter ?? {
     foldersQueryKey: ["noop-folders"],
     itemsQueryKey: ["noop-items"],
@@ -548,27 +648,133 @@ export default function ClinicServices() {
         service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
       if (!matchesSearch) return false;
-      if (folderTree.selectedFolderId === "none") {
-        if ((service as any).folderId) return false;
-      } else if (folderTree.selectedFolderId !== null) {
-        if ((service as any).folderId !== folderTree.selectedFolderId) return false;
-      }
       if (activeGroupFilter === null) return true;
       const groups = (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
       return groups.includes(activeGroupFilter);
     });
-  }, [services, searchTerm, activeGroupFilter, folderTree.selectedFolderId]);
+  }, [services, searchTerm, activeGroupFilter]);
+
+  const organizedServices = useMemo(() => {
+    const rootServices = filteredServices.filter(s => !(s as any).folderId);
+    const folderGroups = folders.map(folder => ({
+      folder,
+      items: filteredServices.filter(s => (s as any).folderId === folder.id),
+    }));
+    return { rootServices, folderGroups };
+  }, [filteredServices, folders]);
+
+  // Auto-expand folders that contain search/filter matches
+  useEffect(() => {
+    if (searchTerm || activeGroupFilter) {
+      const withResults = organizedServices.folderGroups
+        .filter(g => g.items.length > 0)
+        .map(g => g.folder.id);
+      setExpandedFolders(new Set(withResults));
+    }
+  }, [searchTerm, activeGroupFilter, organizedServices.folderGroups]);
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const handleCreateFolder = () => {
+    setEditingFolder(null);
+    setFolderDialogName("");
+    setFolderDialogOpen(true);
+  };
+
+  const handleEditFolder = (e: React.MouseEvent, folder: Folder) => {
+    e.stopPropagation();
+    setEditingFolder(folder);
+    setFolderDialogName(folder.name);
+    setFolderDialogOpen(true);
+  };
+
+  const handleDeleteFolder = (e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation();
+    if (window.confirm(t("folders.deleteFolderConfirm", "Delete this folder? Services will be moved to root."))) {
+      folderMut.deleteFolder.mutate(folderId);
+    }
+  };
+
+  const handleSaveFolder = () => {
+    const name = folderDialogName.trim();
+    if (!name) return;
+    if (editingFolder) {
+      folderMut.renameFolder.mutate(
+        { id: editingFolder.id, name },
+        { onSuccess: () => setFolderDialogOpen(false) },
+      );
+    } else {
+      folderMut.createFolder.mutate(name, {
+        onSuccess: () => setFolderDialogOpen(false),
+      });
+    }
+  };
+
+  const customCollisionDetection = (args: any) => {
+    const { active, droppableContainers } = args;
+    if (String(active.id).startsWith("folder-")) {
+      return closestCorners(args);
+    }
+    const activeService = services.find((s) => s.id === active.id);
+    const currentFolderId = (activeService as any)?.folderId as string | null | undefined;
+    const filtered = droppableContainers.filter((c: any) => {
+      const cid = String(c.id);
+      if (currentFolderId && cid === `folder-${currentFolderId}`) return false;
+      return true;
+    });
+    return closestCorners({ ...args, droppableContainers: filtered });
+  };
+
+  const handleDragStart = (event: any) => {
+    setActiveDragId(String(event.active.id));
+  };
+
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    if (!over || !active) {
+      setDropIndicator(null);
+      return;
+    }
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId.startsWith("folder-") && overId.startsWith("folder-") && activeId !== overId) {
+      const overRect = over.rect;
+      const activeRect = active.rect.current.translated;
+      if (overRect && activeRect) {
+        const overMiddleY = overRect.top + overRect.height / 2;
+        const activeMiddleY = activeRect.top + activeRect.height / 2;
+        const position: "above" | "below" = activeMiddleY < overMiddleY ? "above" : "below";
+        setDropIndicator({ overId, position });
+      }
+    } else {
+      setDropIndicator(null);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragId(null);
+    setDropIndicator(null);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || !folderAdapter) return;
+    setActiveDragId(null);
+    setDropIndicator(null);
+    if (!over || !folderAdapter || active.id === over.id) return;
     const activeId = String(active.id);
     const overId = String(over.id);
 
     if (activeId.startsWith("folder-") && overId.startsWith("folder-")) {
       const fromId = activeId.replace("folder-", "");
       const toId = overId.replace("folder-", "");
-      if (fromId === toId || toId === "none") return;
+      if (fromId === toId) return;
       const from = folders.findIndex((f) => f.id === fromId);
       const to = folders.findIndex((f) => f.id === toId);
       if (from === -1 || to === -1) return;
@@ -579,9 +785,15 @@ export default function ClinicServices() {
       return;
     }
 
-    if (overId.startsWith("folder-")) {
-      const target = overId === "folder-none" ? null : overId.replace("folder-", "");
-      folderMut.moveItem.mutate({ itemId: activeId, folderId: target });
+    if (!activeId.startsWith("folder-")) {
+      if (overId === "root") {
+        folderMut.moveItem.mutate({ itemId: activeId, folderId: null });
+        return;
+      }
+      if (overId.startsWith("folder-")) {
+        const folderId = overId.replace("folder-", "");
+        folderMut.moveItem.mutate({ itemId: activeId, folderId });
+      }
     }
   };
 
@@ -603,65 +815,49 @@ export default function ClinicServices() {
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={customCollisionDetection}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
     <div className="p-4 pb-24">
-      <div className="flex gap-4">
-        <aside className="w-60 shrink-0 border-r pr-3">
-          <FolderTree
-            folders={folders}
-            selectedFolderId={folderTree.selectedFolderId}
-            onSelect={folderTree.setSelectedFolderId}
-            onCreateClick={folderTree.openCreate}
-            onRenameClick={folderTree.openRename}
-            onDeleteClick={(id) => {
-              if (window.confirm(t("folders.deleteFolderConfirm", "Delete this folder? Items will be moved to root."))) {
-                folderMut.deleteFolder.mutate(id);
-              }
-            }}
-            expanded={folderTree.expanded}
-            onToggleExpand={folderTree.toggleExpanded}
-            allLabel={t("clinic.services.folderFilterAll", "All services")}
-            noneLabel={t("clinic.services.folderFilterNone", "No folder")}
-          />
-        </aside>
-        <div className="flex-1 min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[120px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t('clinic.services.searchPlaceholder')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-services"
-          />
-        </div>
+      <div className="space-y-4">
+      {/* Title + primary actions */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-foreground">{t('clinic.services.title', 'Services')}</h1>
+        <div className="flex gap-2 flex-wrap">
         {!isBulkMode ? (
-          <div className="flex items-center gap-2 shrink-0">
+          <>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setIsBulkMode(true)}
               data-testid="button-bulk-mode"
+              className="flex-1 sm:flex-initial"
             >
               <CheckSquare className="h-4 w-4 mr-2" />
               {t('clinic.services.bulkActions', 'Bulk Actions')}
             </Button>
-            <Button variant="outline" onClick={() => setImportDialogOpen(true)} data-testid="button-import-services">
+            <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} data-testid="button-import-services" className="flex-1 sm:flex-initial">
               <Upload className="h-4 w-4 mr-2" />
               {t('clinic.services.import', 'Import')}
             </Button>
-            <Button onClick={handleOpenCreate} data-testid="button-create-service">
+            <Button size="sm" onClick={handleOpenCreate} data-testid="button-create-service" className="flex-1 sm:flex-initial">
               <Plus className="h-4 w-4 mr-2" />
               {t('clinic.services.create')}
             </Button>
-          </div>
+          </>
         ) : (
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <>
             <Button
               variant="outline"
               size="sm"
               onClick={toggleSelectAll}
               data-testid="button-select-all"
+              className="flex-1 sm:flex-initial"
             >
               {selectedServices.size === filteredServices.length && filteredServices.length > 0
                 ? t('common.deselectAll', 'Deselect All')
@@ -744,12 +940,35 @@ export default function ClinicServices() {
             >
               <X className="h-4 w-4" />
             </Button>
-          </div>
+          </>
+        )}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={t('clinic.services.searchPlaceholder')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 pr-8"
+          data-testid="input-search-services"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+            data-testid="input-search-services-clear"
+          >
+            <X className="h-4 w-4" />
+          </button>
         )}
       </div>
 
       {allGroups.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <div className="flex gap-2 overflow-x-auto pb-2">
           <Badge
             variant={activeGroupFilter === null ? "default" : "outline"}
             className="cursor-pointer"
@@ -761,7 +980,7 @@ export default function ClinicServices() {
             <Badge
               key={g}
               variant={activeGroupFilter === g ? "default" : "outline"}
-              className="cursor-pointer"
+              className="cursor-pointer whitespace-nowrap"
               onClick={() => setActiveGroupFilter(g)}
             >
               {g}
@@ -770,13 +989,29 @@ export default function ClinicServices() {
         </div>
       )}
 
+      {/* Count + New folder */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm text-muted-foreground">
+          {t('clinic.services.servicesCount', `${filteredServices.length} services`, { count: filteredServices.length })}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCreateFolder}
+          data-testid="button-new-folder"
+        >
+          <FolderPlus className="w-4 h-4 mr-1" />
+          {t('folders.newFolder', 'New folder')}
+        </Button>
+      </div>
+
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
-      ) : filteredServices.length === 0 ? (
+      ) : filteredServices.length === 0 && organizedServices.folderGroups.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             {searchTerm ? t('clinic.services.noResults') : t('clinic.services.empty')}
@@ -784,110 +1019,98 @@ export default function ClinicServices() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredServices.map((service) => (
-            <DraggableService key={service.id} id={service.id}>
-            <Card
-              data-testid={`card-service-${service.id}`}
-              className={isBulkMode && selectedServices.has(service.id) ? "ring-2 ring-primary" : ""}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  {isBulkMode && (
-                    <div className="mr-3 pt-1">
-                      <Checkbox
-                        checked={selectedServices.has(service.id)}
-                        onCheckedChange={() => toggleServiceSelection(service.id)}
-                        data-testid={`checkbox-service-${service.id}`}
-                      />
-                    </div>
-                  )}
-                  <div 
-                    className="flex-1 cursor-pointer" 
-                    onClick={isBulkMode ? () => toggleServiceSelection(service.id) : undefined}
+          {/* Folders with nested services */}
+          {organizedServices.folderGroups.map(({ folder, items: folderServices }) => (
+            <div key={folder.id} className="space-y-2">
+              <DraggableItem id={`folder-${folder.id}`} disabled={isBulkMode}>
+                <DroppableFolder
+                  id={`folder-${folder.id}`}
+                  showDropIndicator={dropIndicator?.overId === `folder-${folder.id}` ? dropIndicator.position : null}
+                >
+                  <div
+                    className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                    onClick={() => toggleFolder(folder.id)}
+                    data-testid={`folder-${folder.id}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{service.name}</h3>
-                      {service.isShared && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Share2 className="h-3 w-3 mr-1" />
-                          {t('clinic.services.shared')}
-                        </Badge>
-                      )}
-                    </div>
-                    {service.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                    {expandedFolders.has(folder.id) ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     )}
-                    {(service.code || (service as any).serviceGroups?.length || (service as any).serviceGroup) && (
-                      <div className="flex gap-2 mt-1 text-xs text-muted-foreground items-center flex-wrap">
-                        {service.code && <span className="font-mono">#{service.code}</span>}
-                        {((service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : [])).map((g: string) => (
-                          <Badge key={g} variant="outline" className="text-xs">{g}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-2">
-                      <p className="text-lg font-semibold text-primary">
-                        {formatPrice(service.price)}
-                      </p>
-                      {service.durationMinutes && (
-                        <Badge variant="outline" className="text-xs">
-                          {service.durationMinutes} min
-                        </Badge>
-                      )}
-                    </div>
+                    <FolderIcon className="w-5 h-5 text-primary shrink-0" />
+                    <span className="flex-1 font-medium truncate">{folder.name}</span>
+                    <span className="text-sm text-muted-foreground">({folderServices.length})</span>
+                    <button
+                      onClick={(e) => handleEditFolder(e, folder)}
+                      className="p-1 hover:bg-muted rounded"
+                      aria-label={t('folders.renameFolder', 'Rename folder')}
+                      data-testid={`edit-folder-${folder.id}`}
+                    >
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteFolder(e, folder.id)}
+                      className="p-1 hover:bg-destructive/10 rounded"
+                      aria-label={t('folders.deleteFolder', 'Delete folder')}
+                      data-testid={`delete-folder-${folder.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </button>
                   </div>
-                  {!isBulkMode && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenEdit(service)}
-                        data-testid={`button-edit-service-${service.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setServiceToDelete(service);
-                          setDeleteDialogOpen(true);
-                        }}
-                        data-testid={`button-delete-service-${service.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  )}
+                </DroppableFolder>
+              </DraggableItem>
+              {expandedFolders.has(folder.id) && (
+                <div className="pl-6 space-y-2">
+                  {folderServices.map((service) => (
+                    <DraggableItem key={service.id} id={service.id} disabled={isBulkMode}>
+                      <ServiceCard
+                        service={service}
+                        isBulkMode={isBulkMode}
+                        isSelected={selectedServices.has(service.id)}
+                        onToggleSelect={toggleServiceSelection}
+                        onEdit={handleOpenEdit}
+                        onDelete={(s) => { setServiceToDelete(s); setDeleteDialogOpen(true); }}
+                        formatPrice={formatPrice}
+                        t={t}
+                      />
+                    </DraggableItem>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-            </DraggableService>
+              )}
+            </div>
           ))}
+
+          {/* Root-level services (no folder) */}
+          <DroppableFolder id="root">
+            <div className="space-y-3">
+              {organizedServices.rootServices.map((service) => (
+                <DraggableItem key={service.id} id={service.id} disabled={isBulkMode}>
+                  <ServiceCard
+                    service={service}
+                    isBulkMode={isBulkMode}
+                    isSelected={selectedServices.has(service.id)}
+                    onToggleSelect={toggleServiceSelection}
+                    onEdit={handleOpenEdit}
+                    onDelete={(s) => { setServiceToDelete(s); setDeleteDialogOpen(true); }}
+                    formatPrice={formatPrice}
+                    t={t}
+                  />
+                </DraggableItem>
+              ))}
+            </div>
+          </DroppableFolder>
         </div>
       )}
-        </div>
       </div>
 
       <FolderDialog
-        open={folderTree.dialogOpen}
-        onOpenChange={folderTree.setDialogOpen}
-        mode={folderTree.editingFolderId ? "rename" : "create"}
-        value={folderTree.dialogName}
-        onChange={folderTree.setDialogName}
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        mode={editingFolder ? "rename" : "create"}
+        value={folderDialogName}
+        onChange={setFolderDialogName}
         isSubmitting={folderMut.createFolder.isPending || folderMut.renameFolder.isPending}
-        onSubmit={() => {
-          if (folderTree.editingFolderId) {
-            folderMut.renameFolder.mutate(
-              { id: folderTree.editingFolderId, name: folderTree.dialogName },
-              { onSuccess: () => folderTree.setDialogOpen(false) },
-            );
-          } else {
-            folderMut.createFolder.mutate(folderTree.dialogName, {
-              onSuccess: () => folderTree.setDialogOpen(false),
-            });
-          }
-        }}
+        onSubmit={handleSaveFolder}
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1306,6 +1529,20 @@ export default function ClinicServices() {
         </DialogContent>
       </Dialog>
     </div>
+    <DragOverlay>
+      {activeDragId ? (
+        <div className="bg-card border-2 border-primary rounded-lg p-3 shadow-lg opacity-90">
+          <div className="flex items-center gap-2">
+            <GripVertical className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium">
+              {activeDragId.startsWith("folder-")
+                ? t('folders.draggingFolder', 'Moving folder...')
+                : t('clinic.services.draggingService', 'Moving service...')}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </DragOverlay>
     </DndContext>
   );
 }
