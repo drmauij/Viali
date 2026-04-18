@@ -2983,7 +2983,10 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isMarket
           ca.status AS appointment_status,
           s.payment_status,
           s.payment_date,
-          COALESCE(s.price, 0) AS price
+          COALESCE(s.price, 0) AS price,
+          tr.id AS treatment_id,
+          tr.status AS treatment_status,
+          COALESCE(tr.total, 0) AS treatment_total
         FROM referral_events re
         LEFT JOIN clinic_appointments ca ON ca.id = re.appointment_id
         LEFT JOIN LATERAL (
@@ -2997,6 +3000,28 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isMarket
           ORDER BY s2.planned_date ASC
           LIMIT 1
         ) s ON true
+        LEFT JOIN LATERAL (
+          SELECT
+            t.id,
+            t.status,
+            (SELECT COALESCE(SUM(tl.total), 0)
+             FROM treatment_lines tl
+             WHERE tl.treatment_id = t.id) AS total
+          FROM treatments t
+          WHERE t.hospital_id = re.hospital_id
+            AND t.status = 'signed'
+            AND (
+              t.appointment_id = re.appointment_id
+              OR (
+                t.appointment_id IS NULL
+                AND t.patient_id = re.patient_id
+                AND ca.appointment_date IS NOT NULL
+                AND (t.performed_at AT TIME ZONE 'UTC')::date = ca.appointment_date
+              )
+            )
+          ORDER BY t.performed_at ASC
+          LIMIT 1
+        ) tr ON true
         WHERE re.hospital_id = ${hospitalId}
       )
       SELECT
@@ -3005,8 +3030,8 @@ router.get('/api/business/:hospitalId/ad-performance', isAuthenticated, isMarket
         COUNT(*) AS leads,
         COUNT(*) FILTER (WHERE appointment_status IN ('scheduled', 'confirmed')) AS appointments_confirmed,
         COUNT(*) FILTER (WHERE appointment_status IN ('arrived', 'in_progress', 'completed')) AS appointments_kept,
-        COUNT(*) FILTER (WHERE payment_date IS NOT NULL) AS paid_conversions,
-        COALESCE(SUM(price) FILTER (WHERE payment_date IS NOT NULL), 0) AS revenue
+        COUNT(*) FILTER (WHERE payment_date IS NOT NULL OR treatment_status = 'signed') AS paid_conversions,
+        COALESCE(SUM(price + treatment_total) FILTER (WHERE payment_date IS NOT NULL OR treatment_status = 'signed'), 0) AS revenue
       FROM classified
       WHERE funnel IS NOT NULL
       GROUP BY month, funnel

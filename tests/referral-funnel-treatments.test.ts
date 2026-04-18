@@ -13,7 +13,7 @@ import {
   treatmentLines,
   userHospitalRoles,
 } from "@shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 // Pass-through auth
 vi.mock("../server/auth/google", () => ({
@@ -357,5 +357,106 @@ describe("/referral-funnel — treatment strong link", () => {
     expect(row.treatment_id).toBeNull();
     expect(row.treatment_status).toBeNull();
     expect(row.treatment_total).toBeNull();
+  });
+});
+
+describe("/ad-performance — treatment counts as paid conversion", () => {
+  // Reuses the file-level afterAll cleanup for appointments/referrals/treatments.
+  // Also cleans up any ad_budget rows we inserted for this specific month.
+  const insertedBudgetMonths = new Set<string>();
+
+  afterEach(async () => {
+    if (createdTreatmentIds.length) {
+      await db.delete(treatments).where(inArray(treatments.id, createdTreatmentIds));
+      createdTreatmentIds.length = 0;
+    }
+    if (createdReferralIds.length) {
+      await db.delete(referralEvents).where(inArray(referralEvents.id, createdReferralIds));
+      createdReferralIds.length = 0;
+    }
+    if (createdApptIds.length) {
+      await db.delete(clinicAppointments).where(inArray(clinicAppointments.id, createdApptIds));
+      createdApptIds.length = 0;
+    }
+  });
+
+  afterAll(async () => {
+    // Best-effort cleanup of any budget rows we may have inserted during the test.
+    const { adBudgets } = await import("@shared/schema");
+    for (const m of insertedBudgetMonths) {
+      await db.delete(adBudgets).where(
+        and(
+          eq(adBudgets.hospitalId, TEST_HOSPITAL_ID),
+          eq(adBudgets.month, m),
+          eq(adBudgets.funnel, "meta_forms"),
+        ),
+      ).catch(() => {});
+    }
+  });
+
+  it("counts a signed treatment from a Meta Forms referral as a paid conversion", async () => {
+    const marker = markerSource();
+
+    // Ensure /ad-performance returns a row for this month by seeding a budget.
+    const { adBudgets } = await import("@shared/schema");
+    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+    insertedBudgetMonths.add(month);
+    await db.insert(adBudgets).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      month,
+      funnel: "meta_forms",
+      amountChf: 1000,
+    } as any).onConflictDoNothing();
+
+    const [appt] = await db.insert(clinicAppointments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      unitId: testUnitId,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentDate: new Date(),
+      startTime: "10:00",
+      endTime: "10:30",
+      durationMinutes: 30,
+      status: "completed",
+    } as any).returning();
+    createdApptIds.push(appt.id);
+
+    // Meta Forms referral = source=social + capture_method=staff + no click IDs
+    const [ref] = await db.insert(referralEvents).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      appointmentId: appt.id,
+      source: "social",
+      sourceDetail: marker,
+      captureMethod: "staff",
+    } as any).returning();
+    createdReferralIds.push(ref.id);
+
+    const [tr] = await db.insert(treatments).values({
+      hospitalId: TEST_HOSPITAL_ID,
+      patientId: testPatientId,
+      providerId: testProviderId,
+      appointmentId: appt.id,
+      performedAt: new Date(),
+      status: "signed",
+    } as any).returning();
+    createdTreatmentIds.push(tr.id);
+
+    await db.insert(treatmentLines).values({
+      treatmentId: tr.id,
+      serviceId: testServiceId,
+      unitPrice: "400.00",
+      total: "400.00",
+    } as any);
+
+    const res = await request(buildApp())
+      .get(`/api/business/${TEST_HOSPITAL_ID}/ad-performance`)
+      .expect(200);
+
+    const row = res.body.find((r: any) => r.month === month);
+    expect(row).toBeDefined();
+    const metaForms = row.funnels.find((f: any) => f.funnel === "meta_forms");
+    expect(metaForms.paidConversions).toBeGreaterThanOrEqual(1);
+    expect(metaForms.revenue).toBeGreaterThanOrEqual(400);
   });
 });
