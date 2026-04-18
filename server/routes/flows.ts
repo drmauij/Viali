@@ -1089,6 +1089,8 @@ router.post(
       params.set("utm_source", flow.channel === "sms" ? "sms_campaign" : "email_campaign");
       params.set("utm_medium", flow.channel === "sms" ? "sms" : "email");
       params.set("utm_campaign", flow.name || "campaign");
+      // Stable join key for booking attribution — survives flow renames and same-name collisions.
+      params.set("utm_content", flow.id);
       const bookingUrlSuffix = `?${params.toString()}`;
 
       let sentCount = 0;
@@ -1146,13 +1148,19 @@ router.post(
                 baseUrl,
                 "de",
               );
-              await client.emails.send({
+              const sendResult = await client.emails.send({
                 from: fromEmail,
                 to: patient.email,
                 subject,
                 html: htmlWithFooter,
               });
-              sendSuccess = true;
+              if (sendResult.data?.id) {
+                await db
+                  .update(flowExecutions)
+                  .set({ resendEmailId: sendResult.data.id })
+                  .where(eq(flowExecutions.id, execution.id));
+              }
+              sendSuccess = !!sendResult.data?.id;
             } catch (e) {
               logger.error("[flows] email send error:", e);
             }
