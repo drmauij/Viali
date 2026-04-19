@@ -22,7 +22,11 @@ module.exports = {
         RESEND_FROM_EMAIL: 'noreply@mail.viali.app',
         PRODUCTION_URL: 'https://your-domain.com',
         DB_SSL_REJECT_UNAUTHORIZED: 'false',
-        OPENMED_URL: 'http://localhost:5050'
+        OPENMED_URL: 'http://localhost:5050',
+        // VITE_* vars are exported by deploy.sh and embedded at build time by Vite.
+        // Without this, client/src/main.tsx skips Sentry.init() and the fetch
+        // interceptor — the dashboard stays empty even when the app throws.
+        VITE_SENTRY_DSN: 'https://PUBLIC_KEY@oORG_ID.ingest.sentry.io/PROJECT_ID'
       },
       instances: 1,
       autorestart: true,

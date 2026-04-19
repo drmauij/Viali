@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import * as Sentry from "@sentry/react";
 import { useParams, useSearch } from "wouter";
 import { BookingSection } from '@/components/booking/BookingSection';
 import { useBookingScrollOnStep } from '@/components/booking/useBookingScrollOnStep';
@@ -656,6 +657,49 @@ export default function BookAppointment() {
   }, [step, sectionOrder]);
 
   useBookingScrollOnStep<Step>(step, (s) => sectionRefs.current[s] ?? null);
+
+  // ─── Silent-friction telemetry ───────────────────────────────
+  // Surface the two drop-off paths that produce no fetch error and so
+  // never hit the global fetch interceptor in main.tsx:
+  //   1. Patient is forced into the "wie haben Sie von uns gehört?" step
+  //      because enableReferralOnBooking is on and the URL carries no
+  //      utm_source / ref / click ID.
+  //   2. Patient has filled every text field on the details step but the
+  //      submit button stays disabled because privacy or the no-show fee
+  //      checkbox is unticked.
+  useEffect(() => {
+    if (step !== 'referral') return;
+    Sentry.captureMessage('book_forced_referral_step', {
+      level: 'info',
+      tags: { area: 'book', token: token || 'unknown' },
+    });
+  }, [step, token]);
+
+  useEffect(() => {
+    if (step !== 'details') return;
+    const textComplete =
+      !!firstName.trim() &&
+      !!surname.trim() &&
+      !!email.trim() &&
+      !!phone.trim() &&
+      (!!selectedTreatment || !!notes.trim());
+    if (!textComplete) return;
+    const missing: string[] = [];
+    if (!privacyAccepted) missing.push('privacy');
+    if (data?.hospital?.noShowFeeMessage && !noShowFeeAcknowledged) missing.push('noShowFee');
+    if (missing.length === 0) return;
+    const t = setTimeout(() => {
+      Sentry.captureMessage(`book_submit_blocked_${missing.join('_')}`, {
+        level: 'warning',
+        tags: {
+          area: 'book',
+          token: token || 'unknown',
+          missing: missing.join(','),
+        },
+      });
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [step, firstName, surname, email, phone, selectedTreatment, notes, privacyAccepted, noShowFeeAcknowledged, data, token]);
 
   // ─── Render helpers ───────────────────────────────────────────
 
