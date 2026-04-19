@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -125,18 +125,121 @@ function HtmlEmailPreview({ content }: { content: string }) {
   );
 }
 
+function PromptSuggestions({
+  channel,
+  onPick,
+}: {
+  channel: "sms" | "email" | "html_email";
+  onPick: (prompt: string) => void;
+}) {
+  const { t } = useTranslation();
+  const suggestions =
+    channel === "sms"
+      ? [
+          {
+            title: t("flows.compose.ex.smsWinbackTitle", "Win-back offer"),
+            prompt: t(
+              "flows.compose.ex.smsWinback",
+              "Short SMS to patients who haven't visited in 3 months. Mention our spring offer (20% off) and include the booking link.",
+            ),
+          },
+          {
+            title: t("flows.compose.ex.smsBirthdayTitle", "Birthday greeting"),
+            prompt: t(
+              "flows.compose.ex.smsBirthday",
+              "Warm birthday SMS with a personal gift: free consultation this month. Include booking link.",
+            ),
+          },
+          {
+            title: t("flows.compose.ex.smsPostCareTitle", "Post-treatment check-in"),
+            prompt: t(
+              "flows.compose.ex.smsPostCare",
+              "Friendly SMS checking in on patients after their recent treatment. Invite them to book a follow-up.",
+            ),
+          },
+        ]
+      : channel === "html_email"
+        ? [
+            {
+              title: t("flows.compose.ex.htmlSpringTitle", "Spring newsletter"),
+              prompt: t(
+                "flows.compose.ex.htmlSpring",
+                "Beautiful HTML newsletter with spring offer, personal greeting using {{vorname}}, hero banner, 3 treatment cards, and a prominent booking button.",
+              ),
+            },
+            {
+              title: t("flows.compose.ex.htmlLaunchTitle", "New treatment launch"),
+              prompt: t(
+                "flows.compose.ex.htmlLaunch",
+                "Announce a new aesthetic treatment with before/after styling, 3 benefit bullet points, and a booking CTA. Elegant minimalist design.",
+              ),
+            },
+            {
+              title: t("flows.compose.ex.htmlReactivationTitle", "Reactivation with offer"),
+              prompt: t(
+                "flows.compose.ex.htmlReactivation",
+                "Premium reactivation email for patients inactive 6+ months. Warm tone, exclusive 25% off, countdown urgency, booking button.",
+              ),
+            },
+          ]
+        : [
+            {
+              title: t("flows.compose.ex.emailFollowupTitle", "Treatment follow-up"),
+              prompt: t(
+                "flows.compose.ex.emailFollowup",
+                "Professional follow-up email asking how the patient feels after their treatment. Mention loyalty offer and invite to book consultation.",
+              ),
+            },
+            {
+              title: t("flows.compose.ex.emailSpringTitle", "Spring offer"),
+              prompt: t(
+                "flows.compose.ex.emailSpring",
+                "Friendly spring-offer email with 20% off, personal greeting, booking link, and short treatment highlights.",
+              ),
+            },
+            {
+              title: t("flows.compose.ex.emailReviewTitle", "Review request"),
+              prompt: t(
+                "flows.compose.ex.emailReview",
+                "Polite email asking recent patients to leave a Google review. Include the direct review link placeholder.",
+              ),
+            },
+          ];
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-4 gap-2 overflow-auto">
+      <p className="text-xs text-muted-foreground mb-2">
+        {t("flows.compose.suggestTitle", "Pick a starter — you can refine in chat after.")}
+      </p>
+      {suggestions.map((s) => (
+        <button
+          key={s.title}
+          type="button"
+          onClick={() => onPick(s.prompt)}
+          className="w-full max-w-md text-left border rounded-lg p-3 hover:border-primary/50 hover:bg-primary/5 transition-colors"
+        >
+          <div className="text-sm font-medium">{s.title}</div>
+          <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.prompt}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PreviewPanel({
   channel,
   messageContent,
   messageSubject,
   onSubjectChange,
+  onExamplePromptClick,
 }: {
   channel: "sms" | "email" | "html_email";
   messageContent: string;
   messageSubject: string;
   onSubjectChange: (v: string) => void;
+  onExamplePromptClick?: (prompt: string) => void;
 }) {
   const { t } = useTranslation();
+  const isEmpty = !messageContent.trim();
   return (
     <div className="h-full flex flex-col">
       {channel === "html_email" && (
@@ -149,16 +252,19 @@ function PreviewPanel({
           />
         </div>
       )}
-      <div className="text-xs font-medium text-muted-foreground px-3 pt-2 pb-1 border-b">
-        {t("flows.compose.preview", "Preview")}
-      </div>
       <div className="flex-1 overflow-hidden">
-        {channel === "sms" && <SmsPreview content={messageContent} />}
-        {channel === "email" && (
-          <EmailPreview subject={messageSubject} content={messageContent} />
-        )}
-        {channel === "html_email" && (
-          <HtmlEmailPreview content={messageContent} />
+        {isEmpty && onExamplePromptClick ? (
+          <PromptSuggestions channel={channel} onPick={onExamplePromptClick} />
+        ) : (
+          <>
+            {channel === "sms" && <SmsPreview content={messageContent} />}
+            {channel === "email" && (
+              <EmailPreview subject={messageSubject} content={messageContent} />
+            )}
+            {channel === "html_email" && (
+              <HtmlEmailPreview content={messageContent} />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -167,21 +273,28 @@ function PreviewPanel({
 
 // ── AI Chat ───────────────────────────────────────────────────────────────────
 
-function AiChatPanel({
-  channel,
-  segmentFilters,
-  promoCode,
-  referenceUrl,
-  onMessageGenerated,
-  onSubjectGenerated,
-}: {
+interface AiChatPanelHandle {
+  setPrompt: (prompt: string) => void;
+}
+
+const AiChatPanel = forwardRef<AiChatPanelHandle, {
   channel: "sms" | "email" | "html_email";
   segmentFilters: Array<{ field: string; operator: string; value: string }>;
   promoCode: string | null;
   referenceUrl: string;
   onMessageGenerated: (content: string) => void;
   onSubjectGenerated?: (subject: string) => void;
-}) {
+}>(function AiChatPanel(
+  {
+    channel,
+    segmentFilters,
+    promoCode,
+    referenceUrl,
+    onMessageGenerated,
+    onSubjectGenerated,
+  },
+  ref,
+) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
@@ -189,6 +302,14 @@ function AiChatPanel({
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({
+    setPrompt: (p: string) => {
+      setPrompt(p);
+      // Focus the input so user sees the pre-filled prompt and can press Enter.
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+  }));
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -320,23 +441,13 @@ function AiChatPanel({
         className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0"
       >
         {messages.length === 0 && (
-          <div className="flex flex-col items-center gap-3 pt-4 px-2">
-            <p className="text-xs text-muted-foreground">{t("flows.compose.placeholder", "Describe the message you want, or try an example:")}</p>
-            {[
-              channel === "sms"
-                ? "Write a friendly SMS reminder for patients who had a treatment with us. Mention we have a special spring offer and include the booking link."
-                : channel === "html_email"
-                ? "Create a beautiful HTML newsletter for our aesthetic clinic patients. Include a personal greeting, mention their previous treatment, highlight our exclusive spring offer with 20% off, and add a prominent booking button."
-                : "Write a professional follow-up email to patients who visited our clinic. Ask how they're feeling after their treatment, mention our loyalty offer, and invite them to book a follow-up consultation.",
-            ].map((example) => (
-              <button
-                key={example}
-                onClick={() => setPrompt(example)}
-                className="text-left text-xs px-3 py-2 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-colors text-muted-foreground w-full"
-              >
-                "{example}"
-              </button>
-            ))}
+          <div className="flex flex-col items-center justify-center gap-2 pt-6 px-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "flows.compose.placeholder",
+                "Describe the message you want — or pick a starter from the preview.",
+              )}
+            </p>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -371,6 +482,7 @@ function AiChatPanel({
       {/* Input area */}
       <div className="border-t p-3 flex gap-2 items-end">
         <Textarea
+          ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -394,7 +506,7 @@ function AiChatPanel({
       </div>
     </div>
   );
-}
+});
 
 // ── Editor ────────────────────────────────────────────────────────────────────
 
@@ -524,6 +636,7 @@ export default function MessageComposer({
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
+  const chatPaneRef = useRef<AiChatPanelHandle>(null);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const isFullscreen = controlledFullscreen ?? internalFullscreen;
   const exitFullscreen = () => {
@@ -576,6 +689,7 @@ export default function MessageComposer({
               {/* Chat panel – 40% */}
               <ResizablePanel defaultSize={40} minSize={25}>
                 <AiChatPanel
+                  ref={chatPaneRef}
                   channel={channel}
                   segmentFilters={segmentFilters}
                   promoCode={promoCode}
@@ -594,6 +708,7 @@ export default function MessageComposer({
                   messageContent={messageContent}
                   messageSubject={messageSubject}
                   onSubjectChange={onSubjectChange}
+                  onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
