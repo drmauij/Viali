@@ -390,6 +390,14 @@ export function usePatientQueries({
   // Fetch discharge medications (for Medications tab count)
   const dischargeMedicationsQuery = useQuery<any[]>({
     queryKey: ['/api/patients', derivedPatientId, 'discharge-medications', hospitalId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/patients/${derivedPatientId}/discharge-medications?hospitalId=${hospitalId}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to fetch discharge medications");
+      return res.json();
+    },
     enabled: !!derivedPatientId && !!hospitalId,
   });
 
