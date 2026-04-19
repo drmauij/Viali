@@ -159,6 +159,7 @@ export default function BookAppointment() {
   const utmCampaign = searchParams.get("utm_campaign");
   const utmTerm = searchParams.get("utm_term");
   const utmContent = searchParams.get("utm_content");
+  const feToken = searchParams.get("fe");
   const refParam = searchParams.get("ref");
   // Ad platform campaign attribution
   const campaignId = searchParams.get("campaign_id");
@@ -582,6 +583,7 @@ export default function BookAppointment() {
           noShowFeeAcknowledged: noShowFeeAcknowledged || undefined,
           serviceId: serviceInfo?.id || undefined,
           promoCode: promoData?.valid ? promoData.code : undefined,
+          fe: feToken || undefined,
         }),
       });
 
@@ -621,7 +623,7 @@ export default function BookAppointment() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, refParam, campaignId, adsetId, adId, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
+  }, [token, selectedProvider, selectedDate, selectedSlot, firstName, surname, email, phone, notes, autoReferral, referralSource, referralDetail, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, feToken, refParam, campaignId, adsetId, adId, gclid, gbraid, wbraid, fbclid, ttclid, msclkid, igshid, li_fat_id, twclid, noShowFeeAcknowledged, data]);
 
   const handleDetailsContinue = () => {
     if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || (!selectedTreatment && !notes.trim())) return;
