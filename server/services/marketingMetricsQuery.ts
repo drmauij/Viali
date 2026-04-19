@@ -10,6 +10,7 @@ export interface FlowSummaryRow {
   bounced: number;
   complained: number;
   bookings: number;
+  revenue: number;
 }
 
 export async function summarizeFlows(
@@ -52,6 +53,26 @@ export async function summarizeFlows(
     bookingsByFlow[r.flowId] = Number(r.bookings) || 0;
   }
 
+  const revenueResult = await db.execute(sql`
+    SELECT
+      re.utm_content AS "flowId",
+      COALESCE(SUM(cs.price), 0) AS revenue
+    FROM referral_events re
+    JOIN clinic_appointments ca ON ca.id = re.appointment_id
+    LEFT JOIN clinic_services cs ON cs.id = ca.service_id
+    WHERE re.hospital_id = ${hospitalId}
+      AND re.utm_content IS NOT NULL
+      AND re.created_at >= ${since.toISOString()}
+      AND ca.status NOT IN ('cancelled', 'no_show')
+    GROUP BY re.utm_content
+  `);
+
+  const revenueRows: any[] = (revenueResult as any).rows ?? [];
+  const revenueByFlow: Record<string, number> = {};
+  for (const r of revenueRows) {
+    revenueByFlow[r.flowId] = Number(r.revenue) || 0;
+  }
+
   return eventRows.map((r): FlowSummaryRow => ({
     flowId: r.flowId,
     sent: Number(r.sent) || 0,
@@ -61,6 +82,7 @@ export async function summarizeFlows(
     bounced: Number(r.bounced) || 0,
     complained: Number(r.complained) || 0,
     bookings: bookingsByFlow[r.flowId] ?? 0,
+    revenue: revenueByFlow[r.flowId] ?? 0,
   }));
 }
 
@@ -73,6 +95,7 @@ export interface FlowDetailResult {
     bounced: number;
     complained: number;
     bookings: number;
+    revenue: number;
   };
   bounces: Array<{ email: string; bounceType: string | null; createdAt: Date }>;
   complaints: Array<{ email: string; createdAt: Date }>;
@@ -100,6 +123,16 @@ export async function flowDetail(flowId: string): Promise<FlowDetailResult> {
     WHERE re.utm_content = ${flowId}
   `);
   const bookings = Number((bookingResult as any).rows?.[0]?.bookings) || 0;
+
+  const revenueResult = await db.execute(sql`
+    SELECT COALESCE(SUM(cs.price), 0) AS revenue
+    FROM referral_events re
+    JOIN clinic_appointments ca ON ca.id = re.appointment_id
+    LEFT JOIN clinic_services cs ON cs.id = ca.service_id
+    WHERE re.utm_content = ${flowId}
+      AND ca.status NOT IN ('cancelled', 'no_show')
+  `);
+  const revenue = Number((revenueResult as any).rows?.[0]?.revenue) || 0;
 
   const bouncesResult = await db.execute(sql`
     SELECT
@@ -149,6 +182,7 @@ export async function flowDetail(flowId: string): Promise<FlowDetailResult> {
       bounced: Number(funnelRow.bounced) || 0,
       complained: Number(funnelRow.complained) || 0,
       bookings,
+      revenue,
     },
     bounces: ((bouncesResult as any).rows ?? []).map((r: any) => ({
       email: r.email,
