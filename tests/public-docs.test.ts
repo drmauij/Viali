@@ -62,6 +62,7 @@ describe("/api.md", () => {
     ]) {
       expect(res.text).toContain(param);
     }
+    expect(res.text).toContain("`fe`");
   });
 
   it("documents leads webhook required fields and error codes", async () => {
