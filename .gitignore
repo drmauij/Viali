@@ -22,6 +22,8 @@ ecosystem.config.cjs
 # Worktrees
 .worktrees/
 .claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
 
 # Card reader
 card-reader/config.env
