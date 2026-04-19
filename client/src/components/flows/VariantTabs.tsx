@@ -16,16 +16,40 @@ interface Props {
   variants: Variant[];
   onChange: (variants: Variant[]) => void;
   showSubject: boolean;
+  channel?: string; // when "html_email", renders an iframe preview below the body textarea
   onGenerateAi?: (baseVariant: Variant) => Promise<{ subject?: string; body: string }>;
 }
 
 const MAX_VARIANTS = 3;
 const LABELS = ["A", "B", "C"];
 
+function HtmlEmailPreview({ content }: { content: string }) {
+  const { t } = useTranslation();
+  // If the AI returned a full HTML document, render it as-is — wrapping it in
+  // another <body> produces invalid nested documents that render blank.
+  const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(content);
+  const srcDoc = content
+    ? looksLikeFullDoc
+      ? content
+      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
+    : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
+  return (
+    <div className="border rounded-lg overflow-hidden" style={{ height: 420 }}>
+      <iframe
+        title="HTML Email Preview"
+        srcDoc={srcDoc}
+        sandbox="allow-same-origin"
+        className="w-full h-full"
+      />
+    </div>
+  );
+}
+
 export default function VariantTabs({
   variants,
   onChange,
   showSubject,
+  channel,
   onGenerateAi,
 }: Props) {
   const { t } = useTranslation();
@@ -145,8 +169,17 @@ export default function VariantTabs({
                 onChange={(e) => updateVariant(i, { messageTemplate: e.target.value })}
                 rows={10}
                 placeholder={t("flows.ab.bodyPlaceholder", "Message body...")}
+                className={channel === "html_email" ? "font-mono text-xs" : undefined}
               />
             </div>
+            {channel === "html_email" && (
+              <div>
+                <label className="text-sm font-medium">
+                  {t("flows.ab.preview", "Preview")}
+                </label>
+                <HtmlEmailPreview content={v.messageTemplate} />
+              </div>
+            )}
           </TabsContent>
         ))}
       </Tabs>

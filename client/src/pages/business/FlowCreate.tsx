@@ -364,6 +364,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               variants={variants}
               onChange={setVariants}
               showSubject={channel === "email" || channel === "html_email"}
+              channel={channel ?? undefined}
               onGenerateAi={
                 hospitalId
                   ? async (base) => {
