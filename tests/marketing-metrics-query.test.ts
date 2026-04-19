@@ -85,4 +85,11 @@ describe("flowDetail", () => {
     expect(allSql).toContain("clinic_services");
     expect(allSql.toLowerCase()).toMatch(/coalesce\(sum/);
   });
+
+  it("queries flow_variants for per-variant breakdown", async () => {
+    await flowDetail("flow_xyz");
+    const allSql = capturedSql.join(" ");
+    expect(allSql).toContain("flow_variants");
+    expect(allSql.toLowerCase()).toMatch(/group by.*variant/i);
+  });
 });
