@@ -245,6 +245,22 @@ GET /unsubscribe/:token[?channel=sms|email|all]
 - Patient records stay intact; only the \`sms_marketing_consent\`, \`email_marketing_consent\`, and \`marketing_unsubscribed_at\` fields change.
 
 This endpoint is intended for end-users (patients) clicking the link from an email — it is not part of the integration API surface.
+
+---
+
+## Resend webhook
+
+Viali receives email engagement events from Resend at:
+
+\`\`\`
+POST /api/webhooks/resend
+\`\`\`
+
+- This endpoint is only invoked by Resend's servers — not part of the integration API surface.
+- Requests are authenticated via Svix signature headers (\`svix-id\`, \`svix-timestamp\`, \`svix-signature\`) using HMAC-SHA256 with a shared secret. Requests with invalid or stale (>5 min) signatures return 400.
+- Subscribed events: \`email.sent\`, \`email.delivered\`, \`email.opened\`, \`email.clicked\`, \`email.bounced\`, \`email.complained\`. Other event types are acknowledged with 200 and ignored.
+- Engagement events are written to the internal \`flow_events\` log; \`email.complained\` additionally flips \`email_marketing_consent\` to \`false\` on the recipient patient.
+- Returns 200 even for unknown email IDs (transactional emails sent through the same Resend account flow through here too).
 `;
 
 export const LLMS_TXT = `# Viali API

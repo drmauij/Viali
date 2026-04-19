@@ -44,6 +44,7 @@ describe("/api.md", () => {
     expect(res.text).toContain("/api/webhooks/leads/");
     expect(res.text).toContain("/api/webhooks/conversions/");
     expect(res.text).toContain("/unsubscribe/");
+    expect(res.text).toContain("/api/webhooks/resend");
   });
 
   it("documents booking link URL parameters", async () => {
