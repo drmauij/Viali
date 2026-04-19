@@ -785,11 +785,13 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
       let userPrompt = body.prompt;
       if (body.abVariantOf) {
         const needsSubject = body.channel === "email" || body.channel === "html_email";
-        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant — different angle, different hook, different tone — keeping the same offer and language.`;
+        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant — different angle, different hook, different tone, different subject line — keeping the same offer and language.`;
         if (needsSubject) {
-          userPrompt += `\n\nIMPORTANT: Start your response with a subject line in the format "Subject: <subject>" followed by a blank line, then the body content. Do not include any other preamble or explanation.`;
+          // Force structured JSON output. The parser tolerates leading/trailing
+          // markdown code fences just in case the model wraps its output.
+          userPrompt += `\n\nReturn ONLY a single valid JSON object. No markdown fences. No prose. Exact schema:\n{"subject": "<short new subject line, MUST differ from Variant A>", "body": "<full body content, same channel format as Variant A>"}\n\nThe body must be the complete message (for html_email: a full HTML document). The subject must be meaningfully different from Variant A's subject — different angle, different hook.`;
         } else {
-          userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes.`;
+          userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes, no JSON.`;
         }
       }
 
@@ -968,14 +970,38 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
           });
       }
 
-      // Variant-generation mode: parse "Subject: X\n\nBody..." into separate fields
+      // Variant-generation mode: parse the structured JSON the model was
+      // asked to return. Falls back to "Subject: X\n\n..." regex if the
+      // model ignored the instruction (e.g. Mistral on a bad day).
       if (body.abVariantOf) {
-        const subjectMatch = responseText.match(/^\s*Subject:\s*(.+?)\s*(?:\n|$)/i);
+        const needsSubject = body.channel === "email" || body.channel === "html_email";
         let subject: string | undefined;
         let bodyText = responseText;
-        if (subjectMatch) {
-          subject = subjectMatch[1].trim();
-          bodyText = responseText.slice(subjectMatch[0].length).trimStart();
+
+        if (needsSubject) {
+          // Strip markdown fences if present, then try JSON
+          const cleaned = responseText
+            .trim()
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```\s*$/, "");
+          try {
+            const parsed = JSON.parse(cleaned);
+            if (parsed && typeof parsed === "object") {
+              if (typeof parsed.subject === "string" && parsed.subject.trim()) {
+                subject = parsed.subject.trim();
+              }
+              if (typeof parsed.body === "string") {
+                bodyText = parsed.body;
+              }
+            }
+          } catch {
+            // JSON parse failed — fall back to regex for legacy "Subject: X\n\n" format
+            const m = responseText.match(/^\s*Subject:\s*(.+?)\s*(?:\n|$)/i);
+            if (m) {
+              subject = m[1].trim();
+              bodyText = responseText.slice(m[0].length).trimStart();
+            }
+          }
         }
         return res.json({ subject, body: bodyText });
       }
