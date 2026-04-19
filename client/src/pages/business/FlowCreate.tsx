@@ -249,8 +249,88 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [isComposeFullscreen, setIsComposeFullscreen] = useState(false);
   const [composeView, setComposeView] = useState<"ai" | "editor">("ai");
   const [isSplitView, setIsSplitView] = useState(false);
+  const [generatingLabels, setGeneratingLabels] = useState<Set<string>>(() => new Set());
   // Side-by-side view only makes sense in fullscreen AND with 2+ variants
   const splitViewActive = isSplitView && isComposeFullscreen && variants.length >= 2;
+
+  /** Generate a new variant from Variant A's content via the /compose endpoint.
+   *  Returns the generated {subject, body} so callers can decide what to do
+   *  with it (append, replace, etc.). Tracks loading state per label. */
+  const generateVariantFromBase = async (
+    baseVariant: Variant,
+    targetLabel: string,
+  ): Promise<{ subject?: string; body: string } | null> => {
+    if (!hospitalId) return null;
+    setGeneratingLabels((prev) => new Set(prev).add(targetLabel));
+    try {
+      const res = await apiRequest(
+        "POST",
+        `/api/business/${hospitalId}/flows/compose`,
+        {
+          channel,
+          prompt: "Generate an alternative variant for A/B test",
+          abVariantOf: baseVariant.messageTemplate,
+        },
+      );
+      const data = await res.json();
+      return {
+        subject: data.subject,
+        body: data.body ?? data.message ?? data.content ?? "",
+      };
+    } catch {
+      return null;
+    } finally {
+      setGeneratingLabels((prev) => {
+        const next = new Set(prev);
+        next.delete(targetLabel);
+        return next;
+      });
+    }
+  };
+
+  /** Generate all remaining variant slots (up to 3 total) in parallel from
+   *  Variant A's content. Called from the toolbar's "Generate all" button. */
+  const generateAllVariants = async () => {
+    const labels = ["A", "B", "C"];
+    const base = variants[0];
+    if (!base?.messageTemplate) return;
+    const existingLabels = new Set(variants.map((v) => v.label));
+    const toGenerate = labels.filter((l) => !existingLabels.has(l));
+    if (toGenerate.length === 0) return;
+    // Mark all as generating up front so the split-view spinners show
+    // immediately even before the fetch promises settle.
+    setGeneratingLabels((prev) => {
+      const next = new Set(prev);
+      toGenerate.forEach((l) => next.add(l));
+      return next;
+    });
+    // Switch to split view right away so the user can watch them fill in
+    setIsSplitView(true);
+    // Preload empty slots so the grid shows the right number of tiles
+    setVariants((prev) => [
+      ...prev,
+      ...toGenerate.map((label) => ({ label, messageTemplate: "", messageSubject: base.messageSubject })),
+    ]);
+    const results = await Promise.all(
+      toGenerate.map((label) => generateVariantFromBase(base, label)),
+    );
+    setVariants((prev) => {
+      const updated = [...prev];
+      results.forEach((r, i) => {
+        if (!r) return;
+        const targetLabel = toGenerate[i];
+        const idx = updated.findIndex((v) => v.label === targetLabel);
+        if (idx >= 0) {
+          updated[idx] = {
+            ...updated[idx],
+            messageTemplate: r.body,
+            messageSubject: r.subject ?? updated[idx].messageSubject,
+          };
+        }
+      });
+      return updated;
+    });
+  };
   const activeVariantIndex = Math.max(
     0,
     variants.findIndex((v) => v.label === activeVariantLabel),
@@ -365,6 +445,17 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               splitPreviews={splitViewActive ? variants : undefined}
               activeVariantLabel={activeVariantLabel}
               onActivateVariant={setActiveVariantLabel}
+              generatingLabels={generatingLabels}
+              onChatLoadingChange={(loading) => {
+                // When the chat pane is actively refining the current variant,
+                // mark its label in generatingLabels so split-view spins it.
+                setGeneratingLabels((prev) => {
+                  const next = new Set(prev);
+                  if (loading) next.add(activeVariantLabel);
+                  else next.delete(activeVariantLabel);
+                  return next;
+                });
+              }}
               toolbar={
                 /* Always render the toolbar so the fullscreen exit button
                    stays reachable even when the current variant is empty. */
@@ -377,25 +468,36 @@ export default function FlowCreate({ editId }: { editId?: string }) {
                     onGenerateAi={
                       hospitalId
                         ? async (base) => {
-                            const res = await apiRequest(
-                              "POST",
-                              `/api/business/${hospitalId}/flows/compose`,
-                              {
-                                channel,
-                                prompt: "Generate an alternative variant for A/B test",
-                                abVariantOf: base.messageTemplate,
-                              },
+                            // Predict the label VariantTabs will assign and
+                            // mark it "generating" so the tile shows a spinner.
+                            const nextLabel = ["A", "B", "C"][variants.length] ?? "?";
+                            const result = await generateVariantFromBase(base, nextLabel);
+                            return (
+                              result ?? { body: base.messageTemplate, subject: base.messageSubject }
                             );
-                            const data = await res.json();
-                            return {
-                              subject: data.subject,
-                              body: data.body ?? data.message ?? data.content ?? "",
-                            };
                           }
                         : undefined
                     }
                     extraActions={
                       <>
+                        {/* "Generate all" — fills remaining variant slots from
+                            Variant A's content in parallel. Only shown when
+                            Variant A has content AND not all slots are filled. */}
+                        {primaryMessageContent && variants.length < 3 && hospitalId && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 h-8"
+                            onClick={generateAllVariants}
+                            disabled={generatingLabels.size > 0}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            {generatingLabels.size > 0
+                              ? t("flows.ab.generatingAll", "Generating...")
+                              : t("flows.ab.generateAll", "Generate A/B/C")}
+                          </Button>
+                        )}
                         {channel !== "html_email" && (
                           <Button
                             type="button"

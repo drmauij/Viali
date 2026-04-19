@@ -33,6 +33,8 @@ interface Props {
   activeView?: "ai" | "editor";
   /** Rendered at the top of the composer (and inside fullscreen). Use for variant tabs + toolbar. */
   toolbar?: React.ReactNode;
+  /** Notifies parent when the embedded chat pane starts/ends an AI request. */
+  onChatLoadingChange?: (loading: boolean) => void;
   /**
    * When set, the main preview area renders a grid of all variants side-by-side
    * instead of the single active-variant preview. Click a tile to activate it
@@ -41,6 +43,8 @@ interface Props {
   splitPreviews?: Array<{ label: string; messageSubject?: string; messageTemplate: string }>;
   activeVariantLabel?: string;
   onActivateVariant?: (label: string) => void;
+  /** Set of variant labels that are currently being AI-generated or refined. */
+  generatingLabels?: Set<string>;
 }
 
 interface ChatMessage {
@@ -294,6 +298,8 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   referenceUrl: string;
   onMessageGenerated: (content: string) => void;
   onSubjectGenerated?: (subject: string) => void;
+  /** Called with true when AI generation starts, false when it ends. */
+  onLoadingChange?: (loading: boolean) => void;
 }>(function AiChatPanel(
   {
     channel,
@@ -302,6 +308,7 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
     referenceUrl,
     onMessageGenerated,
     onSubjectGenerated,
+    onLoadingChange,
   },
   ref,
 ) {
@@ -311,6 +318,9 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({
@@ -613,6 +623,8 @@ export default function MessageComposer({
   splitPreviews,
   activeVariantLabel,
   onActivateVariant,
+  generatingLabels,
+  onChatLoadingChange,
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
@@ -667,23 +679,35 @@ export default function MessageComposer({
                 >
                   {splitPreviews.map((v) => {
                     const isActive = v.label === activeVariantLabel;
+                    const isGenerating = !!generatingLabels?.has(v.label);
+                    const anyGenerating = !!generatingLabels && generatingLabels.size > 0;
+                    const dimmed = anyGenerating && !isGenerating;
                     return (
                       <button
                         key={v.label}
                         type="button"
                         onClick={() => onActivateVariant?.(v.label)}
+                        disabled={anyGenerating}
                         className={`relative border rounded-lg overflow-hidden text-left focus:outline-none transition-all ${
                           isActive
                             ? "border-primary ring-2 ring-primary/40 shadow-md"
-                            : "border-muted hover:border-primary/50 opacity-80 hover:opacity-100"
-                        }`}
+                            : "border-muted hover:border-primary/50"
+                        } ${dimmed ? "opacity-40" : isActive ? "" : "opacity-80 hover:opacity-100"}`}
                       >
                         <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded bg-background/90 text-xs font-semibold">
                           {t("flows.ab.variant", "Variant")} {v.label}
-                          {isActive && (
+                          {isGenerating && (
+                            <span className="ml-1 text-primary">· {t("flows.ab.generating", "Generating...")}</span>
+                          )}
+                          {!isGenerating && isActive && (
                             <span className="ml-1 text-primary">· {t("flows.ab.editing", "editing")}</span>
                           )}
                         </div>
+                        {isGenerating && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-sm">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          </div>
+                        )}
                         <div className="h-full pointer-events-none">
                           <PreviewPanel
                             channel={channel}
@@ -717,6 +741,7 @@ export default function MessageComposer({
                 referenceUrl={referenceUrl}
                 onMessageGenerated={onContentChange}
                 onSubjectGenerated={onSubjectChange}
+                onLoadingChange={onChatLoadingChange}
               />
             </div>
           </div>
