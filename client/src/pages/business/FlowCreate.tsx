@@ -413,7 +413,25 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       >
         <div className="space-y-4">
           <h3 className="font-semibold">{t("flows.channel.title", "Select Channel")}</h3>
-          <ChannelPicker value={channel} onChange={(ch) => { setChannel(ch); completeAndGoTo("channel", "compose"); }} />
+          <ChannelPicker
+            value={channel}
+            onChange={(ch) => {
+              // If the user changes the channel after composing, reset
+              // the message state — an HTML email body makes no sense as
+              // an SMS body and vice-versa. Keeps segment + promo intact.
+              if (channel && ch !== channel) {
+                setVariants([
+                  { label: "A", messageSubject: "", messageTemplate: "" },
+                ]);
+                setActiveVariantLabel("A");
+                setComposeView("ai");
+                setIsSplitView(false);
+                setGeneratingLabels(new Set());
+              }
+              setChannel(ch);
+              completeAndGoTo("channel", "compose");
+            }}
+          />
         </div>
       </BookingSection>
 
