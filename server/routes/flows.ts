@@ -23,6 +23,7 @@ import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken"
 import { generateExecutionToken } from "../services/marketingExecutionToken";
 import { assignVariant } from "../services/marketingAbAssignment";
 import { summarizeFlows, flowDetail } from "../services/marketingMetricsQuery";
+import { sendRemainderForWinner } from "../services/marketingAbSendRemainder";
 import OpenAI from "openai";
 
 const router = Router();
@@ -85,7 +86,14 @@ router.get(
         .from(flows)
         .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)));
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
-      res.json(flow);
+
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      res.json({ ...flow, variants });
     } catch (error) {
       logger.error("[flows] get error:", error);
       res.status(500).json({ message: "Failed to get campaign" });
@@ -133,13 +141,40 @@ router.patch(
   async (req: Request, res: Response) => {
     try {
       const { hospitalId, flowId } = req.params;
+      const { variants: incomingVariants, ...flowPatch } = req.body ?? {};
+
       const [flow] = await db
         .update(flows)
-        .set({ ...req.body, updatedAt: new Date() })
+        .set({ ...flowPatch, updatedAt: new Date() })
         .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)))
         .returning();
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
-      res.json(flow);
+
+      if (Array.isArray(incomingVariants)) {
+        // Replace variants for this flow with the provided array.
+        // Delete existing then insert fresh rows.
+        await db.delete(flowVariants).where(eq(flowVariants.flowId, flow.id));
+        if (incomingVariants.length > 0) {
+          await db.insert(flowVariants).values(
+            incomingVariants.map((v: any) => ({
+              flowId: flow.id,
+              label: v.label,
+              messageSubject: v.messageSubject ?? null,
+              messageTemplate: v.messageTemplate,
+              promoCodeId: v.promoCodeId ?? null,
+              weight: v.weight ?? 1,
+            })),
+          );
+        }
+      }
+
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      res.json({ ...flow, variants });
     } catch (error) {
       logger.error("[flows] update error:", error);
       res.status(500).json({ message: "Failed to update campaign" });
@@ -1335,6 +1370,62 @@ router.get(
       res.status(500).json({ message: "Failed to load flow detail" });
     }
   },
+);
+
+// ─── A/B: manual pick-winner ──────────────────────────────────
+
+router.post(
+  "/api/business/:hospitalId/flows/:flowId/pick-winner",
+  isAuthenticated,
+  isMarketingAccess,
+  async (req: Request, res: Response) => {
+    (req as any).setTimeout(300000); // 5 min for remainder sends
+    res.setTimeout(300000);
+    try {
+      const { hospitalId, flowId } = req.params;
+      const { variantId } = req.body as { variantId?: string };
+      if (!variantId) return res.status(400).json({ message: "variantId required" });
+
+      const [flow] = await db
+        .select()
+        .from(flows)
+        .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)));
+      if (!flow) return res.status(404).json({ message: "Campaign not found" });
+      if (!flow.abTestEnabled) {
+        return res.status(400).json({ message: "Campaign is not an A/B test" });
+      }
+      if (flow.abWinnerVariantId) {
+        return res.status(400).json({ message: "Winner already picked" });
+      }
+
+      const [variant] = await db
+        .select()
+        .from(flowVariants)
+        .where(and(eq(flowVariants.id, variantId), eq(flowVariants.flowId, flow.id)));
+      if (!variant) return res.status(404).json({ message: "Variant not found" });
+
+      // Mark winner immediately so the UI reflects the decision
+      await db
+        .update(flows)
+        .set({
+          abWinnerVariantId: variantId,
+          abWinnerStatus: "manual",
+          abWinnerSentAt: new Date(),
+        })
+        .where(eq(flows.id, flow.id));
+
+      const result = await sendRemainderForWinner(flow, variant, req);
+
+      res.json({
+        winnerVariantId: variantId,
+        sentToRemainder: result.sentCount,
+        failedInRemainder: result.failedCount,
+      });
+    } catch (err) {
+      logger.error("[flows] pick-winner error:", err);
+      res.status(500).json({ message: "Pick-winner failed" });
+    }
+  }
 );
 
 export default router;
