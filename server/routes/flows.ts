@@ -6,6 +6,7 @@ import {
   flows,
   flowExecutions,
   flowEvents,
+  flowVariants,
   promoCodes,
   patients,
   clinicAppointments,
@@ -19,6 +20,8 @@ import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
 import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
 import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
+import { generateExecutionToken } from "../services/marketingExecutionToken";
+import { assignVariant } from "../services/marketingAbAssignment";
 import { summarizeFlows, flowDetail } from "../services/marketingMetricsQuery";
 import OpenAI from "openai";
 
@@ -947,8 +950,23 @@ router.post(
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
       if (flow.status !== "draft")
         return res.status(400).json({ message: "Campaign already sent" });
-      if (!flow.channel || !flow.messageTemplate || !flow.segmentFilters) {
+      if (!flow.channel || !flow.segmentFilters) {
         return res.status(400).json({ message: "Campaign is incomplete" });
+      }
+
+      // Load variants for this flow (empty array if no variants configured).
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      // A/B is active only when it's enabled AND at least 2 variants are configured.
+      const effectiveAbEnabled = flow.abTestEnabled && variants.length >= 2;
+
+      // A campaign with no template and no variants is invalid.
+      if (!flow.messageTemplate && variants.length === 0) {
+        return res.status(400).json({ message: "Campaign is incomplete — no message template" });
       }
 
       // Get promo code if attached
@@ -1106,13 +1124,29 @@ router.post(
 
       for (const patient of patientResults) {
         try {
-          let message = flow.messageTemplate!;
-          const bookingUrl = baseBookingUrl + bookingUrlSuffix;
+          const assignment = effectiveAbEnabled
+            ? assignVariant(patient.id, flow, variants)
+            : { variant: variants[0] ?? null, sendNow: true };
 
-          message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
-          message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");
-          message = message.replace(/\{\{behandlung\}\}/g, treatmentName);
-          message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
+          // Hold-out: create a pending execution row (no variant yet) and skip
+          // sending. The manual "Pick winner → send to remainder" button will
+          // pick these up later.
+          if (!assignment.sendNow) {
+            await db.insert(flowExecutions).values({
+              flowId,
+              patientId: patient.id,
+              status: "pending",
+              variantId: null,
+            });
+            continue;
+          }
+
+          // Variant-aware template + subject. Falls back to flow-level for
+          // non-A/B flows that have no variants.
+          const chosenTemplate = assignment.variant?.messageTemplate ?? flow.messageTemplate!;
+          const chosenSubject = assignment.variant?.messageSubject ?? flow.messageSubject;
+
+          let message = chosenTemplate;
 
           // Create execution record
           const [execution] = await db
@@ -1121,8 +1155,18 @@ router.post(
               flowId,
               patientId: patient.id,
               status: "running",
+              variantId: assignment.variant?.id ?? null,
             })
             .returning();
+
+          const fe = generateExecutionToken(execution.id, assignment.variant?.id ?? null);
+          const separator = bookingUrlSuffix.includes("?") ? "&" : "?";
+          const bookingUrl = `${baseBookingUrl}${bookingUrlSuffix}${separator}fe=${fe}`;
+
+          message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
+          message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");
+          message = message.replace(/\{\{behandlung\}\}/g, treatmentName);
+          message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
 
           let sendSuccess = false;
 
@@ -1137,7 +1181,7 @@ router.post(
           ) {
             try {
               const { client, fromEmail } = await getUncachableResendClient();
-              const subject = flow.messageSubject || "Nachricht von Ihrer Praxis";
+              const subject = chosenSubject || "Nachricht von Ihrer Praxis";
               const baseHtml =
                 flow.channel === "html_email"
                   ? message
