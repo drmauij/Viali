@@ -212,6 +212,7 @@ export default function BookAppointment() {
   const [slotTaken, setSlotTaken] = useState(false);
   const [referralSource, setReferralSource] = useState("");
   const [referralDetail, setReferralDetail] = useState("");
+  const bookButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Service-based booking state
   const [serviceInfo, setServiceInfo] = useState<{ id: string; name: string; description: string | null; durationMinutes: number | null } | null>(null);
@@ -1307,10 +1308,19 @@ export default function BookAppointment() {
                 <ReferralSourcePicker
                   value={referralSource}
                   detail={referralDetail}
-                  onChange={(source, detail) => { setReferralSource(source); setReferralDetail(detail); }}
+                  onChange={(source, detail) => {
+                    setReferralSource(source);
+                    setReferralDetail(detail);
+                    if (source) {
+                      requestAnimationFrame(() => {
+                        bookButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      });
+                    }
+                  }}
                   labels={BOOKING_REFERRAL_LABELS[data?.hospital?.language || "de"]}
                 />
                 <Button
+                  ref={bookButtonRef}
                   className="mt-4 w-full h-12 rounded-xl text-sm font-semibold"
                   onClick={() => void handleSubmit()}
                   disabled={!referralSource || submitting}
