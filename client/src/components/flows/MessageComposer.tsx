@@ -489,7 +489,7 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
         />
         <Button
           size="icon"
-          onClick={handleSend}
+          onClick={() => handleSend()}
           disabled={!prompt.trim() || loading}
           className="flex-shrink-0"
         >
