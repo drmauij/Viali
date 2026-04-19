@@ -16,6 +16,8 @@ interface Props {
   activeLabel?: string; // controlled active tab (falls back to internal state when omitted)
   onActiveLabelChange?: (label: string) => void;
   onGenerateAi?: (baseVariant: Variant) => Promise<{ subject?: string; body: string }>;
+  /** Rendered in the toolbar row to the right of the "Add variant" button. */
+  extraActions?: React.ReactNode;
 }
 
 const MAX_VARIANTS = 3;
@@ -27,6 +29,7 @@ export default function VariantTabs({
   activeLabel: controlledActiveLabel,
   onActiveLabelChange,
   onGenerateAi,
+  extraActions,
 }: Props) {
   const { t } = useTranslation();
   const [internalActiveLabel, setInternalActiveLabel] = useState(variants[0]?.label ?? "A");
@@ -98,29 +101,32 @@ export default function VariantTabs({
           ))}
         </TabsList>
 
-        {variants.length < MAX_VARIANTS && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={addVariant}
-            disabled={generatingAi}
-          >
-            {onGenerateAi && variants.length >= 1 && variants[0]?.messageTemplate ? (
-              <>
-                <Sparkles className="h-4 w-4" />
-                {generatingAi
-                  ? t("flows.ab.generating", "Generating...")
-                  : t("flows.ab.addWithAi", "Add variant + AI")}
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                {t("flows.ab.add", "Add variant")}
-              </>
-            )}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {variants.length < MAX_VARIANTS && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={addVariant}
+              disabled={generatingAi}
+            >
+              {onGenerateAi && variants.length >= 1 && variants[0]?.messageTemplate ? (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  {generatingAi
+                    ? t("flows.ab.generating", "Generating...")
+                    : t("flows.ab.addWithAi", "Add variant + AI")}
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  {t("flows.ab.add", "Add variant")}
+                </>
+              )}
+            </Button>
+          )}
+          {extraActions}
+        </div>
       </div>
     </Tabs>
   );

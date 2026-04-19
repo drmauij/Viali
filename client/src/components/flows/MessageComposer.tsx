@@ -26,6 +26,11 @@ interface Props {
   onSubjectChange: (subject: string) => void;
   segmentFilters: Array<{ field: string; operator: string; value: string }>;
   promoCode: string | null;
+  /** Controlled fullscreen state. When omitted the component manages its own. */
+  isFullscreen?: boolean;
+  onFullscreenToggle?: () => void;
+  /** Controlled view — "ai" (chat) or "editor" (manual text). When omitted defaults to "ai". */
+  activeView?: "ai" | "editor";
 }
 
 interface ChatMessage {
@@ -124,14 +129,12 @@ function PreviewPanel({
   channel,
   messageContent,
   messageSubject,
-  referenceUrl,
-  onReferenceUrlChange,
+  onSubjectChange,
 }: {
   channel: "sms" | "email" | "html_email";
   messageContent: string;
   messageSubject: string;
-  referenceUrl: string;
-  onReferenceUrlChange: (v: string) => void;
+  onSubjectChange: (v: string) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -139,9 +142,9 @@ function PreviewPanel({
       {channel === "html_email" && (
         <div className="px-3 pt-2 pb-1 border-b">
           <Input
-            value={referenceUrl}
-            onChange={(e) => onReferenceUrlChange(e.target.value)}
-            placeholder={t("flows.compose.referenceUrl", "Design reference URL (optional — defaults to clinic website)")}
+            value={messageSubject}
+            onChange={(e) => onSubjectChange(e.target.value)}
+            placeholder={t("flows.compose.subjectPlaceholder", "Email subject...")}
             className="h-7 text-xs"
           />
         </div>
@@ -515,20 +518,33 @@ export default function MessageComposer({
   onSubjectChange,
   segmentFilters,
   promoCode,
+  isFullscreen: controlledFullscreen,
+  onFullscreenToggle,
+  activeView: controlledActiveView,
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [internalFullscreen, setInternalFullscreen] = useState(false);
+  const isFullscreen = controlledFullscreen ?? internalFullscreen;
+  const exitFullscreen = () => {
+    if (onFullscreenToggle) onFullscreenToggle();
+    else setInternalFullscreen(false);
+  };
 
   // ESC to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsFullscreen(false);
+      if (e.key === "Escape") exitFullscreen();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFullscreen]);
+
+  // View is controlled by the parent (FlowCreate renders the AI/Editor toggle
+  // in the VariantTabs row above). Defaults to "ai".
+  const activeView = controlledActiveView ?? "ai";
 
   const wrapperClass = isFullscreen
     ? "fixed inset-0 z-[60] bg-background p-6 flex flex-col space-y-3 overflow-hidden"
@@ -539,31 +555,20 @@ export default function MessageComposer({
 
   return (
     <div className={wrapperClass}>
-      <Tabs defaultValue="ai" className={isFullscreen ? "flex-1 flex flex-col min-h-0" : undefined}>
-        <div className="flex items-center justify-between gap-2">
-          <TabsList>
-            <TabsTrigger value="ai">{t("flows.compose.tabAi", "AI Chat")}</TabsTrigger>
-            {channel !== "html_email" && (
-              <TabsTrigger value="editor">{t("flows.compose.tabEditor", "Editor")}</TabsTrigger>
-            )}
-          </TabsList>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setIsFullscreen((v) => !v)}
-            aria-label={isFullscreen
-              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
-              : t("flows.compose.enterFullscreen", "Expand to fullscreen")}
-            title={isFullscreen
-              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
-              : t("flows.compose.enterFullscreen", "Expand to fullscreen")}
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
-        </div>
-
+      {isFullscreen && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 absolute top-4 right-4 z-10"
+          onClick={exitFullscreen}
+          aria-label={t("flows.compose.exitFullscreen", "Exit fullscreen")}
+          title={t("flows.compose.exitFullscreen", "Exit fullscreen")}
+        >
+          <Minimize2 className="h-4 w-4" />
+        </Button>
+      )}
+      <Tabs value={activeView} className={isFullscreen ? "flex-1 flex flex-col min-h-0" : undefined}>
         {/* AI Chat Tab */}
         <TabsContent value="ai" className={isFullscreen ? "mt-3 flex-1 min-h-0" : "mt-3"}>
           <div className="border rounded-lg overflow-hidden h-full" style={aiPaneStyle}>
@@ -588,8 +593,7 @@ export default function MessageComposer({
                   channel={channel}
                   messageContent={messageContent}
                   messageSubject={messageSubject}
-                  referenceUrl={referenceUrl}
-                  onReferenceUrlChange={setReferenceUrl}
+                  onSubjectChange={onSubjectChange}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
