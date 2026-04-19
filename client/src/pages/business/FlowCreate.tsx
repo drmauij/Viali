@@ -351,116 +351,111 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         <div className="space-y-4">
           <h3 className="font-semibold">{t("flows.compose.title", "Compose Message")}</h3>
           {channel && (
-            <div className="space-y-3">
-              {/* A/B variant selector strip — sits ABOVE MessageComposer so
-                  clicking a tab swaps the chat + preview to that variant. */}
-              {primaryMessageContent && (
-                <VariantTabs
-                  variants={variants}
-                  onChange={setVariants}
-                  activeLabel={activeVariantLabel}
-                  onActiveLabelChange={setActiveVariantLabel}
-                  onGenerateAi={
-                    hospitalId
-                      ? async (base) => {
-                          const res = await apiRequest(
-                            "POST",
-                            `/api/business/${hospitalId}/flows/compose`,
-                            {
-                              channel,
-                              prompt: "Generate an alternative variant for A/B test",
-                              abVariantOf: base.messageTemplate,
-                            },
-                          );
-                          const data = await res.json();
-                          return {
-                            subject: data.subject,
-                            body: data.body ?? data.message ?? data.content ?? "",
-                          };
-                        }
-                      : undefined
-                  }
-                  extraActions={
-                    <>
-                      {/* AI / Editor toggle — only meaningful for sms/email
-                          (html_email has no manual editor tab). */}
-                      {channel !== "html_email" && (
+            <MessageComposer
+              key={activeVariantLabel}
+              channel={channel}
+              messageContent={messageContent}
+              messageSubject={messageSubject}
+              isFullscreen={isComposeFullscreen}
+              onFullscreenToggle={() => setIsComposeFullscreen((v) => !v)}
+              activeView={channel === "html_email" ? "ai" : composeView}
+              toolbar={
+                primaryMessageContent ? (
+                  <VariantTabs
+                    variants={variants}
+                    onChange={setVariants}
+                    activeLabel={activeVariantLabel}
+                    onActiveLabelChange={setActiveVariantLabel}
+                    onGenerateAi={
+                      hospitalId
+                        ? async (base) => {
+                            const res = await apiRequest(
+                              "POST",
+                              `/api/business/${hospitalId}/flows/compose`,
+                              {
+                                channel,
+                                prompt: "Generate an alternative variant for A/B test",
+                                abVariantOf: base.messageTemplate,
+                              },
+                            );
+                            const data = await res.json();
+                            return {
+                              subject: data.subject,
+                              body: data.body ?? data.message ?? data.content ?? "",
+                            };
+                          }
+                        : undefined
+                    }
+                    extraActions={
+                      <>
+                        {channel !== "html_email" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              setComposeView((v) => (v === "ai" ? "editor" : "ai"))
+                            }
+                            aria-label={
+                              composeView === "ai"
+                                ? t("flows.compose.tabEditor", "Editor")
+                                : t("flows.compose.tabAi", "AI Chat")
+                            }
+                            title={
+                              composeView === "ai"
+                                ? t("flows.compose.tabEditor", "Editor")
+                                : t("flows.compose.tabAi", "AI Chat")
+                            }
+                          >
+                            {composeView === "ai" ? (
+                              <FileText className="h-4 w-4" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() =>
-                            setComposeView((v) => (v === "ai" ? "editor" : "ai"))
-                          }
+                          onClick={() => setIsComposeFullscreen((v) => !v)}
                           aria-label={
-                            composeView === "ai"
-                              ? t("flows.compose.tabEditor", "Editor")
-                              : t("flows.compose.tabAi", "AI Chat")
+                            isComposeFullscreen
+                              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
+                              : t("flows.compose.enterFullscreen", "Expand to fullscreen")
                           }
                           title={
-                            composeView === "ai"
-                              ? t("flows.compose.tabEditor", "Editor")
-                              : t("flows.compose.tabAi", "AI Chat")
+                            isComposeFullscreen
+                              ? t("flows.compose.exitFullscreen", "Exit fullscreen")
+                              : t("flows.compose.enterFullscreen", "Expand to fullscreen")
                           }
                         >
-                          {composeView === "ai" ? (
-                            <FileText className="h-4 w-4" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
+                          {isComposeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                         </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setIsComposeFullscreen((v) => !v)}
-                        aria-label={
-                          isComposeFullscreen
-                            ? t("flows.compose.exitFullscreen", "Exit fullscreen")
-                            : t("flows.compose.enterFullscreen", "Expand to fullscreen")
-                        }
-                        title={
-                          isComposeFullscreen
-                            ? t("flows.compose.exitFullscreen", "Exit fullscreen")
-                            : t("flows.compose.enterFullscreen", "Expand to fullscreen")
-                        }
-                      >
-                        {isComposeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                      </Button>
-                    </>
-                  }
-                />
-              )}
-
-              <MessageComposer
-                key={activeVariantLabel}
-                channel={channel}
-                messageContent={messageContent}
-                messageSubject={messageSubject}
-                isFullscreen={isComposeFullscreen}
-                onFullscreenToggle={() => setIsComposeFullscreen((v) => !v)}
-                activeView={channel === "html_email" ? "ai" : composeView}
-                onContentChange={(content) =>
-                  setVariants((prev) =>
-                    prev.map((v, i) =>
-                      i === activeVariantIndex ? { ...v, messageTemplate: content } : v,
-                    ),
-                  )
-                }
-                onSubjectChange={(subject) =>
-                  setVariants((prev) =>
-                    prev.map((v, i) =>
-                      i === activeVariantIndex ? { ...v, messageSubject: subject } : v,
-                    ),
-                  )
-                }
-                segmentFilters={filters}
-                promoCode={promoCode}
-              />
-            </div>
+                      </>
+                    }
+                  />
+                ) : null
+              }
+              onContentChange={(content) =>
+                setVariants((prev) =>
+                  prev.map((v, i) =>
+                    i === activeVariantIndex ? { ...v, messageTemplate: content } : v,
+                  ),
+                )
+              }
+              onSubjectChange={(subject) =>
+                setVariants((prev) =>
+                  prev.map((v, i) =>
+                    i === activeVariantIndex ? { ...v, messageSubject: subject } : v,
+                  ),
+                )
+              }
+              segmentFilters={filters}
+              promoCode={promoCode}
+            />
           )}
 
           {variants.length >= 2 && (

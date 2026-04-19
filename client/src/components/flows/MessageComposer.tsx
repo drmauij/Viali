@@ -31,6 +31,8 @@ interface Props {
   onFullscreenToggle?: () => void;
   /** Controlled view — "ai" (chat) or "editor" (manual text). When omitted defaults to "ai". */
   activeView?: "ai" | "editor";
+  /** Rendered at the top of the composer (and inside fullscreen). Use for variant tabs + toolbar. */
+  toolbar?: React.ReactNode;
 }
 
 interface ChatMessage {
@@ -633,6 +635,7 @@ export default function MessageComposer({
   isFullscreen: controlledFullscreen,
   onFullscreenToggle,
   activeView: controlledActiveView,
+  toolbar,
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
@@ -668,19 +671,7 @@ export default function MessageComposer({
 
   return (
     <div className={wrapperClass}>
-      {isFullscreen && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 absolute top-4 right-4 z-10"
-          onClick={exitFullscreen}
-          aria-label={t("flows.compose.exitFullscreen", "Exit fullscreen")}
-          title={t("flows.compose.exitFullscreen", "Exit fullscreen")}
-        >
-          <Minimize2 className="h-4 w-4" />
-        </Button>
-      )}
+      {toolbar && <div>{toolbar}</div>}
       <Tabs value={activeView} className={isFullscreen ? "flex-1 flex flex-col min-h-0" : undefined}>
         {/* AI Chat Tab */}
         <TabsContent value="ai" className={isFullscreen ? "mt-3 flex-1 min-h-0" : "mt-3"}>
