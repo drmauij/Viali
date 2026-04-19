@@ -174,7 +174,7 @@ export default function FlowMetrics() {
         </CardContent>
       </Card>
 
-      {metrics.perVariant && metrics.perVariant.length > 0 && (
+      {metrics.perVariant && metrics.perVariant.length >= 2 && (
         <Card>
           <CardHeader>
             <CardTitle>{t("flows.ab.comparisonTitle", "Variant Comparison")}</CardTitle>
