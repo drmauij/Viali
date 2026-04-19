@@ -6708,11 +6708,13 @@ export const referralEvents = pgTable("referral_events", {
   // Snapshot taken when a linked appointment is hard-deleted, so conversion tracking survives
   appointmentDeletedAt: timestamp("appointment_deleted_at"),
   appointmentFinalStatus: varchar("appointment_final_status"),
+  flowExecutionId: varchar("flow_execution_id").references(() => flowExecutions.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("referral_events_hospital_created").on(table.hospitalId, table.createdAt),
   index("referral_events_appointment_id").on(table.appointmentId),
   index("referral_events_patient_id").on(table.patientId),
+  index("referral_events_flow_execution").on(table.flowExecutionId).where(sql`${table.flowExecutionId} IS NOT NULL`),
 ]);
 
 export const adFunnelEnum = pgEnum("ad_funnel", ["google_ads", "meta_ads", "meta_forms"]);
@@ -6891,6 +6893,11 @@ export const flows = pgTable("flows", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   sentAt: timestamp("sent_at"),
+  abTestEnabled: boolean("ab_test_enabled").default(false).notNull(),
+  abHoldoutPctPerArm: integer("ab_holdout_pct_per_arm").default(10).notNull(),
+  abWinnerVariantId: varchar("ab_winner_variant_id"),
+  abWinnerSentAt: timestamp("ab_winner_sent_at"),
+  abWinnerStatus: varchar("ab_winner_status", { length: 20 }),
 }, (table) => [
   index("idx_flows_hospital").on(table.hospitalId),
   index("idx_flows_status").on(table.status),
@@ -6899,6 +6906,23 @@ export const flows = pgTable("flows", {
 export const insertFlowSchema = createInsertSchema(flows).omit({ id: true, createdAt: true, updatedAt: true });
 export type Flow = typeof flows.$inferSelect;
 export type InsertFlow = z.infer<typeof insertFlowSchema>;
+
+export const flowVariants = pgTable("flow_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flowId: varchar("flow_id").notNull().references(() => flows.id, { onDelete: 'cascade' }),
+  label: varchar("label", { length: 10 }).notNull(), // "A", "B", "C"
+  messageSubject: varchar("message_subject", { length: 300 }),
+  messageTemplate: text("message_template").notNull(),
+  promoCodeId: varchar("promo_code_id").references(() => promoCodes.id),
+  weight: integer("weight").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_flow_variants_flow").on(table.flowId),
+  uniqueIndex("uniq_flow_variants_flow_label").on(table.flowId, table.label),
+]);
+
+export type FlowVariant = typeof flowVariants.$inferSelect;
+export type InsertFlowVariant = typeof flowVariants.$inferInsert;
 
 export const flowSteps = pgTable("flow_steps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -6921,12 +6945,15 @@ export const flowExecutions = pgTable("flow_executions", {
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   resendEmailId: varchar("resend_email_id"),
+  variantId: varchar("variant_id").references(() => flowVariants.id, { onDelete: 'set null' }),
+  bookedAppointmentId: varchar("booked_appointment_id").references(() => clinicAppointments.id, { onDelete: 'set null' }),
 }, (table) => [
   index("idx_flow_executions_flow").on(table.flowId),
   index("idx_flow_executions_patient").on(table.patientId),
   index("idx_flow_executions_resend_email_id")
     .on(table.resendEmailId)
     .where(sql`${table.resendEmailId} IS NOT NULL`),
+  index("idx_flow_executions_variant").on(table.variantId).where(sql`${table.variantId} IS NOT NULL`),
 ]);
 
 export type FlowExecution = typeof flowExecutions.$inferSelect;

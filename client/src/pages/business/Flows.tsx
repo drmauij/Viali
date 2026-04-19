@@ -217,7 +217,14 @@ export default function Flows() {
                       onClick={() => c.status === "draft" && navigate(`/business/flows/${c.id}`)}
                     >
                       <TableCell className="font-medium">
-                        {c.name}
+                        <div className="flex items-center gap-2">
+                          {c.name}
+                          {c.abTestEnabled && (
+                            <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">
+                              A/B
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>

@@ -531,7 +531,7 @@ export default function MessageComposer({
   }, [isFullscreen]);
 
   const wrapperClass = isFullscreen
-    ? "fixed inset-0 z-50 bg-background p-6 flex flex-col space-y-3 overflow-hidden"
+    ? "fixed inset-0 z-[60] bg-background p-6 flex flex-col space-y-3 overflow-hidden"
     : "space-y-3";
   const aiPaneStyle = isFullscreen
     ? { flex: "1 1 auto", minHeight: 0 }

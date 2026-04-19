@@ -6,6 +6,7 @@ import {
   flows,
   flowExecutions,
   flowEvents,
+  flowVariants,
   promoCodes,
   patients,
   clinicAppointments,
@@ -19,7 +20,10 @@ import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
 import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
 import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
+import { generateExecutionToken } from "../services/marketingExecutionToken";
+import { assignVariant } from "../services/marketingAbAssignment";
 import { summarizeFlows, flowDetail } from "../services/marketingMetricsQuery";
+import { sendRemainderForWinner } from "../services/marketingAbSendRemainder";
 import OpenAI from "openai";
 
 const router = Router();
@@ -82,7 +86,14 @@ router.get(
         .from(flows)
         .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)));
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
-      res.json(flow);
+
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      res.json({ ...flow, variants });
     } catch (error) {
       logger.error("[flows] get error:", error);
       res.status(500).json({ message: "Failed to get campaign" });
@@ -130,13 +141,40 @@ router.patch(
   async (req: Request, res: Response) => {
     try {
       const { hospitalId, flowId } = req.params;
+      const { variants: incomingVariants, ...flowPatch } = req.body ?? {};
+
       const [flow] = await db
         .update(flows)
-        .set({ ...req.body, updatedAt: new Date() })
+        .set({ ...flowPatch, updatedAt: new Date() })
         .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)))
         .returning();
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
-      res.json(flow);
+
+      if (Array.isArray(incomingVariants)) {
+        // Replace variants for this flow with the provided array.
+        // Delete existing then insert fresh rows.
+        await db.delete(flowVariants).where(eq(flowVariants.flowId, flow.id));
+        if (incomingVariants.length > 0) {
+          await db.insert(flowVariants).values(
+            incomingVariants.map((v: any) => ({
+              flowId: flow.id,
+              label: v.label,
+              messageSubject: v.messageSubject ?? null,
+              messageTemplate: v.messageTemplate,
+              promoCodeId: v.promoCodeId ?? null,
+              weight: v.weight ?? 1,
+            })),
+          );
+        }
+      }
+
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      res.json({ ...flow, variants });
     } catch (error) {
       logger.error("[flows] update error:", error);
       res.status(500).json({ message: "Failed to update campaign" });
@@ -452,12 +490,13 @@ router.post(
 
 const composeSchema = z.object({
   channel: z.enum(["sms", "email", "html_email"]),
-  prompt: z.string(),
+  prompt: z.string().optional().default(""),
   segmentDescription: z.string().optional(),
   hospitalName: z.string().optional(),
   bookingUrl: z.string().optional(),
   promoCode: z.string().nullable().optional(),
   referenceUrl: z.string().optional(),
+  abVariantOf: z.string().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -741,9 +780,22 @@ ${body.segmentDescription ? `\nTarget audience: ${body.segmentDescription}` : ""
 
 Return ONLY the raw message content. NEVER wrap output in markdown code fences (no \`\`\`html, no \`\`\`). NEVER add explanations before or after. For HTML email, start directly with <!DOCTYPE html> or the first HTML element. For plain text, start with "Subject:".`;
 
+      // For A/B variant generation, build a dedicated prompt that emphasizes
+      // creating a meaningfully different angle while keeping the same offer.
+      let userPrompt = body.prompt;
+      if (body.abVariantOf) {
+        const needsSubject = body.channel === "email" || body.channel === "html_email";
+        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant — different angle, different hook, different tone — keeping the same offer and language.`;
+        if (needsSubject) {
+          userPrompt += `\n\nIMPORTANT: Start your response with a subject line in the format "Subject: <subject>" followed by a blank line, then the body content. Do not include any other preamble or explanation.`;
+        } else {
+          userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes.`;
+        }
+      }
+
       // Build user message — include screenshot as image content block if available
       const isFirstMessage = !body.previousMessages || body.previousMessages.length === 0;
-      const textContent = `${body.prompt}${(isFirstMessage && screenshotBase64) ? `\n\nATTACHED IMAGE: This is the actual screenshot of the clinic's website at ${effectiveReferenceUrl}. You MUST carefully analyze this image and extract:
+      const textContent = `${userPrompt}${(isFirstMessage && screenshotBase64 && !body.abVariantOf) ? `\n\nATTACHED IMAGE: This is the actual screenshot of the clinic's website at ${effectiveReferenceUrl}. You MUST carefully analyze this image and extract:
 1. The EXACT primary brand color (what color dominates the buttons, headers, logo accents?)
 2. The background color (light/dark/warm/cool?)
 3. The font style (serif/sans-serif, elegant/bold/minimal?)
@@ -780,7 +832,7 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
 
       let responseText: string;
 
-      if (body.channel === "html_email" && ANTHROPIC_API_KEY) {
+      if (body.channel === "html_email" && ANTHROPIC_API_KEY && !body.abVariantOf) {
         // Log what we're sending to debug image issues
         const lastMsg = messages[messages.length - 1];
         const lastContent = lastMsg.content;
@@ -916,6 +968,18 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
           });
       }
 
+      // Variant-generation mode: parse "Subject: X\n\nBody..." into separate fields
+      if (body.abVariantOf) {
+        const subjectMatch = responseText.match(/^\s*Subject:\s*(.+?)\s*(?:\n|$)/i);
+        let subject: string | undefined;
+        let bodyText = responseText;
+        if (subjectMatch) {
+          subject = subjectMatch[1].trim();
+          bodyText = responseText.slice(subjectMatch[0].length).trimStart();
+        }
+        return res.json({ subject, body: bodyText });
+      }
+
       res.json({ content: responseText });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -947,8 +1011,23 @@ router.post(
       if (!flow) return res.status(404).json({ message: "Campaign not found" });
       if (flow.status !== "draft")
         return res.status(400).json({ message: "Campaign already sent" });
-      if (!flow.channel || !flow.messageTemplate || !flow.segmentFilters) {
+      if (!flow.channel || !flow.segmentFilters) {
         return res.status(400).json({ message: "Campaign is incomplete" });
+      }
+
+      // Load variants for this flow (empty array if no variants configured).
+      const variants = await db
+        .select()
+        .from(flowVariants)
+        .where(eq(flowVariants.flowId, flow.id))
+        .orderBy(flowVariants.label);
+
+      // A/B is active only when it's enabled AND at least 2 variants are configured.
+      const effectiveAbEnabled = flow.abTestEnabled && variants.length >= 2;
+
+      // A campaign with no template and no variants is invalid.
+      if (!flow.messageTemplate && variants.length === 0) {
+        return res.status(400).json({ message: "Campaign is incomplete — no message template" });
       }
 
       // Get promo code if attached
@@ -1106,13 +1185,29 @@ router.post(
 
       for (const patient of patientResults) {
         try {
-          let message = flow.messageTemplate!;
-          const bookingUrl = baseBookingUrl + bookingUrlSuffix;
+          const assignment = effectiveAbEnabled
+            ? assignVariant(patient.id, flow, variants)
+            : { variant: variants[0] ?? null, sendNow: true };
 
-          message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
-          message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");
-          message = message.replace(/\{\{behandlung\}\}/g, treatmentName);
-          message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
+          // Hold-out: create a pending execution row (no variant yet) and skip
+          // sending. The manual "Pick winner → send to remainder" button will
+          // pick these up later.
+          if (!assignment.sendNow) {
+            await db.insert(flowExecutions).values({
+              flowId,
+              patientId: patient.id,
+              status: "pending",
+              variantId: null,
+            });
+            continue;
+          }
+
+          // Variant-aware template + subject. Falls back to flow-level for
+          // non-A/B flows that have no variants.
+          const chosenTemplate = assignment.variant?.messageTemplate ?? flow.messageTemplate!;
+          const chosenSubject = assignment.variant?.messageSubject ?? flow.messageSubject;
+
+          let message = chosenTemplate;
 
           // Create execution record
           const [execution] = await db
@@ -1121,8 +1216,18 @@ router.post(
               flowId,
               patientId: patient.id,
               status: "running",
+              variantId: assignment.variant?.id ?? null,
             })
             .returning();
+
+          const fe = generateExecutionToken(execution.id, assignment.variant?.id ?? null);
+          const separator = bookingUrlSuffix.includes("?") ? "&" : "?";
+          const bookingUrl = `${baseBookingUrl}${bookingUrlSuffix}${separator}fe=${fe}`;
+
+          message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
+          message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");
+          message = message.replace(/\{\{behandlung\}\}/g, treatmentName);
+          message = message.replace(/\{\{buchungslink\}\}/g, bookingUrl);
 
           let sendSuccess = false;
 
@@ -1137,7 +1242,7 @@ router.post(
           ) {
             try {
               const { client, fromEmail } = await getUncachableResendClient();
-              const subject = flow.messageSubject || "Nachricht von Ihrer Praxis";
+              const subject = chosenSubject || "Nachricht von Ihrer Praxis";
               const baseHtml =
                 flow.channel === "html_email"
                   ? message
@@ -1291,6 +1396,62 @@ router.get(
       res.status(500).json({ message: "Failed to load flow detail" });
     }
   },
+);
+
+// ─── A/B: manual pick-winner ──────────────────────────────────
+
+router.post(
+  "/api/business/:hospitalId/flows/:flowId/pick-winner",
+  isAuthenticated,
+  isMarketingAccess,
+  async (req: Request, res: Response) => {
+    (req as any).setTimeout(300000); // 5 min for remainder sends
+    res.setTimeout(300000);
+    try {
+      const { hospitalId, flowId } = req.params;
+      const { variantId } = req.body as { variantId?: string };
+      if (!variantId) return res.status(400).json({ message: "variantId required" });
+
+      const [flow] = await db
+        .select()
+        .from(flows)
+        .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)));
+      if (!flow) return res.status(404).json({ message: "Campaign not found" });
+      if (!flow.abTestEnabled) {
+        return res.status(400).json({ message: "Campaign is not an A/B test" });
+      }
+      if (flow.abWinnerVariantId) {
+        return res.status(400).json({ message: "Winner already picked" });
+      }
+
+      const [variant] = await db
+        .select()
+        .from(flowVariants)
+        .where(and(eq(flowVariants.id, variantId), eq(flowVariants.flowId, flow.id)));
+      if (!variant) return res.status(404).json({ message: "Variant not found" });
+
+      // Mark winner immediately so the UI reflects the decision
+      await db
+        .update(flows)
+        .set({
+          abWinnerVariantId: variantId,
+          abWinnerStatus: "manual",
+          abWinnerSentAt: new Date(),
+        })
+        .where(eq(flows.id, flow.id));
+
+      const result = await sendRemainderForWinner(flow, variant, req);
+
+      res.json({
+        winnerVariantId: variantId,
+        sentToRemainder: result.sentCount,
+        failedInRemainder: result.failedCount,
+      });
+    } catch (err) {
+      logger.error("[flows] pick-winner error:", err);
+      res.status(500).json({ message: "Pick-winner failed" });
+    }
+  }
 );
 
 export default router;

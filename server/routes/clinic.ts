@@ -4,8 +4,8 @@ import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
 import { requireAdminRole } from "./middleware";
-import { 
-  clinicInvoices, 
+import {
+  clinicInvoices,
   clinicInvoiceItems,
   clinicServices,
   insertClinicInvoiceSchema,
@@ -19,7 +19,9 @@ import {
   hospitals,
   ProviderTimeOff,
   clinicDayNotes,
+  flowExecutions,
 } from "@shared/schema";
+import { verifyExecutionToken } from "../services/marketingExecutionToken";
 import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
@@ -705,6 +707,8 @@ const bookingSchema = z.object({
   twclid: z.string().max(500).nullish(),
   noShowFeeAcknowledged: z.boolean().optional(),
   serviceId: z.string().nullish(),
+  // A/B execution token — Phase 3 flow attribution
+  fe: z.string().max(2000).nullish(),
 });
 
 router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
@@ -722,6 +726,18 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
     // Require referral source when hospital has referral enabled and no auto-capture data
     if (hospital.enableReferralOnBooking && !parsed.data.utmSource && !parsed.data.refParam && !parsed.data.referralSource) {
       return res.status(400).json({ message: "Referral source is required" });
+    }
+
+    // Decode A/B execution token if present — Phase 3.
+    let decodedFlowExecutionId: string | null = null;
+    const feToken = (parsed.data.fe ?? (req.body?.fe as string | undefined))?.trim();
+    if (feToken) {
+      try {
+        const { executionId } = verifyExecutionToken(feToken);
+        decodedFlowExecutionId = executionId;
+      } catch (err) {
+        logger.debug("[book] invalid fe token, ignoring:", (err as Error).message);
+      }
     }
 
     const { providerId, date, startTime, endTime, firstName, surname, email, phone, notes } = parsed.data;
@@ -838,7 +854,17 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
           adsetId: parsed.data.adsetId || null,
           adId: parsed.data.adId || null,
           captureMethod: parsed.data.captureMethod || "manual",
+          flowExecutionId: decodedFlowExecutionId,
         });
+      }
+
+      // Phase 3 A/B attribution: if this booking came from a campaign execution,
+      // stamp the appointment on the execution so per-variant queries can join directly.
+      if (decodedFlowExecutionId) {
+        await db
+          .update(flowExecutions)
+          .set({ bookedAppointmentId: appointment.id })
+          .where(eq(flowExecutions.id, decodedFlowExecutionId));
       }
 
       // Increment promo code usage if provided
