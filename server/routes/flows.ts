@@ -490,12 +490,13 @@ router.post(
 
 const composeSchema = z.object({
   channel: z.enum(["sms", "email", "html_email"]),
-  prompt: z.string(),
+  prompt: z.string().optional().default(""),
   segmentDescription: z.string().optional(),
   hospitalName: z.string().optional(),
   bookingUrl: z.string().optional(),
   promoCode: z.string().nullable().optional(),
   referenceUrl: z.string().optional(),
+  abVariantOf: z.string().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -779,9 +780,16 @@ ${body.segmentDescription ? `\nTarget audience: ${body.segmentDescription}` : ""
 
 Return ONLY the raw message content. NEVER wrap output in markdown code fences (no \`\`\`html, no \`\`\`). NEVER add explanations before or after. For HTML email, start directly with <!DOCTYPE html> or the first HTML element. For plain text, start with "Subject:".`;
 
+      // For A/B variant generation, build a dedicated prompt that emphasizes
+      // creating a meaningfully different angle while keeping the same offer.
+      let userPrompt = body.prompt;
+      if (body.abVariantOf) {
+        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant B — different angle, different hook, different tone — keeping the same offer and language. Return only the message content, no explanations.`;
+      }
+
       // Build user message — include screenshot as image content block if available
       const isFirstMessage = !body.previousMessages || body.previousMessages.length === 0;
-      const textContent = `${body.prompt}${(isFirstMessage && screenshotBase64) ? `\n\nATTACHED IMAGE: This is the actual screenshot of the clinic's website at ${effectiveReferenceUrl}. You MUST carefully analyze this image and extract:
+      const textContent = `${userPrompt}${(isFirstMessage && screenshotBase64 && !body.abVariantOf) ? `\n\nATTACHED IMAGE: This is the actual screenshot of the clinic's website at ${effectiveReferenceUrl}. You MUST carefully analyze this image and extract:
 1. The EXACT primary brand color (what color dominates the buttons, headers, logo accents?)
 2. The background color (light/dark/warm/cool?)
 3. The font style (serif/sans-serif, elegant/bold/minimal?)

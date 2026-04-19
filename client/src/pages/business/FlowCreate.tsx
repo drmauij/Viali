@@ -15,6 +15,8 @@ import ChannelPicker, { type Channel } from "@/components/flows/ChannelPicker";
 import OfferSection from "@/components/flows/OfferSection";
 import ReviewSend from "@/components/flows/ReviewSend";
 import MessageComposer from "@/components/flows/MessageComposer";
+import VariantTabs, { type Variant } from "@/components/flows/VariantTabs";
+import AbConfigSection from "@/components/flows/AbConfigSection";
 import { BookingSection, type SectionStatus } from "@/components/booking/BookingSection";
 
 type Section = "segment" | "channel" | "compose" | "offer" | "review";
@@ -37,8 +39,10 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [filters, setFilters] = useState<SegmentFilter[]>([]);
   const [patientCount, setPatientCount] = useState<number | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
-  const [messageContent, setMessageContent] = useState("");
-  const [messageSubject, setMessageSubject] = useState("");
+  const [variants, setVariants] = useState<Variant[]>([
+    { label: "A", messageSubject: "", messageTemplate: "" },
+  ]);
+  const [abHoldoutPctPerArm, setAbHoldoutPctPerArm] = useState<number>(10);
   const [promoCodeId, setPromoCodeId] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -65,8 +69,24 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       setName(existingFlow.name || "");
       setFilters(existingFlow.segmentFilters || []);
       setChannel(existingFlow.channel || null);
-      setMessageContent(existingFlow.messageTemplate || "");
-      setMessageSubject(existingFlow.messageSubject || "");
+
+      // Initialize variants — prefer saved variants array; fall back to single
+      // message fields for flows saved before A/B was introduced.
+      if (Array.isArray(existingFlow.variants) && existingFlow.variants.length > 0) {
+        setVariants(existingFlow.variants);
+        if (existingFlow.abHoldoutPctPerArm) {
+          setAbHoldoutPctPerArm(existingFlow.abHoldoutPctPerArm);
+        }
+      } else {
+        setVariants([
+          {
+            label: "A",
+            messageSubject: existingFlow.messageSubject || "",
+            messageTemplate: existingFlow.messageTemplate || "",
+          },
+        ]);
+      }
+
       setPromoCodeId(existingFlow.promoCodeId || null);
       if (existingFlow.promoCodeId && (promoCodes as any[]).length > 0) {
         const pc = (promoCodes as any[]).find((p: any) => p.id === existingFlow.promoCodeId);
@@ -83,7 +103,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         done.add("channel");
         nextStep = "compose";
       }
-      if (existingFlow.messageTemplate) {
+      if (existingFlow.messageTemplate || (Array.isArray(existingFlow.variants) && existingFlow.variants.length > 0 && existingFlow.variants[0]?.messageTemplate)) {
         done.add("compose");
         nextStep = "offer";
       }
@@ -131,8 +151,15 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         segmentFilters: filters,
         channel,
         promoCodeId,
-        messageContent,
-        messageSubject,
+        messageTemplate: variants[0]?.messageTemplate ?? "",
+        messageSubject: variants[0]?.messageSubject ?? "",
+        abTestEnabled: variants.length >= 2,
+        abHoldoutPctPerArm,
+        variants: variants.map((v) => ({
+          label: v.label,
+          messageSubject: v.messageSubject,
+          messageTemplate: v.messageTemplate,
+        })),
       });
       const flow = await flowRes.json();
 
@@ -163,8 +190,15 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         segmentFilters: filters,
         channel,
         promoCodeId,
-        messageTemplate: messageContent,
-        messageSubject,
+        messageTemplate: variants[0]?.messageTemplate ?? "",
+        messageSubject: variants[0]?.messageSubject ?? "",
+        abTestEnabled: variants.length >= 2,
+        abHoldoutPctPerArm,
+        variants: variants.map((v) => ({
+          label: v.label,
+          messageSubject: v.messageSubject,
+          messageTemplate: v.messageTemplate,
+        })),
       };
       if (editId) {
         await apiRequest("PATCH", `/api/business/${hospitalId}/flows/${editId}`, payload);
@@ -185,6 +219,8 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   };
 
   const handleSendTest = async (recipient: string, testVars: { vorname: string; nachname: string; behandlung: string }) => {
+    const messageContent = variants[0]?.messageTemplate ?? "";
+    const messageSubject = variants[0]?.messageSubject ?? "";
     if (!hospitalId || !channel || !messageContent) return;
     setSendingTest(true);
     try {
@@ -206,6 +242,10 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       setSendingTest(false);
     }
   };
+
+  // Derive primary message content from first variant for guards/summaries.
+  const messageContent = variants[0]?.messageTemplate ?? "";
+  const messageSubject = variants[0]?.messageSubject ?? "";
 
   // Empty filters = "all patients" is valid; require only a channel + message.
   const isReady = channel !== null && !!messageContent;
@@ -303,12 +343,59 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               channel={channel}
               messageContent={messageContent}
               messageSubject={messageSubject}
-              onContentChange={setMessageContent}
-              onSubjectChange={setMessageSubject}
+              onContentChange={(content) =>
+                setVariants((prev) =>
+                  prev.map((v, i) => (i === 0 ? { ...v, messageTemplate: content } : v))
+                )
+              }
+              onSubjectChange={(subject) =>
+                setVariants((prev) =>
+                  prev.map((v, i) => (i === 0 ? { ...v, messageSubject: subject } : v))
+                )
+              }
               segmentFilters={filters}
               promoCode={promoCode}
             />
           )}
+
+          {/* A/B variant editor — shown once user has composed variant A */}
+          {messageContent && (
+            <VariantTabs
+              variants={variants}
+              onChange={setVariants}
+              showSubject={channel === "email" || channel === "html_email"}
+              onGenerateAi={
+                hospitalId
+                  ? async (base) => {
+                      const res = await apiRequest(
+                        "POST",
+                        `/api/business/${hospitalId}/flows/compose`,
+                        {
+                          channel,
+                          prompt: "Generate an alternative variant for A/B test",
+                          abVariantOf: base.messageTemplate,
+                        },
+                      );
+                      const data = await res.json();
+                      return {
+                        subject: data.subject,
+                        body: data.body ?? data.message ?? data.content ?? "",
+                      };
+                    }
+                  : undefined
+              }
+            />
+          )}
+
+          {variants.length >= 2 && (
+            <AbConfigSection
+              holdoutPctPerArm={abHoldoutPctPerArm}
+              onChange={setAbHoldoutPctPerArm}
+              segmentSize={patientCount}
+              variantCount={variants.length}
+            />
+          )}
+
           <div className="flex justify-end">
             <Button
               onClick={() => completeAndGoTo("compose", "offer")}
