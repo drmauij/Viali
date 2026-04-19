@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 
 export interface Variant {
@@ -15,46 +13,30 @@ export interface Variant {
 interface Props {
   variants: Variant[];
   onChange: (variants: Variant[]) => void;
-  showSubject: boolean;
-  channel?: string; // when "html_email", renders an iframe preview below the body textarea
+  activeLabel?: string; // controlled active tab (falls back to internal state when omitted)
+  onActiveLabelChange?: (label: string) => void;
   onGenerateAi?: (baseVariant: Variant) => Promise<{ subject?: string; body: string }>;
 }
 
 const MAX_VARIANTS = 3;
 const LABELS = ["A", "B", "C"];
 
-function HtmlEmailPreview({ content }: { content: string }) {
-  const { t } = useTranslation();
-  // If the AI returned a full HTML document, render it as-is — wrapping it in
-  // another <body> produces invalid nested documents that render blank.
-  const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(content);
-  const srcDoc = content
-    ? looksLikeFullDoc
-      ? content
-      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${content}</body></html>`
-    : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
-  return (
-    <div className="border rounded-lg overflow-hidden" style={{ height: 420 }}>
-      <iframe
-        title="HTML Email Preview"
-        srcDoc={srcDoc}
-        sandbox="allow-same-origin"
-        className="w-full h-full"
-      />
-    </div>
-  );
-}
-
 export default function VariantTabs({
   variants,
   onChange,
-  showSubject,
-  channel,
+  activeLabel: controlledActiveLabel,
+  onActiveLabelChange,
   onGenerateAi,
 }: Props) {
   const { t } = useTranslation();
-  const [activeLabel, setActiveLabel] = useState(variants[0]?.label ?? "A");
+  const [internalActiveLabel, setInternalActiveLabel] = useState(variants[0]?.label ?? "A");
+  const activeLabel = controlledActiveLabel ?? internalActiveLabel;
   const [generatingAi, setGeneratingAi] = useState(false);
+
+  const setActiveLabel = (label: string) => {
+    if (onActiveLabelChange) onActiveLabelChange(label);
+    else setInternalActiveLabel(label);
+  };
 
   const addVariant = async () => {
     if (variants.length >= MAX_VARIANTS) return;
@@ -90,99 +72,56 @@ export default function VariantTabs({
     }
   };
 
-  const updateVariant = (idx: number, patch: Partial<Variant>) => {
-    onChange(variants.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
-  };
-
   if (variants.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      <Tabs value={activeLabel} onValueChange={setActiveLabel}>
-        <div className="flex items-center justify-between">
-          <TabsList>
-            {variants.map((v, i) => (
-              <TabsTrigger key={v.label} value={v.label} className="gap-2">
-                {t("flows.ab.variant", "Variant")} {v.label}
-                {variants.length > 1 && (
-                  <span
-                    role="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeVariant(i);
-                    }}
-                    className="text-muted-foreground hover:text-destructive cursor-pointer"
-                    title={t("flows.ab.removeVariant", "Remove variant")}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </span>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {variants.length < MAX_VARIANTS && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={addVariant}
-              disabled={generatingAi}
-            >
-              {onGenerateAi && variants.length >= 1 && variants[0]?.messageTemplate ? (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  {generatingAi
-                    ? t("flows.ab.generating", "Generating...")
-                    : t("flows.ab.addWithAi", "Add variant + AI")}
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  {t("flows.ab.add", "Add variant")}
-                </>
+    <Tabs value={activeLabel} onValueChange={setActiveLabel}>
+      <div className="flex items-center justify-between">
+        <TabsList>
+          {variants.map((v, i) => (
+            <TabsTrigger key={v.label} value={v.label} className="gap-2">
+              {t("flows.ab.variant", "Variant")} {v.label}
+              {variants.length > 1 && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeVariant(i);
+                  }}
+                  className="text-muted-foreground hover:text-destructive cursor-pointer"
+                  title={t("flows.ab.removeVariant", "Remove variant")}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </span>
               )}
-            </Button>
-          )}
-        </div>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        {variants.map((v, i) => (
-          <TabsContent key={v.label} value={v.label} className="space-y-3 pt-4">
-            {showSubject && (
-              <div>
-                <label className="text-sm font-medium">
-                  {t("flows.ab.subject", "Subject")}
-                </label>
-                <Input
-                  value={v.messageSubject ?? ""}
-                  onChange={(e) => updateVariant(i, { messageSubject: e.target.value })}
-                  placeholder={t("flows.ab.subjectPlaceholder", "Email subject line")}
-                />
-              </div>
+        {variants.length < MAX_VARIANTS && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={addVariant}
+            disabled={generatingAi}
+          >
+            {onGenerateAi && variants.length >= 1 && variants[0]?.messageTemplate ? (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {generatingAi
+                  ? t("flows.ab.generating", "Generating...")
+                  : t("flows.ab.addWithAi", "Add variant + AI")}
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                {t("flows.ab.add", "Add variant")}
+              </>
             )}
-            <div>
-              <label className="text-sm font-medium">
-                {t("flows.ab.body", "Message body")}
-              </label>
-              <Textarea
-                value={v.messageTemplate}
-                onChange={(e) => updateVariant(i, { messageTemplate: e.target.value })}
-                rows={10}
-                placeholder={t("flows.ab.bodyPlaceholder", "Message body...")}
-                className={channel === "html_email" ? "font-mono text-xs" : undefined}
-              />
-            </div>
-            {channel === "html_email" && (
-              <div>
-                <label className="text-sm font-medium">
-                  {t("flows.ab.preview", "Preview")}
-                </label>
-                <HtmlEmailPreview content={v.messageTemplate} />
-              </div>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+          </Button>
+        )}
+      </div>
+    </Tabs>
   );
 }

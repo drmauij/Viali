@@ -243,12 +243,22 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     }
   };
 
-  // Derive primary message content from first variant for guards/summaries.
-  const messageContent = variants[0]?.messageTemplate ?? "";
-  const messageSubject = variants[0]?.messageSubject ?? "";
+  // Active variant drives the MessageComposer (chat + preview) — user can
+  // switch between Variant A / B / C and chat-refine each independently.
+  const [activeVariantLabel, setActiveVariantLabel] = useState("A");
+  const activeVariantIndex = Math.max(
+    0,
+    variants.findIndex((v) => v.label === activeVariantLabel),
+  );
+  const messageContent = variants[activeVariantIndex]?.messageTemplate ?? "";
+  const messageSubject = variants[activeVariantIndex]?.messageSubject ?? "";
+
+  // Variant A always drives the "ready to send" guards — the send loop picks
+  // A/B/C per-patient at send time, but A must exist for anything to go out.
+  const primaryMessageContent = variants[0]?.messageTemplate ?? "";
 
   // Empty filters = "all patients" is valid; require only a channel + message.
-  const isReady = channel !== null && !!messageContent;
+  const isReady = channel !== null && !!primaryMessageContent;
 
   return (
     <div className="p-4 space-y-3 max-w-3xl mx-auto">
@@ -339,53 +349,61 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         <div className="space-y-4">
           <h3 className="font-semibold">{t("flows.compose.title", "Compose Message")}</h3>
           {channel && (
-            <MessageComposer
-              channel={channel}
-              messageContent={messageContent}
-              messageSubject={messageSubject}
-              onContentChange={(content) =>
-                setVariants((prev) =>
-                  prev.map((v, i) => (i === 0 ? { ...v, messageTemplate: content } : v))
-                )
-              }
-              onSubjectChange={(subject) =>
-                setVariants((prev) =>
-                  prev.map((v, i) => (i === 0 ? { ...v, messageSubject: subject } : v))
-                )
-              }
-              segmentFilters={filters}
-              promoCode={promoCode}
-            />
-          )}
+            <div className="space-y-3">
+              {/* A/B variant selector strip — sits ABOVE MessageComposer so
+                  clicking a tab swaps the chat + preview to that variant. */}
+              {primaryMessageContent && (
+                <VariantTabs
+                  variants={variants}
+                  onChange={setVariants}
+                  activeLabel={activeVariantLabel}
+                  onActiveLabelChange={setActiveVariantLabel}
+                  onGenerateAi={
+                    hospitalId
+                      ? async (base) => {
+                          const res = await apiRequest(
+                            "POST",
+                            `/api/business/${hospitalId}/flows/compose`,
+                            {
+                              channel,
+                              prompt: "Generate an alternative variant for A/B test",
+                              abVariantOf: base.messageTemplate,
+                            },
+                          );
+                          const data = await res.json();
+                          return {
+                            subject: data.subject,
+                            body: data.body ?? data.message ?? data.content ?? "",
+                          };
+                        }
+                      : undefined
+                  }
+                />
+              )}
 
-          {/* A/B variant editor — shown once user has composed variant A */}
-          {messageContent && (
-            <VariantTabs
-              variants={variants}
-              onChange={setVariants}
-              showSubject={channel === "email" || channel === "html_email"}
-              channel={channel ?? undefined}
-              onGenerateAi={
-                hospitalId
-                  ? async (base) => {
-                      const res = await apiRequest(
-                        "POST",
-                        `/api/business/${hospitalId}/flows/compose`,
-                        {
-                          channel,
-                          prompt: "Generate an alternative variant for A/B test",
-                          abVariantOf: base.messageTemplate,
-                        },
-                      );
-                      const data = await res.json();
-                      return {
-                        subject: data.subject,
-                        body: data.body ?? data.message ?? data.content ?? "",
-                      };
-                    }
-                  : undefined
-              }
-            />
+              <MessageComposer
+                key={activeVariantLabel}
+                channel={channel}
+                messageContent={messageContent}
+                messageSubject={messageSubject}
+                onContentChange={(content) =>
+                  setVariants((prev) =>
+                    prev.map((v, i) =>
+                      i === activeVariantIndex ? { ...v, messageTemplate: content } : v,
+                    ),
+                  )
+                }
+                onSubjectChange={(subject) =>
+                  setVariants((prev) =>
+                    prev.map((v, i) =>
+                      i === activeVariantIndex ? { ...v, messageSubject: subject } : v,
+                    ),
+                  )
+                }
+                segmentFilters={filters}
+                promoCode={promoCode}
+              />
+            </div>
           )}
 
           {variants.length >= 2 && (
