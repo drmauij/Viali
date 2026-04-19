@@ -6920,9 +6920,13 @@ export const flowExecutions = pgTable("flow_executions", {
   status: varchar("status", { length: 20 }).default("pending").notNull(),
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+  resendEmailId: varchar("resend_email_id"),
 }, (table) => [
   index("idx_flow_executions_flow").on(table.flowId),
   index("idx_flow_executions_patient").on(table.patientId),
+  index("idx_flow_executions_resend_email_id")
+    .on(table.resendEmailId)
+    .where(sql`${table.resendEmailId} IS NOT NULL`),
 ]);
 
 export type FlowExecution = typeof flowExecutions.$inferSelect;
@@ -6933,8 +6937,14 @@ export const flowEvents = pgTable("flow_events", {
   eventType: varchar("event_type", { length: 20 }).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow(),
+  svixId: varchar("svix_id"), // set when event came from a webhook; NULL when written by the send loop
 }, (table) => [
   index("idx_flow_events_execution").on(table.executionId),
+  // Partial unique: prevents duplicate rows when Resend retries a webhook with the same svix-id.
+  // Send-loop-written rows (svix_id NULL) are not subject to this constraint.
+  uniqueIndex("uniq_flow_events_execution_event_svix")
+    .on(table.executionId, table.eventType, table.svixId)
+    .where(sql`${table.svixId} IS NOT NULL`),
 ]);
 
 export type FlowEvent = typeof flowEvents.$inferSelect;

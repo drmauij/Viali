@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import authRouter from "./auth";
 import inventoryRouter from "./inventory";
 import adminRouter from "./admin";
@@ -34,6 +35,7 @@ import shiftsRouter from "./shifts";
 import websiteRouter from "./website";
 import flowsRouter from "./flows";
 import marketingUnsubscribeRouter from "./marketingUnsubscribe";
+import marketingWebhooksRouter from "./marketingWebhooks";
 import publicDocsRouter from "./publicDocs";
 import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
@@ -75,6 +77,9 @@ export function registerDomainRoutes(app: Express) {
   app.use(websiteRouter);
   app.use(flowsRouter);
   app.use(marketingUnsubscribeRouter);
+  // Resend webhook needs raw body for signature verification.
+  app.use("/api/webhooks/resend", express.raw({ type: "*/*" }));
+  app.use(marketingWebhooksRouter);
   app.use(publicDocsRouter);
   app.use(treatmentsRouter);
 }

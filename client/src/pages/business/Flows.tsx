@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag, Zap,
 } from "lucide-react";
@@ -27,12 +27,60 @@ export default function Flows() {
   const [, navigate] = useLocation();
   const hospitalId = activeHospital?.id;
 
-  const DUMMY_STATS = [
-    { label: t("flows.dashboard.campaigns", "Campaigns This Month"), value: "12", icon: Send, color: "text-purple-400" },
-    { label: t("flows.dashboard.reached", "Recipients Reached"), value: "384", icon: Users, color: "text-blue-400" },
-    { label: t("flows.dashboard.openRate", "Avg. Open Rate"), value: "34%", icon: BarChart3, color: "text-green-400" },
-    { label: t("flows.dashboard.bookings", "Bookings"), value: "28", icon: CalendarCheck, color: "text-orange-400" },
-  ];
+  const { data: metricsSummary } = useQuery<{
+    since: string;
+    rows: Array<{
+      flowId: string;
+      sent: number;
+      delivered: number;
+      opened: number;
+      clicked: number;
+      bounced: number;
+      complained: number;
+      bookings: number;
+    }>;
+  }>({
+    queryKey: ["flows-metrics-summary", hospitalId],
+    queryFn: () =>
+      apiRequest("GET", `/api/business/${hospitalId}/flows/metrics/summary`).then((r) => r.json()),
+    enabled: !!hospitalId,
+  });
+
+  const metricsByFlow = useMemo(() => {
+    const m: Record<string, {
+      flowId: string;
+      sent: number;
+      delivered: number;
+      opened: number;
+      clicked: number;
+      bounced: number;
+      complained: number;
+      bookings: number;
+    }> = {};
+    (metricsSummary?.rows ?? []).forEach((r) => {
+      m[r.flowId] = r;
+    });
+    return m;
+  }, [metricsSummary]);
+
+  const STATS = useMemo(() => {
+    const rows = metricsSummary?.rows ?? [];
+    const totals = rows.reduce(
+      (acc, r) => ({
+        sent: acc.sent + r.sent,
+        opened: acc.opened + r.opened,
+        bookings: acc.bookings + r.bookings,
+      }),
+      { sent: 0, opened: 0, bookings: 0 },
+    );
+    const openRate = totals.sent > 0 ? Math.round((totals.opened / totals.sent) * 100) : 0;
+    return [
+      { label: t("flows.dashboard.campaigns", "Campaigns This Month"), value: String(rows.length), icon: Send, color: "text-purple-400" },
+      { label: t("flows.dashboard.reached", "Recipients Reached"), value: String(totals.sent), icon: Users, color: "text-blue-400" },
+      { label: t("flows.dashboard.openRate", "Avg. Open Rate"), value: `${openRate}%`, icon: BarChart3, color: "text-green-400" },
+      { label: t("flows.dashboard.bookings", "Bookings"), value: String(totals.bookings), icon: CalendarCheck, color: "text-orange-400" },
+    ];
+  }, [metricsSummary, t]);
 
   const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     draft: { label: t("flows.status.draft", "Draft"), variant: "outline" },
@@ -86,9 +134,9 @@ export default function Flows() {
         </Button>
       </div>
 
-      {/* Dashboard cards (dummy) */}
+      {/* Dashboard cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {DUMMY_STATS.map((stat) => (
+        {STATS.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -161,7 +209,16 @@ export default function Flows() {
                       className={c.status === "draft" ? "cursor-pointer hover:bg-muted/50" : ""}
                       onClick={() => c.status === "draft" && navigate(`/business/flows/${c.id}`)}
                     >
-                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {c.name}
+                        {metricsByFlow[c.id] && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {metricsByFlow[c.id].sent} {t("flows.row.sent", "sent")} ·
+                            {" "}{metricsByFlow[c.id].opened} {t("flows.row.opened", "opened")} ·
+                            {" "}{metricsByFlow[c.id].bookings} {t("flows.row.booked", "booked")}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>
                           {STATUS_BADGE[c.status]?.label || c.status}
@@ -174,6 +231,15 @@ export default function Flows() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">—</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => navigate(`/business/flows/${c.id}/metrics`)}
+                          title={t("flows.actions.viewMetrics", "View metrics")}
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                        </Button>
                         {c.status === "draft" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>

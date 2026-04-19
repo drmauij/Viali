@@ -19,6 +19,7 @@ import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
 import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
 import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
+import { summarizeFlows, flowDetail } from "../services/marketingMetricsQuery";
 import OpenAI from "openai";
 
 const router = Router();
@@ -1089,6 +1090,8 @@ router.post(
       params.set("utm_source", flow.channel === "sms" ? "sms_campaign" : "email_campaign");
       params.set("utm_medium", flow.channel === "sms" ? "sms" : "email");
       params.set("utm_campaign", flow.name || "campaign");
+      // Stable join key for booking attribution — survives flow renames and same-name collisions.
+      params.set("utm_content", flow.id);
       const bookingUrlSuffix = `?${params.toString()}`;
 
       let sentCount = 0;
@@ -1146,13 +1149,19 @@ router.post(
                 baseUrl,
                 "de",
               );
-              await client.emails.send({
+              const sendResult = await client.emails.send({
                 from: fromEmail,
                 to: patient.email,
                 subject,
                 html: htmlWithFooter,
               });
-              sendSuccess = true;
+              if (sendResult.data?.id) {
+                await db
+                  .update(flowExecutions)
+                  .set({ resendEmailId: sendResult.data.id })
+                  .where(eq(flowExecutions.id, execution.id));
+              }
+              sendSuccess = !!sendResult.data?.id;
             } catch (e) {
               logger.error("[flows] email send error:", e);
             }
@@ -1230,6 +1239,58 @@ router.post(
       res.status(500).json({ message: "Campaign send failed" });
     }
   }
+);
+
+// ─── Metrics ──────────────────────────────────────────────────
+
+router.get(
+  "/api/business/:hospitalId/flows/metrics/summary",
+  isAuthenticated,
+  isMarketingAccess,
+  async (req: Request, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const sinceParam = req.query.since as string | undefined;
+      const since = sinceParam
+        ? new Date(sinceParam)
+        : (() => {
+            const d = new Date();
+            d.setUTCDate(1);
+            d.setUTCHours(0, 0, 0, 0);
+            return d;
+          })();
+      if (Number.isNaN(since.getTime())) {
+        return res.status(400).json({ message: "Invalid since parameter" });
+      }
+      const rows = await summarizeFlows(hospitalId, since);
+      res.json({ since: since.toISOString(), rows });
+    } catch (err) {
+      logger.error("[flows] metrics summary error:", err);
+      res.status(500).json({ message: "Failed to load summary" });
+    }
+  },
+);
+
+router.get(
+  "/api/business/:hospitalId/flows/:flowId/metrics",
+  isAuthenticated,
+  isMarketingAccess,
+  async (req: Request, res: Response) => {
+    try {
+      const { hospitalId, flowId } = req.params;
+      // Verify the flow belongs to this hospital before exposing detail
+      const [flow] = await db
+        .select({ id: flows.id })
+        .from(flows)
+        .where(and(eq(flows.id, flowId), eq(flows.hospitalId, hospitalId)));
+      if (!flow) return res.status(404).json({ message: "Campaign not found" });
+      const detail = await flowDetail(flowId);
+      res.json(detail);
+    } catch (err) {
+      logger.error("[flows] flow detail metrics error:", err);
+      res.status(500).json({ message: "Failed to load flow detail" });
+    }
+  },
 );
 
 export default router;
