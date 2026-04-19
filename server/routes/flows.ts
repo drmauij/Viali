@@ -784,7 +784,13 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
       // creating a meaningfully different angle while keeping the same offer.
       let userPrompt = body.prompt;
       if (body.abVariantOf) {
-        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant B — different angle, different hook, different tone — keeping the same offer and language. Return only the message content, no explanations.`;
+        const needsSubject = body.channel === "email" || body.channel === "html_email";
+        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant — different angle, different hook, different tone — keeping the same offer and language.`;
+        if (needsSubject) {
+          userPrompt += `\n\nIMPORTANT: Start your response with a subject line in the format "Subject: <subject>" followed by a blank line, then the body content. Do not include any other preamble or explanation.`;
+        } else {
+          userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes.`;
+        }
       }
 
       // Build user message — include screenshot as image content block if available
@@ -826,7 +832,7 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
 
       let responseText: string;
 
-      if (body.channel === "html_email" && ANTHROPIC_API_KEY) {
+      if (body.channel === "html_email" && ANTHROPIC_API_KEY && !body.abVariantOf) {
         // Log what we're sending to debug image issues
         const lastMsg = messages[messages.length - 1];
         const lastContent = lastMsg.content;
@@ -960,6 +966,18 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
             error:
               "No AI API key configured (ANTHROPIC_API_KEY or MISTRAL_API_KEY)",
           });
+      }
+
+      // Variant-generation mode: parse "Subject: X\n\nBody..." into separate fields
+      if (body.abVariantOf) {
+        const subjectMatch = responseText.match(/^\s*Subject:\s*(.+?)\s*(?:\n|$)/i);
+        let subject: string | undefined;
+        let bodyText = responseText;
+        if (subjectMatch) {
+          subject = subjectMatch[1].trim();
+          bodyText = responseText.slice(subjectMatch[0].length).trimStart();
+        }
+        return res.json({ subject, body: bodyText });
       }
 
       res.json({ content: responseText });
