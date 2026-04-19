@@ -58,33 +58,46 @@ router.post("/api/webhooks/resend", async (req: Request, res: Response) => {
   }
 
   switch (eventType) {
-    case "email.sent":
     case "email.delivered":
     case "email.opened":
     case "email.clicked":
     case "email.bounced": {
-      const localType = eventType.replace("email.", "");
-      await db.insert(flowEvents).values({
-        executionId: execution.id,
-        eventType: localType,
-        metadata: payload.data ?? null,
-      });
+      const localType = eventType.replace("email.", ""); // delivered, opened, clicked, bounced
+      await db
+        .insert(flowEvents)
+        .values({
+          executionId: execution.id,
+          eventType: localType,
+          svixId,
+          metadata: payload.data ?? null,
+        })
+        .onConflictDoNothing();
       break;
     }
 
+    case "email.sent":
+      // Send loop already writes a `sent` event; webhook's email.sent is redundant.
+      break;
+
     case "email.complained": {
-      await db.insert(flowEvents).values({
-        executionId: execution.id,
-        eventType: "complained",
-        metadata: payload.data ?? null,
+      await db.transaction(async (tx) => {
+        await tx
+          .insert(flowEvents)
+          .values({
+            executionId: execution.id,
+            eventType: "complained",
+            svixId,
+            metadata: payload.data ?? null,
+          })
+          .onConflictDoNothing();
+        await tx
+          .update(patients)
+          .set({
+            emailMarketingConsent: false,
+            marketingUnsubscribedAt: new Date(),
+          })
+          .where(eq(patients.id, execution.patientId));
       });
-      await db
-        .update(patients)
-        .set({
-          emailMarketingConsent: false,
-          marketingUnsubscribedAt: new Date(),
-        })
-        .where(eq(patients.id, execution.patientId));
       logger.warn(
         `[resend webhook] complaint flipped emailMarketingConsent=false for patient ${execution.patientId}`,
       );

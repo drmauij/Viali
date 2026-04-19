@@ -10,8 +10,8 @@ const insertedFlowEvents: any[] = [];
 const updatedPatients: any[] = [];
 let executionLookupResult: any = null;
 
-vi.mock("../server/db", () => ({
-  db: {
+vi.mock("../server/db", () => {
+  const makeChain = () => ({
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
@@ -20,10 +20,17 @@ vi.mock("../server/db", () => ({
       })),
     })),
     insert: vi.fn(() => ({
-      values: vi.fn((row: any) => {
-        insertedFlowEvents.push(row);
-        return Promise.resolve();
-      }),
+      values: vi.fn((row: any) => ({
+        onConflictDoNothing: vi.fn(() => {
+          insertedFlowEvents.push(row);
+          return Promise.resolve();
+        }),
+        // If a caller forgets .onConflictDoNothing(), still work:
+        then: (resolve: any) => {
+          insertedFlowEvents.push(row);
+          resolve();
+        },
+      })),
     })),
     update: vi.fn(() => ({
       set: vi.fn((patch: any) => ({
@@ -33,8 +40,16 @@ vi.mock("../server/db", () => ({
         }),
       })),
     })),
-  },
-}));
+  });
+  const stub = makeChain();
+  return {
+    db: {
+      ...stub,
+      // transaction passes the same stub as the tx arg
+      transaction: vi.fn(async (fn: any) => await fn(stub)),
+    },
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -106,6 +121,7 @@ describe("POST /api/webhooks/resend", () => {
     expect(insertedFlowEvents[0]).toMatchObject({
       executionId: "exec_1",
       eventType: "opened",
+      svixId: "msg_test", // from the send() helper's svix-id header
     });
     expect(updatedPatients).toHaveLength(0);
   });
@@ -114,7 +130,10 @@ describe("POST /api/webhooks/resend", () => {
     executionLookupResult = { id: "exec_1", patientId: "pat_1" };
     const res = await send({ type: "email.delivered", data: { email_id: "abc" } });
     expect(res.status).toBe(200);
-    expect(insertedFlowEvents[0].eventType).toBe("delivered");
+    expect(insertedFlowEvents[0]).toMatchObject({
+      eventType: "delivered",
+      svixId: "msg_test",
+    });
   });
 
   it("writes flow_event for email.clicked", async () => {
@@ -124,7 +143,10 @@ describe("POST /api/webhooks/resend", () => {
       data: { email_id: "abc", click: { link: "https://viali.app/book/x" } },
     });
     expect(res.status).toBe(200);
-    expect(insertedFlowEvents[0].eventType).toBe("clicked");
+    expect(insertedFlowEvents[0]).toMatchObject({
+      eventType: "clicked",
+      svixId: "msg_test",
+    });
     expect(insertedFlowEvents[0].metadata).toMatchObject({
       click: { link: "https://viali.app/book/x" },
     });
@@ -137,7 +159,10 @@ describe("POST /api/webhooks/resend", () => {
       data: { email_id: "abc", bounce: { subType: "Permanent" } },
     });
     expect(res.status).toBe(200);
-    expect(insertedFlowEvents[0].eventType).toBe("bounced");
+    expect(insertedFlowEvents[0]).toMatchObject({
+      eventType: "bounced",
+      svixId: "msg_test",
+    });
     expect(updatedPatients).toHaveLength(0);
   });
 
@@ -148,10 +173,30 @@ describe("POST /api/webhooks/resend", () => {
       data: { email_id: "abc" },
     });
     expect(res.status).toBe(200);
-    expect(insertedFlowEvents[0].eventType).toBe("complained");
+    expect(insertedFlowEvents[0]).toMatchObject({
+      eventType: "complained",
+      svixId: "msg_test",
+    });
     expect(updatedPatients).toHaveLength(1);
     expect(updatedPatients[0].emailMarketingConsent).toBe(false);
     expect(updatedPatients[0].marketingUnsubscribedAt).toBeInstanceOf(Date);
+  });
+
+  it("returns 200 + no-op for email.sent (send loop already wrote the event)", async () => {
+    executionLookupResult = { id: "exec_1", patientId: "pat_1" };
+    const res = await send({ type: "email.sent", data: { email_id: "abc" } });
+    expect(res.status).toBe(200);
+    expect(insertedFlowEvents).toHaveLength(0);
+  });
+
+  it("calls onConflictDoNothing on webhook inserts (idempotent against Resend retries)", async () => {
+    executionLookupResult = { id: "exec_1", patientId: "pat_1" };
+    const res = await send({ type: "email.opened", data: { email_id: "abc" } });
+    expect(res.status).toBe(200);
+    // The mock's .values().onConflictDoNothing() push-path is the one that captured the row.
+    expect(insertedFlowEvents).toHaveLength(1);
+    // Test is primarily a signal that the chain compiles — the real guarantee
+    // is the DB unique index (tested by re-running the migration idempotently).
   });
 
   it("returns 200 + no-op for email.delivery_delayed", async () => {

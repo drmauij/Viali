@@ -6937,8 +6937,14 @@ export const flowEvents = pgTable("flow_events", {
   eventType: varchar("event_type", { length: 20 }).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow(),
+  svixId: varchar("svix_id"), // set when event came from a webhook; NULL when written by the send loop
 }, (table) => [
   index("idx_flow_events_execution").on(table.executionId),
+  // Partial unique: prevents duplicate rows when Resend retries a webhook with the same svix-id.
+  // Send-loop-written rows (svix_id NULL) are not subject to this constraint.
+  uniqueIndex("uniq_flow_events_execution_event_svix")
+    .on(table.executionId, table.eventType, table.svixId)
+    .where(sql`${table.svixId} IS NOT NULL`),
 ]);
 
 export type FlowEvent = typeof flowEvents.$inferSelect;
