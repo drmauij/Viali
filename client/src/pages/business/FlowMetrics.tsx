@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDateTime, formatCurrency } from "@/lib/dateUtils";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,19 @@ import {
   Legend,
 } from "recharts";
 
+interface VariantRow {
+  variantId: string;
+  label: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  complained: number;
+  bookings: number;
+  revenue: number;
+}
+
 interface FlowDetail {
   funnel: {
     sent: number;
@@ -38,6 +52,7 @@ interface FlowDetail {
     bookings: number;
     revenue: number;
   };
+  perVariant?: VariantRow[];
   bounces: Array<{ email: string; bounceType: string | null; createdAt: string }>;
   complaints: Array<{ email: string; createdAt: string }>;
   series: Array<{ day: string; opened: number; clicked: number }>;
@@ -49,6 +64,9 @@ interface FlowSummary {
   status: string;
   channel: string | null;
   sentAt: string | null;
+  abTestEnabled: boolean;
+  abWinnerVariantId: string | null;
+  abWinnerStatus: string | null;
 }
 
 export default function FlowMetrics() {
@@ -73,6 +91,36 @@ export default function FlowMetrics() {
         r.json()
       ),
     enabled: !!hospitalId && !!flowId,
+  });
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const pickWinner = useMutation({
+    mutationFn: (variantId: string) =>
+      apiRequest(
+        "POST",
+        `/api/business/${hospitalId}/flows/${flowId}/pick-winner`,
+        { variantId },
+      ).then((r) => r.json()),
+    onSuccess: (data) => {
+      toast({
+        title: t("flows.ab.winnerPicked", "Winner picked"),
+        description: t(
+          "flows.ab.remainderSent",
+          "{{count}} messages sent to the remaining patients.",
+          { count: data.sentToRemainder },
+        ),
+      });
+      queryClient.invalidateQueries({ queryKey: ["flow", hospitalId, flowId] });
+      queryClient.invalidateQueries({ queryKey: ["flow-metrics", hospitalId, flowId] });
+    },
+    onError: () => {
+      toast({
+        title: t("flows.ab.winnerError", "Could not pick winner"),
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading || !metrics) {
@@ -125,6 +173,95 @@ export default function FlowMetrics() {
           )}
         </CardContent>
       </Card>
+
+      {metrics.perVariant && metrics.perVariant.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("flows.ab.comparisonTitle", "Variant Comparison")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`grid gap-4 ${
+                metrics.perVariant.length === 3 ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-2"
+              }`}
+            >
+              {metrics.perVariant.map((v) => {
+                const isWinner = flow?.abWinnerVariantId === v.variantId;
+                return (
+                  <div
+                    key={v.variantId}
+                    className={`border rounded-md p-4 space-y-2 ${
+                      isWinner ? "border-emerald-500 bg-emerald-50/40" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold">
+                        {t("flows.ab.variant", "Variant")} {v.label}
+                      </h4>
+                      {isWinner && (
+                        <Badge className="bg-emerald-600">
+                          {t("flows.ab.winner", "Winner")}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>{t("flows.funnel.sent", "Sent")}</span>
+                        <span className="font-medium">{v.sent}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("flows.funnel.opened", "Opened")}</span>
+                        <span className="font-medium">
+                          {v.opened}
+                          {v.sent > 0 && (
+                            <span className="text-muted-foreground text-xs ml-1">
+                              ({Math.round((v.opened / v.sent) * 100)}%)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("flows.funnel.clicked", "Clicked")}</span>
+                        <span className="font-medium">{v.clicked}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("flows.funnel.booked", "Booked")}</span>
+                        <span className="font-medium">{v.bookings}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("flows.funnel.revenue", "Revenue")}</span>
+                        <span className="font-medium text-emerald-600">
+                          {formatCurrency(v.revenue)}
+                        </span>
+                      </div>
+                    </div>
+                    {flow?.abTestEnabled && !flow?.abWinnerVariantId && (
+                      <Button
+                        className="w-full mt-2"
+                        size="sm"
+                        onClick={() => pickWinner.mutate(v.variantId)}
+                        disabled={pickWinner.isPending}
+                      >
+                        {pickWinner.isPending
+                          ? t("flows.ab.sending", "Sending...")
+                          : t("flows.ab.pickVariant", "Send Variant {{label}} to remainder", { label: v.label })}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {flow?.abWinnerVariantId && (
+              <p className="text-sm text-muted-foreground mt-4">
+                {t(
+                  "flows.ab.winnerDescription",
+                  "Winner was sent to the remaining hold-out patients.",
+                )}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
