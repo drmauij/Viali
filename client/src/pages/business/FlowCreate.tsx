@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles, FileText } from "lucide-react";
+import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles, FileText, Columns2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import SegmentBuilder, { type SegmentFilter } from "@/components/flows/SegmentBuilder";
@@ -248,6 +248,9 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [activeVariantLabel, setActiveVariantLabel] = useState("A");
   const [isComposeFullscreen, setIsComposeFullscreen] = useState(false);
   const [composeView, setComposeView] = useState<"ai" | "editor">("ai");
+  const [isSplitView, setIsSplitView] = useState(false);
+  // Side-by-side view only makes sense in fullscreen AND with 2+ variants
+  const splitViewActive = isSplitView && isComposeFullscreen && variants.length >= 2;
   const activeVariantIndex = Math.max(
     0,
     variants.findIndex((v) => v.label === activeVariantLabel),
@@ -359,6 +362,9 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               isFullscreen={isComposeFullscreen}
               onFullscreenToggle={() => setIsComposeFullscreen((v) => !v)}
               activeView={channel === "html_email" ? "ai" : composeView}
+              splitPreviews={splitViewActive ? variants : undefined}
+              activeVariantLabel={activeVariantLabel}
+              onActivateVariant={setActiveVariantLabel}
               toolbar={
                 /* Always render the toolbar so the fullscreen exit button
                    stays reachable even when the current variant is empty. */
@@ -415,6 +421,19 @@ export default function FlowCreate({ editId }: { editId?: string }) {
                             ) : (
                               <Sparkles className="h-4 w-4" />
                             )}
+                          </Button>
+                        )}
+                        {isComposeFullscreen && variants.length >= 2 && (
+                          <Button
+                            type="button"
+                            variant={isSplitView ? "default" : "ghost"}
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setIsSplitView((v) => !v)}
+                            aria-label={t("flows.ab.splitView", "Compare variants side by side")}
+                            title={t("flows.ab.splitView", "Compare variants side by side")}
+                          >
+                            <Columns2 className="h-4 w-4" />
                           </Button>
                         )}
                         <Button

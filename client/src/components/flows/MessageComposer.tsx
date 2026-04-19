@@ -33,6 +33,14 @@ interface Props {
   activeView?: "ai" | "editor";
   /** Rendered at the top of the composer (and inside fullscreen). Use for variant tabs + toolbar. */
   toolbar?: React.ReactNode;
+  /**
+   * When set, the main preview area renders a grid of all variants side-by-side
+   * instead of the single active-variant preview. Click a tile to activate it
+   * for refinement (via onActivateVariant).
+   */
+  splitPreviews?: Array<{ label: string; messageSubject?: string; messageTemplate: string }>;
+  activeVariantLabel?: string;
+  onActivateVariant?: (label: string) => void;
 }
 
 interface ChatMessage {
@@ -602,6 +610,9 @@ export default function MessageComposer({
   onFullscreenToggle,
   activeView: controlledActiveView,
   toolbar,
+  splitPreviews,
+  activeVariantLabel,
+  onActivateVariant,
 }: Props) {
   const { t } = useTranslation();
   const [referenceUrl, setReferenceUrl] = useState("");
@@ -647,13 +658,54 @@ export default function MessageComposer({
           >
             {/* Preview fills available vertical space */}
             <div className="flex-1 min-h-0 overflow-hidden">
-              <PreviewPanel
-                channel={channel}
-                messageContent={messageContent}
-                messageSubject={messageSubject}
-                onSubjectChange={onSubjectChange}
-                onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
-              />
+              {splitPreviews && splitPreviews.length >= 2 ? (
+                <div
+                  className="grid h-full gap-2 p-2 overflow-auto"
+                  style={{
+                    gridTemplateColumns: `repeat(${splitPreviews.length}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {splitPreviews.map((v) => {
+                    const isActive = v.label === activeVariantLabel;
+                    return (
+                      <button
+                        key={v.label}
+                        type="button"
+                        onClick={() => onActivateVariant?.(v.label)}
+                        className={`relative border rounded-lg overflow-hidden text-left focus:outline-none transition-all ${
+                          isActive
+                            ? "border-primary ring-2 ring-primary/40 shadow-md"
+                            : "border-muted hover:border-primary/50 opacity-80 hover:opacity-100"
+                        }`}
+                      >
+                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded bg-background/90 text-xs font-semibold">
+                          {t("flows.ab.variant", "Variant")} {v.label}
+                          {isActive && (
+                            <span className="ml-1 text-primary">· {t("flows.ab.editing", "editing")}</span>
+                          )}
+                        </div>
+                        <div className="h-full pointer-events-none">
+                          <PreviewPanel
+                            channel={channel}
+                            messageContent={v.messageTemplate}
+                            messageSubject={v.messageSubject ?? ""}
+                            onSubjectChange={() => {}}
+                            /* No starter cards in split view — confusing UX */
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <PreviewPanel
+                  channel={channel}
+                  messageContent={messageContent}
+                  messageSubject={messageSubject}
+                  onSubjectChange={onSubjectChange}
+                  onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
+                />
+              )}
             </div>
             {/* Prompt bar pinned to the bottom */}
             <div className="border-t p-3 bg-background">
