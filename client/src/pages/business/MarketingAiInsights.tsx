@@ -42,9 +42,8 @@ export default function MarketingAiInsights({ hospitalId, startDate, endDate }: 
         `/api/business/${hospitalId}/ai-analysis?startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include" },
       );
-      if (res.status === 404) return null;
       if (!res.ok) throw new Error(`fetch failed (${res.status})`);
-      return (await res.json()) as AnalysisResponse;
+      return (await res.json()) as AnalysisResponse | null;
     },
     enabled: !!hospitalId && !!startDate && !!endDate,
   });

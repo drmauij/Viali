@@ -79,7 +79,7 @@ export function registerMarketingAiRoutes(app: Express): void {
         endDate,
         language,
       });
-      if (!row) return void res.status(404).json({ error: "no cache" });
+      if (!row) return void res.json(null);
 
       return void res.json({
         payload: row.payload,

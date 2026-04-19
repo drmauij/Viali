@@ -44,13 +44,14 @@ describe("GET /api/business/:hospitalId/ai-analysis", () => {
     vi.mocked(isFresh).mockReset();
   });
 
-  it("returns 404 when no cache row exists", async () => {
+  it("returns 200 with null body when no cache row exists", async () => {
     vi.mocked(getCachedAnalysis).mockResolvedValue(null);
     const app = buildApp("marketing");
     const res = await request(app).get(
       "/api/business/h1/ai-analysis?startDate=2026-03-01&endDate=2026-03-31",
     );
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeNull();
   });
 
   it("returns cached row with stale=false when fresh", async () => {
