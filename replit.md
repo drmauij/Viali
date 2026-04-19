@@ -135,3 +135,40 @@ Core design decisions include:
   - Log level configurable via `LOG_LEVEL` env var (defaults to `debug` in dev, `info` in production)
 - Excluded: `server/vite.ts` (Vite dev tooling), `server/migrations/` (one-time scripts), `server/scripts/` (CLI tools)
 - Pattern: `import logger from "../logger"` then `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
+
+## Flows Marketing — Operator Setup
+
+The `/business/flows` campaign feature needs two secrets and one Resend-side webhook configured before it can be turned on for any hospital.
+
+### Required env vars (production `ecosystem.config.cjs`)
+
+| Var | How to produce | When needed |
+|---|---|---|
+| `MARKETING_UNSUBSCRIBE_SECRET` | `openssl rand -hex 32` — 64 hex chars. Set once, never rotate (rotation invalidates every outstanding unsubscribe link in old marketing emails) | Phase 1 — every send loop signs unsubscribe links with this |
+| `RESEND_WEBHOOK_SECRET` | Copy the `whsec_…` value Resend shows when you create the webhook endpoint in its dashboard. Our verifier (`server/services/svixSignature.ts`) accepts the secret with or without the `whsec_` prefix | Phase 2 — every incoming Resend webhook is HMAC-verified against it |
+
+Development: `MARKETING_UNSUBSCRIBE_SECRET` falls back to `SESSION_SECRET` if unset (fine for dev). `RESEND_WEBHOOK_SECRET` has no fallback and throws at first webhook request if unset — set it in your local `.env` to any random value when testing the webhook.
+
+### Resend dashboard one-time setup
+
+1. Add webhook endpoint `https://use.viali.app/api/webhooks/resend`
+2. Copy the generated `whsec_…` secret into `RESEND_WEBHOOK_SECRET`
+3. Subscribe to exactly these event types: `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained`
+4. Do **not** subscribe to `email.delivery_delayed` — the handler no-ops it anyway (Resend auto-retries and the event is noise for operators)
+
+### Already-in-place platform requirements
+
+- `app.set("trust proxy", 1)` is configured in `server/auth/google.ts:108` — required so `req.protocol` returns `https` behind the Exoscale reverse proxy. Don't remove.
+- `PRODUCTION_URL` env var is already set on the VPS (used by auth emails, booking links, portals). The Flows unsubscribe-link builder prefers it; falls back to request-derived URL if unset.
+- `RESEND_API_KEY` is already set on the VPS (used by all transactional emails; Flows reuses it for campaign sends).
+
+### Compliance side-effect to be aware of
+
+The webhook automatically flips `emailMarketingConsent = false` on the recipient patient when Resend reports `email.complained` (recipient marked as spam). This is a defensible auto-opt-out. `email.bounced` is surfaced in the dashboard but does NOT touch consent flags (bounces can be misclassified by aggressive corporate filters).
+
+### Feature status
+
+- Phase 1 (compliance foundation) — shipped on main
+- Phase 2 (event tracking + webhook) — shipped on main
+- Phase 2.1 (revenue + cost + ROI) — spec written, not implemented
+- Phase 3 (A/B testing with auto-winner selection) — spec written, not implemented
