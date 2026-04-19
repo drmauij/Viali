@@ -55,6 +55,16 @@ describe("summarizeFlows", () => {
     expect(allSql).toContain("hospital_id");
     expect(allSql.toLowerCase()).toContain("started_at");
   });
+
+  it("queries clinic_services for revenue, excluding cancelled + no_show appointments", async () => {
+    await summarizeFlows("h1", new Date("2026-04-01T00:00:00Z"));
+    const allSql = capturedSql.join(" ");
+    expect(allSql).toContain("clinic_services");
+    expect(allSql).toContain("ca.service_id");
+    expect(allSql).toMatch(/'cancelled'/);
+    expect(allSql).toMatch(/'no_show'/);
+    expect(allSql.toLowerCase()).toMatch(/coalesce\(sum/);
+  });
 });
 
 describe("flowDetail", () => {
@@ -67,5 +77,12 @@ describe("flowDetail", () => {
     expect(allSql).toContain("'complained'");
     // Time-series uses DATE() grouping
     expect(allSql.toLowerCase()).toMatch(/date\(.*created_at\)/);
+  });
+
+  it("includes a revenue query", async () => {
+    await flowDetail("flow_xyz");
+    const allSql = capturedSql.join(" ");
+    expect(allSql).toContain("clinic_services");
+    expect(allSql.toLowerCase()).toMatch(/coalesce\(sum/);
   });
 });

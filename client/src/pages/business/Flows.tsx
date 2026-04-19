@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import {
-  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag, Zap,
+  Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag, Zap, TrendingUp,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/dateUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationsTab } from "@/components/flows/automations/AutomationsTab";
 import {
@@ -38,6 +39,7 @@ export default function Flows() {
       bounced: number;
       complained: number;
       bookings: number;
+      revenue: number;
     }>;
   }>({
     queryKey: ["flows-metrics-summary", hospitalId],
@@ -56,6 +58,7 @@ export default function Flows() {
       bounced: number;
       complained: number;
       bookings: number;
+      revenue: number;
     }> = {};
     (metricsSummary?.rows ?? []).forEach((r) => {
       m[r.flowId] = r;
@@ -70,8 +73,9 @@ export default function Flows() {
         sent: acc.sent + r.sent,
         opened: acc.opened + r.opened,
         bookings: acc.bookings + r.bookings,
+        revenue: acc.revenue + r.revenue,
       }),
-      { sent: 0, opened: 0, bookings: 0 },
+      { sent: 0, opened: 0, bookings: 0, revenue: 0 },
     );
     const openRate = totals.sent > 0 ? Math.round((totals.opened / totals.sent) * 100) : 0;
     return [
@@ -79,6 +83,7 @@ export default function Flows() {
       { label: t("flows.dashboard.reached", "Recipients Reached"), value: String(totals.sent), icon: Users, color: "text-blue-400" },
       { label: t("flows.dashboard.openRate", "Avg. Open Rate"), value: `${openRate}%`, icon: BarChart3, color: "text-green-400" },
       { label: t("flows.dashboard.bookings", "Bookings"), value: String(totals.bookings), icon: CalendarCheck, color: "text-orange-400" },
+      { label: t("flows.dashboard.revenue", "Revenue"), value: formatCurrency(totals.revenue), icon: TrendingUp, color: "text-emerald-400" },
     ];
   }, [metricsSummary, t]);
 
@@ -135,7 +140,7 @@ export default function Flows() {
       </div>
 
       {/* Dashboard cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {STATS.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4">
@@ -198,7 +203,9 @@ export default function Flows() {
                     <TableHead>{t("flows.table.channel", "Channel")}</TableHead>
                     <TableHead>{t("flows.table.recipients", "Recipients")}</TableHead>
                     <TableHead>{t("flows.table.sent", "Sent")}</TableHead>
-                    <TableHead>{t("flows.table.openRate", "Open Rate")}</TableHead>
+                    <TableHead>{t("flows.table.opens", "Opens")}</TableHead>
+                    <TableHead>{t("flows.table.booked", "Booked")}</TableHead>
+                    <TableHead>{t("flows.table.revenue", "Revenue")}</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -211,13 +218,6 @@ export default function Flows() {
                     >
                       <TableCell className="font-medium">
                         {c.name}
-                        {metricsByFlow[c.id] && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {metricsByFlow[c.id].sent} {t("flows.row.sent", "sent")} ·
-                            {" "}{metricsByFlow[c.id].opened} {t("flows.row.opened", "opened")} ·
-                            {" "}{metricsByFlow[c.id].bookings} {t("flows.row.booked", "booked")}
-                          </div>
-                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_BADGE[c.status]?.variant || "outline"}>
@@ -229,7 +229,23 @@ export default function Flows() {
                       <TableCell>
                         {c.sentAt ? new Date(c.sentAt).toLocaleDateString("de-CH") : "—"}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">—</TableCell>
+                      <TableCell>
+                        {metricsByFlow[c.id] && metricsByFlow[c.id].sent > 0 ? (
+                          <span>
+                            {metricsByFlow[c.id].opened}
+                            {" "}
+                            <span className="text-muted-foreground text-xs">
+                              ({Math.round((metricsByFlow[c.id].opened / metricsByFlow[c.id].sent) * 100)}%)
+                            </span>
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>{metricsByFlow[c.id]?.bookings ?? "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        {metricsByFlow[c.id]
+                          ? formatCurrency(metricsByFlow[c.id].revenue)
+                          : "—"}
+                      </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"

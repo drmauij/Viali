@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDateTime } from "@/lib/dateUtils";
+import { formatDateTime, formatCurrency } from "@/lib/dateUtils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ interface FlowDetail {
     bounced: number;
     complained: number;
     bookings: number;
+    revenue: number;
   };
   bounces: Array<{ email: string; bounceType: string | null; createdAt: string }>;
   complaints: Array<{ email: string; createdAt: string }>;
@@ -81,11 +82,12 @@ export default function FlowMetrics() {
   const f = metrics.funnel;
 
   const FUNNEL = [
-    { label: t("flows.funnel.sent", "Sent"), value: f.sent },
-    { label: t("flows.funnel.delivered", "Delivered"), value: f.delivered },
-    { label: t("flows.funnel.opened", "Opened"), value: f.opened },
-    { label: t("flows.funnel.clicked", "Clicked"), value: f.clicked },
-    { label: t("flows.funnel.booked", "Booked"), value: f.bookings },
+    { label: t("flows.funnel.sent", "Sent"), value: String(f.sent), highlight: false },
+    { label: t("flows.funnel.delivered", "Delivered"), value: String(f.delivered), highlight: false },
+    { label: t("flows.funnel.opened", "Opened"), value: String(f.opened), highlight: false },
+    { label: t("flows.funnel.clicked", "Clicked"), value: String(f.clicked), highlight: false },
+    { label: t("flows.funnel.booked", "Booked"), value: String(f.bookings), highlight: false },
+    { label: t("flows.funnel.revenue", "Revenue"), value: formatCurrency(f.revenue), highlight: true },
   ];
 
   return (
@@ -105,10 +107,10 @@ export default function FlowMetrics() {
           <CardTitle>{t("flows.funnel.title", "Funnel")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {FUNNEL.map((s) => (
               <div key={s.label} className="text-center">
-                <div className="text-3xl font-bold">{s.value}</div>
+                <div className={`text-3xl font-bold ${s.highlight ? "text-emerald-600" : ""}`}>{s.value}</div>
                 <div className="text-sm text-muted-foreground">{s.label}</div>
               </div>
             ))}
