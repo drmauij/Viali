@@ -360,7 +360,9 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               onFullscreenToggle={() => setIsComposeFullscreen((v) => !v)}
               activeView={channel === "html_email" ? "ai" : composeView}
               toolbar={
-                primaryMessageContent ? (
+                /* Always render the toolbar so the fullscreen exit button
+                   stays reachable even when the current variant is empty. */
+                (
                   <VariantTabs
                     variants={variants}
                     onChange={setVariants}
@@ -437,7 +439,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
                       </>
                     }
                   />
-                ) : null
+                )
               }
               onContentChange={(content) =>
                 setVariants((prev) =>

@@ -436,61 +436,28 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Message list */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0"
-      >
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 pt-6 px-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "flows.compose.placeholder",
-                "Describe the message you want — or pick a starter from the preview.",
-              )}
-            </p>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={cn(
-              "flex",
-              msg.role === "user" ? "justify-end" : "justify-start"
-            )}
-          >
-            <div
-              className={cn(
-                "max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words",
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-tr-sm"
-                  : "bg-muted text-foreground rounded-tl-sm"
-              )}
-            >
-              {msg.content}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-muted rounded-2xl rounded-tl-sm px-3 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Input area */}
-      <div className="border-t p-3 flex gap-2 items-end">
+    // Compact prompt bar. The chat message history is maintained in state
+    // (so successive refinements build on prior turns), but no longer
+    // rendered as bubbles — the user's signal is the preview itself.
+    <div className="flex gap-2 items-end">
         <Textarea
           ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t("flows.compose.inputPlaceholder", "Write a request... (Enter to send)")}
-          className="resize-none text-sm min-h-[60px] max-h-32"
-          rows={2}
+          placeholder={
+            messages.length === 0
+              ? t(
+                  "flows.compose.promptStart",
+                  "Describe the message, or pick a starter above...",
+                )
+              : t(
+                  "flows.compose.promptRefine",
+                  "Refine: e.g. 'make it warmer', 'shorter subject'...",
+                )
+          }
+          className="resize-none text-sm min-h-[44px] max-h-32"
+          rows={1}
           disabled={loading}
         />
         <Button
@@ -505,7 +472,6 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
             <Send className="h-4 w-4" />
           )}
         </Button>
-      </div>
     </div>
   );
 });
@@ -674,35 +640,33 @@ export default function MessageComposer({
       {toolbar && <div>{toolbar}</div>}
       <Tabs value={activeView} className={isFullscreen ? "flex-1 flex flex-col min-h-0" : undefined}>
         {/* AI Chat Tab */}
-        <TabsContent value="ai" className={isFullscreen ? "mt-3 flex-1 min-h-0" : "mt-3"}>
-          <div className="border rounded-lg overflow-hidden h-full" style={aiPaneStyle}>
-            <ResizablePanelGroup direction="horizontal">
-              {/* Chat panel – 40% */}
-              <ResizablePanel defaultSize={40} minSize={25}>
-                <AiChatPanel
-                  ref={chatPaneRef}
-                  channel={channel}
-                  segmentFilters={segmentFilters}
-                  promoCode={promoCode}
-                  referenceUrl={referenceUrl}
-                  onMessageGenerated={onContentChange}
-                  onSubjectGenerated={onSubjectChange}
-                />
-              </ResizablePanel>
-
-              <ResizableHandle withHandle />
-
-              {/* Preview panel – 60% */}
-              <ResizablePanel defaultSize={60} minSize={25}>
-                <PreviewPanel
-                  channel={channel}
-                  messageContent={messageContent}
-                  messageSubject={messageSubject}
-                  onSubjectChange={onSubjectChange}
-                  onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
+        <TabsContent value="ai" className={isFullscreen ? "mt-3 flex-1 flex flex-col min-h-0" : "mt-3"}>
+          <div
+            className="border rounded-lg overflow-hidden flex flex-col"
+            style={aiPaneStyle}
+          >
+            {/* Preview fills available vertical space */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <PreviewPanel
+                channel={channel}
+                messageContent={messageContent}
+                messageSubject={messageSubject}
+                onSubjectChange={onSubjectChange}
+                onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
+              />
+            </div>
+            {/* Prompt bar pinned to the bottom */}
+            <div className="border-t p-3 bg-background">
+              <AiChatPanel
+                ref={chatPaneRef}
+                channel={channel}
+                segmentFilters={segmentFilters}
+                promoCode={promoCode}
+                referenceUrl={referenceUrl}
+                onMessageGenerated={onContentChange}
+                onSubjectGenerated={onSubjectChange}
+              />
+            </div>
           </div>
         </TabsContent>
 
