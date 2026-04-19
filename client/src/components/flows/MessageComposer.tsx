@@ -288,7 +288,10 @@ function PreviewPanel({
 // ── AI Chat ───────────────────────────────────────────────────────────────────
 
 interface AiChatPanelHandle {
+  /** Fill the prompt input; user can then edit or press Enter to send. */
   setPrompt: (prompt: string) => void;
+  /** Fill the prompt input AND immediately send. */
+  submitPrompt: (prompt: string) => void;
 }
 
 const AiChatPanel = forwardRef<AiChatPanelHandle, {
@@ -329,6 +332,11 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
       // Focus the input so user sees the pre-filled prompt and can press Enter.
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
+    submitPrompt: (p: string) => {
+      // Fire-and-forget: handleSend(explicitPrompt) accepts the text directly,
+      // no need to wait for React to flush setPrompt first.
+      void handleSend(p);
+    },
   }));
 
   useEffect(() => {
@@ -344,10 +352,11 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
           .join(", ")
       : t("flows.segment.allPatients", "All Patients");
 
-  const handleSend = async () => {
-    if (!prompt.trim() || !hospitalId || loading) return;
+  const handleSend = async (explicitPrompt?: string) => {
+    const text = (explicitPrompt ?? prompt).trim();
+    if (!text || !hospitalId || loading) return;
 
-    const userMessage: ChatMessage = { role: "user", content: prompt.trim() };
+    const userMessage: ChatMessage = { role: "user", content: text };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setPrompt("");
@@ -727,7 +736,7 @@ export default function MessageComposer({
                   messageContent={messageContent}
                   messageSubject={messageSubject}
                   onSubjectChange={onSubjectChange}
-                  onExamplePromptClick={(p) => chatPaneRef.current?.setPrompt(p)}
+                  onExamplePromptClick={(p) => chatPaneRef.current?.submitPrompt(p)}
                 />
               )}
             </div>
