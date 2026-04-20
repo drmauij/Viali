@@ -691,25 +691,45 @@ export default function MessageComposer({
                     const isGenerating = !!generatingLabels?.has(v.label);
                     const anyGenerating = !!generatingLabels && generatingLabels.size > 0;
                     const dimmed = anyGenerating && !isGenerating;
+                    const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(v.messageTemplate);
+                    const srcDoc = v.messageTemplate
+                      ? looksLikeFullDoc
+                        ? v.messageTemplate
+                        : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${v.messageTemplate}</body></html>`
+                      : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
                     return (
                       <button
                         key={v.label}
                         type="button"
                         onClick={() => onActivateVariant?.(v.label)}
                         disabled={anyGenerating}
-                        className={`relative border rounded-lg overflow-hidden text-left focus:outline-none transition-all ${
+                        className={`relative border rounded-lg overflow-hidden text-left focus:outline-none transition-all flex flex-col ${
                           isActive
                             ? "border-primary ring-2 ring-primary/40 shadow-md"
                             : "border-muted hover:border-primary/50"
                         } ${dimmed ? "opacity-40" : isActive ? "" : "opacity-80 hover:opacity-100"}`}
                       >
-                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded bg-background/90 text-xs font-semibold">
-                          {t("flows.ab.variant", "Variant")} {v.label}
-                          {isGenerating && (
-                            <span className="ml-1 text-primary">· {t("flows.ab.generating", "Generating...")}</span>
-                          )}
-                          {!isGenerating && isActive && (
-                            <span className="ml-1 text-primary">· {t("flows.ab.editing", "editing")}</span>
+                        {/* Compact header: variant label + state + subject */}
+                        <div className="flex-shrink-0 border-b px-3 py-2 bg-muted/30">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">
+                              {t("flows.ab.variant", "Variant")} {v.label}
+                            </span>
+                            {isGenerating && (
+                              <span className="text-xs text-primary">{t("flows.ab.generating", "Generating...")}</span>
+                            )}
+                            {!isGenerating && isActive && (
+                              <span className="text-xs text-primary">· {t("flows.ab.editing", "editing")}</span>
+                            )}
+                          </div>
+                          {(channel === "email" || channel === "html_email") && (
+                            <div className="text-xs text-muted-foreground mt-1 truncate">
+                              {v.messageSubject || (
+                                <span className="italic opacity-60">
+                                  {t("flows.ab.noSubject", "No subject")}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         {isGenerating && (
@@ -717,14 +737,20 @@ export default function MessageComposer({
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                           </div>
                         )}
-                        <div className="h-full pointer-events-none">
-                          <PreviewPanel
-                            channel={channel}
-                            messageContent={v.messageTemplate}
-                            messageSubject={v.messageSubject ?? ""}
-                            onSubjectChange={() => {}}
-                            /* No starter cards in split view — confusing UX */
-                          />
+                        {/* Preview body */}
+                        <div className="flex-1 min-h-0 overflow-hidden pointer-events-none">
+                          {channel === "html_email" ? (
+                            <iframe
+                              title={`Variant ${v.label} preview`}
+                              srcDoc={srcDoc}
+                              sandbox="allow-same-origin"
+                              className="w-full h-full"
+                            />
+                          ) : channel === "sms" ? (
+                            <SmsPreview content={v.messageTemplate} />
+                          ) : (
+                            <EmailPreview subject={v.messageSubject ?? ""} content={v.messageTemplate} />
+                          )}
                         </div>
                       </button>
                     );

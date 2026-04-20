@@ -253,6 +253,15 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   // Side-by-side view only makes sense in fullscreen AND with 2+ variants
   const splitViewActive = isSplitView && isComposeFullscreen && variants.length >= 2;
 
+  /** Per-label style hints to force the AI to take genuinely different angles.
+   *  Without these, parallel calls with the same `abVariantOf` produce nearly
+   *  identical variants because Claude defaults to conservative rewrites. */
+  const VARIANT_STYLE_HINTS: Record<string, string> = {
+    A: "", // base variant — no hint
+    B: "Use a SCARCITY / urgency framing (e.g. limited-time, only X spots, deadline). Ask a question in the subject line.",
+    C: "Use a SOCIAL PROOF / testimonial framing (e.g. trusted by X patients, our most popular treatment). Subject should feel inviting and warm.",
+  };
+
   /** Generate a new variant from Variant A's content via the /compose endpoint.
    *  Returns the generated {subject, body} so callers can decide what to do
    *  with it (append, replace, etc.). Tracks loading state per label. */
@@ -263,12 +272,15 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     if (!hospitalId) return null;
     setGeneratingLabels((prev) => new Set(prev).add(targetLabel));
     try {
+      const styleHint = VARIANT_STYLE_HINTS[targetLabel] || "";
       const res = await apiRequest(
         "POST",
         `/api/business/${hospitalId}/flows/compose`,
         {
           channel,
-          prompt: "Generate an alternative variant for A/B test",
+          prompt: styleHint
+            ? `Generate variant ${targetLabel} for an A/B test. Required style: ${styleHint}`
+            : `Generate variant ${targetLabel} for an A/B test.`,
           abVariantOf: baseVariant.messageTemplate,
         },
       );
