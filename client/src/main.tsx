@@ -90,7 +90,10 @@ if (import.meta.env.VITE_SENTRY_DSN) {
           res.status === 401 && url.includes("/api/auth/");
         const isRateLimited = res.status === 429;
         const isExpectedNoise = isExpectedFetchNoise(method, url, res.status);
-        if (isSameOrigin && !isExpected401 && !isRateLimited && !isExpectedNoise) {
+        // 502/503/504 are nginx/upstream outages — Node process restart, crash,
+        // or deploy window. Not app bugs; suppress to avoid flooding Sentry.
+        const isUpstreamOutage = res.status === 502 || res.status === 503 || res.status === 504;
+        if (isSameOrigin && !isExpected401 && !isRateLimited && !isExpectedNoise && !isUpstreamOutage) {
           let body: string | undefined;
           try {
             body = (await res.clone().text()).slice(0, 2000);

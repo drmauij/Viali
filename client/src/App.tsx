@@ -232,8 +232,8 @@ function Router() {
         <Switch>
           {/* Public routes accessible regardless of auth */}
           <Route path="/patient/:token">{(params) => <ErrorBoundary><PatientPortal /></ErrorBoundary>}</Route>
-          <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire as any} />
-          <Route path="/questionnaire/:token" component={PatientQuestionnaire as any} />
+          <Route path="/questionnaire/hospital/:token">{(params) => <ErrorBoundary><PatientQuestionnaire /></ErrorBoundary>}</Route>
+          <Route path="/questionnaire/:token">{(params) => <ErrorBoundary><PatientQuestionnaire /></ErrorBoundary>}</Route>
           <Route path="/q/:alias" component={QuestionnaireAliasResolver} />
           <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
           <Route path="/surgeon-portal/:token" component={SurgeonPortal} />
