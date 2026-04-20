@@ -803,16 +803,43 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
       let userPrompt = body.prompt;
       if (body.abVariantOf) {
         const needsSubject = body.channel === "email" || body.channel === "html_email";
-        // Aggressive divergence pressure — Claude defaults to conservative
-        // rewrites otherwise. List concrete dimensions the variant must change.
-        userPrompt = `Generate a NOTABLY DIFFERENT variant for an A/B test.\n\nThe existing variant says:\n"""\n${body.abVariantOf}\n"""\n\nThis variant must be visibly, recognizably different from the existing one. A subject regex / string-equality check between the two should fail. Required differences:\n- Subject line: completely rewritten — different opening word, different angle\n- First sentence of body: completely different hook\n- Hero/value-prop framing: different psychological lever\n- Call-to-action wording: different verb/phrasing\n\nKeep the same: offer/discount, language (Swiss German formal "Sie"), target audience, channel format.`;
-        if (body.abStyleHint) {
-          // The client passes per-variant style hints (B = scarcity, C = social proof, etc.).
-          // These are MANDATORY constraints, not suggestions — reinforce that.
-          userPrompt += `\n\nMANDATORY style constraint for THIS variant — you MUST satisfy this or the variant is rejected:\n${body.abStyleHint}`;
+        // KEY INSIGHT: showing Claude the full Variant A makes it anchor on
+        // that text and produce near-copies, even with strong divergence
+        // instructions. Instead, extract just the OFFER (the promotional
+        // substance) from A and discard the rest. Claude then writes a
+        // completely fresh variant from scratch.
+        //
+        // For html_email we extract a short summary using regex on common
+        // patterns (h1, title, first p tag) — good enough to convey "what
+        // the campaign is about" without giving Claude the actual prose to
+        // copy.
+        let offerSummary = body.abVariantOf;
+        if (body.channel === "html_email") {
+          const titleMatch = body.abVariantOf.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const h1Match = body.abVariantOf.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+          // Strip HTML tags from the first 500 chars of body to get a sense of the offer
+          const bodyMatch = body.abVariantOf.match(/<body[^>]*>([\s\S]+?)(?:<\/body>|$)/i);
+          const bodyText = (bodyMatch?.[1] ?? "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 400);
+          offerSummary = [
+            titleMatch ? `Title: ${titleMatch[1].trim()}` : "",
+            h1Match ? `Headline: ${h1Match[1].trim()}` : "",
+            bodyText ? `Sample copy (first 400 chars, plain text): ${bodyText}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
         }
+
+        userPrompt = `You are writing variant B of an A/B test for a marketing campaign. You will NOT see variant A in full — only a brief summary of the offer below. This is intentional: write variant B from SCRATCH so it doesn't accidentally echo variant A.\n\nCampaign summary (do NOT copy any phrases from this — it's just for context):\n"""\n${offerSummary}\n"""`;
+        if (body.abStyleHint) {
+          userPrompt += `\n\n========== MANDATORY STYLE CONSTRAINT ==========\nThis variant MUST satisfy ALL of the following — if any are missing, you have failed the task:\n${body.abStyleHint}\n================================================`;
+        }
+        userPrompt += `\n\nWrite a fresh, original variant B in Swiss German (formal "Sie"). Same offer/discount/audience as variant A, but different opening, different angle, different framing, different subject line.`;
         if (needsSubject) {
-          userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject, MUST be visibly different from existing>", "body": "<complete message, same channel format>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>. The subject must be meaningfully different — if the existing subject mentions "spring offer", yours could mention "exclusive invitation", "limited time", a question, etc.`;
+          userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject for variant B>", "body": "<complete message, same channel format as variant A>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>.`;
         } else {
           userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes, no JSON.`;
         }
