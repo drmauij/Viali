@@ -765,7 +765,24 @@ CTA button: use the primary brand color as background, white text, rounded corne
 If the user overrides with specific instructions, follow those instead.`,
       };
 
-      const systemPrompt = `You are a marketing copywriter for ${body.hospitalName || "a premium aesthetic clinic"} in Switzerland.
+      // Variant-generation mode uses a simpler system prompt — the standard
+      // one forces "raw HTML, start with <!DOCTYPE>" which conflicts with the
+      // user prompt's JSON wrapper request, and Claude follows the stronger
+      // system instruction.
+      const systemPrompt = body.abVariantOf
+        ? `You are a marketing copywriter for ${body.hospitalName || "a premium aesthetic clinic"} in Switzerland.
+Write in German (Swiss German style, formal "Sie").
+
+Channel: ${body.channel}.
+Available template variables (use exactly as shown):
+- {{vorname}} — patient first name
+- {{nachname}} — patient last name
+- {{behandlung}} — treatment name
+- {{buchungslink}} — booking page URL (auto-generated)
+${body.promoCode ? `- Promo code to mention: ${body.promoCode}` : ""}
+
+Follow the response format the user asks for exactly. When asked for JSON, return only valid JSON.`
+        : `You are a marketing copywriter for ${body.hospitalName || "a premium aesthetic clinic"} in Switzerland.
 Write in German (Swiss German style, formal "Sie").
 
 ${channelInstructions[body.channel]}
@@ -785,11 +802,11 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
       let userPrompt = body.prompt;
       if (body.abVariantOf) {
         const needsSubject = body.channel === "email" || body.channel === "html_email";
-        userPrompt = `Generate a variant for an A/B test.\n\nVariant A says:\n"""\n${body.abVariantOf}\n"""\n\nWrite a notably different variant — different angle, different hook, different tone, different subject line — keeping the same offer and language.`;
+        // Aggressive divergence pressure — Claude defaults to conservative
+        // rewrites otherwise. List concrete dimensions the variant must change.
+        userPrompt = `Generate a NOTABLY DIFFERENT variant for an A/B test.\n\nThe existing variant says:\n"""\n${body.abVariantOf}\n"""\n\nThis variant must clearly differ from the existing one along multiple of these dimensions:\n- Subject line (different angle/hook)\n- Opening line (different attention-grabber)\n- Tone (e.g. existing = warm/personal → new = playful or urgent)\n- Hero/value-prop framing (e.g. existing = exclusivity → new = scarcity, or social proof, or convenience)\n- Call-to-action wording\n\nKeep the same offer, same language (Swiss German formal "Sie"), same target audience.`;
         if (needsSubject) {
-          // Force structured JSON output. The parser tolerates leading/trailing
-          // markdown code fences just in case the model wraps its output.
-          userPrompt += `\n\nReturn ONLY a single valid JSON object. No markdown fences. No prose. Exact schema:\n{"subject": "<short new subject line, MUST differ from Variant A>", "body": "<full body content, same channel format as Variant A>"}\n\nThe body must be the complete message (for html_email: a full HTML document). The subject must be meaningfully different from Variant A's subject — different angle, different hook.`;
+          userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject, MUST be visibly different from existing>", "body": "<complete message, same channel format>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>. The subject must be meaningfully different — if the existing subject mentions "spring offer", yours could mention "exclusive invitation", "limited time", a question, etc.`;
         } else {
           userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes, no JSON.`;
         }
@@ -971,19 +988,20 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
       }
 
       // Variant-generation mode: parse the structured JSON the model was
-      // asked to return. Falls back to "Subject: X\n\n..." regex if the
-      // model ignored the instruction (e.g. Mistral on a bad day).
+      // asked to return. Multiple fallbacks because the AI may ignore the
+      // JSON instruction even with the simpler system prompt.
       if (body.abVariantOf) {
         const needsSubject = body.channel === "email" || body.channel === "html_email";
         let subject: string | undefined;
         let bodyText = responseText;
 
         if (needsSubject) {
-          // Strip markdown fences if present, then try JSON
+          // 1) Strip markdown fences and try JSON parse first.
           const cleaned = responseText
             .trim()
             .replace(/^```(?:json)?\s*/i, "")
             .replace(/\s*```\s*$/, "");
+          let parsedOk = false;
           try {
             const parsed = JSON.parse(cleaned);
             if (parsed && typeof parsed === "object") {
@@ -992,14 +1010,31 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
               }
               if (typeof parsed.body === "string") {
                 bodyText = parsed.body;
+                parsedOk = true;
               }
             }
           } catch {
-            // JSON parse failed — fall back to regex for legacy "Subject: X\n\n" format
+            // ignore — handled by fallbacks below
+          }
+
+          // 2) "Subject: X\n\n" prefix regex.
+          if (!parsedOk) {
             const m = responseText.match(/^\s*Subject:\s*(.+?)\s*(?:\n|$)/i);
             if (m) {
               subject = m[1].trim();
               bodyText = responseText.slice(m[0].length).trimStart();
+              parsedOk = true;
+            }
+          }
+
+          // 3) For html_email, extract <title> from the HTML head as a
+          //    last-resort subject. Most well-formed marketing emails set
+          //    a meaningful <title>, and Claude does generate distinct
+          //    titles for distinct variants.
+          if (!subject && body.channel === "html_email") {
+            const titleMatch = responseText.match(/<title[^>]*>([^<]+)<\/title>/i);
+            if (titleMatch) {
+              subject = titleMatch[1].trim();
             }
           }
         }
