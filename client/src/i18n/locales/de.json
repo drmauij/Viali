@@ -5620,6 +5620,8 @@
     },
     "referrals": {
       "dateRange": "Zeitraum",
+      "from": "Von",
+      "to": "Bis",
       "of": "von",
       "questionnairesAnswered": "Fragebögen beantwortet",
       "totalBookingReferrals": "Buchungsempfehlungen gesamt",
@@ -5633,7 +5635,20 @@
       "responses": "Antworten",
       "detail": "Detail",
       "progressOverTime": "Empfehlungsquellen im Zeitverlauf",
-      "progressOverTimeHelp": "Zeigt die monatliche Entwicklung jeder Empfehlungsquelle über den gesamten verfügbaren Zeitraum"
+      "progressOverTimeHelp": "Zeigt die monatliche Entwicklung jeder Empfehlungsquelle über den gesamten verfügbaren Zeitraum",
+      "sourcesTab": "Quellen",
+      "leadsTab": "Leads",
+      "recentEvents": "Verweise",
+      "conversionTab": "Konversion",
+      "adsTab": "Werbeleistung",
+      "editDialogTitle": "Verweis bearbeiten",
+      "editSourceLabel": "Quelle",
+      "editDetailLabel": "Detail",
+      "editDetailPlaceholder": "z. B. facebook, google, Empfehlung",
+      "deleteDialogTitle": "Verweis löschen?",
+      "deleteDialogBody": "Dies löscht den Verweis-Eintrag für {{name}} dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "saving": "Speichern …",
+      "save": "Speichern"
     },
     "leads": {
       "pasteLeads": "Leads einfügen",
@@ -5655,7 +5670,27 @@
       "leadToSurgeryHelp": "Gesamtanteil der Leads, die letztendlich eine geplante OP erhielten",
       "matchedLeadsDetail": "Erkannte Leads im Detail",
       "unmatched": "nicht erkannt",
-      "matchedVia": "Abgleich"
+      "matchedVia": "Abgleich",
+      "title": "Leads",
+      "description": "Schreibgeschützte Übersicht eingehender Leads mit Status und Konversion.",
+      "totalShown": "insgesamt angezeigt (max. 50)",
+      "empty": "Noch keine Leads vorhanden.",
+      "yes": "Ja",
+      "no": "Nein",
+      "col": {
+        "name": "Name",
+        "source": "Quelle",
+        "status": "Status",
+        "contacts": "Kontakte",
+        "converted": "Konvertiert",
+        "created": "Eingegangen"
+      },
+      "status": {
+        "new": "Neu",
+        "in_progress": "In Bearbeitung",
+        "converted": "Konvertiert",
+        "closed": "Geschlossen"
+      }
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

@@ -142,13 +142,13 @@ function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
             <CardDescription>
               {t(
                 "business.leads.description",
-                "Read-only overview of incoming leads, their status and conversion.",
+                "Schreibgeschützte Übersicht eingehender Leads mit Status und Konversion.",
               )}
             </CardDescription>
           </div>
           {leads && (
             <span className="text-xs text-muted-foreground">
-              {leads.length} {t("business.leads.totalShown", "total shown (max 50)")}
+              {leads.length} {t("business.leads.totalShown", "insgesamt angezeigt (max. 50)")}
             </span>
           )}
         </div>
@@ -160,7 +160,7 @@ function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
           </div>
         ) : !leads || leads.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            {t("business.leads.empty", "No leads yet.")}
+            {t("business.leads.empty", "Noch keine Leads vorhanden.")}
           </p>
         ) : (
           <div className="overflow-x-auto -mx-2">
@@ -171,19 +171,19 @@ function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
                     {t("business.leads.col.name", "Name")}
                   </th>
                   <th className="text-left font-medium px-2 py-2">
-                    {t("business.leads.col.source", "Source")}
+                    {t("business.leads.col.source", "Quelle")}
                   </th>
                   <th className="text-left font-medium px-2 py-2">
                     {t("business.leads.col.status", "Status")}
                   </th>
                   <th className="text-right font-medium px-2 py-2">
-                    {t("business.leads.col.contacts", "Contacts")}
+                    {t("business.leads.col.contacts", "Kontakte")}
                   </th>
                   <th className="text-left font-medium px-2 py-2">
-                    {t("business.leads.col.converted", "Converted")}
+                    {t("business.leads.col.converted", "Konvertiert")}
                   </th>
                   <th className="text-left font-medium px-2 py-2">
-                    {t("business.leads.col.created", "Received")}
+                    {t("business.leads.col.created", "Eingegangen")}
                   </th>
                 </tr>
               </thead>
@@ -212,11 +212,11 @@ function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
                       {l.appointmentId || l.status === "converted" ? (
                         <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          {t("business.leads.yes", "Yes")}
+                          {t("business.leads.yes", "Ja")}
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">
-                          {t("business.leads.no", "No")}
+                          {t("business.leads.no", "Nein")}
                         </span>
                       )}
                     </td>
@@ -235,21 +235,22 @@ function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
 }
 
 function LeadStatusPill({ status }: { status: LeadRow["status"] }) {
+  const { t } = useTranslation();
   const map: Record<LeadRow["status"], { label: string; cls: string }> = {
     new: {
-      label: "New",
+      label: t("business.leads.status.new", "Neu"),
       cls: "bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/30",
     },
     in_progress: {
-      label: "In progress",
+      label: t("business.leads.status.in_progress", "In Bearbeitung"),
       cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30",
     },
     converted: {
-      label: "Converted",
+      label: t("business.leads.status.converted", "Konvertiert"),
       cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30",
     },
     closed: {
-      label: "Closed",
+      label: t("business.leads.status.closed", "Geschlossen"),
       cls: "bg-muted text-muted-foreground ring-border",
     },
   };
@@ -547,11 +548,11 @@ export default function Marketing() {
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <span className="text-sm font-medium">From</span>
+                  <span className="text-sm font-medium">{t('business.referrals.from', 'Von')}</span>
                   <DateInput value={referralFrom} onChange={setReferralFrom} />
                 </div>
                 <div className="space-y-1.5">
-                  <span className="text-sm font-medium">To</span>
+                  <span className="text-sm font-medium">{t('business.referrals.to', 'Bis')}</span>
                   <DateInput value={referralTo} onChange={setReferralTo} />
                 </div>
               </div>
@@ -564,7 +565,7 @@ export default function Marketing() {
               <TabsList>
                 <TabsTrigger value="sources" data-testid="tab-marketing-sources">
                   <PieChartIcon className="h-4 w-4 mr-1" />
-                  {t('business.referrals.sourcesTab', 'Sources')}
+                  {t('business.referrals.sourcesTab', 'Quellen')}
                 </TabsTrigger>
                 <TabsTrigger value="leads" data-testid="tab-marketing-leads">
                   <Inbox className="h-4 w-4 mr-1" />
@@ -572,15 +573,15 @@ export default function Marketing() {
                 </TabsTrigger>
                 <TabsTrigger value="events" data-testid="tab-marketing-events">
                   <Activity className="h-4 w-4 mr-1" />
-                  {t('business.referrals.recentEvents', 'Referrals')}
+                  {t('business.referrals.recentEvents', 'Verweise')}
                 </TabsTrigger>
                 <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
                   <CheckCircle2 className="h-4 w-4 mr-1" />
-                  {t('business.referrals.conversionTab', 'Conversion')}
+                  {t('business.referrals.conversionTab', 'Konversion')}
                 </TabsTrigger>
                 <TabsTrigger value="ads" data-testid="tab-marketing-ads">
                   <Megaphone className="h-4 w-4 mr-1" />
-                  {t('business.referrals.adsTab', 'Ad Performance')}
+                  {t('business.referrals.adsTab', 'Werbeleistung')}
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -947,18 +948,18 @@ export default function Marketing() {
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                           <AlertDialogHeader>
-                                            <AlertDialogTitle>Delete referral?</AlertDialogTitle>
+                                            <AlertDialogTitle>{t('business.referrals.deleteDialogTitle', 'Verweis löschen?')}</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                              This will permanently delete the referral event for {[ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ')}. This cannot be undone.
+                                              {t('business.referrals.deleteDialogBody', 'Dies löscht den Verweis-Eintrag für {{name}} dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.', { name: [ev.patientFirstName, ev.patientLastName].filter(Boolean).join(' ') })}
                                             </AlertDialogDescription>
                                           </AlertDialogHeader>
                                           <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogCancel>{t('common.cancel', 'Abbrechen')}</AlertDialogCancel>
                                             <AlertDialogAction
                                               onClick={() => deleteReferralMutation.mutate(ev.id)}
                                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                             >
-                                              Delete
+                                              {t('common.delete', 'Löschen')}
                                             </AlertDialogAction>
                                           </AlertDialogFooter>
                                         </AlertDialogContent>
@@ -1023,11 +1024,11 @@ export default function Marketing() {
             <Dialog open={!!editingReferral} onOpenChange={(open) => { if (!open) setEditingReferral(null); }}>
               <DialogContent className="max-w-sm">
                 <DialogHeader>
-                  <DialogTitle>Edit Referral</DialogTitle>
+                  <DialogTitle>{t('business.referrals.editDialogTitle', 'Verweis bearbeiten')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Source</Label>
+                    <Label>{t('business.referrals.editSourceLabel', 'Quelle')}</Label>
                     <Select value={editSource} onValueChange={setEditSource}>
                       <SelectTrigger>
                         <SelectValue />
@@ -1044,16 +1045,16 @@ export default function Marketing() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Detail</Label>
+                    <Label>{t('business.referrals.editDetailLabel', 'Detail')}</Label>
                     <Input
                       value={editSourceDetail}
                       onChange={(e) => setEditSourceDetail(e.target.value)}
-                      placeholder="e.g. facebook, google, friend"
+                      placeholder={t('business.referrals.editDetailPlaceholder', 'z. B. facebook, google, Empfehlung')}
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditingReferral(null)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setEditingReferral(null)}>{t('common.cancel', 'Abbrechen')}</Button>
                   <Button
                     disabled={editReferralMutation.isPending}
                     onClick={() => editReferralMutation.mutate({
@@ -1062,7 +1063,9 @@ export default function Marketing() {
                       sourceDetail: editSourceDetail,
                     })}
                   >
-                    {editReferralMutation.isPending ? 'Saving...' : 'Save'}
+                    {editReferralMutation.isPending
+                      ? t('business.referrals.saving', 'Speichern …')
+                      : t('business.referrals.save', 'Speichern')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
