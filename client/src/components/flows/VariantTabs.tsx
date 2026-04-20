@@ -51,14 +51,30 @@ export default function VariantTabs({
     };
     if (onGenerateAi && variants.length > 0 && variants[0]?.messageTemplate) {
       setGeneratingAi(true);
+      let succeeded = false;
       try {
         const gen = await onGenerateAi(variants[0]);
-        fresh.messageTemplate = gen.body;
-        if (gen.subject) fresh.messageSubject = gen.subject;
+        // Treat empty body OR body identical to Variant A as a failure —
+        // both indicate the AI didn't actually produce a divergent variant.
+        // Surface the failure instead of silently appending an A-clone.
+        if (gen.body && gen.body.trim() && gen.body !== variants[0]?.messageTemplate) {
+          fresh.messageTemplate = gen.body;
+          if (gen.subject) fresh.messageSubject = gen.subject;
+          succeeded = true;
+        }
       } catch {
-        // If AI generation fails, keep the seeded copy of variant A
+        // ignore — handled by !succeeded branch below
       } finally {
         setGeneratingAi(false);
+      }
+      if (!succeeded) {
+        // Don't add the variant on AI failure — better to bail than to
+        // silently produce a duplicate of Variant A.
+        // eslint-disable-next-line no-alert
+        alert(
+          "AI variant generation failed (no result, or result was identical to Variant A). Try again or refine Variant A first.",
+        );
+        return;
       }
     }
     onChange([...variants, fresh]);

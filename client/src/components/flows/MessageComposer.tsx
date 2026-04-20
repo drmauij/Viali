@@ -698,28 +698,42 @@ export default function MessageComposer({
                         : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;">${v.messageTemplate}</body></html>`
                       : `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px;color:#999;">${t("flows.compose.noContent", "No content yet")}</body></html>`;
                     return (
-                      <button
+                      <div
                         key={v.label}
-                        type="button"
-                        onClick={() => onActivateVariant?.(v.label)}
-                        disabled={anyGenerating}
-                        className={`relative border rounded-lg overflow-hidden text-left focus:outline-none transition-all flex flex-col ${
+                        className={`relative border rounded-lg overflow-hidden flex flex-col transition-all ${
                           isActive
                             ? "border-primary ring-2 ring-primary/40 shadow-md"
-                            : "border-muted hover:border-primary/50"
-                        } ${dimmed ? "opacity-40" : isActive ? "" : "opacity-80 hover:opacity-100"}`}
+                            : "border-muted"
+                        } ${dimmed ? "opacity-40 pointer-events-none" : ""}`}
                       >
-                        {/* Compact header: variant label + state + subject */}
-                        <div className="flex-shrink-0 border-b px-3 py-2 bg-muted/30">
+                        {/* Header — the only click target. Selecting a variant
+                            from here keeps the iframe area free for scrolling. */}
+                        <button
+                          type="button"
+                          onClick={() => onActivateVariant?.(v.label)}
+                          disabled={anyGenerating}
+                          className={`flex-shrink-0 border-b px-3 py-2 text-left bg-muted/30 hover:bg-muted/50 transition-colors ${
+                            isActive ? "" : "opacity-80 hover:opacity-100"
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold">
                               {t("flows.ab.variant", "Variant")} {v.label}
                             </span>
                             {isGenerating && (
-                              <span className="text-xs text-primary">{t("flows.ab.generating", "Generating...")}</span>
+                              <span className="text-xs text-primary">
+                                {t("flows.ab.generating", "Generating...")}
+                              </span>
                             )}
                             {!isGenerating && isActive && (
-                              <span className="text-xs text-primary">· {t("flows.ab.editing", "editing")}</span>
+                              <span className="text-xs text-primary">
+                                · {t("flows.ab.editing", "editing")}
+                              </span>
+                            )}
+                            {!isGenerating && !isActive && (
+                              <span className="text-xs text-muted-foreground">
+                                · {t("flows.ab.clickToEdit", "click to edit")}
+                              </span>
                             )}
                           </div>
                           {(channel === "email" || channel === "html_email") && (
@@ -731,14 +745,15 @@ export default function MessageComposer({
                               )}
                             </div>
                           )}
-                        </div>
+                        </button>
                         {isGenerating && (
                           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-sm">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                           </div>
                         )}
-                        {/* Preview body */}
-                        <div className="flex-1 min-h-0 overflow-hidden pointer-events-none">
+                        {/* Preview body — full pointer events so iframe is
+                            scrollable. Click-to-select happens via the header. */}
+                        <div className="flex-1 min-h-0 overflow-hidden">
                           {channel === "html_email" ? (
                             <iframe
                               title={`Variant ${v.label} preview`}
@@ -752,7 +767,7 @@ export default function MessageComposer({
                             <EmailPreview subject={v.messageSubject ?? ""} content={v.messageTemplate} />
                           )}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
