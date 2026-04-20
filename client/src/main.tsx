@@ -5,6 +5,44 @@ import "./index.css";
 import "./themes/calendar_white.css";
 import "./themes/month_white.css";
 
+// Expected "probe" 4xx responses that are part of normal app flow (missing
+// records, invalid/expired tokens, user-input validation) and should NOT
+// surface as Sentry issues. Each entry = (method, statuses, path regex).
+// Path is the URL path without query string.
+const EXPECTED_FETCH_NOISE: Array<{
+  method: string;
+  statuses: number[];
+  pattern: RegExp;
+}> = [
+  // Existence probes — 404 is the "not found yet" answer, not a bug
+  { method: "GET", statuses: [404], pattern: /^\/api\/anesthesia\/records\/surgery\/[^/]+$/ },
+  { method: "GET", statuses: [404], pattern: /^\/api\/patient-portal\/[^/]+\/consent-data$/ },
+  { method: "GET", statuses: [404], pattern: /^\/api\/public\/questionnaire\/[^/]+\/info-flyers$/ },
+  { method: "GET", statuses: [404], pattern: /^\/api\/business\/[^/]+\/ai-analysis$/ },
+  // Token-gated public / portal routes — 403 is "invalid or expired token"
+  { method: "GET", statuses: [403, 404], pattern: /^\/api\/public\/questionnaire\/[^/]+$/ },
+  { method: "GET", statuses: [403, 404], pattern: /^\/api\/patient-portal\/[^/]+$/ },
+  { method: "GET", statuses: [403], pattern: /^\/api\/surgeon-portal\/[^/]+\/surgeries$/ },
+  { method: "GET", statuses: [403], pattern: /^\/api\/admin\/[^/]+\/questionnaire-token$/ },
+  // Patient portal login — 400 on wrong verification code is user input, not a bug
+  { method: "POST", statuses: [400, 401], pattern: /^\/api\/portal-auth\/patient\/[^/]+\/verify-code$/ },
+];
+
+function isExpectedFetchNoise(method: string, url: string, status: number): boolean {
+  // url may be absolute or relative; extract path only
+  let path = url;
+  try {
+    path = new URL(url, window.location.origin).pathname;
+  } catch {
+    // Fallback: strip query string
+    const q = url.indexOf("?");
+    if (q >= 0) path = url.slice(0, q);
+  }
+  return EXPECTED_FETCH_NOISE.some(
+    (r) => r.method === method && r.statuses.includes(status) && r.pattern.test(path),
+  );
+}
+
 // Initialize Sentry for frontend error monitoring
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
@@ -17,6 +55,15 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     tracesSampleRate: 0.1,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
+    ignoreErrors: [
+      // React 18 race when portals/dialogs unmount during route change or when
+      // browser extensions (e.g. Google Translate) rewrite the DOM. Not actionable.
+      /Failed to execute 'removeChild' on 'Node'/,
+      // Stale Vite chunk after a new deploy — user needs to reload; not a bug
+      /Failed to fetch dynamically imported module/,
+      /Loading chunk .* failed/,
+      /Importing a module script failed/,
+    ],
   });
 
   // Global fetch interceptor: report any non-ok response on same-origin /api
@@ -42,7 +89,8 @@ if (import.meta.env.VITE_SENTRY_DSN) {
         const isExpected401 =
           res.status === 401 && url.includes("/api/auth/");
         const isRateLimited = res.status === 429;
-        if (isSameOrigin && !isExpected401 && !isRateLimited) {
+        const isExpectedNoise = isExpectedFetchNoise(method, url, res.status);
+        if (isSameOrigin && !isExpected401 && !isRateLimited && !isExpectedNoise) {
           let body: string | undefined;
           try {
             body = (await res.clone().text()).slice(0, 2000);
