@@ -122,6 +122,7 @@ router.post(
           messageTemplate: req.body.messageTemplate,
           messageSubject: req.body.messageSubject,
           promoCodeId: req.body.promoCodeId,
+          campaignTreatmentId: req.body.campaignTreatmentId ?? null,
           createdBy: userId,
         })
         .returning();
@@ -426,6 +427,35 @@ router.delete(
   }
 );
 
+// ─── Booking-link helper ─────────────────────────────────────
+// Build the query string portion of a campaign booking link. Same shape used
+// by the test-send and the real campaign send so a "Send test" preview shows
+// the recipient exactly what real recipients will get (treatment preselect,
+// "how did you hear" auto-skipped, name/email prefilled, etc.).
+function buildBookingQuery(args: {
+  channel: "sms" | "email" | "html_email";
+  flowId?: string;
+  flowName?: string;
+  serviceCode?: string | null;
+  promoCode?: string | null;
+}): string {
+  // Note: NO patient PII in the URL. The `fe` token (appended by the caller)
+  // is the per-recipient identifier; the booking page exchanges it for
+  // firstName/surname/email/phone via the `/prefill` endpoint server-side.
+  // Keeps PII out of email-provider logs, browser history, and Referer
+  // headers — and means revoking an execution invalidates the prefill too.
+  const params = new URLSearchParams();
+  if (args.serviceCode) params.set("service", args.serviceCode);
+  if (args.promoCode) params.set("promo", args.promoCode);
+  params.set("utm_source", args.channel === "sms" ? "sms_campaign" : "email_campaign");
+  params.set("utm_medium", args.channel === "sms" ? "sms" : "email");
+  if (args.flowName) params.set("utm_campaign", args.flowName);
+  // Stable join key for booking attribution — survives flow renames and
+  // same-name collisions.
+  if (args.flowId) params.set("utm_content", args.flowId);
+  return `?${params.toString()}`;
+}
+
 // ─── Test Send ───────────────────────────────────────────────
 
 const testSendSchema = z.object({
@@ -434,6 +464,10 @@ const testSendSchema = z.object({
   messageTemplate: z.string(),
   messageSubject: z.string().optional(),
   promoCode: z.string().nullable().optional(),
+  // Optional campaign-treatment ID — same idea as the saved flow's
+  // campaignTreatmentId. When set, the test booking link gets ?service=<code>
+  // so the preview accurately reflects what real recipients will see.
+  campaignTreatmentId: z.string().nullable().optional(),
   testVars: z.object({
     vorname: z.string(),
     nachname: z.string(),
@@ -450,15 +484,53 @@ router.post(
       const { hospitalId } = req.params;
       const body = testSendSchema.parse(req.body);
 
-      // Build real booking URL with promo
+      // Build a realistic booking URL — same shape as the real send so the
+      // preview reflects what recipients actually see (preselected treatment,
+      // skipped referral question, prefilled identity, attribution UTMs).
       const hospital = await storage.getHospital(hospitalId);
       const bookingToken = hospital?.bookingToken || "";
-      const testParams = new URLSearchParams();
-      if (body.promoCode) testParams.set("promo", body.promoCode);
-      const bookingUrl = `${req.protocol}://${req.get("host")}/book/${bookingToken}${testParams.toString() ? `?${testParams.toString()}` : ""}`;
-
-      // Replace template vars with test data
       const vars = body.testVars || { vorname: "Max", nachname: "Mustermann", behandlung: "Test Treatment" };
+      // Resolve a service code for the preview's `?service=` param.
+      // Priority mirrors the real send: explicit campaignTreatmentId first,
+      // then a name lookup against the test "behandlung".
+      let testServiceCode: string | null = null;
+      if (body.campaignTreatmentId) {
+        const [svc] = await db
+          .select({ code: clinicServices.code })
+          .from(clinicServices)
+          .where(eq(clinicServices.id, body.campaignTreatmentId))
+          .limit(1);
+        if (svc?.code) testServiceCode = svc.code;
+      }
+      if (!testServiceCode && vars.behandlung) {
+        const [svc] = await db.select({ code: clinicServices.code })
+          .from(clinicServices)
+          .where(and(
+            eq(clinicServices.hospitalId, hospitalId),
+            sql`${clinicServices.name} = ${vars.behandlung}`,
+          ))
+          .limit(1);
+        if (svc?.code) testServiceCode = svc.code;
+      }
+      const baseUrl =
+        process.env.PRODUCTION_URL ||
+        `${req.protocol}://${req.get("host")}`;
+      const bookingQuery = buildBookingQuery({
+        channel: body.channel,
+        flowId: undefined,
+        flowName: "Test Send",
+        serviceCode: testServiceCode,
+        promoCode: body.promoCode || null,
+      });
+      // Test sends have no execution row → no `fe` token → server-side prefill
+      // can't fire. To keep the demo complete, append the test vars as URL
+      // prefill params here. Test-only; real sends never put PII in the URL.
+      const testPrefill = new URLSearchParams();
+      if (vars.vorname) testPrefill.set("firstName", vars.vorname);
+      if (vars.nachname) testPrefill.set("surname", vars.nachname);
+      if (body.recipient.includes("@")) testPrefill.set("email", body.recipient);
+      else testPrefill.set("phone", body.recipient);
+      const bookingUrl = `${baseUrl}/book/${bookingToken}${bookingQuery}&${testPrefill.toString()}`;
       let message = body.messageTemplate;
       message = message.replace(/\{\{vorname\}\}/g, vars.vorname);
       message = message.replace(/\{\{nachname\}\}/g, vars.nachname);
@@ -843,17 +915,14 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
           // Pull the <head> verbatim — that's where <style>, brand colors,
           // and font choices live. Trim to a sane upper bound so we don't
           // explode the prompt on huge inline-CSS emails.
+          //
+          // IMPORTANT: do NOT pass any of <body>. We only want Claude to see
+          // the design tokens (CSS, fonts), not the actual copy/layout it
+          // could anchor on and regurgitate. The offer summary above is
+          // enough context for what to write.
           const headMatch = body.abVariantOf.match(/<head[^>]*>([\s\S]+?)<\/head>/i);
           const headHtml = (headMatch?.[1] ?? "").slice(0, 4000);
-          // Pull the opening of <body> too — header / hero block carries the
-          // brand palette and layout pattern that should stay consistent.
-          const bodyShell = (bodyMatch?.[1] ?? "").slice(0, 1500);
-          designReference = [
-            headHtml ? `<head>\n${headHtml}\n</head>` : "",
-            bodyShell ? `Opening of <body> (header / hero structure to preserve):\n${bodyShell}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n\n");
+          designReference = headHtml ? `<head>\n${headHtml}\n</head>` : "";
         }
 
         if (body.preserveCopy) {
@@ -1284,12 +1353,25 @@ router.post(
       const bookingToken = hospital?.bookingToken || "";
       const baseBookingUrl = `${req.protocol}://${req.get("host")}/book/${bookingToken}`;
 
-      // Extract treatment from segment filters → look up service code for booking link
+      // Resolve a service code for the booking link's "?service=" preselect.
+      // Priority: explicit campaignTreatmentId on the flow > treatment filter
+      // in the segment > nothing (treatment picker shown at booking time).
       const filters = flow.segmentFilters as Array<{ field: string; operator: string; value: string }> | null;
       const treatmentFilter = filters?.find(f => f.field === "treatment");
       let serviceCode: string | null = null;
       let treatmentName = "";
-      if (treatmentFilter) {
+      if (flow.campaignTreatmentId) {
+        const [svc] = await db
+          .select({ code: clinicServices.code, name: clinicServices.name })
+          .from(clinicServices)
+          .where(eq(clinicServices.id, flow.campaignTreatmentId))
+          .limit(1);
+        if (svc?.code) {
+          serviceCode = svc.code;
+          treatmentName = svc.name ?? "";
+        }
+      }
+      if (!serviceCode && treatmentFilter) {
         treatmentName = treatmentFilter.value;
         const [svc] = await db.select({ code: clinicServices.code })
           .from(clinicServices)
@@ -1300,17 +1382,6 @@ router.post(
           .limit(1);
         if (svc?.code) serviceCode = svc.code;
       }
-
-      // Build booking URL with service + promo + UTM for referral attribution
-      const params = new URLSearchParams();
-      if (serviceCode) params.set("service", serviceCode);
-      if (promoCode) params.set("promo", promoCode);
-      params.set("utm_source", flow.channel === "sms" ? "sms_campaign" : "email_campaign");
-      params.set("utm_medium", flow.channel === "sms" ? "sms" : "email");
-      params.set("utm_campaign", flow.name || "campaign");
-      // Stable join key for booking attribution — survives flow renames and same-name collisions.
-      params.set("utm_content", flow.id);
-      const bookingUrlSuffix = `?${params.toString()}`;
 
       let sentCount = 0;
       let failCount = 0;
@@ -1360,8 +1431,19 @@ router.post(
             .returning();
 
           const fe = generateExecutionToken(execution.id, assignment.variant?.id ?? null);
-          const separator = bookingUrlSuffix.includes("?") ? "&" : "?";
-          const bookingUrl = `${baseBookingUrl}${bookingUrlSuffix}${separator}fe=${fe}`;
+          // Per-patient booking URL: same shape as the test-send preview
+          // (treatment preselect, prefilled identity, attribution UTMs) plus
+          // the per-execution `fe` token for booking attribution.
+          const bookingQuery = buildBookingQuery({
+            channel: flow.channel as "sms" | "email" | "html_email",
+            flowId: flow.id,
+            flowName: flow.name || undefined,
+            serviceCode,
+            promoCode,
+          });
+          // The booking page exchanges `fe` for the patient's identity via
+          // /api/public/booking/:token/prefill — keeps PII out of the URL.
+          const bookingUrl = `${baseBookingUrl}${bookingQuery}&fe=${fe}`;
 
           message = message.replace(/\{\{vorname\}\}/g, patient.firstName || "");
           message = message.replace(/\{\{nachname\}\}/g, patient.surname || "");

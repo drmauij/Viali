@@ -614,6 +614,57 @@ router.get('/api/public/booking/:bookingToken/promo/:code', async (req: import("
   }
 });
 
+// Marketing prefill: resolve an `fe` execution token to a safe subset of the
+// patient's identity for form prefill. Keeping PII OUT of the booking URL —
+// the token is opaque, the data lives server-side and is revocable by
+// invalidating the execution row. Returns 404 (not 403) on any mismatch so
+// we don't leak whether a booking token / fe combination is valid.
+router.get('/api/public/booking/:bookingToken/prefill', async (req, res) => {
+  try {
+    const fe = (req.query.fe as string | undefined)?.trim();
+    if (!fe) return res.status(400).json({ message: 'Missing fe token' });
+
+    const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
+    if (!hospital) return res.status(404).json({ message: 'Booking page not found' });
+
+    let executionId: string;
+    try {
+      ({ executionId } = verifyExecutionToken(fe));
+    } catch {
+      return res.status(404).json({ message: 'Invalid token' });
+    }
+
+    const [row] = await db
+      .select({
+        firstName: patients.firstName,
+        surname: patients.surname,
+        email: patients.email,
+        phone: patients.phone,
+        hospitalId: patients.hospitalId,
+      })
+      .from(flowExecutions)
+      .innerJoin(patients, eq(flowExecutions.patientId, patients.id))
+      .where(eq(flowExecutions.id, executionId))
+      .limit(1);
+
+    // Cross-hospital safety: refuse to leak prefill if the execution belongs
+    // to a different hospital than the booking token resolves to.
+    if (!row || row.hospitalId !== hospital.id) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    res.json({
+      firstName: row.firstName ?? null,
+      surname: row.surname ?? null,
+      email: row.email ?? null,
+      phone: row.phone ?? null,
+    });
+  } catch (error) {
+    logger.error('[booking] prefill error:', error);
+    res.status(500).json({ message: 'Failed to load prefill' });
+  }
+});
+
 // 3c: Get available slots for a provider on a specific date
 router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', async (req, res) => {
   try {

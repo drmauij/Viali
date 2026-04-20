@@ -6888,6 +6888,9 @@ export const flows = pgTable("flows", {
   messageTemplate: text("message_template"),
   messageSubject: varchar("message_subject", { length: 300 }),
   promoCodeId: varchar("promo_code_id").references(() => promoCodes.id),
+  // Optional treatment attached to the campaign — used to preselect the
+  // service in the booking link when the segment isn't filtered by treatment.
+  campaignTreatmentId: varchar("campaign_treatment_id").references(() => clinicServices.id),
   recipientCount: integer("recipient_count"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

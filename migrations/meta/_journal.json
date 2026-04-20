@@ -1597,6 +1597,13 @@
       "when": 1778000000000,
       "tag": "0227_flows_ab_testing_demo",
       "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1778100000000,
+      "tag": "0228_flows_campaign_treatment",
+      "breakpoints": true
     }
   ]
 }

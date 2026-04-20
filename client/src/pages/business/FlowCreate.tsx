@@ -64,6 +64,9 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [abHoldoutPctPerArm, setAbHoldoutPctPerArm] = useState<number>(10);
   const [promoCodeId, setPromoCodeId] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState<string | null>(null);
+  // Optional treatment attached to the campaign — used to preselect the
+  // service in the booking link when the segment isn't filtered by treatment.
+  const [campaignTreatmentId, setCampaignTreatmentId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
@@ -81,6 +84,14 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     queryKey: ["promo-codes", hospitalId],
     queryFn: () => apiRequest("GET", `/api/business/${hospitalId}/promo-codes`).then(r => r.json()),
     enabled: !!hospitalId && !!editId,
+  });
+
+  // Treatments → campaign-treatment dropdown. Used to preselect "?service="
+  // in the booking link when the segment isn't filtered by treatment.
+  const { data: clinicServicesList = [] } = useQuery<Array<{ id: string; name: string; code: string | null }>>({
+    queryKey: ["clinic-services", hospitalId],
+    queryFn: () => apiRequest("GET", `/api/clinic/${hospitalId}/services`).then((r) => r.json()),
+    enabled: !!hospitalId,
   });
 
   useEffect(() => {
@@ -107,6 +118,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       }
 
       setPromoCodeId(existingFlow.promoCodeId || null);
+      setCampaignTreatmentId(existingFlow.campaignTreatmentId || null);
       if (existingFlow.promoCodeId && (promoCodes as any[]).length > 0) {
         const pc = (promoCodes as any[]).find((p: any) => p.id === existingFlow.promoCodeId);
         if (pc) setPromoCode(pc.code);
@@ -170,6 +182,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         segmentFilters: filters,
         channel,
         promoCodeId,
+        campaignTreatmentId,
         messageTemplate: variants[0]?.messageTemplate ?? "",
         messageSubject: variants[0]?.messageSubject ?? "",
         abTestEnabled: variants.length >= 2,
@@ -209,6 +222,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         segmentFilters: filters,
         channel,
         promoCodeId,
+        campaignTreatmentId,
         messageTemplate: variants[0]?.messageTemplate ?? "",
         messageSubject: variants[0]?.messageSubject ?? "",
         abTestEnabled: variants.length >= 2,
@@ -249,6 +263,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         messageTemplate: messageContent,
         messageSubject,
         promoCode,
+        campaignTreatmentId,
         testVars,
       });
       toast({
@@ -511,6 +526,32 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       >
         <div className="space-y-4">
           <h3 className="font-semibold">{t("flows.compose.title", "Compose Message")}</h3>
+          {/* Optional: attach a treatment to the campaign so the booking link
+              preselects it (?service=). If a treatment filter is already set
+              in the segment, that wins; this is for "All patients, but the
+              campaign is about Botox" cases. */}
+          {clinicServicesList.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {t("flows.compose.treatmentLabel", "Campaign treatment")}:
+              </span>
+              <select
+                value={campaignTreatmentId ?? ""}
+                onChange={(e) => setCampaignTreatmentId(e.target.value || null)}
+                className="bg-background border rounded h-8 px-2 text-sm"
+                data-testid="select-campaign-treatment"
+              >
+                <option value="">
+                  {t("flows.compose.noTreatment", "None — patient picks at booking")}
+                </option>
+                {clinicServicesList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {channel && (
             <MessageComposer
               key={activeVariantLabel}

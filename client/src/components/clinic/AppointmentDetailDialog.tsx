@@ -154,6 +154,29 @@ export default function AppointmentDetailDialog({
     enabled: !!hospitalId && !!appointment?.id && appointment?.appointmentType !== 'internal',
   });
 
+  // Fetch the hospital's promo codes (cached) so the appointment dialog can
+  // resolve `appointment.promoCode` (a string) → full conditions for staff.
+  const { data: hospitalPromoCodes = [] } = useQuery<
+    Array<{
+      id: string;
+      code: string;
+      discountType: string;
+      discountValue: string;
+      description: string | null;
+      validUntil: string | null;
+      maxUses: number | null;
+      usedCount: number;
+    }>
+  >({
+    queryKey: [`/api/business/${hospitalId}/promo-codes`],
+    enabled: !!hospitalId && !!appointment?.promoCode,
+  });
+  const promoCodeDetails = appointment?.promoCode
+    ? hospitalPromoCodes.find(
+        (p) => p.code.toUpperCase() === appointment.promoCode!.toUpperCase(),
+      ) ?? null
+    : null;
+
   useEffect(() => {
     if (referralEvent) {
       setReferralSource(referralEvent.source);
@@ -572,6 +595,57 @@ export default function AppointmentDetailDialog({
                       {appointment.videoMeetingLink}
                     </a>
                   )}
+                </div>
+              )}
+
+              {appointment.promoCode && (
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">
+                    {t('appointments.promoCode', 'Promo code')}
+                  </p>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-sm font-mono font-semibold text-amber-700 dark:text-amber-300">
+                        {appointment.promoCode}
+                      </p>
+                      {promoCodeDetails && (
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          {promoCodeDetails.discountType === 'percent'
+                            ? `${promoCodeDetails.discountValue}% ${t('appointments.discount', 'Rabatt')}`
+                            : `CHF ${promoCodeDetails.discountValue} ${t('appointments.discount', 'Rabatt')}`}
+                        </p>
+                      )}
+                    </div>
+                    {promoCodeDetails?.description && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {promoCodeDetails.description}
+                      </p>
+                    )}
+                    {promoCodeDetails && (
+                      <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {promoCodeDetails.validUntil && (
+                          <span>
+                            {t('appointments.promoValidUntil', 'Gültig bis')}:{' '}
+                            {formatDateLong(new Date(promoCodeDetails.validUntil))}
+                          </span>
+                        )}
+                        {promoCodeDetails.maxUses !== null && (
+                          <span>
+                            {t('appointments.promoUsage', 'Einlösungen')}:{' '}
+                            {promoCodeDetails.usedCount} / {promoCodeDetails.maxUses}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!promoCodeDetails && hospitalPromoCodes.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1 italic">
+                        {t(
+                          'appointments.promoNotFound',
+                          'Promo-Konditionen nicht mehr verfügbar (gelöscht).',
+                        )}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 

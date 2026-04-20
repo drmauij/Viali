@@ -200,11 +200,37 @@ export default function BookAppointment() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [slotRevalidated, setSlotRevalidated] = useState(false);
 
-  // Form state
+  // Form state. URL params can still prefill (legacy + manual share), but
+  // the primary prefill path is the `fe` token → server-side exchange below.
   const [firstName, setFirstName] = useState(prefillFirstName || "");
   const [surname, setSurname] = useState(prefillSurname || "");
   const [email, setEmail] = useState(prefillEmail || "");
   const [phone, setPhone] = useState(prefillPhone || "");
+
+  // Resolve `fe` (per-execution token) to the patient's identity server-side
+  // — keeps PII out of the URL. Only fills empty fields so it doesn't fight
+  // anything the user already typed.
+  useEffect(() => {
+    if (!token || !feToken) return;
+    let cancelled = false;
+    fetch(`/api/public/booking/${token}/prefill?fe=${encodeURIComponent(feToken)}`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          firstName: string | null;
+          surname: string | null;
+          email: string | null;
+          phone: string | null;
+        };
+        if (cancelled) return;
+        if (data.firstName) setFirstName((cur) => cur || data.firstName!);
+        if (data.surname) setSurname((cur) => cur || data.surname!);
+        if (data.email) setEmail((cur) => cur || data.email!);
+        if (data.phone) setPhone((cur) => cur || data.phone!);
+      })
+      .catch(() => { /* silent — prefill is non-essential */ });
+    return () => { cancelled = true; };
+  }, [token, feToken]);
   const [notes, setNotes] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [noShowFeeAcknowledged, setNoShowFeeAcknowledged] = useState(false);
@@ -763,7 +789,19 @@ export default function BookAppointment() {
   return (
     <PageShell isDark={isDark} isEmbed={isEmbed}>
       {!isEmbed && <ThemeToggleFab isDark={isDark} onToggle={() => setIsDark(!isDark)} />}
-      <FreeConsultationBadge isDark={isDark} />
+      {/* Swap to a promo badge when a valid code is active — the campaign's
+          headline value (e.g. "25% off") beats "free consultation" once the
+          patient is in a promo flow. The detailed promo panel below stays. */}
+      {promoData?.valid ? (
+        <PromoBadge
+          isDark={isDark}
+          code={promoData.code}
+          discountType={promoData.discountType}
+          discountValue={promoData.discountValue}
+        />
+      ) : (
+        <FreeConsultationBadge isDark={isDark} />
+      )}
       <div className={cn(
         'grid gap-6 items-start grid-cols-1 [&>*]:min-w-0',
         !isEmbed && 'lg:grid-cols-[280px_1fr]',
@@ -1477,6 +1515,38 @@ function FreeConsultationBadge({ isDark }: { isDark: boolean }) {
     >
       <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.5} />
       Kostenlose Beratung
+    </div>
+  );
+}
+
+function PromoBadge({
+  isDark,
+  code,
+  discountType,
+  discountValue,
+}: {
+  isDark: boolean;
+  code: string;
+  discountType: string;
+  discountValue: string;
+}) {
+  const discountLabel =
+    discountType === "percent"
+      ? `${discountValue}% Rabatt`
+      : `CHF ${discountValue} Rabatt`;
+  return (
+    <div
+      role="status"
+      aria-label={`Aktion: ${discountLabel} (Code ${code})`}
+      className={cn(
+        "fixed top-3 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shadow-md backdrop-blur pointer-events-none",
+        isDark
+          ? "bg-amber-500/90 text-white ring-1 ring-amber-300/40"
+          : "bg-amber-500 text-white ring-1 ring-amber-600/20",
+      )}
+    >
+      <Gift className="h-3.5 w-3.5" strokeWidth={2.5} />
+      {discountLabel} · {code}
     </div>
   );
 }
