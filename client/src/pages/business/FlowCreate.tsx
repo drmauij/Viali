@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles, FileText, Columns2 } from "lucide-react";
+import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles, FileText, Columns2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import SegmentBuilder, { type SegmentFilter } from "@/components/flows/SegmentBuilder";
@@ -35,6 +35,25 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [name, setName] = useState(t("flows.newCampaign", "New Campaign"));
   const [activeSection, setActiveSection] = useState<Section>("segment");
   const [completedSections, setCompletedSections] = useState<Set<Section>>(new Set());
+
+  // Refs per section so we can smoothly scroll the newly-activated card into
+  // view (e.g. picking a channel reveals the Compose card below — without
+  // scrolling, the user has to hunt for it on small screens).
+  const sectionRefs = useRef<Record<Section, HTMLDivElement | null>>({
+    segment: null,
+    channel: null,
+    compose: null,
+    offer: null,
+    review: null,
+  });
+  useEffect(() => {
+    const el = sectionRefs.current[activeSection];
+    if (!el) return;
+    // Defer one frame so the section's mount/expand animation lands first.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [activeSection]);
 
   const [filters, setFilters] = useState<SegmentFilter[]>([]);
   const [patientCount, setPatientCount] = useState<number | null>(null);
@@ -312,49 +331,63 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     }
   };
 
-  /** Generate all remaining variant slots (up to 3 total) in parallel from
-   *  Variant A's content. Called from the toolbar's "Generate all" button. */
-  const generateAllVariants = async () => {
-    const labels = ["A", "B", "C"];
-    const base = variants[0];
-    if (!base?.messageTemplate) return;
-    const existingLabels = new Set(variants.map((v) => v.label));
-    const toGenerate = labels.filter((l) => !existingLabels.has(l));
-    if (toGenerate.length === 0) return;
-    // Mark all as generating up front so the split-view spinners show
-    // immediately even before the fetch promises settle.
+  /** Rewrite each variant in place to weave in the current promo code,
+   *  preserving copy/design. Used by the "Mention code in message" prompt
+   *  that appears after the user picks an offer. */
+  const [insertingPromoCode, setInsertingPromoCode] = useState(false);
+  const insertPromoCodeIntoVariants = async () => {
+    if (!hospitalId || !channel || !promoCode || variants.length === 0) return;
+    setInsertingPromoCode(true);
+    // Mark every populated variant as generating so each tile shows a spinner.
     setGeneratingLabels((prev) => {
       const next = new Set(prev);
-      toGenerate.forEach((l) => next.add(l));
+      variants.forEach((v) => v.messageTemplate && next.add(v.label));
       return next;
     });
-    // Switch to split view right away so the user can watch them fill in
-    setIsSplitView(true);
-    // Preload empty slots so the grid shows the right number of tiles
-    setVariants((prev) => [
-      ...prev,
-      ...toGenerate.map((label) => ({ label, messageTemplate: "", messageSubject: base.messageSubject })),
-    ]);
-    const results = await Promise.all(
-      toGenerate.map((label) => generateVariantFromBase(base, label)),
-    );
-    setVariants((prev) => {
-      const updated = [...prev];
-      results.forEach((r, i) => {
-        if (!r) return;
-        const targetLabel = toGenerate[i];
-        const idx = updated.findIndex((v) => v.label === targetLabel);
-        if (idx >= 0) {
-          updated[idx] = {
-            ...updated[idx],
+    try {
+      const results = await Promise.all(
+        variants.map(async (v) => {
+          if (!v.messageTemplate) return null;
+          try {
+            const res = await apiRequest(
+              "POST",
+              `/api/business/${hospitalId}/flows/compose`,
+              {
+                channel,
+                prompt: `Insert promo code into existing message.`,
+                abVariantOf: v.messageTemplate,
+                preserveCopy: true,
+                promoCode,
+              },
+            );
+            const data = await res.json();
+            return {
+              label: v.label,
+              body: data.body ?? data.message ?? data.content ?? "",
+              subject: data.subject as string | undefined,
+            };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setVariants((prev) =>
+        prev.map((v) => {
+          const r = results.find((x) => x && x.label === v.label);
+          if (!r || !r.body) return v;
+          return {
+            ...v,
             messageTemplate: r.body,
-            messageSubject: r.subject ?? updated[idx].messageSubject,
+            messageSubject: r.subject ?? v.messageSubject,
           };
-        }
-      });
-      return updated;
-    });
+        }),
+      );
+    } finally {
+      setGeneratingLabels(new Set());
+      setInsertingPromoCode(false);
+    }
   };
+
   const activeVariantIndex = Math.max(
     0,
     variants.findIndex((v) => v.label === activeVariantLabel),
@@ -395,6 +428,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
 
       {/* 1 — Segment */}
       <BookingSection
+        ref={(el) => { sectionRefs.current.segment = el; }}
         status={sectionStatus("segment")}
         isDark={isDark}
         summary={{
@@ -426,6 +460,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
 
       {/* 2 — Channel */}
       <BookingSection
+        ref={(el) => { sectionRefs.current.channel = el; }}
         status={sectionStatus("channel")}
         isDark={isDark}
         summary={{
@@ -461,6 +496,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
 
       {/* 3 — Compose */}
       <BookingSection
+        ref={(el) => { sectionRefs.current.compose = el; }}
         status={sectionStatus("compose")}
         isDark={isDark}
         summary={{
@@ -520,26 +556,17 @@ export default function FlowCreate({ editId }: { editId?: string }) {
                           }
                         : undefined
                     }
+                    hideAddButton={generatingLabels.size > 0}
+                    onGeneratingChange={(label, generating) => {
+                      setGeneratingLabels((prev) => {
+                        const next = new Set(prev);
+                        if (generating) next.add(label);
+                        else next.delete(label);
+                        return next;
+                      });
+                    }}
                     extraActions={
                       <>
-                        {/* "Generate all" — fills remaining variant slots from
-                            Variant A's content in parallel. Only shown when
-                            Variant A has content AND not all slots are filled. */}
-                        {primaryMessageContent && variants.length < 3 && hospitalId && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 h-8"
-                            onClick={generateAllVariants}
-                            disabled={generatingLabels.size > 0}
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            {generatingLabels.size > 0
-                              ? t("flows.ab.generatingAll", "Generating...")
-                              : t("flows.ab.generateAll", "Generate A/B/C")}
-                          </Button>
-                        )}
                         {channel !== "html_email" && (
                           <Button
                             type="button"
@@ -645,6 +672,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
 
       {/* 4 — Offer */}
       <BookingSection
+        ref={(el) => { sectionRefs.current.offer = el; }}
         status={sectionStatus("offer")}
         isDark={isDark}
         summary={{
@@ -663,6 +691,55 @@ export default function FlowCreate({ editId }: { editId?: string }) {
               setPromoCode(code);
             }}
           />
+          {/* Once the user picks a code, offer to weave it into the message
+              copy. The code is ALWAYS attached to the booking link as a URL
+              param at send time — this just makes it visible in the body too,
+              for cases where the user wants visual emphasis. */}
+          {(() => {
+            if (!promoCode) return null;
+            const codeLower = promoCode.toLowerCase();
+            const variantsWithCopy = variants.filter((v) => v.messageTemplate);
+            if (variantsWithCopy.length === 0) return null;
+            const allMention = variantsWithCopy.every((v) =>
+              v.messageTemplate.toLowerCase().includes(codeLower),
+            );
+            if (allMention) return null;
+            return (
+              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 flex items-start gap-3">
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <div className="font-medium">
+                    {t("flows.offer.mentionCodeTitle", "Mention this code in the message?")}
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-0.5">
+                    {t(
+                      "flows.offer.mentionCodeBody",
+                      "The code is automatically added to the booking link, but you can also have it shown in the message body for visual emphasis.",
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={insertPromoCodeIntoVariants}
+                  disabled={insertingPromoCode}
+                  className="gap-1.5 flex-shrink-0"
+                >
+                  {insertingPromoCode ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {t("flows.offer.insertingCode", "Inserting...")}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {t("flows.offer.insertCode", "Insert code")}
+                    </>
+                  )}
+                </Button>
+              </div>
+            );
+          })()}
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("offer", "review")}>
               {t("common.next", "Next")}
@@ -673,6 +750,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
 
       {/* 5 — Review + Send */}
       <BookingSection
+        ref={(el) => { sectionRefs.current.review = el; }}
         status={sectionStatus("review")}
         isDark={isDark}
         summary={{

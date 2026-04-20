@@ -132,7 +132,9 @@ function HtmlEmailPreview({ content }: { content: string }) {
           srcDoc={srcDoc}
           sandbox="allow-same-origin"
           className="w-full h-full"
-          style={{ minHeight: "300px" }}
+          // Force light color-scheme so AI-generated HTML without explicit
+          // colors doesn't inherit the parent app's dark theme.
+          style={{ minHeight: "300px", background: "white", colorScheme: "light" }}
         />
       </div>
     </div>
@@ -245,12 +247,14 @@ function PreviewPanel({
   messageSubject,
   onSubjectChange,
   onExamplePromptClick,
+  isGenerating,
 }: {
   channel: "sms" | "email" | "html_email";
   messageContent: string;
   messageSubject: string;
   onSubjectChange: (v: string) => void;
   onExamplePromptClick?: (prompt: string) => void;
+  isGenerating?: boolean;
 }) {
   const { t } = useTranslation();
   const isEmpty = !messageContent.trim();
@@ -267,7 +271,12 @@ function PreviewPanel({
         </div>
       )}
       <div className="flex-1 overflow-hidden">
-        {isEmpty && onExamplePromptClick ? (
+        {isEmpty && isGenerating ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm">{t("flows.compose.generating", "Generating...")}</p>
+          </div>
+        ) : isEmpty && onExamplePromptClick ? (
           <PromptSuggestions channel={channel} onPick={onExamplePromptClick} />
         ) : (
           <>
@@ -321,9 +330,25 @@ const AiChatPanel = forwardRef<AiChatPanelHandle, {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  // Stash the latest callback in a ref so the effect below depends only on
+  // `loading`. Otherwise an inline arrow from the parent (new identity every
+  // render) would refire this effect → "Maximum update depth exceeded".
+  const onLoadingChangeRef = useRef(onLoadingChange);
   useEffect(() => {
-    onLoadingChange?.(loading);
-  }, [loading, onLoadingChange]);
+    onLoadingChangeRef.current = onLoadingChange;
+  });
+  // Skip the initial-mount fire. Otherwise remounts (e.g. when the parent
+  // flips `key`) emit a spurious `loading=false`, which clears any spinner
+  // state the parent had just set for the new variant — making the spinner
+  // disappear before it ever paints.
+  const isFirstLoadingFire = useRef(true);
+  useEffect(() => {
+    if (isFirstLoadingFire.current) {
+      isFirstLoadingFire.current = false;
+      return;
+    }
+    onLoadingChangeRef.current?.(loading);
+  }, [loading]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({
@@ -689,8 +714,6 @@ export default function MessageComposer({
                   {splitPreviews.map((v) => {
                     const isActive = v.label === activeVariantLabel;
                     const isGenerating = !!generatingLabels?.has(v.label);
-                    const anyGenerating = !!generatingLabels && generatingLabels.size > 0;
-                    const dimmed = anyGenerating && !isGenerating;
                     const looksLikeFullDoc = /^\s*(<!DOCTYPE|<html[\s>])/i.test(v.messageTemplate);
                     const srcDoc = v.messageTemplate
                       ? looksLikeFullDoc
@@ -704,14 +727,14 @@ export default function MessageComposer({
                           isActive
                             ? "border-primary ring-2 ring-primary/40 shadow-md"
                             : "border-muted"
-                        } ${dimmed ? "opacity-40 pointer-events-none" : ""}`}
+                        }`}
                       >
                         {/* Header — the only click target. Selecting a variant
                             from here keeps the iframe area free for scrolling. */}
                         <button
                           type="button"
                           onClick={() => onActivateVariant?.(v.label)}
-                          disabled={anyGenerating}
+                          disabled={isGenerating}
                           className={`flex-shrink-0 border-b px-3 py-2 text-left bg-muted/30 hover:bg-muted/50 transition-colors ${
                             isActive ? "" : "opacity-80 hover:opacity-100"
                           }`}
@@ -760,6 +783,11 @@ export default function MessageComposer({
                               srcDoc={srcDoc}
                               sandbox="allow-same-origin"
                               className="w-full h-full"
+                              // Force light color-scheme so AI-generated HTML
+                              // that doesn't set explicit colors doesn't
+                              // inherit the parent app's dark theme defaults
+                              // (e.g. dark text on dark canvas, unreadable).
+                              style={{ background: "white", colorScheme: "light" }}
                             />
                           ) : channel === "sms" ? (
                             <SmsPreview content={v.messageTemplate} />
@@ -778,6 +806,13 @@ export default function MessageComposer({
                   messageSubject={messageSubject}
                   onSubjectChange={onSubjectChange}
                   onExamplePromptClick={(p) => chatPaneRef.current?.submitPrompt(p)}
+                  isGenerating={
+                    // Show the spinner whenever the active variant has empty
+                    // content AND any generation is happening anywhere — this
+                    // catches the race between adding a placeholder variant
+                    // and the parent setting generatingLabels for it.
+                    !!generatingLabels && generatingLabels.size > 0
+                  }
                 />
               )}
             </div>

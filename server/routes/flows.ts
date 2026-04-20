@@ -498,6 +498,10 @@ const composeSchema = z.object({
   referenceUrl: z.string().optional(),
   abVariantOf: z.string().optional(),
   abStyleHint: z.string().optional(),
+  /** When true with abVariantOf, treat the input as the message to PRESERVE
+   *  (same copy, same design) and only weave in the promo code. Used by the
+   *  "Mention code in message" action after the user picks a promo. */
+  preserveCopy: z.boolean().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -799,25 +803,29 @@ ${body.segmentDescription ? `\nTarget audience: ${body.segmentDescription}` : ""
 Return ONLY the raw message content. NEVER wrap output in markdown code fences (no \`\`\`html, no \`\`\`). NEVER add explanations before or after. For HTML email, start directly with <!DOCTYPE html> or the first HTML element. For plain text, start with "Subject:".`;
 
       // For A/B variant generation, build a dedicated prompt that emphasizes
-      // creating a meaningfully different angle while keeping the same offer.
+      // creating a meaningfully different angle while keeping the same offer
+      // AND preserving Variant A's visual design system (colors, fonts,
+      // layout, brand identity).
       let userPrompt = body.prompt;
       if (body.abVariantOf) {
         const needsSubject = body.channel === "email" || body.channel === "html_email";
-        // KEY INSIGHT: showing Claude the full Variant A makes it anchor on
-        // that text and produce near-copies, even with strong divergence
-        // instructions. Instead, extract just the OFFER (the promotional
-        // substance) from A and discard the rest. Claude then writes a
-        // completely fresh variant from scratch.
+
+        // For html_email we want two separable pieces:
         //
-        // For html_email we extract a short summary using regex on common
-        // patterns (h1, title, first p tag) — good enough to convey "what
-        // the campaign is about" without giving Claude the actual prose to
-        // copy.
+        // 1. OFFER SUMMARY — short, plain-text description of *what* the
+        //    campaign is about. Showing Claude the full Variant A copy makes
+        //    it anchor and produce near-copies, so we summarize aggressively.
+        //
+        // 2. DESIGN REFERENCE — the visual scaffolding (CSS / palette / hero
+        //    structure / typography). We want Claude to copy this verbatim
+        //    so the brand look stays consistent across A/B/C; only the copy
+        //    varies. This means handing it the <head> (containing <style>)
+        //    and the first chunk of the body shell.
         let offerSummary = body.abVariantOf;
+        let designReference = "";
         if (body.channel === "html_email") {
           const titleMatch = body.abVariantOf.match(/<title[^>]*>([^<]+)<\/title>/i);
           const h1Match = body.abVariantOf.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-          // Strip HTML tags from the first 500 chars of body to get a sense of the offer
           const bodyMatch = body.abVariantOf.match(/<body[^>]*>([\s\S]+?)(?:<\/body>|$)/i);
           const bodyText = (bodyMatch?.[1] ?? "")
             .replace(/<[^>]+>/g, " ")
@@ -831,17 +839,47 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
           ]
             .filter(Boolean)
             .join("\n");
+
+          // Pull the <head> verbatim — that's where <style>, brand colors,
+          // and font choices live. Trim to a sane upper bound so we don't
+          // explode the prompt on huge inline-CSS emails.
+          const headMatch = body.abVariantOf.match(/<head[^>]*>([\s\S]+?)<\/head>/i);
+          const headHtml = (headMatch?.[1] ?? "").slice(0, 4000);
+          // Pull the opening of <body> too — header / hero block carries the
+          // brand palette and layout pattern that should stay consistent.
+          const bodyShell = (bodyMatch?.[1] ?? "").slice(0, 1500);
+          designReference = [
+            headHtml ? `<head>\n${headHtml}\n</head>` : "",
+            bodyShell ? `Opening of <body> (header / hero structure to preserve):\n${bodyShell}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n");
         }
 
-        userPrompt = `You are writing variant B of an A/B test for a marketing campaign. You will NOT see variant A in full — only a brief summary of the offer below. This is intentional: write variant B from SCRATCH so it doesn't accidentally echo variant A.\n\nCampaign summary (do NOT copy any phrases from this — it's just for context):\n"""\n${offerSummary}\n"""`;
-        if (body.abStyleHint) {
-          userPrompt += `\n\n========== MANDATORY STYLE CONSTRAINT ==========\nThis variant MUST satisfy ALL of the following — if any are missing, you have failed the task:\n${body.abStyleHint}\n================================================`;
-        }
-        userPrompt += `\n\nWrite a fresh, original variant B in Swiss German (formal "Sie"). Same offer/discount/audience as variant A, but different opening, different angle, different framing, different subject line.`;
-        if (needsSubject) {
-          userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject for variant B>", "body": "<complete message, same channel format as variant A>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>.`;
+        if (body.preserveCopy) {
+          // "Mention promo code" path — DON'T diverge. Keep the existing copy
+          // and design intact; only weave in the promo code in a natural,
+          // prominent spot.
+          userPrompt = `You are editing an existing marketing message to weave in a promo code. KEEP the existing copy, tone, structure, and visual design intact — only add a clear, prominent mention of the promo code "${body.promoCode || ""}" in a natural place (typically near the call-to-action). Do NOT rewrite, do NOT change the offer angle, do NOT change colors/fonts/layout.\n\nExisting message to edit:\n"""\n${body.abVariantOf}\n"""`;
+          if (needsSubject) {
+            userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<keep the original subject, optionally append the code>", "body": "<the complete edited message in the same channel format and visual design>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>.`;
+          } else {
+            userPrompt += `\n\nReturn ONLY the edited message body — no subject, no preamble, no quotes, no JSON.`;
+          }
         } else {
-          userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes, no JSON.`;
+          userPrompt = `You are writing variant B of an A/B test for a marketing campaign. The brand's visual design (colors, fonts, layout, hero pattern) MUST stay consistent across variants — only the copy and angle change.\n\nCampaign offer summary (DO NOT copy phrases from this — it's just context for what the campaign is about):\n"""\n${offerSummary}\n"""`;
+          if (designReference && body.channel === "html_email") {
+            userPrompt += `\n\n========== DESIGN SYSTEM TO PRESERVE ==========\nReuse the EXACT same CSS, color palette, typography, header layout, and overall visual structure shown below. Do NOT invent new colors or fonts. Do NOT switch to a different layout. The user must recognize this as the same brand.\n\n${designReference}\n================================================`;
+          }
+          if (body.abStyleHint) {
+            userPrompt += `\n\n========== MANDATORY COPY STYLE CONSTRAINT ==========\nThis variant MUST satisfy ALL of the following copy / messaging rules — if any are missing, you have failed the task:\n${body.abStyleHint}\n================================================`;
+          }
+          userPrompt += `\n\nWrite a fresh, original variant B in Swiss German (formal "Sie"). Same offer/discount/audience as variant A, but different opening, different angle, different framing, different subject line. The visual design (CSS, colors, layout) must match variant A exactly.`;
+          if (needsSubject) {
+            userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject for variant B>", "body": "<complete message, same channel format AND same visual design as variant A>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>, reusing the exact same <head>/CSS as the design reference above.`;
+          } else {
+            userPrompt += `\n\nReturn ONLY the message body — no subject, no preamble, no quotes, no JSON.`;
+          }
         }
       }
 
@@ -858,9 +896,12 @@ Then use these EXACT extracted properties in your HTML email. Do NOT use generic
 
 CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`html). Start directly with <!DOCTYPE html> or the first HTML element.` : ""}`;
 
-      // Build the current user message content — either plain string or multimodal array
+      // Build the current user message content — either plain string or multimodal array.
+      // Skip the screenshot for variant generation: it's irrelevant to the
+      // copy-rewrite task and can confuse the model into describing the image
+      // instead of producing a divergent variant.
       const currentUserContent: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> =
-        (isFirstMessage && screenshotBase64)
+        (isFirstMessage && screenshotBase64 && !body.abVariantOf)
           ? [
               {
                 type: "image",
@@ -975,7 +1016,11 @@ CRITICAL: Return ONLY raw HTML. Do NOT wrap in markdown code fences (no \`\`\`ht
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         res.end();
         return;
-      } else if (MISTRAL_API_KEY) {
+      } else if (MISTRAL_API_KEY && !(body.channel === "html_email" && body.abVariantOf && ANTHROPIC_API_KEY)) {
+        // Skip Mistral for html_email variant generation when Anthropic is
+        // available — Mistral-small produces near-duplicates and rarely
+        // honors the JSON response format, causing the client-side
+        // "result identical to Variant A" alert. Fall through to Anthropic.
         const client = new OpenAI({
           apiKey: MISTRAL_API_KEY,
           baseURL: "https://api.mistral.ai/v1",
