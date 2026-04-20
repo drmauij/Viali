@@ -118,7 +118,9 @@ export default function VariantTabs({
         </TabsList>
 
         <div className="flex items-center gap-2">
-          {variants.length < MAX_VARIANTS && (
+          {/* Only offer "Add variant" once Variant A has actual content —
+              otherwise there's nothing for the AI to base a variant on. */}
+          {variants.length < MAX_VARIANTS && variants[0]?.messageTemplate && (
             <Button
               variant="outline"
               size="sm"
@@ -126,7 +128,7 @@ export default function VariantTabs({
               onClick={addVariant}
               disabled={generatingAi}
             >
-              {onGenerateAi && variants.length >= 1 && variants[0]?.messageTemplate ? (
+              {onGenerateAi ? (
                 <>
                   <Sparkles className="h-4 w-4" />
                   {generatingAi
