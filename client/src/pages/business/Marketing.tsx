@@ -18,6 +18,12 @@ import {
   Loader2,
   Pencil,
   Trash2,
+  PieChart as PieChartIcon,
+  Inbox,
+  Activity,
+  Megaphone,
+  CheckCircle2,
+  Phone,
 } from "lucide-react";
 import {
   Dialog,
@@ -100,6 +106,160 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
         {children}
       </CardContent>
     </Card>
+  );
+}
+
+// Read-only leads list for the marketing dashboard. Mirrors the same data
+// the clinic-side Leads panel reads, but without any actions — marketing
+// staff only need visibility (status, contact attempts, conversion).
+type LeadRow = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  source: string;
+  status: "new" | "in_progress" | "converted" | "closed";
+  appointmentId: string | null;
+  contactCount: number;
+  lastContactAt: string | null;
+  createdAt: string;
+};
+function LeadsReadOnlyCard({ hospitalId }: { hospitalId: string }) {
+  const { t } = useTranslation();
+  const { data: leads, isLoading } = useQuery<LeadRow[]>({
+    queryKey: [`/api/business/${hospitalId}/leads?limit=50`],
+    enabled: !!hospitalId,
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg">
+              {t("business.leads.title", "Leads")}
+            </CardTitle>
+            <CardDescription>
+              {t(
+                "business.leads.description",
+                "Read-only overview of incoming leads, their status and conversion.",
+              )}
+            </CardDescription>
+          </div>
+          {leads && (
+            <span className="text-xs text-muted-foreground">
+              {leads.length} {t("business.leads.totalShown", "total shown (max 50)")}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : !leads || leads.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            {t("business.leads.empty", "No leads yet.")}
+          </p>
+        ) : (
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="text-left font-medium px-2 py-2">
+                    {t("business.leads.col.name", "Name")}
+                  </th>
+                  <th className="text-left font-medium px-2 py-2">
+                    {t("business.leads.col.source", "Source")}
+                  </th>
+                  <th className="text-left font-medium px-2 py-2">
+                    {t("business.leads.col.status", "Status")}
+                  </th>
+                  <th className="text-right font-medium px-2 py-2">
+                    {t("business.leads.col.contacts", "Contacts")}
+                  </th>
+                  <th className="text-left font-medium px-2 py-2">
+                    {t("business.leads.col.converted", "Converted")}
+                  </th>
+                  <th className="text-left font-medium px-2 py-2">
+                    {t("business.leads.col.created", "Received")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map((l) => (
+                  <tr key={l.id} className="border-t">
+                    <td className="px-2 py-2 font-medium">
+                      {`${l.firstName} ${l.lastName}`.trim() || "—"}
+                      {(l.email || l.phone) && (
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {l.email || l.phone}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-muted-foreground">{l.source || "—"}</td>
+                    <td className="px-2 py-2">
+                      <LeadStatusPill status={l.status} />
+                    </td>
+                    <td className="px-2 py-2 text-right tabular-nums">
+                      {l.contactCount}
+                      {l.contactCount > 0 && (
+                        <Phone className="inline-block ml-1 h-3 w-3 text-muted-foreground" />
+                      )}
+                    </td>
+                    <td className="px-2 py-2">
+                      {l.appointmentId || l.status === "converted" ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t("business.leads.yes", "Yes")}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {t("business.leads.no", "No")}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-xs text-muted-foreground">
+                      {new Date(l.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function LeadStatusPill({ status }: { status: LeadRow["status"] }) {
+  const map: Record<LeadRow["status"], { label: string; cls: string }> = {
+    new: {
+      label: "New",
+      cls: "bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/30",
+    },
+    in_progress: {
+      label: "In progress",
+      cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30",
+    },
+    converted: {
+      label: "Converted",
+      cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30",
+    },
+    closed: {
+      label: "Closed",
+      cls: "bg-muted text-muted-foreground ring-border",
+    },
+  };
+  const v = map[status];
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${v.cls}`}
+    >
+      {v.label}
+    </span>
   );
 }
 
@@ -398,21 +558,28 @@ export default function Marketing() {
             </CardContent>
           </Card>
 
-          {/* Tabs: Sources (default) | Recent Events | Conversion Funnel */}
+          {/* Tabs: Sources | Leads | Referrals | Conversion | Ad Performance */}
           <Tabs defaultValue="sources" className="space-y-4">
             <div className="overflow-x-auto scrollbar-hide">
               <TabsList>
                 <TabsTrigger value="sources" data-testid="tab-marketing-sources">
-                  {t('business.referrals.sourcesTab', 'How patients found us')}
+                  <PieChartIcon className="h-4 w-4 mr-1" />
+                  {t('business.referrals.sourcesTab', 'Sources')}
+                </TabsTrigger>
+                <TabsTrigger value="leads" data-testid="tab-marketing-leads">
+                  <Inbox className="h-4 w-4 mr-1" />
+                  {t('business.referrals.leadsTab', 'Leads')}
                 </TabsTrigger>
                 <TabsTrigger value="events" data-testid="tab-marketing-events">
-                  <List className="h-4 w-4 mr-1" />
-                  {t('business.referrals.recentEvents', 'Recent Referral Events')}
+                  <Activity className="h-4 w-4 mr-1" />
+                  {t('business.referrals.recentEvents', 'Referrals')}
                 </TabsTrigger>
                 <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
-                  {t('business.referrals.conversionTab', 'Conversion Funnel')}
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  {t('business.referrals.conversionTab', 'Conversion')}
                 </TabsTrigger>
                 <TabsTrigger value="ads" data-testid="tab-marketing-ads">
+                  <Megaphone className="h-4 w-4 mr-1" />
                   {t('business.referrals.adsTab', 'Ad Performance')}
                 </TabsTrigger>
               </TabsList>
@@ -613,6 +780,10 @@ export default function Marketing() {
             )}
           </ChartCard>
 
+            </TabsContent>
+
+            <TabsContent value="leads">
+              <LeadsReadOnlyCard hospitalId={activeHospital?.id ?? ""} />
             </TabsContent>
 
             <TabsContent value="events">
