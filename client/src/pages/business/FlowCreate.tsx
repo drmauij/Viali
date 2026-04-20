@@ -250,16 +250,25 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const [composeView, setComposeView] = useState<"ai" | "editor">("ai");
   const [isSplitView, setIsSplitView] = useState(false);
   const [generatingLabels, setGeneratingLabels] = useState<Set<string>>(() => new Set());
+  // Auto-enable split view whenever the user enters fullscreen with 2+ variants —
+  // that's almost always what you want. The toolbar button still lets you toggle
+  // back to single-variant view if you'd rather focus on one at a time.
+  useEffect(() => {
+    if (isComposeFullscreen && variants.length >= 2) {
+      setIsSplitView(true);
+    }
+  }, [isComposeFullscreen, variants.length]);
   // Side-by-side view only makes sense in fullscreen AND with 2+ variants
   const splitViewActive = isSplitView && isComposeFullscreen && variants.length >= 2;
 
   /** Per-label style hints to force the AI to take genuinely different angles.
    *  Without these, parallel calls with the same `abVariantOf` produce nearly
-   *  identical variants because Claude defaults to conservative rewrites. */
+   *  identical variants because Claude defaults to conservative rewrites.
+   *  Hints are CONCRETE so Claude can't soft-interpret them. */
   const VARIANT_STYLE_HINTS: Record<string, string> = {
     A: "", // base variant — no hint
-    B: "Use a SCARCITY / urgency framing (e.g. limited-time, only X spots, deadline). Ask a question in the subject line.",
-    C: "Use a SOCIAL PROOF / testimonial framing (e.g. trusted by X patients, our most popular treatment). Subject should feel inviting and warm.",
+    B: 'Subject line MUST be phrased as a QUESTION (ending in "?"). Body MUST open with a scarcity/urgency hook (e.g. "Nur noch wenige Plätze", "Diese Woche endet das Angebot", a specific deadline). Hero section copy MUST mention either limited spots OR a specific date deadline.',
+    C: 'Subject line MUST start with a NUMBER or quoted testimonial (e.g. "500+ zufriedene Patientinnen…", "Unsere meistgebuchte Behandlung"). Body MUST lead with social proof — patient count, satisfaction rate, or a brief testimonial. Hero section MUST feature the social-proof number prominently.',
   };
 
   /** Generate a new variant from Variant A's content via the /compose endpoint.
@@ -278,10 +287,13 @@ export default function FlowCreate({ editId }: { editId?: string }) {
         `/api/business/${hospitalId}/flows/compose`,
         {
           channel,
-          prompt: styleHint
-            ? `Generate variant ${targetLabel} for an A/B test. Required style: ${styleHint}`
-            : `Generate variant ${targetLabel} for an A/B test.`,
+          prompt: `Generate variant ${targetLabel} for an A/B test.`,
           abVariantOf: baseVariant.messageTemplate,
+          // Style hint is sent as a SEPARATE field so the server's abVariantOf
+          // prompt builder can append it as a hard constraint — embedding it in
+          // `prompt` would get discarded since the server overwrites prompt
+          // when abVariantOf is set.
+          abStyleHint: styleHint || undefined,
         },
       );
       const data = await res.json();

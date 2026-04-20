@@ -497,6 +497,7 @@ const composeSchema = z.object({
   promoCode: z.string().nullable().optional(),
   referenceUrl: z.string().optional(),
   abVariantOf: z.string().optional(),
+  abStyleHint: z.string().optional(),
   previousMessages: z
     .array(
       z.object({
@@ -804,7 +805,12 @@ Return ONLY the raw message content. NEVER wrap output in markdown code fences (
         const needsSubject = body.channel === "email" || body.channel === "html_email";
         // Aggressive divergence pressure — Claude defaults to conservative
         // rewrites otherwise. List concrete dimensions the variant must change.
-        userPrompt = `Generate a NOTABLY DIFFERENT variant for an A/B test.\n\nThe existing variant says:\n"""\n${body.abVariantOf}\n"""\n\nThis variant must clearly differ from the existing one along multiple of these dimensions:\n- Subject line (different angle/hook)\n- Opening line (different attention-grabber)\n- Tone (e.g. existing = warm/personal → new = playful or urgent)\n- Hero/value-prop framing (e.g. existing = exclusivity → new = scarcity, or social proof, or convenience)\n- Call-to-action wording\n\nKeep the same offer, same language (Swiss German formal "Sie"), same target audience.`;
+        userPrompt = `Generate a NOTABLY DIFFERENT variant for an A/B test.\n\nThe existing variant says:\n"""\n${body.abVariantOf}\n"""\n\nThis variant must be visibly, recognizably different from the existing one. A subject regex / string-equality check between the two should fail. Required differences:\n- Subject line: completely rewritten — different opening word, different angle\n- First sentence of body: completely different hook\n- Hero/value-prop framing: different psychological lever\n- Call-to-action wording: different verb/phrasing\n\nKeep the same: offer/discount, language (Swiss German formal "Sie"), target audience, channel format.`;
+        if (body.abStyleHint) {
+          // The client passes per-variant style hints (B = scarcity, C = social proof, etc.).
+          // These are MANDATORY constraints, not suggestions — reinforce that.
+          userPrompt += `\n\nMANDATORY style constraint for THIS variant — you MUST satisfy this or the variant is rejected:\n${body.abStyleHint}`;
+        }
         if (needsSubject) {
           userPrompt += `\n\nResponse format — return ONLY a single valid JSON object, no markdown fences, no prose around it:\n{"subject": "<short subject, MUST be visibly different from existing>", "body": "<complete message, same channel format>"}\n\nFor html_email the body must be a complete HTML document starting with <!DOCTYPE html>. The subject must be meaningfully different — if the existing subject mentions "spring offer", yours could mention "exclusive invitation", "limited time", a question, etc.`;
         } else {
