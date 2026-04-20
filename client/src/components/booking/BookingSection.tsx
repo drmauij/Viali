@@ -16,6 +16,9 @@ type Props = {
     value: string;
     onChange?: () => void;
     changeLabel?: string;
+    /** Optional badge rendered next to the value (e.g. "Vorgeschlagen"
+     *  for an auto-picked provider/date/slot). */
+    badge?: ReactNode;
   };
 };
 
@@ -70,14 +73,19 @@ export const BookingSection = forwardRef<HTMLDivElement, Props>(function Booking
                 >
                   {summary.label}
                 </p>
-                <p
-                  className={cn(
-                    'text-sm font-medium truncate',
-                    isDark ? 'text-white/90' : 'text-gray-900',
+                <div className="flex items-center gap-2 min-w-0">
+                  <p
+                    className={cn(
+                      'text-sm font-medium truncate',
+                      isDark ? 'text-white/90' : 'text-gray-900',
+                    )}
+                  >
+                    {summary.value}
+                  </p>
+                  {summary.badge && (
+                    <div className="shrink-0">{summary.badge}</div>
                   )}
-                >
-                  {summary.value}
-                </p>
+                </div>
               </div>
               {summary.onChange && (
                 <span

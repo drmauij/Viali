@@ -1061,10 +1061,51 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
 
   // Fetch hospital timezone for DATE() comparisons
   let hospitalTz = 'Europe/Zurich';
+  let minAdvanceHours = 0;
   if (hospitalId) {
-    const [h] = await db.select({ timezone: hospitals.timezone }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+    const [h] = await db
+      .select({ timezone: hospitals.timezone, bookingSettings: hospitals.bookingSettings })
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId))
+      .limit(1);
     if (h?.timezone) hospitalTz = h.timezone;
+    const bs = h?.bookingSettings as { minAdvanceHours?: number } | null;
+    if (bs?.minAdvanceHours && bs.minAdvanceHours > 0) {
+      minAdvanceHours = bs.minAdvanceHours;
+    }
   }
+
+  // Earliest bookable instant in the hospital's timezone. Slots before this
+  // are filtered out so the booking page doesn't ever show a slot that has
+  // already started (or that violates the minAdvanceHours buffer).
+  const todayInTz = new Intl.DateTimeFormat('en-CA', {
+    timeZone: hospitalTz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date()); // YYYY-MM-DD
+  const earliestBookableMins = (() => {
+    if (date < todayInTz) return 24 * 60; // whole day in the past — nuke it
+    if (date > todayInTz) return -1;       // future date — no past-filtering
+    // Today: drop slots that have already started (or are within
+    // minAdvanceHours of the current wall-clock time in the hospital's tz).
+    const nowParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: hospitalTz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const hh = parseInt(nowParts.find((p) => p.type === 'hour')?.value || '0', 10);
+    const mm = parseInt(nowParts.find((p) => p.type === 'minute')?.value || '0', 10);
+    return hh * 60 + mm + minAdvanceHours * 60;
+  })();
+  const filterPastSlots = (
+    list: { startTime: string; endTime: string }[],
+  ): { startTime: string; endTime: string }[] => {
+    if (earliestBookableMins < 0) return list;
+    if (earliestBookableMins >= 24 * 60) return [];
+    return list.filter((s) => timeToMinutes(s.startTime) >= earliestBookableMins);
+  };
 
   // Resolve calendar scope: if unit doesn't have its own calendar, use hospital-level (shared) data
   let effectiveUnitId: string | null = unitId;
@@ -1298,7 +1339,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
         result.push({ startTime: slotStart, endTime: slotEnd });
       }
     }
-    return result;
+    return filterPastSlots(result);
   }
 
   const slots: { startTime: string; endTime: string }[] = [];
@@ -1324,7 +1365,7 @@ export async function getAvailableSlots(providerId: string, unitId: string, date
       index === 0 || slot.startTime !== arr[index - 1].startTime
     );
 
-  return uniqueSlots;
+  return filterPastSlots(uniqueSlots);
 }
 
 /**

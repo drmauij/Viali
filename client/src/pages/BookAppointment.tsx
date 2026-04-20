@@ -12,7 +12,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { ReferralSourcePicker } from "@/components/ReferralSourcePicker";
 import { resolveReferralFromParams } from "@shared/referralMapping";
 import { de } from "date-fns/locale";
-import { Gift, BadgeCheck } from "lucide-react";
+import { Gift, BadgeCheck, Sparkles } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -199,6 +199,18 @@ export default function BookAppointment() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [slotRevalidated, setSlotRevalidated] = useState(false);
+  // Auto-pick bookkeeping. `wasAutoPickedRef` (sync) distinguishes auto from
+  // manual selection so we don't clobber a user's choice on subsequent
+  // treatment changes. `wasAutoPicked` (state mirror) drives the "Best
+  // choice" badge in the rendered tree. `pendingAutoSlotRef` carries the
+  // wanted startTime across the slot-fetch effect — once slots arrive we
+  // promote it to selectedSlot. `scrollOverrideRef` is consumed once by the
+  // scroll hook so the auto-pick lands the scroll on the provider section
+  // (natural target would be "details" further down).
+  const wasAutoPickedRef = useRef(false);
+  const [wasAutoPicked, setWasAutoPicked] = useState(false);
+  const pendingAutoSlotRef = useRef<string | null>(null);
+  const scrollOverrideRef = useRef<Step | null>(null);
 
   // Form state. URL params can still prefill (legacy + manual share), but
   // the primary prefill path is the `fe` token → server-side exchange below.
@@ -345,10 +357,18 @@ export default function BookAppointment() {
       .catch(() => { /* non-fatal */ });
   }, [token, data, serviceCode]);
 
-  // ─── Suggested provider for the selected treatment ───────────
-  // Option 2 behavior: don't autoselect — just mark the provider with
-  // the next free slot so the user can see the recommendation while
-  // keeping full manual choice.
+  // ─── Suggested + auto-picked provider/date/slot for the treatment ──
+  // When a treatment is set (manually OR via ?service= deep link):
+  //   1. Mark the suggested provider (Nächster Termin badge)
+  //   2. If no provider has been chosen yet (or the prior provider was
+  //      auto-picked, not manually clicked), auto-select provider + date.
+  //      The slot is set after the slots-fetch effect resolves
+  //      (pendingAutoSlotRef carries the wanted startTime across the gap).
+  //   3. Scroll lands on the provider section (override) so the user can
+  //      see what was auto-picked instead of being launched at the form.
+  // Manual selection (handleProviderSelect / handleSlotSelect / date click)
+  // sets wasAutoPickedRef.current = false so subsequent treatment changes
+  // don't clobber the user's choice.
   useEffect(() => {
     if (!token || !data) return;
     if (!selectedTreatment) { setSuggestedProviderId(null); return; }
@@ -363,12 +383,70 @@ export default function BookAppointment() {
         if (!res.ok) return;
         const result = await res.json();
         if (cancelled) return;
-        if (result.provider?.id) setSuggestedProviderId(result.provider.id);
+        const providerId: string | null = result.provider?.id ?? null;
+        if (providerId) setSuggestedProviderId(providerId);
         else setSuggestedProviderId(null);
+
+        // Eligible to auto-pick when nothing manual has been chosen yet.
+        const canAutoPick = !selectedProvider || wasAutoPickedRef.current;
+        if (!canAutoPick) return;
+        if (!result.provider || !result.nextSlot) return;
+
+        // Hydrate the suggested provider into a full Provider object so
+        // the existing flow (selectedProvider drives slots fetch etc.)
+        // takes over without the user having to click anything.
+        const fullProvider: Provider = {
+          id: result.provider.id,
+          firstName: result.provider.firstName,
+          lastName: result.provider.lastName,
+          profileImageUrl: result.provider.profileImageUrl ?? null,
+          bookingServiceName: result.provider.bookingServiceName ?? null,
+          bookingLocation: result.provider.bookingLocation ?? null,
+          role: result.provider.role ?? null,
+        };
+        wasAutoPickedRef.current = true;
+        setWasAutoPicked(true);
+        setSelectedProvider(fullProvider);
+        setSelectedSlot(null);
+        setSlotTaken(false);
+        setAvailableDatesLoading(true);
+        setSeekingAvailableMonth(true);
+        // Parse YYYY-MM-DD as a local-tz date (no UTC drift) — same shape
+        // the date picker uses when the user clicks a day.
+        const [y, m, d] = result.nextSlot.date.split('-').map(Number);
+        setSelectedDate(new Date(y, m - 1, d));
+        // Defer slot selection until the slots-fetch effect resolves.
+        pendingAutoSlotRef.current = result.nextSlot.startTime;
       })
       .catch(() => { if (!cancelled) setSuggestedProviderId(null); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, data, selectedTreatment, preselectedProviderId]);
+
+  // After the slots fetch resolves, promote the pending auto-slot into
+  // selectedSlot, then jump to the form section while overriding the scroll
+  // target to the provider section (so the auto-pick stays visible).
+  useEffect(() => {
+    if (!pendingAutoSlotRef.current || slotsLoading) return;
+    const wanted = pendingAutoSlotRef.current;
+    const match = slots.find((s) => s.startTime === wanted);
+    if (!match) {
+      // Best-provider's nextSlot didn't survive the per-day filter (rare —
+      // race with someone else booking it, or with the past-slot cutoff).
+      // Bail quietly; the user still sees the auto-picked provider/date and
+      // can pick a different time.
+      pendingAutoSlotRef.current = null;
+        return;
+    }
+    pendingAutoSlotRef.current = null;
+    setSelectedSlot(match);
+    // Hand the scroll hook a one-shot override so it lands on the provider
+    // section instead of "details" (the natural target). The hook consumes
+    // the ref once per step change → no stale follow-up scrolls.
+    scrollOverrideRef.current = 'provider';
+    setStep('details');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots, slotsLoading]);
 
   // ─── Promo code validation ────────────────────────────────────
   useEffect(() => {
@@ -537,6 +615,11 @@ export default function BookAppointment() {
 
   const handleProviderSelect = useCallback((provider: Provider) => {
     const changed = !selectedProvider || selectedProvider.id !== provider.id;
+    // Manual click — never auto-clobber this choice on subsequent treatment
+    // changes, and abort any in-flight auto-slot pick.
+    wasAutoPickedRef.current = false;
+    setWasAutoPicked(false);
+    pendingAutoSlotRef.current = null;
     setSelectedProvider(provider);
     setStep('date');
     if (changed) {
@@ -551,6 +634,11 @@ export default function BookAppointment() {
   }, [selectedProvider]);
 
   const handleSlotSelect = useCallback((slot: Slot) => {
+    // Manual slot click — promote to "user owns this selection" so further
+    // auto-pick effects don't replace it.
+    wasAutoPickedRef.current = false;
+    setWasAutoPicked(false);
+    pendingAutoSlotRef.current = null;
     setSelectedSlot(slot);
     setStep("details");
     setSubmitError(null);
@@ -685,7 +773,17 @@ export default function BookAppointment() {
     return 'summary';
   }, [step, sectionOrder]);
 
-  useBookingScrollOnStep<Step>(step, (s) => sectionRefs.current[s] ?? null);
+  useBookingScrollOnStep<Step>(
+    step,
+    (s) => sectionRefs.current[s] ?? null,
+    () => {
+      // Consume-once: read-and-clear so the override applies exactly to the
+      // step change that triggered this scroll, never to follow-up renders.
+      const v = scrollOverrideRef.current;
+      scrollOverrideRef.current = null;
+      return v;
+    },
+  );
 
   // ─── Silent-friction telemetry ───────────────────────────────
   // Surface the two drop-off paths that produce no fetch error and so
@@ -914,6 +1012,7 @@ export default function BookAppointment() {
                 ? `${formatProviderName(selectedProvider)} · ${selectedProvider.bookingLocation}`
                 : formatProviderName(selectedProvider),
               onChange: canGoBackToProviders ? () => setStep('provider') : undefined,
+              badge: wasAutoPicked ? <BestChoiceBadge isDark={isDark} /> : undefined,
             } : undefined}
           >
             <div>
@@ -996,6 +1095,7 @@ export default function BookAppointment() {
               label: 'Datum',
               value: formattedSelectedDate,
               onChange: () => setStep('date'),
+              badge: wasAutoPicked ? <BestChoiceBadge isDark={isDark} /> : undefined,
             } : undefined}
           >
             <div>
@@ -1009,7 +1109,14 @@ export default function BookAppointment() {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={(d) => { if (!d) return; setSelectedDate(d); setStep('time'); }}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    // Manual date click — disable auto-pick clobber.
+                    wasAutoPickedRef.current = false;
+                    pendingAutoSlotRef.current = null;
+                                    setSelectedDate(d);
+                    setStep('time');
+                  }}
                   month={visibleMonth}
                   onMonthChange={setVisibleMonth}
                   locale={de}
@@ -1076,6 +1183,7 @@ export default function BookAppointment() {
               label: 'Uhrzeit',
               value: `${selectedSlot.startTime} Uhr`,
               onChange: () => setStep('time'),
+              badge: wasAutoPicked ? <BestChoiceBadge isDark={isDark} /> : undefined,
             } : undefined}
           >
             <div>
@@ -1498,6 +1606,22 @@ function ClinicInfoPanel({ data, isDark }: { data: BookingData; isDark: boolean 
         )}
       </div>
     </div>
+  );
+}
+
+function BestChoiceBadge({ isDark }: { isDark: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        isDark
+          ? "bg-blue-500/15 text-blue-300 ring-1 ring-blue-400/30"
+          : "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+      )}
+    >
+      <Sparkles className="h-2.5 w-2.5" strokeWidth={2.5} />
+      Vorschlag
+    </span>
   );
 }
 
