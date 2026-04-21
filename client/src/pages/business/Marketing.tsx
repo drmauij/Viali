@@ -191,19 +191,18 @@ function LeadsReadOnlyCard({
     setHasMore(true);
   }, [listUrl]);
 
-  const { isLoading } = useQuery<LeadRow[]>({
+  const { data: firstPage, isLoading } = useQuery<LeadRow[]>({
     queryKey: [listUrl],
     enabled: !!hospitalId,
     refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const res = await fetch(listUrl, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load leads");
-      const data: LeadRow[] = await res.json();
-      setLeadsList(data);
-      setHasMore(data.length === LEAD_PAGE_SIZE);
-      return data;
-    },
   });
+
+  useEffect(() => {
+    if (firstPage !== undefined) {
+      setLeadsList(firstPage);
+      setHasMore(firstPage.length === LEAD_PAGE_SIZE);
+    }
+  }, [firstPage, listUrl]);
 
   const loadMore = useCallback(async () => {
     if (!hospitalId || loadingMore || !hasMore) return;
