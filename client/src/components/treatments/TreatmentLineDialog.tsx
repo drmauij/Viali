@@ -27,6 +27,7 @@ import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ZonesChipInput } from "./ZonesChipInput";
 import { useTranslation } from "react-i18next";
+import { formatDate } from "@/lib/dateUtils";
 import type { TreatmentLine } from "@shared/schema";
 
 interface Service {
@@ -305,7 +306,7 @@ export function TreatmentLineDialog({
                     disabled={!itemId}
                   >
                     {selectedLot
-                      ? `${selectedLot.lotNumber}${selectedLot.expiryDate ? ` — exp ${selectedLot.expiryDate.slice(0, 10)}` : ""}`
+                      ? `${selectedLot.lotNumber}${selectedLot.expiryDate ? ` — exp ${formatDate(selectedLot.expiryDate)}` : ""}`
                       : t("treatments.pickLot", "Pick a lot…")}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -346,7 +347,7 @@ export function TreatmentLineDialog({
                             {l.lotNumber}
                             {l.expiryDate && (
                               <span className="ml-2 text-xs text-muted-foreground">
-                                exp {l.expiryDate.slice(0, 10)}
+                                exp {formatDate(l.expiryDate)}
                               </span>
                             )}
                             {l.qty != null && (
