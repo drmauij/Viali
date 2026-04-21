@@ -8191,5 +8191,15 @@
     "toastAdjusted": "Admission time auto-adjusted",
     "toastAdjustedDesc": "Set to {{offset}} minutes before the new surgery start, per hospital default.",
     "inlineAdjusted": "Auto-adjusted to {{offset}} min before start"
+  },
+  "bookingTokenSection": {
+    "shareWithAgents": {
+      "button": "Share with AI agents",
+      "title": "Share with AI agents",
+      "description": "Copy this prompt into your website builder (Replit, Lovable, v0, Bolt, etc.) to let AI agents like Claude, ChatGPT and personal assistants book appointments on behalf of patients visiting your website.",
+      "copy": "Copy prompt",
+      "copied": "Copied!",
+      "learnMore": "Learn more"
+    }
   }
 }

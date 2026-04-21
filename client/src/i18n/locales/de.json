@@ -8208,5 +8208,15 @@
     "toastAdjusted": "Eintrittszeit automatisch angepasst",
     "toastAdjustedDesc": "Gesetzt auf {{offset}} Minuten vor dem neuen OP-Beginn (Klinik-Standard).",
     "inlineAdjusted": "Automatisch auf {{offset}} Min. vor OP-Beginn gesetzt"
+  },
+  "bookingTokenSection": {
+    "shareWithAgents": {
+      "button": "Für KI-Agenten teilen",
+      "title": "Für KI-Agenten teilen",
+      "description": "Kopiere diesen Prompt in deinen Website-Builder (Replit, Lovable, v0, Bolt etc.), damit KI-Agenten wie Claude, ChatGPT oder persönliche Assistenten Termine für Patienten auf deiner Website buchen können.",
+      "copy": "Prompt kopieren",
+      "copied": "Kopiert!",
+      "learnMore": "Mehr erfahren"
+    }
   }
 }

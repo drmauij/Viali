@@ -6,12 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, ExternalLink } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, RefreshCw, Trash2, ExternalLink, Bot } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: string | undefined; isAdmin: boolean }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
   const [slotDuration, setSlotDuration] = useState<string>("30");
   const [maxDays, setMaxDays] = useState<string>("90");
   const [minHours, setMinHours] = useState<string>("2");
@@ -71,6 +81,57 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const bookingUrl = tokenData?.bookingToken ? `${baseUrl}/book/${tokenData.bookingToken}` : null;
 
+  const agentPrompt = tokenData?.bookingToken
+    ? `Make our booking flow discoverable to AI agents (Claude, ChatGPT,
+naturaumana.ai, etc.) so they can book appointments on our behalf.
+
+Our booking is hosted on Viali at:
+  ${baseUrl}/book/${tokenData.bookingToken}
+
+Viali already exposes an agent-ready API. We just need to advertise it.
+Do these four things:
+
+1) Create /public/llms.txt with:
+   # Our Clinic — Agent Index
+   # Appointment booking is provided by Viali.
+
+   Booking docs:    ${baseUrl}/api.md
+   OpenAPI schema:  ${baseUrl}/api/openapi.json
+   Booking endpoint base:
+     ${baseUrl}/api/public/booking/${tokenData.bookingToken}/
+
+   Quick start:
+     1. GET  /services
+     2. GET  /providers/{id}/slots?date=YYYY-MM-DD
+     3. POST /book  (send Idempotency-Key header)
+
+2) In the HTML <head> of every page, add:
+   <link rel="alternate" type="application/json"
+         href="${baseUrl}/api/openapi.json"
+         title="Booking API (OpenAPI)">
+   <link rel="alternate" type="text/markdown"
+         href="${baseUrl}/api.md"
+         title="Booking API docs">
+
+3) In the site footer, add a small link:
+   <a href="${baseUrl}/api">API for agents</a>
+
+4) Make sure robots.txt does NOT block /llms.txt or GPTBot/ClaudeBot/
+   PerplexityBot/Google-Extended — we WANT agents to crawl this.
+
+Commit as: "feat: advertise Viali booking API for AI agents".
+`
+    : "";
+
+  const handleCopyPrompt = async () => {
+    if (!agentPrompt) return;
+    try {
+      await navigator.clipboard.writeText(agentPrompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
   const handleCopy = async () => {
     if (!bookingUrl) return;
     try {
@@ -126,6 +187,42 @@ export function BookingTokenSection({ hospitalId, isAdmin }: { hospitalId: strin
                 {deleteMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : <Trash2 className="h-4 w-4 mr-2" />}
                 Disable Link
               </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Bot className="h-4 w-4 mr-2" />
+                    {t("bookingTokenSection.shareWithAgents.button")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{t("bookingTokenSection.shareWithAgents.title")}</DialogTitle>
+                    <DialogDescription>
+                      {t("bookingTokenSection.shareWithAgents.description")}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <pre className="text-xs bg-muted p-3 rounded-md max-h-96 overflow-auto whitespace-pre-wrap">
+                    {agentPrompt}
+                  </pre>
+                  <DialogFooter className="gap-2 sm:gap-2">
+                    <a
+                      href={`${baseUrl}/api`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-muted-foreground underline self-center mr-auto"
+                    >
+                      {t("bookingTokenSection.shareWithAgents.learnMore")}
+                    </a>
+                    <Button onClick={handleCopyPrompt} size="sm">
+                      {promptCopied ? (
+                        <><Check className="h-4 w-4 mr-2" /> {t("bookingTokenSection.shareWithAgents.copied")}</>
+                      ) : (
+                        <><Copy className="h-4 w-4 mr-2" /> {t("bookingTokenSection.shareWithAgents.copy")}</>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Booking Settings — always visible */}
