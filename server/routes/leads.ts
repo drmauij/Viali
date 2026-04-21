@@ -3,6 +3,7 @@ import type { Response, NextFunction } from "express";
 import { db } from "../db";
 import { eq, and, desc, sql, lt } from "drizzle-orm";
 import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
+import { getLeadsStats } from "../services/leadsMetrics";
 import { mapLeadToReferralFields } from "@shared/leadToReferralMapping";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
@@ -953,6 +954,36 @@ router.get(
       return res.json({ count: Number(result.count) });
     } catch (err) {
       logger.error({ err }, "Error fetching leads count");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 6. Aggregated marketing stats for the Leads tab
+router.get(
+  "/api/business/:hospitalId/leads-stats",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const from = (req.query.from as string | undefined) || undefined;
+      const to = (req.query.to as string | undefined) || undefined;
+
+      const [hospital] = await db
+        .select({ timezone: hospitals.timezone })
+        .from(hospitals)
+        .where(eq(hospitals.id, hospitalId));
+
+      const stats = await getLeadsStats(hospitalId, {
+        from,
+        to,
+        timezone: hospital?.timezone ?? "UTC",
+      });
+
+      return res.json(stats);
+    } catch (err) {
+      logger.error({ err }, "Error computing leads stats");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
