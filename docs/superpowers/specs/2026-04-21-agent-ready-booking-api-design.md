@@ -262,9 +262,57 @@ To save each clinic's technical staff from having to write this prompt themselve
 
 Separate repo. The prompt now lives inside Viali (see above); each clinic's technical staff copies it from `/admin → Booking → Share with AI agents` and pastes it into their own website builder. No cross-repo coordination needed.
 
-## Phase 2 candidates (explicitly not in this plan)
+## Phase 2 — Patient Portal API for agents
 
-- MCP server endpoint — expose booking as a tool personal agents can add directly
-- Per-agent API keys — audit + differentiated rate limits
-- Magic-link auth flow for "my appointments" lookup
+Sketch, not a final design. Brainstormed with the spec to capture intent before it gets lost; will be re-brainstormed into its own spec when Phase 1 ships.
+
+**Ambition:** A personal agent (e.g. naturaumana.ai) that already books an appointment for a patient via Phase 1 can also read that patient's appointments, surgery details, pre-op questionnaires, post-op instructions, and discharge documents — all with the patient's explicit authorization.
+
+### 2a. Portal works without a scheduled surgery
+
+Today the portal experience is implicitly surgery-centric (investigate during Phase 2 planning — likely data-fetching in `PatientPortal.tsx` that 404s or renders empty when no `surgeryId` exists). Phase 2 makes the portal a standalone patient home:
+
+- Patient lands on portal → sees upcoming **appointments**, past **surgeries** (possibly empty), **documents**, **messages**
+- No surgery required for login or any read
+- "Book an appointment" CTA when no upcoming appointment exists — links to `/book/<token>`
+
+### 2b. Agent-accessible patient API
+
+**The auth problem:** OTP via email/SMS is not automatable by an agent — the agent doesn't have inbox access. Solution: the patient logs into the portal normally (OTP), then issues a **Personal Access Token** from a new settings screen. Scoped to that patient, revocable, optionally expires, stored hashed.
+
+**New endpoints** (authenticated via `Authorization: Bearer <patient-PAT>`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/patient/me` | Patient profile (masked PII: name, email, phone) |
+| GET | `/api/patient/me/appointments` | Upcoming + past appointments |
+| GET | `/api/patient/me/surgeries` | Scheduled / past surgeries with non-PHI metadata |
+| GET | `/api/patient/me/surgeries/:id` | Single surgery detail (consent status, pre-op checklist, date, surgeon) |
+| GET | `/api/patient/me/documents` | Discharge briefs, invoices, prescriptions — signed download URLs |
+| GET | `/api/patient/me/messages` | Clinic → patient messages (read-only for agents) |
+
+**UI additions:**
+
+- New settings tab in `PatientPortal.tsx` → **"Connected agents"**: list of active PATs, create/revoke, last-used timestamp, scope badges
+- First-time creation wizard: name the token ("Claude assistant", "My agent"), pick scopes (read appointments / surgeries / documents), pick expiry (30d / 90d / 1y / no expiry)
+
+**Discovery:**
+
+- Extend `PUBLIC_API_MD` with a `## Patient API` section
+- Extend `OPENAPI_SPEC` with all `/api/patient/me/*` paths + `bearerAuth` security scheme
+- `/llms.txt` gains pointers to both booking and patient APIs
+
+**Explicitly deferred to Phase 3 (or never):**
+- **Write** operations (update profile, upload docs) — agents should not mutate patient data without additional guardrails
+- **MCP server** — revisit once bearer-token flow proves demand
+- **Cancellation** — still blocked by CEO policy
+
+**Dependencies on Phase 1:** Phase 1 must ship first (error-code catalog, OpenAPI infra, idempotency patterns all reused). No blocking tech debt; Phase 2 is additive.
+
+**Rough effort (sequencing only, not a commitment):** ~2 weeks of focused work. Patient-PAT table + auth middleware ≈ 2 days; 6 endpoints ≈ 4 days; "Connected agents" UI ≈ 3 days; docs / OpenAPI / tests ≈ 3 days.
+
+## Other Phase 2+ candidates (not scoped here)
+
+- MCP server endpoint — expose booking + patient API as tools personal agents add directly
+- Per-agent API keys for the **booking** side — audit + differentiated rate limits
 - Cancel / reschedule endpoints (blocked by CEO policy — revisit only if policy changes)
