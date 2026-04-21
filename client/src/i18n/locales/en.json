@@ -5559,7 +5559,44 @@
       "leadToSurgeryHelp": "Overall share of leads that ended up with a planned surgery",
       "matchedLeadsDetail": "Matched Leads Detail",
       "unmatched": "unmatched",
-      "matchedVia": "Match"
+      "matchedVia": "Match",
+      "title": "Leads",
+      "description": "Read-only overview of incoming leads with status and conversion.",
+      "empty": "No leads yet.",
+      "yes": "Yes",
+      "no": "No",
+      "col": {
+        "name": "Name",
+        "source": "Source",
+        "status": "Status",
+        "contacts": "Contacts",
+        "converted": "Converted",
+        "created": "Received"
+      },
+      "status": {
+        "new": "New",
+        "in_progress": "In Progress",
+        "converted": "Converted",
+        "closed": "Closed"
+      },
+      "stats": {
+        "totalLeads": "Total leads",
+        "inRange": "in range",
+        "conversionRate": "Conversion rate",
+        "avgDaysToConversion": "Avg days to conversion",
+        "leadToAppointment": "lead → appointment",
+        "error": "Could not load lead statistics."
+      },
+      "charts": {
+        "bySource": "Leads by source",
+        "overTime": "Leads over time"
+      },
+      "filter": {
+        "all": "All"
+      },
+      "export": {
+        "csv": "Export CSV"
+      }
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

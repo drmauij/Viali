@@ -5673,7 +5673,6 @@
       "matchedVia": "Abgleich",
       "title": "Leads",
       "description": "Schreibgeschützte Übersicht eingehender Leads mit Status und Konversion.",
-      "totalShown": "insgesamt angezeigt (max. 50)",
       "empty": "Noch keine Leads vorhanden.",
       "yes": "Ja",
       "no": "Nein",
@@ -5690,6 +5689,24 @@
         "in_progress": "In Bearbeitung",
         "converted": "Konvertiert",
         "closed": "Geschlossen"
+      },
+      "stats": {
+        "totalLeads": "Leads insgesamt",
+        "inRange": "im Zeitraum",
+        "conversionRate": "Konversionsrate",
+        "avgDaysToConversion": "Ø Tage bis zur Konversion",
+        "leadToAppointment": "Lead → Termin",
+        "error": "Lead-Statistik konnte nicht geladen werden."
+      },
+      "charts": {
+        "bySource": "Leads nach Quelle",
+        "overTime": "Leads im Zeitverlauf"
+      },
+      "filter": {
+        "all": "Alle"
+      },
+      "export": {
+        "csv": "CSV exportieren"
       }
     },
     "surgeryTypes": {
