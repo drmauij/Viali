@@ -430,7 +430,8 @@ export default function AppointmentsWeekView({
                               key={item.key}
                               className={cn(
                                 "border-l-4 px-1.5 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md overflow-hidden",
-                                getStatusClass(item.appt!.status)
+                                getStatusClass(item.appt!.status),
+                                item.appt!.isVideoAppointment && "!border-l-indigo-500 dark:!border-l-indigo-400"
                               )}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -440,7 +441,7 @@ export default function AppointmentsWeekView({
                               data-testid={`appointment-event-${item.appt!.id}`}
                             >
                               <div className="font-semibold truncate flex items-center gap-1">
-                                {item.appt!.isVideoAppointment && <Video className="w-3 h-3 flex-shrink-0" />}
+                                {item.appt!.isVideoAppointment && <Video className="w-4 h-4 flex-shrink-0 text-indigo-600 dark:text-indigo-300" />}
                                 {item.appt!.startTime} {getPatientName(item.appt!)}
                               </div>
                               {item.appt!.service?.name && (

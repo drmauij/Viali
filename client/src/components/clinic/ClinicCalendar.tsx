@@ -1206,7 +1206,7 @@ export default function ClinicCalendar({
     
     const colors = STATUS_COLORS[event.status] || STATUS_COLORS.scheduled;
     const isCancelled = event.status === 'cancelled';
-    
+
     const style: any = {
       backgroundColor: colors.bg,
       borderColor: colors.border,
@@ -1217,7 +1217,12 @@ export default function ClinicCalendar({
       display: 'block',
       textDecoration: isCancelled ? 'line-through' : 'none',
     };
-    
+
+    if (event.isVideoAppointment) {
+      style.borderLeft = '4px solid #6366f1';
+      style.paddingLeft = '2px';
+    }
+
     return { style };
   }, []);
 
@@ -1277,7 +1282,7 @@ export default function ClinicCalendar({
     return (
       <div className="flex flex-col h-full p-1 overflow-hidden" data-testid={`appointment-event-${event.appointmentId}`}>
         <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''} flex items-center gap-1`}>
-          {event.isVideoAppointment && <Video className="w-3 h-3 flex-shrink-0" />}
+          {event.isVideoAppointment && <Video className="w-4 h-4 flex-shrink-0 text-indigo-200" />}
           <span className="truncate flex-1">{event.serviceName || t('appointments.appointment', 'Appointment')}</span>
           <span className="text-[9px] font-medium bg-white/20 rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
             {statusShort[event.status] || event.status}

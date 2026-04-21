@@ -3487,7 +3487,16 @@ export async function generateAnesthesiaRecordPDF(data: ExportData) {
         doc.setFont("helvetica", "normal");
 
         Object.entries(countsSterileData.sutures).forEach(([type, size]) => {
-          doc.text(`• ${type}: ${size}`, 30, yPos);
+          if (size && typeof size === 'object') {
+            const name = (size as any).name?.trim();
+            const sizes = (size as any).sizes?.trim();
+            if (!name && !sizes) return;
+            doc.text(`• ${name || '—'}: ${sizes || ''}`, 30, yPos);
+          } else if (typeof size === 'string' && size.trim()) {
+            doc.text(`• ${type}: ${size}`, 30, yPos);
+          } else {
+            return;
+          }
           yPos += 4.5;
         });
         yPos += 3;

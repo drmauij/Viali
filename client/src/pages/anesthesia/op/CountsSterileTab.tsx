@@ -24,7 +24,7 @@ import {
 interface CountsSterileData {
   surgicalCounts?: Array<{ id: string; name: string; count1?: number | null; count2?: number | null; countFinal?: number | null }>;
   sterileItems?: Array<{ id: string; name: string; lotNumber?: string; quantity: number }>;
-  sutures?: Record<string, string>;
+  sutures?: Record<string, string | { name?: string; sizes?: string } | undefined>;
   stickerDocs?: Array<{ id: string; type: 'photo' | 'pdf'; data?: string | null; storageKey?: string | null; filename?: string; mimeType?: string; size?: number | null; createdAt?: number; createdBy?: string }>;
   signatures?: { instrumenteur?: string; circulating?: string };
 }
@@ -546,8 +546,9 @@ export function CountsSterileTab({ surgeryId, anesthesiaRecordId, anesthesiaReco
                 </tr>
               </thead>
               <tbody>
-                {["Vicryl", "V-Lock", "Prolene", "Ethilon", "Monocryl", "Stratafix"].map((type) => {
+                {["Vicryl", "V-Lock", "Prolene", "Ethilon", "Monocryl", "PDS", "Stratafix"].map((type) => {
                   const key = type.toLowerCase().replace('-', '');
+                  const value = countsSterileData.sutures?.[key];
                   return (
                     <tr key={type} className="border-b">
                       <td className="py-2 px-3 font-medium">{type}</td>
@@ -555,7 +556,7 @@ export function CountsSterileTab({ surgeryId, anesthesiaRecordId, anesthesiaReco
                         <Input
                           placeholder={t('surgery.sterile.sizePlaceholder')}
                           data-testid={`input-suture-${type.toLowerCase()}`}
-                          value={countsSterileData.sutures?.[key] ?? ''}
+                          value={typeof value === 'string' ? value : ''}
                           onChange={(e) => {
                             const updated = {
                               ...countsSterileData,
@@ -572,6 +573,42 @@ export function CountsSterileTab({ surgeryId, anesthesiaRecordId, anesthesiaReco
                     </tr>
                   );
                 })}
+                {/* Custom free-text row: user-specified material + sizes */}
+                {(() => {
+                  const custom = countsSterileData.sutures?.customSuture;
+                  const customObj = custom && typeof custom === 'object' ? custom : { name: '', sizes: '' };
+                  const updateCustom = (next: { name: string; sizes: string }) => {
+                    const nextSutures = { ...countsSterileData.sutures };
+                    if (!next.name.trim() && !next.sizes.trim()) {
+                      delete nextSutures.customSuture;
+                    } else {
+                      nextSutures.customSuture = next;
+                    }
+                    return { ...countsSterileData, sutures: nextSutures };
+                  };
+                  return (
+                    <tr className="border-b">
+                      <td className="py-1 px-3">
+                        <Input
+                          placeholder={t('surgery.sterile.customSutureNamePlaceholder')}
+                          data-testid="input-suture-custom-name"
+                          value={customObj.name ?? ''}
+                          onChange={(e) => setCountsSterileData(updateCustom({ name: e.target.value, sizes: customObj.sizes ?? '' }))}
+                          onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                        />
+                      </td>
+                      <td className="py-1 px-3">
+                        <Input
+                          placeholder={t('surgery.sterile.sizePlaceholder')}
+                          data-testid="input-suture-custom-sizes"
+                          value={customObj.sizes ?? ''}
+                          onChange={(e) => setCountsSterileData(updateCustom({ name: customObj.name ?? '', sizes: e.target.value }))}
+                          onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

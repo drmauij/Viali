@@ -3206,7 +3206,16 @@ export const updateCountsSterileDataSchema = z.object({
     lotNumber: z.string().optional().nullable(),
     quantity: z.number().int().min(1),
   })).optional(),
-  sutures: z.record(z.string(), z.string()).optional(),
+  sutures: z.record(
+    z.string(),
+    z.union([
+      z.string(),
+      z.object({
+        name: z.string().optional(),
+        sizes: z.string().optional(),
+      }),
+    ]),
+  ).optional(),
   stickerDocs: z.array(z.object({
     id: z.string(),
     type: z.enum(['photo', 'pdf']),

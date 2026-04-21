@@ -4987,6 +4987,7 @@
       "sutureType": "Type",
       "sizes": "Sizes Used",
       "sizePlaceholder": "e.g., 4-0, 2-0 CT-1",
+      "customSutureNamePlaceholder": "Other suture material (e.g., Maxon)",
       "signatures": "Documentation Signatures",
       "itemName": "Item Name",
       "itemNamePlaceholder": "e.g., Suture set, Implant...",
