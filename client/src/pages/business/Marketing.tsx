@@ -193,7 +193,6 @@ function LeadsReadOnlyCard({
     queryKey: [listUrl],
     enabled: !!hospitalId,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
     queryFn: async () => {
       const res = await fetch(listUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load leads");
