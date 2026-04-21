@@ -25,6 +25,7 @@ import { verifyExecutionToken } from "../services/marketingExecutionToken";
 import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
+import { sendPublicApiError } from "../lib/publicApiErrors";
 // Cal.com integration is legacy — booking is now native via /book
 
 // Cal.com sync removed — booking is now handled natively via /book
@@ -276,6 +277,10 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
       return res.status(409).json({ message: 'Appointment cannot be cancelled', status: appointment.status });
     }
 
+    if (hospital.hidePatientCancel === true) {
+      return sendPublicApiError(res, "CANCELLATION_DISABLED");
+    }
+
     // Cancel the appointment
     const reason = req.body.reason || 'Cancelled by patient';
     await storage.updateClinicAppointment(appointment.id, {
@@ -363,7 +368,7 @@ router.get('/api/public/booking/:bookingToken', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const providers = await storage.getPublicBookableProvidersByHospital(hospital.id);
@@ -403,7 +408,7 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/available-da
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const { providerId } = req.params;
@@ -453,7 +458,7 @@ router.get('/api/public/booking/:bookingToken/closures', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -482,7 +487,7 @@ router.get('/api/public/booking/:bookingToken/best-provider', async (req, res) =
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const serviceCode = req.query.service as string | undefined;
@@ -554,7 +559,7 @@ router.get('/api/public/booking/:bookingToken/services', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
     const services = await storage.getPublicBookableServicesByHospital(hospital.id);
     res.json({ services });
@@ -569,7 +574,7 @@ router.get('/api/public/booking/:bookingToken/promo/:code', async (req: import("
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const { promoCodes } = await import("@shared/schema");
@@ -586,19 +591,19 @@ router.get('/api/public/booking/:bookingToken/promo/:code', async (req: import("
       .limit(1);
 
     if (rows.length === 0) {
-      return res.json({ valid: false });
+      return sendPublicApiError(res, "PROMO_INVALID");
     }
 
     const promo = rows[0];
 
     // Check expiry
     if (promo.validUntil && promo.validUntil < today) {
-      return res.json({ valid: false });
+      return sendPublicApiError(res, "PROMO_INVALID");
     }
 
     // Check max uses
     if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
-      return res.json({ valid: false });
+      return sendPublicApiError(res, "PROMO_INVALID");
     }
 
     return res.json({
@@ -625,7 +630,7 @@ router.get('/api/public/booking/:bookingToken/prefill', async (req, res) => {
     if (!fe) return res.status(400).json({ message: 'Missing fe token' });
 
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
-    if (!hospital) return res.status(404).json({ message: 'Booking page not found' });
+    if (!hospital) return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
 
     let executionId: string;
     try {
@@ -670,7 +675,7 @@ router.get('/api/public/booking/:bookingToken/providers/:providerId/slots', asyn
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const { providerId } = req.params;
@@ -766,17 +771,29 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
   try {
     const hospital = await storage.getHospitalByBookingToken(req.params.bookingToken);
     if (!hospital) {
-      return res.status(404).json({ message: 'Booking page not found' });
+      return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
     const parsed = bookingSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ message: 'Invalid booking data', errors: parsed.error.errors });
+      return sendPublicApiError(res, "INVALID_BOOKING_DATA", {
+        fieldErrors: parsed.error.errors.map((e) => ({
+          path: e.path.join("."),
+          message: e.message,
+        })),
+      });
+    }
+
+    if (
+      (hospital.noShowFeeMessage?.trim().length ?? 0) > 0 &&
+      parsed.data.noShowFeeAcknowledged !== true
+    ) {
+      return sendPublicApiError(res, "NOSHOW_FEE_ACK_REQUIRED");
     }
 
     // Require referral source when hospital has referral enabled and no auto-capture data
     if (hospital.enableReferralOnBooking && !parsed.data.utmSource && !parsed.data.refParam && !parsed.data.referralSource) {
-      return res.status(400).json({ message: "Referral source is required" });
+      return sendPublicApiError(res, "REFERRAL_REQUIRED");
     }
 
     // Decode A/B execution token if present — Phase 3.
@@ -806,7 +823,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       ));
 
     if (roles.length === 0) {
-      return res.status(404).json({ message: 'Provider not found' });
+      return sendPublicApiError(res, "PROVIDER_NOT_BOOKABLE");
     }
 
     let unitId = roles[0].unitId;
@@ -825,7 +842,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
     const availableSlots = await storage.getAvailableSlots(providerId, unitId, date, slotDuration, hospital.id);
     const slotAvailable = availableSlots.some(s => s.startTime === startTime && s.endTime === endTime);
     if (!slotAvailable) {
-      return res.status(409).json({ message: 'Dieser Termin ist leider nicht mehr verfügbar. Bitte wählen Sie einen anderen Zeitpunkt.', code: 'SLOT_TAKEN' });
+      return sendPublicApiError(res, "SLOT_TAKEN");
     }
 
     // Find or create patient
@@ -978,7 +995,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
     } catch (dbError: any) {
       // Unique index violation = double booking race condition
       if (dbError?.code === '23505' && dbError?.constraint?.includes('no_double_book')) {
-        return res.status(409).json({ message: 'Dieser Termin ist leider nicht mehr verfügbar. Bitte wählen Sie einen anderen Zeitpunkt.', code: 'SLOT_TAKEN' });
+        return sendPublicApiError(res, "SLOT_TAKEN");
       }
       throw dbError;
     }

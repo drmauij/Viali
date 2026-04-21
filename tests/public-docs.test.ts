@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
 import publicDocsRouter from "../server/routes/publicDocs";
+import clinicRouter from "../server/routes/clinic";
 
 function buildApp() {
   const app = express();
@@ -85,4 +86,46 @@ describe("/api.md", () => {
     expect(res.text).toContain("surgery_planned");
     expect(res.text).toContain("paid");
   });
+});
+
+// --- Error shape parity (new in agent-ready Phase 1) ---
+
+describe("/api/public/booking error shape", () => {
+  function buildBookingApp() {
+    const app = express();
+    app.use(express.json());
+    app.use(clinicRouter);
+    return app;
+  }
+
+  it("returns { code: 'HOSPITAL_NOT_FOUND', message } for an invalid booking token", async () => {
+    const res = await request(buildBookingApp()).get(
+      "/api/public/booking/does-not-exist-token",
+    );
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("HOSPITAL_NOT_FOUND");
+    expect(typeof res.body.message).toBe("string");
+    expect(res.body.message).toMatch(/not found/i);
+  });
+});
+
+describe("POST /book — NOSHOW_FEE_ACK_REQUIRED", () => {
+  it.todo(
+    "returns 400 NOSHOW_FEE_ACK_REQUIRED when hospital.noShowFeeMessage is set and payload omits noShowFeeAcknowledged",
+  );
+  it.todo(
+    "succeeds when noShowFeeAcknowledged = true",
+  );
+  it.todo(
+    "ignores noShowFeeAcknowledged when hospital.noShowFeeMessage is empty",
+  );
+});
+
+describe("POST /cancel-by-token — CANCELLATION_DISABLED", () => {
+  it.todo(
+    "returns 403 CANCELLATION_DISABLED when hospital.hidePatientCancel = true, even with a valid token",
+  );
+  it.todo(
+    "cancels normally when hospital.hidePatientCancel = false",
+  );
 });
