@@ -71,6 +71,11 @@ export const PUBLIC_API_ERROR_CODES = {
     status: 400,
     message: "A referral source is required for this hospital.",
   },
+  NOSHOW_FEE_ACK_REQUIRED: {
+    status: 400,
+    message:
+      "This clinic has a no-show-fee notice. The booking request must include noShowFeeAcknowledged: true after the notice has been shown to the patient.",
+  },
   PROVIDER_NOT_BOOKABLE: {
     status: 404,
     message: "The requested provider is not available for public booking.",
@@ -82,6 +87,11 @@ export const PUBLIC_API_ERROR_CODES = {
   PROMO_INVALID: {
     status: 404,
     message: "The promo code is unknown or expired.",
+  },
+  CANCELLATION_DISABLED: {
+    status: 403,
+    message:
+      "This clinic does not allow patient-initiated cancellation. Contact the clinic directly.",
   },
   RATE_LIMITED: {
     status: 429,
@@ -174,12 +184,14 @@ describe("sendPublicApiError", () => {
     ]);
   });
 
-  it("catalog contains all 8 documented codes", () => {
+  it("catalog contains all 10 documented codes", () => {
     expect(Object.keys(PUBLIC_API_ERROR_CODES).sort()).toEqual(
       [
+        "CANCELLATION_DISABLED",
         "HOSPITAL_NOT_FOUND",
         "IDEMPOTENCY_CONFLICT",
         "INVALID_BOOKING_DATA",
+        "NOSHOW_FEE_ACK_REQUIRED",
         "PROMO_INVALID",
         "PROVIDER_NOT_BOOKABLE",
         "RATE_LIMITED",
@@ -249,6 +261,31 @@ describe("/api/public/booking error shape", () => {
     expect(typeof res.body.message).toBe("string");
     expect(res.body.message).toMatch(/not found/i);
   });
+});
+```
+
+Also add tests for the two new enforcement branches. These require the same DB fixture as Task 7's idempotency tests — if a fixture exists, write them; if not, mark as `it.todo` and pick up later:
+
+```ts
+describe("POST /book — NOSHOW_FEE_ACK_REQUIRED", () => {
+  it.todo(
+    "returns 400 NOSHOW_FEE_ACK_REQUIRED when hospital.noShowFeeMessage is set and payload omits noShowFeeAcknowledged",
+  );
+  it.todo(
+    "succeeds when noShowFeeAcknowledged = true",
+  );
+  it.todo(
+    "ignores noShowFeeAcknowledged when hospital.noShowFeeMessage is empty",
+  );
+});
+
+describe("POST /cancel-by-token — CANCELLATION_DISABLED", () => {
+  it.todo(
+    "returns 403 CANCELLATION_DISABLED when hospital.hidePatientCancel = true, even with a valid token",
+  );
+  it.todo(
+    "cancels normally when hospital.hidePatientCancel = false",
+  );
 });
 ```
 
@@ -329,6 +366,35 @@ becomes:
 return sendPublicApiError(res, "SLOT_TAKEN");
 ```
 
+**New enforcement (no-show fee ack):** inside `POST /api/public/booking/:bookingToken/book`, after the `bookingSchema.safeParse` block but before the provider lookup, add:
+
+```ts
+if (
+  (hospital.noShowFeeMessage?.trim().length ?? 0) > 0 &&
+  parsed.data.noShowFeeAcknowledged !== true
+) {
+  return sendPublicApiError(res, "NOSHOW_FEE_ACK_REQUIRED");
+}
+```
+
+**New enforcement (cancel gating):** inside `POST /api/clinic/appointments/cancel-by-token` (around `clinic.ts:249–284`), after the `appointment.status` check and before the `updateClinicAppointment` call, add:
+
+```ts
+if (hospital.hidePatientCancel === true) {
+  return sendPublicApiError(res, "CANCELLATION_DISABLED");
+}
+```
+
+Also rewrite the three existing 404/410/409 responses in `cancel-by-token` and the matching three in `cancel-info/:token` (lines ~59–80 + ~249–276) to use the catalog:
+
+| Current | Becomes |
+|---|---|
+| `404 { message: 'Token not found' }` | invent `TOKEN_NOT_FOUND`? No — use `HOSPITAL_NOT_FOUND` for "we don't know this token" (closest existing code, keeps the catalog at 10) |
+| `410 { message: 'Token already used', alreadyUsed: true }` | **Leave as-is.** These 410s carry state-transition flags (`alreadyUsed`, `expired`) the frontend already handles. Changing their shape is a separate refactor — don't bundle it here. Scope this task to just adding `CANCELLATION_DISABLED` and documenting the endpoints with their existing error shape. |
+| `409 { message: 'Appointment cannot be cancelled', status }` | Same — leave as-is. |
+
+So the Task 3 edit to the cancel endpoints is: **only add the `hidePatientCancel` check and the 403 `CANCELLATION_DISABLED` branch.** Leave the existing 404/410/409 shapes. Document the three state-transition responses in the OpenAPI spec (Task 10) as-is with explicit response schemas.
+
 - [ ] **Step 4: Run the test, confirm it passes**
 
 Run: `npx vitest run tests/public-docs.test.ts`
@@ -407,19 +473,22 @@ In `server/index.ts`, near the other middleware (after `app.use(helmet(...))`, b
 ```ts
 import cors from "cors";
 
-app.use(
-  "/api/public/booking",
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Idempotency-Key"],
-    credentials: false,
-    maxAge: 600,
-  }),
-);
+const publicAgentCors = cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Idempotency-Key"],
+  credentials: false,
+  maxAge: 600,
+});
+
+app.use("/api/public/booking", publicAgentCors);
+// Cancellation endpoints live under /api/clinic/appointments/cancel-* and are
+// agent-callable with the patient's action token. They need the same CORS.
+app.use("/api/clinic/appointments/cancel-info", publicAgentCors);
+app.use("/api/clinic/appointments/cancel-by-token", publicAgentCors);
 ```
 
-Also add cache headers for read endpoints under the same path. Immediately after the CORS middleware:
+Also add cache headers for read endpoints. Immediately after the CORS middleware:
 
 ```ts
 app.use("/api/public/booking", (req, res, next) => {
@@ -427,6 +496,12 @@ app.use("/api/public/booking", (req, res, next) => {
   if (req.method === "GET") {
     res.setHeader("Cache-Control", "public, max-age=60");
   }
+  next();
+});
+app.use("/api/clinic/appointments/cancel-info", (_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "all");
+  // cancel-info is state-dependent (token may already be used) — no caching.
+  res.setHeader("Cache-Control", "no-store");
   next();
 });
 ```
@@ -939,9 +1014,11 @@ export const OPENAPI_SPEC = {
               "SLOT_TAKEN",
               "INVALID_BOOKING_DATA",
               "REFERRAL_REQUIRED",
+              "NOSHOW_FEE_ACK_REQUIRED",
               "PROVIDER_NOT_BOOKABLE",
               "HOSPITAL_NOT_FOUND",
               "PROMO_INVALID",
+              "CANCELLATION_DISABLED",
               "RATE_LIMITED",
               "IDEMPOTENCY_CONFLICT",
             ],
@@ -1086,6 +1163,103 @@ export const OPENAPI_SPEC = {
         "x-rateLimit": { window: "15m", max: 30, scope: "per-IP" },
       },
     },
+    "/api/clinic/appointments/cancel-info/{token}": {
+      get: {
+        summary: "Fetch appointment details for a cancellation token",
+        description:
+          "Given a single-use action token (delivered to the patient via email/SMS), returns the appointment details including noShowFeeMessage and hidePatientCancel. Agents MUST fetch this before posting to /cancel-by-token so they can surface the fee notice to the user.",
+        parameters: [
+          {
+            name: "token",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Appointment details",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    appointmentDate: { type: "string" },
+                    appointmentTime: { type: "string" },
+                    clinicName: { type: "string" },
+                    noShowFeeMessage: {
+                      type: ["string", "null"],
+                      description:
+                        "Non-empty when the clinic charges a no-show fee. Agents must show this to the user before cancellation.",
+                    },
+                    hidePatientCancel: {
+                      type: "boolean",
+                      description:
+                        "If true, cancel-by-token will return 403 CANCELLATION_DISABLED.",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Token not found",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          "410": {
+            description: "Token already used or expired",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string" },
+                    alreadyUsed: { type: "boolean" },
+                    expired: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/clinic/appointments/cancel-by-token": {
+      post: {
+        summary: "Cancel an appointment using a patient's action token",
+        description:
+          "Cancels a scheduled or confirmed appointment. The token is single-use and delivered to the patient via email or SMS. Returns 403 CANCELLATION_DISABLED when the hospital has hidePatientCancel = true.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["token"],
+                properties: {
+                  token: { type: "string" },
+                  reason: { type: "string", maxLength: 500 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Cancelled" },
+          "403": errorRef(),
+          "404": { description: "Token not found" },
+          "409": { description: "Appointment cannot be cancelled (bad status)" },
+          "410": { description: "Token already used or expired" },
+        },
+      },
+    },
   },
 };
 
@@ -1157,7 +1331,7 @@ describe("/api/openapi.json", () => {
     return app;
   }
 
-  it("returns valid OpenAPI 3.1 JSON with all 9 booking paths", async () => {
+  it("returns valid OpenAPI 3.1 JSON with all 11 documented paths", async () => {
     const res = await request(buildApp()).get("/api/openapi.json");
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/application\/json/);
@@ -1177,16 +1351,20 @@ describe("/api/openapi.json", () => {
     expect(paths).toContain("/api/public/booking/{token}/prefill");
     expect(paths).toContain("/api/public/booking/{token}/promo/{code}");
     expect(paths).toContain("/api/public/booking/{token}/book");
+    expect(paths).toContain("/api/clinic/appointments/cancel-info/{token}");
+    expect(paths).toContain("/api/clinic/appointments/cancel-by-token");
   });
 
-  it("declares all 8 error codes in the Error schema enum", async () => {
+  it("declares all 10 error codes in the Error schema enum", async () => {
     const res = await request(buildApp()).get("/api/openapi.json");
     const spec = JSON.parse(res.text);
     expect(spec.components.schemas.Error.properties.code.enum.sort()).toEqual(
       [
+        "CANCELLATION_DISABLED",
         "HOSPITAL_NOT_FOUND",
         "IDEMPOTENCY_CONFLICT",
         "INVALID_BOOKING_DATA",
+        "NOSHOW_FEE_ACK_REQUIRED",
         "PROMO_INVALID",
         "PROVIDER_NOT_BOOKABLE",
         "RATE_LIMITED",
@@ -1307,9 +1485,39 @@ is a safe default) to make the booking retriable:
   \`200\` and header \`X-Idempotent-Replay: true\`.
 - Same key + different body → returns \`409\` with \`code: "IDEMPOTENCY_CONFLICT"\`.
 
+### No-show fee acknowledgement
+
+If \`GET /api/public/booking/:token\` returns a non-null \`noShowFeeMessage\`,
+agents **must** surface that message to the user before booking and then
+include \`noShowFeeAcknowledged: true\` in the \`POST /book\` body. Omitting
+it returns \`400 NOSHOW_FEE_ACK_REQUIRED\`.
+
+### Cancelling an appointment
+
+Two endpoints, both under \`/api/clinic/appointments/\`. These accept the
+single-use action token delivered to the patient by email/SMS after
+booking. An agent with access to the patient's inbox has this token.
+
+\`\`\`bash
+# 1) Inspect the appointment + any fee notice BEFORE cancelling.
+curl https://<your-viali-host>/api/clinic/appointments/cancel-info/<TOKEN>
+
+# 2) Once the user has acknowledged any fee, cancel.
+curl -X POST https://<your-viali-host>/api/clinic/appointments/cancel-by-token \\
+  -H "Content-Type: application/json" \\
+  -d '{ "token": "<TOKEN>", "reason": "patient requested" }'
+\`\`\`
+
+Agents **must** fetch \`cancel-info\` first and relay \`noShowFeeMessage\` to the
+user — the clinic may charge a fee for late cancellations.
+
+If the clinic has \`hidePatientCancel\` set, \`cancel-by-token\` returns
+\`403 CANCELLATION_DISABLED\`. \`cancel-info\` returns \`hidePatientCancel: true\`
+in the body so agents can surface this before attempting the cancel.
+
 ### Error responses
 
-Every error response under \`/api/public/booking/*\` returns:
+Every error response under \`/api/public/booking/*\` and the \`/api/clinic/appointments/cancel-*\` endpoints returns:
 
 \`\`\`json
 { "code": "SLOT_TAKEN", "message": "The selected slot is no longer available." }
@@ -1322,11 +1530,15 @@ Stable codes:
 | \`SLOT_TAKEN\` | 409 | Slot was taken between availability query and book |
 | \`INVALID_BOOKING_DATA\` | 400 | Body failed schema validation; response also contains \`fieldErrors\` |
 | \`REFERRAL_REQUIRED\` | 400 | Hospital requires UTM / referral source |
+| \`NOSHOW_FEE_ACK_REQUIRED\` | 400 | Clinic has a no-show fee notice; \`noShowFeeAcknowledged: true\` missing from payload |
 | \`PROVIDER_NOT_BOOKABLE\` | 404 | Provider not public / not bookable |
 | \`HOSPITAL_NOT_FOUND\` | 404 | Booking token invalid or disabled |
 | \`PROMO_INVALID\` | 404 | Promo code unknown or expired |
+| \`CANCELLATION_DISABLED\` | 403 | Clinic has \`hidePatientCancel\` enabled |
 | \`RATE_LIMITED\` | 429 | Rate limiter tripped |
 | \`IDEMPOTENCY_CONFLICT\` | 409 | Same \`Idempotency-Key\` with a different body |
+
+Note: the cancellation endpoints also return a small set of non-catalog state-transition shapes (\`{ message, alreadyUsed: true }\` on 410, \`{ message, status }\` on 409) that predate the catalog and are kept for backwards compatibility with the existing SPA.
 
 ### Rate limits
 
@@ -1365,20 +1577,29 @@ describe("/api.md — Booking API (JSON) parity", () => {
     }
   });
 
-  it("documents all 8 error codes", async () => {
+  it("documents all 10 error codes", async () => {
     const res = await request(buildApp()).get("/api.md");
     for (const code of [
       "SLOT_TAKEN",
       "INVALID_BOOKING_DATA",
       "REFERRAL_REQUIRED",
+      "NOSHOW_FEE_ACK_REQUIRED",
       "PROVIDER_NOT_BOOKABLE",
       "HOSPITAL_NOT_FOUND",
       "PROMO_INVALID",
+      "CANCELLATION_DISABLED",
       "RATE_LIMITED",
       "IDEMPOTENCY_CONFLICT",
     ]) {
       expect(res.text).toContain(code);
     }
+  });
+
+  it("documents cancel-info + cancel-by-token endpoints", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    expect(res.text).toContain("/api/clinic/appointments/cancel-info/");
+    expect(res.text).toContain("/api/clinic/appointments/cancel-by-token");
+    expect(res.text).toMatch(/no-show/i);
   });
 
   it("mentions Idempotency-Key header", async () => {
@@ -1886,6 +2107,58 @@ export const MCP_SERVER_CARD = {
         },
       },
     },
+    {
+      name: "get_cancel_info",
+      title: "Get cancellation info for an appointment",
+      description:
+        "Fetch an appointment's details using the single-use action token the patient received via email/SMS. Returns noShowFeeMessage and hidePatientCancel flags. Agents MUST call this before cancel_appointment and relay any no-show fee notice to the user.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          actionToken: {
+            type: "string",
+            description:
+              "The appointment action token from the patient's cancel link (email/SMS).",
+          },
+        },
+        required: ["actionToken"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/clinic/appointments/cancel-info/{actionToken}",
+        },
+      },
+    },
+    {
+      name: "cancel_appointment",
+      title: "Cancel an appointment",
+      description:
+        "Cancel a scheduled or confirmed appointment using the patient's single-use action token. IMPORTANT: call get_cancel_info first — when noShowFeeMessage is present, show it to the user and obtain explicit confirmation before cancelling. Returns 403 CANCELLATION_DISABLED if the clinic has hidePatientCancel enabled.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          actionToken: { type: "string" },
+          reason: {
+            type: "string",
+            maxLength: 500,
+            description:
+              "Optional. Free-form cancellation reason — appears in the clinic's alert email.",
+          },
+        },
+        required: ["actionToken"],
+      },
+      _meta: {
+        http: {
+          method: "POST",
+          path: "/api/clinic/appointments/cancel-by-token",
+          bodyShape: {
+            token: "{actionToken}",
+            reason: "{reason}",
+          },
+        },
+      },
+    },
   ],
 } as const;
 
@@ -1943,14 +2216,16 @@ describe("/.well-known/mcp* MCP Server Card", () => {
     expect(card.tools.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("advertises the 7 agent-facing tools", async () => {
+  it("advertises the 9 agent-facing tools", async () => {
     const res = await request(buildApp()).get("/.well-known/mcp.json");
     const card = JSON.parse(res.text);
     const names = card.tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual(
       [
         "book_appointment",
+        "cancel_appointment",
         "get_best_provider",
+        "get_cancel_info",
         "list_available_dates",
         "list_providers",
         "list_services",
@@ -1960,13 +2235,25 @@ describe("/.well-known/mcp* MCP Server Card", () => {
     );
   });
 
-  it("every tool has an HTTP binding that matches a real route", async () => {
+  it("every tool has an HTTP binding that maps to /api/public/booking or /api/clinic/appointments", async () => {
     const res = await request(buildApp()).get("/.well-known/mcp.json");
     const card = JSON.parse(res.text);
     for (const tool of card.tools) {
       expect(tool._meta?.http?.method).toMatch(/^(GET|POST)$/);
-      expect(tool._meta.http.path).toMatch(/^\/api\/public\/booking\//);
+      expect(tool._meta.http.path).toMatch(
+        /^\/api\/(public\/booking|clinic\/appointments)\//,
+      );
     }
+  });
+
+  it("cancel_appointment description warns agents to call get_cancel_info first", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    const cancelTool = card.tools.find(
+      (t: { name: string }) => t.name === "cancel_appointment",
+    );
+    expect(cancelTool.description).toMatch(/get_cancel_info/);
+    expect(cancelTool.description).toMatch(/no-show/i);
   });
 
   it("declares authentication.type = 'none'", async () => {
@@ -2044,7 +2331,15 @@ Expected: all tests pass.
 Run: `git status`
 Expected: working tree clean.
 
-Print a ready-to-deploy summary to the user before they push.
+- [ ] **Step 4: Surface behavior changes to the user before deploy**
+
+Print these two notes so they don't surprise a clinic post-deploy:
+
+1. **`POST /book` now enforces `noShowFeeAcknowledged`** at any clinic with a non-empty `noShowFeeMessage`. Previously the SPA was the only enforcement. Any external booking integrations that skip the field against a fee-charging clinic will start getting `400 NOSHOW_FEE_ACK_REQUIRED`.
+
+2. **`POST /cancel-by-token` now enforces `hidePatientCancel`** at the backend. Today the toggle is UI-only. After this ships, patients at a CEO-style clinic who crafted a direct API call to the cancel endpoint (rare but possible) will get `403 CANCELLATION_DISABLED`. This is the intended behavior — the toggle finally matches what it advertises.
+
+Confirm the user is aware of both before they push.
 
 ---
 
@@ -2065,9 +2360,10 @@ Print a ready-to-deploy summary to the user before they push.
 - [x] **Type consistency** — error codes spelled identically across Tasks 1, 3, 9, 10, 11. Function names (`sendPublicApiError`, `hashBookingRequest`, `findIdempotencyRecord`, `recordIdempotencyKey`, `cleanupExpiredIdempotencyKeys`) used consistently. i18n keys use the nested `bookingTokenSection.shareWithAgents.*` path in all three places they appear.
 - [x] **Scope** — all tasks are in the Viali repo. Clinic-website is out of scope (the prompt for it lives inside the admin dialog; no separate work).
 
-## Spec corrections
+## Spec corrections applied during planning
 
-One thing the spec got wrong: it said "i18n keys in 5 locale JSONs" based on an assumption. The project actually has 2 locales (DE + EN) — this plan uses those two. The spec should be updated to match in a follow-up commit.
+- Spec originally said "i18n keys in 5 locale JSONs"; project actually has 2 (DE + EN). Spec updated.
+- Spec originally listed cancel/reschedule as "blocked by CEO policy." Reality: it's per-hospital via `hospitals.hidePatientCancel`. Spec updated; cancellation is now in Phase 1 scope with two documented endpoints + two new error codes (`NOSHOW_FEE_ACK_REQUIRED`, `CANCELLATION_DISABLED`) + backend enforcement of two gaps that were UI-only.
 
 ## Handoff
 

@@ -28,11 +28,13 @@ The goal is to make that surface agent-ready so that:
 
 ## Non-goals
 
-- **Cancel / reschedule endpoints** — CEO has explicitly said patient-initiated cancellation should stay friction-heavy. Cancellation continues to flow through the existing email action-token path.
+- **Reschedule endpoint** — cancel + rebook covers it; dedicated reschedule can revisit later if demanded.
 - **"My appointments" lookup** — lookup by patient email alone is a PHI/auth footgun; would need a magic-link design pass.
-- **MCP server** — revisit in Phase 2 once OpenAPI adoption proves the surface.
+- **Running MCP JSON-RPC server** — Phase 1 ships a static `/.well-known/mcp.json` discovery card; live server is Phase 2.
 - **Per-agent API keys** — would defeat the "personal agent" use case; the hospital booking token remains the only auth.
-- **Clinic-website edits** — a separate repo; covered by a short hand-off prompt, not this plan.
+- **Clinic-website edits** — a separate repo; the prompt now lives inside Viali (admin UI dialog).
+
+**Cancellation correction:** an earlier draft listed cancel/reschedule as blocked by CEO policy. That was wrong. Cancellation is gated per-hospital by `hospitals.hidePatientCancel` (default `false`), and the existing token-based endpoints already work. Phase 1 documents them and closes the backend-enforcement gap.
 
 ## Architecture
 
@@ -61,7 +63,7 @@ server/routes/publicOpenApi.ts  (NEW)
 
 ## Endpoints
 
-All under `/api/public/booking/:bookingToken` — already implemented in `server/routes/clinic.ts`:
+**Booking (under `/api/public/booking/:bookingToken`):**
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -75,7 +77,19 @@ All under `/api/public/booking/:bookingToken` — already implemented in `server
 | GET | `/promo/:code` | Validate discount code |
 | POST | `/book` | Create appointment *(idempotent via `Idempotency-Key`)* |
 
-No endpoints are added or removed. `POST /book` gains `Idempotency-Key` handling.
+**Cancellation (under `/api/clinic/appointments`):**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/cancel-info/:token` | Appointment details + `noShowFeeMessage` + `hidePatientCancel` |
+| POST | `/cancel-by-token` | Cancel (body: `{ token, reason? }`) |
+
+Tokens are single-use, expire, and are delivered to patients via email/SMS. Agents with inbox access already have the token. Phase 1 does **not** add new cancellation endpoints — it documents the two that exist, gives them CORS + the unified error shape, and closes the two enforcement gaps listed below.
+
+No endpoints are added or removed. `POST /book` gains `Idempotency-Key` handling. Enforcement gaps to close:
+
+- **Backend-enforce `noShowFeeAcknowledged` on `POST /book`** — today the field is stored but not required. When `hospital.noShowFeeMessage` is non-empty and the payload lacks `noShowFeeAcknowledged === true`, return 400 `NOSHOW_FEE_ACK_REQUIRED`.
+- **Backend-enforce `hidePatientCancel` on `POST /cancel-by-token`** — today the toggle is UI-only. When `hospital.hidePatientCancel === true`, return 403 `CANCELLATION_DISABLED`. **Behavior change:** after this ships, CEO-style clinics will actually block cancellation via the direct endpoint — not just via the UI.
 
 ## Error contract
 
@@ -94,11 +108,15 @@ Today error responses are inconsistent — some return `{ message: "…" }` in G
 | `SLOT_TAKEN` | 409 | Slot was taken between availability query and book |
 | `INVALID_BOOKING_DATA` | 400 | Payload failed schema validation (includes `fieldErrors` array) |
 | `REFERRAL_REQUIRED` | 400 | Hospital requires UTM / referral source |
+| `NOSHOW_FEE_ACK_REQUIRED` | 400 | Hospital has `noShowFeeMessage` set; payload must include `noShowFeeAcknowledged: true` |
 | `PROVIDER_NOT_BOOKABLE` | 404 | Provider not public / not bookable |
 | `HOSPITAL_NOT_FOUND` | 404 | Booking token invalid or disabled |
 | `PROMO_INVALID` | 404 | Promo code unknown or expired |
+| `CANCELLATION_DISABLED` | 403 | Hospital has `hidePatientCancel = true`; cancellation via public endpoint is refused |
 | `RATE_LIMITED` | 429 | Rate limiter tripped |
 | `IDEMPOTENCY_CONFLICT` | 409 | Same `Idempotency-Key`, different request body |
+
+Ten codes total (eight original + two new for acknowledgement + cancel gating).
 
 Existing German message strings (e.g. `server/routes/clinic.ts:828`) become English server-side defaults. The SPA already translates by `code` where it matters — we keep that pattern, just swap the default message language.
 
@@ -315,7 +333,7 @@ Both flows converge on `Authorization: Bearer <token>` → `/api/patient/me/*`. 
 **Explicitly deferred to Phase 3 (or never):**
 - **Write** operations (update profile, upload docs) — agents should not mutate patient data without additional guardrails
 - **MCP server** — revisit once bearer-token flow proves demand
-- **Cancellation** — still blocked by CEO policy
+- **Cancellation write ops** — read + cancel via token is covered in Phase 1; Phase 2 decision is whether to expose cancellation as a patient-PAT-scoped operation on `/api/patient/me/*` (convenient, but skippable since token flow already works)
 
 **Dependencies on Phase 1:** Phase 1 must ship first (error-code catalog, OpenAPI infra, idempotency patterns all reused). No blocking tech debt; Phase 2 is additive.
 
@@ -326,4 +344,4 @@ Both flows converge on `Authorization: Bearer <token>` → `/api/patient/me/*`. 
 - Full MCP JSON-RPC server endpoint — running MCP server (not just a static card) so personal agents can add booking + patient API as live tools directly. Static card ships in Phase 1 as the discovery stub.
 - Proper OAuth / OIDC on the Patient Portal API — wrap PATs + OTP in OAuth semantics and serve real `/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`. Only honest once the patient API exists.
 - Per-agent API keys for the **booking** side — audit + differentiated rate limits
-- Cancel / reschedule endpoints (blocked by CEO policy — revisit only if policy changes)
+- Dedicated reschedule endpoint (cancel + rebook already covers it)
