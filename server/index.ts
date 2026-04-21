@@ -16,6 +16,7 @@ import { storage } from "./storage";
 import { startWorker } from "./worker";
 import { backfillChecklistTemplateAssignments } from "./storage/checklists";
 import { cleanupExpiredPortalData } from "./storage/portalOtp";
+import { cleanupExpiredIdempotencyKeys } from "./storage/bookingIdempotency";
 import logger from "./logger";
 
 // Initialize Sentry for backend error monitoring
@@ -317,6 +318,13 @@ app.use((req, res, next) => {
           logger.error("[PortalOTP] Cleanup failed:", err),
         );
       }, 60 * 60 * 1000);
+
+      // Clean up expired booking idempotency keys every 6 hours
+      setInterval(() => {
+        cleanupExpiredIdempotencyKeys().catch((err) =>
+          logger.error("[booking-idempotency] cleanup failed", err),
+        );
+      }, 6 * 60 * 60 * 1000);
     });
 
     // Handle server errors
