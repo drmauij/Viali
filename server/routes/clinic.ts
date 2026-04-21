@@ -278,12 +278,12 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
       return res.status(404).json({ message: 'Appointment not found' });
     }
 
-    if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
-      return res.status(409).json({ message: 'Appointment cannot be cancelled', status: appointment.status });
-    }
-
     if (hospital.hidePatientCancel === true) {
       return sendPublicApiError(res, "CANCELLATION_DISABLED");
+    }
+
+    if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
+      return res.status(409).json({ message: 'Appointment cannot be cancelled', status: appointment.status });
     }
 
     // Cancel the appointment
@@ -796,11 +796,11 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         const replay = await storage.getClinicAppointment(
           existing.appointmentId,
         );
-        if (replay) {
+        if (replay && (replay.status === "scheduled" || replay.status === "confirmed")) {
           res.setHeader("X-Idempotent-Replay", "true");
           return res.status(200).json({ success: true, appointmentId: replay.id });
         }
-        // Record exists but appointment was deleted — fall through and recreate.
+        // Record exists but appointment was cancelled, completed, or deleted — fall through and recreate.
       }
     }
 
@@ -1000,7 +1000,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             const replayAppt = await storage.getClinicAppointment(
               existing.appointmentId,
             );
-            if (replayAppt) {
+            if (replayAppt && (replayAppt.status === "scheduled" || replayAppt.status === "confirmed")) {
               res.setHeader("X-Idempotent-Replay", "true");
               return res.status(200).json({ success: true, appointmentId: replayAppt.id });
             }
@@ -1049,7 +1049,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         }
       })();
 
-      res.json({ success: true, appointmentId: appointment.id });
+      res.status(201).json({ success: true, appointmentId: appointment.id });
     } catch (dbError: any) {
       // Unique index violation = double booking race condition
       if (dbError?.code === '23505' && dbError?.constraint?.includes('no_double_book')) {

@@ -127,24 +127,12 @@ describe("/api/public/booking error shape", () => {
   });
 });
 
-describe("POST /book — NOSHOW_FEE_ACK_REQUIRED", () => {
-  it.todo(
-    "returns 400 NOSHOW_FEE_ACK_REQUIRED when hospital.noShowFeeMessage is set and payload omits noShowFeeAcknowledged",
-  );
-  it.todo(
-    "succeeds when noShowFeeAcknowledged = true",
-  );
-  it.todo(
-    "ignores noShowFeeAcknowledged when hospital.noShowFeeMessage is empty",
-  );
-});
+// NOSHOW_FEE_ACK_REQUIRED and CANCELLATION_DISABLED branches are tested
+// in tests/bookingEnforcement.test.ts via mock-storage (no DB required).
 
-describe("POST /cancel-by-token — CANCELLATION_DISABLED", () => {
+describe("POST /api/public/booking/:token/book — idempotency status codes", () => {
   it.todo(
-    "returns 403 CANCELLATION_DISABLED when hospital.hidePatientCancel = true, even with a valid token",
-  );
-  it.todo(
-    "cancels normally when hospital.hidePatientCancel = false",
+    "returns 201 on new appointment creation (requires DB fixture)",
   );
 });
 
