@@ -48,6 +48,12 @@ export const PUBLIC_API_ERROR_CODES = {
 
 export type PublicApiErrorCode = keyof typeof PUBLIC_API_ERROR_CODES;
 
+/**
+ * Write a catalog error to the Express response.
+ * @param extra Optional additional fields merged into the JSON body
+ *   (e.g. `fieldErrors` on INVALID_BOOKING_DATA). `code` and `message`
+ *   always win over anything in `extra` to keep the public contract stable.
+ */
 export function sendPublicApiError(
   res: Response,
   code: PublicApiErrorCode,
@@ -55,8 +61,8 @@ export function sendPublicApiError(
 ) {
   const entry = PUBLIC_API_ERROR_CODES[code];
   return res.status(entry.status).json({
+    ...(extra ?? {}),
     code,
     message: entry.message,
-    ...(extra ?? {}),
   });
 }
