@@ -1669,7 +1669,357 @@ git commit -m "feat(admin): Share with AI agents dialog in BookingTokenSection"
 
 ---
 
-## Task 14: Pre-deploy check (migration idempotency)
+## Task 14: Static MCP Server Card at `/.well-known/mcp*`
+
+**Why:** The MCP ecosystem (Model Context Protocol, Anthropic) is standardizing on `/.well-known/mcp.json` as a static discovery manifest that advertises server capabilities + tools *before* a client opens a full MCP connection. A static card doesn't require running an MCP JSON-RPC server — it's metadata pointing at our existing HTTP API. Scorer `isitagentready.com` probes three paths: `/.well-known/mcp.json`, `/.well-known/mcp/server-card.json`, `/.well-known/mcp/server-cards.json`. We serve the same content at all three.
+
+**Files:**
+- Create: `server/routes/publicMcpCard.ts`
+- Modify: `server/routes/index.ts`
+- Modify: `tests/public-docs.test.ts`
+
+- [ ] **Step 1: Author the card**
+
+Create `server/routes/publicMcpCard.ts`:
+
+```ts
+import { Router, type Request, type Response } from "express";
+
+export const MCP_SERVER_CARD = {
+  $schema: "https://modelcontextprotocol.io/schema/server-card/draft",
+  name: "viali-booking",
+  title: "Viali Booking",
+  version: "1.0.0",
+  description:
+    "Appointment booking for a Viali-powered clinic. Agents can list services, find available slots, and create appointments on behalf of patients.",
+  vendor: {
+    name: "Viali",
+    url: "https://use.viali.app",
+  },
+  documentation: {
+    openapi: "/api/openapi.json",
+    markdown: "/api.md",
+    human: "/api",
+  },
+  capabilities: {
+    tools: { listChanged: false },
+  },
+  authentication: {
+    type: "none",
+    note:
+      "The hospital's booking token is part of every endpoint URL; no bearer token, API key, or OAuth flow is required.",
+  },
+  tools: [
+    {
+      name: "list_services",
+      title: "List services",
+      description:
+        "List all services bookable at this clinic (e.g. consultations, procedures). Returns codes, names, durations, and optional service groups.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: {
+            type: "string",
+            description:
+              "The clinic's public booking token (from the /book/<token> URL).",
+          },
+        },
+        required: ["token"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/public/booking/{token}/services",
+        },
+      },
+    },
+    {
+      name: "list_providers",
+      title: "List bookable providers",
+      description:
+        "List all providers (doctors, surgeons, practitioners) who accept public bookings at this clinic.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string", description: "Hospital booking token." },
+        },
+        required: ["token"],
+      },
+      _meta: {
+        http: { method: "GET", path: "/api/public/booking/{token}" },
+      },
+    },
+    {
+      name: "list_available_dates",
+      title: "List available dates",
+      description:
+        "List dates in a range on which a provider has at least one bookable slot.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          providerId: {
+            type: "string",
+            format: "uuid",
+            description: "The provider's ID (from list_providers).",
+          },
+        },
+        required: ["token", "providerId"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/public/booking/{token}/providers/{providerId}/available-dates",
+        },
+      },
+    },
+    {
+      name: "list_slots",
+      title: "List time slots",
+      description:
+        "List the bookable time slots for a provider on a specific date.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          providerId: { type: "string", format: "uuid" },
+          date: {
+            type: "string",
+            pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+            description: "Date in YYYY-MM-DD format.",
+          },
+        },
+        required: ["token", "providerId", "date"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/public/booking/{token}/providers/{providerId}/slots",
+          queryParams: ["date"],
+        },
+      },
+    },
+    {
+      name: "get_best_provider",
+      title: "Find the next-available provider",
+      description:
+        "Given a service and a target date, find the provider with the nearest available slot.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          service: { type: "string", description: "Service code." },
+          date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        },
+        required: ["token", "service", "date"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/public/booking/{token}/best-provider",
+          queryParams: ["service", "date"],
+        },
+      },
+    },
+    {
+      name: "book_appointment",
+      title: "Book an appointment",
+      description:
+        "Create an appointment for a patient. Supports retries via the Idempotency-Key header: same key + same body within 24h returns the original appointment (status 200); same key + different body returns 409 IDEMPOTENCY_CONFLICT.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          providerId: { type: "string", format: "uuid" },
+          date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+          startTime: { type: "string", pattern: "^\\d{2}:\\d{2}$" },
+          endTime: { type: "string", pattern: "^\\d{2}:\\d{2}$" },
+          firstName: { type: "string", maxLength: 100 },
+          surname: { type: "string", maxLength: 100 },
+          email: { type: "string", format: "email", maxLength: 255 },
+          phone: { type: "string", maxLength: 30 },
+          notes: { type: "string", maxLength: 1000 },
+        },
+        required: [
+          "token",
+          "providerId",
+          "date",
+          "startTime",
+          "endTime",
+          "firstName",
+          "surname",
+          "email",
+          "phone",
+        ],
+      },
+      _meta: {
+        http: {
+          method: "POST",
+          path: "/api/public/booking/{token}/book",
+          headers: {
+            "Idempotency-Key": {
+              required: false,
+              description:
+                "Optional UUID-like string to make the booking safely retriable.",
+            },
+          },
+        },
+      },
+    },
+    {
+      name: "validate_promo",
+      title: "Validate a promo code",
+      description:
+        "Check whether a promo code is currently valid at this clinic and retrieve its discount metadata.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          token: { type: "string" },
+          code: { type: "string" },
+        },
+        required: ["token", "code"],
+      },
+      _meta: {
+        http: {
+          method: "GET",
+          path: "/api/public/booking/{token}/promo/{code}",
+        },
+      },
+    },
+  ],
+} as const;
+
+export function mcpCardHandler(_req: Request, res: Response) {
+  res
+    .type("application/json")
+    .setHeader("Cache-Control", "public, max-age=300")
+    .send(JSON.stringify(MCP_SERVER_CARD, null, 2));
+}
+
+const router = Router();
+// Serve the same content at all three well-known paths agents commonly probe.
+router.get("/.well-known/mcp.json", mcpCardHandler);
+router.get("/.well-known/mcp/server-card.json", mcpCardHandler);
+router.get("/.well-known/mcp/server-cards.json", mcpCardHandler);
+export default router;
+```
+
+- [ ] **Step 2: Register the router**
+
+In `server/routes/index.ts`, alongside `publicOpenApi`:
+
+```ts
+import publicMcpCard from "./publicMcpCard";
+// …
+app.use(publicMcpCard);
+```
+
+- [ ] **Step 3: Write the test**
+
+Append to `tests/public-docs.test.ts`:
+
+```ts
+import publicMcpCardRouter from "../server/routes/publicMcpCard";
+
+describe("/.well-known/mcp* MCP Server Card", () => {
+  function buildApp() {
+    const app = express();
+    app.use(publicMcpCardRouter);
+    return app;
+  }
+
+  it.each([
+    "/.well-known/mcp.json",
+    "/.well-known/mcp/server-card.json",
+    "/.well-known/mcp/server-cards.json",
+  ])("serves valid JSON at %s", async (path) => {
+    const res = await request(buildApp()).get(path);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    const card = JSON.parse(res.text);
+    expect(card.name).toBe("viali-booking");
+    expect(card.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(Array.isArray(card.tools)).toBe(true);
+    expect(card.tools.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("advertises the 7 agent-facing tools", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    const names = card.tools.map((t: { name: string }) => t.name).sort();
+    expect(names).toEqual(
+      [
+        "book_appointment",
+        "get_best_provider",
+        "list_available_dates",
+        "list_providers",
+        "list_services",
+        "list_slots",
+        "validate_promo",
+      ].sort(),
+    );
+  });
+
+  it("every tool has an HTTP binding that matches a real route", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    for (const tool of card.tools) {
+      expect(tool._meta?.http?.method).toMatch(/^(GET|POST)$/);
+      expect(tool._meta.http.path).toMatch(/^\/api\/public\/booking\//);
+    }
+  });
+
+  it("declares authentication.type = 'none'", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    expect(card.authentication.type).toBe("none");
+  });
+
+  it("points documentation at /api/openapi.json", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    expect(card.documentation.openapi).toBe("/api/openapi.json");
+  });
+});
+```
+
+- [ ] **Step 4: Run tests**
+
+Run: `npx vitest run tests/public-docs.test.ts -t "MCP"`
+Expected: all pass.
+
+- [ ] **Step 5: Update `LLMS_TXT` to advertise the card**
+
+In `server/routes/publicDocs.ts`, in the `LLMS_TXT` constant, inside the `## Docs` section, add one line:
+
+```
+- /.well-known/mcp.json — MCP Server Card (tool discovery for MCP-compatible agents)
+```
+
+And add an assertion in the existing `/llms.txt` test block in `tests/public-docs.test.ts`:
+
+```ts
+it("references the MCP Server Card", async () => {
+  const res = await request(buildApp()).get("/llms.txt");
+  expect(res.text).toContain("/.well-known/mcp.json");
+});
+```
+
+- [ ] **Step 6: Typecheck + full test**
+
+Run: `npm run check && npx vitest run tests/public-docs.test.ts`
+Expected: clean + all pass.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add server/routes/publicMcpCard.ts server/routes/index.ts server/routes/publicDocs.ts tests/public-docs.test.ts
+git commit -m "feat(api): static MCP Server Card at /.well-known/mcp{,/server-card{,s}}.json"
+```
+
+---
+
+## Task 15: Pre-deploy check (migration idempotency)
 
 **Files:** none (this task is a CLAUDE.md-mandated verification before push)
 
@@ -1709,7 +2059,8 @@ Print a ready-to-deploy summary to the user before they push.
   - Rollout 6 (PUBLIC_API_MD): Task 11
   - Rollout 7 (/llms.txt): Task 12
   - Rollout 8 (Admin UI dialog): Task 13
-  - Rollout 9 (extended tests): distributed across all preceding tasks + Task 14 for final sweep
+  - Rollout 9 (extended tests): distributed across all preceding tasks + Task 15 for final sweep
+  - **Added post-spec: MCP Server Card (Task 14)** — `/.well-known/mcp.json` static discovery manifest, triggered by an isitagentready.com audit of privatklinik-kreuzlingen.ch flagging this path as missing
 - [x] **Placeholder scan** — no `TBD`, no `handle edge cases`, no `similar to Task N`. One `it.todo` exists in Task 7 but it's a *documented* contract backfill, not a placeholder.
 - [x] **Type consistency** — error codes spelled identically across Tasks 1, 3, 9, 10, 11. Function names (`sendPublicApiError`, `hashBookingRequest`, `findIdempotencyRecord`, `recordIdempotencyKey`, `cleanupExpiredIdempotencyKeys`) used consistently. i18n keys use the nested `bookingTokenSection.shareWithAgents.*` path in all three places they appear.
 - [x] **Scope** — all tasks are in the Viali repo. Clinic-website is out of scope (the prompt for it lives inside the admin dialog; no separate work).

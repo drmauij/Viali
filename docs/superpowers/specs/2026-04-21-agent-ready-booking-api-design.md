@@ -188,7 +188,12 @@ Every 429 returns `{ code: "RATE_LIMITED", message: "…" }` via a custom handle
 - `Cache-Control: public, max-age=60` on read endpoints (keeps polling agents from hammering)
 - CORS headers via the middleware above
 
-**Deliberately NOT adding:** `/.well-known/ai-plugin.json` (ChatGPT-plugin spec is effectively deprecated in 2026).
+**`/.well-known/mcp.json` (and aliases):** A static MCP Server Card. Not a running MCP JSON-RPC server — a JSON discovery manifest that advertises the booking tools (`list_services`, `list_slots`, `book_appointment`, etc.), points at `/api/openapi.json` as the binding source of truth, and declares `authentication.type = "none"`. Served identically at `/.well-known/mcp.json`, `/.well-known/mcp/server-card.json`, and `/.well-known/mcp/server-cards.json` (the three paths isitagentready.com probes). MCP-aware agents can discover this clinic without opening a connection. A full MCP JSON-RPC server remains a Phase 2 option.
+
+**Deliberately NOT adding:**
+- `/.well-known/ai-plugin.json` (ChatGPT-plugin spec is effectively deprecated in 2026).
+- `/.well-known/openid-configuration` or `/.well-known/oauth-authorization-server` — we have no OAuth flow. Advertising these would mislead agents into attempting a flow that doesn't exist. Becomes real in Phase 2 when patient Personal Access Tokens are wrapped in OAuth semantics.
+- `/.well-known/oauth-protected-resource` — only applies to APIs that return `401 WWW-Authenticate`. Our booking API is fully public.
 
 ## Testing
 
@@ -318,6 +323,7 @@ Both flows converge on `Authorization: Bearer <token>` → `/api/patient/me/*`. 
 
 ## Other Phase 2+ candidates (not scoped here)
 
-- MCP server endpoint — expose booking + patient API as tools personal agents add directly
+- Full MCP JSON-RPC server endpoint — running MCP server (not just a static card) so personal agents can add booking + patient API as live tools directly. Static card ships in Phase 1 as the discovery stub.
+- Proper OAuth / OIDC on the Patient Portal API — wrap PATs + OTP in OAuth semantics and serve real `/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`. Only honest once the patient API exists.
 - Per-agent API keys for the **booking** side — audit + differentiated rate limits
 - Cancel / reschedule endpoints (blocked by CEO policy — revisit only if policy changes)
