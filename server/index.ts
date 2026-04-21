@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import cors from "cors";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -54,6 +55,34 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
 }));
+
+const publicAgentCors = cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Idempotency-Key"],
+  credentials: false,
+  maxAge: 600,
+});
+
+app.use("/api/public/booking", publicAgentCors);
+// Cancellation endpoints live under /api/clinic/appointments/cancel-* and are
+// agent-callable with the patient's action token. They need the same CORS.
+app.use("/api/clinic/appointments/cancel-info", publicAgentCors);
+app.use("/api/clinic/appointments/cancel-by-token", publicAgentCors);
+
+app.use("/api/public/booking", (req, res, next) => {
+  res.setHeader("X-Robots-Tag", "all");
+  if (req.method === "GET") {
+    res.setHeader("Cache-Control", "public, max-age=60");
+  }
+  next();
+});
+app.use("/api/clinic/appointments/cancel-info", (_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "all");
+  // cancel-info is state-dependent (token may already be used) — no caching.
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -307,3 +336,5 @@ app.use((req, res, next) => {
   logger.error('Unhandled error during server startup:', error);
   process.exit(1);
 });
+
+export default app;

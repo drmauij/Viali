@@ -129,3 +129,33 @@ describe("POST /cancel-by-token — CANCELLATION_DISABLED", () => {
     "cancels normally when hospital.hidePatientCancel = false",
   );
 });
+
+// --- CORS preflight (new) ---
+describe("/api/public/booking CORS", () => {
+  it("responds to OPTIONS preflight with permissive headers", async () => {
+    const { default: app } = await import("../server/index");
+    const res = await request(app)
+      .options("/api/public/booking/any-token/services")
+      .set("Origin", "https://example.com")
+      .set("Access-Control-Request-Method", "GET")
+      .set("Access-Control-Request-Headers", "Idempotency-Key,Content-Type");
+
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-methods"]).toMatch(/GET/);
+    expect(res.headers["access-control-allow-methods"]).toMatch(/POST/);
+    expect(res.headers["access-control-allow-headers"]).toMatch(/Idempotency-Key/i);
+  });
+
+  it("applies the same CORS to /api/clinic/appointments/cancel-by-token", async () => {
+    const { default: app } = await import("../server/index");
+    const res = await request(app)
+      .options("/api/clinic/appointments/cancel-by-token")
+      .set("Origin", "https://example.com")
+      .set("Access-Control-Request-Method", "POST");
+
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-methods"]).toMatch(/POST/);
+  });
+});
