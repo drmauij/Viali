@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import { db } from "../db";
-import { eq, and, desc, sql, lt } from "drizzle-orm";
+import { eq, and, desc, sql, lt, gte, lte } from "drizzle-orm";
 import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
 import { getLeadsStats } from "../services/leadsMetrics";
 import { mapLeadToReferralFields } from "@shared/leadToReferralMapping";
@@ -506,6 +506,29 @@ const VALID_CONTACT_OUTCOMES = ["reached", "no_answer", "wants_callback", "will_
 
 // --- Internal API endpoints ---
 
+export function buildLeadsListConditions(args: {
+  hospitalId: string;
+  status: string;
+  from?: string;
+  to?: string;
+  before?: string;
+}) {
+  const conditions = [eq(leads.hospitalId, args.hospitalId)];
+  if (args.status && args.status !== "all") {
+    conditions.push(eq(leads.status, args.status as any));
+  }
+  if (args.from) {
+    conditions.push(gte(leads.createdAt, new Date(args.from)));
+  }
+  if (args.to) {
+    conditions.push(lte(leads.createdAt, new Date(args.to)));
+  }
+  if (args.before) {
+    conditions.push(lt(leads.createdAt, new Date(args.before)));
+  }
+  return conditions;
+}
+
 // 1. List leads with contact summary
 router.get(
   "/api/business/:hospitalId/leads",
@@ -517,16 +540,10 @@ router.get(
       const status = (req.query.status as string) || "all";
       const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
       const before = req.query.before as string | undefined;
+      const from = (req.query.from as string | undefined) || undefined;
+      const to = (req.query.to as string | undefined) || undefined;
 
-      const conditions = [eq(leads.hospitalId, hospitalId)];
-
-      if (status !== "all") {
-        conditions.push(eq(leads.status, status as any));
-      }
-
-      if (before) {
-        conditions.push(lt(leads.createdAt, new Date(before)));
-      }
+      const conditions = buildLeadsListConditions({ hospitalId, status, from, to, before });
 
       const leadRows = await db
         .select({
