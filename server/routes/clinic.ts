@@ -26,6 +26,11 @@ import { eq, and, desc, sql, max, inArray, or, gte, lte, ilike, isNotNull } from
 import { z } from "zod";
 import { expandRecurringTimeOff, type ExpandedTimeOff } from "../utils/timeoff";
 import { sendPublicApiError } from "../lib/publicApiErrors";
+import {
+  findIdempotencyRecord,
+  recordIdempotencyKey,
+  hashBookingRequest,
+} from "../storage/bookingIdempotency";
 // Cal.com integration is legacy — booking is now native via /book
 
 // Cal.com sync removed — booking is now handled natively via /book
@@ -774,6 +779,31 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
       return sendPublicApiError(res, "HOSPITAL_NOT_FOUND");
     }
 
+    const idempotencyKey = req.header("Idempotency-Key")?.trim();
+    const requestHash = idempotencyKey
+      ? hashBookingRequest(req.body)
+      : null;
+
+    if (idempotencyKey && requestHash) {
+      const existing = await findIdempotencyRecord({
+        hospitalId: hospital.id,
+        key: idempotencyKey,
+      });
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          return sendPublicApiError(res, "IDEMPOTENCY_CONFLICT");
+        }
+        const replay = await storage.getClinicAppointment(
+          existing.appointmentId,
+        );
+        if (replay) {
+          res.setHeader("X-Idempotent-Replay", "true");
+          return res.status(200).json({ appointment: replay });
+        }
+        // Record exists but appointment was deleted — fall through and recreate.
+      }
+    }
+
     const parsed = bookingSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendPublicApiError(res, "INVALID_BOOKING_DATA", {
@@ -947,6 +977,34 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             ));
         } catch (e) {
           logger.error("[booking] promo increment error:", e);
+        }
+      }
+
+      // Record idempotency key so replayed requests get the same appointment back.
+      if (idempotencyKey && requestHash) {
+        try {
+          await recordIdempotencyKey({
+            hospitalId: hospital.id,
+            key: idempotencyKey,
+            appointmentId: appointment.id,
+            requestHash,
+          });
+        } catch (err) {
+          // Unique-constraint race: another concurrent request claimed this key first.
+          // Look up the original appointment and replay it.
+          const existing = await findIdempotencyRecord({
+            hospitalId: hospital.id,
+            key: idempotencyKey,
+          });
+          if (existing) {
+            const replayAppt = await storage.getClinicAppointment(
+              existing.appointmentId,
+            );
+            if (replayAppt) {
+              res.setHeader("X-Idempotent-Replay", "true");
+              return res.status(200).json({ appointment: replayAppt });
+            }
+          }
         }
       }
 
