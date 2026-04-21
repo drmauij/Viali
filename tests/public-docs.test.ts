@@ -31,6 +31,22 @@ describe("/llms.txt", () => {
     expect(res.text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
     expect(res.text).not.toMatch(/\b[0-9a-f]{32,}\b/i);
   });
+
+  it("references the OpenAPI schema", async () => {
+    const res = await request(buildApp()).get("/llms.txt");
+    expect(res.text).toContain("/api/openapi.json");
+  });
+
+  it("references the MCP Server Card", async () => {
+    const res = await request(buildApp()).get("/llms.txt");
+    expect(res.text).toContain("/.well-known/mcp.json");
+  });
+
+  it("includes the booking API quick-start", async () => {
+    const res = await request(buildApp()).get("/llms.txt");
+    expect(res.text).toMatch(/quick-start/i);
+    expect(res.text).toContain("/api/public/booking");
+  });
 });
 
 describe("/api.md", () => {
