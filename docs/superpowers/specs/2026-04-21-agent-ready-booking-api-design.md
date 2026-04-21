@@ -209,7 +209,7 @@ Extending `tests/public-docs.test.ts`:
 
 ## Rollout
 
-Eight independently mergeable steps, each reversible:
+Nine independently mergeable steps, each reversible:
 
 1. **Error-code stabilization + English messages** — safest refactor, ships first. Update `server/routes/clinic.ts` error responses to the new shape. SPA continues translating by code.
 2. **CORS middleware** on `/api/public/booking/*`.
@@ -218,7 +218,8 @@ Eight independently mergeable steps, each reversible:
 5. **`OPENAPI_SPEC` + `/api/openapi.json` + `/api/openapi.yaml` + `/.well-known/openapi.json`** redirect.
 6. **Extend `PUBLIC_API_MD`** with a new `## Booking API (JSON)` section after the existing `## Booking link (/book)` section. Agent-facing happy-path walkthrough.
 7. **Update `/llms.txt`** to index both `/api.md` and `/api/openapi.json`.
-8. **Extend test suite** with the 10 tests above. Run existing `tests/public-docs.test.ts` each step.
+8. **Admin UI: "Share with AI agents" dialog** in `BookingTokenSection.tsx` — button + dialog with pre-filled prompt (see section below). Ships with rollout 6/7 since it references `/api` and the booking URL structure.
+9. **Extend test suite** with the 10 tests above. Run existing `tests/public-docs.test.ts` each step.
 
 Each step is a single PR; reverting any one does not break the ones before it.
 
@@ -228,9 +229,38 @@ Each step is a single PR; reverting any one does not break the ones before it.
 - Log `POST /book` `User-Agent` + `Origin` for the first 30 days — see what agents actually hit us
 - No new dashboards — ad-hoc queries via the existing logging stack are enough
 
+## Admin UI — "Share with AI agents" dialog
+
+To save each clinic's technical staff from having to write this prompt themselves, Viali will surface it in-product.
+
+**Location:** `client/src/pages/admin/components/BookingTokenSection.tsx` — the "Patient Booking Page" card under `/admin → Booking`.
+
+**Trigger:** a new button `🤖 Share with AI agents` on the button row next to `Regenerate Link` and `Disable Link`. Shown only when a booking token exists.
+
+**Dialog contents:**
+
+- Short English explainer: *"Copy this prompt into your website builder (Replit, Lovable, v0, Bolt, etc.) to let AI agents book appointments on behalf of patients visiting your website."*
+- Scrollable `<pre>` with the full prompt, pre-filled:
+  - `<VIALI-HOST>` → `window.location.origin`
+  - `<OUR-BOOKING-TOKEN>` → the hospital's booking token
+- `Copy prompt` button (reuses the `copied` state pattern already in the file)
+- `Learn more → /api` link (opens `/api` in a new tab)
+- `Close` button
+
+**Implementation notes:**
+
+- Reuse shadcn/ui `Dialog` (already used across admin pages)
+- Prompt template lives as a constant in the component file; rendered via template-literal substitution
+- UI labels (title, explainer, buttons) go through `t(…)` for i18n — existing pattern in this file. Languages: DE / EN / IT / FR / ES
+- Prompt body itself stays in English — website-builder agents and AI tools expect English prompts
+- No backend changes
+- Smoke test: dialog renders with the booking URL and token interpolated correctly
+
+**Scope:** ~60 lines in one component file + i18n keys in 5 locale JSONs + one render test. Fits into Rollout step 6 (`Extend PUBLIC_API_MD`) as the "make the API visible to clinic staff" piece.
+
 ## Clinic website (out of scope, reference only)
 
-Separate repo. A hand-off prompt for a Replit agent working on the clinic site was produced in the brainstorming conversation; it adds `/llms.txt`, `<link rel="alternate">` meta tags, a footer link to `/api`, and confirms `robots.txt` does not block agent crawlers. Not tracked by this plan.
+Separate repo. The prompt now lives inside Viali (see above); each clinic's technical staff copies it from `/admin → Booking → Share with AI agents` and pastes it into their own website builder. No cross-repo coordination needed.
 
 ## Phase 2 candidates (explicitly not in this plan)
 
