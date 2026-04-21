@@ -7093,3 +7093,26 @@ export type TreatmentLine = typeof treatmentLines.$inferSelect;
 export type InsertTreatmentLine = z.infer<typeof insertTreatmentLineSchema>;
 export type TreatmentItemConfig = typeof treatmentItemConfigs.$inferSelect;
 export type InsertTreatmentItemConfig = z.infer<typeof insertTreatmentItemConfigSchema>;
+
+// ========== BOOKING IDEMPOTENCY KEYS ==========
+
+export const bookingIdempotencyKeys = pgTable(
+  "booking_idempotency_keys",
+  {
+    hospitalId: varchar("hospital_id").notNull(),
+    key: text("key").notNull(),
+    appointmentId: varchar("appointment_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.hospitalId, table.key] }),
+    createdAtIdx: index("booking_idempotency_keys_created_at_idx").on(
+      table.createdAt,
+    ),
+  }),
+);
+
+export type BookingIdempotencyKey = typeof bookingIdempotencyKeys.$inferSelect;
