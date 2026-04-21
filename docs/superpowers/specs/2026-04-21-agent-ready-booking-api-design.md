@@ -278,7 +278,12 @@ Today the portal experience is implicitly surgery-centric (investigate during Ph
 
 ### 2b. Agent-accessible patient API
 
-**The auth problem:** OTP via email/SMS is not automatable by an agent — the agent doesn't have inbox access. Solution: the patient logs into the portal normally (OTP), then issues a **Personal Access Token** from a new settings screen. Scoped to that patient, revocable, optionally expires, stored hashed.
+**Auth model — two paths, same endpoints:**
+
+1. **OTP flow (baseline).** The existing `POST /api/portal/otp/request` + `POST /api/portal/otp/verify` endpoints get formally documented as public. Any agent with access to the patient's email inbox (most "personal" agents — Claude with Gmail scope, naturaumana.ai, etc.) can complete the dance and receive a short-lived session token. Rate-limiting in `server/routes/portalOtp.ts` already protects against abuse.
+2. **Personal Access Token (optional).** For agents without inbox access (clinic-website chatbots, Make/Zapier, voice assistants) or for persistent/scoped use cases, the patient logs into the portal once (via OTP) and issues a scoped, revocable PAT from a new settings screen. Stored hashed, optional expiry.
+
+Both flows converge on `Authorization: Bearer <token>` → `/api/patient/me/*`. Design details for PATs deferred to Phase 2 brainstorming — OTP alone may be sufficient depending on real agent usage.
 
 **New endpoints** (authenticated via `Authorization: Bearer <patient-PAT>`):
 
