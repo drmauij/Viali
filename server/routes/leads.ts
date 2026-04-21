@@ -4,6 +4,7 @@ import { db } from "../db";
 import { eq, and, desc, sql, lt, gte, lte } from "drizzle-orm";
 import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
 import { getLeadsStats } from "../services/leadsMetrics";
+import { buildLeadsCsv, type LeadCsvRow } from "../services/leadsCsvExport";
 import { mapLeadToReferralFields } from "@shared/leadToReferralMapping";
 import { isAuthenticated } from "../auth/google";
 import { storage } from "../storage";
@@ -1001,6 +1002,66 @@ router.get(
       return res.json(stats);
     } catch (err) {
       logger.error({ err }, "Error computing leads stats");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// 7. CSV export of leads in the current filter window
+router.get(
+  "/api/business/:hospitalId/leads-export.csv",
+  isAuthenticated,
+  isMarketingOrManager,
+  async (req: any, res: Response) => {
+    try {
+      const { hospitalId } = req.params;
+      const status = (req.query.status as string) || "all";
+      const from = (req.query.from as string | undefined) || undefined;
+      const to = (req.query.to as string | undefined) || undefined;
+
+      const conditions = buildLeadsListConditions({ hospitalId, status, from, to });
+
+      const rows = await db
+        .select({
+          id: leads.id,
+          firstName: leads.firstName,
+          lastName: leads.lastName,
+          email: leads.email,
+          phone: leads.phone,
+          source: leads.source,
+          status: leads.status,
+          appointmentId: leads.appointmentId,
+          utmSource: leads.utmSource,
+          utmMedium: leads.utmMedium,
+          utmCampaign: leads.utmCampaign,
+          utmTerm: leads.utmTerm,
+          utmContent: leads.utmContent,
+          createdAt: leads.createdAt,
+          contactCount: sql<number>`(SELECT COUNT(*) FROM lead_contacts WHERE lead_id = "leads"."id")`.as("contact_count"),
+          lastContactOutcome: sql<string | null>`(SELECT outcome FROM lead_contacts WHERE lead_id = "leads"."id" ORDER BY created_at DESC LIMIT 1)`.as("last_contact_outcome"),
+        })
+        .from(leads)
+        .where(and(...conditions))
+        .orderBy(desc(leads.createdAt));
+
+      const csv = buildLeadsCsv(
+        rows.map((r) => ({
+          ...r,
+          contactCount: Number(r.contactCount),
+          createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt as any),
+        })) as LeadCsvRow[],
+      );
+
+      const today = new Date().toISOString().slice(0, 10);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="leads-${hospitalId}-${today}.csv"`,
+      );
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(csv);
+    } catch (err) {
+      logger.error({ err }, "Error exporting leads CSV");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
