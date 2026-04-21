@@ -251,12 +251,12 @@ To save each clinic's technical staff from having to write this prompt themselve
 
 - Reuse shadcn/ui `Dialog` (already used across admin pages)
 - Prompt template lives as a constant in the component file; rendered via template-literal substitution
-- UI labels (title, explainer, buttons) go through `t(…)` for i18n — existing pattern in this file. Languages: DE / EN / IT / FR / ES
+- UI labels (title, explainer, buttons) go through `t(…)` for i18n — existing pattern in this file. Languages: DE + EN (the two locales in `client/src/i18n/locales/`)
 - Prompt body itself stays in English — website-builder agents and AI tools expect English prompts
 - No backend changes
 - Smoke test: dialog renders with the booking URL and token interpolated correctly
 
-**Scope:** ~60 lines in one component file + i18n keys in 5 locale JSONs + one render test. Fits into Rollout step 6 (`Extend PUBLIC_API_MD`) as the "make the API visible to clinic staff" piece.
+**Scope:** ~60 lines in one component file + i18n keys in 2 locale JSONs + one render test. Fits into Rollout step 6 (`Extend PUBLIC_API_MD`) as the "make the API visible to clinic staff" piece.
 
 ## Clinic website (out of scope, reference only)
 
