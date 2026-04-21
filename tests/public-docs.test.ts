@@ -4,6 +4,7 @@ import request from "supertest";
 import publicDocsRouter from "../server/routes/publicDocs";
 import clinicRouter from "../server/routes/clinic";
 import publicOpenApiRouter from "../server/routes/publicOpenApi";
+import publicMcpCardRouter from "../server/routes/publicMcpCard";
 
 function buildApp() {
   const app = express();
@@ -307,5 +308,80 @@ describe("/api.md — Booking API (JSON) parity", () => {
     expect(res.text).toContain("/api/clinic/appointments/cancel-info/");
     expect(res.text).toContain("/api/clinic/appointments/cancel-by-token");
     expect(res.text).toMatch(/no-show/i);
+  });
+});
+
+describe("/.well-known/mcp* MCP Server Card", () => {
+  function buildApp() {
+    const app = express();
+    app.use(publicMcpCardRouter);
+    return app;
+  }
+
+  it.each([
+    "/.well-known/mcp.json",
+    "/.well-known/mcp/server-card.json",
+    "/.well-known/mcp/server-cards.json",
+  ])("serves valid JSON at %s", async (path) => {
+    const res = await request(buildApp()).get(path);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    const card = JSON.parse(res.text);
+    expect(card.name).toBe("viali-booking");
+    expect(card.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(Array.isArray(card.tools)).toBe(true);
+    expect(card.tools.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("advertises the 9 agent-facing tools", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    const names = card.tools.map((t: { name: string }) => t.name).sort();
+    expect(names).toEqual(
+      [
+        "book_appointment",
+        "cancel_appointment",
+        "get_best_provider",
+        "get_cancel_info",
+        "list_available_dates",
+        "list_providers",
+        "list_services",
+        "list_slots",
+        "validate_promo",
+      ].sort(),
+    );
+  });
+
+  it("every tool has an HTTP binding that maps to /api/public/booking or /api/clinic/appointments", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    for (const tool of card.tools) {
+      expect(tool._meta?.http?.method).toMatch(/^(GET|POST)$/);
+      expect(tool._meta.http.path).toMatch(
+        /^\/api\/(public\/booking|clinic\/appointments)\//,
+      );
+    }
+  });
+
+  it("cancel_appointment description warns agents to call get_cancel_info first", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    const cancelTool = card.tools.find(
+      (t: { name: string }) => t.name === "cancel_appointment",
+    );
+    expect(cancelTool.description).toMatch(/get_cancel_info/);
+    expect(cancelTool.description).toMatch(/no-show/i);
+  });
+
+  it("declares authentication.type = 'none'", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    expect(card.authentication.type).toBe("none");
+  });
+
+  it("points documentation at /api/openapi.json", async () => {
+    const res = await request(buildApp()).get("/.well-known/mcp.json");
+    const card = JSON.parse(res.text);
+    expect(card.documentation.openapi).toBe("/api/openapi.json");
   });
 });

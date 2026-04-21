@@ -38,6 +38,7 @@ import marketingUnsubscribeRouter from "./marketingUnsubscribe";
 import marketingWebhooksRouter from "./marketingWebhooks";
 import publicDocsRouter from "./publicDocs";
 import publicOpenApiRouter from "./publicOpenApi";
+import publicMcpCardRouter from "./publicMcpCard";
 import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
 
@@ -83,5 +84,6 @@ export function registerDomainRoutes(app: Express) {
   app.use(marketingWebhooksRouter);
   app.use(publicDocsRouter);
   app.use(publicOpenApiRouter);
+  app.use(publicMcpCardRouter);
   app.use(treatmentsRouter);
 }
