@@ -244,3 +244,52 @@ describe("/.well-known/openapi.json", () => {
     expect(res.headers["location"]).toBe("/api/openapi.json");
   });
 });
+
+describe("/api.md — Booking API (JSON) parity", () => {
+  it("documents all 9 booking JSON endpoints", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    for (const suffix of [
+      "/api/public/booking/:token",
+      "/services",
+      "/closures",
+      "/available-dates",
+      "/slots",
+      "/best-provider",
+      "/prefill",
+      "/promo/:code",
+      "/book",
+    ]) {
+      expect(res.text).toContain(suffix);
+    }
+  });
+
+  it("documents all 10 error codes", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    for (const code of [
+      "SLOT_TAKEN",
+      "INVALID_BOOKING_DATA",
+      "REFERRAL_REQUIRED",
+      "NOSHOW_FEE_ACK_REQUIRED",
+      "PROVIDER_NOT_BOOKABLE",
+      "HOSPITAL_NOT_FOUND",
+      "PROMO_INVALID",
+      "CANCELLATION_DISABLED",
+      "RATE_LIMITED",
+      "IDEMPOTENCY_CONFLICT",
+    ]) {
+      expect(res.text).toContain(code);
+    }
+  });
+
+  it("mentions Idempotency-Key header", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    expect(res.text).toContain("Idempotency-Key");
+  });
+
+  it("documents cancel-info + cancel-by-token endpoints", async () => {
+    const res = await request(buildApp()).get("/api.md");
+    expect(res.text).toContain("/api/clinic/appointments/cancel-info/");
+    expect(res.text).toContain("/api/clinic/appointments/cancel-by-token");
+    expect(res.text).toMatch(/no-show/i);
+  });
+});

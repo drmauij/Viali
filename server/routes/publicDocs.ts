@@ -95,6 +95,132 @@ https://<your-viali-host>/book/<HOSPITAL_BOOKING_TOKEN>?service=rhinoplasty&firs
 
 ---
 
+## Booking API (JSON)
+
+For agents, backends, and automation tools that want to create an appointment
+*without* rendering the \`/book\` HTML page, Viali exposes 9 JSON endpoints
+under \`/api/public/booking/:token/*\`. The booking token in the URL
+identifies the hospital — no API key is required.
+
+> A machine-readable OpenAPI 3.1 schema is served at \`/api/openapi.json\`
+> (YAML at \`/api/openapi.yaml\`). AI agents: that is the fastest path to
+> a working client.
+
+### Happy-path flow
+
+1. \`GET /api/public/booking/<TOKEN>/services\` — list services
+2. \`GET /api/public/booking/<TOKEN>/providers/<PROVIDER_ID>/slots?date=YYYY-MM-DD\` — list slots on a date
+3. \`POST /api/public/booking/<TOKEN>/book\` — create the appointment
+
+### Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | \`/api/public/booking/:token\` | Hospital + providers |
+| GET | \`/api/public/booking/:token/services\` | Service list |
+| GET | \`/api/public/booking/:token/closures\` | Blocked dates |
+| GET | \`/api/public/booking/:token/providers/:providerId/available-dates\` | Dates with slots in a range |
+| GET | \`/api/public/booking/:token/providers/:providerId/slots?date=YYYY-MM-DD\` | Slots on a given date |
+| GET | \`/api/public/booking/:token/best-provider?service=<code>&date=YYYY-MM-DD\` | Next-available heuristic |
+| GET | \`/api/public/booking/:token/prefill?token=<prefill-token>\` | Prefill from short-lived token |
+| GET | \`/api/public/booking/:token/promo/:code\` | Validate a promo code |
+| POST | \`/api/public/booking/:token/book\` | Create appointment |
+
+### Creating a booking
+
+\`\`\`bash
+curl -X POST https://<your-viali-host>/api/public/booking/<TOKEN>/book \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: 8f2c1e9a-bf6d-4c2a-9a1e-91b9c5d1e3a4" \\
+  -d '{
+    "providerId": "a1b2c3d4-…",
+    "date": "2026-05-12",
+    "startTime": "10:00",
+    "endTime": "10:30",
+    "firstName": "Maria",
+    "surname": "Müller",
+    "email": "maria@example.com",
+    "phone": "+41791234567"
+  }'
+\`\`\`
+
+### Idempotency
+
+Send an \`Idempotency-Key\` header (any unique string, ≤ 200 chars — a v4 UUID
+is a safe default) to make the booking retriable:
+
+- Same key + same body within 24h → returns the original appointment with status
+  \`200\` and header \`X-Idempotent-Replay: true\`.
+- Same key + different body → returns \`409\` with \`code: "IDEMPOTENCY_CONFLICT"\`.
+
+### No-show fee acknowledgement
+
+If \`GET /api/public/booking/:token\` returns a non-null \`noShowFeeMessage\`,
+agents **must** surface that message to the user before booking and then
+include \`noShowFeeAcknowledged: true\` in the \`POST /book\` body. Omitting
+it returns \`400 NOSHOW_FEE_ACK_REQUIRED\`.
+
+### Cancelling an appointment
+
+Two endpoints, both under \`/api/clinic/appointments/\`. These accept the
+single-use action token delivered to the patient by email/SMS after
+booking. An agent with access to the patient's inbox has this token.
+
+\`\`\`bash
+# 1) Inspect the appointment + any fee notice BEFORE cancelling.
+curl https://<your-viali-host>/api/clinic/appointments/cancel-info/<TOKEN>
+
+# 2) Once the user has acknowledged any fee, cancel.
+curl -X POST https://<your-viali-host>/api/clinic/appointments/cancel-by-token \\
+  -H "Content-Type: application/json" \\
+  -d '{ "token": "<TOKEN>", "reason": "patient requested" }'
+\`\`\`
+
+Agents **must** fetch \`cancel-info\` first and relay \`noShowFeeMessage\` to the
+user — the clinic may charge a no-show fee for late cancellations.
+
+If the clinic has \`hidePatientCancel\` set, \`cancel-by-token\` returns
+\`403 CANCELLATION_DISABLED\`. \`cancel-info\` returns \`hidePatientCancel: true\`
+in the body so agents can surface this before attempting the cancel.
+
+### Error responses
+
+Every error response under \`/api/public/booking/*\` and the \`/api/clinic/appointments/cancel-*\` endpoints returns:
+
+\`\`\`json
+{ "code": "SLOT_TAKEN", "message": "The selected slot is no longer available." }
+\`\`\`
+
+Stable codes:
+
+| Code | HTTP | When |
+|---|---|---|
+| \`SLOT_TAKEN\` | 409 | Slot was taken between availability query and book |
+| \`INVALID_BOOKING_DATA\` | 400 | Body failed schema validation; response also contains \`fieldErrors\` |
+| \`REFERRAL_REQUIRED\` | 400 | Hospital requires UTM / referral source |
+| \`NOSHOW_FEE_ACK_REQUIRED\` | 400 | Clinic has a no-show fee notice; \`noShowFeeAcknowledged: true\` missing from payload |
+| \`PROVIDER_NOT_BOOKABLE\` | 404 | Provider not public / not bookable |
+| \`HOSPITAL_NOT_FOUND\` | 404 | Booking token invalid or disabled |
+| \`PROMO_INVALID\` | 404 | Promo code unknown or expired |
+| \`CANCELLATION_DISABLED\` | 403 | Clinic has \`hidePatientCancel\` enabled |
+| \`RATE_LIMITED\` | 429 | Rate limiter tripped |
+| \`IDEMPOTENCY_CONFLICT\` | 409 | Same \`Idempotency-Key\` with a different body |
+
+Note: the cancellation endpoints also return a small set of non-catalog state-transition shapes (\`{ message, alreadyUsed: true }\` on 410, \`{ message, status }\` on 409) that predate the catalog and are kept for backwards compatibility with the existing SPA.
+
+### Rate limits
+
+- Reads (\`GET /api/public/booking/*\`): 300 req/min/IP (shared with the rest of the API)
+- Booking submissions (\`POST /book\`): 30 per 15 min per IP
+- Responses include standard \`RateLimit-*\` headers
+
+### CORS
+
+All \`/api/public/booking/*\` and \`/api/clinic/appointments/cancel-*\` responses include \`Access-Control-Allow-Origin: *\`.
+Browser-based agents and site chatbots can call these endpoints directly.
+
+---
+
 ## Leads Webhook
 
 Forward leads from your website contact form or Meta Lead Ads (via Make/Zapier) into Viali. Each lead becomes a record in the business inbox with full UTM / click ID attribution.
