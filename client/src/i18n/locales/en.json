@@ -5525,6 +5525,8 @@
     },
     "referrals": {
       "dateRange": "Date range",
+      "from": "From",
+      "to": "To",
       "of": "of",
       "questionnairesAnswered": "questionnaires answered",
       "totalBookingReferrals": "total booking referrals",
@@ -5540,7 +5542,26 @@
       "progressOverTime": "Referral Sources Over Time",
       "progressOverTimeHelp": "Shows how each referral source has evolved month by month across the entire available time range",
       "sourceInsights": "Source insights",
-      "noOrganicPaidData": "No organic/paid data available"
+      "noOrganicPaidData": "No organic/paid data available",
+      "leadsTab": "Leads",
+      "eventsTab": "Referrals",
+      "recentEvents": "Recent Referral Events",
+      "recentEventsHelp": "Booking referrals with ad click IDs for tracking verification",
+      "conversionTab": "Conversion",
+      "adsTab": "Ad Performance",
+      "source": "Source",
+      "treatment": "Treatment",
+      "campaign": "Campaign",
+      "keyword": "Keyword",
+      "clickIds": "Click IDs",
+      "editDialogTitle": "Edit referral",
+      "editSourceLabel": "Source",
+      "editDetailLabel": "Detail",
+      "editDetailPlaceholder": "e.g. facebook, google, referral",
+      "deleteDialogTitle": "Delete referral?",
+      "deleteDialogBody": "This permanently deletes the referral entry for {{name}}. This action cannot be undone.",
+      "saving": "Saving…",
+      "save": "Save"
     },
     "leads": {
       "pasteLeads": "Paste Leads",
@@ -5583,6 +5604,7 @@
         "closed": "Closed"
       },
       "stats": {
+        "title": "Lead insights",
         "totalLeads": "Total leads",
         "inRange": "in range",
         "conversionRate": "Conversion rate",

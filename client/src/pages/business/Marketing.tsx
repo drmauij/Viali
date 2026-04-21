@@ -447,9 +447,18 @@ export default function Marketing() {
   const [sourceInsightsOpen, setSourceInsightsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("marketing.verweise.sourceInsights.open");
-      return saved === null ? true : saved === "true";
+      return saved === null ? false : saved === "true";
     } catch {
-      return true;
+      return false;
+    }
+  });
+
+  const [leadInsightsOpen, setLeadInsightsOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("marketing.leads.insights.open");
+      return saved === null ? false : saved === "true";
+    } catch {
+      return false;
     }
   });
 
@@ -460,6 +469,14 @@ export default function Marketing() {
       // storage disabled — silently ignore
     }
   }, [sourceInsightsOpen]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("marketing.leads.insights.open", String(leadInsightsOpen));
+    } catch {
+      // storage disabled — silently ignore
+    }
+  }, [leadInsightsOpen]);
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
   const isAdminOrManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
@@ -694,7 +711,7 @@ export default function Marketing() {
                 </TabsTrigger>
                 <TabsTrigger value="events" data-testid="tab-marketing-events">
                   <Activity className="h-4 w-4 mr-1" />
-                  {t('business.referrals.recentEvents', 'Verweise')}
+                  {t('business.referrals.eventsTab', 'Referrals')}
                 </TabsTrigger>
                 <TabsTrigger value="conversion" data-testid="tab-marketing-conversion">
                   <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -708,11 +725,37 @@ export default function Marketing() {
             </div>
 
             <TabsContent value="leads" className="space-y-4">
-              <LeadsStatsCards
-                hospitalId={activeHospital?.id ?? ""}
-                from={referralFrom}
-                to={referralTo}
-              />
+              <Card>
+                <CardHeader
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={leadInsightsOpen}
+                  aria-controls="lead-insights-content"
+                  onClick={() => setLeadInsightsOpen((o) => !o)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLeadInsightsOpen((o) => !o);
+                    }
+                  }}
+                  className="cursor-pointer flex flex-row items-center justify-between py-3"
+                >
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <PieChartIcon className="h-4 w-4" />
+                    {t("business.leads.stats.title", "Lead insights")}
+                  </CardTitle>
+                  {leadInsightsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </CardHeader>
+                {leadInsightsOpen && (
+                  <CardContent id="lead-insights-content" className="space-y-4">
+                    <LeadsStatsCards
+                      hospitalId={activeHospital?.id ?? ""}
+                      from={referralFrom}
+                      to={referralTo}
+                    />
+                  </CardContent>
+                )}
+              </Card>
               <LeadsReadOnlyCard
                 hospitalId={activeHospital?.id ?? ""}
                 from={referralFrom}
@@ -1137,7 +1180,7 @@ export default function Marketing() {
                         disabled={referralEventsLoadingMore}
                       >
                         {referralEventsLoadingMore ? (
-                          <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                          <><Loader2 className="h-4 w-4 animate-spin mr-2" /> {t('common.loading', 'Loading...')}</>
                         ) : (
                           t('common.loadMore', 'Load more')
                         )}
