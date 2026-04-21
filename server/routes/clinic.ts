@@ -798,7 +798,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
         );
         if (replay) {
           res.setHeader("X-Idempotent-Replay", "true");
-          return res.status(200).json({ appointment: replay });
+          return res.status(200).json({ success: true, appointmentId: replay.id });
         }
         // Record exists but appointment was deleted — fall through and recreate.
       }
@@ -1002,7 +1002,7 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
             );
             if (replayAppt) {
               res.setHeader("X-Idempotent-Replay", "true");
-              return res.status(200).json({ appointment: replayAppt });
+              return res.status(200).json({ success: true, appointmentId: replayAppt.id });
             }
           }
         }
