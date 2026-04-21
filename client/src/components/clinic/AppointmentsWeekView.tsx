@@ -437,11 +437,22 @@ export default function AppointmentsWeekView({
                                 e.stopPropagation();
                                 onEventClick?.(item.appt!);
                               }}
-                              title={`${item.appt!.startTime} - ${item.appt!.endTime}\n${getPatientName(item.appt!)}\n${item.appt!.service?.name || ''}`}
+                              title={[
+                                item.appt!.isVideoAppointment ? `📹 ${t('appointments.videoAppointment', 'Video Appointment')}` : null,
+                                `${item.appt!.startTime} – ${item.appt!.endTime}`,
+                                `👤 ${getPatientName(item.appt!)}`,
+                                item.appt!.service?.name || null,
+                                item.appt!.notes ? `\n${item.appt!.notes}` : null,
+                              ].filter(Boolean).join('\n')}
                               data-testid={`appointment-event-${item.appt!.id}`}
                             >
                               <div className="font-semibold truncate flex items-center gap-1">
-                                {item.appt!.isVideoAppointment && <Video className="w-4 h-4 flex-shrink-0 text-indigo-600 dark:text-indigo-300" />}
+                                {item.appt!.isVideoAppointment && (
+                                  <span className="flex items-center gap-0.5 text-[9px] font-bold uppercase bg-indigo-500 text-white rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
+                                    <Video className="w-3 h-3" />
+                                    {t('appointments.videoShort', 'Video')}
+                                  </span>
+                                )}
                                 {item.appt!.startTime} {getPatientName(item.appt!)}
                               </div>
                               {item.appt!.service?.name && (

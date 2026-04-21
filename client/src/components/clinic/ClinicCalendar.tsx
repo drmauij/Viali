@@ -1226,6 +1226,40 @@ export default function ClinicCalendar({
     return { style };
   }, []);
 
+  const tooltipAccessor = useCallback((event: CalendarEvent): string => {
+    if (event.isSurgeryBlock) {
+      return `${t('appointments.surgery', 'Surgery')}: ${event.surgeryName || event.title}\n${formatTime(event.start)} – ${formatTime(event.end)}`;
+    }
+    if (event.isAbsenceBlock) {
+      return event.title;
+    }
+    if (event.isTimeOffBlock) {
+      return `${event.serviceName || t('appointments.timeOff', 'Time Off')}\n${formatTime(event.start)} – ${formatTime(event.end)}`;
+    }
+    if (event.isAvailabilityWindow) return event.title;
+
+    const statusLabels: Record<string, string> = {
+      scheduled: t('appointments.status.scheduled', 'Scheduled'),
+      confirmed: t('appointments.status.confirmed', 'Confirmed'),
+      arrived: t('appointments.status.arrived', 'Arrived'),
+      in_progress: t('appointments.status.inProgress', 'In Progress'),
+      completed: t('appointments.status.completed', 'Completed'),
+      cancelled: t('appointments.status.cancelled', 'Cancelled'),
+      no_show: t('appointments.status.noShow', 'No Show'),
+    };
+
+    const lines: string[] = [];
+    if (event.isVideoAppointment) {
+      lines.push(`📹 ${t('appointments.videoAppointment', 'Video Appointment')}`);
+    }
+    lines.push(`${formatTime(event.start)} – ${formatTime(event.end)}`);
+    if (event.patientName) lines.push(`👤 ${event.patientName}`);
+    if (event.serviceName) lines.push(event.serviceName);
+    lines.push(`● ${statusLabels[event.status] || event.status}`);
+    if (event.notes) lines.push(`\n${event.notes}`);
+    return lines.join('\n');
+  }, [t]);
+
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     // Surgery block display
     if (event.isSurgeryBlock) {
@@ -1282,7 +1316,12 @@ export default function ClinicCalendar({
     return (
       <div className="flex flex-col h-full p-1 overflow-hidden" data-testid={`appointment-event-${event.appointmentId}`}>
         <div className={`font-bold text-xs ${isCancelled ? 'line-through' : ''} flex items-center gap-1`}>
-          {event.isVideoAppointment && <Video className="w-4 h-4 flex-shrink-0 text-indigo-200" />}
+          {event.isVideoAppointment && (
+            <span className="flex items-center gap-0.5 text-[9px] font-bold uppercase bg-indigo-500 text-white rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
+              <Video className="w-3 h-3" />
+              {t('appointments.videoShort', 'Video')}
+            </span>
+          )}
           <span className="truncate flex-1">{event.serviceName || t('appointments.appointment', 'Appointment')}</span>
           <span className="text-[9px] font-medium bg-white/20 rounded px-1 py-0 whitespace-nowrap flex-shrink-0">
             {statusShort[event.status] || event.status}
@@ -1578,6 +1617,7 @@ export default function ClinicCalendar({
             max={new Date(2024, 0, 1, 22, 0, 0)}
             formats={formats}
             eventPropGetter={eventStyleGetter}
+            tooltipAccessor={tooltipAccessor}
             slotPropGetter={slotPropGetter}
             components={{
               event: EventComponent,
