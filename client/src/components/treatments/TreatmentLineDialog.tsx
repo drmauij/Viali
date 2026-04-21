@@ -55,6 +55,7 @@ interface Props {
   lotsByItem: Record<string, Lot[]>;
   zoneSuggestions: string[];
   onSave: (line: Partial<TreatmentLine>) => void;
+  onItemSelect?: (itemId: string | null) => void;
 }
 
 export function TreatmentLineDialog({
@@ -66,6 +67,7 @@ export function TreatmentLineDialog({
   lotsByItem,
   zoneSuggestions,
   onSave,
+  onItemSelect,
 }: Props) {
   const { t } = useTranslation();
 
@@ -252,6 +254,8 @@ export function TreatmentLineDialog({
                           onSelect={() => {
                             setItemId(null);
                             setLotId(null);
+                            setLotNumber("");
+                            onItemSelect?.(null);
                             setItemOpen(false);
                           }}
                           className="text-muted-foreground"
@@ -266,6 +270,8 @@ export function TreatmentLineDialog({
                           onSelect={() => {
                             setItemId(i.id);
                             setLotId(null);
+                            setLotNumber("");
+                            onItemSelect?.(i.id);
                             setItemOpen(false);
                           }}
                         >

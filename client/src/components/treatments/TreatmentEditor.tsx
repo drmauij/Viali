@@ -576,6 +576,7 @@ export function TreatmentEditor({
         lotsByItem={lotsByItem}
         zoneSuggestions={zoneSuggestions}
         onSave={upsertLine}
+        onItemSelect={setDialogItemId}
       />
 
       {/* Signature pad */}
