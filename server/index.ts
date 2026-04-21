@@ -17,6 +17,7 @@ import { startWorker } from "./worker";
 import { backfillChecklistTemplateAssignments } from "./storage/checklists";
 import { cleanupExpiredPortalData } from "./storage/portalOtp";
 import { cleanupExpiredIdempotencyKeys } from "./storage/bookingIdempotency";
+import { sendPublicApiError } from "./lib/publicApiErrors";
 import logger from "./logger";
 
 // Initialize Sentry for backend error monitoring
@@ -125,10 +126,12 @@ app.use('/api/translate', aiLimiter);
 // Only rate-limit the actual booking POST (prevent spam submissions), not the read endpoints
 const bookingSubmitLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Zu viele Buchungsanfragen. Bitte versuchen Sie es später erneut.' },
+  handler: (_req, res) => {
+    sendPublicApiError(res, "RATE_LIMITED");
+  },
 });
 app.use('/api/public/booking/:token/book', bookingSubmitLimiter);
 

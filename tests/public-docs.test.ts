@@ -159,3 +159,19 @@ describe("/api/public/booking CORS", () => {
     expect(res.headers["access-control-allow-methods"]).toMatch(/POST/);
   });
 });
+
+describe("POST /api/public/booking/:token/book — rate limit", () => {
+  it("returns { code: 'RATE_LIMITED', message } after the cap", async () => {
+    const { default: app } = await import("../server/index");
+
+    let last: any;
+    for (let i = 0; i < 31; i++) {
+      last = await request(app)
+        .post("/api/public/booking/any-token/book")
+        .send({});
+    }
+    expect(last?.status).toBe(429);
+    expect(last?.body.code).toBe("RATE_LIMITED");
+    expect(typeof last?.body.message).toBe("string");
+  }, 15000);
+});
