@@ -37,6 +37,7 @@ import flowsRouter from "./flows";
 import marketingUnsubscribeRouter from "./marketingUnsubscribe";
 import marketingWebhooksRouter from "./marketingWebhooks";
 import publicDocsRouter from "./publicDocs";
+import publicOpenApiRouter from "./publicOpenApi";
 import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
 
@@ -81,5 +82,6 @@ export function registerDomainRoutes(app: Express) {
   app.use("/api/webhooks/resend", express.raw({ type: "*/*" }));
   app.use(marketingWebhooksRouter);
   app.use(publicDocsRouter);
+  app.use(publicOpenApiRouter);
   app.use(treatmentsRouter);
 }

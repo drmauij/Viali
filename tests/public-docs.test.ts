@@ -3,6 +3,7 @@ import express from "express";
 import request from "supertest";
 import publicDocsRouter from "../server/routes/publicDocs";
 import clinicRouter from "../server/routes/clinic";
+import publicOpenApiRouter from "../server/routes/publicOpenApi";
 
 function buildApp() {
   const app = express();
@@ -174,4 +175,72 @@ describe("POST /api/public/booking/:token/book — rate limit", () => {
     expect(last?.body.code).toBe("RATE_LIMITED");
     expect(typeof last?.body.message).toBe("string");
   }, 15000);
+});
+
+describe("/api/openapi.json", () => {
+  function buildApp() {
+    const app = express();
+    app.use(publicOpenApiRouter);
+    return app;
+  }
+
+  it("returns valid OpenAPI 3.1 JSON with all 11 documented paths", async () => {
+    const res = await request(buildApp()).get("/api/openapi.json");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    const spec = JSON.parse(res.text);
+    expect(spec.openapi).toBe("3.1.0");
+    const paths = Object.keys(spec.paths);
+    expect(paths).toContain("/api/public/booking/{token}");
+    expect(paths).toContain("/api/public/booking/{token}/services");
+    expect(paths).toContain("/api/public/booking/{token}/closures");
+    expect(paths).toContain("/api/public/booking/{token}/providers/{providerId}/available-dates");
+    expect(paths).toContain("/api/public/booking/{token}/providers/{providerId}/slots");
+    expect(paths).toContain("/api/public/booking/{token}/best-provider");
+    expect(paths).toContain("/api/public/booking/{token}/prefill");
+    expect(paths).toContain("/api/public/booking/{token}/promo/{code}");
+    expect(paths).toContain("/api/public/booking/{token}/book");
+    expect(paths).toContain("/api/clinic/appointments/cancel-info/{token}");
+    expect(paths).toContain("/api/clinic/appointments/cancel-by-token");
+  });
+
+  it("declares all 10 error codes in the Error schema enum", async () => {
+    const res = await request(buildApp()).get("/api/openapi.json");
+    const spec = JSON.parse(res.text);
+    expect(spec.components.schemas.Error.properties.code.enum.sort()).toEqual(
+      [
+        "CANCELLATION_DISABLED",
+        "HOSPITAL_NOT_FOUND",
+        "IDEMPOTENCY_CONFLICT",
+        "INVALID_BOOKING_DATA",
+        "NOSHOW_FEE_ACK_REQUIRED",
+        "PROMO_INVALID",
+        "PROVIDER_NOT_BOOKABLE",
+        "RATE_LIMITED",
+        "REFERRAL_REQUIRED",
+        "SLOT_TAKEN",
+      ].sort(),
+    );
+  });
+});
+
+describe("/api/openapi.yaml", () => {
+  it("serves valid YAML", async () => {
+    const app = express();
+    app.use(publicOpenApiRouter);
+    const res = await request(app).get("/api/openapi.yaml");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/yaml/);
+    expect(res.text).toMatch(/openapi: 3\.1\.0/);
+  });
+});
+
+describe("/.well-known/openapi.json", () => {
+  it("redirects to /api/openapi.json", async () => {
+    const app = express();
+    app.use(publicOpenApiRouter);
+    const res = await request(app).get("/.well-known/openapi.json");
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toBe("/api/openapi.json");
+  });
 });
