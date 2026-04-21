@@ -5538,7 +5538,9 @@
       "responses": "Responses",
       "detail": "Detail",
       "progressOverTime": "Referral Sources Over Time",
-      "progressOverTimeHelp": "Shows how each referral source has evolved month by month across the entire available time range"
+      "progressOverTimeHelp": "Shows how each referral source has evolved month by month across the entire available time range",
+      "sourceInsights": "Source insights",
+      "noOrganicPaidData": "No organic/paid data available"
     },
     "leads": {
       "pasteLeads": "Paste Leads",

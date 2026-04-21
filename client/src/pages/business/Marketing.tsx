@@ -25,6 +25,8 @@ import {
   CheckCircle2,
   Phone,
   Download,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { SourceIcon, sourceLabel } from "@/components/leads/sourceIcon";
 import { LeadsStatsCards } from "./marketing/LeadsStatsCards";
@@ -442,6 +444,22 @@ export default function Marketing() {
   const [referralFrom, setReferralFrom] = useState("");
   const [referralTo, setReferralTo] = useState(new Date().toISOString().slice(0, 10));
   const [selectedReferralSource, setSelectedReferralSource] = useState<string | null>(null);
+  const [sourceInsightsOpen, setSourceInsightsOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("marketing.verweise.sourceInsights.open");
+      return saved === null ? true : saved === "true";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("marketing.verweise.sourceInsights.open", String(sourceInsightsOpen));
+    } catch {
+      // storage disabled — silently ignore
+    }
+  }, [sourceInsightsOpen]);
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
   const isAdminOrManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
@@ -666,14 +684,10 @@ export default function Marketing() {
             </CardContent>
           </Card>
 
-          {/* Tabs: Sources | Leads | Referrals | Conversion | Ad Performance */}
-          <Tabs defaultValue="sources" className="space-y-4">
+          {/* Tabs: Leads | Referrals | Conversion | Ad Performance */}
+          <Tabs defaultValue="leads" className="space-y-4">
             <div className="overflow-x-auto scrollbar-hide">
               <TabsList>
-                <TabsTrigger value="sources" data-testid="tab-marketing-sources">
-                  <PieChartIcon className="h-4 w-4 mr-1" />
-                  {t('business.referrals.sourcesTab', 'Quellen')}
-                </TabsTrigger>
                 <TabsTrigger value="leads" data-testid="tab-marketing-leads">
                   <Inbox className="h-4 w-4 mr-1" />
                   {t('business.referrals.leadsTab', 'Leads')}
@@ -693,203 +707,6 @@ export default function Marketing() {
               </TabsList>
             </div>
 
-            <TabsContent value="sources" className="space-y-4">
-          {/* Sample size indicator */}
-          {referralData && (
-            <div className="text-sm text-muted-foreground px-1">
-              {referralData.totalReferrals} {t('business.referrals.totalBookingReferrals')}
-            </div>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Main pie chart */}
-            <ChartCard
-              title={t('business.referrals.sourceBreakdown')}
-              helpText={t('business.referrals.sourceBreakdownHelp')}
-            >
-              {referralLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : referralPieData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  {t('business.referrals.noData')}
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={referralPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      onClick={(entry) => {
-                        setSelectedReferralSource(
-                          selectedReferralSource === entry.source ? null : entry.source
-                        );
-                        setSelectedDetail(null);
-                      }}
-                      cursor="pointer"
-                    >
-                      {referralPieData.map((entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={entry.color}
-                          opacity={selectedReferralSource && selectedReferralSource !== entry.source ? 0.4 : 1}
-                          stroke={selectedReferralSource === entry.source ? entry.color : "transparent"}
-                          strokeWidth={selectedReferralSource === entry.source ? 3 : 0}
-                        />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => [value, t('business.referrals.responses')]}
-                    />
-                    <Legend
-                      formatter={(value: string) => {
-                        const entry = referralPieData.find((e) => e.name === value);
-                        if (!entry) return value;
-                        const total = referralPieData.reduce((s, e) => s + e.value, 0);
-                        const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
-                        return `${value} ${entry.value} (${pct}%)`;
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </ChartCard>
-
-            {/* Detail drill-down */}
-            <ChartCard
-              title={selectedReferralSource
-                ? `${REFERRAL_LABELS[selectedReferralSource] || selectedReferralSource} — ${t('business.referrals.detail')}`
-                : t('business.referrals.clickToExplore')
-              }
-              helpText={t('business.referrals.detailHelp')}
-            >
-              {!selectedReferralSource ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  {t('business.referrals.selectSlice')}
-                </div>
-              ) : referralDetailData.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  {t('business.referrals.noDetail')}
-                </div>
-              ) : (
-                <div className="space-y-3 pt-2">
-                  {referralDetailData.map((item, i) => {
-                    const total = referralDetailData.reduce((s, d) => s + d.value, 0);
-                    const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
-                    const isSelected = selectedDetail === item.detail;
-                    return (
-                      <div key={i}>
-                        <div
-                          className="space-y-1 cursor-pointer rounded-md px-2 py-1.5 -mx-2 transition-colors hover:bg-muted/50"
-                          style={isSelected ? { backgroundColor: 'hsl(var(--muted) / 0.5)' } : undefined}
-                          onClick={() => setSelectedDetail(isSelected ? null : item.detail)}
-                        >
-                          <div className="flex justify-between text-sm">
-                            <span>{item.name}</span>
-                            <span className="text-muted-foreground">{item.value} ({pct}%)</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${pct}%`,
-                                backgroundColor: REFERRAL_COLORS[selectedReferralSource] || "#6b7280",
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {isSelected && detailPaidBreakdown.length > 0 && (
-                          <div className="mt-2 mb-1">
-                            <div className="flex items-center gap-4 justify-center">
-                              {detailPaidBreakdown.map((entry, idx) => {
-                                const tot = detailPaidBreakdown.reduce((s, e) => s + e.value, 0);
-                                const p = tot > 0 ? ((entry.value / tot) * 100).toFixed(0) : "0";
-                                return (
-                                  <div key={idx} className="flex items-center gap-1.5 text-xs">
-                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span>{entry.name} {entry.value} ({p}%)</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <ResponsiveContainer width="100%" height={120}>
-                              <PieChart>
-                                <Pie
-                                  data={detailPaidBreakdown}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={25}
-                                  outerRadius={45}
-                                  paddingAngle={2}
-                                  dataKey="value"
-                                >
-                                  {detailPaidBreakdown.map((entry, idx) => (
-                                    <Cell key={idx} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        )}
-                        {isSelected && detailPaidBreakdown.length === 0 && (
-                          <div className="text-xs text-muted-foreground text-center py-3">
-                            No organic/paid data available
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </ChartCard>
-          </div>
-
-          {/* Referral progress over time — line chart */}
-          <ChartCard
-            title={t('business.referrals.progressOverTime')}
-            helpText={t('business.referrals.progressOverTimeHelp')}
-          >
-            {referralTimeseriesLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : referralLineData.length === 0 ? (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                {t('business.referrals.noData')}
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={referralLineData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                  <RechartsTooltip />
-                  <Legend />
-                  {referralLineSources.map((src) => (
-                    <Line
-                      key={src}
-                      type="monotone"
-                      dataKey={src}
-                      name={REFERRAL_LABELS[src] || src}
-                      stroke={REFERRAL_COLORS[src] || "#6b7280"}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-
-            </TabsContent>
-
             <TabsContent value="leads" className="space-y-4">
               <LeadsStatsCards
                 hospitalId={activeHospital?.id ?? ""}
@@ -903,7 +720,228 @@ export default function Marketing() {
               />
             </TabsContent>
 
-            <TabsContent value="events">
+            <TabsContent value="events" className="space-y-4">
+          {/* Collapsible source insights card */}
+          <Card>
+            <CardHeader
+              role="button"
+              tabIndex={0}
+              aria-expanded={sourceInsightsOpen}
+              aria-controls="source-insights-content"
+              onClick={() => setSourceInsightsOpen((o) => !o)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSourceInsightsOpen((o) => !o);
+                }
+              }}
+              className="cursor-pointer flex flex-row items-center justify-between py-3"
+            >
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4" />
+                {t("business.referrals.sourceInsights", "Source insights")}
+              </CardTitle>
+              {sourceInsightsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </CardHeader>
+            {sourceInsightsOpen && (
+              <CardContent id="source-insights-content" className="space-y-4">
+                {/* Sample size indicator */}
+                {referralData && (
+                  <div className="text-sm text-muted-foreground px-1">
+                    {referralData.totalReferrals} {t('business.referrals.totalBookingReferrals')}
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Main pie chart */}
+                  <ChartCard
+                    title={t('business.referrals.sourceBreakdown')}
+                    helpText={t('business.referrals.sourceBreakdownHelp')}
+                  >
+                    {referralLoading ? (
+                      <div className="flex items-center justify-center h-64">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    ) : referralPieData.length === 0 ? (
+                      <div className="flex items-center justify-center h-64 text-muted-foreground">
+                        {t('business.referrals.noData')}
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={referralPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            dataKey="value"
+                            onClick={(entry) => {
+                              setSelectedReferralSource(
+                                selectedReferralSource === entry.source ? null : entry.source
+                              );
+                              setSelectedDetail(null);
+                            }}
+                            cursor="pointer"
+                          >
+                            {referralPieData.map((entry, index) => (
+                              <Cell
+                                key={index}
+                                fill={entry.color}
+                                opacity={selectedReferralSource && selectedReferralSource !== entry.source ? 0.4 : 1}
+                                stroke={selectedReferralSource === entry.source ? entry.color : "transparent"}
+                                strokeWidth={selectedReferralSource === entry.source ? 3 : 0}
+                              />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value: number) => [value, t('business.referrals.responses')]}
+                          />
+                          <Legend
+                            formatter={(value: string) => {
+                              const entry = referralPieData.find((e) => e.name === value);
+                              if (!entry) return value;
+                              const total = referralPieData.reduce((s, e) => s + e.value, 0);
+                              const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
+                              return `${value} ${entry.value} (${pct}%)`;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </ChartCard>
+
+                  {/* Detail drill-down */}
+                  <ChartCard
+                    title={selectedReferralSource
+                      ? `${REFERRAL_LABELS[selectedReferralSource] || selectedReferralSource} — ${t('business.referrals.detail')}`
+                      : t('business.referrals.clickToExplore')
+                    }
+                    helpText={t('business.referrals.detailHelp')}
+                  >
+                    {!selectedReferralSource ? (
+                      <div className="flex items-center justify-center h-64 text-muted-foreground">
+                        {t('business.referrals.selectSlice')}
+                      </div>
+                    ) : referralDetailData.length === 0 ? (
+                      <div className="flex items-center justify-center h-64 text-muted-foreground">
+                        {t('business.referrals.noDetail')}
+                      </div>
+                    ) : (
+                      <div className="space-y-3 pt-2">
+                        {referralDetailData.map((item, i) => {
+                          const total = referralDetailData.reduce((s, d) => s + d.value, 0);
+                          const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+                          const isSelected = selectedDetail === item.detail;
+                          return (
+                            <div key={i}>
+                              <div
+                                className="space-y-1 cursor-pointer rounded-md px-2 py-1.5 -mx-2 transition-colors hover:bg-muted/50"
+                                style={isSelected ? { backgroundColor: 'hsl(var(--muted) / 0.5)' } : undefined}
+                                onClick={() => setSelectedDetail(isSelected ? null : item.detail)}
+                              >
+                                <div className="flex justify-between text-sm">
+                                  <span>{item.name}</span>
+                                  <span className="text-muted-foreground">{item.value} ({pct}%)</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${pct}%`,
+                                      backgroundColor: REFERRAL_COLORS[selectedReferralSource] || "#6b7280",
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              {isSelected && detailPaidBreakdown.length > 0 && (
+                                <div className="mt-2 mb-1">
+                                  <div className="flex items-center gap-4 justify-center">
+                                    {detailPaidBreakdown.map((entry, idx) => {
+                                      const tot = detailPaidBreakdown.reduce((s, e) => s + e.value, 0);
+                                      const p = tot > 0 ? ((entry.value / tot) * 100).toFixed(0) : "0";
+                                      return (
+                                        <div key={idx} className="flex items-center gap-1.5 text-xs">
+                                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                          <span>{entry.name} {entry.value} ({p}%)</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <ResponsiveContainer width="100%" height={120}>
+                                    <PieChart>
+                                      <Pie
+                                        data={detailPaidBreakdown}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={25}
+                                        outerRadius={45}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                      >
+                                        {detailPaidBreakdown.map((entry, idx) => (
+                                          <Cell key={idx} fill={entry.color} />
+                                        ))}
+                                      </Pie>
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              )}
+                              {isSelected && detailPaidBreakdown.length === 0 && (
+                                <div className="text-xs text-muted-foreground text-center py-3">
+                                  {t('business.referrals.noOrganicPaidData', 'No organic/paid data available')}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ChartCard>
+                </div>
+
+                {/* Referral progress over time — line chart */}
+                <ChartCard
+                  title={t('business.referrals.progressOverTime')}
+                  helpText={t('business.referrals.progressOverTimeHelp')}
+                >
+                  {referralTimeseriesLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : referralLineData.length === 0 ? (
+                    <div className="flex items-center justify-center h-64 text-muted-foreground">
+                      {t('business.referrals.noData')}
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={350}>
+                      <LineChart data={referralLineData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                        <RechartsTooltip />
+                        <Legend />
+                        {referralLineSources.map((src) => (
+                          <Line
+                            key={src}
+                            type="monotone"
+                            dataKey={src}
+                            name={REFERRAL_LABELS[src] || src}
+                            stroke={REFERRAL_COLORS[src] || "#6b7280"}
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
+              </CardContent>
+            )}
+          </Card>
+
           {/* Recent referral events table */}
           <Card>
             <CardHeader>

@@ -5637,7 +5637,6 @@
       "detail": "Detail",
       "progressOverTime": "Empfehlungsquellen im Zeitverlauf",
       "progressOverTimeHelp": "Zeigt die monatliche Entwicklung jeder Empfehlungsquelle über den gesamten verfügbaren Zeitraum",
-      "sourcesTab": "Quellen",
       "leadsTab": "Leads",
       "recentEvents": "Verweise",
       "conversionTab": "Konversion",
@@ -5649,7 +5648,9 @@
       "deleteDialogTitle": "Verweis löschen?",
       "deleteDialogBody": "Dies löscht den Verweis-Eintrag für {{name}} dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
       "saving": "Speichern …",
-      "save": "Speichern"
+      "save": "Speichern",
+      "sourceInsights": "Quellen-Übersicht",
+      "noOrganicPaidData": "Keine organischen/bezahlten Daten verfügbar"
     },
     "leads": {
       "pasteLeads": "Leads einfügen",
