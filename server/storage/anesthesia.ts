@@ -3478,9 +3478,11 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     return remainingUsage;
   }
 
+  // Fetch one row per (item, config) — multi-config items (Option 3) produce N rows per item.
   const itemsWithConfigs = await db
     .select({
       id: items.id,
+      configId: medicationConfigs.id,
       rateUnit: medicationConfigs.rateUnit,
       ampuleTotalContent: medicationConfigs.ampuleTotalContent,
       administrationUnit: medicationConfigs.administrationUnit,
@@ -3488,23 +3490,66 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     .from(items)
     .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
     .where(inArray(items.id, itemIds));
-  
-  const itemsMap = new Map(itemsWithConfigs.map(item => [item.id, item]));
 
-  const medsByItem = new Map<string, any[]>();
-  medications.forEach(med => {
-    if (!medsByItem.has(med.itemId)) {
-      medsByItem.set(med.itemId, []);
+  // Group configs by item so we can iterate N configs per item and sum ampules.
+  const configsByItem = new Map<string, typeof itemsWithConfigs>();
+  for (const row of itemsWithConfigs) {
+    if (!configsByItem.has(row.id)) configsByItem.set(row.id, []);
+    configsByItem.get(row.id)!.push(row);
+  }
+
+  // Group medications by medicationConfigId. Rows without a configId (legacy/orphan)
+  // route to the item's first config so single-config flows are unchanged.
+  const medsByConfig = new Map<string, any[]>();
+  for (const med of medications) {
+    const configs = configsByItem.get(med.itemId);
+    if (!configs || configs.length === 0) continue;
+
+    // Prefer the medication's explicit configId; fall back to the first config of the item.
+    let targetConfigId = med.medicationConfigId;
+    if (!targetConfigId || !configs.find(c => c.configId === targetConfigId)) {
+      targetConfigId = configs[0].configId;
     }
-    medsByItem.get(med.itemId)!.push(med);
-  });
+    if (!targetConfigId) continue;
 
+    if (!medsByConfig.has(targetConfigId)) medsByConfig.set(targetConfigId, []);
+    medsByConfig.get(targetConfigId)!.push(med);
+  }
+
+  // usageMap accumulates ampules per item across all configs. Per-config ceiling-then-sum
+  // reflects clinical reality: a bolus opens a new ampule even when the drug is already
+  // running as an infusion from another ampule.
   const usageMap = new Map<string, number>();
-  
-  for (const [itemId, meds] of Array.from(medsByItem.entries())) {
-    const item = itemsMap.get(itemId);
-    if (!item) {
-      continue;
+
+  for (const [configId, meds] of Array.from(medsByConfig.entries())) {
+    // Find the config row to use for this group of meds.
+    let configRow: (typeof itemsWithConfigs)[number] | undefined;
+    let itemId = '';
+    for (const [iid, configs] of Array.from(configsByItem.entries())) {
+      const found = configs.find(c => c.configId === configId);
+      if (found) { configRow = found; itemId = iid; break; }
+    }
+    if (!configRow) continue;
+
+    const item = {
+      id: itemId,
+      rateUnit: configRow.rateUnit,
+      ampuleTotalContent: configRow.ampuleTotalContent,
+      administrationUnit: configRow.administrationUnit,
+    };
+
+    // Manual total override: if the user recorded a `manual_total` for this config,
+    // it represents the actual consumed dose (e.g. ampules drawn from the tray).
+    // Use it directly and skip rate/bolus recalculation.
+    const manualTotal = meds.find((m: any) => m.type === 'manual_total');
+    if (manualTotal) {
+      const doseValue = parseFloat(manualTotal.dose?.match(/[\d.]+/)?.[0] || '0');
+      const ampuleValue = parseFloat(item.ampuleTotalContent?.match(/[\d.]+/)?.[0] || '0');
+      if (ampuleValue > 0 && doseValue > 0) {
+        const qty = Math.ceil(doseValue / ampuleValue);
+        usageMap.set(itemId, (usageMap.get(itemId) || 0) + qty);
+      }
+      continue; // Next config
     }
 
     const isBolus = !item.rateUnit || item.rateUnit === null;
@@ -3742,7 +3787,8 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     }
 
     if (totalQty > 0) {
-      usageMap.set(itemId, totalQty);
+      // Accumulate — another config for the same item may have already added to this key.
+      usageMap.set(itemId, (usageMap.get(itemId) || 0) + totalQty);
     }
   }
 
@@ -3750,7 +3796,7 @@ export async function calculateInventoryUsage(anesthesiaRecordId: string): Promi
     .select()
     .from(inventoryUsage)
     .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
-  
+
   for (const existing of existingUsage) {
     if (!usageMap.has(existing.itemId) && existing.overrideQty === null && !orMedItemIds.has(existing.itemId)) {
       await db
