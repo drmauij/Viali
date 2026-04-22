@@ -234,11 +234,16 @@ export function MedicationConfigDialog({
     },
   });
 
-  // Mutation to remove medication (clear administration group)
+  // Mutation to remove medication — deletes ONLY the config for this (item, lane) pair
+  // so multi-config items keep their other-lane configs intact.
   const removeMedicationMutation = useMutation({
     mutationFn: async (itemId: string) => {
+      if (!administrationGroup) {
+        throw new Error("No administration group in context — cannot remove");
+      }
       return apiRequest('PATCH', `/api/items/${itemId}/anesthesia-config`, {
-        administrationGroup: null,
+        _removeFromGroup: true,
+        administrationGroup: administrationGroup.id,
       });
     },
     onSuccess: () => {

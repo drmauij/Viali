@@ -158,31 +158,58 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
         .where(eq(items.id, itemId));
     }
 
-    const hasMedicationConfig = req.body.medicationGroup || req.body.administrationGroup || 
-      req.body.defaultDose || req.body.administrationUnit || req.body.ampuleTotalContent || 
+    // Explicit "remove this config" path from the dialog's Remove button.
+    // Scoped by (itemId, administrationGroup) so only the clicked lane's config is deleted.
+    if (req.body._removeFromGroup && req.body.administrationGroup) {
+      await db
+        .delete(medicationConfigs)
+        .where(
+          and(
+            eq(medicationConfigs.itemId, itemId),
+            eq(medicationConfigs.administrationGroup, req.body.administrationGroup),
+          ),
+        );
+      return res.json({ success: true, removed: { itemId, administrationGroup: req.body.administrationGroup } });
+    }
+
+    const hasMedicationConfig = req.body.medicationGroup || req.body.administrationGroup ||
+      req.body.defaultDose || req.body.administrationUnit || req.body.ampuleTotalContent ||
       req.body.administrationRoute || req.body.rateUnit !== undefined || req.body.onDemandOnly !== undefined;
 
     if (hasMedicationConfig) {
-      const existingConfig = await db
-        .select()
-        .from(medicationConfigs)
-        .where(eq(medicationConfigs.itemId, itemId))
-        .limit(1);
+      // Scope lookup and upsert by (itemId, administrationGroup) — an item can have
+      // multiple configs, one per admin group. Using the composite lets us correctly
+      // INSERT a new config when the user configures the item in a second lane
+      // instead of overwriting the existing one.
+      const targetGroup = req.body.administrationGroup || null;
+
+      const existingConfig = targetGroup
+        ? await db
+            .select()
+            .from(medicationConfigs)
+            .where(
+              and(
+                eq(medicationConfigs.itemId, itemId),
+                eq(medicationConfigs.administrationGroup, targetGroup),
+              ),
+            )
+            .limit(1)
+        : [];
 
       const configData: any = {
         itemId,
         medicationGroup: req.body.medicationGroup || null,
-        administrationGroup: req.body.administrationGroup || null,
+        administrationGroup: targetGroup,
         defaultDose: req.body.defaultDose || null,
         administrationUnit: req.body.administrationUnit || null,
         ampuleTotalContent: req.body.ampuleTotalContent || null,
         administrationRoute: req.body.administrationRoute || null,
         rateUnit: req.body.rateUnit || null,
-        sortOrder: req.body.sortOrder !== undefined 
-          ? req.body.sortOrder 
+        sortOrder: req.body.sortOrder !== undefined
+          ? req.body.sortOrder
           : (existingConfig.length > 0 ? existingConfig[0].sortOrder : 0),
-        onDemandOnly: req.body.onDemandOnly !== undefined 
-          ? req.body.onDemandOnly 
+        onDemandOnly: req.body.onDemandOnly !== undefined
+          ? req.body.onDemandOnly
           : (existingConfig.length > 0 ? existingConfig[0].onDemandOnly : false),
       };
 
@@ -194,14 +221,38 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
         await db
           .update(medicationConfigs)
           .set(updateData)
-          .where(eq(medicationConfigs.itemId, itemId));
+          .where(eq(medicationConfigs.id, existingConfig[0].id));
       } else {
         await db.insert(medicationConfigs).values(configData);
       }
-    } else {
+    } else if (req.body.administrationGroup) {
+      // Dialog's Remove button sends { administrationGroup: <group-id-to-remove> }
+      // with no other config fields. Delete ONLY the config for that (item, group) pair
+      // — never wipe all configs for the item.
       await db
         .delete(medicationConfigs)
+        .where(
+          and(
+            eq(medicationConfigs.itemId, itemId),
+            eq(medicationConfigs.administrationGroup, req.body.administrationGroup),
+          ),
+        );
+    } else {
+      // Legacy fallthrough: body has no administrationGroup and no config fields.
+      // Historically this deleted ALL configs for the item, which is dangerous under
+      // multi-config. Keep for API-stability but narrow: only fires when body is empty
+      // AND item has exactly one config (preserving the single-config semantic).
+      const configs = await db
+        .select()
+        .from(medicationConfigs)
         .where(eq(medicationConfigs.itemId, itemId));
+      if (configs.length === 1) {
+        await db
+          .delete(medicationConfigs)
+          .where(eq(medicationConfigs.id, configs[0].id));
+      }
+      // If multiple configs exist and the caller gave no group, do nothing — the caller
+      // must specify which config to remove.
     }
 
     const result = await db
