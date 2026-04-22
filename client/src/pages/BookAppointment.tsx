@@ -258,6 +258,12 @@ export default function BookAppointment() {
 
   const [services, setServices] = useState<Service[]>([]);
   const [selectedTreatment, setSelectedTreatment] = useState<Service | null>(null);
+  // Explicit "user chose to skip the treatment gate" signal. The auto-pick
+  // effect below runs on `selectedTreatment` transitions — but skipping leaves
+  // selectedTreatment at null (its initial value), producing no transition.
+  // This flag gives the effect a distinct dep to react to so the general
+  // pathway also gets a next-available provider + slot auto-picked.
+  const [generalAppointment, setGeneralAppointment] = useState(false);
   const [treatmentSearch, setTreatmentSearch] = useState('');
   const [suggestedProviderId, setSuggestedProviderId] = useState<string | null>(null);
 
@@ -330,6 +336,11 @@ export default function BookAppointment() {
 
         if (list.length > 0) {
           setStep('treatment');
+        } else {
+          // No services configured → there's no treatment gate to clear, so
+          // treat this as the general-appointment path and let the auto-pick
+          // effect prefill provider + date + slot straight away.
+          setGeneralAppointment(true);
         }
       })
       .catch(() => { /* non-fatal */ });
@@ -358,7 +369,8 @@ export default function BookAppointment() {
   }, [token, data, serviceCode]);
 
   // ─── Suggested + auto-picked provider/date/slot for the treatment ──
-  // When a treatment is set (manually OR via ?service= deep link):
+  // When a treatment is set (manually OR via ?service= deep link) OR the user
+  // has chosen the general-appointment path (skip button):
   //   1. Mark the suggested provider (Nächster Termin badge)
   //   2. If no provider has been chosen yet (or the prior provider was
   //      auto-picked, not manually clicked), auto-select provider + date.
@@ -371,9 +383,9 @@ export default function BookAppointment() {
   // don't clobber the user's choice.
   useEffect(() => {
     if (!token || !data) return;
-    if (!selectedTreatment) { setSuggestedProviderId(null); return; }
+    if (!selectedTreatment && !generalAppointment) { setSuggestedProviderId(null); return; }
     if (preselectedProviderId) return;
-    const code = selectedTreatment.code;
+    const code = selectedTreatment?.code;
     const url = code
       ? `/api/public/booking/${token}/best-provider?service=${encodeURIComponent(code)}`
       : `/api/public/booking/${token}/best-provider`;
@@ -421,7 +433,7 @@ export default function BookAppointment() {
       .catch(() => { if (!cancelled) setSuggestedProviderId(null); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, data, selectedTreatment, preselectedProviderId]);
+  }, [token, data, selectedTreatment, generalAppointment, preselectedProviderId]);
 
   // After the slots fetch resolves, promote the pending auto-slot into
   // selectedSlot, then jump to the form section while overriding the scroll
@@ -969,7 +981,7 @@ export default function BookAppointment() {
                     .map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => { setSelectedTreatment(s); setStep('provider'); }}
+                        onClick={() => { setSelectedTreatment(s); setGeneralAppointment(false); setStep('provider'); }}
                         data-testid={`treatment-${s.code ?? s.id}`}
                         className={cn(
                           'text-left p-3 rounded-xl border transition-colors',
@@ -992,7 +1004,7 @@ export default function BookAppointment() {
                 <Button
                   variant="outline"
                   className="mt-4 w-full"
-                  onClick={() => { setSelectedTreatment(null); setStep('provider'); }}
+                  onClick={() => { setSelectedTreatment(null); setGeneralAppointment(true); setStep('provider'); }}
                   data-testid="treatment-skip"
                 >
                   Überspringen — allgemeines Beratungsgespräch
