@@ -514,8 +514,8 @@ export async function upsertMedicationConfig(config: InsertMedicationConfig): Pr
         administrationRoute: config.administrationRoute,
         administrationUnit: config.administrationUnit,
         rateUnit: config.rateUnit,
-        sortOrder: config.sortOrder ?? 0,
-        onDemandOnly: config.onDemandOnly ?? false,
+        ...(config.sortOrder !== undefined && { sortOrder: config.sortOrder }),
+        ...(config.onDemandOnly !== undefined && { onDemandOnly: config.onDemandOnly }),
         updatedAt: new Date(),
       },
     })

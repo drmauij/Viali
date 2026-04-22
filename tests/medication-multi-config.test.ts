@@ -121,3 +121,63 @@ describe("upsertMedicationConfig supports N configs per item", () => {
     expect(rows[0].defaultDose).toBe("3");
   });
 });
+
+describe("upsertMedicationConfig regression: preserves user-set fields", () => {
+  it("preserves sortOrder when the caller omits it (regression guard)", async () => {
+    const uid = await someUnitId();
+    const perfGroup = await mkGroup("Perfusor-preserve");
+    const item = await mkItem("Propofol-preserve", uid);
+
+    // First upsert establishes a sortOrder explicitly.
+    const c1 = await upsertMedicationConfig({
+      itemId: item.id,
+      administrationGroup: perfGroup.id,
+      rateUnit: "mg/kg/h",
+      defaultDose: "5",
+      sortOrder: 42,
+    });
+    createdConfigIds.push(c1.id);
+
+    // Second upsert omits sortOrder — it MUST preserve 42, not reset to 0.
+    await upsertMedicationConfig({
+      itemId: item.id,
+      administrationGroup: perfGroup.id,
+      rateUnit: "mg/kg/h",
+      defaultDose: "5",
+      // sortOrder deliberately omitted
+    });
+
+    const [row] = await db
+      .select()
+      .from(medicationConfigs)
+      .where(eq(medicationConfigs.id, c1.id));
+    expect(row.sortOrder).toBe(42);
+  });
+
+  it("preserves onDemandOnly when the caller omits it (regression guard)", async () => {
+    const uid = await someUnitId();
+    const perfGroup = await mkGroup("Perfusor-preserve2");
+    const item = await mkItem("Fentanyl-preserve", uid);
+
+    const c1 = await upsertMedicationConfig({
+      itemId: item.id,
+      administrationGroup: perfGroup.id,
+      rateUnit: "μg/kg/h",
+      onDemandOnly: true,
+    });
+    createdConfigIds.push(c1.id);
+
+    await upsertMedicationConfig({
+      itemId: item.id,
+      administrationGroup: perfGroup.id,
+      rateUnit: "μg/kg/h",
+      // onDemandOnly deliberately omitted
+    });
+
+    const [row] = await db
+      .select()
+      .from(medicationConfigs)
+      .where(eq(medicationConfigs.id, c1.id));
+    expect(row.onDemandOnly).toBe(true);
+  });
+});
