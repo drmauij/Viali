@@ -15,7 +15,7 @@ import type {
 } from "@/hooks/useEventState";
 import type { AnesthesiaItem, AdministrationGroup } from "./types";
 import {
-  buildItemToSwimlaneMap,
+  buildConfigToSwimlaneMap,
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
@@ -161,16 +161,16 @@ export function useTimelineDataSync(
     }
 
     // Build item-to-swimlane mapping
-    const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
+    const configToSwimlane = buildConfigToSwimlaneMap(anesthesiaItems, administrationGroups);
 
     // Transform and load medication doses (boluses) - will be empty array if no data
-    const doses = transformMedicationDoses(medications || [], itemToSwimlane);
+    const doses = transformMedicationDoses(medications || [], configToSwimlane, anesthesiaItems);
 
     // Transform and load rate infusion sessions
-    const rateSessions = transformRateInfusions(medications || [], itemToSwimlane, anesthesiaItems);
+    const rateSessions = transformRateInfusions(medications || [], configToSwimlane, anesthesiaItems);
 
     // Transform and load free-flow infusion sessions
-    const freeFlowSessionsData = transformFreeFlowInfusions(medications || [], itemToSwimlane, anesthesiaItems);
+    const freeFlowSessionsData = transformFreeFlowInfusions(medications || [], configToSwimlane, anesthesiaItems);
 
     // Reset medication data using hook
     resetMedicationData({
