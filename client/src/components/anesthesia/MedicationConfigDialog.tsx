@@ -103,32 +103,33 @@ export function MedicationConfigDialog({
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Pre-fill form when editing an existing item
+  // Pre-fill form when editing an existing item. Depends on `open` so reopening
+  // with the same editingItem reference (after the close-reset effect wipes state)
+  // re-populates the form; otherwise everything below "Select Item" stays hidden.
   useEffect(() => {
-    if (editingItem) {
-      setSelectedItemId(editingItem.id);
-      setConfigItemName(editingItem.name);
-      
-      if (editingItem.rateUnit === null || editingItem.rateUnit === undefined) {
-        setConfigAnesthesiaType('medication');
-        setConfigIsRateControlled(false);
-      } else if (editingItem.rateUnit === 'free') {
-        setConfigAnesthesiaType('infusion');
-        setConfigIsRateControlled(false);
-      } else {
-        setConfigAnesthesiaType('infusion');
-        setConfigIsRateControlled(true);
-        setConfigRateUnit(editingItem.rateUnit);
-      }
-      
-      setConfigDefaultDose(editingItem.defaultDose || '');
-      setConfigAdministrationRoute(editingItem.administrationRoute || 'i.v.');
-      setConfigAdministrationUnit(editingItem.administrationUnit || 'mg');
-      setConfigAmpuleContent(editingItem.ampuleTotalContent || '');
-      setConfigMedicationGroup(editingItem.medicationGroup || '');
-      setConfigOnDemandOnly(editingItem.onDemandOnly || false);
+    if (!open || !editingItem) return;
+    setSelectedItemId(editingItem.id);
+    setConfigItemName(editingItem.name);
+
+    if (editingItem.rateUnit === null || editingItem.rateUnit === undefined) {
+      setConfigAnesthesiaType('medication');
+      setConfigIsRateControlled(false);
+    } else if (editingItem.rateUnit === 'free') {
+      setConfigAnesthesiaType('infusion');
+      setConfigIsRateControlled(false);
+    } else {
+      setConfigAnesthesiaType('infusion');
+      setConfigIsRateControlled(true);
+      setConfigRateUnit(editingItem.rateUnit);
     }
-  }, [editingItem]);
+
+    setConfigDefaultDose(editingItem.defaultDose || '');
+    setConfigAdministrationRoute(editingItem.administrationRoute || 'i.v.');
+    setConfigAdministrationUnit(editingItem.administrationUnit || 'mg');
+    setConfigAmpuleContent(editingItem.ampuleTotalContent || '');
+    setConfigMedicationGroup(editingItem.medicationGroup || '');
+    setConfigOnDemandOnly(editingItem.onDemandOnly || false);
+  }, [open, editingItem]);
 
   // Reset form when dialog closes
   useEffect(() => {
