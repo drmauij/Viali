@@ -498,19 +498,24 @@ export async function getMedicationConfigById(id: string): Promise<MedicationCon
 }
 
 export async function upsertMedicationConfig(config: InsertMedicationConfig): Promise<MedicationConfig> {
+  // Composite conflict target: one config per (item_id, administration_group). If you change the
+  // admin group, that's effectively a NEW config (this function inserts a new row); if you
+  // change anything else while keeping the same pair, it updates in place.
   const [upserted] = await db
     .insert(medicationConfigs)
     .values(config)
     .onConflictDoUpdate({
-      target: medicationConfigs.itemId,
+      target: [medicationConfigs.itemId, medicationConfigs.administrationGroup],
+      targetWhere: sql`administration_group IS NOT NULL`,
       set: {
         medicationGroup: config.medicationGroup,
-        administrationGroup: config.administrationGroup,
         ampuleTotalContent: config.ampuleTotalContent,
         defaultDose: config.defaultDose,
         administrationRoute: config.administrationRoute,
         administrationUnit: config.administrationUnit,
         rateUnit: config.rateUnit,
+        sortOrder: config.sortOrder ?? 0,
+        onDemandOnly: config.onDemandOnly ?? false,
         updatedAt: new Date(),
       },
     })
