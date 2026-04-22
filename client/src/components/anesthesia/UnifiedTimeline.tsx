@@ -6863,7 +6863,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 const newStartTime = clickTime + 60000; // 1 minute gap
                 
                 // Extract (group, item) from swimlane ID to disambiguate multi-config items
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -7013,7 +7013,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // DUPLICATE action: Create a parallel infusion (keep current running)
                 // Extract item ID from swimlane ID
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -7245,7 +7245,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 }, {
                   onSuccess: () => {
                     // 2. Find the item for this session — disambiguate by (group, item)
-                    const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                    const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                     if (!groupMatch) return;
 
                     const item = anesthesiaItems.find(i => i.administrationGroup === groupMatch[1] && i.id === groupMatch[2]);
