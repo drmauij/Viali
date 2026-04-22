@@ -208,6 +208,7 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
       .select({
         id: items.id,
         name: items.name,
+        medicationConfigId: medicationConfigs.id,
         medicationGroup: medicationConfigs.medicationGroup,
         administrationGroup: medicationConfigs.administrationGroup,
         defaultDose: medicationConfigs.defaultDose,
