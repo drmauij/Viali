@@ -1,5 +1,6 @@
 type AnesthesiaItem = {
   id: string;
+  medicationConfigId?: string;
   name: string;
   administrationUnit?: string;
   administrationRoute?: string;
