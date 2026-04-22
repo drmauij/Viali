@@ -254,9 +254,14 @@ export function OrMedicationsCard({
   });
 
   const removeConfigMutation = useMutation({
-    mutationFn: async (itemId: string) => {
+    mutationFn: async ({ itemId, groupName }: { itemId: string; groupName: string }) => {
+      // Scoped remove: only delete the config for this specific (item, group) pair.
+      // With multi-config support, the same item may have configs in multiple groups
+      // (e.g. Anesthesia + OR/Infiltration) — nulling administrationGroup alone would
+      // silently no-op on multi-config items.
       return apiRequest("PATCH", `/api/items/${itemId}/anesthesia-config`, {
-        administrationGroup: null,
+        _removeFromGroup: true,
+        administrationGroup: groupName,
       });
     },
     onSuccess: () => {
@@ -394,7 +399,7 @@ export function OrMedicationsCard({
               setAddMedGroupId(groupId);
               setAddMedDialogOpen(true);
             }}
-            onRemoveConfig={(itemId) => removeConfigMutation.mutate(itemId)}
+            onRemoveConfig={(itemId, groupName) => removeConfigMutation.mutate({ itemId, groupName })}
             onDeleteMed={(itemId, groupId) => deleteMedMutation.mutate({ itemId, groupId })}
           />
         ))}
@@ -456,7 +461,7 @@ interface GroupSectionProps {
   onRenameCancel: () => void;
   onDeleteGroup: (groupId: string) => void;
   onAddMedication: (groupId: string) => void;
-  onRemoveConfig: (itemId: string) => void;
+  onRemoveConfig: (itemId: string, groupName: string) => void;
   onDeleteMed: (itemId: string, groupId: string) => void;
 }
 
@@ -638,7 +643,7 @@ function GroupSection({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 shrink-0"
-                  onClick={() => onRemoveConfig(item.itemId)}
+                  onClick={() => onRemoveConfig(item.itemId, group.name)}
                   title={t("anesthesia.orMedications.removeMed", "Remove medication")}
                 >
                   <X className="h-3.5 w-3.5" />
