@@ -1611,6 +1611,13 @@
       "when": 1778200000000,
       "tag": "0229_booking_idempotency_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1778400000000,
+      "tag": "0230_medication_configs_multi_config",
+      "breakpoints": true
     }
   ]
 }

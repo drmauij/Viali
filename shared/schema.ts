@@ -718,7 +718,7 @@ export const checklistDismissals = pgTable("checklist_dismissals", {
 // Medication Configurations (anesthesia-specific medication data)
 export const medicationConfigs = pgTable("medication_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }).unique(), // One-to-one with items
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }), // N configs per item (one per admin group)
   
   // Classification
   medicationGroup: varchar("medication_group"), // "Hypnotika", "Opioide", "Muskelrelaxantien", etc.
@@ -750,6 +750,9 @@ export const medicationConfigs = pgTable("medication_configs", {
   index("idx_medication_configs_item").on(table.itemId),
   index("idx_medication_configs_group").on(table.medicationGroup),
   index("idx_medication_configs_admin_group").on(table.administrationGroup),
+  uniqueIndex("uq_medication_configs_item_group")
+    .on(table.itemId, table.administrationGroup)
+    .where(sql`administration_group IS NOT NULL`),
 ]);
 
 // ==================== ANESTHESIA MODULE TABLES ====================
@@ -2124,7 +2127,11 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull(),
   itemId: varchar("item_id").notNull().references(() => items.id), // Link to inventory
-  
+  // Resolves the dose to a specific (item, administration_group) config — needed
+  // when the same item has multiple configs (e.g. Noradrenalin as both Perfusor and Bolus).
+  // Nullable for migration rollout; backfilled for existing rows via the 0230 migration.
+  medicationConfigId: varchar("medication_config_id").references(() => medicationConfigs.id, { onDelete: 'set null' }),
+
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   type: varchar("type", { 
     enum: ["bolus", "infusion_start", "infusion_stop", "rate_change", "manual_total"] 
@@ -2163,6 +2170,7 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   index("idx_anesthesia_medications_timestamp").on(table.timestamp),
   index("idx_anesthesia_medications_type").on(table.type),
   index("idx_anesthesia_medications_session").on(table.infusionSessionId),
+  index("idx_anesthesia_medications_config").on(table.medicationConfigId),
 ]);
 
 // Anesthesia Events (Timeline markers)
