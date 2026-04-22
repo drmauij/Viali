@@ -105,6 +105,8 @@ export interface SaveMedicationPayload {
   endTimestamp?: Date;
   infusionSessionId?: string;
   note?: string;
+  /** The specific medication_configs row used for this dose — disambiguates multi-config items. */
+  medicationConfigId?: string;
 }
 
 /**
@@ -154,6 +156,7 @@ export async function saveMedication(payload: SaveMedicationPayload): Promise<an
     endTimestamp: payload.endTimestamp,
     infusionSessionId: payload.infusionSessionId,
     note: payload.note,
+    medicationConfigId: payload.medicationConfigId,
   };
 
   console.log('[PERSISTENCE] Sending POST /api/anesthesia/medications:', JSON.stringify(requestPayload, null, 2));

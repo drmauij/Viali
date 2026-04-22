@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, useCallback, ReactNode, useEffect } from 'react';
 import type { AnesthesiaMedication } from '@shared/schema';
 import {
-  buildItemToSwimlaneMap,
+  buildConfigToSwimlaneMap,
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
@@ -219,12 +219,12 @@ export function MedicationTimelineProvider({
     }
 
     // Build item-to-swimlane mapping
-    const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
+    const configToSwimlane = buildConfigToSwimlaneMap(anesthesiaItems, administrationGroups);
 
     // Transform medications into consumable formats
-    const doses = transformMedicationDoses(rawMedications, itemToSwimlane);
-    const rateSessions = transformRateInfusions(rawMedications, itemToSwimlane, anesthesiaItems);
-    const freeFlowSessions = transformFreeFlowInfusions(rawMedications, itemToSwimlane, anesthesiaItems);
+    const doses = transformMedicationDoses(rawMedications, configToSwimlane, anesthesiaItems);
+    const rateSessions = transformRateInfusions(rawMedications, configToSwimlane, anesthesiaItems);
+    const freeFlowSessions = transformFreeFlowInfusions(rawMedications, configToSwimlane, anesthesiaItems);
 
     // Sync to state
     dispatch({

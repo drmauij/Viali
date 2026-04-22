@@ -89,6 +89,22 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
       return res.status(403).json({ message: "Access denied" });
     }
 
+    // If the client sent a medicationConfigId, validate it belongs to the same item.
+    // This prevents a confused client from pointing doses at the wrong config.
+    if (validatedData.medicationConfigId) {
+      const [mc] = await db
+        .select({ itemId: medicationConfigs.itemId })
+        .from(medicationConfigs)
+        .where(eq(medicationConfigs.id, validatedData.medicationConfigId))
+        .limit(1);
+      if (!mc) {
+        return res.status(400).json({ message: "medicationConfigId not found" });
+      }
+      if (mc.itemId !== validatedData.itemId) {
+        return res.status(400).json({ message: "medicationConfigId does not belong to itemId" });
+      }
+    }
+
     const newMedication = await storage.createAnesthesiaMedication(validatedData);
 
     // Heal the paired infusion_start record: if this is an infusion_stop linked

@@ -1,5 +1,6 @@
 type AnesthesiaItem = {
   id: string;
+  medicationConfigId?: string;
   name: string;
   administrationUnit?: string;
   administrationRoute?: string;
@@ -19,118 +20,118 @@ type AdministrationGroup = {
   createdAt: string;
 };
 
-export function buildItemToSwimlaneMap(
+export function buildConfigToSwimlaneMap(
   anesthesiaItems: AnesthesiaItem[],
-  administrationGroups: AdministrationGroup[]
+  administrationGroups: AdministrationGroup[],
 ): Map<string, string> {
   const map = new Map<string, string>();
-  
-  const itemsByAdminGroup: Record<string, AnesthesiaItem[]> = {};
-  anesthesiaItems.forEach(item => {
-    if (item.administrationGroup) {
-      if (!itemsByAdminGroup[item.administrationGroup]) {
-        itemsByAdminGroup[item.administrationGroup] = [];
-      }
-      itemsByAdminGroup[item.administrationGroup].push(item);
-    }
-  });
-  
-  Object.keys(itemsByAdminGroup).forEach(groupId => {
-    itemsByAdminGroup[groupId].sort((a, b) => a.name.localeCompare(b.name));
-  });
-  
-  administrationGroups
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .forEach(group => {
-      const groupItems = itemsByAdminGroup[group.id] || [];
-      groupItems.forEach((item) => {
-        const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
-        map.set(item.id, swimlaneId);
-      });
-    });
-  
+  const validGroupIds = new Set(administrationGroups.map(g => g.id));
+
+  for (const item of anesthesiaItems) {
+    if (!item.medicationConfigId || !item.administrationGroup) continue;
+    if (!validGroupIds.has(item.administrationGroup)) continue;
+    const swimlaneId = `admingroup-${item.administrationGroup}-item-${item.id}`;
+    map.set(item.medicationConfigId, swimlaneId);
+  }
+
   return map;
+}
+
+/**
+ * Legacy-fallback: resolves a dose entry with NO medicationConfigId to a swimlaneId by
+ * looking up its item's single config in anesthesiaItems. Kept for defensive compat —
+ * the 0230 migration backfills configIds for all existing rows, so this rarely fires.
+ */
+function fallbackLaneForItem(itemId: string, anesthesiaItems: AnesthesiaItem[]): string | undefined {
+  const item = anesthesiaItems.find(i => i.id === itemId);
+  if (!item || !item.administrationGroup) return undefined;
+  return `admingroup-${item.administrationGroup}-item-${item.id}`;
 }
 
 export function transformMedicationDoses(
   medications: any[],
-  itemToSwimlane: Map<string, string>
+  configToSwimlane: Map<string, string>,
+  anesthesiaItems: AnesthesiaItem[] = []
 ): { [swimlaneId: string]: Array<[number, string, string, string | null]> } {
   const doseData: { [swimlaneId: string]: Array<[number, string, string, string | null]> } = {};
-  
+
   // Only process true bolus medications - infusions are handled by separate transform functions
   medications
     .filter(med => med.type === 'bolus')
     .forEach(med => {
-      const swimlaneId = itemToSwimlane.get(med.itemId);
+      let swimlaneId = med.medicationConfigId ? configToSwimlane.get(med.medicationConfigId) : undefined;
+      if (!swimlaneId) swimlaneId = fallbackLaneForItem(med.itemId, anesthesiaItems);
       if (!swimlaneId) return;
-      
+
       const timestamp = new Date(med.timestamp).getTime();
       const id = med.id;
       const displayValue = med.dose || '?';
       const note = med.note || null;
-      
+
       if (!doseData[swimlaneId]) {
         doseData[swimlaneId] = [];
       }
-      
+
       doseData[swimlaneId].push([timestamp, displayValue, id, note]);
     });
-  
+
   Object.keys(doseData).forEach(swimlaneId => {
     doseData[swimlaneId].sort((a, b) => a[0] - b[0]);
   });
-  
+
   return doseData;
 }
 
 export function transformRateInfusions(
   medications: any[],
-  itemToSwimlane: Map<string, string>,
+  configToSwimlane: Map<string, string>,
   anesthesiaItems: AnesthesiaItem[]
 ): { [swimlaneId: string]: any[] } {
   const sessions: { [swimlaneId: string]: any[] } = {};
-  
+
   const infusionsByLane: { [swimlaneId: string]: any[] } = {};
-  
+
   medications
     .filter(med => ['infusion_start', 'rate_change', 'infusion_stop'].includes(med.type))
     .forEach(med => {
-      const swimlaneId = itemToSwimlane.get(med.itemId);
+      let swimlaneId = med.medicationConfigId ? configToSwimlane.get(med.medicationConfigId) : undefined;
+      if (!swimlaneId) swimlaneId = fallbackLaneForItem(med.itemId, anesthesiaItems);
       if (!swimlaneId) return;
-      
+
       if (!infusionsByLane[swimlaneId]) {
         infusionsByLane[swimlaneId] = [];
       }
       infusionsByLane[swimlaneId].push(med);
     });
-  
+
   Object.entries(infusionsByLane).forEach(([swimlaneId, records]) => {
     records.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
+
     const startRecords = records.filter(r => r.type === 'infusion_start');
     if (startRecords.length === 0) return;
-    
+
     sessions[swimlaneId] = [];
-    
+
     startRecords.forEach((startRecord, startIndex) => {
       const itemId = startRecord.itemId;
-      const item = anesthesiaItems.find(i => i.id === itemId);
+      const item = startRecord.medicationConfigId
+        ? anesthesiaItems.find(i => i.medicationConfigId === startRecord.medicationConfigId)
+        : anesthesiaItems.find(i => i.id === itemId);
       if (!item || !item.rateUnit || item.rateUnit === 'free') return;
-      
+
       const startTime = new Date(startRecord.timestamp).getTime();
-      
+
       // Find the next start record's time (if any) to bound our stop search
       const nextStartRecord = startRecords[startIndex + 1];
       const nextStartTime = nextStartRecord ? new Date(nextStartRecord.timestamp).getTime() : Infinity;
-      
+
       // First, try to find stop record by infusionSessionId (explicit link to parent session)
       // This is the preferred method as it guarantees correct pairing
       let stopRecord = records.find(r => {
         if (r.type !== 'infusion_stop') return false;
         return r.infusionSessionId === startRecord.id;
       });
-      
+
       // Fallback: Match by timestamp if no infusionSessionId link
       // Only match a stop record if:
       // 1. It's after THIS start
@@ -142,25 +143,25 @@ export function transformRateInfusions(
           // Skip records that already have an infusionSessionId (they belong to specific sessions)
           if (r.infusionSessionId) return false;
           const stopTime = new Date(r.timestamp).getTime();
-          return stopTime > startTime && 
-                 stopTime < nextStartTime && 
+          return stopTime > startTime &&
+                 stopTime < nextStartTime &&
                  stopTime <= startTime + 24 * 60 * 60 * 1000;
         });
       }
       const hasEndTimestamp = !!startRecord.endTimestamp;
-      const endTime = stopRecord 
-        ? new Date(stopRecord.timestamp).getTime() 
+      const endTime = stopRecord
+        ? new Date(stopRecord.timestamp).getTime()
         : (hasEndTimestamp ? new Date(startRecord.endTimestamp).getTime() : null);
       const state = (stopRecord || hasEndTimestamp) ? 'stopped' : 'running';
-      
+
       const segments: any[] = [];
-      
+
       segments.push({
         startTime,
         rate: startRecord.rate || '0',
         rateUnit: item.rateUnit || 'ml/h',
       });
-      
+
       const rateChanges = records.filter(r => {
         if (r.type !== 'rate_change') return false;
         const changeTime = new Date(r.timestamp).getTime();
@@ -168,7 +169,7 @@ export function transformRateInfusions(
         if (endTime && changeTime >= endTime) return false;
         return true;
       });
-      
+
       console.log('[RATE-TRANSFORM] Processing infusion:', {
         itemName: item.name,
         startTime,
@@ -177,7 +178,7 @@ export function transformRateInfusions(
         rateChangeCount: rateChanges.length,
         rateChanges: rateChanges.map(r => ({ timestamp: r.timestamp, rate: r.rate }))
       });
-      
+
       rateChanges.forEach(rateChange => {
         segments.push({
           startTime: new Date(rateChange.timestamp).getTime(),
@@ -185,13 +186,13 @@ export function transformRateInfusions(
           rateUnit: item.rateUnit || 'ml/h',
         });
       });
-      
+
       console.log('[RATE-TRANSFORM] Created session with segments:', {
         itemName: item.name,
         segmentCount: segments.length,
         segments: segments.map(s => ({ startTime: s.startTime, rate: s.rate }))
       });
-      
+
       // Find mid-infusion boluses linked to this session
       const midBoluses = medications
         .filter(med => med.type === 'bolus' && med.infusionSessionId === startRecord.id)
@@ -220,37 +221,40 @@ export function transformRateInfusions(
       });
     });
   });
-  
+
   return sessions;
 }
 
 export function transformFreeFlowInfusions(
   medications: any[],
-  itemToSwimlane: Map<string, string>,
+  configToSwimlane: Map<string, string>,
   anesthesiaItems: AnesthesiaItem[]
 ): { [swimlaneId: string]: any[] } {
   const sessions: { [swimlaneId: string]: any[] } = {};
-  
+
   const recordsByLane: { [swimlaneId: string]: any[] } = {};
-  
+
   medications
     .filter(med => ['infusion_start', 'infusion_stop'].includes(med.type))
     .forEach(med => {
-      const swimlaneId = itemToSwimlane.get(med.itemId);
+      let swimlaneId = med.medicationConfigId ? configToSwimlane.get(med.medicationConfigId) : undefined;
+      if (!swimlaneId) swimlaneId = fallbackLaneForItem(med.itemId, anesthesiaItems);
       if (!swimlaneId) return;
-      
+
       if (!recordsByLane[swimlaneId]) {
         recordsByLane[swimlaneId] = [];
       }
       recordsByLane[swimlaneId].push(med);
     });
-  
+
   Object.entries(recordsByLane).forEach(([swimlaneId, records]) => {
     const startRecords = records.filter(r => r.type === 'infusion_start');
     console.log('[FREE-FLOW-TRANSFORM] Processing swimlane:', swimlaneId, 'with', startRecords.length, 'start records');
-    
+
     startRecords.forEach((startRec, startIndex) => {
-      const item = anesthesiaItems.find(i => i.id === startRec.itemId);
+      const item = startRec.medicationConfigId
+        ? anesthesiaItems.find(i => i.medicationConfigId === startRec.medicationConfigId)
+        : anesthesiaItems.find(i => i.id === startRec.itemId);
       console.log('[FREE-FLOW-TRANSFORM] Checking record:', {
         itemId: startRec.itemId,
         foundItem: !!item,
@@ -258,19 +262,19 @@ export function transformFreeFlowInfusions(
         recordRate: startRec.rate,
         dose: startRec.dose
       });
-      
+
       // Check both item.rateUnit and startRec.rate to ensure it's a free-flow infusion
       if (!item || (item.rateUnit !== 'free' && startRec.rate !== 'free')) {
         console.log('[FREE-FLOW-TRANSFORM] Skipping - not a free-flow infusion');
         return;
       }
-      
+
       const startTime = new Date(startRec.timestamp).getTime();
-      
+
       // Find the next start record's time (if any) to bound our stop search
       const nextStartRecord = startRecords[startIndex + 1];
       const nextStartTime = nextStartRecord ? new Date(nextStartRecord.timestamp).getTime() : Infinity;
-      
+
       const hasEndTimestamp = !!startRec.endTimestamp;
       // Only match a stop record if it's after THIS start but BEFORE the next start
       const stopRecord = records.find(r => {
@@ -278,24 +282,24 @@ export function transformFreeFlowInfusions(
         const stopTime = new Date(r.timestamp).getTime();
         return stopTime > startTime && stopTime < nextStartTime;
       });
-      
+
       // Calculate endTime if infusion is stopped
-      const endTime = stopRecord 
-        ? new Date(stopRecord.timestamp).getTime() 
+      const endTime = stopRecord
+        ? new Date(stopRecord.timestamp).getTime()
         : (hasEndTimestamp ? new Date(startRec.endTimestamp).getTime() : null);
-      
-      console.log('[FREE-FLOW-TRANSFORM] Processing infusion:', { 
-        hasEndTimestamp, 
+
+      console.log('[FREE-FLOW-TRANSFORM] Processing infusion:', {
+        hasEndTimestamp,
         endTimestampValue: startRec.endTimestamp,
         hasStopRecord: !!stopRecord,
         endTime,
         medicationId: startRec.id
       });
-      
+
       if (!sessions[swimlaneId]) {
         sessions[swimlaneId] = [];
       }
-      
+
       const session = {
         id: startRec.id, // Store medication record ID for editing/deleting
         swimlaneId,
@@ -309,7 +313,7 @@ export function transformFreeFlowInfusions(
       sessions[swimlaneId].push(session);
     });
   });
-  
+
   return sessions;
 }
 
@@ -324,22 +328,24 @@ export type ManualTotalRecord = {
 
 export function transformManualTotals(
   medications: any[],
-  itemToSwimlane: Map<string, string>
+  configToSwimlane: Map<string, string>,
+  anesthesiaItems: AnesthesiaItem[] = []
 ): { [swimlaneId: string]: ManualTotalRecord } {
   const manualTotals: { [swimlaneId: string]: ManualTotalRecord } = {};
-  
+
   medications
     .filter(med => med.type === 'manual_total')
     .forEach(med => {
-      const swimlaneId = itemToSwimlane.get(med.itemId);
+      let swimlaneId = med.medicationConfigId ? configToSwimlane.get(med.medicationConfigId) : undefined;
+      if (!swimlaneId) swimlaneId = fallbackLaneForItem(med.itemId, anesthesiaItems);
       if (!swimlaneId) return;
-      
+
       // Parse dose value and unit from the dose field (e.g., "150 mg")
       const doseStr = med.dose || '';
       const match = doseStr.match(/^([\d.,]+)\s*(.*)$/);
       const dose = match ? parseFloat(match[1].replace(',', '.')) : 0;
       const unit = match ? match[2].trim() : '';
-      
+
       // Only keep the latest manual_total record per swimlane
       // (in case there are multiple, use the most recent one by timestamp)
       const existingRecord = manualTotals[swimlaneId];
@@ -353,7 +359,6 @@ export function transformManualTotals(
         };
       }
     });
-  
+
   return manualTotals;
 }
-

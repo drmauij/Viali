@@ -119,7 +119,7 @@ import {
   isFreeFlowInfusion,
 } from "@/utils/stringUtils";
 import {
-  buildItemToSwimlaneMap,
+  buildConfigToSwimlaneMap,
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
@@ -438,8 +438,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       // 🔥 FIX: Immediately update local state (don't wait for useEffect)
       // This makes infusions work like boluses
       if (variables.type === 'infusion_start' && variables.rate === 'free') {
-        // Find the item and its swimlane
-        const item = anesthesiaItems.find(i => i.id === variables.itemId);
+        // Find the item: prefer medicationConfigId (unambiguous for multi-config items), fall back to itemId
+        const item = variables.medicationConfigId
+          ? anesthesiaItems.find(i => i.medicationConfigId === variables.medicationConfigId)
+          : anesthesiaItems.find(i => i.id === variables.itemId);
         if (item && item.administrationGroup) {
           const swimlaneId = `admingroup-${item.administrationGroup}-item-${item.id}`;
           const newSession: FreeFlowSession = {
@@ -927,17 +929,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
-    // Build item-to-swimlane mapping
-    const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
-    
+    // Build config-to-swimlane mapping
+    const configToSwimlane = buildConfigToSwimlaneMap(anesthesiaItems, administrationGroups);
+
     // Transform and load medication doses (boluses) - will be empty array if no data
-    const doses = transformMedicationDoses(data.medications || [], itemToSwimlane);
-    
+    const doses = transformMedicationDoses(data.medications || [], configToSwimlane, anesthesiaItems);
+
     // Transform and load rate infusion sessions
-    const rateSessions = transformRateInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
-    
+    const rateSessions = transformRateInfusions(data.medications || [], configToSwimlane, anesthesiaItems);
+
     // Transform and load free-flow infusion sessions
-    const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
+    const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], configToSwimlane, anesthesiaItems);
     
     // Reset medication data using hook
     resetMedicationData({
@@ -2123,6 +2125,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 administrationUnit: item.administrationUnit ?? null,
                 ampuleTotalContent: item.ampuleTotalContent ?? null,
                 itemId: item.id,
+                medicationConfigId: item.medicationConfigId,
                 hierarchyLevel: 'item',
               });
             });
@@ -2205,8 +2208,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!data.medications || !anesthesiaItems?.length || !administrationGroups?.length) {
       return {} as Record<string, ManualTotalRecord>;
     }
-    const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
-    return transformManualTotals(data.medications, itemToSwimlane);
+    const configToSwimlane = buildConfigToSwimlaneMap(anesthesiaItems, administrationGroups);
+    return transformManualTotals(data.medications, configToSwimlane, anesthesiaItems);
   }, [data.medications, anesthesiaItems, administrationGroups]);
 
   // Calculate cumulative doses for each medication swimlane
@@ -4487,8 +4490,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
 
-    // Get item ID from swimlane
-    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
+    // Get item from swimlane — parse (group, item) to disambiguate multi-config items
+    const swMatch4491 = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const item = swMatch4491
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatch4491[1] && i.id === swMatch4491[2])
+      : undefined;
     if (!item) {
       toast({
         title: t("common.error", "Error"),
@@ -4497,7 +4503,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       return;
     }
-    
+
     // 🔥 FIX: Update local state optimistically
     const newSession: FreeFlowSession = {
       id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -4539,8 +4545,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         type: 'infusion_start' as const,
         rate: 'free',
         dose: newDose,
+        medicationConfigId: item.medicationConfigId,
       });
-      
+
       toast({
         title: t("anesthesia.timeline.toasts.newBagStarted", "New bag started"),
         description: t("anesthesia.timeline.toasts.newBagStartedDesc", "{{label}} - new bag with {{dose}}ml started", { label, dose: newDose }),
@@ -4578,8 +4585,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
 
-    // Get item ID from swimlane
-    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
+    // Get item from swimlane — parse (group, item) to disambiguate multi-config items
+    const swMatch4585 = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const item = swMatch4585
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatch4585[1] && i.id === swMatch4585[2])
+      : undefined;
     if (!item) {
       toast({
         title: t("common.error", "Error"),
@@ -4588,7 +4598,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       return;
     }
-    
+
     // Update local state optimistically
     const newSession: FreeFlowSession = {
       id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -4630,8 +4640,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         type: 'infusion_start' as const,
         rate: 'free',
         dose: newDose,
+        medicationConfigId: item.medicationConfigId,
       });
-      
+
       toast({
         title: t("anesthesia.timeline.toasts.parallelInfusionStarted", "Parallel infusion started"),
         description: t("anesthesia.timeline.toasts.parallelInfusionStartedDesc", "{{label}} - parallel infusion with {{dose}}ml started", { label, dose: newDose }),
@@ -5022,6 +5033,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Persist to database
     if (itemId && anesthesiaRecordId) {
+      // Resolve medicationConfigId by (group, item) for multi-config disambiguation
+      const swMatchRate = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+      const rateItem = swMatchRate
+        ? anesthesiaItems.find(i => i.administrationGroup === swMatchRate[1] && i.id === swMatchRate[2])
+        : undefined;
       createMedication.mutate({
         anesthesiaRecordId,
         itemId,
@@ -5030,6 +5046,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         rate: selectedRate,
         dose: selectedRate, // Syringe quantity
         initialBolus: initialBolus || undefined, // Initial bolus given at infusion start
+        medicationConfigId: rateItem?.medicationConfigId ?? undefined,
       });
     }
     
@@ -5126,8 +5143,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const handleTciStop = (amountUsed: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
 
-    const { label, sessionId, itemId, administrationUnit, ampuleUnit } = managingRate;
+    const { swimlaneId: tciSwimlaneId, label, sessionId, itemId, administrationUnit, ampuleUnit } = managingRate;
     const stopTime = rateManageTime;
+    // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+    const swMatchTci = tciSwimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const tciItem = swMatchTci
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatchTci[1] && i.id === swMatchTci[2])
+      : undefined;
 
     // Validate amount input
     const parsedAmount = parseFloat(amountUsed);
@@ -5183,6 +5205,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           type: 'infusion_stop',
           dose: formattedDose, // Store actual amount used for inventory calculation
           infusionSessionId: sessionId, // Link to the parent session
+          medicationConfigId: tciItem?.medicationConfigId ?? undefined,
         }, {
           onSuccess: () => {
             // Only show success and reset state after both mutations complete
@@ -5246,6 +5269,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
     }
     
+    // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+    const swMatchStartNew = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const startNewItem = swMatchStartNew
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatchStartNew[1] && i.id === swMatchStartNew[2])
+      : undefined;
+
     // Then create a new infusion_start record
     createMedication.mutate({
       anesthesiaRecordId,
@@ -5255,8 +5284,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       rate: newRate,
       dose: currentSession?.syringeQuantity || '50ml', // Use same syringe quantity or default
       initialBolus: initialBolus || undefined, // Initial bolus given at infusion start
+      medicationConfigId: startNewItem?.medicationConfigId ?? undefined,
     });
-    
+
     toast({
       title: t("anesthesia.timeline.toasts.newInfusionStarted", "New infusion started"),
       description: t("anesthesia.timeline.toasts.newInfusionStartedSimple", "{{label}} started at {{rate}}", { label, rate: newRate }),
@@ -5273,9 +5303,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const handleRateChange = (newRate: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
     
-    const { label, itemId } = managingRate;
+    const { swimlaneId: rateChangeSwimlaneId, label, itemId } = managingRate;
     const changeTime = rateManageTime; // Use the manage time, not original time
-    
+
     if (!itemId) {
       toast({
         title: t("common.error", "Error"),
@@ -5285,6 +5315,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
 
+    // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+    const swMatchRateChange = rateChangeSwimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const rateChangeItem = swMatchRateChange
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatchRateChange[1] && i.id === swMatchRateChange[2])
+      : undefined;
+
     // Create a rate_change medication record
     createMedication.mutate({
       anesthesiaRecordId,
@@ -5292,6 +5328,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       timestamp: new Date(changeTime),
       type: 'rate_change',
       rate: newRate,
+      medicationConfigId: rateChangeItem?.medicationConfigId ?? undefined,
     });
     
     toast({
@@ -5309,8 +5346,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Handle mid-infusion bolus (give bolus while infusion is running)
   const handleGiveMidBolus = (dose: string, unit: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
-    const { itemId, label, sessionId } = managingRate;
+    const { swimlaneId: midBolusSwimlaneId, itemId, label, sessionId } = managingRate;
     if (!itemId) return;
+
+    // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+    const swMatchMidBolus = midBolusSwimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+    const midBolusItem = swMatchMidBolus
+      ? anesthesiaItems.find(i => i.administrationGroup === swMatchMidBolus[1] && i.id === swMatchMidBolus[2])
+      : undefined;
 
     // Use the clicked time position (rateManageTime), not now
     createMedication.mutate({
@@ -5321,6 +5364,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       dose: `${dose} ${unit}`,
       unit,
       infusionSessionId: sessionId || undefined,
+      medicationConfigId: midBolusItem?.medicationConfigId ?? undefined,
     });
 
     toast({
@@ -6000,7 +6044,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         onInstantMedicationSave={async (swimlaneId, time, dose, itemId) => {
           if (!anesthesiaRecordId) return;
-          
+
+          // Resolve medicationConfigId by (group, item) — disambiguates multi-config items
+          const swMatchInstant = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+          const instantItem = swMatchInstant
+            ? anesthesiaItems.find(i => i.administrationGroup === swMatchInstant[1] && i.id === swMatchInstant[2])
+            : undefined;
+
           try {
             // Save to database
             await saveMedicationMutation.mutateAsync({
@@ -6009,6 +6059,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               timestamp: new Date(time),
               type: "bolus",
               dose: dose,
+              medicationConfigId: instantItem?.medicationConfigId,
             });
             
             // Update local state immediately
@@ -6701,6 +6752,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           // Persist to database if we have the necessary IDs
           const itemId = pendingInfusionValue?.itemId;
           if (itemId && anesthesiaRecordId) {
+            // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+            const swMatchInfusion = swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+            const infusionItem = swMatchInfusion
+              ? anesthesiaItems.find(i => i.administrationGroup === swMatchInfusion[1] && i.id === swMatchInfusion[2])
+              : undefined;
             createMedication.mutate({
               anesthesiaRecordId,
               itemId,
@@ -6709,9 +6765,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               rate: value,
               dose: value,
               initialBolus: initialBolus || undefined,
+              medicationConfigId: infusionItem?.medicationConfigId ?? undefined,
             });
           }
-          
+
           setPendingInfusionValue(null);
         }}
       />
@@ -6806,8 +6863,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 const stopTime = clickTime;
                 const newStartTime = clickTime + 60000; // 1 minute gap
                 
-                // Extract item ID from swimlane ID
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                // Extract (group, item) from swimlane ID to disambiguate multi-config items
+                const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -6817,8 +6874,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   return;
                 }
 
-                const itemId = groupMatch[2];
-                const item = anesthesiaItems.find(i => i.id === itemId);
+                const item = anesthesiaItems.find(i => i.administrationGroup === groupMatch[1] && i.id === groupMatch[2]);
 
                 if (!item) {
                   toast({
@@ -6832,8 +6888,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 // Optimistic update: Immediately update UI
                 setFreeFlowSessions(prev => {
                   const sessions = prev[session.swimlaneId] || [];
-                  const updated = sessions.map(s => 
-                    s.id === session.id 
+                  const updated = sessions.map(s =>
+                    s.id === session.id
                       ? { ...s, endTime: stopTime }
                       : s
                   );
@@ -6877,6 +6933,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       type: 'infusion_start' as const,
                       rate: 'free',
                       dose: session.dose,
+                      medicationConfigId: item.medicationConfigId ?? undefined,
                     });
                   },
                 });
@@ -6957,7 +7014,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // DUPLICATE action: Create a parallel infusion (keep current running)
                 // Extract item ID from swimlane ID
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -6967,8 +7024,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   return;
                 }
 
-                const itemId = groupMatch[2];
-                const item = anesthesiaItems.find(i => i.id === itemId);
+                const item = anesthesiaItems.find(i => i.administrationGroup === groupMatch[1] && i.id === groupMatch[2]);
 
                 if (!item) {
                   toast({
@@ -7027,6 +7083,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   type: 'infusion_start' as const,
                   rate: 'free',
                   dose: session.dose,
+                  medicationConfigId: item.medicationConfigId ?? undefined,
                 });
               }}
               variant="secondary"
@@ -7188,17 +7245,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   endTimestamp: new Date(clickTime),
                 }, {
                   onSuccess: () => {
-                    // 2. Find the item for this session
-                    const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                    // 2. Find the item for this session — disambiguate by (group, item)
+                    const groupMatch = session.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
                     if (!groupMatch) return;
-                    
-                    const itemId = groupMatch[2];
-                    const item = anesthesiaItems.find(i => i.id === itemId);
+
+                    const item = anesthesiaItems.find(i => i.administrationGroup === groupMatch[1] && i.id === groupMatch[2]);
                     if (!item) return;
-                    
+
                     // 3. Get the last segment to continue with same rate
                     const lastSegment = session.segments[session.segments.length - 1];
-                    
+
                     // 4. Create new infusion after a gap (background)
                     createMedication.mutate({
                       anesthesiaRecordId,
@@ -7207,6 +7263,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       type: 'infusion_start' as const,
                       rate: lastSegment?.rate || '0',
                       dose: session.syringeQuantity,
+                      medicationConfigId: item.medicationConfigId ?? undefined,
                     });
                   },
                 });
@@ -7605,6 +7662,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           }
                         });
                       } else if (editingTciAmount.itemId && anesthesiaRecordId) {
+                        // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+                        const swMatchManualTotal1 = editingTciAmount.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+                        const manualTotalItem1 = swMatchManualTotal1
+                          ? anesthesiaItems.find(i => i.administrationGroup === swMatchManualTotal1[1] && i.id === swMatchManualTotal1[2])
+                          : undefined;
                         // Create new manual_total record
                         createMedication.mutate({
                           anesthesiaRecordId,
@@ -7612,6 +7674,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           type: 'manual_total',
                           dose: newDose,
                           timestamp: new Date(),
+                          medicationConfigId: manualTotalItem1?.medicationConfigId ?? undefined,
                         }, {
                           onSuccess: () => {
                             toast({
@@ -7671,6 +7734,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         }
                       });
                     } else if (editingTciAmount.itemId && anesthesiaRecordId) {
+                      // Resolve medicationConfigId from swimlaneId for multi-config disambiguation
+                      const swMatchManualTotal2 = editingTciAmount.swimlaneId.match(/^admingroup-(.+)-item-(.+)$/);
+                      const manualTotalItem2 = swMatchManualTotal2
+                        ? anesthesiaItems.find(i => i.administrationGroup === swMatchManualTotal2[1] && i.id === swMatchManualTotal2[2])
+                        : undefined;
                       // Create new manual_total record
                       createMedication.mutate({
                         anesthesiaRecordId,
@@ -7678,6 +7746,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         type: 'manual_total',
                         dose: newDose,
                         timestamp: new Date(),
+                        medicationConfigId: manualTotalItem2?.medicationConfigId ?? undefined,
                       }, {
                         onSuccess: () => {
                           toast({
