@@ -98,6 +98,14 @@ export function MedicationConfigDialog({
   });
   const anesthesiaUnitId = hospitalUnits.find(u => u.type === 'anesthesia')?.id;
 
+  // Fetch configured anesthesia items (item × config rows) — used to detect items already
+  // configured in other administration groups and show the "independent config" hint.
+  type AnesthesiaItemRow = { id: string; medicationConfigId?: string; administrationGroup?: string };
+  const { data: anesthesiaItems = [] } = useQuery<AnesthesiaItemRow[]>({
+    queryKey: [`/api/anesthesia/items/${activeHospitalId}`],
+    enabled: !!activeHospitalId && open && !editingItem,
+  });
+
   // Filter items based on search query
   const filteredItems = allInventoryItems.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -291,27 +299,14 @@ export function MedicationConfigDialog({
   const handleItemSelection = (itemId: string) => {
     setSelectedItemId(itemId);
     const item = allInventoryItems.find(i => i.id === itemId);
-    if (item) {
-      setConfigItemName(item.name);
-      // Pre-fill existing config if available
-      if (item.rateUnit === null || item.rateUnit === undefined) {
-        setConfigAnesthesiaType('medication');
-        setConfigIsRateControlled(false);
-      } else if (item.rateUnit === 'free') {
-        setConfigAnesthesiaType('infusion');
-        setConfigIsRateControlled(false);
-      } else {
-        setConfigAnesthesiaType('infusion');
-        setConfigIsRateControlled(true);
-        setConfigRateUnit(item.rateUnit);
-      }
-      setConfigDefaultDose(item.defaultDose || '');
-      setConfigAdministrationRoute(item.administrationRoute || 'i.v.');
-      setConfigAdministrationUnit(item.administrationUnit || 'mg');
-      setConfigAmpuleContent(item.ampuleTotalContent || '');
-      setConfigMedicationGroup(item.medicationGroup || '');
-      setConfigOnDemandOnly(item.onDemandOnly || false);
+    if (!item) {
+      setComboboxOpen(false);
+      return;
     }
+    setConfigItemName(item.name);
+    // Add mode: keep the form at its initial (blank) defaults — this is a new,
+    // independent config for this lane, NOT a clone of any existing config for
+    // the same item. Edit mode is handled by the [open, editingItem] useEffect.
     setComboboxOpen(false);
   };
 
@@ -472,6 +467,25 @@ export function MedicationConfigDialog({
                   data-testid="input-config-item-name"
                 />
               </div>
+
+              {/* Hint: item already configured in other lanes (add mode only) */}
+              {!editingItem && (() => {
+                const otherConfigs = anesthesiaItems.filter(
+                  i => i.id === selectedItemId && i.administrationGroup !== administrationGroup?.id
+                );
+                if (otherConfigs.length === 0) return null;
+                return (
+                  <div
+                    className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground"
+                    data-testid="hint-already-configured"
+                  >
+                    {t(
+                      "anesthesia.timeline.newConfigIsIndependent",
+                      "This item is already configured in another lane. The config you're creating here is fully independent."
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Type Selection */}
               <div className="grid gap-2">

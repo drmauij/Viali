@@ -480,8 +480,11 @@ export const MedicationItemsSidebar = React.memo(function MedicationItemsSidebar
                 {isAdmin ? (
                   <button
                     onClick={() => {
-                      // Find the medication item using the itemId property from the lane
-                      const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
+                      // Find the medication item: prefer medicationConfigId (unambiguous for multi-config
+                      // items where the same item can appear in multiple lanes), fall back to itemId.
+                      const medicationItem = lane.medicationConfigId
+                        ? anesthesiaItems.find(item => item.medicationConfigId === lane.medicationConfigId)
+                        : anesthesiaItems.find(item => item.id === lane.itemId);
                       if (medicationItem && medicationItem.administrationGroup) {
                         // Find the admin group by ID (administrationGroup field stores the UUID)
                         const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);

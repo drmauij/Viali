@@ -64,6 +64,7 @@ export type SwimlaneConfig = {
   administrationUnit?: string | null;
   ampuleTotalContent?: string | null;
   itemId?: string;
+  medicationConfigId?: string;  // Set for item-hierarchy lanes — disambiguates multi-config items
   hierarchyLevel?: 'parent' | 'group' | 'item' | 'entry';
 };
 

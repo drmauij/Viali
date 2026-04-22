@@ -2125,6 +2125,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 administrationUnit: item.administrationUnit ?? null,
                 ampuleTotalContent: item.ampuleTotalContent ?? null,
                 itemId: item.id,
+                medicationConfigId: item.medicationConfigId,
                 hierarchyLevel: 'item',
               });
             });
