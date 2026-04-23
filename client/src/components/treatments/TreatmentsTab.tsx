@@ -223,7 +223,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
           <TableBody>
             {treatments.map((treatment) => {
               const lineTotal = (treatment.lines ?? []).reduce(
-                (sum, l) => sum + parseFloat((l.total as string) ?? "0"),
+                (sum, l) => sum + (parseFloat((l.total as string) || "0") || 0),
                 0,
               );
               const lineLabels = (treatment.lines ?? [])
