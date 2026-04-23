@@ -227,7 +227,13 @@ afterAll(async () => {
       .catch(() => {});
   }
   if (createdHospitalIds.length) {
-    // Clear any lingering group_id FKs first.
+    // Clear any lingering group_id FKs first so hospital deletes don't trip
+    // on a half-torn-down world when a test fails mid-way.
+    await db
+      .update(hospitals)
+      .set({ groupId: null })
+      .where(inArray(hospitals.id, createdHospitalIds))
+      .catch(() => {});
     await db
       .delete(hospitals)
       .where(inArray(hospitals.id, createdHospitalIds))
@@ -317,6 +323,11 @@ describe("admin groups routes — CRUD", () => {
     expect(res.status).toBe(201);
     createdGroupIds.push(res.body.id);
 
+    // The response body should surface the skipped ID so the admin isn't
+    // left guessing why the assignment "failed" silently.
+    expect(Array.isArray(res.body.skippedHospitalIds)).toBe(true);
+    expect(res.body.skippedHospitalIds).toEqual([memberA]);
+
     const rows = await db
       .select()
       .from(hospitals)
@@ -330,6 +341,16 @@ describe("admin groups routes — CRUD", () => {
       .update(hospitals)
       .set({ groupId: null })
       .where(inArray(hospitals.id, [memberA, memberB]));
+  });
+
+  it("create response returns skippedHospitalIds as an empty array when nothing is skipped", async () => {
+    const app = buildApp(PLATFORM_USER_ID);
+    const res = await request(app)
+      .post("/api/admin/groups")
+      .send({ name: `clean-${uniq()}`, hospitalIds: [memberA] });
+    expect(res.status).toBe(201);
+    createdGroupIds.push(res.body.id);
+    expect(res.body.skippedHospitalIds).toEqual([]);
   });
 
   it("GET :id returns group + members + admins", async () => {
@@ -424,13 +445,10 @@ describe("admin groups routes — membership", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/another group/i);
 
-    // Clean up.
-    await db
-      .update(hospitals)
-      .set({ groupId: null })
-      .where(eq(hospitals.id, memberA));
-    // keep refs to groups for cleanup — g1 and g2 go via createdGroupIds.
+    // beforeEach() already resets groupId on our test hospitals before the
+    // next test — no inline cleanup needed here. Keep refs for afterAll.
     void g1;
+    void g2;
   });
 
   it("DELETE /:id/members/:hospitalId removes and returns 204 when no home patients", async () => {
@@ -447,6 +465,25 @@ describe("admin groups routes — membership", () => {
       .from(hospitals)
       .where(eq(hospitals.id, outsider));
     expect(row.groupId).toBeNull();
+  });
+
+  it("DELETE /:id/members/:hospitalId returns 404 when the hospital belongs to a different group (no silent orphaning)", async () => {
+    const g1 = await freshGroup([memberA]); // memberA lives in g1
+    const g2 = await freshGroup(); // g2 is empty
+    const app = buildApp(PLATFORM_USER_ID);
+
+    // Try to remove memberA via g2 — it should NOT succeed, and memberA
+    // must still be attached to g1 afterwards.
+    const res = await request(app).delete(
+      `/api/admin/groups/${g2.id}/members/${memberA}`,
+    );
+    expect(res.status).toBe(404);
+
+    const [row] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.id, memberA));
+    expect(row.groupId).toBe(g1.id);
   });
 });
 

@@ -34,11 +34,14 @@ router.post("/api/admin/groups", async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   try {
-    const group = await groupStorage.createGroup(
+    const { group, skippedHospitalIds } = await groupStorage.createGroup(
       parsed.data.name,
       parsed.data.hospitalIds,
     );
-    res.status(201).json(group);
+    // Flatten group fields so existing callers (tests, UI) keep their shape,
+    // while surfacing which IDs were silently skipped (already in another
+    // group) to the platform admin.
+    res.status(201).json({ ...group, skippedHospitalIds });
   } catch (err) {
     logger.error("Error creating group:", err);
     res.status(500).json({ message: "Failed to create group" });
@@ -121,10 +124,22 @@ router.delete(
   "/api/admin/groups/:id/members/:hospitalId",
   async (req, res) => {
     try {
+      // Count BEFORE the update so we can include the warning on success.
+      // The update itself verifies membership (hospital must belong to
+      // this specific group) and returns false otherwise — we 404 rather
+      // than silently orphan a hospital that sits in a different group.
       const homeCount = await groupStorage.countHomePatientsForHospital(
         req.params.hospitalId,
       );
-      await groupStorage.removeHospitalFromGroup(req.params.hospitalId);
+      const removed = await groupStorage.removeHospitalFromGroup(
+        req.params.id,
+        req.params.hospitalId,
+      );
+      if (!removed) {
+        return res
+          .status(404)
+          .json({ error: "Hospital is not a member of this group" });
+      }
       if (homeCount > 0) {
         // Degraded state: those patients lose cross-group visibility. Phase 1
         // accepts it and surfaces a warning so the platform admin can act.
@@ -146,6 +161,7 @@ const promoteSchema = z.object({
   hospitalId: z.string().uuid(),
 });
 
+// TODO(task-13): re-expose under /api/business/group/admins for group-admin use.
 router.post("/api/admin/groups/:id/admins", async (req, res) => {
   const parsed = promoteSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -164,6 +180,7 @@ router.post("/api/admin/groups/:id/admins", async (req, res) => {
   }
 });
 
+// TODO(task-13): re-expose under /api/business/group/admins for group-admin use.
 router.delete(
   "/api/admin/groups/:id/admins/:userId/:hospitalId",
   async (req, res) => {

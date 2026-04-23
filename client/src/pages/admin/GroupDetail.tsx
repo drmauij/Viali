@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useLocation, Redirect } from "wouter";
+import { Link, useParams, useLocation, Redirect } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -55,14 +55,14 @@ export default function GroupDetail() {
     queryKey: [`/api/admin/groups/${groupId}`],
     queryFn: () =>
       apiRequest("GET", `/api/admin/groups/${groupId}`).then((r) => r.json()),
-    enabled: !!groupId && !!(user as any)?.isPlatformAdmin,
+    enabled: !!groupId && !!user?.isPlatformAdmin,
   });
 
   const { data: allHospitals = [] } = useQuery<Hospital[]>({
     queryKey: ["/api/admin/hospitals"],
     queryFn: () =>
       apiRequest("GET", "/api/admin/hospitals").then((r) => r.json()),
-    enabled: !!(user as any)?.isPlatformAdmin,
+    enabled: !!user?.isPlatformAdmin,
   });
 
   const invalidate = () => {
@@ -120,9 +120,25 @@ export default function GroupDetail() {
         "POST",
         `/api/admin/groups/${groupId}/booking-token`,
       );
-      return res.json();
+      return res.json() as Promise<{ bookingToken: string }>;
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (body, _vars, _ctx) => {
+      invalidate();
+      // Surface the new URL so the platform admin can copy it immediately.
+      toast({
+        title: "New booking URL generated",
+        description: `/book/g/${body.bookingToken}`,
+      });
+      // If we just replaced an existing token, warn that the old one is dead.
+      if (data?.group.bookingToken) {
+        toast({
+          title: "Previous URL invalidated",
+          description:
+            "The previous booking link will no longer work. Update any shared copies.",
+          variant: "destructive",
+        });
+      }
+    },
   });
 
   const deleteGroup = useMutation({
@@ -156,11 +172,22 @@ export default function GroupDetail() {
       </div>
     );
   }
-  if (!(user as any)?.isPlatformAdmin) {
+  if (!user?.isPlatformAdmin) {
     return <Redirect to="/" />;
   }
   if (!data) {
-    return <div className="p-6">Group not found.</div>;
+    return (
+      <div className="p-6 space-y-2">
+        <div>Group not found.</div>
+        <Link
+          href="/admin/groups"
+          className="text-sm text-primary hover:underline"
+          data-testid="link-back-to-groups"
+        >
+          ← Back to Groups
+        </Link>
+      </div>
+    );
   }
 
   const { group, members, admins } = data;

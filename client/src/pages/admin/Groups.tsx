@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Redirect } from "wouter";
 
 /**
@@ -41,18 +42,19 @@ type HospitalRow = {
 export default function GroupsList() {
   const { user, isLoading } = useAuth();
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: groups = [] } = useQuery<GroupRow[]>({
     queryKey: ["/api/admin/groups"],
     queryFn: () =>
       apiRequest("GET", "/api/admin/groups").then((r) => r.json()),
-    enabled: !!(user as any)?.isPlatformAdmin,
+    enabled: !!user?.isPlatformAdmin,
   });
   const { data: hospitalsList = [] } = useQuery<HospitalRow[]>({
     queryKey: ["/api/admin/hospitals"],
     queryFn: () =>
       apiRequest("GET", "/api/admin/hospitals").then((r) => r.json()),
-    enabled: !!(user as any)?.isPlatformAdmin,
+    enabled: !!user?.isPlatformAdmin,
   });
 
   const [open, setOpen] = useState(false);
@@ -65,14 +67,27 @@ export default function GroupsList() {
         name,
         hospitalIds: selected,
       });
-      return res.json();
+      return res.json() as Promise<{
+        id: string;
+        name: string;
+        skippedHospitalIds: string[];
+      }>;
     },
-    onSuccess: () => {
+    onSuccess: (body) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/groups"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/hospitals"] });
       setOpen(false);
       setName("");
       setSelected([]);
+      // Let the admin know if the server silently dropped any hospital IDs
+      // because they're already in another group.
+      const skipped = body.skippedHospitalIds ?? [];
+      if (skipped.length > 0) {
+        toast({
+          title: "Group created",
+          description: `${skipped.length} hospital${skipped.length === 1 ? "" : "s"} ${skipped.length === 1 ? "was" : "were"} skipped because ${skipped.length === 1 ? "it already belongs" : "they already belong"} to another group.`,
+        });
+      }
     },
   });
 
@@ -87,7 +102,7 @@ export default function GroupsList() {
     );
   }
 
-  if (!(user as any)?.isPlatformAdmin) {
+  if (!user?.isPlatformAdmin) {
     // Defence in depth: server-side already returns 403 — just redirect away.
     return <Redirect to="/" />;
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   hospitalGroups,
@@ -78,10 +78,13 @@ export async function createGroup(name: string, initialHospitalIds: string[]) {
       .insert(hospitalGroups)
       .values({ name })
       .returning();
+    let skippedHospitalIds: string[] = [];
     if (initialHospitalIds.length > 0) {
       // Only assign hospitals that currently have no group. This keeps the
       // operation safe: we won't silently poach a hospital from another group.
-      await tx
+      // We capture which IDs were actually updated so the route can surface
+      // skipped ones to the platform admin (they shouldn't silently disappear).
+      const result = await tx
         .update(hospitals)
         .set({ groupId: group.id, updatedAt: new Date() })
         .where(
@@ -89,9 +92,14 @@ export async function createGroup(name: string, initialHospitalIds: string[]) {
             inArray(hospitals.id, initialHospitalIds),
             sql`${hospitals.groupId} IS NULL`,
           ),
-        );
+        )
+        .returning({ id: hospitals.id });
+      const assignedIds = new Set(result.map((r) => r.id));
+      skippedHospitalIds = initialHospitalIds.filter(
+        (id) => !assignedIds.has(id),
+      );
     }
-    return group;
+    return { group, skippedHospitalIds };
   });
 }
 
@@ -107,26 +115,43 @@ export async function renameGroup(id: string, name: string) {
 /**
  * Refuse delete if any hospital still has group_id OR any group-owned service
  * exists. Throws a user-readable Error; the route translates to 409.
+ *
+ * Wrapped in a transaction so the pre-check and delete run under the same
+ * snapshot (prevents a race where a concurrent insert sneaks a member in
+ * between our count and our delete). FK violations are translated to a
+ * clean 409-friendly message in case an unforeseen reference survives.
  */
 export async function deleteGroup(id: string) {
-  const result = await db.execute<{
-    member_count: number | string;
-    service_count: number | string;
-  }>(sql`
-    SELECT
-      (SELECT COUNT(*) FROM hospitals WHERE group_id = ${id}) AS member_count,
-      (SELECT COUNT(*) FROM clinic_services WHERE group_id = ${id}) AS service_count
-  `);
-  const row = result.rows[0];
-  const memberCount = Number(row?.member_count ?? 0);
-  const serviceCount = Number(row?.service_count ?? 0);
-  if (memberCount > 0) {
-    throw new Error("Group has member hospitals; remove them first");
-  }
-  if (serviceCount > 0) {
-    throw new Error("Group has services; delete them first");
-  }
-  await db.delete(hospitalGroups).where(eq(hospitalGroups.id, id));
+  await db.transaction(async (tx) => {
+    const result = await tx.execute<{
+      member_count: number | string;
+      service_count: number | string;
+    }>(sql`
+      SELECT
+        (SELECT COUNT(*) FROM hospitals WHERE group_id = ${id}) AS member_count,
+        (SELECT COUNT(*) FROM clinic_services WHERE group_id = ${id}) AS service_count
+    `);
+    const row = result.rows[0];
+    const memberCount = Number(row?.member_count ?? 0);
+    const serviceCount = Number(row?.service_count ?? 0);
+    if (memberCount > 0) {
+      throw new Error("Group has member hospitals; remove them first");
+    }
+    if (serviceCount > 0) {
+      throw new Error("Group has services; delete them first");
+    }
+
+    try {
+      await tx.delete(hospitalGroups).where(eq(hospitalGroups.id, id));
+    } catch (e: any) {
+      if (e?.code === "23503") {
+        throw new Error(
+          "Group is still referenced by other rows; remove them first",
+        );
+      }
+      throw e;
+    }
+  });
 }
 
 export async function listGroupMembers(groupId: string) {
@@ -137,18 +162,29 @@ export async function addHospitalToGroup(
   groupId: string,
   hospitalId: string,
 ) {
-  const [h] = await db
-    .select()
-    .from(hospitals)
-    .where(eq(hospitals.id, hospitalId));
-  if (!h) throw new Error("Hospital not found");
-  if (h.groupId && h.groupId !== groupId) {
-    throw new Error("Hospital already in another group");
-  }
-  await db
+  // Atomic: only updates if still unassigned OR already at this group
+  // (idempotent). Closes a TOCTOU race where two concurrent platform admins
+  // both see groupId IS NULL and both succeed.
+  const result = await db
     .update(hospitals)
     .set({ groupId, updatedAt: new Date() })
-    .where(eq(hospitals.id, hospitalId));
+    .where(
+      and(
+        eq(hospitals.id, hospitalId),
+        or(isNull(hospitals.groupId), eq(hospitals.groupId, groupId)),
+      ),
+    )
+    .returning({ id: hospitals.id });
+  if (result.length === 0) {
+    // Either the hospital doesn't exist, or it's assigned to a different
+    // group. Distinguish the two so the caller can produce a useful error.
+    const [h] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId));
+    if (!h) throw new Error("Hospital not found");
+    throw new Error("Hospital already in another group");
+  }
 }
 
 /**
@@ -170,11 +206,23 @@ export async function countHomePatientsForHospital(
   return Number(result.rows[0]?.cnt ?? 0);
 }
 
-export async function removeHospitalFromGroup(hospitalId: string) {
-  await db
+/**
+ * Removes a hospital from a specific group. Returns true if a row was
+ * updated, false if the hospital either doesn't exist or belongs to a
+ * different group (so callers can 404 instead of silently orphaning it).
+ */
+export async function removeHospitalFromGroup(
+  groupId: string,
+  hospitalId: string,
+): Promise<boolean> {
+  const result = await db
     .update(hospitals)
     .set({ groupId: null, updatedAt: new Date() })
-    .where(eq(hospitals.id, hospitalId));
+    .where(
+      and(eq(hospitals.id, hospitalId), eq(hospitals.groupId, groupId)),
+    )
+    .returning({ id: hospitals.id });
+  return result.length > 0;
 }
 
 export async function listGroupAdmins(groupId: string) {
@@ -205,6 +253,9 @@ export async function listGroupAdmins(groupId: string) {
  * at the target hospital. Keeps the user's existing doctor/nurse/admin rows
  * intact. Fails if the user has no existing role at the hospital — the
  * invariant the spec asks for (prevents accidental cross-group promotion leaks).
+ *
+ * TODO(task-13): this will be re-exposed under /api/business/group/admins so
+ * group admins (not just platform admins) can self-manage their team.
  */
 export async function promoteGroupAdmin(
   groupId: string,
@@ -245,6 +296,7 @@ export async function promoteGroupAdmin(
   });
 }
 
+// TODO(task-13): re-expose under /api/business/group/admins for group admins.
 export async function revokeGroupAdmin(userId: string, hospitalId: string) {
   await db
     .delete(userHospitalRoles)
