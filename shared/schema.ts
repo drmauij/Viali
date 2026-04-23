@@ -4028,6 +4028,12 @@ export const clinicServices = pgTable("clinic_services", {
     .on(table.hospitalId, table.code)
     .where(sql`code IS NOT NULL`),
   index("idx_clinic_services_folder").on(table.folderId),
+  // A service row belongs to EITHER a hospital (local) OR a group (shared) — never both, never neither.
+  // Modeled here (not just in the raw migration) so drizzle-kit push preserves it.
+  check(
+    "clinic_services_owner_xor_check",
+    sql`(${table.hospitalId} IS NOT NULL) <> (${table.groupId} IS NOT NULL)`,
+  ),
 ]);
 
 // Folders for organizing clinic services (parallel to items `folders`)
