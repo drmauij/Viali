@@ -70,14 +70,18 @@ describe("multi-location groups schema", () => {
     expect(h.groupId).toBe(g.id);
   });
 
-  it("backfill created a patient_hospitals row for every existing patient", async () => {
-    const result = await db.execute(sql`
-      SELECT
-        (SELECT COUNT(*) FROM patients) AS patient_count,
-        (SELECT COUNT(DISTINCT patient_id) FROM patient_hospitals) AS roster_count
+  it("backfill created a patient_hospitals row for every existing patient at their home hospital", async () => {
+    const orphans = await db.execute(sql`
+      SELECT COUNT(*) AS cnt FROM patients p
+      WHERE p.is_archived = false
+        AND p.deleted_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM patient_hospitals ph
+          WHERE ph.patient_id = p.id AND ph.hospital_id = p.hospital_id
+        )
     `);
-    const row = result.rows[0] as { patient_count: string | number; roster_count: string | number };
-    expect(Number(row.roster_count)).toBeGreaterThanOrEqual(Number(row.patient_count));
+    const { cnt } = orphans.rows[0] as any;
+    expect(Number(cnt)).toBe(0);
   });
 
   it("rejects a clinic_service with BOTH hospital_id AND group_id (XOR check)", async () => {
@@ -128,33 +132,17 @@ describe("multi-location groups schema", () => {
     ).rejects.toThrow();
   });
 
-  it("accepts a clinic_service owned by only a group (group_id set, hospital_id null)", async () => {
+  it("accepts a clinic_service owned by only a group (group_id set, hospital_id null, unit_id null)", async () => {
     const [g] = await db
       .insert(hospitalGroups)
       .values({ name: "t-group-only-" + Date.now() })
       .returning();
     createdGroupIds.push(g.id);
 
-    // We still need a unit (unit_id is NOT NULL). For a group-owned service
-    // the unit belongs to one of the group's hospitals — acceptable in this
-    // schema since the hybrid XOR check only constrains ownership, not unit.
-    const [h] = await db
-      .insert(hospitals)
-      .values({ name: "H-group-" + Date.now(), groupId: g.id } as any)
-      .returning();
-    createdHospitalIds.push(h.id);
-
-    const [u] = await db
-      .insert(units)
-      .values({ hospitalId: h.id, name: "U-group", type: "clinic" } as any)
-      .returning();
-    createdUnitIds.push(u.id);
-
     const [s] = await db
       .insert(clinicServices)
       .values({
         groupId: g.id,
-        unitId: u.id,
         name: "Group Botox",
       } as any)
       .returning();
@@ -162,6 +150,7 @@ describe("multi-location groups schema", () => {
 
     expect(s.groupId).toBe(g.id);
     expect(s.hospitalId).toBeNull();
+    expect(s.unitId).toBeNull();
   });
 
   it("accepts a clinic_service owned by only a hospital (hospital_id set, group_id null)", async () => {

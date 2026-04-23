@@ -2172,17 +2172,21 @@ router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, require
       )
       .orderBy(clinicServices.name);
     
-    // Get unit names
-    const unitIds = Array.from(new Set(billableServices.map(s => s.unitId)));
+    // Get unit names. unitId is nullable (group-owned services have no unit),
+    // but this endpoint filters by hospitalId so unit_id should be set for
+    // all returned rows — still, filter nulls defensively.
+    const unitIds = Array.from(
+      new Set(billableServices.map(s => s.unitId).filter((id): id is string => id != null))
+    );
     const unitData = unitIds.length > 0 ? await db
       .select({ id: units.id, name: units.name })
       .from(units)
       .where(inArray(units.id, unitIds)) : [];
     const unitMap = new Map(unitData.map(u => [u.id, u.name]));
-    
+
     const enrichedServices = billableServices.map(service => ({
       ...service,
-      unitName: unitMap.get(service.unitId) || null,
+      unitName: service.unitId ? (unitMap.get(service.unitId) ?? null) : null,
     }));
     
     res.json(enrichedServices);

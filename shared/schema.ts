@@ -165,7 +165,6 @@ export const patientHospitals = pgTable("patient_hospitals", {
 }, (table) => [
   uniqueIndex("unique_patient_hospital").on(table.patientId, table.hospitalId),
   index("idx_patient_hospitals_hospital").on(table.hospitalId),
-  index("idx_patient_hospitals_patient").on(table.patientId),
 ]);
 
 // Cross-location clinical edits audit. When a user from one hospital edits a
@@ -4008,7 +4007,7 @@ export const clinicServices = pgTable("clinic_services", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").references(() => hospitals.id),
   groupId: varchar("group_id").references(() => hospitalGroups.id),
-  unitId: varchar("unit_id").notNull().references(() => units.id),
+  unitId: varchar("unit_id").references(() => units.id),
   name: varchar("name").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }),

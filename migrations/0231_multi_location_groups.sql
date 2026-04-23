@@ -29,8 +29,11 @@ CREATE TABLE IF NOT EXISTS patient_hospitals (
   added_by varchar REFERENCES users(id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS unique_patient_hospital ON patient_hospitals(patient_id, hospital_id);
+-- The unique index above is leftmost-prefix on patient_id, so a separate
+-- single-column index would be dead weight. Drop it for existing installs
+-- that ran an earlier version of this migration.
+DROP INDEX IF EXISTS idx_patient_hospitals_patient;
 CREATE INDEX IF NOT EXISTS idx_patient_hospitals_hospital ON patient_hospitals(hospital_id);
-CREATE INDEX IF NOT EXISTS idx_patient_hospitals_patient ON patient_hospitals(patient_id);
 
 -- 4. Backfill patient_hospitals from existing patients (idempotent).
 INSERT INTO patient_hospitals (patient_id, hospital_id)
@@ -42,6 +45,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin boolean DEFAULT fal
 
 -- 6. clinic_services hybrid ownership (hospital_id OR group_id, never both, never neither).
 ALTER TABLE clinic_services ALTER COLUMN hospital_id DROP NOT NULL;
+ALTER TABLE clinic_services ALTER COLUMN unit_id DROP NOT NULL;
 ALTER TABLE clinic_services ADD COLUMN IF NOT EXISTS group_id varchar;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clinic_services_group_id_fkey') THEN
