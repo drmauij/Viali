@@ -826,6 +826,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             await storage.createAnesthesiaMedication({
               anesthesiaRecordId,
               itemId: medConfig.itemId,
+              medicationConfigId: med.medicationConfigId,
               timestamp,
               type: 'infusion_start',
               dose: isFreeRunning ? dose : (dose || undefined),
@@ -841,6 +842,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             await storage.createAnesthesiaMedication({
               anesthesiaRecordId,
               itemId: medConfig.itemId,
+              medicationConfigId: med.medicationConfigId,
               timestamp,
               type: 'bolus',
               dose,
