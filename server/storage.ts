@@ -418,7 +418,7 @@ export interface IStorage {
   getPatients(scope: PatientListScope, search?: string): Promise<Patient[]>;
   getPatient(id: string): Promise<Patient | undefined>;
   createPatient(patient: InsertPatient & { patientNumber?: string }): Promise<Patient>;
-  updatePatient(id: string, updates: Partial<Patient>): Promise<Patient>;
+  updatePatient(id: string, updates: Partial<Patient>, audit?: { editingUserId?: string | null; editingHospitalId?: string | null }): Promise<Patient>;
   archivePatient(id: string, userId: string): Promise<Patient>;
   unarchivePatient(id: string): Promise<Patient>;
   generatePatientNumber(hospitalId: string): Promise<string>;

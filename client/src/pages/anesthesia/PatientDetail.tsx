@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard, Pill, Sparkles, Video, Printer, MapPin, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -286,6 +286,29 @@ export default function PatientDetail() {
     },
     enabled: !!activeHospital?.id,
   });
+
+  // Task 7: roster of hospitals this patient has been seen at, used to render
+  // the cross-location chip row and to decorate treatment/appointment timeline
+  // entries with the location where each was recorded.
+  const { data: patientRoster = [] } = useQuery<Array<{ hospitalId: string; hospitalName: string; addedAt: string | null }>>({
+    queryKey: [`/api/patients/${derivedPatientId}/hospitals`],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/patients/${derivedPatientId}/hospitals`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!derivedPatientId,
+  });
+
+  // Lookup map (hospitalId -> hospitalName) for timeline row tags. Built from
+  // the roster so we don't fetch per-row; the roster already includes every
+  // hospital the patient has touched, which is exactly the set that can
+  // appear on the timeline.
+  const rosterHospitalNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of patientRoster) m[r.hospitalId] = r.hospitalName;
+    return m;
+  }, [patientRoster]);
 
   // Upload file to S3 and create attachment record
   const uploadNoteAttachment = async (file: File, noteType: 'patient' | 'surgery', noteId: string) => {
@@ -1897,6 +1920,35 @@ export default function PatientDetail() {
           </CardHeader>
           <CardContent className="space-y-6">
 
+            {/* Task 7: cross-location roster chips — visible only when the
+                patient has actually touched more than one location. Single-
+                location patients get the same UI as before. */}
+            {patientRoster.length > 1 && (
+              <div data-testid="container-patient-roster">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  {t('anesthesia.patientDetail.seenAt', 'Seen at')}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {patientRoster.map((r) => (
+                    <Badge
+                      key={r.hospitalId}
+                      variant="outline"
+                      className="text-xs gap-1"
+                      data-testid={`chip-patient-hospital-${r.hospitalId}`}
+                    >
+                      <span className="font-medium">{r.hospitalName}</span>
+                      {r.addedAt && (
+                        <span className="text-muted-foreground">
+                          · {t('anesthesia.patientDetail.since', 'since')} {formatDate(new Date(r.addedAt))}
+                        </span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Contact Information */}
             {(patient.email || patient.phone) && (
               <div>
@@ -3165,6 +3217,7 @@ export default function PatientDetail() {
               hospitalId={patient.hospitalId}
               unitId={activeHospital.unitId ?? null}
               defaultOpenForAppointmentId={treatmentAppointmentId}
+              hospitalNameById={patientRoster.length > 1 ? rosterHospitalNameById : undefined}
             />
           )}
         </TabsContent>
@@ -3443,6 +3496,19 @@ export default function PatientDetail() {
                         <div className="text-xs text-muted-foreground truncate mt-0.5">{appt.notes}</div>
                       )}
                     </div>
+                    {/* Task 7: location tag on each timeline row. Only shown
+                        when the patient is visible across multiple locations,
+                        to keep single-location views clean. */}
+                    {patientRoster.length > 1 && rosterHospitalNameById[appt.hospitalId] && (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 text-xs bg-muted/40 text-muted-foreground"
+                        data-testid={`tag-appointment-hospital-${appt.id}`}
+                      >
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {rosterHospitalNameById[appt.hospitalId]}
+                      </Badge>
+                    )}
                     <Badge className={`${STATUS_COLORS[appt.status]?.bg || ''} ${STATUS_COLORS[appt.status]?.text || ''} shrink-0`}>
                       {getStatusLabel(appt.status, t)}
                     </Badge>

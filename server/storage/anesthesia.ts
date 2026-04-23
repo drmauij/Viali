@@ -26,6 +26,7 @@ import {
   hospitalAnesthesiaSettings,
   patients,
   patientHospitals,
+  patientEditAudit,
   cases,
   surgeries,
   surgeryAssistants,
@@ -297,22 +298,96 @@ export async function createPatient(patient: InsertPatient & { patientNumber?: s
   return created;
 }
 
-export async function updatePatient(id: string, updates: Partial<Patient>): Promise<Patient> {
-  const [updated] = await db
-    .update(patients)
-    .set({ ...updates, updatedAt: new Date() })
-    .where(eq(patients.id, id))
-    .returning();
-  // Only clinical-field edits count as a touchpoint. Contact/admin edits do
-  // not enrol the editing hospital (which is the home hospital in Phase 1 —
-  // cross-location edits are handled in Task 7 via patient_edit_audit).
-  const touchesClinical = Object.keys(updates).some((k) =>
-    (CLINICAL_PATIENT_FIELDS as readonly string[]).includes(k),
-  );
-  if (touchesClinical && updated) {
-    await ensurePatientHospitalLink(updated.id, updated.hospitalId, null);
-  }
-  return updated;
+// Audit context for cross-location clinical edits (Task 7). When the editing
+// user is acting from a hospital other than the patient's home hospital AND
+// the same group, each changed clinical field is logged to patient_edit_audit.
+// Both identifiers must be present — omit the context for same-location edits
+// (which produce no audit rows). If either is missing, no audit row is
+// written, preserving the existing single-location behaviour.
+export type UpdatePatientAuditContext = {
+  editingUserId?: string | null;
+  editingHospitalId?: string | null;
+};
+
+export async function updatePatient(
+  id: string,
+  updates: Partial<Patient>,
+  audit?: UpdatePatientAuditContext,
+): Promise<Patient> {
+  return db.transaction(async (tx) => {
+    // Read the current row inside the transaction so audit rows see the same
+    // "before" that the update sees — no race with a concurrent write.
+    const [before] = await tx
+      .select()
+      .from(patients)
+      .where(eq(patients.id, id));
+
+    // If we have audit context and the editing hospital differs from the
+    // patient's home hospital, record each changed clinical field. We do this
+    // BEFORE the update so `before` values are captured uncontended.
+    const editingUserId = audit?.editingUserId ?? null;
+    const editingHospitalId = audit?.editingHospitalId ?? null;
+    if (
+      before &&
+      editingUserId &&
+      editingHospitalId &&
+      before.hospitalId &&
+      before.hospitalId !== editingHospitalId
+    ) {
+      const auditRows: Array<{
+        patientId: string;
+        editingUserId: string;
+        editingHospitalId: string;
+        field: string;
+        oldValue: string | null;
+        newValue: string | null;
+      }> = [];
+      for (const field of CLINICAL_PATIENT_FIELDS) {
+        if (!(field in updates)) continue;
+        const oldValue = (before as any)[field] ?? null;
+        const newValue = (updates as any)[field] ?? null;
+        // Skip no-op changes (e.g. form resubmit with identical values).
+        // JSON.stringify gives stable equality for arrays/objects/primitives.
+        if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
+        auditRows.push({
+          patientId: id,
+          editingUserId,
+          editingHospitalId,
+          field,
+          oldValue: JSON.stringify(oldValue),
+          newValue: JSON.stringify(newValue),
+        });
+      }
+      if (auditRows.length > 0) {
+        await tx.insert(patientEditAudit).values(auditRows as any);
+      }
+    }
+
+    const [updated] = await tx
+      .update(patients)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(patients.id, id))
+      .returning();
+
+    // Only clinical-field edits count as a touchpoint. Contact/admin edits do
+    // not enrol the editing hospital (which is the home hospital in Phase 1 —
+    // cross-location edits are audited above).
+    const touchesClinical = Object.keys(updates).some((k) =>
+      (CLINICAL_PATIENT_FIELDS as readonly string[]).includes(k),
+    );
+    if (touchesClinical && updated) {
+      // Enrol at the home hospital for legacy same-location edits and at the
+      // editing hospital for cross-location edits (so the roster reflects
+      // every location that has actually touched the chart).
+      const rosterHospitalId = editingHospitalId ?? updated.hospitalId;
+      await ensurePatientHospitalLink(
+        updated.id,
+        rosterHospitalId,
+        editingUserId ?? null,
+      );
+    }
+    return updated;
+  });
 }
 
 export async function archivePatient(id: string, userId: string): Promise<Patient> {

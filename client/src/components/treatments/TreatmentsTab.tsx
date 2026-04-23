@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, FileText, RotateCcw } from "lucide-react";
+import { Plus, Pencil, FileText, RotateCcw, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,6 +33,10 @@ interface Props {
   hospitalId: string;
   unitId?: string | null;
   defaultOpenForAppointmentId?: string;
+  // Task 7: lookup for per-row location tag when the patient is visible across
+  // multiple locations. Undefined for single-location patients — the tag is
+  // hidden in that case to keep single-tenant views clean.
+  hospitalNameById?: Record<string, string>;
 }
 
 const STATUS_VARIANT: Record<
@@ -45,7 +49,7 @@ const STATUS_VARIANT: Record<
   amended: "destructive",
 };
 
-export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForAppointmentId }: Props) {
+export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForAppointmentId, hospitalNameById }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -237,13 +241,14 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                 .filter(Boolean);
               const extra = (treatment.lines ?? []).length - lineLabels.length;
 
+              const tHospitalName = hospitalNameById?.[treatment.hospitalId];
               return (
                 <TableRow key={treatment.id}>
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(treatment.performedAt), "d MMM yyyy")}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 items-center">
                       {lineLabels.map((lbl) => (
                         <Badge key={lbl} variant="secondary" className="text-xs">
                           {lbl}
@@ -252,6 +257,16 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
                       {extra > 0 && (
                         <Badge variant="outline" className="text-xs">
                           +{extra}
+                        </Badge>
+                      )}
+                      {tHospitalName && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs ml-1 bg-muted/40 text-muted-foreground"
+                          data-testid={`tag-treatment-hospital-${treatment.id}`}
+                        >
+                          <Building2 className="h-3 w-3 mr-1" />
+                          {tHospitalName}
                         </Badge>
                       )}
                     </div>

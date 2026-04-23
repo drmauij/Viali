@@ -1,9 +1,15 @@
 import { Router } from "express";
 import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
-import { insertPatientSchema, surgeries, patientNotes } from "@shared/schema";
+import {
+  insertPatientSchema,
+  surgeries,
+  patientNotes,
+  patientHospitals,
+  hospitals as hospitalsTable,
+} from "@shared/schema";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   requireWriteAccess,
   requireStrictHospitalAccess,
@@ -94,22 +100,80 @@ router.get('/api/patients/:id', isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
 
     const patient = await storage.getPatient(id);
-    
+
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
-    
+    // Task 7: group-aware access. A user whose active hospital lives in the
+    // same group as the patient's home hospital can read the chart, which is
+    // the whole point of multi-location groups. Platform admins and group
+    // admins escalate automatically via the shared helper.
+    const hasAccess = await userHasGroupAwareHospitalAccess(
+      userId,
+      patient.hospitalId,
+      req,
+    );
+
     if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+      return res.status(403).json({
+        message: "Access denied. You do not have access to this patient.",
+        code: "RESOURCE_ACCESS_DENIED",
+      });
     }
 
     res.json(patient);
   } catch (error) {
     logger.error("Error fetching patient:", error);
     res.status(500).json({ message: "Failed to fetch patient" });
+  }
+});
+
+// Task 7: roster of hospitals a patient has been seen at (populated by the
+// Task 4 helper on first interaction at each location). Used by the patient
+// detail UI to render location chips and — in cross-location setups — the
+// home-vs-visiting breakdown. Access is gated the same way as the patient
+// detail endpoint so the roster can't leak patient existence across groups.
+router.get('/api/patients/:id/hospitals', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(
+      userId,
+      patient.hospitalId,
+      req,
+    );
+    if (!hasAccess) {
+      return res.status(403).json({
+        message: "Access denied. You do not have access to this patient.",
+        code: "RESOURCE_ACCESS_DENIED",
+      });
+    }
+
+    const rows = await db
+      .select({
+        hospitalId: patientHospitals.hospitalId,
+        hospitalName: hospitalsTable.name,
+        addedAt: patientHospitals.addedAt,
+      })
+      .from(patientHospitals)
+      .innerJoin(
+        hospitalsTable,
+        eq(patientHospitals.hospitalId, hospitalsTable.id),
+      )
+      .where(eq(patientHospitals.patientId, id))
+      .orderBy(asc(patientHospitals.addedAt));
+
+    res.json(rows);
+  } catch (error) {
+    logger.error("Error fetching patient hospitals roster:", error);
+    res.status(500).json({ message: "Failed to fetch patient hospitals" });
   }
 });
 
@@ -146,20 +210,40 @@ router.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (re
     const userId = req.user.id;
 
     const existingPatient = await storage.getPatient(id);
-    
+
     if (!existingPatient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
-    
+    // Task 7: group-aware access mirrors the GET /api/patients/:id endpoint
+    // so edit access follows read access in multi-location setups.
+    const hasAccess = await userHasGroupAwareHospitalAccess(
+      userId,
+      existingPatient.hospitalId,
+      req,
+    );
+
     if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+      return res.status(403).json({
+        message: "Access denied. You do not have access to this patient.",
+        code: "RESOURCE_ACCESS_DENIED",
+      });
     }
 
-    const patient = await storage.updatePatient(id, req.body);
-    
+    // Audit cross-location clinical edits. The editing hospital is the caller's
+    // active hospital (from the verified header) — `requireWriteAccess` sets
+    // `resolvedHospitalId` when the header was valid, and we fall back to the
+    // X-Active-Hospital-Id header otherwise.
+    const editingHospitalId =
+      (req as any).resolvedHospitalId ??
+      (req.headers["x-active-hospital-id"] as string | undefined) ??
+      null;
+
+    const patient = await storage.updatePatient(id, req.body, {
+      editingUserId: userId,
+      editingHospitalId,
+    });
+
     res.json(patient);
   } catch (error) {
     logger.error("Error updating patient:", error);
