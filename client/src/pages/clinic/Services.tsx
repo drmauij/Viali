@@ -20,7 +20,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check, Upload, Folder as FolderIcon, FolderPlus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText, Copy, Check, Upload, Folder as FolderIcon, FolderPlus, ChevronDown, ChevronRight, GripVertical, Building2, Network } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -71,11 +79,16 @@ interface ServiceCardProps {
   onDelete: (s: ServiceWithUnit) => void;
   formatPrice: (price: string | null) => string;
   t: TFunction;
+  groupName?: string | null;
 }
 
-function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, onDelete, formatPrice, t }: ServiceCardProps) {
+function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, onDelete, formatPrice, t, groupName }: ServiceCardProps) {
   const groups: string[] = (service as any).serviceGroups ??
     ((service as any).serviceGroup ? [(service as any).serviceGroup] : []);
+  // Hybrid service catalog: each service carries EITHER hospitalId OR groupId.
+  // Render a scope badge so staff immediately see "shared with chain" vs.
+  // "local to this clinic" — this is the single visual cue separating the two.
+  const isGroupService = !!(service as any).groupId;
   return (
     <Card
       data-testid={`card-service-${service.id}`}
@@ -98,6 +111,25 @@ function ServiceCard({ service, isBulkMode, isSelected, onToggleSelect, onEdit, 
           >
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-medium">{service.name}</h3>
+              {isGroupService ? (
+                <Badge
+                  variant="outline"
+                  className="text-xs border-purple-500 text-purple-700 dark:text-purple-300"
+                  data-testid={`badge-service-scope-group-${service.id}`}
+                >
+                  <Network className="h-3 w-3 mr-1" />
+                  {groupName ? t('clinic.services.scopeGroupNamed', `Group: ${groupName}`, { name: groupName }) : t('clinic.services.scopeGroup', 'Group')}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="text-xs"
+                  data-testid={`badge-service-scope-hospital-${service.id}`}
+                >
+                  <Building2 className="h-3 w-3 mr-1" />
+                  {t('clinic.services.scopeHospital', 'Hospital')}
+                </Badge>
+              )}
               {service.isShared && (
                 <Badge variant="secondary" className="text-xs">
                   <Share2 className="h-3 w-3 mr-1" />
@@ -186,6 +218,26 @@ export default function ClinicServices() {
 
   const [activeGroupFilter, setActiveGroupFilter] = useState<string | null>(null);
 
+  // Catalog scope: "hospital" (local + group union, default) or "group"
+  // (group-only view, group_admins only). The scope is URL-backed so the view
+  // is shareable/refresh-safe.
+  const [catalogScope, setCatalogScope] = useState<"hospital" | "group">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("scope") === "group" ? "group" : "hospital";
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const current = params.get("scope");
+    if (catalogScope === "group" && current !== "group") {
+      params.set("scope", "group");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    } else if (catalogScope === "hospital" && current === "group") {
+      params.delete("scope");
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, [catalogScope]);
+
   // Folder UI state (inline vertical pattern, like /inventory)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -208,6 +260,8 @@ export default function ClinicServices() {
     code: "",
     serviceGroups: [] as string[],
     providerIds: [] as string[],
+    // New: "hospital" (default) or "group". Fixed at creation — never editable.
+    scope: "hospital" as "hospital" | "group",
   });
 
   const activeHospital = useMemo(() => {
@@ -228,16 +282,42 @@ export default function ClinicServices() {
   const hospitalId = activeHospital?.id;
   const unitId = activeHospital?.unitId;
 
-  const { data: services = [], isLoading } = useQuery<ServiceWithUnit[]>({
-    queryKey: ['/api/clinic', hospitalId, 'services', unitId],
+  // Group-awareness: does the active hospital belong to a group, and is the
+  // current user group_admin? Backs the scope selector visibility and the
+  // "Group: <name>" badge on each service row.
+  const { data: groupInfo } = useQuery<{ groupId: string | null; groupName: string | null; isGroupAdmin: boolean }>({
+    queryKey: ['/api/clinic', hospitalId, 'group-info'],
     queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/services?unitId=${unitId}`, {
-        credentials: 'include'
-      });
+      const res = await fetch(`/api/clinic/${hospitalId}/group-info`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch group info');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const hospitalHasGroup = !!groupInfo?.groupId;
+  const isGroupAdmin = !!groupInfo?.isGroupAdmin;
+  const canUseGroupScope = hospitalHasGroup && isGroupAdmin;
+
+  // Defensive: if the hospital isn't in a group or the user isn't group_admin,
+  // force scope back to hospital (e.g. after a hospital switch).
+  useEffect(() => {
+    if (!canUseGroupScope && catalogScope === "group") {
+      setCatalogScope("hospital");
+    }
+  }, [canUseGroupScope, catalogScope]);
+
+  const { data: services = [], isLoading } = useQuery<ServiceWithUnit[]>({
+    queryKey: ['/api/clinic', hospitalId, 'services', unitId, catalogScope],
+    queryFn: async () => {
+      const url = catalogScope === "group"
+        ? `/api/clinic/${hospitalId}/group-services`
+        : `/api/clinic/${hospitalId}/services?unitId=${unitId}`;
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     },
-    enabled: !!hospitalId && !!unitId,
+    enabled: !!hospitalId && (catalogScope === "group" || !!unitId),
   });
 
   const folderAdapter = useMemo(
@@ -307,11 +387,19 @@ export default function ClinicServices() {
   const [copiedBookingUrl, setCopiedBookingUrl] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroups: string[]; providerIds: string[] }) => {
-      return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean; code: string | null; serviceGroups: string[]; providerIds: string[]; scope: "hospital" | "group" }) => {
+      // For group-scope creates, skip unitId — the server rejects/strips it
+      // anyway since group services aren't unit-bound.
+      const payload = data.scope === "group"
+        ? { ...data }
+        : { ...data, unitId };
+      return apiRequest('POST', `/api/clinic/${hospitalId}/services`, payload);
     },
     onSuccess: () => {
+      // Invalidate both scope views — a new service may appear in either
+      // catalog and we want the other view to refresh next time it's shown.
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'service-groups'] });
       setDialogOpen(false);
       resetForm();
@@ -328,6 +416,7 @@ export default function ClinicServices() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'service-groups'] });
       setDialogOpen(false);
       setEditingService(null);
@@ -345,6 +434,7 @@ export default function ClinicServices() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
       setDeleteDialogOpen(false);
       setServiceToDelete(null);
       toast({ title: t('clinic.services.deleted') });
@@ -572,7 +662,20 @@ export default function ClinicServices() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false, code: "", serviceGroups: [], providerIds: [] });
+    setFormData({
+      name: "",
+      description: "",
+      price: "",
+      durationMinutes: "",
+      isShared: false,
+      isInvoiceable: false,
+      code: "",
+      serviceGroups: [],
+      providerIds: [],
+      // Default scope mirrors the current view — if the user is looking at
+      // the group catalog they almost certainly want to create a group service.
+      scope: catalogScope,
+    });
   };
 
   const handleOpenCreate = () => {
@@ -593,6 +696,8 @@ export default function ClinicServices() {
       code: service.code || "",
       serviceGroups: (service as any).serviceGroups ?? ((service as any).serviceGroup ? [(service as any).serviceGroup] : []),
       providerIds: service.providerIds || [],
+      // Scope is fixed at creation and read-only in the edit dialog.
+      scope: (service as any).groupId ? "group" : "hospital",
     });
     setDialogOpen(true);
   };
@@ -632,6 +737,7 @@ export default function ClinicServices() {
         code,
         serviceGroups: formData.serviceGroups,
         providerIds: formData.providerIds,
+        scope: formData.scope,
       });
     }
   };
@@ -945,6 +1051,38 @@ export default function ClinicServices() {
         </div>
       </div>
 
+      {/* Catalog scope selector — only visible to group_admins of a grouped
+          hospital. Hospital admins still SEE group services inline on the
+          "Hospital catalog" view; this toggle just lets chain-level admins
+          drill into the group-only management view. */}
+      {canUseGroupScope && (
+        <div>
+          <ToggleGroup
+            type="single"
+            value={catalogScope}
+            onValueChange={(v) => {
+              if (v === "hospital" || v === "group") setCatalogScope(v);
+            }}
+            variant="outline"
+            size="sm"
+            className="justify-start"
+            data-testid="toggle-catalog-scope"
+          >
+            <ToggleGroupItem value="hospital" data-testid="toggle-catalog-hospital">
+              <Building2 className="h-4 w-4 mr-1" />
+              {t('clinic.services.scopeHospitalCatalog', 'Hospital catalog')}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="group" data-testid="toggle-catalog-group">
+              <Network className="h-4 w-4 mr-1" />
+              {t('clinic.services.scopeGroupCatalog', 'Group catalog')}
+              {groupInfo?.groupName ? (
+                <span className="text-muted-foreground ml-1">({groupInfo.groupName})</span>
+              ) : null}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1072,6 +1210,7 @@ export default function ClinicServices() {
                         onDelete={(s) => { setServiceToDelete(s); setDeleteDialogOpen(true); }}
                         formatPrice={formatPrice}
                         t={t}
+                        groupName={groupInfo?.groupName ?? null}
                       />
                     </DraggableItem>
                   ))}
@@ -1094,6 +1233,7 @@ export default function ClinicServices() {
                     onDelete={(s) => { setServiceToDelete(s); setDeleteDialogOpen(true); }}
                     formatPrice={formatPrice}
                     t={t}
+                    groupName={groupInfo?.groupName ?? null}
                   />
                 </DraggableItem>
               ))}
@@ -1121,6 +1261,81 @@ export default function ClinicServices() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4 overflow-y-auto min-h-0 flex-1 pr-2">
+            {/* Scope selector. Only shown when the hospital belongs to a group
+                AND the user is group_admin (the two conditions mapped to the
+                `scope=group` write path). For edits the radio is disabled with
+                a tooltip — scope is immutable (see spec §Services catalog
+                UX: "Scope is fixed at creation"). */}
+            {hospitalHasGroup && (
+              <div className="space-y-2">
+                <Label>{t('clinic.services.scopeLabel', 'Scope')}</Label>
+                {editingService ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <RadioGroup value={formData.scope} className="flex gap-4" data-testid="radio-service-scope-readonly">
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="hospital" id="scope-hospital" disabled />
+                              <Label htmlFor="scope-hospital" className="text-sm text-muted-foreground">
+                                {t('clinic.services.scopeThisClinic', 'This clinic')}
+                              </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="group" id="scope-group" disabled />
+                              <Label htmlFor="scope-group" className="text-sm text-muted-foreground">
+                                {t('clinic.services.scopeGroupCatalog', 'Group catalog')}
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {t('clinic.services.scopeImmutableHint', "Scope can't be changed after creation — delete and recreate if needed.")}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <RadioGroup
+                    value={formData.scope}
+                    onValueChange={(v) => {
+                      if (v === "hospital" || v === "group") {
+                        setFormData({ ...formData, scope: v });
+                      }
+                    }}
+                    className="flex gap-4"
+                    data-testid="radio-service-scope"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="hospital" id="scope-hospital" data-testid="radio-scope-hospital" />
+                      <Label htmlFor="scope-hospital" className="text-sm cursor-pointer">
+                        {t('clinic.services.scopeThisClinic', 'This clinic')}
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem
+                        value="group"
+                        id="scope-group"
+                        disabled={!canUseGroupScope}
+                        data-testid="radio-scope-group"
+                      />
+                      <Label
+                        htmlFor="scope-group"
+                        className={`text-sm cursor-pointer ${!canUseGroupScope ? 'text-muted-foreground' : ''}`}
+                      >
+                        {t('clinic.services.scopeGroupCatalog', 'Group catalog')}
+                        {groupInfo?.groupName ? ` (${groupInfo.groupName})` : ''}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                )}
+                {!editingService && !canUseGroupScope && hospitalHasGroup && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('clinic.services.scopeGroupRequiresGroupAdmin', 'Only group admins can create group-wide services.')}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">{t('clinic.services.name')} *</Label>
               <Input

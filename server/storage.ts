@@ -928,7 +928,12 @@ export interface IStorage {
   getAvailableDatesForMonth(providerId: string, unitId: string, hospitalId: string, month: string, durationMinutes?: number): Promise<string[]>;
 
   // Clinic Services (for appointment booking)
-  getClinicServices(unitId: string): Promise<ClinicService[]>;
+  // Returns hospital-local + group-owned services for a hospital. Booking flow
+  // and patient-appointment picker must both use this to see the full catalog.
+  getClinicServicesForHospital(hospitalId: string): Promise<ClinicService[]>;
+  // Returns only group-owned services — backs the group-scope selector in
+  // `/business/services` (group admins only).
+  getClinicServicesForGroupScope(groupId: string): Promise<ClinicService[]>;
   getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined>;
   getPublicBookableServicesByHospital(hospitalId: string): Promise<Array<{
     id: string;
@@ -1618,7 +1623,8 @@ export class DatabaseStorage implements IStorage {
   deleteClinicAppointment = clinicStorage.deleteClinicAppointment;
   getAvailableSlots = clinicStorage.getAvailableSlots;
   getAvailableDatesForMonth = clinicStorage.getAvailableDatesForMonth;
-  getClinicServices = clinicStorage.getClinicServices;
+  getClinicServicesForHospital = clinicStorage.getClinicServicesForHospital;
+  getClinicServicesForGroupScope = clinicStorage.getClinicServicesForGroupScope;
   getServiceByCode = clinicStorage.getServiceByCode;
   getPublicBookableServicesByHospital = clinicStorage.getPublicBookableServicesByHospital;
   getProvidersByServiceId = clinicStorage.getProvidersByServiceId;

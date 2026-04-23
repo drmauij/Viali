@@ -2,7 +2,12 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, requireStrictHospitalAccess } from "../utils";
+import {
+  requireWriteAccess,
+  requireStrictHospitalAccess,
+  userIsGroupAdminForHospital,
+  getHospitalGroupIdCached,
+} from "../utils";
 import { requireAdminRole } from "./middleware";
 import {
   clinicInvoices,
@@ -1071,31 +1076,93 @@ router.post('/api/public/booking/:bookingToken/book', async (req, res) => {
 // Clinic Services CRUD
 // ========================================
 
-// List services for a hospital (optionally filtered by unit)
+// Lightweight group-info endpoint for any member of the hospital. Returns the
+// group id+name the active hospital belongs to (null if the hospital is
+// un-grouped) plus a flag for whether the caller is `group_admin`. The UI
+// uses this to show/hide the "Group catalog" scope selector and to render
+// "Group: <name>" badges on shared services.
+router.get('/api/clinic/:hospitalId/group-info', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const groupId = await getHospitalGroupIdCached(hospitalId, req);
+    if (!groupId) {
+      return res.json({ groupId: null, groupName: null, isGroupAdmin: false });
+    }
+    const [groupRow] = await db
+      .select({ id: hospitals.id })
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId))
+      .limit(1);
+    // Fetch group name via the hospital_groups table.
+    const { hospitalGroups } = await import("@shared/schema");
+    const [g] = await db
+      .select({ id: hospitalGroups.id, name: hospitalGroups.name })
+      .from(hospitalGroups)
+      .where(eq(hospitalGroups.id, groupId))
+      .limit(1);
+    const userId = req.user?.id;
+    const isGroupAdmin = userId
+      ? await (async () => {
+          const { userIsGroupAdminForHospital: check } = await import("../utils");
+          return check(userId, hospitalId, req);
+        })()
+      : false;
+    res.json({
+      groupId,
+      groupName: g?.name ?? null,
+      isGroupAdmin,
+      // Spread hospitalRow for future use, keeping response stable for now.
+      _hospitalId: groupRow?.id ?? hospitalId,
+    });
+  } catch (err) {
+    logger.error("Error fetching group info:", err);
+    res.status(500).json({ message: "Failed to fetch group info" });
+  }
+});
+
+// List services for a hospital (optionally filtered by unit).
+//
+// Returns the UNION of hospital-local services (hospital_id = :hospitalId) and
+// group-owned services (group_id = :hospitalsGroupId, if the hospital has a
+// group). For ungrouped hospitals behavior is identical to the legacy single-
+// hospital catalog — zero regression. Group services carry `groupId` and have
+// null `hospitalId`/`unitId`; the UI renders a "Group" badge so staff know
+// these are shared across the chain and edits must happen in the group scope.
 router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId, includeShared } = req.query;
-    
-    let conditions: any[] = [eq(clinicServices.hospitalId, hospitalId)];
-    
+
+    // Resolve the hospital's group (null if ungrouped). Group services travel
+    // with the hospital regardless of unit filter — they're not unit-scoped.
+    const groupId = await getHospitalGroupIdCached(hospitalId, req);
+
+    // Hospital-scoped predicate: hospital_id match plus the optional unit
+    // filter (group services have null unit_id so can't match the unit filter,
+    // which is why we OR them in as a sibling branch below).
+    const hospitalConditions: any[] = [eq(clinicServices.hospitalId, hospitalId)];
     if (unitId && typeof unitId === 'string') {
       if (includeShared === 'true') {
-        conditions.push(
+        hospitalConditions.push(
           or(
             eq(clinicServices.unitId, unitId),
-            eq(clinicServices.isShared, true)
-          )
+            eq(clinicServices.isShared, true),
+          ),
         );
       } else {
-        conditions.push(eq(clinicServices.unitId, unitId));
+        hospitalConditions.push(eq(clinicServices.unitId, unitId));
       }
     }
-    
+
+    const predicate = groupId
+      ? or(and(...hospitalConditions), eq(clinicServices.groupId, groupId))
+      : and(...hospitalConditions);
+
     const services = await db
       .select({
         id: clinicServices.id,
         hospitalId: clinicServices.hospitalId,
+        groupId: clinicServices.groupId,
         unitId: clinicServices.unitId,
         name: clinicServices.name,
         description: clinicServices.description,
@@ -1114,7 +1181,7 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
       })
       .from(clinicServices)
       .leftJoin(units, eq(clinicServices.unitId, units.id))
-      .where(and(...conditions))
+      .where(predicate)
       .orderBy(clinicServices.sortOrder, clinicServices.name);
 
     // Fetch provider IDs for each service
@@ -1132,40 +1199,90 @@ router.get('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHos
   }
 });
 
-// Get single service
+// Get single service. Accepts either a hospital-scoped service (hospital_id
+// match) or a group-scoped service visible at this hospital (group_id matches
+// the hospital's group).
 router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
-    
-    const result = await db
+
+    const [row] = await db
       .select()
       .from(clinicServices)
-      .where(
-        and(
-          eq(clinicServices.hospitalId, hospitalId),
-          eq(clinicServices.id, serviceId)
-        )
-      )
+      .where(eq(clinicServices.id, serviceId))
       .limit(1);
-    
-    if (result.length === 0) {
+
+    if (!row) {
       return res.status(404).json({ message: "Service not found" });
     }
 
-    const providerIds = await storage.getProvidersByServiceId(result[0].id);
-    res.json({ ...result[0], providerIds });
+    const groupId = await getHospitalGroupIdCached(hospitalId, req);
+    const isVisible =
+      row.hospitalId === hospitalId ||
+      (row.groupId !== null && row.groupId === groupId);
+    if (!isVisible) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    const providerIds = await storage.getProvidersByServiceId(row.id);
+    res.json({ ...row, providerIds });
   } catch (error) {
     logger.error("Error fetching service:", error);
     res.status(500).json({ message: "Failed to fetch service" });
   }
 });
 
-// Create service
+// List group-owned services for a group. Gated by group_admin at the active
+// hospital — non-group-admins can still SEE group services via the hospital
+// catalog endpoint, but only group_admins can manage the group-scope view.
+router.get('/api/clinic/:hospitalId/group-services', isAuthenticated, requireStrictHospitalAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const groupId = await getHospitalGroupIdCached(hospitalId, req);
+    if (!groupId) {
+      return res.status(400).json({
+        message: "Active hospital is not part of a group",
+        code: "HOSPITAL_HAS_NO_GROUP",
+      });
+    }
+
+    const userId = req.user?.id;
+    const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+    if (!isGroupAdmin) {
+      return res.status(403).json({
+        message: "Group admin required to view the group catalog",
+        code: "GROUP_ADMIN_REQUIRED",
+      });
+    }
+
+    const services = await storage.getClinicServicesForGroupScope(groupId);
+    const withProviders = await Promise.all(
+      services.map(async (s) => ({
+        ...s,
+        providerIds: await storage.getProvidersByServiceId(s.id),
+      })),
+    );
+    res.json(withProviders);
+  } catch (error) {
+    logger.error("Error fetching group services:", error);
+    res.status(500).json({ message: "Failed to fetch group services" });
+  }
+});
+
+// Create service. The request body carries an optional `scope` field:
+//   - `"hospital"` (default): inserts a hospital-local service (hospital_id = :active, group_id = null).
+//   - `"group"`: inserts a group-owned service (group_id = activeHospital.groupId,
+//     hospital_id = null, unit_id = null). Requires group_admin at the active
+//     hospital and the hospital must be part of a group.
+//
+// Scope is immutable after creation — PATCH rejects attempts to change it.
 router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    
-    const { providerIds: providerIdsInput, ...serviceData } = req.body;
+
+    const { providerIds: providerIdsInput, scope: rawScope, ...serviceData } = req.body;
+    const scope: "hospital" | "group" = rawScope === "group" ? "group" : "hospital";
 
     // Validate code format if provided
     if (serviceData.code && !/^[a-z0-9-]+$/.test(serviceData.code)) {
@@ -1186,9 +1303,53 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHo
       serviceData.serviceGroups = serviceData.serviceGroup ? [serviceData.serviceGroup] : [];
     }
 
+    if (scope === "group") {
+      // Group scope: must have a group on the active hospital AND be group_admin.
+      const activeGroupId = await getHospitalGroupIdCached(hospitalId, req);
+      if (!activeGroupId) {
+        return res.status(400).json({
+          message: "Active hospital is not part of a group",
+          code: "HOSPITAL_HAS_NO_GROUP",
+        });
+      }
+      const userId = req.user?.id;
+      const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+      if (!isGroupAdmin) {
+        return res.status(403).json({
+          message: "Group admin required to create group-scoped services",
+          code: "GROUP_ADMIN_REQUIRED",
+        });
+      }
+
+      // Strip hospitalId/unitId — the XOR check constraint requires exactly
+      // one of hospital_id / group_id, and group services are not unit-bound.
+      const { hospitalId: _ignoredH, unitId: _ignoredU, groupId: _ignoredG, ...rest } = serviceData;
+      const validatedData = insertClinicServiceSchema.parse({
+        ...rest,
+        hospitalId: null,
+        unitId: null,
+        groupId: activeGroupId,
+      });
+
+      const [service] = await db
+        .insert(clinicServices)
+        .values(validatedData)
+        .returning();
+
+      if (Array.isArray(providerIdsInput) && providerIdsInput.length > 0) {
+        await storage.setServiceProviders(service.id, providerIdsInput);
+      }
+
+      const providerIds = await storage.getProvidersByServiceId(service.id);
+      return res.status(201).json({ ...service, providerIds });
+    }
+
+    // Hospital scope — existing path. Strip any stray groupId in the body.
+    const { groupId: _stripG, ...restHospital } = serviceData;
     const validatedData = insertClinicServiceSchema.parse({
-      ...serviceData,
+      ...restHospital,
       hospitalId,
+      groupId: null,
     });
 
     const [service] = await db
@@ -1212,27 +1373,81 @@ router.post('/api/clinic/:hospitalId/services', isAuthenticated, requireStrictHo
   }
 });
 
-// Update service
-router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
+// Update service. Accepts both hospital-scoped and group-scoped services that
+// are visible from the active hospital. Write permission split:
+//   - hospital-scoped service: existing behavior (requireWriteAccess at hospital).
+//   - group-scoped service: requires group_admin at the active hospital.
+//
+// Scope is immutable: if the incoming body tries to toggle scope (e.g. by
+// passing `scope`, `groupId`, or `hospitalId` that doesn't match the existing
+// row) the request is rejected with 400.
+router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
-    
-    // Verify service belongs to hospital
-    const existing = await db
+
+    // Fetch the raw service row — we need to know its scope before we can
+    // decide if this user is authorised to edit it.
+    const [existingRow] = await db
       .select()
       .from(clinicServices)
-      .where(
-        and(
-          eq(clinicServices.hospitalId, hospitalId),
-          eq(clinicServices.id, serviceId)
-        )
-      )
+      .where(eq(clinicServices.id, serviceId))
       .limit(1);
-    
-    if (existing.length === 0) {
+
+    if (!existingRow) {
       return res.status(404).json({ message: "Service not found" });
     }
-    
+
+    const activeGroupId = await getHospitalGroupIdCached(hospitalId, req);
+    const isGroupService = existingRow.groupId !== null;
+    const isVisible =
+      existingRow.hospitalId === hospitalId ||
+      (isGroupService && existingRow.groupId === activeGroupId);
+    if (!isVisible) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    // For group-scoped services, only group_admin may write.
+    if (isGroupService) {
+      const userId = req.user?.id;
+      const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+      if (!isGroupAdmin) {
+        return res.status(403).json({
+          message: "Group admin required to edit group-scoped services",
+          code: "GROUP_ADMIN_REQUIRED",
+        });
+      }
+    }
+
+    // Reject any attempt to mutate scope. `scope` in the body must match; any
+    // explicit hospitalId / groupId / unitId that contradicts the existing
+    // row is a scope-change attempt.
+    const { scope: requestedScope, hospitalId: bodyHospitalId, groupId: bodyGroupId, unitId: bodyUnitId } = req.body ?? {};
+    const rowScope: "hospital" | "group" = isGroupService ? "group" : "hospital";
+    if (requestedScope !== undefined && requestedScope !== rowScope) {
+      return res.status(400).json({
+        message: "Service scope is immutable — delete and recreate to change scope",
+        code: "SCOPE_IMMUTABLE",
+      });
+    }
+    if (isGroupService) {
+      if (bodyHospitalId !== undefined && bodyHospitalId !== null) {
+        return res.status(400).json({ message: "Cannot assign hospitalId to a group service", code: "SCOPE_IMMUTABLE" });
+      }
+      if (bodyUnitId !== undefined && bodyUnitId !== null) {
+        return res.status(400).json({ message: "Cannot assign unitId to a group service", code: "SCOPE_IMMUTABLE" });
+      }
+      if (bodyGroupId !== undefined && bodyGroupId !== existingRow.groupId) {
+        return res.status(400).json({ message: "Cannot move service between groups", code: "SCOPE_IMMUTABLE" });
+      }
+    } else {
+      if (bodyGroupId !== undefined && bodyGroupId !== null) {
+        return res.status(400).json({ message: "Cannot assign groupId to a hospital service", code: "SCOPE_IMMUTABLE" });
+      }
+      if (bodyHospitalId !== undefined && bodyHospitalId !== existingRow.hospitalId) {
+        return res.status(400).json({ message: "Cannot move service between hospitals", code: "SCOPE_IMMUTABLE" });
+      }
+    }
+
     const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable, code, serviceGroup, serviceGroups, folderId, providerIds: providerIdsInput } = req.body;
 
     // Validate code format if provided
@@ -1247,6 +1462,14 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
 
     // Validate folderId belongs to this hospital (null = remove from folder, allowed without check)
     if (folderId !== undefined && folderId !== null && folderId !== '') {
+      if (isGroupService) {
+        // Folders are hospital-scoped (`service_folders.hospital_id` is NOT
+        // NULL). A group service can't sit inside a hospital's folder.
+        return res.status(400).json({
+          message: "Group services cannot be placed in hospital-scoped folders",
+          code: "GROUP_SERVICE_FOLDER_INVALID",
+        });
+      }
       const folder = await storage.getServiceFolder(folderId);
       if (!folder || folder.hospitalId !== hospitalId) {
         return res.status(400).json({ message: "Invalid folderId for hospital" });
@@ -1292,31 +1515,47 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, req
   }
 });
 
-// Delete service
-router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req, res) => {
+// Delete service. Hospital-scoped services deletable by hospital admin (via
+// requireWriteAccess); group-scoped services deletable only by group_admin
+// at the active hospital.
+router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, requireStrictHospitalAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, serviceId } = req.params;
-    
-    // Verify service belongs to hospital
-    const existing = await db
+
+    const [existingRow] = await db
       .select()
       .from(clinicServices)
-      .where(
-        and(
-          eq(clinicServices.hospitalId, hospitalId),
-          eq(clinicServices.id, serviceId)
-        )
-      )
+      .where(eq(clinicServices.id, serviceId))
       .limit(1);
-    
-    if (existing.length === 0) {
+
+    if (!existingRow) {
       return res.status(404).json({ message: "Service not found" });
     }
-    
+
+    const activeGroupId = await getHospitalGroupIdCached(hospitalId, req);
+    const isGroupService = existingRow.groupId !== null;
+    const isVisible =
+      existingRow.hospitalId === hospitalId ||
+      (isGroupService && existingRow.groupId === activeGroupId);
+    if (!isVisible) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    if (isGroupService) {
+      const userId = req.user?.id;
+      const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+      if (!isGroupAdmin) {
+        return res.status(403).json({
+          message: "Group admin required to delete group-scoped services",
+          code: "GROUP_ADMIN_REQUIRED",
+        });
+      }
+    }
+
     await db
       .delete(clinicServices)
       .where(eq(clinicServices.id, serviceId));
-    
+
     res.status(204).send();
   } catch (error) {
     logger.error("Error deleting service:", error);

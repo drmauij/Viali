@@ -1687,11 +1687,49 @@ export async function getMultipleStaffAvailability(
   return result;
 }
 
-export async function getClinicServices(unitId: string): Promise<ClinicService[]> {
+/**
+ * Returns clinic services visible from a hospital — the union of:
+ *   - hospital-local services (`clinic_services.hospital_id = :hospitalId`)
+ *   - group-owned services belonging to the hospital's group, if any
+ *     (`clinic_services.group_id = :hospitalGroupId`)
+ *
+ * This is the catalog query the booking flow, patient-appointment picker, and
+ * hospital-catalog UI all use. For an ungrouped hospital the second branch
+ * resolves to no rows, so behavior is identical to the legacy
+ * single-hospital semantics — zero regression for solo tenants.
+ */
+export async function getClinicServicesForHospital(
+  hospitalId: string,
+): Promise<ClinicService[]> {
+  const [row] = await db
+    .select({ groupId: hospitals.groupId })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId));
+  const groupId = row?.groupId ?? null;
+  const predicate = groupId
+    ? or(
+        eq(clinicServices.hospitalId, hospitalId),
+        eq(clinicServices.groupId, groupId),
+      )
+    : eq(clinicServices.hospitalId, hospitalId);
   return await db
     .select()
     .from(clinicServices)
-    .where(eq(clinicServices.unitId, unitId))
+    .where(predicate)
+    .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
+}
+
+/**
+ * Returns only group-owned services for a given group. Backs the
+ * "Group catalog" scope in `/business/services` (group admins only).
+ */
+export async function getClinicServicesForGroupScope(
+  groupId: string,
+): Promise<ClinicService[]> {
+  return await db
+    .select()
+    .from(clinicServices)
+    .where(eq(clinicServices.groupId, groupId))
     .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
 }
 
@@ -1709,6 +1747,16 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
   const bookable = await getPublicBookableProvidersByHospital(hospitalId);
   const bookableIdSet = new Set(bookable.map(p => p.userId));
 
+  // Include both hospital-local and group-owned services — a group chain
+  // (beauty2go etc.) expects group services to appear on each member location's
+  // public `/book` flow. Provider-level filtering below still restricts to
+  // providers actually bookable at THIS hospital, so scheduling stays correct.
+  const [hospRow] = await db
+    .select({ groupId: hospitals.groupId })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId));
+  const groupId = hospRow?.groupId ?? null;
+
   const services = await db
     .select({
       id: clinicServices.id,
@@ -1721,7 +1769,14 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
       sortOrder: clinicServices.sortOrder,
     })
     .from(clinicServices)
-    .where(eq(clinicServices.hospitalId, hospitalId))
+    .where(
+      groupId
+        ? or(
+            eq(clinicServices.hospitalId, hospitalId),
+            eq(clinicServices.groupId, groupId),
+          )
+        : eq(clinicServices.hospitalId, hospitalId),
+    )
     .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
 
   if (services.length === 0) return [];
@@ -1761,15 +1816,40 @@ export async function getPublicBookableServicesByHospital(hospitalId: string): P
 }
 
 export async function getServiceByCode(hospitalId: string, code: string): Promise<ClinicService | undefined> {
-  const [service] = await db
+  // Prefer a hospital-local match (specific > generic); fall back to a group-
+  // level match if the hospital has a group and no local code collides. This
+  // lets `/book/:token?service=<code>` resolve group services on chain-owned
+  // locations without losing the ability to override per-location by code.
+  const [local] = await db
     .select()
     .from(clinicServices)
-    .where(and(
-      eq(clinicServices.hospitalId, hospitalId),
-      eq(clinicServices.code, code)
-    ))
+    .where(
+      and(
+        eq(clinicServices.hospitalId, hospitalId),
+        eq(clinicServices.code, code),
+      ),
+    )
     .limit(1);
-  return service;
+  if (local) return local;
+
+  const [hospRow] = await db
+    .select({ groupId: hospitals.groupId })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId));
+  const groupId = hospRow?.groupId ?? null;
+  if (!groupId) return undefined;
+
+  const [groupService] = await db
+    .select()
+    .from(clinicServices)
+    .where(
+      and(
+        eq(clinicServices.groupId, groupId),
+        eq(clinicServices.code, code),
+      ),
+    )
+    .limit(1);
+  return groupService;
 }
 
 export async function getProvidersByServiceId(serviceId: string): Promise<string[]> {
