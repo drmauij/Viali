@@ -12,13 +12,19 @@ import {
   clinicAppointments,
   clinicServices,
   patientMessages,
+  users,
 } from "@shared/schema";
-import { eq, and, or, desc, isNull, sql } from "drizzle-orm";
+import { eq, and, or, desc, isNull, inArray, sql } from "drizzle-orm";
 import logger from "../logger";
 import { z } from "zod";
 import { sendSms } from "../sms";
 import { getUncachableResendClient } from "../email";
 import { consentConditionsFor, appendUnsubscribeFooter } from "../services/marketingConsent";
+import {
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
+  userIsGroupAdminForHospital,
+} from "../utils";
 import { generateUnsubscribeToken } from "../services/marketingUnsubscribeToken";
 import { generateExecutionToken } from "../services/marketingExecutionToken";
 import { assignVariant } from "../services/marketingAbAssignment";
@@ -48,6 +54,75 @@ async function isMarketingAccess(req: any, res: Response, next: any) {
     logger.error("Error checking marketing access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
+}
+
+/**
+ * Task 12: resolve the audience scope for a Flows segment query. Reads the
+ * optional `X-Active-Scope` header (default `"hospital"`) and returns the
+ * list of hospital IDs the segment/audience resolver should span.
+ *
+ * Rules:
+ *   - Default / `scope !== "group"` → `[activeHospitalId]` (today's behaviour).
+ *   - `scope === "group"` but the active hospital has no `groupId` → silently
+ *     fall back to `[activeHospitalId]`. Matches the Task 5 and Task 11
+ *     contract so a chain tenant that switches to a solo hospital does not
+ *     suddenly see 400s.
+ *   - `scope === "group"` and the active hospital belongs to a group → the
+ *     caller must be `group_admin` for that group. Platform admins satisfy
+ *     this implicitly via `userIsGroupAdminForHospital`. If the check fails
+ *     we throw `FlowsScopeForbiddenError` which the route handler turns into
+ *     a 403 response body with code `GROUP_SCOPE_FORBIDDEN`.
+ *   - On success with group access, returns every hospital ID in that group
+ *     — the segment/send loop widens its `patients.hospital_id IN (...)`
+ *     clause to include all of them.
+ *
+ * Note: a Flow campaign record always belongs to the *initiating* hospital
+ * (the one in the URL). Only the audience/send audience widens — billing,
+ * consent footer branding, and flowExecutions.flow_id stay tied to that one
+ * hospital so revenue attribution and per-campaign metrics stay coherent.
+ */
+class FlowsScopeForbiddenError extends Error {
+  code = "GROUP_SCOPE_FORBIDDEN" as const;
+  constructor() {
+    super("Access denied for group-scope Flows audience.");
+  }
+}
+
+async function resolveFlowsAudienceScope(
+  req: Request,
+  userId: string,
+  activeHospitalId: string,
+): Promise<string[]> {
+  const scopeHeader = (req.headers["x-active-scope"] as string | undefined)?.toLowerCase();
+  if (scopeHeader !== "group") {
+    return [activeHospitalId];
+  }
+  const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+  if (!groupId) {
+    // Un-grouped tenant: collapse to hospital scope silently. Matches Task 5
+    // and Task 11 behaviour — single-location clients that always send the
+    // header should not break.
+    return [activeHospitalId];
+  }
+  // Group-scope gate: only group_admin (or platform admin) can send chain-
+  // wide. A plain marketing/manager role at one location is not enough —
+  // sending to patients at sister clinics is a bigger blast radius than
+  // editing the local campaign, so we escalate the permission bar here.
+  // `isMarketingAccess` already guaranteed the caller has *some* marketing
+  // role at the initiating hospital.
+  const [u] = await db
+    .select({ isPlatformAdmin: users.isPlatformAdmin })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const isPlatformAdmin = u?.isPlatformAdmin === true;
+  if (!isPlatformAdmin) {
+    const isGroupAdmin = await userIsGroupAdminForHospital(userId, activeHospitalId, req);
+    if (!isGroupAdmin) {
+      throw new FlowsScopeForbiddenError();
+    }
+  }
+  return await getGroupHospitalIdsCached(groupId, req);
 }
 
 // ─── Flows CRUD ───────────────────────────────────────────────
@@ -228,10 +303,30 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { hospitalId } = req.params;
+      const userId = (req as any).user.id;
       const { channel, filters } = segmentFilterSchema.parse(req.body);
 
+      // Task 12: resolve audience scope — hospital (default) or group when
+      // the caller is group_admin on the active hospital's group. When group
+      // scope is permitted the WHERE clause widens from `= hospitalId` to
+      // `IN (groupHospitalIds)`, letting the same segment description reach
+      // every patient across the chain.
+      let audienceHospitalIds: string[];
+      try {
+        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId);
+      } catch (e) {
+        if (e instanceof FlowsScopeForbiddenError) {
+          return res.status(403).json({ message: e.message, code: e.code });
+        }
+        throw e;
+      }
+
+      const hospitalCond = audienceHospitalIds.length === 1
+        ? eq(patients.hospitalId, audienceHospitalIds[0])
+        : inArray(patients.hospitalId, audienceHospitalIds);
+
       const baseConditions: any[] = [
-        eq(patients.hospitalId, hospitalId),
+        hospitalCond,
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
         ...(channel ? consentConditionsFor(channel) : []),
@@ -383,6 +478,37 @@ router.post(
     try {
       const { hospitalId } = req.params;
       const userId = (req as any).user.id;
+
+      // Task 12: `groupWide = true` lets the code be redeemed at any hospital
+      // in the issuer's group. Only group_admins (or platform admins) are
+      // allowed to mint group-wide codes — otherwise a plain marketing role
+      // at one location could hand out sibling-clinic discounts. Non-grouped
+      // hospitals silently get `groupWide = false` regardless of the
+      // requested value.
+      let groupWide = req.body.groupWide === true;
+      if (groupWide) {
+        const groupId = await getHospitalGroupIdCached(hospitalId, req);
+        if (!groupId) {
+          groupWide = false;
+        } else {
+          const [u] = await db
+            .select({ isPlatformAdmin: users.isPlatformAdmin })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+          const isPlatformAdmin = u?.isPlatformAdmin === true;
+          if (!isPlatformAdmin) {
+            const isGroupAdmin = await userIsGroupAdminForHospital(userId, hospitalId, req);
+            if (!isGroupAdmin) {
+              return res.status(403).json({
+                message: "Group-wide promo codes require group_admin.",
+                code: "GROUP_SCOPE_FORBIDDEN",
+              });
+            }
+          }
+        }
+      }
+
       const [code] = await db
         .insert(promoCodes)
         .values({
@@ -396,6 +522,7 @@ router.post(
           maxUses: req.body.maxUses,
           flowId: req.body.flowId,
           createdBy: userId,
+          groupWide,
         })
         .returning();
       res.json(code);
@@ -1248,6 +1375,20 @@ router.post(
         if (pc) promoCode = pc.code;
       }
 
+      // Task 12: resolve audience scope the same way segment-count does so
+      // the send loop's audience matches what the preview showed. Group scope
+      // is gated on group_admin; a non-group-admin who flipped the toggle
+      // client-side gets 403 here rather than silently sending to everyone.
+      let audienceHospitalIds: string[];
+      try {
+        audienceHospitalIds = await resolveFlowsAudienceScope(req, userId, hospitalId);
+      } catch (e) {
+        if (e instanceof FlowsScopeForbiddenError) {
+          return res.status(403).json({ message: e.message, code: e.code });
+        }
+        throw e;
+      }
+
       // Query segment patients (inline — matching the same logic as segment-count)
       const segmentFilters = flow.segmentFilters as Array<{
         field: string;
@@ -1255,8 +1396,12 @@ router.post(
         value: string;
       }>;
 
+      const hospitalCond = audienceHospitalIds.length === 1
+        ? eq(patients.hospitalId, audienceHospitalIds[0])
+        : inArray(patients.hospitalId, audienceHospitalIds);
+
       const conditions: any[] = [
-        eq(patients.hospitalId, hospitalId),
+        hospitalCond,
         isNull(patients.deletedAt),
         eq(patients.isArchived, false),
         ...consentConditionsFor(flow.channel),

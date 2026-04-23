@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { formatCurrencyLocale } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,27 +53,7 @@ export default function SimplifiedDashboard() {
   // to a group; the URL param (?scope=group) is what `getQueryFn` inspects
   // to attach the `X-Active-Scope: group` header on downstream queries.
   const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
-  const [scope, setScope] = useState<"hospital" | "group">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("scope") === "group" ? "group" : "hospital";
-  });
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const current = params.get("scope");
-    if (scope === "group" && current !== "group") {
-      params.set("scope", "group");
-      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
-    } else if (scope === "hospital" && current === "group") {
-      params.delete("scope");
-      const qs = params.toString();
-      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-    }
-  }, [scope]);
-  useEffect(() => {
-    if (!hospitalHasGroup && scope === "group") {
-      setScope("hospital");
-    }
-  }, [hospitalHasGroup, scope]);
+  const { scope, setScope } = useScopeToggle({ available: hospitalHasGroup });
 
   // Block page-level scrolling so sticky header works
   useEffect(() => {

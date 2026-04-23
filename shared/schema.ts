@@ -6935,6 +6935,11 @@ export const promoCodes = pgTable("promo_codes", {
   usedCount: integer("used_count").default(0).notNull(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  // Task 12: when true, the promo code is redeemable at any hospital in the
+  // issuer's group (validation widens via `hospital_id IN <group_hospital_ids>`
+  // instead of `= issuer`). Default false preserves the single-hospital
+  // behaviour for existing rows and ungrouped tenants.
+  groupWide: boolean("group_wide").default(false).notNull(),
 }, (table) => [
   index("idx_promo_codes_hospital").on(table.hospitalId),
   index("idx_promo_codes_code_hospital").on(table.code, table.hospitalId),

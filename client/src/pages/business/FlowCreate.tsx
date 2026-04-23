@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ArrowLeft, Users, Radio, MessageSquare, Tag, Send, Maximize2, Minimize2, Sparkles, FileText, Columns2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
@@ -31,6 +33,19 @@ export default function FlowCreate({ editId }: { editId?: string }) {
   const { toast } = useToast();
   const { theme } = useTheme();
   const isDark = theme === "dark";
+
+  // Task 12: scope toggle — "This clinic" (default) vs. "All locations".
+  // Only available to group_admins on a grouped hospital. When the toggle
+  // reads "group" the segment-count preview and the send call both add the
+  // `X-Active-Scope: group` header, widening the audience across the chain.
+  const { data: groupInfo } = useQuery<{ groupId: string | null; groupName: string | null; isGroupAdmin: boolean }>({
+    queryKey: ['/api/clinic', hospitalId, 'group-info'],
+    queryFn: () =>
+      apiRequest("GET", `/api/clinic/${hospitalId}/group-info`).then((r) => r.json()),
+    enabled: !!hospitalId,
+  });
+  const canUseGroupScope = !!groupInfo?.groupId && !!groupInfo?.isGroupAdmin;
+  const { scope, setScope } = useScopeToggle({ available: canUseGroupScope });
 
   const [name, setName] = useState(t("flows.newCampaign", "New Campaign"));
   const [activeSection, setActiveSection] = useState<Section>("segment");
@@ -177,6 +192,10 @@ export default function FlowCreate({ editId }: { editId?: string }) {
     if (!hospitalId) return;
     setSending(true);
     try {
+      // Flow record always belongs to the initiating hospital. The group
+      // scope only widens the AUDIENCE — not the ownership — so we don't
+      // thread `scope` onto the create call, only onto the send call where
+      // it picks which patients to target.
       const flowRes = await apiRequest("POST", `/api/business/${hospitalId}/flows`, {
         name,
         segmentFilters: filters,
@@ -195,7 +214,12 @@ export default function FlowCreate({ editId }: { editId?: string }) {
       });
       const flow = await flowRes.json();
 
-      await apiRequest("POST", `/api/business/${hospitalId}/flows/${flow.id}/send`);
+      await apiRequest(
+        "POST",
+        `/api/business/${hospitalId}/flows/${flow.id}/send`,
+        undefined,
+        scope === "group" ? { scope: "group" } : undefined,
+      );
 
       toast({
         title: t("flows.toast.sent", "Campaign sent"),
@@ -428,6 +452,28 @@ export default function FlowCreate({ editId }: { editId?: string }) {
           <h1 className="text-xl font-bold">{t("flows.newCampaign", "New Campaign")}</h1>
           <p className="text-xs text-muted-foreground">{t("flows.create.subtitle", "Configure step by step")}</p>
         </div>
+        {canUseGroupScope && (
+          <ToggleGroup
+            type="single"
+            value={scope}
+            onValueChange={(value) => {
+              if (value === "hospital" || value === "group") setScope(value);
+              // Scope change alters the audience count — clear the stale
+              // preview so the user sees the loader until the new number lands.
+              setPatientCount(null);
+            }}
+            variant="outline"
+            size="sm"
+            data-testid="toggle-flow-create-scope"
+          >
+            <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-flow-create-scope-hospital">
+              {t('flows.scope.thisClinic', 'This clinic')}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-flow-create-scope-group">
+              {t('flows.scope.allLocations', 'All locations')}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
         {/* Campaign name inline */}
         <div className="flex items-center gap-2">
           <Label htmlFor="campaign-name" className="sr-only">{t("common.name", "Name")}</Label>
@@ -464,6 +510,7 @@ export default function FlowCreate({ editId }: { editId?: string }) {
             patientCount={patientCount}
             onCountChange={setPatientCount}
             channel={channel ?? undefined}
+            scope={scope}
           />
           <div className="flex justify-end">
             <Button onClick={() => completeAndGoTo("segment", "channel")}>

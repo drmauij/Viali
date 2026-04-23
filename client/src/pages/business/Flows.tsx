@@ -1,12 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useLocation } from "wouter";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   Send, Users, BarChart3, CalendarCheck, Plus, Trash2, Loader2, Tag, Zap, TrendingUp,
 } from "lucide-react";
@@ -27,6 +29,20 @@ export default function Flows() {
   const activeHospital = useActiveHospital();
   const [, navigate] = useLocation();
   const hospitalId = activeHospital?.id;
+
+  // Task 12: Flows scope toggle — "This clinic" (default) vs. "All locations"
+  // (chain-wide). Only shown when the active hospital is in a group AND the
+  // current user is `group_admin` on that group; plain marketing/manager at
+  // one location stays single-location only. The server enforces the same
+  // gate — this UI hide is UX, not security.
+  const { data: groupInfo } = useQuery<{ groupId: string | null; groupName: string | null; isGroupAdmin: boolean }>({
+    queryKey: ['/api/clinic', hospitalId, 'group-info'],
+    queryFn: () =>
+      apiRequest("GET", `/api/clinic/${hospitalId}/group-info`).then((r) => r.json()),
+    enabled: !!hospitalId,
+  });
+  const canUseGroupScope = !!groupInfo?.groupId && !!groupInfo?.isGroupAdmin;
+  const { scope, setScope } = useScopeToggle({ available: canUseGroupScope });
 
   const { data: metricsSummary } = useQuery<{
     since: string;
@@ -133,10 +149,40 @@ export default function Flows() {
           <h1 className="text-2xl md:text-3xl font-bold">Flows</h1>
           <p className="text-sm text-muted-foreground">{t("flows.subtitle", "Manage Marketing Campaigns")}</p>
         </div>
-        <Button onClick={() => navigate("/business/flows/new")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t("flows.newCampaign", "New Campaign")}
-        </Button>
+        <div className="flex items-center gap-3">
+          {canUseGroupScope && (
+            <ToggleGroup
+              type="single"
+              value={scope}
+              onValueChange={(value) => {
+                if (value === "hospital" || value === "group") setScope(value);
+              }}
+              variant="outline"
+              size="sm"
+              data-testid="toggle-flows-scope"
+            >
+              <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-flows-scope-hospital">
+                {t('flows.scope.thisClinic', 'This clinic')}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-flows-scope-group">
+                {t('flows.scope.allLocations', 'All locations')}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <Button
+            onClick={() =>
+              navigate(
+                scope === "group"
+                  ? "/business/flows/new?scope=group"
+                  : "/business/flows/new",
+              )
+            }
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            {t("flows.newCampaign", "New Campaign")}
+          </Button>
+        </div>
       </div>
 
       {/* Dashboard cards */}

@@ -5,8 +5,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -179,29 +180,7 @@ export default function BusinessDashboard() {
   // link-shareable and survives refresh; `getQueryFn` reads the same
   // `?scope=group` marker to attach `X-Active-Scope: group` on each query.
   const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
-  const [scope, setScope] = useState<"hospital" | "group">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("scope") === "group" ? "group" : "hospital";
-  });
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const current = params.get("scope");
-    if (scope === "group" && current !== "group") {
-      params.set("scope", "group");
-      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
-    } else if (scope === "hospital" && current === "group") {
-      params.delete("scope");
-      const qs = params.toString();
-      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-    }
-  }, [scope]);
-  // If the hospital loses its group (e.g. the user switched to a solo tenant),
-  // defensively collapse to hospital scope so we don't send a stale param.
-  useEffect(() => {
-    if (!hospitalHasGroup && scope === "group") {
-      setScope("hospital");
-    }
-  }, [hospitalHasGroup, scope]);
+  const { scope, setScope } = useScopeToggle({ available: hospitalHasGroup });
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">

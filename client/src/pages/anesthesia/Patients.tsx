@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useScopeToggle } from "@/hooks/useScopeToggle";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -195,33 +196,9 @@ export default function Patients() {
   // threads through `getQueryFn` which reads `?scope=group` to attach the
   // `X-Active-Scope` header. For un-grouped tenants the toggle is hidden.
   const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
-  const [listScope, setListScope] = useState<"hospital" | "group">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("scope") === "group" ? "group" : "hospital";
+  const { scope: listScope, setScope: setListScope } = useScopeToggle({
+    available: hospitalHasGroup,
   });
-  // Keep the URL in sync with the current scope. Done as an effect so that
-  // clicking the toggle stays in the browser history stack (back button goes
-  // from "All locations" back to "This clinic").
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const current = params.get("scope");
-    if (listScope === "group" && current !== "group") {
-      params.set("scope", "group");
-      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
-    } else if (listScope === "hospital" && current === "group") {
-      params.delete("scope");
-      const qs = params.toString();
-      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-    }
-  }, [listScope]);
-  // If the hospital has no group, the toggle can't be shown — defensively force
-  // the scope back to hospital so we never send a stale `?scope=group` param
-  // (e.g. user switched from a grouped hospital to a solo one).
-  useEffect(() => {
-    if (!hospitalHasGroup && listScope === "group") {
-      setListScope("hospital");
-    }
-  }, [hospitalHasGroup, listScope]);
 
   // Fetch patients. The query key includes `scope=group` when applicable so
   // React Query caches the two scopes independently; getQueryFn reads the same

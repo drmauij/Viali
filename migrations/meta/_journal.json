@@ -1625,6 +1625,13 @@
       "when": 1778500000000,
       "tag": "0231_multi_location_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1778600000000,
+      "tag": "0232_flows_promo_group_wide",
+      "breakpoints": true
     }
   ]
 }
