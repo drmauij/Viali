@@ -1,6 +1,7 @@
 import { db } from "../db";
 import {
   eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull, isNotNull,
+  getTableColumns,
 } from "drizzle-orm";
 import { commitUsage } from "./inventoryCommit";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
@@ -24,6 +25,7 @@ import {
   surgeryRooms,
   hospitalAnesthesiaSettings,
   patients,
+  patientHospitals,
   cases,
   surgeries,
   surgeryAssistants,
@@ -194,9 +196,39 @@ export async function upsertHospitalAnesthesiaSettings(settings: InsertHospitalA
 
 // ========== PATIENT OPERATIONS ==========
 
-export async function getPatients(hospitalId: string, search?: string): Promise<Patient[]> {
-  let conditions = [
-    eq(patients.hospitalId, hospitalId),
+/**
+ * Scope for the patient list query.
+ *
+ * - `hospital` — the traditional single-location query ("This clinic"). The
+ *   list comes from the `patient_hospitals` roster filtered to one hospital,
+ *   which is the union of "patient's home hospital == active" and "patient
+ *   was seen at this location via an appointment/questionnaire/treatment".
+ *   For un-grouped hospitals this remains the only scope ever used.
+ * - `group` — the chain-wide roster ("All locations"). Matches any roster row
+ *   whose hospital is in the group's hospital set. Requires de-duping on
+ *   `patients.id` because a patient seen at multiple locations has one roster
+ *   row per location.
+ */
+export type PatientListScope =
+  | { kind: "hospital"; hospitalId: string }
+  | { kind: "group"; hospitalIds: string[] };
+
+export async function getPatients(
+  scope: PatientListScope,
+  search?: string,
+): Promise<Patient[]> {
+  const scopeCondition =
+    scope.kind === "hospital"
+      ? eq(patientHospitals.hospitalId, scope.hospitalId)
+      : // Empty hospital list in group scope matches nothing (avoids a
+        // malformed `IN ()` that Postgres would accept but every ORM layer
+        // handles differently). Keep behaviour explicit.
+        scope.hospitalIds.length === 0
+          ? sql`false`
+          : inArray(patientHospitals.hospitalId, scope.hospitalIds);
+
+  const conditions = [
+    scopeCondition,
     isNull(patients.deletedAt),
     eq(patients.isArchived, false),
   ];
@@ -212,12 +244,29 @@ export async function getPatients(hospitalId: string, search?: string): Promise<
     );
   }
 
+  // JOIN patient_hospitals so the scope filter can live on roster rows, but
+  // project only the patient columns and use DISTINCT ON to de-dupe the
+  // fan-out that happens in group scope when a patient has multiple roster
+  // rows. DISTINCT ON(patients.id) is the Postgres-idiomatic way to "pick
+  // one row per patient id"; the first ORDER BY expression must match the
+  // DISTINCT ON target, so we order by `patients.id` first and then by the
+  // caller-facing surname/firstName. The outer map re-sorts by surname so the
+  // final API response respects the intended alphabetical order.
+  const patientCols = getTableColumns(patients);
   const result = await db
-    .select()
+    .selectDistinctOn([patients.id], patientCols)
     .from(patients)
+    .innerJoin(
+      patientHospitals,
+      eq(patientHospitals.patientId, patients.id),
+    )
     .where(and(...conditions))
-    .orderBy(asc(patients.surname), asc(patients.firstName));
-  return result;
+    .orderBy(asc(patients.id), asc(patients.surname), asc(patients.firstName));
+  return (result as Patient[]).sort((a, b) => {
+    const s = a.surname.localeCompare(b.surname);
+    if (s !== 0) return s;
+    return a.firstName.localeCompare(b.firstName);
+  });
 }
 
 export async function getPatient(id: string): Promise<Patient | undefined> {

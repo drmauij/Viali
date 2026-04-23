@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send, MapPin } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -188,9 +189,48 @@ export default function Patients() {
     // This allows partial typing without clearing the valid date
   };
 
-  // Fetch patients
+  // Patient list scope: "This clinic" (default) vs. "All locations" (chain-wide
+  // — only meaningful when the active hospital belongs to a group). Stored in
+  // the URL so the toggle is link-shareable and survives refresh; this also
+  // threads through `getQueryFn` which reads `?scope=group` to attach the
+  // `X-Active-Scope` header. For un-grouped tenants the toggle is hidden.
+  const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
+  const [listScope, setListScope] = useState<"hospital" | "group">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("scope") === "group" ? "group" : "hospital";
+  });
+  // Keep the URL in sync with the current scope. Done as an effect so that
+  // clicking the toggle stays in the browser history stack (back button goes
+  // from "All locations" back to "This clinic").
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const current = params.get("scope");
+    if (listScope === "group" && current !== "group") {
+      params.set("scope", "group");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    } else if (listScope === "hospital" && current === "group") {
+      params.delete("scope");
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, [listScope]);
+  // If the hospital has no group, the toggle can't be shown — defensively force
+  // the scope back to hospital so we never send a stale `?scope=group` param
+  // (e.g. user switched from a grouped hospital to a solo one).
+  useEffect(() => {
+    if (!hospitalHasGroup && listScope === "group") {
+      setListScope("hospital");
+    }
+  }, [hospitalHasGroup, listScope]);
+
+  // Fetch patients. The query key includes `scope=group` when applicable so
+  // React Query caches the two scopes independently; getQueryFn reads the same
+  // URL to set the `X-Active-Scope` header.
+  const patientsUrl = hospitalHasGroup && listScope === "group"
+    ? `/api/patients?hospitalId=${activeHospital?.id}&scope=group`
+    : `/api/patients?hospitalId=${activeHospital?.id}`;
   const { data: patients = [], isLoading, error } = useQuery<Patient[]>({
-    queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`],
+    queryKey: [patientsUrl],
     enabled: !!activeHospital?.id,
   });
 
@@ -223,7 +263,10 @@ export default function Patients() {
       return await apiRequest('POST', '/api/patients', patientData);
     },
     onSuccess: () => {
+      // Invalidate both scope variants so a created patient shows up
+      // regardless of which toggle the user has active.
       queryClient.invalidateQueries({ queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients?hospitalId=${activeHospital?.id}&scope=group`] });
       toast({
         title: t('anesthesia.patients.patientCreatedSuccess'),
         description: "Patient has been created successfully",
@@ -631,6 +674,33 @@ export default function Patients() {
         )}
         </div>
       </div>
+
+      {hospitalHasGroup && (
+        <div className="mb-4">
+          <ToggleGroup
+            type="single"
+            value={listScope}
+            onValueChange={(value) => {
+              // Radix emits "" when the active item is clicked again — ignore
+              // to keep at least one option selected.
+              if (value === "hospital" || value === "group") {
+                setListScope(value);
+              }
+            }}
+            variant="outline"
+            size="sm"
+            className="justify-start"
+            data-testid="toggle-patient-list-scope"
+          >
+            <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-scope-hospital">
+              {t('anesthesia.patients.scopeThisClinic', 'This clinic')}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-scope-group">
+              {t('anesthesia.patients.scopeAllLocations', 'All locations')}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="relative flex gap-2">

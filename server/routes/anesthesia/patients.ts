@@ -4,7 +4,13 @@ import { isAuthenticated } from "../../auth/google";
 import { insertPatientSchema, surgeries, patientNotes } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { requireWriteAccess, requireStrictHospitalAccess } from "../../utils";
+import {
+  requireWriteAccess,
+  requireStrictHospitalAccess,
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
+  userHasGroupAwareHospitalAccess,
+} from "../../utils";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
 import {
   getPatientNotes,
@@ -31,8 +37,50 @@ router.get('/api/patients', isAuthenticated, requireStrictHospitalAccess, async 
       return res.status(400).json({ message: "hospitalId is required" });
     }
 
-    const patients = await storage.getPatients(hospitalId as string, search as string | undefined);
-    
+    // requireStrictHospitalAccess already verified the caller can read at the
+    // active hospital. Now resolve the list scope from the optional
+    // `X-Active-Scope` header — default is "hospital" (legacy, single-location
+    // behaviour). "group" opts into the chain-wide roster but only when
+    //   (a) the active hospital actually belongs to a group, AND
+    //   (b) the caller has group-aware read access (i.e. a direct role at any
+    //       hospital in the group OR is a platform admin).
+    // If (a) is false we silently fall back to hospital scope — a single-tenant
+    // client that always sends `X-Active-Scope: group` should not blow up.
+    // If (b) is false we 403 — a caller cannot escalate scope by sending a
+    // header their roles don't back.
+    const activeHospitalId = hospitalId as string;
+    const scopeHeader = (req.headers["x-active-scope"] as string | undefined)?.toLowerCase();
+    let scope: Parameters<typeof storage.getPatients>[0];
+
+    if (scopeHeader === "group") {
+      const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+      if (!groupId) {
+        // Un-grouped tenant: collapse to today's single-location behaviour.
+        scope = { kind: "hospital", hospitalId: activeHospitalId };
+      } else {
+        const groupHospitalIds = await getGroupHospitalIdsCached(groupId, req);
+        // Gate group scope: the user must be allowed to read across the group.
+        // We re-use the same group-aware access helper the write middlewares
+        // use — it short-circuits on platform-admin and direct-role match.
+        const hasAccess = await userHasGroupAwareHospitalAccess(
+          userId,
+          activeHospitalId,
+          req,
+        );
+        if (!hasAccess) {
+          return res.status(403).json({
+            message: "Access denied for group-scope patient list.",
+            code: "GROUP_SCOPE_FORBIDDEN",
+          });
+        }
+        scope = { kind: "group", hospitalIds: groupHospitalIds };
+      }
+    } else {
+      scope = { kind: "hospital", hospitalId: activeHospitalId };
+    }
+
+    const patients = await storage.getPatients(scope, search as string | undefined);
+
     res.json(patients);
   } catch (error) {
     logger.error("Error fetching patients:", error);

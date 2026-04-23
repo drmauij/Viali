@@ -58,10 +58,22 @@ export async function demoJson<T = unknown>(res: Response): Promise<T> {
   return await res.json() as T;
 }
 
+/**
+ * Options for `apiRequest`. `scope: "group"` adds an `X-Active-Scope: group`
+ * header so the server widens reads to every hospital in the active group
+ * (used by the patient-list "All locations" toggle). Omit or pass "hospital"
+ * for the default single-location behaviour — the header is only sent when
+ * `scope` is explicitly `"group"`.
+ */
+export interface ApiRequestOptions {
+  scope?: "hospital" | "group";
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: ApiRequestOptions,
 ): Promise<Response> {
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
 
@@ -75,6 +87,9 @@ export async function apiRequest(
   }
   if (role) {
     headers["X-Active-Role"] = role;
+  }
+  if (options?.scope === "group") {
+    headers["X-Active-Scope"] = "group";
   }
 
   // Add client session ID for real-time sync filtering
@@ -98,7 +113,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const headers: Record<string, string> = {};
-    
+
     // Add active hospital, unit ID, and role headers if available
     const { hospitalId, unitId, role } = getActiveHospitalAndUnit();
     if (hospitalId) {
@@ -110,8 +125,24 @@ export const getQueryFn: <T>(options: {
     if (role) {
       headers["X-Active-Role"] = role;
     }
-    
-    const res = await fetch(queryKey[0] as string, {
+
+    // Derive the scope header from the query URL itself: a `?scope=group`
+    // search param opts the request into the cross-location read (used by
+    // the patient-list "All locations" toggle). Any other value is ignored
+    // server-side; omitting the header keeps today's single-location
+    // behaviour. Wrapping in try/catch so malformed URLs never break the
+    // query function.
+    const url = queryKey[0] as string;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.searchParams.get("scope") === "group") {
+        headers["X-Active-Scope"] = "group";
+      }
+    } catch {
+      /* ignore — not a URL we can parse, skip scope detection. */
+    }
+
+    const res = await fetch(url, {
       headers,
       credentials: "include",
     });

@@ -205,7 +205,7 @@ import * as activityStorage from "./storage/activities";
 import * as checklistStorage from "./storage/checklists";
 import * as importJobStorage from "./storage/importJobs";
 import * as anesthesiaStorage from "./storage/anesthesia";
-import type { SurgeryWithAssistants, AssistantInfo } from "./storage/anesthesia";
+import type { SurgeryWithAssistants, AssistantInfo, PatientListScope } from "./storage/anesthesia";
 import * as chatStorage from "./storage/chat";
 import * as questionnaireStorage from "./storage/questionnaires";
 import * as clinicStorage from "./storage/clinic";
@@ -415,7 +415,7 @@ export interface IStorage {
   upsertHospitalAnesthesiaSettings(settings: InsertHospitalAnesthesiaSettings): Promise<HospitalAnesthesiaSettings>;
   
   // Patient operations
-  getPatients(hospitalId: string, search?: string): Promise<Patient[]>;
+  getPatients(scope: PatientListScope, search?: string): Promise<Patient[]>;
   getPatient(id: string): Promise<Patient | undefined>;
   createPatient(patient: InsertPatient & { patientNumber?: string }): Promise<Patient>;
   updatePatient(id: string, updates: Partial<Patient>): Promise<Patient>;

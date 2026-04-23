@@ -9,6 +9,10 @@ interface Hospital {
   unitId: string;
   unitName: string;
   unitType?: string | null;
+  // Optional chain/group this hospital belongs to. Null (or undefined) for
+  // single-location tenants. Used by the patient-list "All locations" toggle
+  // to decide whether to surface the group-scope option.
+  groupId?: string | null;
   // Deprecated: use unitType instead - these are derived from unitType for backwards compatibility
   isAnesthesiaModule?: boolean;
   isSurgeryModule?: boolean;
