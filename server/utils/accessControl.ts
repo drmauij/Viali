@@ -1,14 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, userHospitalRoles } from "@shared/schema";
+import { and, eq } from "drizzle-orm";
 import logger from "../logger";
+import {
+  getHospitalGroupId as getHospitalGroupIdFromDb,
+  getGroupHospitalIds as getGroupHospitalIdsFromDb,
+} from "../storage/hospitals";
 
-export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'guest'] as const;
+export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'group_admin', 'guest'] as const;
 export type UserRole = typeof ROLE_HIERARCHY[number];
 
-export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing'];
+// Note: 'group_admin' is write-capable — it's the multi-location chain-level
+// admin (spec: "Patrick / chain CEO or CMO"). They run the group catalog and
+// marketing from any hospital in the group.
+export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'group_admin'];
 export const READ_ONLY_ROLES: UserRole[] = ['guest'];
 
 // Helper to get hospitalId from various resource types
@@ -163,21 +170,25 @@ export function requireResourceAccess(paramName: string, requireWrite: boolean =
         return res.status(404).json({ message: "Resource not found" });
       }
 
-      // Verify user has access to this hospital
-      const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+      // Verify user has access to this hospital (group-aware: lets a user at
+      // hospital X in group G read resources at hospital Y in the same group).
+      const hasAccess = await userHasGroupAwareHospitalAccess(userId, hospitalId, req);
       logger.info(`[AccessControl] User ${userId} access to hospital ${hospitalId}: ${hasAccess}`);
       if (!hasAccess) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           message: "Access denied. You do not have access to this resource.",
           code: "RESOURCE_ACCESS_DENIED"
         });
       }
 
-      // If write access required, check role
+      // If write access required, check role. Note: for cross-location group
+      // access, the user may not have a direct role at `hospitalId`. In that
+      // case we use their group_admin role (write-capable) or the active
+      // hospital's role if they're acting within the group.
       if (requireWrite) {
-        const role = await getUserRole(userId, hospitalId);
+        const role = await getGroupAwareUserRole(userId, hospitalId, req);
         if (!canWrite(role)) {
-          return res.status(403).json({ 
+          return res.status(403).json({
             message: "Insufficient permissions. Guest users have read-only access.",
             code: "READ_ONLY_ACCESS"
           });
@@ -241,10 +252,309 @@ export function requireResourceAdmin(paramName: string) {
   };
 }
 
-// Check if user has any access (read or write) to a hospital
+// Check if user has any access (read or write) to a hospital.
+//
+// Legacy single-hospital check (no group awareness). Kept for places that
+// need the original semantics. Group-aware callers should use
+// `userHasGroupAwareHospitalAccess` (which respects multi-location group
+// membership and group_admin escalation).
 export async function userHasHospitalAccess(userId: string, hospitalId: string): Promise<boolean> {
   const hospitals = await storage.getUserHospitals(userId);
   return hospitals.some(h => h.id === hospitalId);
+}
+
+// ============================================================================
+// Group-aware access control (multi-location groups, Phase 1).
+// ============================================================================
+
+// Per-request memo: resolving a hospital's groupId runs on every patient read,
+// so we cache it on `req` so we don't re-hit the DB multiple times in a
+// single request. The cache lives for the lifetime of the request — a
+// simple `req._groupCache` property (same pattern as `req.verifiedHospitalId`).
+type GroupCache = {
+  hospitalToGroup: Map<string, string | null>;
+  groupToHospitals: Map<string, string[]>;
+};
+
+function getOrInitGroupCache(req: any): GroupCache {
+  if (!req) {
+    // No request object — return a fresh cache so callers outside middleware
+    // (e.g. unit tests) still work. They just don't get memoization.
+    return {
+      hospitalToGroup: new Map(),
+      groupToHospitals: new Map(),
+    };
+  }
+  if (!req._groupCache) {
+    req._groupCache = {
+      hospitalToGroup: new Map(),
+      groupToHospitals: new Map(),
+    } as GroupCache;
+  }
+  return req._groupCache as GroupCache;
+}
+
+/**
+ * Per-request memoized wrapper around `getHospitalGroupId`. Uses `req`
+ * as the cache scope so repeated calls in the same Express request hit
+ * memory, not the database.
+ */
+export async function getHospitalGroupIdCached(
+  hospitalId: string,
+  req?: any,
+): Promise<string | null> {
+  const cache = getOrInitGroupCache(req);
+  if (cache.hospitalToGroup.has(hospitalId)) {
+    return cache.hospitalToGroup.get(hospitalId) ?? null;
+  }
+  const groupId = await getHospitalGroupIdFromDb(hospitalId);
+  cache.hospitalToGroup.set(hospitalId, groupId);
+  return groupId;
+}
+
+/**
+ * Per-request memoized wrapper around `getGroupHospitalIds`. Same contract
+ * as `getHospitalGroupIdCached`.
+ */
+export async function getGroupHospitalIdsCached(
+  groupId: string,
+  req?: any,
+): Promise<string[]> {
+  const cache = getOrInitGroupCache(req);
+  const existing = cache.groupToHospitals.get(groupId);
+  if (existing) return existing;
+  const ids = await getGroupHospitalIdsFromDb(groupId);
+  cache.groupToHospitals.set(groupId, ids);
+  return ids;
+}
+
+/**
+ * Check if a user has `role = "group_admin"` at any hospital that shares a
+ * group with the target hospital. Platform admins implicitly satisfy this;
+ * callers that already know the user is a platform admin should short-circuit
+ * before calling.
+ *
+ * Intended callsite: Task 13 group-admin management surface (`/business/group`).
+ * Exposed from this file because the query logic mirrors what group-aware
+ * access checks already do and we want one canonical implementation.
+ */
+export async function userIsGroupAdminForHospital(
+  userId: string,
+  hospitalId: string,
+  req?: any,
+): Promise<boolean> {
+  const targetGroup = await getHospitalGroupIdCached(hospitalId, req);
+  if (!targetGroup) return false;
+  const rows = await db
+    .select({ hospitalId: userHospitalRoles.hospitalId })
+    .from(userHospitalRoles)
+    .where(
+      and(
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.role, "group_admin"),
+      ),
+    );
+  for (const row of rows) {
+    const g = await getHospitalGroupIdCached(row.hospitalId, req);
+    if (g === targetGroup) return true;
+  }
+  return false;
+}
+
+/**
+ * Core group-aware access check. Given the user's *active* hospital context
+ * (from `X-Active-Hospital-Id`), the hospital the resource lives at, and the
+ * user's role rows, return whether access is allowed.
+ *
+ * - Platform admin → always allowed.
+ * - Same hospital (active === resource) → allowed.
+ * - Active hospital and resource hospital share a non-null group → allowed.
+ * - User has `group_admin` at any hospital whose group matches the resource's
+ *   group → allowed (cross-active-scope escalation).
+ * - Un-grouped hospitals (both `groupId IS NULL`) with different IDs → denied.
+ *
+ * NOTE: this function does NOT verify the user has a role at the active
+ * hospital. The middleware wraps it with `userHasHospitalAccess` beforehand
+ * (or equivalent), so `activeHospitalId` is already trusted when passed in.
+ */
+export async function canAccessHospitalInGroup(
+  activeHospitalId: string | null,
+  resourceHospitalId: string,
+  userRoles: Array<{ hospitalId: string; role: string }>,
+  isPlatformAdmin: boolean,
+  req?: any,
+): Promise<boolean> {
+  if (isPlatformAdmin) return true;
+  if (activeHospitalId && activeHospitalId === resourceHospitalId) return true;
+
+  const resourceGroup = await getHospitalGroupIdCached(resourceHospitalId, req);
+  // Un-grouped resource: no cross-hospital access. Only exact match (handled
+  // above) and platform admin (handled above) can reach this resource.
+  if (!resourceGroup) return false;
+
+  // Same-group implicit access via the active hospital.
+  if (activeHospitalId) {
+    const activeGroup = await getHospitalGroupIdCached(activeHospitalId, req);
+    if (activeGroup && activeGroup === resourceGroup) return true;
+  }
+
+  // group_admin escalation: any group_admin role at a hospital whose group
+  // matches the resource's group unlocks access, independent of active hospital.
+  for (const r of userRoles) {
+    if (r.role !== "group_admin") continue;
+    const g = await getHospitalGroupIdCached(r.hospitalId, req);
+    if (g === resourceGroup) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Resolves the caller's active hospital from the request. Preferred signal is
+ * the `X-Active-Hospital-Id` header (set by the client hospital-picker).
+ * Returns null if unknown — callers should still try direct-role match
+ * before deciding access.
+ */
+function getActiveHospitalIdFromRequest(req: any): string | null {
+  const header = req?.headers?.["x-active-hospital-id"];
+  if (typeof header === "string" && header.length > 0) return header;
+  return null;
+}
+
+/**
+ * Internal: fetch `users.is_platform_admin` for a user, memoized per request.
+ */
+async function isPlatformAdminCached(
+  userId: string,
+  req?: any,
+): Promise<boolean> {
+  if (req && typeof req._isPlatformAdmin === "boolean") {
+    return req._isPlatformAdmin;
+  }
+  const [u] = await db
+    .select({ isPlatformAdmin: users.isPlatformAdmin })
+    .from(users)
+    .where(eq(users.id, userId));
+  const val = u?.isPlatformAdmin === true;
+  if (req) req._isPlatformAdmin = val;
+  return val;
+}
+
+/**
+ * Resolve the user's *effective* role for the given hospital under the
+ * group-aware rules. Order of preference:
+ *   1. Direct role at the hospital (existing behavior).
+ *   2. Platform admin → 'admin'.
+ *   3. group_admin role anywhere in the resource's group → 'group_admin'.
+ *   4. Highest role at any hospital in the resource's group (implicit
+ *      same-group access).
+ *   5. null if none of the above apply.
+ *
+ * The existing role hierarchy (admin > manager > doctor > nurse > ...) is
+ * preserved for same-hospital requests. Cross-location requests bubble the
+ * role up via the group.
+ */
+export async function getGroupAwareUserRole(
+  userId: string,
+  hospitalId: string,
+  req?: any,
+): Promise<string | null> {
+  // Fetch the user's hospital-role rows once; reuse for both direct and
+  // group-wide lookups to avoid duplicate DB hits on the hot path.
+  const userHospitals = await storage.getUserHospitals(userId);
+
+  // 1. Direct role at the target hospital (same-hospital, original semantics).
+  const directRoles = userHospitals
+    .filter((h) => h.id === hospitalId)
+    .map((h) => h.role)
+    .filter(Boolean) as string[];
+  if (directRoles.length > 0) {
+    for (const pref of [
+      "admin",
+      "manager",
+      "doctor",
+      "nurse",
+      "staff",
+      "marketing",
+      "guest",
+    ]) {
+      if (directRoles.includes(pref)) return pref;
+    }
+    return directRoles[0];
+  }
+
+  // 2. Platform admin bypass — treat as 'admin' for write-capability.
+  if (await isPlatformAdminCached(userId, req)) return "admin";
+
+  const resourceGroup = await getHospitalGroupIdCached(hospitalId, req);
+  if (!resourceGroup) return null;
+
+  // 3. group_admin anywhere in the resource's group.
+  for (const h of userHospitals) {
+    if (h.role !== "group_admin") continue;
+    const g = await getHospitalGroupIdCached(h.id, req);
+    if (g === resourceGroup) return "group_admin";
+  }
+
+  // 4. Highest-ranked role held at ANY hospital in the resource's group
+  //    (same-group implicit access).
+  const rolesInGroup: string[] = [];
+  for (const h of userHospitals) {
+    const g = await getHospitalGroupIdCached(h.id, req);
+    if (g === resourceGroup && h.role) rolesInGroup.push(h.role);
+  }
+  if (rolesInGroup.length === 0) return null;
+  for (const pref of [
+    "admin",
+    "manager",
+    "doctor",
+    "nurse",
+    "staff",
+    "marketing",
+    "guest",
+  ]) {
+    if (rolesInGroup.includes(pref)) return pref;
+  }
+  return rolesInGroup[0] ?? null;
+}
+
+/**
+ * Group-aware version of `userHasHospitalAccess`. Used by the access-control
+ * middlewares. Preserves the fast path (direct role match at the resource)
+ * for un-grouped hospitals and adds the group-aware extensions from the
+ * multi-location spec. Per-request memoized via `req`.
+ */
+export async function userHasGroupAwareHospitalAccess(
+  userId: string,
+  resourceHospitalId: string,
+  req?: any,
+): Promise<boolean> {
+  // Platform admins see everything — short-circuit before any role lookup.
+  if (await isPlatformAdminCached(userId, req)) return true;
+
+  // Direct role match preserves existing single-hospital behavior cheaply.
+  const userHospitals = await storage.getUserHospitals(userId);
+  if (userHospitals.some((h) => h.id === resourceHospitalId)) return true;
+
+  // No direct role — fall back to group-aware checks. Only trust the client
+  // header's active hospital if the user actually has a role there; otherwise
+  // a caller could forge any header to jump groups.
+  const headerActive = getActiveHospitalIdFromRequest(req);
+  const activeHospitalId =
+    headerActive && userHospitals.some((h) => h.id === headerActive)
+      ? headerActive
+      : null;
+  const userRoles = userHospitals.map((h) => ({
+    hospitalId: h.id,
+    role: h.role,
+  }));
+  return canAccessHospitalInGroup(
+    activeHospitalId,
+    resourceHospitalId,
+    userRoles,
+    false,
+    req,
+  );
 }
 
 export async function getUserUnitForHospital(
@@ -396,25 +706,25 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
-    
+
     const hospitalId = await resolveHospitalIdFromRequest(req);
-    
+
     if (!hospitalId) {
       // If we can't determine hospitalId, allow the request but log it
       // The route handler should handle data isolation
       logger.warn(`[Access Control] Could not resolve hospitalId for ${req.method} ${req.path}`);
       return next();
     }
-    
-    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
-    
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, hospitalId, req);
+
     if (!hasAccess) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Access denied. You do not have access to this hospital's data.",
         code: "HOSPITAL_ACCESS_DENIED"
       });
     }
-    
+
     // Store the resolved hospitalId for use by route handlers
     req.resolvedHospitalId = hospitalId;
     next();
@@ -436,21 +746,21 @@ export async function requireStrictHospitalAccess(req: any, res: Response, next:
     
     if (!hospitalId) {
       logger.error(`[Access Control] STRICT: Missing hospitalId for ${req.method} ${req.path}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Hospital context required. Please select a hospital.",
         code: "HOSPITAL_ID_REQUIRED"
       });
     }
-    
-    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
-    
+
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, hospitalId, req);
+
     if (!hasAccess) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Access denied. You do not have access to this hospital's data.",
         code: "HOSPITAL_ACCESS_DENIED"
       });
     }
-    
+
     // Store the resolved hospitalId for use by route handlers
     req.resolvedHospitalId = hospitalId;
     req.verifiedHospitalId = hospitalId; // Alias for clarity

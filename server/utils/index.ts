@@ -25,6 +25,12 @@ export {
   requirePermission,
   userHasPermission,
   requirePlatformAdmin,
+  canAccessHospitalInGroup,
+  userIsGroupAdminForHospital,
+  userHasGroupAwareHospitalAccess,
+  getGroupAwareUserRole,
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
   type PermissionFlag
 } from "./accessControl";
 export {

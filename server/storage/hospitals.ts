@@ -13,6 +13,39 @@ export async function getHospital(id: string): Promise<Hospital | undefined> {
   return hospital;
 }
 
+/**
+ * Returns the group ID for a hospital, or null if the hospital has no group.
+ *
+ * Hot path: called from every patient read/write middleware check. Callers
+ * that live inside a single Express request should prefer the memoized wrapper
+ * in `server/utils/accessControl.ts` (`getHospitalGroupIdCached`) so we don't
+ * re-hit the DB for the same hospital multiple times per request.
+ */
+export async function getHospitalGroupId(
+  hospitalId: string,
+): Promise<string | null> {
+  const [h] = await db
+    .select({ groupId: hospitals.groupId })
+    .from(hospitals)
+    .where(eq(hospitals.id, hospitalId));
+  return h?.groupId ?? null;
+}
+
+/**
+ * Returns all hospital IDs in a group. Used by the list/search scope toggles
+ * (Tasks 5-6) to expand "all locations" queries. Same per-request memoization
+ * considerations as `getHospitalGroupId`.
+ */
+export async function getGroupHospitalIds(
+  groupId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: hospitals.id })
+    .from(hospitals)
+    .where(eq(hospitals.groupId, groupId));
+  return rows.map((r) => r.id);
+}
+
 export async function getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean; canConfigure: boolean; canChat: boolean; canPlanOps: boolean; canManageControlled: boolean })[]> {
   const result = await db
     .select()
