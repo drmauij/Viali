@@ -95,6 +95,38 @@ https://<your-viali-host>/book/<HOSPITAL_BOOKING_TOKEN>?service=rhinoplasty&firs
 
 ---
 
+## Group booking link (/book/g/:token)
+
+For hospital chains (multi-location groups), a group-level booking link renders a location picker before forwarding to the selected location's per-hospital booking flow:
+
+\`\`\`
+/book/g/<GROUP_BOOKING_TOKEN>
+\`\`\`
+
+The patient picks a location; the page then navigates to \`/book/<HOSPITAL_BOOKING_TOKEN>?group=<GROUP_ID>\`, re-entering the standard per-hospital booking flow. Services that belong to the group's shared catalog appear on every member location's booking page; the provider list is always scoped to the picked location.
+
+### JSON endpoint
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | \`/api/public/group-booking/:token\` | Resolve a group booking token → group + member hospitals |
+
+**Response:**
+
+\`\`\`json
+{
+  "group": { "id": "<GROUP_ID>", "name": "Beauty2Go" },
+  "hospitals": [
+    { "id": "<HOSP_ID_A>", "name": "Stuttgart", "address": "…", "bookingToken": "<HOSPITAL_BOOKING_TOKEN_A>" },
+    { "id": "<HOSP_ID_B>", "name": "München",  "address": "…", "bookingToken": "<HOSPITAL_BOOKING_TOKEN_B>" }
+  ]
+}
+\`\`\`
+
+Returns \`404 { code: "GROUP_NOT_FOUND" }\` if the token doesn't match any group. No API key required — the group booking token in the URL identifies the group, matching the per-hospital \`/book/:token\` precedent.
+
+---
+
 ## Booking API (JSON)
 
 For agents, backends, and automation tools that want to create an appointment

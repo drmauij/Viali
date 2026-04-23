@@ -373,6 +373,24 @@ router.post('/api/clinic/appointments/cancel-by-token', async (req, res) => {
 // Public Booking Page API
 // ========================================
 
+// 0: Resolve a group booking token → group + member hospitals.
+// Backs `/book/g/:token` — the patient-facing chain-level location picker.
+// No auth; the group's booking token in the URL grants access, same
+// precedent as the per-hospital `/book/:token`.
+router.get('/api/public/group-booking/:token', async (req, res) => {
+  try {
+    const { getGroupByBookingToken } = await import("../storage/groups");
+    const result = await getGroupByBookingToken(req.params.token);
+    if (!result) {
+      return res.status(404).json({ code: "GROUP_NOT_FOUND", message: "Group not found" });
+    }
+    res.json(result);
+  } catch (error) {
+    logger.error('Error resolving group booking token:', error);
+    res.status(500).json({ message: 'Failed to load group booking page' });
+  }
+});
+
 // 3a: Get booking page data (hospital info + bookable providers)
 router.get('/api/public/booking/:bookingToken', async (req, res) => {
   try {

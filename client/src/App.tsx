@@ -69,6 +69,7 @@ const PublicWorktimeKiosk = React.lazy(() => import("@/pages/PublicWorktimeKiosk
 const CancelAppointment = React.lazy(() => import("@/pages/CancelAppointment"));
 const ManageAppointment = React.lazy(() => import("@/pages/ManageAppointment"));
 const BookAppointment = React.lazy(() => import("@/pages/BookAppointment"));
+const BookGroup = React.lazy(() => import("@/pages/BookGroup"));
 const PublicApiDocs = React.lazy(() => import("@/pages/PublicApiDocs"));
 const EditableValuesDemo = React.lazy(() => import("@/pages/EditableValuesDemo"));
 const ApiPlayground = React.lazy(() => import("@/pages/ApiPlayground"));
@@ -244,6 +245,7 @@ function Router() {
           <Route path="/kiosk/:token" component={PublicWorktimeKiosk} />
           <Route path="/manage-appointment/:token" component={ManageAppointment} />
           <Route path="/cancel-appointment/:token" component={ManageAppointment} />
+          <Route path="/book/g/:token" component={BookGroup} />
           <Route path="/book/:token" component={BookAppointment} />
           <Route path="/api" component={PublicApiDocs} />
 

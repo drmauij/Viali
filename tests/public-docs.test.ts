@@ -60,6 +60,8 @@ describe("/api.md", () => {
   it("documents every public endpoint path", async () => {
     const res = await request(buildApp()).get("/api.md");
     expect(res.text).toContain("/book/");
+    expect(res.text).toContain("/book/g/");
+    expect(res.text).toContain("/api/public/group-booking/");
     expect(res.text).toContain("/api/webhooks/leads/");
     expect(res.text).toContain("/api/webhooks/conversions/");
     expect(res.text).toContain("/unsubscribe/");

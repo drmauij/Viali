@@ -309,6 +309,42 @@ export async function revokeGroupAdmin(userId: string, hospitalId: string) {
     );
 }
 
+/**
+ * Resolve a group booking token to `{ group, hospitals }`. Used by the
+ * public `/book/g/:token` location picker. Returns `null` if the token
+ * doesn't match any group. `hospitals` are listed in alphabetical order
+ * so the picker renders deterministically.
+ */
+export async function getGroupByBookingToken(token: string): Promise<{
+  group: { id: string; name: string };
+  hospitals: Array<{
+    id: string;
+    name: string;
+    address: string | null;
+    bookingToken: string | null;
+  }>;
+} | null> {
+  const [group] = await db
+    .select({
+      id: hospitalGroups.id,
+      name: hospitalGroups.name,
+    })
+    .from(hospitalGroups)
+    .where(eq(hospitalGroups.bookingToken, token));
+  if (!group) return null;
+  const members = await db
+    .select({
+      id: hospitals.id,
+      name: hospitals.name,
+      address: hospitals.address,
+      bookingToken: hospitals.bookingToken,
+    })
+    .from(hospitals)
+    .where(eq(hospitals.groupId, group.id))
+    .orderBy(hospitals.name);
+  return { group, hospitals: members };
+}
+
 export async function regenerateGroupBookingToken(id: string): Promise<string> {
   // 24-char hex token (base-16, 96 bits of entropy). Collision-resistant and
   // URL-safe without escaping.
