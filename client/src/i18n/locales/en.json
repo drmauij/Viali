@@ -8000,7 +8000,9 @@
       "scheduleSurgery": "Schedule Surgery",
       "addInventoryItem": "Add Inventory Item",
       "addUser": "Add New User"
-    }
+    },
+    "notYetAtYourLocation": "Not yet seen at your location",
+    "searching": "Searching..."
   },
   "referral": {
     "social": "Social Media",

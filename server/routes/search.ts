@@ -1,10 +1,21 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { db } from "../db";
 import { isAuthenticated } from "../auth/google";
-import { patients, surgeries, items, users, userHospitalRoles } from "@shared/schema";
-import { ilike, or, and, eq } from "drizzle-orm";
-import { requireStrictHospitalAccess } from "../utils";
+import {
+  patients,
+  surgeries,
+  items,
+  users,
+  userHospitalRoles,
+  hospitals,
+} from "@shared/schema";
+import { ilike, or, and, eq, inArray, sql } from "drizzle-orm";
+import {
+  requireStrictHospitalAccess,
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
+} from "../utils";
 import logger from "../logger";
 
 const router = Router();
@@ -30,31 +41,61 @@ router.get(
 
       const term = `%${q}%`;
 
+      // Patient SEARCH is ALWAYS group-wide when the active hospital belongs
+      // to a group (independent of the patient-list scope toggle, which only
+      // governs the roster page). Rationale: search answers "does this human
+      // exist?" and cross-location walk-ins must not silently create a
+      // duplicate at every sibling clinic. For un-grouped hospitals the scope
+      // collapses to the single active hospital — identical to the legacy
+      // behaviour.
+      const activeGroupId = await getHospitalGroupIdCached(hospitalId, req);
+      const patientHospitalScope = activeGroupId
+        ? inArray(
+            patients.hospitalId,
+            await getGroupHospitalIdsCached(activeGroupId, req),
+          )
+        : eq(patients.hospitalId, hospitalId);
+
       const [patientResults, surgeryResults, itemResults, userResults] =
         await Promise.all([
-          // Patients
+          // Patients — group-wide when the active hospital has a group, with
+          // two derived fields: `seenAtCurrentLocation` (is this patient
+          // already on the current location's roster?) and
+          // `originHospitalName` (the home-hospital name) so the UI can mark
+          // cross-location matches.
           db
-            .select({
+            .selectDistinctOn([patients.id], {
               id: patients.id,
               firstName: patients.firstName,
               surname: patients.surname,
               birthday: patients.birthday,
               patientNumber: patients.patientNumber,
+              hospitalId: patients.hospitalId,
+              originHospitalName: hospitals.name,
+              seenAtCurrentLocation: sql<boolean>`EXISTS (
+                SELECT 1 FROM patient_hospitals
+                WHERE patient_hospitals.patient_id = ${patients.id}
+                  AND patient_hospitals.hospital_id = ${hospitalId}
+              )`.as("seen_at_current_location"),
             })
             .from(patients)
+            .innerJoin(hospitals, eq(hospitals.id, patients.hospitalId))
             .where(
               and(
-                eq(patients.hospitalId, hospitalId),
+                patientHospitalScope,
                 or(
                   ilike(patients.firstName, term),
                   ilike(patients.surname, term),
                   ilike(patients.patientNumber, term),
+                  ilike(patients.phone, term),
+                  ilike(patients.email, term),
                 ),
               ),
             )
             .limit(limit),
 
-          // Surgeries (join with patients for name search)
+          // Surgeries (join with patients for name search) — kept hospital-
+          // local; cross-location surgery discovery is not part of Task 6.
           db
             .select({
               id: surgeries.id,
@@ -125,6 +166,8 @@ router.get(
           name: [p.firstName, p.surname].filter(Boolean).join(" "),
           dob: p.birthday,
           patientNumber: p.patientNumber,
+          seenAtCurrentLocation: Boolean(p.seenAtCurrentLocation),
+          originHospitalName: p.originHospitalName,
         })),
         surgeries: surgeryResults.map((s) => ({
           id: s.id,

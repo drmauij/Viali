@@ -20,6 +20,13 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
@@ -177,6 +184,14 @@ function CommandPalette({
       name: string;
       patientNumber?: string;
       dob?: string;
+      // Group-wide patient search markers (Task 6):
+      // - `seenAtCurrentLocation` is false when the match is a cross-location
+      //   group-sibling patient whose roster does NOT include the active
+      //   hospital yet. Rendering code surfaces the origin name chip below.
+      // - `originHospitalName` is the name of `patients.hospitalId` (the
+      //   patient's home location), used as the chip label.
+      seenAtCurrentLocation?: boolean;
+      originHospitalName?: string | null;
     }>;
     surgeries?: Array<{
       id: string;
@@ -282,8 +297,31 @@ function CommandPalette({
                     onSelect={() => handleEntitySelect("patient", p.id)}
                   >
                     <User className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <div className="flex flex-col">
-                      <span>{p.name}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{p.name}</span>
+                        {/* Group-wide search marker: show an origin-location
+                            chip when this match is a cross-location sibling
+                            the current clinic hasn't touched yet. */}
+                        {p.seenAtCurrentLocation === false &&
+                          p.originHospitalName && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="outline"
+                                    className="shrink-0 text-[10px] font-normal px-1.5 py-0"
+                                  >
+                                    {p.originHospitalName}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {t("commandPalette.notYetAtYourLocation")}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                      </div>
                       <span className="text-xs text-muted-foreground">
                         {p.patientNumber ? `#${p.patientNumber}` : ""}
                         {p.patientNumber && p.dob ? " \u00b7 " : ""}

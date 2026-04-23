@@ -8017,7 +8017,9 @@
       "scheduleSurgery": "Operation planen",
       "addInventoryItem": "Lagerartikel hinzufügen",
       "addUser": "Neuen Benutzer hinzufügen"
-    }
+    },
+    "notYetAtYourLocation": "Noch nicht an Ihrem Standort gesehen",
+    "searching": "Suche läuft..."
   },
   "referral": {
     "social": "Soziale Medien",
