@@ -3,6 +3,7 @@ import {
   eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull, isNotNull,
 } from "drizzle-orm";
 import { commitUsage } from "./inventoryCommit";
+import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import { alias } from "drizzle-orm/pg-core";
 import { randomUUID } from "crypto";
 import {
@@ -227,8 +228,23 @@ export async function getPatient(id: string): Promise<Patient | undefined> {
   return patient;
 }
 
+// Clinical-edit fields: when any of these change on `updatePatient`, the
+// editing user's hospital gets a patient_hospitals roster row. Contact/admin
+// fields (address, phone, email, insurance, archive flags, marketing consent)
+// intentionally do NOT trigger enrolment — they'd create noise from bulk
+// imports, phone normalisation, and unsubscribe webhooks.
+const CLINICAL_PATIENT_FIELDS = [
+  "allergies",
+  "otherAllergies",
+  "internalNotes",
+  "weight",
+] as const;
+
 export async function createPatient(patient: InsertPatient & { patientNumber?: string }): Promise<Patient> {
   const [created] = await db.insert(patients).values(patient as any).returning();
+  // A brand new patient always starts on their home hospital's roster.
+  const creatorId = (patient as any).createdBy ?? null;
+  await ensurePatientHospitalLink(created.id, created.hospitalId, creatorId);
   return created;
 }
 
@@ -238,6 +254,15 @@ export async function updatePatient(id: string, updates: Partial<Patient>): Prom
     .set({ ...updates, updatedAt: new Date() })
     .where(eq(patients.id, id))
     .returning();
+  // Only clinical-field edits count as a touchpoint. Contact/admin edits do
+  // not enrol the editing hospital (which is the home hospital in Phase 1 —
+  // cross-location edits are handled in Task 7 via patient_edit_audit).
+  const touchesClinical = Object.keys(updates).some((k) =>
+    (CLINICAL_PATIENT_FIELDS as readonly string[]).includes(k),
+  );
+  if (touchesClinical && updated) {
+    await ensurePatientHospitalLink(updated.id, updated.hospitalId, null);
+  }
   return updated;
 }
 

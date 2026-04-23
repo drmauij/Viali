@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { eq, and, desc, asc, sql, lte, gte, inArray, isNull, or } from "drizzle-orm";
 import { getClinicClosuresInRange } from "./clinicClosures";
+import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import { alias } from "drizzle-orm/pg-core";
 import {
   users,
@@ -142,6 +143,8 @@ export async function findOrCreatePatientForBooking(
     })
     .returning();
 
+  // Public booking creates the patient without a logged-in user.
+  await ensurePatientHospitalLink(created.id, hospitalId, null);
   return created;
 }
 
@@ -1019,6 +1022,15 @@ export async function createClinicAppointment(appointment: InsertClinicAppointme
     .insert(clinicAppointments)
     .values(appointment)
     .returning();
+  // Enrol the patient on this hospital's roster. Internal-type appointments
+  // (colleague meetings) have no patientId, so the helper short-circuits.
+  if (created.patientId) {
+    await ensurePatientHospitalLink(
+      created.patientId,
+      created.hospitalId,
+      created.createdBy ?? null,
+    );
+  }
   return created;
 }
 

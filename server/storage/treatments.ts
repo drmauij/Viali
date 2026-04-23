@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, inArray, max } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 
 export interface TreatmentWithLines extends Treatment {
   lines: TreatmentLine[];
@@ -24,7 +25,7 @@ export interface CreateTreatmentInput extends Omit<InsertTreatment, "id" | "crea
 export const treatmentsStorage = {
   async create(input: CreateTreatmentInput): Promise<TreatmentWithLines> {
     const { lines, ...header } = input;
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [created] = await tx.insert(treatments).values(header as any).returning();
       const linesInserted = lines.length
         ? await tx
@@ -40,6 +41,15 @@ export const treatmentsStorage = {
         : [];
       return { ...created, lines: linesInserted };
     });
+    // Running outside the transaction so an enrolment error doesn't abort the
+    // treatment. The helper itself is ON CONFLICT DO NOTHING so retries stay
+    // safe.
+    await ensurePatientHospitalLink(
+      result.patientId,
+      result.hospitalId,
+      result.providerId ?? null,
+    );
+    return result;
   },
 
   async getById(id: string): Promise<TreatmentWithLines | null> {

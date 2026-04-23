@@ -12,6 +12,7 @@ import logger from "../logger";
 import { createHash, randomBytes } from "crypto";
 import { calculateNameSimilarity } from "../services/patientDeduplication";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
+import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import { sendAppointmentNotification } from "./clinic";
 
 const router = Router();
@@ -762,6 +763,7 @@ router.post(
           .returning({ id: patients.id });
 
         resolvedPatientId = newPatient.id;
+        await ensurePatientHospitalLink(resolvedPatientId, hospitalId, req.user?.id ?? null);
       } else {
         return res.status(400).json({ error: "Either patientId or patient data is required" });
       }
@@ -790,6 +792,10 @@ router.post(
           createdBy: req.user.id,
         })
         .returning({ id: clinicAppointments.id });
+
+      // Idempotent roster enrolment (covers the existing-patient path too —
+      // `createPatient` above only runs for newly-created patients).
+      await ensurePatientHospitalLink(resolvedPatientId, hospitalId, req.user.id);
 
       // 5. Create referral event — map source and copy UTM/click IDs
       const referralFields = mapLeadToReferralFields(lead);

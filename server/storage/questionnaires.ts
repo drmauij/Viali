@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { eq, and, ne, desc, asc, isNull, inArray, gt, or } from "drizzle-orm";
+import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
 import {
   patientQuestionnaireLinks,
   patientQuestionnaireResponses,
@@ -416,6 +417,12 @@ export async function createPatientDocument(doc: InsertPatientDocument): Promise
     .insert(patientDocuments)
     .values(doc)
     .returning();
+  // Uploading a document at a hospital counts as a clinical touchpoint.
+  await ensurePatientHospitalLink(
+    created.patientId,
+    created.hospitalId,
+    created.uploadedBy ?? null,
+  );
   return created;
 }
 
