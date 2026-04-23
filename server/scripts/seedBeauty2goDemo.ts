@@ -5,25 +5,28 @@
  *
  * What it creates
  *   - 1 `hospital_groups` row: "beauty2go (Demo)" (with generated booking token)
- *   - 3 demo hospitals: Stuttgart, München, Frankfurt (EUR / Europe/Berlin)
+ *   - 8 real beauty2go.ch hospitals: Zürich, Basel, Bern, Genf, Lausanne,
+ *     Luzern, St. Gallen, Winterthur (CHF / Europe/Zurich / de)
  *   - 1 `units` row per hospital (type = "clinic", isClinicModule = true)
  *   - 5 group-level `clinic_services` shared across the chain
- *   - 1 hospital-local `clinic_services` row ("Laser CO2 Resurfacing") at Stuttgart
- *   - 9 bookable providers (3 per hospital), +1 cross-location role row so
- *     München's first doctor also rotates to Frankfurt
+ *   - 1 hospital-local `clinic_services` row ("Laser CO2 Resurfacing") at Zürich
+ *   - 19 bookable providers using real beauty2go doctor names (scraped from
+ *     beauty2go.ch/standort/<city>) with .local emails so you can book them
+ *     from the /book page. Plus one rotating role so Zürich's first doctor
+ *     also books at Winterthur.
  *   - `clinic_service_providers` links wiring every provider to every group
- *     service; Stuttgart providers additionally linked to the laser service
- *   - ~30 demo patients with realistic German names, split evenly across the
- *     3 hospitals as "home"; 6 of them get a second `patient_hospitals` row
- *     to simulate cross-location visits
+ *     service; Zürich providers additionally linked to the laser service
+ *   - 48 demo patients with realistic Swiss surnames, split evenly across
+ *     the 8 hospitals as "home"; 12 of them get a second `patient_hospitals`
+ *     row to simulate cross-location visits
  *   - A signed treatment + one treatment_line at BOTH locations for every
  *     cross-location patient (so the chart shows unified history)
- *   - 1 marketing `flows` campaign authored by Stuttgart (group scope lives
- *     in request headers at send time, not on the row itself)
+ *   - 1 marketing `flows` campaign authored by the first location (group
+ *     scope lives in request headers at send time, not on the row itself)
  *   - Promotes the demo admin (env `DEMO_ADMIN_EMAIL`, fallback
- *     `m.betti80@gmail.com`) to `is_platform_admin` + `group_admin` at
- *     Stuttgart. If the user doesn't exist yet we log a warning and skip
- *     instead of failing the seed.
+ *     `m.betti80@gmail.com`) to `is_platform_admin` + `group_admin` at the
+ *     first location (Zürich). If the user doesn't exist yet we log a
+ *     warning and skip instead of failing the seed.
  *
  * Idempotency
  *   Running this twice is safe. At start we look up the group by name; if
@@ -63,36 +66,120 @@ import {
   treatments,
   treatmentLines,
   flows,
+  inventorySnapshots,
 } from "../../shared/schema";
 import { and, eq, inArray, like } from "drizzle-orm";
 
 const GROUP_NAME = "beauty2go (Demo)";
 
+// Real beauty2go locations + doctors scraped from beauty2go.ch
+// (https://beauty2go.ch/standort/<slug>/ — 2026-04).
 const LOCATIONS = [
-  { name: "beauty2go Stuttgart", address: "Königstraße 1, 70173 Stuttgart" },
-  { name: "beauty2go München", address: "Kaufingerstraße 1, 80331 München" },
-  { name: "beauty2go Frankfurt", address: "Zeil 1, 60313 Frankfurt" },
+  {
+    name: "beauty2go Zürich",
+    address: "Bahnhofstrasse 78, 8001 Zürich",
+    phone: "+41 44 440 34 34",
+    city: "Zürich",
+    postalCode: "8001",
+    doctors: [
+      { firstName: "Cynthia Jahavée", lastName: "Las" },
+      { firstName: "Nik", lastName: "Baev" },
+      { firstName: "Veronica", lastName: "Kiriak" },
+      { firstName: "Natalia Maria", lastName: "Szczepańska" },
+      { firstName: "Martina", lastName: "Götze" },
+    ],
+  },
+  {
+    name: "beauty2go Basel",
+    address: "Schifflände 2, 4051 Basel",
+    phone: "+41 61 261 66 00",
+    city: "Basel",
+    postalCode: "4051",
+    doctors: [{ firstName: "Jürgen", lastName: "Kalnitski", titlePrefix: "Dr." }],
+  },
+  {
+    name: "beauty2go Bern",
+    address: "Kramgasse 61, 3011 Bern",
+    phone: "+41 31 311 77 77",
+    city: "Bern",
+    postalCode: "3011",
+    doctors: [
+      { firstName: "Luana", lastName: "Reif" },
+      { firstName: "Evgeny", lastName: "Zaimenko-Privalov" },
+      { firstName: "Radiya Sri", lastName: "Rajendran" },
+      { firstName: "Slavko", lastName: "Corluka" },
+      { firstName: "Codrin", lastName: "Ivascu" },
+    ],
+  },
+  {
+    name: "beauty2go Genf",
+    address: "Rue de la Confédération 15, 1204 Genf",
+    phone: "+41 21 331 51 00",
+    city: "Genf",
+    postalCode: "1204",
+    doctors: [{ firstName: "Natalia", lastName: "Smyla" }],
+  },
+  {
+    name: "beauty2go Lausanne",
+    address: "Rue de Bourg 1, 1003 Lausanne",
+    phone: "+41 21 711 21 21",
+    city: "Lausanne",
+    postalCode: "1003",
+    doctors: [
+      { firstName: "Marta", lastName: "Manero Ricart" },
+      { firstName: "Sophie", lastName: "Richter" },
+      { firstName: "Jannick", lastName: "De Tobel" },
+    ],
+  },
+  {
+    name: "beauty2go Luzern",
+    address: "Mühlenplatz 4, 6004 Luzern",
+    phone: "+41 41 211 11 22",
+    city: "Luzern",
+    postalCode: "6004",
+    doctors: [{ firstName: "Patricia", lastName: "Möhl" }],
+  },
+  {
+    name: "beauty2go St. Gallen",
+    address: "Marktgasse 14, 9000 St. Gallen",
+    phone: "+41 71 770 02 02",
+    city: "St. Gallen",
+    postalCode: "9000",
+    doctors: [
+      { firstName: "Sara", lastName: "Halil" },
+      { firstName: "Serafim", lastName: "Papathanassiou" },
+    ],
+  },
+  {
+    name: "beauty2go Winterthur",
+    address: "Stadthausstrasse 39, 8400 Winterthur",
+    phone: "+41 52 202 92 92",
+    city: "Winterthur",
+    postalCode: "8400",
+    doctors: [{ firstName: "Alexis", lastName: "Choi" }],
+  },
 ] as const;
 
+// Prices in CHF. Rough Swiss aesthetic-clinic ballpark; not the real prices.
 const GROUP_SERVICES = [
-  { name: "Botox Glabella", price: "350", durationMinutes: 30 },
-  { name: "Botox Zornesfalte", price: "300", durationMinutes: 30 },
-  { name: "Hyaluron Lippen", price: "480", durationMinutes: 45 },
-  { name: "Hyaluron Wangen", price: "520", durationMinutes: 45 },
+  { name: "Botox Glabella", price: "380", durationMinutes: 30 },
+  { name: "Botox Zornesfalte", price: "320", durationMinutes: 30 },
+  { name: "Hyaluron Lippen", price: "520", durationMinutes: 45 },
+  { name: "Hyaluron Wangen", price: "560", durationMinutes: 45 },
   { name: "Lifting-Beratung", price: "0", durationMinutes: 30 },
 ] as const;
 
 const PATIENT_SURNAMES = [
   "Müller",
-  "Schmidt",
-  "Schneider",
+  "Meier",
+  "Schmid",
+  "Keller",
   "Weber",
-  "Becker",
-  "Wagner",
-  "Hoffmann",
-  "Schäfer",
-  "Koch",
-  "Bauer",
+  "Huber",
+  "Schneider",
+  "Meyer",
+  "Steiner",
+  "Fischer",
 ];
 const PATIENT_FIRST_NAMES = [
   "Anna",
@@ -106,16 +193,27 @@ const PATIENT_FIRST_NAMES = [
   "Sarah",
   "Emma",
 ];
-const PATIENT_CITIES = [
-  { city: "Stuttgart", postalCode: "70173" },
-  { city: "München", postalCode: "80331" },
-  { city: "Frankfurt", postalCode: "60313" },
-];
-const PATIENT_COUNT = 30;
-const CROSS_LOCATION_PATIENT_COUNT = 6;
+const PATIENT_COUNT = 48;
+const CROSS_LOCATION_PATIENT_COUNT = 12;
 
-const PROVIDER_EMAIL_PATTERN = "%@beauty2go.test";
+const PROVIDER_EMAIL_PATTERN = "%@beauty2go.local";
 const PATIENT_EMAIL_PATTERN = "%@test.beauty2go";
+
+/**
+ * Normalise a doctor's display name (e.g. "Natalia Maria Szczepańska") into an
+ * email-safe slug. Used to build `<firstname>.<lastname>@beauty2go.local`.
+ */
+function providerEmailSlug(firstName: string, lastName: string): string {
+  const norm = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // strip accents
+      .replace(/ß/g, "ss")
+      .replace(/[^a-zA-Z]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
+  return `${norm(firstName)}.${norm(lastName)}`;
+}
 
 type SeedSummary = {
   groupId: string;
@@ -237,7 +335,22 @@ export async function wipeExistingGroup(groupId: string): Promise<void> {
       .delete(userHospitalRoles)
       .where(inArray(userHospitalRoles.hospitalId, memberHospitalIds));
 
-    // 9. Units at member hospitals.
+    // 9a. Clean up anything that still FK-references the demo units. Most of
+    //     the 30+ tables that reference `units` never carry rows for demo
+    //     units, but a few pick up data from test runs or manual exploration.
+    //     If a future FK blocks the unit delete, add the table here.
+    const demoUnitRows = await db
+      .select({ id: units.id })
+      .from(units)
+      .where(inArray(units.hospitalId, memberHospitalIds));
+    const demoUnitIds = demoUnitRows.map((u) => u.id);
+    if (demoUnitIds.length > 0) {
+      await db
+        .delete(inventorySnapshots)
+        .where(inArray(inventorySnapshots.unitId, demoUnitIds));
+    }
+
+    // 9b. Units at member hospitals.
     await db
       .delete(units)
       .where(inArray(units.hospitalId, memberHospitalIds));
@@ -335,9 +448,10 @@ export async function seed(): Promise<SeedSummary> {
       .values({
         name: loc.name,
         address: loc.address,
+        companyPhone: loc.phone,
         groupId: group.id,
-        timezone: "Europe/Berlin",
-        currency: "EUR",
+        timezone: "Europe/Zurich",
+        currency: "CHF",
         defaultLanguage: "de",
       } as any)
       .returning();
@@ -374,7 +488,7 @@ export async function seed(): Promise<SeedSummary> {
     summary.groupServiceIds.push(row.id);
   }
 
-  console.log("Seeding 1 hospital-local service (Laser CO2 Resurfacing, Stuttgart)…");
+  console.log("Seeding 1 hospital-local service (Laser CO2 Resurfacing, Zürich)…");
   const [laser] = await db
     .insert(clinicServices)
     .values({
@@ -382,26 +496,29 @@ export async function seed(): Promise<SeedSummary> {
       unitId: locationRows[0].unit.id,
       groupId: null,
       name: "Laser CO2 Resurfacing",
-      price: "800",
+      price: "850",
       durationMinutes: 60,
       isInvoiceable: true,
     } as any)
     .returning();
   summary.hospitalServiceIds.push(laser.id);
 
-  console.log(`Seeding 9 providers (3 per hospital) + 1 rotating role…`);
+  const totalDoctors = LOCATIONS.reduce((n, l) => n + l.doctors.length, 0);
+  console.log(
+    `Seeding ${totalDoctors} providers (real beauty2go doctors) with .local emails + 1 rotating role…`,
+  );
   const providers: Array<{ user: typeof users.$inferSelect; hospitalIdx: number }> = [];
   for (let i = 0; i < locationRows.length; i++) {
     const loc = locationRows[i];
-    for (let j = 0; j < 3; j++) {
+    for (const doc of LOCATIONS[i].doctors) {
+      const titlePrefix = (doc as any).titlePrefix ?? "";
+      const displayFirst = titlePrefix ? `${titlePrefix} ${doc.firstName}`.trim() : doc.firstName;
       const [u] = await db
         .insert(users)
         .values({
-          email: `doc${i}-${j}@beauty2go.test`,
-          firstName: j === 0 ? "Dr. Anna" : j === 1 ? "Dr. Jonas" : "Dr. Petra",
-          lastName: `${LOCATIONS[i].name.replace("beauty2go ", "")} ${
-            ["Müller", "Kaiser", "Hartmann"][j]
-          }`,
+          email: `${providerEmailSlug(doc.firstName, doc.lastName)}@beauty2go.local`,
+          firstName: displayFirst,
+          lastName: doc.lastName,
         })
         .returning();
       const [role] = await db
@@ -421,23 +538,27 @@ export async function seed(): Promise<SeedSummary> {
     }
   }
 
-  // One München doctor (hospitalIdx=1) also rotates to Frankfurt (hospitalIdx=2).
-  const rotator = providers.find((p) => p.hospitalIdx === 1)!;
-  const [rotatorRole] = await db
-    .insert(userHospitalRoles)
-    .values({
-      userId: rotator.user.id,
-      hospitalId: locationRows[2].hospital.id,
-      unitId: locationRows[2].unit.id,
-      role: "doctor",
-      isBookable: true,
-      publicCalendarEnabled: true,
-    })
-    .returning();
-  summary.roleIds.push(rotatorRole.id);
-  console.log(
-    `  > ${rotator.user.email} also rotates to ${locationRows[2].hospital.name}`,
-  );
+  // Demo a doctor rotating between locations: the first Zürich doctor also
+  // books at Winterthur (same train line, 25 min apart — realistic rotation).
+  const rotator = providers.find((p) => p.hospitalIdx === 0)!;
+  const winterthurIdx = LOCATIONS.findIndex((l) => l.city === "Winterthur");
+  if (winterthurIdx >= 0) {
+    const [rotatorRole] = await db
+      .insert(userHospitalRoles)
+      .values({
+        userId: rotator.user.id,
+        hospitalId: locationRows[winterthurIdx].hospital.id,
+        unitId: locationRows[winterthurIdx].unit.id,
+        role: "doctor",
+        isBookable: true,
+        publicCalendarEnabled: true,
+      })
+      .returning();
+    summary.roleIds.push(rotatorRole.id);
+    console.log(
+      `  > ${rotator.user.email} also rotates to ${locationRows[winterthurIdx].hospital.name}`,
+    );
+  }
 
   console.log("Linking every provider to every group service…");
   for (const p of providers) {
@@ -447,25 +568,29 @@ export async function seed(): Promise<SeedSummary> {
         .values({ serviceId: s.id, providerId: p.user.id });
     }
   }
-  // Laser is Stuttgart-only.
+  // Laser is Zürich-only.
   for (const p of providers.filter((x) => x.hospitalIdx === 0)) {
     await db
       .insert(clinicServiceProviders)
       .values({ serviceId: laser.id, providerId: p.user.id });
   }
 
-  console.log(`Seeding ${PATIENT_COUNT} patients (split across 3 hospitals)…`);
+  console.log(
+    `Seeding ${PATIENT_COUNT} patients (split across ${LOCATIONS.length} hospitals)…`,
+  );
   const patientRows: Array<{ patient: typeof patients.$inferSelect; homeIdx: number }> = [];
   for (let i = 0; i < PATIENT_COUNT; i++) {
     const hIdx = i % locationRows.length;
     const home = locationRows[hIdx];
-    const cityInfo = PATIENT_CITIES[hIdx];
+    const locInfo = LOCATIONS[hIdx];
     const surname = PATIENT_SURNAMES[i % PATIENT_SURNAMES.length];
     const firstName = PATIENT_FIRST_NAMES[i % PATIENT_FIRST_NAMES.length];
     // Deterministic, plausible birthday.
     const yy = 80 + (i % 20);
     const mm = String(1 + (i % 12)).padStart(2, "0");
     const dd = String(1 + (i % 28)).padStart(2, "0");
+    // Swiss mobile prefix: +41 79 xxx xx xx (Salt). Deterministic per patient.
+    const phoneDigits = (7000000 + i).toString(); // 7 digits
     const [p] = await db
       .insert(patients)
       .values({
@@ -475,11 +600,11 @@ export async function seed(): Promise<SeedSummary> {
         firstName,
         birthday: `19${yy}-${mm}-${dd}`,
         sex: "F",
-        phone: `+49171${(5000000 + i).toString()}`,
+        phone: `+4179${phoneDigits}`,
         email: `patient${i}@test.beauty2go`,
-        street: `Demostraße ${1 + (i % 99)}`,
-        postalCode: cityInfo.postalCode,
-        city: cityInfo.city,
+        street: `Demostrasse ${1 + (i % 99)}`,
+        postalCode: locInfo.postalCode,
+        city: locInfo.city,
       } as any)
       .returning();
     await db
@@ -524,8 +649,8 @@ export async function seed(): Promise<SeedSummary> {
       dose: "20",
       doseUnit: "U",
       zones: ["glabella"],
-      unitPrice: "350",
-      total: "350",
+      unitPrice: GROUP_SERVICES[0].price, // matches Botox Glabella
+      total: GROUP_SERVICES[0].price,
     });
 
     // Treatment at second location (30 days ago).
@@ -548,12 +673,12 @@ export async function seed(): Promise<SeedSummary> {
       dose: "1.0",
       doseUnit: "ml",
       zones: ["lips"],
-      unitPrice: "480",
-      total: "480",
+      unitPrice: GROUP_SERVICES[2].price, // matches Hyaluron Lippen
+      total: GROUP_SERVICES[2].price,
     });
   }
 
-  console.log("Seeding 1 marketing campaign (authored by Stuttgart)…");
+  console.log(`Seeding 1 marketing campaign (authored by ${locationRows[0].hospital.name})…`);
   const [flow] = await db
     .insert(flows)
     .values({
@@ -569,7 +694,9 @@ export async function seed(): Promise<SeedSummary> {
     .returning();
   summary.flowIds.push(flow.id);
 
-  console.log("Promoting demo admin to platform admin + group_admin at Stuttgart…");
+  console.log(
+    `Promoting demo admin to platform admin + group_admin at ${locationRows[0].hospital.name}…`,
+  );
   const demoAdminEmail =
     process.env.DEMO_ADMIN_EMAIL ?? "m.betti80@gmail.com";
   const [mau] = await db

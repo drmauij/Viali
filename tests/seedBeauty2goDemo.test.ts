@@ -147,33 +147,34 @@ describe("seedBeauty2goDemo", () => {
 
       expect(summary.groupId).toBeTruthy();
       expect(summary.bookingToken).toMatch(/^beauty2go-demo-/);
-      expect(summary.hospitalIds).toHaveLength(3);
-      expect(summary.unitIds).toHaveLength(3);
+      expect(summary.hospitalIds).toHaveLength(8);
+      expect(summary.unitIds).toHaveLength(8);
       expect(summary.groupServiceIds).toHaveLength(5);
       expect(summary.hospitalServiceIds).toHaveLength(1);
-      // 9 base providers + 1 rotating role row = 10 role rows. But
-      // providerUserIds counts unique users, which should still be 9.
-      expect(summary.providerUserIds).toHaveLength(9);
-      expect(summary.roleIds.length).toBeGreaterThanOrEqual(10);
-      expect(summary.patientIds).toHaveLength(30);
-      expect(summary.crossLocationPatientIds).toHaveLength(6);
-      // 6 cross-location patients × 2 treatments each = 12 treatments.
-      expect(summary.treatmentIds).toHaveLength(12);
+      // 19 real doctors across 8 locations (Zürich 5, Basel 1, Bern 5, Genf 1,
+      // Lausanne 3, Luzern 1, St. Gallen 2, Winterthur 1) + 1 rotating role
+      // row for Zürich's first doctor at Winterthur = 20 role rows.
+      expect(summary.providerUserIds).toHaveLength(19);
+      expect(summary.roleIds.length).toBeGreaterThanOrEqual(20);
+      expect(summary.patientIds).toHaveLength(48);
+      expect(summary.crossLocationPatientIds).toHaveLength(12);
+      // 12 cross-location patients × 2 treatments each = 24 treatments.
+      expect(summary.treatmentIds).toHaveLength(24);
       expect(summary.flowIds).toHaveLength(1);
 
       const counts = await countOwnedRowsByGroup(summary.groupId);
-      expect(counts.memberHospitalIds).toHaveLength(3);
+      expect(counts.memberHospitalIds).toHaveLength(8);
       expect(counts.groupServiceCount).toBe(5);
       expect(counts.hospitalServiceCount).toBe(1);
-      expect(counts.patientCount).toBe(30);
-      // 30 home entries + 6 secondary = 36 roster rows.
-      expect(counts.rosterRowCount).toBe(36);
-      expect(counts.uniqueProviderUserIds).toBe(9);
-      // 9 base roles + 1 rotating = 10 doctor role rows.
-      expect(counts.providerRoleCount).toBe(10);
-      expect(counts.treatmentCount).toBe(12);
+      expect(counts.patientCount).toBe(48);
+      // 48 home entries + 12 secondary = 60 roster rows.
+      expect(counts.rosterRowCount).toBe(60);
+      expect(counts.uniqueProviderUserIds).toBe(19);
+      // 19 base roles + 1 rotating = 20 doctor role rows.
+      expect(counts.providerRoleCount).toBe(20);
+      expect(counts.treatmentCount).toBe(24);
       expect(counts.flowCount).toBe(1);
-      expect(counts.crossLocationPatientCount).toBe(6);
+      expect(counts.crossLocationPatientCount).toBe(12);
     },
     60_000,
   );
@@ -184,16 +185,16 @@ describe("seedBeauty2goDemo", () => {
       const summary = await seed();
       const counts = await countOwnedRowsByGroup(summary.groupId);
 
-      expect(counts.memberHospitalIds).toHaveLength(3);
+      expect(counts.memberHospitalIds).toHaveLength(8);
       expect(counts.groupServiceCount).toBe(5);
       expect(counts.hospitalServiceCount).toBe(1);
-      expect(counts.patientCount).toBe(30);
-      expect(counts.rosterRowCount).toBe(36);
-      expect(counts.uniqueProviderUserIds).toBe(9);
-      expect(counts.providerRoleCount).toBe(10);
-      expect(counts.treatmentCount).toBe(12);
+      expect(counts.patientCount).toBe(48);
+      expect(counts.rosterRowCount).toBe(60);
+      expect(counts.uniqueProviderUserIds).toBe(19);
+      expect(counts.providerRoleCount).toBe(20);
+      expect(counts.treatmentCount).toBe(24);
       expect(counts.flowCount).toBe(1);
-      expect(counts.crossLocationPatientCount).toBe(6);
+      expect(counts.crossLocationPatientCount).toBe(12);
 
       // Also: exactly one group row still, no orphans.
       const groups = await db
