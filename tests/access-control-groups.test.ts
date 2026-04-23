@@ -18,6 +18,9 @@ import {
   canAccessHospitalInGroup,
   userIsGroupAdminForHospital,
   userHasGroupAwareHospitalAccess,
+  requireWriteAccess,
+  requireStrictWriteAccess,
+  requireHospitalAccess,
 } from "../server/utils/accessControl";
 
 /**
@@ -579,5 +582,209 @@ describe("integration: GET /api/patients (same-hospital regression)", () => {
       .get(`/api/patients?hospitalId=${hospA1}`)
       .set("x-active-hospital-id", hospA1);
     expect(res.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Important Fix 1: `requireWriteAccess` / `requireStrictWriteAccess` must be
+// group-aware. A group_admin at hospital A in group G should be able to write
+// to resources at hospital B (also in G) even without a direct role there.
+// Regression: previously `requireWriteAccess` called `userHasHospitalAccess`
+// (direct-role only), making reads and writes asymmetric.
+// ---------------------------------------------------------------------------
+describe("requireWriteAccess — group-aware", () => {
+  function buildWriteApp(userId: string) {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res, next) => {
+      req.user = { id: userId };
+      next();
+    });
+    // POST handler guarded by requireWriteAccess — we just echo OK.
+    app.post(
+      "/write/:hospitalId",
+      requireWriteAccess,
+      (req: any, res: any) => {
+        res.json({
+          ok: true,
+          resolvedHospitalId: req.resolvedHospitalId,
+          resolvedRole: req.resolvedRole,
+        });
+      },
+    );
+    return app;
+  }
+
+  function buildStrictWriteApp(userId: string) {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res, next) => {
+      req.user = { id: userId };
+      next();
+    });
+    app.post(
+      "/strict-write/:hospitalId",
+      requireStrictWriteAccess,
+      (req: any, res: any) => {
+        res.json({
+          ok: true,
+          resolvedHospitalId: req.resolvedHospitalId,
+          resolvedRole: req.resolvedRole,
+        });
+      },
+    );
+    // Route without :hospitalId param and no body — tests the "strict fails
+    // when hospitalId cannot be resolved" branch.
+    app.post(
+      "/strict-write-no-hospital",
+      requireStrictWriteAccess,
+      (_req: any, res: any) => {
+        res.json({ ok: true });
+      },
+    );
+    return app;
+  }
+
+  // Important: `resolveHospitalIdFromRequest` honors the `X-Active-Hospital-Id`
+  // header FIRST (once validated), then falls through to `:hospitalId` param
+  // or resource lookup. To test cross-hospital writes (where the resolver
+  // lands on a hospital different from the user's active one), we must either
+  // omit the header or send it pointing at the same hospital as the target.
+  // That mimics the real-world case: an internal route like
+  // `PATCH /api/items/:itemId` sits behind `requireStrictHospitalAccess` +
+  // write middleware, where the resolver finds the hospital via the item
+  // resource — NOT the active header.
+
+  it("group_admin at A in group G can POST to resource at B (same group) — 200", async () => {
+    // userGroupAdminA has role "group_admin" at hospA1 (group A). NO direct
+    // role at hospA2. We deliberately omit `x-active-hospital-id` so the
+    // resolver lands on the :hospitalId param (hospA2). Previously this
+    // returned 403 because requireWriteAccess called `userHasHospitalAccess`
+    // (direct-role only). Now must return 200 via group-aware path.
+    const app = buildWriteApp(userGroupAdminA);
+    const res = await request(app).post(`/write/${hospA2}`).send({});
+    expect(res.status).toBe(200);
+    expect(res.body.resolvedHospitalId).toBe(hospA2);
+    expect(res.body.resolvedRole).toBe("group_admin");
+  });
+
+  it("group_admin strict-write at B (same group, no direct role) — 200", async () => {
+    const app = buildStrictWriteApp(userGroupAdminA);
+    const res = await request(app).post(`/strict-write/${hospA2}`).send({});
+    expect(res.status).toBe(200);
+    expect(res.body.resolvedHospitalId).toBe(hospA2);
+    expect(res.body.resolvedRole).toBe("group_admin");
+  });
+
+  it("ungrouped tenants: admin at Solo writing to Solo2 still denied", async () => {
+    // userSolo has admin at hospSolo (ungrouped). hospSolo2 is a separate
+    // ungrouped tenant. Cross-tenant writes must stay denied — the group
+    // rewrite should not inadvertently leak access across unrelated tenants.
+    // Omit the active header so the resolver lands on :hospitalId (hospSolo2).
+    const app = buildWriteApp(userSolo);
+    const res = await request(app).post(`/write/${hospSolo2}`).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("HOSPITAL_ACCESS_DENIED");
+  });
+
+  it("ungrouped tenants (strict): admin at Solo writing Solo2 still denied", async () => {
+    const app = buildStrictWriteApp(userSolo);
+    const res = await request(app).post(`/strict-write/${hospSolo2}`).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("HOSPITAL_ACCESS_DENIED");
+  });
+
+  it("regression: direct-role user writing to own hospital still works", async () => {
+    // userInA1 has "admin" at hospA1. Writing to hospA1 should continue to
+    // resolve role via getActiveRoleFromRequest and succeed.
+    const app = buildWriteApp(userInA1);
+    const res = await request(app)
+      .post(`/write/${hospA1}`)
+      .set("x-active-hospital-id", hospA1)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.resolvedRole).toBe("admin");
+  });
+
+  it("cross-group write: user at hospA1 cannot POST to hospB1 — 403", async () => {
+    // Omit the active header so the resolver lands on :hospitalId (hospB1).
+    // userInA1 has admin at hospA1 but no role at hospB1 and no shared group.
+    const app = buildWriteApp(userInA1);
+    const res = await request(app).post(`/write/${hospB1}`).send({});
+    expect(res.status).toBe(403);
+  });
+
+  it("strict write: missing hospitalId → 400", async () => {
+    const app = buildStrictWriteApp(userInA1);
+    const res = await request(app).post(`/strict-write-no-hospital`).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("HOSPITAL_ID_REQUIRED");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Important Fix 2: `X-Active-Hospital-Id` header validation. A forged header
+// pointing at a hospital the user doesn't have a direct role at (but that
+// shares a group with one they do) must NOT be treated as the caller's
+// resolved hospital. Instead, `resolveHospitalIdFromRequest` must fall
+// through to the body/params/resource lookup.
+// ---------------------------------------------------------------------------
+describe("resolveHospitalIdFromRequest — forged-header fall-through", () => {
+  function buildApp(userId: string) {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res, next) => {
+      req.user = { id: userId };
+      next();
+    });
+    app.get(
+      "/read/:hospitalId",
+      requireHospitalAccess,
+      (req: any, res: any) => {
+        res.json({
+          ok: true,
+          resolvedHospitalId: req.resolvedHospitalId,
+        });
+      },
+    );
+    return app;
+  }
+
+  it("forged header pointing at a hospital user has no role at: resolvedHospitalId falls through to :hospitalId param", async () => {
+    // userGroupAdminA has ONE row: group_admin at hospA1 (group A). They have
+    // NO direct role at hospA2, even though A1 and A2 share the group.
+    //
+    // If they forge the header to X-Active-Hospital-Id=hospA2 while reading
+    // a resource at hospA1, we must NOT trust the header as the caller's
+    // "home" hospital — they have no role at hospA2. Instead the resolver
+    // must fall through to :hospitalId (the route param) = hospA1, which is
+    // where they do have a role.
+    //
+    // Access should still succeed (they have group_admin at hospA1, which is
+    // the :hospitalId param and also where the resource is).
+    const app = buildApp(userGroupAdminA);
+    const res = await request(app)
+      .get(`/read/${hospA1}`)
+      .set("x-active-hospital-id", hospA2); // forged
+    expect(res.status).toBe(200);
+    // Critical: resolvedHospitalId is the real resource hospital (hospA1),
+    // not the forged header value (hospA2). Downstream handlers that stamp
+    // `createdByHospitalId = req.resolvedHospitalId` won't be tricked.
+    expect(res.body.resolvedHospitalId).toBe(hospA1);
+  });
+
+  it("valid header (user has role there): resolvedHospitalId honors header", async () => {
+    // userGroupAdminA does have a role at hospA1 — header is not forged.
+    const app = buildApp(userGroupAdminA);
+    const res = await request(app)
+      .get(`/read/${hospA2}`) // resource at hospA2, valid read via group
+      .set("x-active-hospital-id", hospA1); // legit active hospital
+    expect(res.status).toBe(200);
+    // No :hospitalId ambiguity here — the route param matches resource, and
+    // the header is trusted because user has a role at hospA1.
+    //
+    // The order of the resolver is: (1) trusted header → (2) params/body.
+    // Since header is trusted, resolvedHospitalId === hospA1 (the header).
+    expect(res.body.resolvedHospitalId).toBe(hospA1);
   });
 });

@@ -8,15 +8,25 @@ import {
   getHospitalGroupId as getHospitalGroupIdFromDb,
   getGroupHospitalIds as getGroupHospitalIdsFromDb,
 } from "../storage/hospitals";
+import {
+  ROLE_HIERARCHY as SHARED_ROLE_HIERARCHY,
+  WRITE_ROLES as SHARED_WRITE_ROLES,
+  READ_ONLY_ROLES as SHARED_READ_ONLY_ROLES,
+  type UserRole as SharedUserRole,
+} from "@shared/roles";
 
-export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'group_admin', 'guest'] as const;
-export type UserRole = typeof ROLE_HIERARCHY[number];
+// Re-export from the shared module so existing server callers keep working.
+// `group_admin`'s position in this array is cosmetic (display/listing order),
+// not a privilege ranking — it's orthogonal to the standard hospital-admin
+// hierarchy (admin > manager > doctor > ...).
+export const ROLE_HIERARCHY = SHARED_ROLE_HIERARCHY;
+export type UserRole = SharedUserRole;
 
-// Note: 'group_admin' is write-capable — it's the multi-location chain-level
-// admin (spec: "Patrick / chain CEO or CMO"). They run the group catalog and
+// 'group_admin' is write-capable — it's the multi-location chain-level admin
+// (spec: "Patrick / chain CEO or CMO"). They run the group catalog and
 // marketing from any hospital in the group.
-export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'group_admin'];
-export const READ_ONLY_ROLES: UserRole[] = ['guest'];
+export const WRITE_ROLES: UserRole[] = SHARED_WRITE_ROLES;
+export const READ_ONLY_ROLES: UserRole[] = SHARED_READ_ONLY_ROLES;
 
 // Helper to get hospitalId from various resource types
 export async function getHospitalIdFromResource(params: {
@@ -453,6 +463,45 @@ async function isPlatformAdminCached(
  * The existing role hierarchy (admin > manager > doctor > nurse > ...) is
  * preserved for same-hospital requests. Cross-location requests bubble the
  * role up via the group.
+ *
+ * -------------------------------------------------------------------------
+ * IMPORTANT: step-4 semantics
+ * -------------------------------------------------------------------------
+ * Step 4 deliberately returns the user's BEST role held at ANY hospital in
+ * the resource's group when no direct role at the resource hospital exists.
+ * This is correct for `canWrite` / role-hierarchy comparisons used by the
+ * read/write middlewares — a user with `admin` at hospital A in group G is
+ * treated as having admin-grade write permissions on resources at hospital
+ * B (also in G) when they have same-group implicit access.
+ *
+ * What this function is NOT:
+ *   - Not a "role AT this hospital" check. The returned role may have been
+ *     earned at a DIFFERENT hospital in the group.
+ *   - Not suitable for admin-only equality checks.
+ *
+ * Admin-only gates (e.g. `requireResourceAdmin`, `requireHospitalAdmin`, any
+ * handler guarded by `role === 'admin'` exactly for operations like user
+ * invites, unit creation, or settings mutations) MUST continue to use the
+ * DIRECT role at the hospital — not this function's return value. Otherwise
+ * an admin at hospital A in group G could perform admin-only actions at
+ * hospital B, which is NOT what the multi-location spec grants.
+ *
+ * Safe use:
+ *   // Write gate for any write-capable role (including group_admin):
+ *   const role = await getGroupAwareUserRole(userId, hospitalId, req);
+ *   if (!canWrite(role)) return res.status(403)...
+ *
+ * Unsafe use (DO NOT do this):
+ *   // Wrong — would allow "admin at A" to admin-manage B in the same group:
+ *   const role = await getGroupAwareUserRole(userId, hospitalId, req);
+ *   if (role !== 'admin') return res.status(403)...
+ *
+ * Correct admin check:
+ *   const hospitals = await storage.getUserHospitals(userId);
+ *   const isAdminAtTarget = hospitals.some(
+ *     (h) => h.id === hospitalId && h.role === 'admin',
+ *   );
+ *   if (!isAdminAtTarget) return res.status(403)...
  */
 export async function getGroupAwareUserRole(
   userId: string,
@@ -677,16 +726,44 @@ export async function canAccessOrder(
   return hasLogisticsAccess(userId, hospitalId);
 }
 
-// Helper to resolve hospitalId from request parameters
-async function resolveHospitalIdFromRequest(req: any): Promise<string | null> {
-  // 1. Try X-Active-Hospital-Id header (most reliable)
+// Helper to resolve hospitalId from request parameters.
+//
+// Security note: the `X-Active-Hospital-Id` header is set by the client, so we
+// must validate it before trusting it downstream. A user who has a role at
+// hospital A (in group G) could otherwise forge the header to point at
+// hospital B (also in G) and upgrade their effective "home" hospital — which
+// downstream handlers sometimes treat as the caller's own tenant for side
+// effects (e.g. stamping `createdByHospitalId`). Before returning the header
+// value we verify the authenticated user actually holds a role at that
+// hospital; if not, we fall through to body/params/resource lookup so
+// `req.resolvedHospitalId` is either a hospital the user has a direct role
+// at, or a hospital determined by the resource itself.
+async function resolveHospitalIdFromRequest(
+  req: any,
+  userId?: string,
+): Promise<string | null> {
+  // 1. Try X-Active-Hospital-Id header (most reliable) — but only trust it if
+  //    the caller actually has a role at that hospital.
   const headerHospitalId = req.headers['x-active-hospital-id'];
-  if (headerHospitalId) return headerHospitalId;
-  
+  if (headerHospitalId && typeof headerHospitalId === "string") {
+    if (!userId) {
+      // Backwards-compatible path: no userId passed in. We can't validate, so
+      // keep the original behavior (trust the header). All in-tree callers
+      // now pass userId; this branch only protects external/legacy callers.
+      return headerHospitalId;
+    }
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (userHospitals.some((h) => h.id === headerHospitalId)) {
+      return headerHospitalId;
+    }
+    // Header is forged / user has no role there — fall through to the other
+    // sources below instead of trusting it.
+  }
+
   // 2. Try explicit hospitalId from params, body, or query
   const explicitHospitalId = req.params.hospitalId || req.body?.hospitalId || req.query?.hospitalId;
   if (explicitHospitalId) return explicitHospitalId;
-  
+
   // 3. Try to resolve from resource IDs (surgery, anesthesia record, etc.)
   const resourceHospitalId = await getHospitalIdFromResource({
     surgeryId: req.params.surgeryId || req.body?.surgeryId,
@@ -695,7 +772,7 @@ async function resolveHospitalIdFromRequest(req: any): Promise<string | null> {
     preOpId: req.params.preOpId || req.params.assessmentId,
   });
   if (resourceHospitalId) return resourceHospitalId;
-  
+
   return null;
 }
 
@@ -707,7 +784,7 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const hospitalId = await resolveHospitalIdFromRequest(req);
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
 
     if (!hospitalId) {
       // If we can't determine hospitalId, allow the request but log it
@@ -742,7 +819,7 @@ export async function requireStrictHospitalAccess(req: any, res: Response, next:
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    const hospitalId = await resolveHospitalIdFromRequest(req);
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
     
     if (!hospitalId) {
       logger.error(`[Access Control] STRICT: Missing hospitalId for ${req.method} ${req.path}`);
@@ -779,7 +856,7 @@ export async function requireHospitalAdmin(req: any, res: Response, next: NextFu
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    const hospitalId = await resolveHospitalIdFromRequest(req);
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
     
     if (!hospitalId) {
       return res.status(400).json({ 
@@ -839,65 +916,82 @@ async function getActiveRoleFromRequest(req: any, userId: string, hospitalId: st
   return availableRoles[0] || null;
 }
 
-// Middleware to verify user has write access (non-guest role) to the hospital (lenient)
+// Middleware to verify user has write access (non-guest role) to the hospital (lenient).
+//
+// Group-aware: a user with `group_admin` at hospital A in group G can write to
+// resources at hospital B (also in G) even without a direct role at B. This
+// mirrors `requireHospitalAccess` / `requireResourceAccess` so reads and
+// writes are symmetric across a group.
 export async function requireWriteAccess(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
-    
-    const hospitalId = await resolveHospitalIdFromRequest(req);
-    
+
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
+
     if (!hospitalId) {
       // If we can't determine hospitalId, check if the active role from header allows writes
       const headerRole = req.headers['x-active-role'] as string | undefined;
-      
+
       if (headerRole && !canWrite(headerRole)) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           message: "Insufficient permissions. Guest users have read-only access.",
           code: "READ_ONLY_ACCESS"
         });
       }
-      
+
       // If no header role, fall back to checking if user has write access to any hospital
       if (!headerRole) {
         const hospitals = await storage.getUserHospitals(userId);
         const hasAnyWriteAccess = hospitals.some(h => canWrite(h.role));
-        
+
         if (!hasAnyWriteAccess) {
-          return res.status(403).json({ 
+          return res.status(403).json({
             message: "Insufficient permissions. Guest users have read-only access.",
             code: "READ_ONLY_ACCESS"
           });
         }
       }
-      
+
       logger.warn(`[Access Control] Could not resolve hospitalId for write check on ${req.method} ${req.path}`);
       return next();
     }
-    
-    // First verify user has access to this hospital
-    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+
+    // Group-aware access: allow same-hospital, same-group via active header,
+    // or group_admin escalation. Symmetric with `requireHospitalAccess`.
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, hospitalId, req);
     if (!hasAccess) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Access denied. You do not have access to this hospital's data.",
         code: "HOSPITAL_ACCESS_DENIED"
       });
     }
-    
-    // Get the active role (from header if valid, otherwise highest role)
-    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
-    
+
+    // Resolve the effective role. For a direct role at `hospitalId`, prefer
+    // the explicit `X-Active-Role` header (validated by `getActiveRoleFromRequest`).
+    // Otherwise bubble up the group-aware role (e.g. group_admin) via
+    // `getGroupAwareUserRole`. Either path must end in a write-capable role.
+    let role: string | null = null;
+    const directHospitals = await storage.getUserHospitals(userId);
+    const hasDirectRole = directHospitals.some((h) => h.id === hospitalId);
+    if (hasDirectRole) {
+      role = await getActiveRoleFromRequest(req, userId, hospitalId);
+    } else {
+      role = await getGroupAwareUserRole(userId, hospitalId, req);
+    }
+
     if (!canWrite(role)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Insufficient permissions. Guest users have read-only access.",
         code: "READ_ONLY_ACCESS"
       });
     }
-    
+
     // Store the resolved hospitalId and role for use by route handlers
     req.resolvedHospitalId = hospitalId;
+    req.verifiedHospitalId = hospitalId;
     req.resolvedRole = role;
     next();
   } catch (error) {
@@ -927,7 +1021,7 @@ export async function requireAdminWriteAccess(req: any, res: Response, next: Nex
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const hospitalId = await resolveHospitalIdFromRequest(req);
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
     if (!hospitalId) {
       return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
     }
@@ -944,43 +1038,58 @@ export async function requireAdminWriteAccess(req: any, res: Response, next: Nex
   }
 }
 
-// STRICT middleware for write access - fails if hospitalId cannot be resolved
+// STRICT middleware for write access - fails if hospitalId cannot be resolved.
+//
+// Group-aware (mirrors `requireStrictHospitalAccess`): a user without a
+// direct role at `hospitalId` can still write if they have `group_admin` in
+// the resource's group, or same-group implicit access via their active
+// hospital header.
 export async function requireStrictWriteAccess(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
-    
-    const hospitalId = await resolveHospitalIdFromRequest(req);
-    
+
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
+
     if (!hospitalId) {
       logger.error(`[Access Control] STRICT: Missing hospitalId for write on ${req.method} ${req.path}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Hospital context required. Please select a hospital.",
         code: "HOSPITAL_ID_REQUIRED"
       });
     }
-    
-    // Verify user has access to this hospital
-    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+
+    // Group-aware access check (symmetric with `requireStrictHospitalAccess`).
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, hospitalId, req);
     if (!hasAccess) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Access denied. You do not have access to this hospital's data.",
         code: "HOSPITAL_ACCESS_DENIED"
       });
     }
-    
-    // Get the active role and verify write permission
-    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
-    
+
+    // Resolve the effective role. Direct role at `hospitalId` → honor the
+    // `X-Active-Role` header (if valid). Otherwise use the group-aware role
+    // (e.g. group_admin) so cross-location writes succeed with the right
+    // rank. Either path must be write-capable.
+    let role: string | null = null;
+    const directHospitals = await storage.getUserHospitals(userId);
+    const hasDirectRole = directHospitals.some((h) => h.id === hospitalId);
+    if (hasDirectRole) {
+      role = await getActiveRoleFromRequest(req, userId, hospitalId);
+    } else {
+      role = await getGroupAwareUserRole(userId, hospitalId, req);
+    }
+
     if (!canWrite(role)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         message: "Insufficient permissions. Guest users have read-only access.",
         code: "READ_ONLY_ACCESS"
       });
     }
-    
+
     // Store the resolved hospitalId and role for use by route handlers
     req.resolvedHospitalId = hospitalId;
     req.verifiedHospitalId = hospitalId;
@@ -1000,7 +1109,7 @@ export async function requireSurgeryPlanAccess(req: any, res: Response, next: Ne
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const hospitalId = await resolveHospitalIdFromRequest(req);
+    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
 
     if (!hospitalId) {
       return res.status(400).json({
@@ -1088,7 +1197,7 @@ export function requirePermission(permission: PermissionFlag) {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const hospitalId = await resolveHospitalIdFromRequest(req);
+      const hospitalId = await resolveHospitalIdFromRequest(req, userId);
       if (!hospitalId) {
         return res.status(400).json({
           message: "Hospital context required.",
@@ -1140,6 +1249,9 @@ export async function requirePlatformAdmin(
         code: "PLATFORM_ADMIN_REQUIRED",
       });
     }
+    // Cache the result for downstream group-aware checks in the same request
+    // (see `isPlatformAdminCached`). Saves a redundant DB hit on every call.
+    req._isPlatformAdmin = true;
     return next();
   } catch (error) {
     logger.error("Error checking platform admin access:", error);
