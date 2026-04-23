@@ -19,6 +19,7 @@ import { Plus, Pencil, Trash2, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { TreatmentLineDialog } from "./TreatmentLineDialog";
 import { TreatmentPalette } from "./TreatmentPalette";
 import { TreatmentItemConfigDialog } from "./TreatmentItemConfigDialog";
@@ -51,6 +52,7 @@ export function TreatmentEditor({
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   const [appointmentId, setAppointmentId] = useState<string | null>(
     existing?.appointmentId ?? initialAppointmentId ?? null,
@@ -205,7 +207,7 @@ export function TreatmentEditor({
   const total = useMemo(
     () =>
       lines.reduce(
-        (s, l) => s + parseFloat((l.total as string) ?? "0"),
+        (s, l) => s + (parseFloat((l.total as string) || "0") || 0),
         0,
       ),
     [lines],
@@ -215,10 +217,16 @@ export function TreatmentEditor({
 
   const saveMutation = useMutation({
     mutationFn: async (payload: { lines: Partial<TreatmentLine>[]; notes: string; performedAt: Date }) => {
+      if (!existing && !user?.id) {
+        throw new Error(
+          t("treatments.noProvider", "You must be signed in to record a treatment"),
+        );
+      }
       const body = {
         hospitalId,
         unitId: unitId ?? null,
         patientId,
+        providerId: existing?.providerId ?? user?.id,
         appointmentId: appointmentId ?? null,
         performedAt: payload.performedAt.toISOString(),
         notes: payload.notes,
@@ -247,11 +255,17 @@ export function TreatmentEditor({
 
   const signMutation = useMutation({
     mutationFn: async (signature: string) => {
+      if (!existing && !user?.id) {
+        throw new Error(
+          t("treatments.noProvider", "You must be signed in to record a treatment"),
+        );
+      }
       // Save first, then sign
       const body = {
         hospitalId,
         unitId: unitId ?? null,
         patientId,
+        providerId: existing?.providerId ?? user?.id,
         appointmentId: appointmentId ?? null,
         performedAt: performedAt.toISOString(),
         notes,
