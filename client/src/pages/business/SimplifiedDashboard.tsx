@@ -1,12 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCurrencyLocale } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { HelpCircle, TableProperties } from "lucide-react";
 import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import {
   Table,
   TableBody,
@@ -43,6 +45,34 @@ const mockSurgeryCostBreakdown = [
 export default function SimplifiedDashboard() {
   const { t } = useTranslation();
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const activeHospital = useActiveHospital();
+
+  // Task 11: dashboard scope toggle — "This clinic" (default) vs. "All
+  // locations" (chain-wide). Only surfaced when the active hospital belongs
+  // to a group; the URL param (?scope=group) is what `getQueryFn` inspects
+  // to attach the `X-Active-Scope: group` header on downstream queries.
+  const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
+  const [scope, setScope] = useState<"hospital" | "group">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("scope") === "group" ? "group" : "hospital";
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const current = params.get("scope");
+    if (scope === "group" && current !== "group") {
+      params.set("scope", "group");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    } else if (scope === "hospital" && current === "group") {
+      params.delete("scope");
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, [scope]);
+  useEffect(() => {
+    if (!hospitalHasGroup && scope === "group") {
+      setScope("hospital");
+    }
+  }, [hospitalHasGroup, scope]);
 
   // Block page-level scrolling so sticky header works
   useEffect(() => {
@@ -67,9 +97,30 @@ export default function SimplifiedDashboard() {
           }
         `}</style>
       )}
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold">{t('business.dashboard.title')}</h1>
-        <p className="text-muted-foreground">{t('business.dashboard.subtitle')}</p>
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{t('business.dashboard.title')}</h1>
+          <p className="text-muted-foreground">{t('business.dashboard.subtitle')}</p>
+        </div>
+        {hospitalHasGroup && (
+          <ToggleGroup
+            type="single"
+            value={scope}
+            onValueChange={(value) => {
+              if (value === "hospital" || value === "group") setScope(value);
+            }}
+            variant="outline"
+            size="sm"
+            data-testid="toggle-simplified-dashboard-scope"
+          >
+            <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-simplified-dashboard-scope-hospital">
+              {t('business.dashboard.scopeThisClinic', 'This clinic')}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-simplified-dashboard-scope-group">
+              {t('business.dashboard.scopeAllLocations', 'All locations')}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </div>
 
       <Card className="flex-1 min-h-0 flex flex-col">

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, Request } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items, providerTimeOff, patientQuestionnaireResponses, patientQuestionnaireLinks, referralEvents, patients, clinicAppointments, clinicServices } from "@shared/schema";
@@ -11,6 +11,11 @@ import { sendSignedContractEmail, sendTimeOffDeclinedEmail } from "../resend";
 import { expandRecurringTimeOff } from "../utils/timeoff";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
 import { calculateNameSimilarity } from "../services/patientDeduplication";
+import {
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
+  userHasGroupAwareHospitalAccess,
+} from "../utils";
 import logger from "../logger";
 import { z } from "zod";
 
@@ -82,6 +87,71 @@ async function isMarketingOrManager(req: any, res: Response, next: any) {
     logger.error("Error checking marketing access:", error);
     res.status(500).json({ message: "Failed to verify access" });
   }
+}
+
+/**
+ * Task 11: resolve the hospital scope for a business-dashboard aggregation
+ * endpoint. Reads the optional `X-Active-Scope` header (default `"hospital"`)
+ * and returns the list of hospital IDs the aggregation should cover.
+ *
+ * Rules (mirror `/api/patients` from Task 5):
+ *   - Default / `scope !== "group"` → `[activeHospitalId]`.
+ *   - `scope === "group"` but the active hospital has no `groupId` → silently
+ *     fall back to `[activeHospitalId]`. Single-location tenants that send
+ *     the header should not see an error.
+ *   - `scope === "group"` and the active hospital belongs to a group → the
+ *     caller must have group-aware read access (direct role somewhere in the
+ *     group, `group_admin` on the group, or platform admin). If not, throw
+ *     a `ScopeForbiddenError` which the route handler turns into a 403.
+ *   - On success with group access, returns every hospital ID in that group.
+ *
+ * Returns a discriminated result so the route can render an explicit 403
+ * JSON body (route-level) rather than leaking generic 500s.
+ */
+class ScopeForbiddenError extends Error {
+  code = "GROUP_SCOPE_FORBIDDEN" as const;
+  constructor() {
+    super("Access denied for group-scope business read.");
+  }
+}
+
+async function resolveHospitalScope(
+  req: Request,
+  userId: string,
+  activeHospitalId: string,
+): Promise<string[]> {
+  const scopeHeader = (req.headers["x-active-scope"] as string | undefined)?.toLowerCase();
+  if (scopeHeader !== "group") {
+    return [activeHospitalId];
+  }
+  const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+  if (!groupId) {
+    // Un-grouped tenant: silently fall back to hospital scope so a single-
+    // location client that always sends `scope=group` does not break.
+    return [activeHospitalId];
+  }
+  const hasAccess = await userHasGroupAwareHospitalAccess(
+    userId,
+    activeHospitalId,
+    req,
+  );
+  if (!hasAccess) {
+    throw new ScopeForbiddenError();
+  }
+  return await getGroupHospitalIdsCached(groupId, req);
+}
+
+/**
+ * Helper: build a `WHERE hospital_id IN (...)` (or `= single`) clause for
+ * an arbitrary drizzle column. Keeps `inArray` vs. `eq` selection local so
+ * the aggregation endpoints don't each need to think about this.
+ */
+function hospitalScopeClause<T>(column: T, hospitalIds: string[]) {
+  // Narrow to drizzle column. `eq`/`inArray` both accept our schema columns.
+  const col = column as any;
+  return hospitalIds.length === 1
+    ? eq(col, hospitalIds[0])
+    : inArray(col, hospitalIds);
 }
 
 // Get all staff members for a hospital (for business dashboard)
@@ -1058,23 +1128,39 @@ router.post('/api/business/:hospitalId/contracts/:contractId/send-email', isAuth
 router.get('/api/business/:hospitalId/inventory-overview', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    
-    // Get all units within this hospital
-    const hospitalUnits = await storage.getUnits(hospitalId);
-    
+
+    // Task 11: optional group-scope expansion. In group scope we aggregate
+    // inventory units across every hospital in the group.
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
+    // Get all units within the scoped hospital(s)
+    const allUnitsInScope: any[] = [];
+    for (const hid of hospitalIds) {
+      const hospitalUnits = await storage.getUnits(hid);
+      allUnitsInScope.push(...hospitalUnits);
+    }
+
     // Filter to only inventory-capable units (exclude business/logistic type units)
-    const inventoryUnits = hospitalUnits.filter(u => 
+    const inventoryUnits = allUnitsInScope.filter(u =>
       u.type !== 'business' && u.type !== 'logistic' && u.showInventory !== false
     );
-    
-    // Aggregate items from all units within this hospital
+
+    // Aggregate items from all units within the scoped hospital(s)
     const allItems: any[] = [];
     for (const unit of inventoryUnits) {
-      const items = await storage.getItems(hospitalId, unit.id);
+      const items = await storage.getItems(unit.hospitalId, unit.id);
       allItems.push(...items);
     }
-    
-    // Get supplier codes for all items in this hospital
+
+    // Get supplier codes for all items in this scope
     const allItemIds = allItems.map(item => item.id);
     let supplierCodesData: any[] = [];
     if (allItemIds.length > 0) {
@@ -1083,11 +1169,11 @@ router.get('/api/business/:hospitalId/inventory-overview', isAuthenticated, isBu
         .from(supplierCodes)
         .where(inArray(supplierCodes.itemId, allItemIds));
     }
-    
-    res.json({ 
-      units: inventoryUnits, 
-      items: allItems, 
-      supplierCodes: supplierCodesData 
+
+    res.json({
+      units: inventoryUnits,
+      items: allItems,
+      supplierCodes: supplierCodesData
     });
   } catch (error) {
     logger.error("Error fetching inventory overview:", error);
@@ -1146,23 +1232,35 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
   try {
     const { hospitalId } = req.params;
     const { startDate, endDate } = req.query;
-    
+
+    // Task 11: optional group-scope expansion. Defaults to [hospitalId] when
+    // no `X-Active-Scope: group` header is present (single-location behaviour).
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
     // Build date filters using raw SQL for proper date comparison
     const { sql } = await import('drizzle-orm');
     const dateFilters: any[] = [];
-    
+
     // Always filter out future surgeries - they have no data yet
     const today = new Date().toISOString().split('T')[0];
     dateFilters.push(sql`${surgeries.plannedDate} <= ${today}::date`);
-    
+
     if (startDate) {
       dateFilters.push(sql`${surgeries.plannedDate} >= ${startDate}::date`);
     }
     if (endDate) {
       dateFilters.push(sql`${surgeries.plannedDate} <= ${endDate}::date`);
     }
-    
-    // Get all surgeries for this hospital with their anesthesia records
+
+    // Get all surgeries for this/these hospital(s) with their anesthesia records
     const surgeriesData = await db
       .select({
         surgery: surgeries,
@@ -1171,7 +1269,7 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
       .from(surgeries)
       .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
       .where(and(
-        eq(surgeries.hospitalId, hospitalId),
+        hospitalScopeClause(surgeries.hospitalId, hospitalIds),
         eq(surgeries.isArchived, false),
         ...dateFilters
       ))
@@ -1596,6 +1694,17 @@ router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, 
   try {
     const { hospitalId } = req.params;
 
+    // Task 11: optional group-scope expansion.
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
     // Get all non-archived, non-cancelled, non-suspended surgeries with their anesthesia records
     const surgeriesData = await db
       .select({
@@ -1605,7 +1714,7 @@ router.get('/api/business/:hospitalId/anesthesia-nurse-hours', isAuthenticated, 
       .from(surgeries)
       .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
       .where(and(
-        eq(surgeries.hospitalId, hospitalId),
+        hospitalScopeClause(surgeries.hospitalId, hospitalIds),
         eq(surgeries.isArchived, false),
         eq(surgeries.isSuspended, false),
         ne(surgeries.status, 'cancelled')
@@ -1809,7 +1918,19 @@ router.get('/api/business/:hospitalId/referral-stats', isAuthenticated, isMarket
     const { hospitalId } = req.params;
     const { from, to } = req.query;
 
-    const filters = [eq(referralEvents.hospitalId, hospitalId)];
+    // Task 11: optional group-scope expansion. Marketing KPIs roll up across
+    // the whole group when `X-Active-Scope: group` is sent.
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
+    const filters: any[] = [hospitalScopeClause(referralEvents.hospitalId, hospitalIds)];
     if (from) filters.push(gte(referralEvents.createdAt, new Date(from as string)));
     if (to) filters.push(lte(referralEvents.createdAt, new Date(to as string)));
 

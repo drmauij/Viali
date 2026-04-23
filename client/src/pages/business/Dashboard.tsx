@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useEffect, useState } from "react";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -169,6 +171,37 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
 export default function BusinessDashboard() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState("month");
+  const activeHospital = useActiveHospital();
+
+  // Task 11: dashboard scope toggle — "This clinic" (default) vs. "All
+  // locations" (chain-wide). Only surfaced when the active hospital belongs
+  // to a group. Scope is stored as a URL param so the toggle is
+  // link-shareable and survives refresh; `getQueryFn` reads the same
+  // `?scope=group` marker to attach `X-Active-Scope: group` on each query.
+  const hospitalHasGroup = !!(activeHospital && activeHospital.groupId);
+  const [scope, setScope] = useState<"hospital" | "group">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("scope") === "group" ? "group" : "hospital";
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const current = params.get("scope");
+    if (scope === "group" && current !== "group") {
+      params.set("scope", "group");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    } else if (scope === "hospital" && current === "group") {
+      params.delete("scope");
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, [scope]);
+  // If the hospital loses its group (e.g. the user switched to a solo tenant),
+  // defensively collapse to hospital scope so we don't send a stale param.
+  useEffect(() => {
+    if (!hospitalHasGroup && scope === "group") {
+      setScope("hospital");
+    }
+  }, [hospitalHasGroup, scope]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
@@ -181,17 +214,38 @@ export default function BusinessDashboard() {
             {t('business.dashboard.subtitle')}
           </p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]" data-testid="select-period">
-            <SelectValue placeholder={t('business.dashboard.selectPeriod')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">{t('business.periods.week')}</SelectItem>
-            <SelectItem value="month">{t('business.periods.month')}</SelectItem>
-            <SelectItem value="quarter">{t('business.periods.quarter')}</SelectItem>
-            <SelectItem value="year">{t('business.periods.year')}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {hospitalHasGroup && (
+            <ToggleGroup
+              type="single"
+              value={scope}
+              onValueChange={(value) => {
+                if (value === "hospital" || value === "group") setScope(value);
+              }}
+              variant="outline"
+              size="sm"
+              data-testid="toggle-dashboard-scope"
+            >
+              <ToggleGroupItem value="hospital" aria-label="This clinic" data-testid="toggle-dashboard-scope-hospital">
+                {t('business.dashboard.scopeThisClinic', 'This clinic')}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="group" aria-label="All locations" data-testid="toggle-dashboard-scope-group">
+                {t('business.dashboard.scopeAllLocations', 'All locations')}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px]" data-testid="select-period">
+              <SelectValue placeholder={t('business.dashboard.selectPeriod')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">{t('business.periods.week')}</SelectItem>
+              <SelectItem value="month">{t('business.periods.month')}</SelectItem>
+              <SelectItem value="quarter">{t('business.periods.quarter')}</SelectItem>
+              <SelectItem value="year">{t('business.periods.year')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
