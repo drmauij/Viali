@@ -173,13 +173,23 @@ export default function BottomNav() {
     }
     
     if (activeModule === "admin") {
-      return [
+      const adminItems: NavItem[] = [
         { id: "admin-settings", icon: "fas fa-cog", label: t('bottomNav.admin.settings'), path: "/admin" },
         { id: "admin-clinical", icon: "fas fa-stethoscope", label: t('bottomNav.admin.clinical'), path: "/admin/clinical" },
         { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
         { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
         { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
       ];
+      // Platform-admin only: cross-tenant hospital group management.
+      if ((user as any)?.isPlatformAdmin) {
+        adminItems.push({
+          id: "admin-groups",
+          icon: "fas fa-sitemap",
+          label: "Groups",
+          path: "/admin/groups",
+        });
+      }
+      return adminItems;
     }
     
     if (activeModule === "business") {

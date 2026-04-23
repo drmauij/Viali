@@ -11,17 +11,22 @@ interface ProtectedRouteProps {
   requireClinic?: boolean;
   requireLogistic?: boolean;
   requireDoctorOrAdmin?: boolean;
+  // Cross-tenant platform admin (users.is_platform_admin). Independent of
+  // the active hospital selection — used for /admin/groups and similar
+  // platform-wide surfaces.
+  requirePlatformAdmin?: boolean;
 }
 
-export function ProtectedRoute({ 
-  children, 
-  requireAnesthesia, 
+export function ProtectedRoute({
+  children,
+  requireAnesthesia,
   requireSurgery,
   requireAdmin,
   requireBusiness,
   requireClinic,
   requireLogistic,
-  requireDoctorOrAdmin
+  requireDoctorOrAdmin,
+  requirePlatformAdmin
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -68,6 +73,15 @@ export function ProtectedRoute({
 
   if (!isAuthenticated) {
     return <Redirect to="/" />;
+  }
+
+  // Platform-admin routes bypass the per-hospital gate: they exist independently
+  // of the active-hospital selection. Non-platform-admins get redirected home.
+  if (requirePlatformAdmin) {
+    if (!(user as any)?.isPlatformAdmin) {
+      return <Redirect to="/" />;
+    }
+    return <>{children}</>;
   }
 
   // Wait for hospital data to be available before checking module access

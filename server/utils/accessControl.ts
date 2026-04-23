@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
+import { db } from "../db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import logger from "../logger";
 
 export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'marketing', 'guest'] as const;
@@ -799,4 +802,39 @@ export function requirePermission(permission: PermissionFlag) {
       res.status(500).json({ message: "Error checking permissions" });
     }
   };
+}
+
+/**
+ * Platform-admin gate. Cross-tenant: does NOT require X-Active-Hospital-Id.
+ * Reads users.is_platform_admin for the authenticated user and allows through
+ * only when the flag is true. Used by /api/admin/groups/* and any other
+ * platform-wide operations the platform operator owns.
+ */
+export async function requirePlatformAdmin(
+  req: any,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    const [u] = await db
+      .select({ isPlatformAdmin: users.isPlatformAdmin })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (!u?.isPlatformAdmin) {
+      return res.status(403).json({
+        message: "Platform admin access required",
+        code: "PLATFORM_ADMIN_REQUIRED",
+      });
+    }
+    return next();
+  } catch (error) {
+    logger.error("Error checking platform admin access:", error);
+    return res
+      .status(500)
+      .json({ message: "Error checking platform admin access" });
+  }
 }

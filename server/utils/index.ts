@@ -24,6 +24,7 @@ export {
   READ_ONLY_ROLES,
   requirePermission,
   userHasPermission,
+  requirePlatformAdmin,
   type PermissionFlag
 } from "./accessControl";
 export {

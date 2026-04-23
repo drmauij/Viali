@@ -347,6 +347,8 @@ router.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
       hasKioskPin: !!kioskPinHash,
       hospitals,
       mustChangePassword: user.mustChangePassword || false,
+      // Explicit: clients gate the /admin/groups nav + pages on this flag.
+      isPlatformAdmin: !!user.isPlatformAdmin,
     });
   } catch (error) {
     logger.error("Error fetching user:", error);

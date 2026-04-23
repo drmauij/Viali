@@ -3,6 +3,7 @@ import express from "express";
 import authRouter from "./auth";
 import inventoryRouter from "./inventory";
 import adminRouter from "./admin";
+import adminGroupsRouter from "./adminGroups";
 import checklistsRouter from "./checklists";
 import anesthesiaRouter from "./anesthesia";
 import businessRouter from "./business";
@@ -47,6 +48,10 @@ export function registerDomainRoutes(app: Express) {
   app.use(inventoryRouter);
   app.use(itemsRouter);
   app.use(ordersRouter);
+  // Multi-location groups (platform-admin only). Must be mounted BEFORE
+  // adminRouter because adminRouter uses /api/admin/:hospitalId/... which
+  // would otherwise swallow /api/admin/groups and /api/admin/hospitals.
+  app.use(adminGroupsRouter);
   app.use(adminRouter);
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);

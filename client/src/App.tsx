@@ -32,6 +32,8 @@ const AdminIntegrations = React.lazy(() => import("@/pages/admin/Integrations"))
 const AdminUsers = React.lazy(() => import("@/pages/admin/Users"));
 const AdminBilling = React.lazy(() => import("@/pages/admin/Billing"));
 const AdminPostopOrderTemplates = React.lazy(() => import("@/pages/admin/PostopOrderTemplates"));
+const AdminGroups = React.lazy(() => import("@/pages/admin/Groups"));
+const AdminGroupDetail = React.lazy(() => import("@/pages/admin/GroupDetail"));
 const Signup = React.lazy(() => import("@/pages/Signup"));
 const ResetPassword = React.lazy(() => import("@/pages/ResetPassword"));
 const ChangePasswordDialog = React.lazy(() => import("@/components/ChangePasswordDialog"));
@@ -308,6 +310,9 @@ function Router() {
               <Route path="/admin/integrations">{() => <ProtectedRoute requireAdmin><AdminIntegrations /></ProtectedRoute>}</Route>
               <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
               <Route path="/admin/postop-order-templates">{() => <ProtectedRoute requireAdmin><AdminPostopOrderTemplates /></ProtectedRoute>}</Route>
+              {/* Platform-admin: hospital groups (cross-tenant). Uses requirePlatformAdmin instead of requireAdmin — does not depend on active-hospital role. */}
+              <Route path="/admin/groups">{() => <ProtectedRoute requirePlatformAdmin><AdminGroups /></ProtectedRoute>}</Route>
+              <Route path="/admin/groups/:id">{() => <ProtectedRoute requirePlatformAdmin><AdminGroupDetail /></ProtectedRoute>}</Route>
               <Route path="/admin/cameras">{() => <Redirect to="/admin/integrations" />}</Route>
               {/* Business Module - requires business unit access */}
               {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
