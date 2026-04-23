@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:ab-demo": "tsx server/scripts/seedAbDemo.ts",
+    "seed:beauty2go-demo": "tsx server/scripts/seedBeauty2goDemo.ts",
     "prepare": "husky"
   },
   "dependencies": {
