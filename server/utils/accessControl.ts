@@ -1260,3 +1260,91 @@ export async function requirePlatformAdmin(
       .json({ message: "Error checking platform admin access" });
   }
 }
+
+/**
+ * Group-admin gate. Used by `/api/business/group/*` (Task 13).
+ *
+ * Allows through when ONE of the following holds:
+ *  - The caller is a platform admin (implicit group admin everywhere).
+ *  - The caller has `role = "group_admin"` at any hospital that shares a group
+ *    with the currently-active hospital (`X-Active-Hospital-Id`).
+ *
+ * 401 on no user, 400 when the active hospital is not part of any group
+ * (mirrors `adminGroups` "no group" semantics — group admins can only
+ * operate within a group), 403 when the caller is not privileged.
+ *
+ * On success sets `req.verifiedHospitalId` to the active hospital and
+ * `req._groupId` to the resolved group id so handlers can skip the lookup.
+ */
+export async function requireGroupAdmin(
+  req: any,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    const activeHospitalId = getActiveHospitalIdFromRequest(req);
+    if (!activeHospitalId) {
+      return res.status(400).json({
+        message: "Active hospital required (X-Active-Hospital-Id header).",
+        code: "ACTIVE_HOSPITAL_REQUIRED",
+      });
+    }
+
+    // Platform admins are implicit group admins for every group.
+    if (await isPlatformAdminCached(userId, req)) {
+      const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+      if (!groupId) {
+        return res.status(400).json({
+          message: "Active hospital is not in a group.",
+          code: "NO_GROUP",
+        });
+      }
+      req.verifiedHospitalId = activeHospitalId;
+      req._groupId = groupId;
+      return next();
+    }
+
+    // Verify the caller actually has a role at the active hospital — otherwise
+    // a forged header could be used to probe other groups.
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (!userHospitals.some((h) => h.id === activeHospitalId)) {
+      return res.status(403).json({
+        message: "No access to active hospital.",
+        code: "HOSPITAL_ACCESS_DENIED",
+      });
+    }
+
+    const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+    if (!groupId) {
+      return res.status(400).json({
+        message: "Active hospital is not in a group.",
+        code: "NO_GROUP",
+      });
+    }
+
+    const isGroupAdmin = await userIsGroupAdminForHospital(
+      userId,
+      activeHospitalId,
+      req,
+    );
+    if (!isGroupAdmin) {
+      return res.status(403).json({
+        message: "Group admin access required.",
+        code: "GROUP_ADMIN_REQUIRED",
+      });
+    }
+
+    req.verifiedHospitalId = activeHospitalId;
+    req._groupId = groupId;
+    return next();
+  } catch (error) {
+    logger.error("Error checking group admin access:", error);
+    return res
+      .status(500)
+      .json({ message: "Error checking group admin access" });
+  }
+}

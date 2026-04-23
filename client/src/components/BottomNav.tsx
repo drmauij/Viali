@@ -195,6 +195,16 @@ export default function BottomNav() {
     if (activeModule === "business") {
       const businessItems: NavItem[] = [];
 
+      // Group-admin surface (Task 13). Shown alongside other business entries
+      // when the user has a group_admin role somewhere AND the active hospital
+      // is part of a group. The server is authoritative; this is UX.
+      const userHospitals = (user as any)?.hospitals ?? [];
+      const isGroupAdmin =
+        (user as any)?.isPlatformAdmin ||
+        userHospitals.some((h: any) => h.role === "group_admin");
+      const hasGroupContext = !!activeHospital?.groupId;
+      const showManageGroup = isGroupAdmin && hasGroupContext;
+
       if (activeHospital?.role === 'marketing') {
         // Marketing role: only Marketing page (Flows hidden for now)
         businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/marketing" });
@@ -214,6 +224,14 @@ export default function BottomNav() {
       } else {
         // Staff role users: Administration (surgery planning) only
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business" });
+      }
+      if (showManageGroup) {
+        businessItems.push({
+          id: "business-group",
+          icon: "fas fa-network-wired",
+          label: t('bottomNav.business.group', 'Manage Group'),
+          path: "/business/group",
+        });
       }
       return businessItems;
     }
@@ -258,7 +276,7 @@ export default function BottomNav() {
       inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
     }
     return inventoryItems;
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, activeHospital?.canManageControlled, hasPendingChecklists, addons.clinic, addons.questionnaire]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, activeHospital?.canManageControlled, activeHospital?.groupId, hasPendingChecklists, addons.clinic, addons.questionnaire, user]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {

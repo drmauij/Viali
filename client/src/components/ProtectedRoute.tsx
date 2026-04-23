@@ -15,6 +15,11 @@ interface ProtectedRouteProps {
   // the active hospital selection — used for /admin/groups and similar
   // platform-wide surfaces.
   requirePlatformAdmin?: boolean;
+  // Group admin: the user must have a `group_admin` role row AND the active
+  // hospital must be part of a group. Used by `/business/group` (Task 13).
+  // The SERVER is authoritative — this flag is UX so group-admin surfaces
+  // don't flash for users who can't reach them.
+  requireGroupAdmin?: boolean;
 }
 
 export function ProtectedRoute({
@@ -26,7 +31,8 @@ export function ProtectedRoute({
   requireClinic,
   requireLogistic,
   requireDoctorOrAdmin,
-  requirePlatformAdmin
+  requirePlatformAdmin,
+  requireGroupAdmin
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -137,6 +143,20 @@ export function ProtectedRoute({
   // Check doctor or admin role access
   if (requireDoctorOrAdmin && !hasDoctorAccess && !hasAdminAccess) {
     return <Redirect to={defaultRedirect} />;
+  }
+
+  // Group-admin gate (Task 13). Relies on the server-side role rows that
+  // `GET /api/auth/user` already attaches to each hospital in `user.hospitals`.
+  // A user is a group admin if they have any `group_admin` row AND the
+  // active hospital has a `groupId`. Platform admins bypass this check.
+  if (requireGroupAdmin) {
+    const hasGroupAdminRole =
+      (user as any)?.isPlatformAdmin ||
+      userHospitals.some((h: any) => h.role === "group_admin");
+    const activeHasGroup = !!(activeHospital as any)?.groupId;
+    if (!hasGroupAdminRole || !activeHasGroup) {
+      return <Redirect to={defaultRedirect} />;
+    }
   }
 
   return <>{children}</>;

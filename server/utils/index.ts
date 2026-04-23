@@ -25,6 +25,7 @@ export {
   requirePermission,
   userHasPermission,
   requirePlatformAdmin,
+  requireGroupAdmin,
   canAccessHospitalInGroup,
   userIsGroupAdminForHospital,
   userHasGroupAwareHospitalAccess,

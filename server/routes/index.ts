@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import inventoryRouter from "./inventory";
 import adminRouter from "./admin";
 import adminGroupsRouter from "./adminGroups";
+import businessGroupsRouter from "./businessGroups";
 import checklistsRouter from "./checklists";
 import anesthesiaRouter from "./anesthesia";
 import businessRouter from "./business";
@@ -52,6 +53,10 @@ export function registerDomainRoutes(app: Express) {
   // adminRouter because adminRouter uses /api/admin/:hospitalId/... which
   // would otherwise swallow /api/admin/groups and /api/admin/hospitals.
   app.use(adminGroupsRouter);
+  // Group-admin surface (Task 13). Separate from platform-admin group routes.
+  // Mount before businessRouter since businessRouter uses /api/business/:hospitalId/*
+  // and would otherwise consume `/api/business/group/*` paths.
+  app.use(businessGroupsRouter);
   app.use(adminRouter);
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);

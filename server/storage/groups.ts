@@ -356,6 +356,98 @@ export async function regenerateGroupBookingToken(id: string): Promise<string> {
   return token;
 }
 
+/**
+ * Aggregate counts for the Task 13 group admin overview.
+ *
+ * - `patientCount`: distinct patients linked to any hospital in `hospitalIds`
+ *   via `patient_hospitals`. Mirrors the list-scope semantics used in Tasks
+ *   5-6 so the overview tile matches what the patients page reports.
+ * - `treatmentsThisMonth`: treatments whose `performed_at` falls in the
+ *   current UTC calendar month. Phase 1 accepts UTC bucketing — hospitals
+ *   in a group can span timezones; a consistent anchor avoids surprising
+ *   per-location drift. A future enhancement can introduce per-timezone
+ *   windowing once groups span truly distinct TZs.
+ * - `bookingsThisWeek`: clinic_appointments booked (by appointment_date)
+ *   in the current week. Rolling 7-day window anchored at midnight UTC
+ *   for the same reason.
+ *
+ * Uses a single SQL statement so the three counts share one DB round-trip.
+ */
+export async function getGroupOverviewCounts(
+  hospitalIds: string[],
+): Promise<{
+  patientCount: number;
+  treatmentsThisMonth: number;
+  bookingsThisWeek: number;
+}> {
+  if (hospitalIds.length === 0) {
+    return { patientCount: 0, treatmentsThisMonth: 0, bookingsThisWeek: 0 };
+  }
+  // Build an `IN (...)` fragment from the ids array. `sql.raw` on the ids
+  // would risk injection; `sql.join` + placeholders is safe and keeps the
+  // query parameterized. `ANY(array)` via parameter needs an explicit
+  // text[]/uuid[] cast which is awkward across drivers — IN is simpler.
+  const idList = sql.join(
+    hospitalIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const result = await db.execute<{
+    patient_count: number | string;
+    treatments_this_month: number | string;
+    bookings_this_week: number | string;
+  }>(sql`
+    SELECT
+      (
+        SELECT COUNT(DISTINCT ph.patient_id)::int
+        FROM patient_hospitals ph
+        WHERE ph.hospital_id IN (${idList})
+      ) AS patient_count,
+      (
+        SELECT COUNT(*)::int
+        FROM treatments t
+        WHERE t.hospital_id IN (${idList})
+          AND t.performed_at >= date_trunc('month', now() AT TIME ZONE 'UTC')
+          AND t.performed_at < date_trunc('month', now() AT TIME ZONE 'UTC') + interval '1 month'
+      ) AS treatments_this_month,
+      (
+        SELECT COUNT(*)::int
+        FROM clinic_appointments ca
+        WHERE ca.hospital_id IN (${idList})
+          AND ca.appointment_date >= (date_trunc('week', now() AT TIME ZONE 'UTC'))::date
+          AND ca.appointment_date < (date_trunc('week', now() AT TIME ZONE 'UTC') + interval '7 days')::date
+      ) AS bookings_this_week
+  `);
+  const row = result.rows[0];
+  return {
+    patientCount: Number(row?.patient_count ?? 0),
+    treatmentsThisMonth: Number(row?.treatments_this_month ?? 0),
+    bookingsThisWeek: Number(row?.bookings_this_week ?? 0),
+  };
+}
+
+/**
+ * Returns the list of users who have ANY role at any hospital in the group,
+ * with their email. Used by the Task 13 promote UI to populate the user
+ * picker (group admins can only promote users who already have a presence
+ * in the group — mirrors the `promoteGroupAdmin` invariant).
+ */
+export async function listGroupUsers(groupId: string) {
+  const members = await listGroupMembers(groupId);
+  const memberIds = members.map((h) => h.id);
+  if (memberIds.length === 0) return [];
+  return db
+    .selectDistinct({
+      userId: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      hospitalId: userHospitalRoles.hospitalId,
+    })
+    .from(userHospitalRoles)
+    .innerJoin(users, eq(users.id, userHospitalRoles.userId))
+    .where(inArray(userHospitalRoles.hospitalId, memberIds));
+}
+
 export async function listAllHospitalsWithGroup() {
   return db
     .select({
