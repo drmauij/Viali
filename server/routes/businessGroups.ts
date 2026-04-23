@@ -23,8 +23,12 @@ import logger from "../logger";
 
 const router = Router();
 
-router.use(isAuthenticated);
-router.use(requireGroupAdmin);
+// Scope middlewares to this router's own paths. Without a path prefix,
+// `router.use(fn)` fires on every request reaching the app (this router is
+// mounted at root via `app.use(businessGroupsRouter)`), which would 400/401
+// unrelated public endpoints and the SPA root.
+router.use("/api/business/group", isAuthenticated);
+router.use("/api/business/group", requireGroupAdmin);
 
 // GET /api/business/group/overview — group id + name, member hospitals, counts.
 router.get("/api/business/group/overview", async (req: any, res) => {

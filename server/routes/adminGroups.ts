@@ -11,8 +11,17 @@ const router = Router();
 // isAuthenticated first (101 -> req.user populated), then requirePlatformAdmin
 // (checks users.is_platform_admin for req.user.id). Cross-tenant operations —
 // deliberately no X-Active-Hospital-Id requirement.
-router.use(isAuthenticated);
-router.use(requirePlatformAdmin);
+//
+// IMPORTANT: we MUST scope the middleware to this router's own paths. Without
+// a path prefix, `router.use(fn)` runs `fn` on every request that reaches
+// the app (this router is `app.use(adminGroupsRouter)`-mounted at root), which
+// would 401 public endpoints like `/api/public/group-booking/:token` and the
+// unauthenticated SPA root.
+router.use(["/api/admin/groups", "/api/admin/hospitals"], isAuthenticated);
+router.use(
+  ["/api/admin/groups", "/api/admin/hospitals"],
+  requirePlatformAdmin,
+);
 
 router.get("/api/admin/groups", async (_req, res) => {
   try {
