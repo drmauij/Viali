@@ -1618,6 +1618,13 @@
       "when": 1778400000000,
       "tag": "0230_medication_configs_multi_config",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1778500000000,
+      "tag": "0231_multi_location_groups",
+      "breakpoints": true
     }
   ]
 }

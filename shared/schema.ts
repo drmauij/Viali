@@ -60,6 +60,18 @@ export const users = pgTable("users", {
   gln: varchar("gln"), // 13-digit Global Location Number (provider identification)
   zsrNumber: varchar("zsr_number"), // ZSR number for Swiss medical billing
   archivedAt: timestamp("archived_at"), // Soft delete - archived users are hidden from lists but preserved for audit
+  isPlatformAdmin: boolean("is_platform_admin").default(false).notNull(), // Platform-level admin (create/manage hospital groups)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Hospital groups — chain/brand layer above hospitals (multi-location groups).
+// A group lets one brand (e.g. "beauty2go") unify multiple hospitals for
+// patient rostering, shared services, cross-location booking, etc.
+export const hospitalGroups = pgTable("hospital_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  bookingToken: varchar("booking_token").unique(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -135,9 +147,42 @@ export const hospitals = pgTable("hospitals", {
   enableReferralOnBooking: boolean("enable_referral_on_booking").default(false),
   noShowFeeMessage: text("no_show_fee_message"), // When set, enables no-show fee notice at booking + in 24h reminder
   hidePatientCancel: boolean("hide_patient_cancel").default(false), // When true, hides cancel option from patient-facing appointment page + softens SMS/email wording
+  groupId: varchar("group_id").references(() => hospitalGroups.id), // Optional hospital_groups FK — ties this hospital to a brand/chain
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Patient ↔ hospital roster: which locations a patient has interacted with.
+// Used by cross-location groups to present a unified patient list across a
+// brand while still scoping writes (clinical data) to the originating
+// hospital. Backfilled from `patients.hospital_id` on migration.
+export const patientHospitals = pgTable("patient_hospitals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  addedAt: timestamp("added_at").defaultNow(),
+  addedBy: varchar("added_by").references(() => users.id),
+}, (table) => [
+  uniqueIndex("unique_patient_hospital").on(table.patientId, table.hospitalId),
+  index("idx_patient_hospitals_hospital").on(table.hospitalId),
+  index("idx_patient_hospitals_patient").on(table.patientId),
+]);
+
+// Cross-location clinical edits audit. When a user from one hospital edits a
+// patient that belongs to another hospital in the same group, each edited
+// field is logged here for compliance.
+export const patientEditAudit = pgTable("patient_edit_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+  editingUserId: varchar("editing_user_id").notNull().references(() => users.id),
+  editingHospitalId: varchar("editing_hospital_id").notNull().references(() => hospitals.id),
+  field: varchar("field").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  editedAt: timestamp("edited_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_edit_audit_patient").on(table.patientId, table.editedAt.desc()),
+]);
 
 // Units
 export const units = pgTable("units", {
@@ -169,7 +214,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   userId: varchar("user_id").notNull().references(() => users.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
-  role: varchar("role").notNull(), // doctor, nurse, admin
+  role: varchar("role").notNull(), // doctor, nurse, admin, group_admin (cross-hospital admin within a hospital_group)
   isBookable: boolean("is_bookable").default(false), // Whether user can be booked for appointments in this unit
   publicCalendarEnabled: boolean("public_calendar_enabled").default(false), // Whether provider appears on public /book page (requires isBookable=true)
   isDefaultLogin: boolean("is_default_login").default(false), // Default unit/role to load on login
@@ -3954,9 +3999,15 @@ export const clinicInvoices = pgTable("clinic_invoices", {
 ]);
 
 // Clinic Services - Billable services (not physical inventory items)
+// Hybrid ownership: a clinic service is owned by EITHER a hospital OR a
+// hospital_group (but not both, and never neither). Drizzle can't model a
+// SQL CHECK constraint directly — the invariant is enforced in the SQL
+// migration (`clinic_services_owner_xor_check`) and must be respected on
+// every write path.
 export const clinicServices = pgTable("clinic_services", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id),
+  groupId: varchar("group_id").references(() => hospitalGroups.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
   name: varchar("name").notNull(),
   description: text("description"),
