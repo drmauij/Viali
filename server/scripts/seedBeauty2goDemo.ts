@@ -442,13 +442,21 @@ export async function seed(): Promise<SeedSummary> {
 
   type Location = { hospital: typeof hospitals.$inferSelect; unit: typeof units.$inferSelect };
   const locationRows: Location[] = [];
-  for (const loc of LOCATIONS) {
+  // Deterministic per-hospital booking tokens so each demo location has a
+  // public /book/:hospitalToken URL. Without these, the /book/g/:token group
+  // picker (BookGroup.tsx) would filter every hospital out since it links
+  // each row via `hospital.bookingToken`.
+  const hospitalBookingToken = (idx: number) =>
+    `b2g-demo-${idx.toString().padStart(2, "0")}-${Date.now().toString(36)}`;
+  for (let i = 0; i < LOCATIONS.length; i++) {
+    const loc = LOCATIONS[i];
     const [h] = await db
       .insert(hospitals)
       .values({
         name: loc.name,
         address: loc.address,
         companyPhone: loc.phone,
+        bookingToken: hospitalBookingToken(i),
         groupId: group.id,
         timezone: "Europe/Zurich",
         currency: "CHF",
