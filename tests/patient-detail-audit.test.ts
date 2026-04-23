@@ -450,3 +450,40 @@ describe("GET /api/patients/:id/hospitals — roster endpoint", () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Piece D: patient documents endpoint — group-aware access.
+//
+// The documents sub-route used to use the legacy `hospitals.some(h => h.id ===
+// patient.hospitalId)` check, which denied cross-location staff (in the same
+// group) access to a visiting patient's photos/documents. The final review
+// rewired this and every other patient sub-route to
+// `userHasGroupAwareHospitalAccess` — these tests pin that behavior.
+// ---------------------------------------------------------------------------
+describe("GET /api/patients/:id/documents — group-aware access", () => {
+  it("user at the home hospital lists documents: 200", async () => {
+    const app = buildApp(userAtA);
+    const res = await request(app)
+      .get(`/api/patients/${patientP}/documents`)
+      .set("x-active-hospital-id", hospA);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("user at a sibling hospital in the same group lists documents: 200", async () => {
+    const app = buildApp(userAtB);
+    const res = await request(app)
+      .get(`/api/patients/${patientP}/documents`)
+      .set("x-active-hospital-id", hospB);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("user at an ungrouped hospital cannot list documents in a group: 403", async () => {
+    const app = buildApp(userAtC);
+    const res = await request(app)
+      .get(`/api/patients/${patientP}/documents`)
+      .set("x-active-hospital-id", hospC);
+    expect(res.status).toBe(403);
+  });
+});

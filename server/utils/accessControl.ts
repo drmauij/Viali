@@ -1000,34 +1000,43 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
   }
 }
 
-// Middleware to verify user has admin role for the hospital
-// Must be placed AFTER requireWriteAccess (which sets req.resolvedRole)
+// Middleware to verify user has admin role for the hospital.
+//
+// Admin operations (e.g. shift management) are intentionally hospital-scoped,
+// NOT group-scoped. `req.resolvedRole` is populated by `requireWriteAccess`
+// via `getGroupAwareUserRole`, which bubbles up the user's BEST role across
+// the group — that would silently grant an admin at hospital A the ability
+// to perform admin ops at hospital B in the same group. To prevent that, we
+// ignore `req.resolvedRole` here and re-check the user's DIRECT role at the
+// resolved hospital. Platform admins still bypass.
+//
+// Must be placed AFTER requireWriteAccess (which sets req.resolvedHospitalId).
 export async function requireAdminWriteAccess(req: any, res: Response, next: NextFunction) {
   try {
-    // If requireWriteAccess already resolved the role, use it
-    if (req.resolvedRole) {
-      if (req.resolvedRole !== 'admin') {
-        return res.status(403).json({
-          message: "Admin access required",
-          code: "ADMIN_REQUIRED"
-        });
-      }
-      return next();
-    }
-
-    // Fallback: resolve ourselves
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const hospitalId = await resolveHospitalIdFromRequest(req, userId);
+    // Platform admins bypass the per-hospital check.
+    if (await isPlatformAdminCached(userId, req)) {
+      return next();
+    }
+
+    const hospitalId =
+      req.resolvedHospitalId ??
+      (await resolveHospitalIdFromRequest(req, userId));
     if (!hospitalId) {
       return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
     }
 
-    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
-    if (role !== 'admin') {
+    // Direct-role check only: the user must hold `admin` AT this specific
+    // hospital. We deliberately do NOT accept group-escalated roles here.
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasDirectAdmin = hospitals.some(
+      (h) => h.id === hospitalId && h.role === 'admin',
+    );
+    if (!hasDirectAdmin) {
       return res.status(403).json({ message: "Admin access required", code: "ADMIN_REQUIRED" });
     }
 

@@ -253,9 +253,6 @@ export async function listGroupAdmins(groupId: string) {
  * at the target hospital. Keeps the user's existing doctor/nurse/admin rows
  * intact. Fails if the user has no existing role at the hospital — the
  * invariant the spec asks for (prevents accidental cross-group promotion leaks).
- *
- * TODO(task-13): this will be re-exposed under /api/business/group/admins so
- * group admins (not just platform admins) can self-manage their team.
  */
 export async function promoteGroupAdmin(
   groupId: string,
@@ -296,7 +293,6 @@ export async function promoteGroupAdmin(
   });
 }
 
-// TODO(task-13): re-expose under /api/business/group/admins for group admins.
 export async function revokeGroupAdmin(userId: string, hospitalId: string) {
   await db
     .delete(userHospitalRoles)

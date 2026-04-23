@@ -161,7 +161,6 @@ const promoteSchema = z.object({
   hospitalId: z.string().uuid(),
 });
 
-// TODO(task-13): re-expose under /api/business/group/admins for group-admin use.
 router.post("/api/admin/groups/:id/admins", async (req, res) => {
   const parsed = promoteSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -180,7 +179,6 @@ router.post("/api/admin/groups/:id/admins", async (req, res) => {
   }
 });
 
-// TODO(task-13): re-expose under /api/business/group/admins for group-admin use.
 router.delete(
   "/api/admin/groups/:id/admins/:userId/:hospitalId",
   async (req, res) => {

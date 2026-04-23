@@ -21,6 +21,7 @@ import {
   requireWriteAccess,
   requireStrictWriteAccess,
   requireHospitalAccess,
+  requireAdminWriteAccess,
 } from "../server/utils/accessControl";
 
 /**
@@ -786,5 +787,81 @@ describe("resolveHospitalIdFromRequest — forged-header fall-through", () => {
     // The order of the resolver is: (1) trusted header → (2) params/body.
     // Since header is trusted, resolvedHospitalId === hospA1 (the header).
     expect(res.body.resolvedHospitalId).toBe(hospA1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix 3: `requireAdminWriteAccess` must stay hospital-scoped, not group-scoped.
+//
+// `requireWriteAccess` sets `req.resolvedRole` via `getGroupAwareUserRole`,
+// which bubbles up the user's BEST role across the group. Previously,
+// `requireAdminWriteAccess` trusted that resolved role and granted cross-group
+// admin ops. It now re-checks the user's DIRECT role at the resolved hospital.
+// ---------------------------------------------------------------------------
+describe("requireAdminWriteAccess — direct-role only (hospital-scoped)", () => {
+  // To pin the fix, simulate the exact post-`requireWriteAccess` state the old
+  // code would trust: `resolvedHospitalId = <some hospital>` and
+  // `resolvedRole = 'admin'`. Previously, `requireAdminWriteAccess` short-
+  // circuited on `req.resolvedRole === 'admin'` and called next() — so any
+  // path that bubbled `admin` up via `getGroupAwareUserRole` (step 4 of the
+  // role resolver when the user has no direct role at the target but DOES
+  // hold admin elsewhere in the resource's group) silently granted cross-
+  // hospital admin privileges. The fix ignores `resolvedRole` and re-checks
+  // the user's DIRECT role at the resolved hospital.
+  function buildPreResolvedApp(userId: string, preResolvedHospitalId: string) {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res, next) => {
+      req.user = { id: userId };
+      // Simulate the state after a successful `requireWriteAccess` where the
+      // resolver landed on `preResolvedHospitalId` and bubbled up 'admin' via
+      // the group-aware role lookup.
+      req.resolvedHospitalId = preResolvedHospitalId;
+      req.resolvedRole = "admin";
+      next();
+    });
+    app.post(
+      "/admin-op",
+      requireAdminWriteAccess,
+      (_req: any, res: any) => res.json({ ok: true }),
+    );
+    return app;
+  }
+
+  it("admin at own hospital: 200 (direct-role admin)", async () => {
+    // userInA1 has `admin` directly at hospA1; resolvedHospitalId = hospA1.
+    // The fix explicitly looks for a direct admin row at the resolved hospital
+    // (not the group-aware `resolvedRole`) — this happy path must still pass.
+    const app = buildPreResolvedApp(userInA1, hospA1);
+    const res = await request(app).post(`/admin-op`).send({});
+    expect(res.status).toBe(200);
+  });
+
+  it("admin at hospA1 targeting same-group sibling hospA2: 403 (no direct admin)", async () => {
+    // The bug the fix closes: userInA1 has admin at hospA1 but NOT at hospA2.
+    // The old middleware trusted `req.resolvedRole === 'admin'` (bubbled up
+    // by `getGroupAwareUserRole` step 4) and let the request through. The
+    // fix re-checks direct role at `resolvedHospitalId = hospA2` and denies.
+    const app = buildPreResolvedApp(userInA1, hospA2);
+    const res = await request(app).post(`/admin-op`).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("ADMIN_REQUIRED");
+  });
+
+  it("group_admin at hospA1 targeting hospA2: 403 (group_admin is not admin)", async () => {
+    // group_admin is write-capable but NOT admin. Admin-only ops (shifts)
+    // must stay out of reach — no indirect bubble-up path grants them.
+    const app = buildPreResolvedApp(userGroupAdminA, hospA2);
+    const res = await request(app).post(`/admin-op`).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("ADMIN_REQUIRED");
+  });
+
+  it("platform admin: 200 regardless of hospital (preserved bypass)", async () => {
+    // Platform admins (`users.is_platform_admin = true`) bypass the per-
+    // hospital direct-role check, matching prior behavior.
+    const app = buildPreResolvedApp(userPlatform, hospA2);
+    const res = await request(app).post(`/admin-op`).send({});
+    expect(res.status).toBe(200);
   });
 });

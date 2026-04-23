@@ -449,6 +449,94 @@ describe("DELETE /api/clinic/:hospitalId/services/:serviceId", () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/clinic/:hospitalId/billable-services — group-aware widening.
+//
+// The endpoint used to filter strictly on `hospital_id = :X` with an
+// `innerJoin(units)`, silently hiding group-owned services (hospital_id NULL,
+// unit_id NULL). The fix widens the WHERE to include same-group services and
+// switches to `leftJoin(units)` so group rows survive.
+// ---------------------------------------------------------------------------
+describe("GET /api/clinic/:hospitalId/billable-services", () => {
+  async function insertBillableHospitalService(
+    hospitalId: string,
+    unitId: string,
+    name: string,
+  ) {
+    const [s] = await db
+      .insert(clinicServices)
+      .values({ hospitalId, unitId, name, isInvoiceable: true } as any)
+      .returning();
+    createdServiceIds.push(s.id);
+    return s;
+  }
+  async function insertBillableGroupService(groupId: string, name: string) {
+    const [s] = await db
+      .insert(clinicServices)
+      .values({
+        groupId,
+        hospitalId: null,
+        unitId: null,
+        name,
+        isInvoiceable: true,
+      } as any)
+      .returning();
+    createdServiceIds.push(s.id);
+    return s;
+  }
+
+  it("returns group-owned billable services at a grouped hospital", async () => {
+    const local = await insertBillableHospitalService(
+      hospA,
+      unitA,
+      `Bill-Local-${uniq()}`,
+    );
+    const grp = await insertBillableGroupService(
+      groupG,
+      `Bill-Grp-${uniq()}`,
+    );
+
+    const app = buildApp(userHospitalAdminA, hospA);
+    const res = await request(app).get(`/api/clinic/${hospA}/billable-services`);
+    expect(res.status).toBe(200);
+    const ids = res.body.map((r: any) => r.id);
+    expect(ids).toContain(local.id);
+    // The regression under test: group service (unit_id NULL) previously
+    // disappeared because of the `innerJoin(units)` + `hospital_id = X` filter.
+    expect(ids).toContain(grp.id);
+
+    // Group rows should carry null unitId / unitName; hospital rows keep both.
+    const grpRow = res.body.find((r: any) => r.id === grp.id);
+    expect(grpRow.unitId).toBeNull();
+    expect(grpRow.unitName).toBeNull();
+    const localRow = res.body.find((r: any) => r.id === local.id);
+    expect(localRow.unitId).toBe(unitA);
+    expect(localRow.unitName).toBe("Clinic A");
+  });
+
+  it("ungrouped hospital only sees its own billable services (no regression)", async () => {
+    const localSolo = await insertBillableHospitalService(
+      hospSolo,
+      unitSolo,
+      `Bill-Solo-${uniq()}`,
+    );
+    // A group-owned service that must NOT appear for the solo hospital.
+    const grp = await insertBillableGroupService(
+      groupG,
+      `Bill-Grp-Excl-${uniq()}`,
+    );
+
+    const app = buildApp(userSoloAdmin, hospSolo);
+    const res = await request(app).get(
+      `/api/clinic/${hospSolo}/billable-services`,
+    );
+    expect(res.status).toBe(200);
+    const ids = res.body.map((r: any) => r.id);
+    expect(ids).toContain(localSolo.id);
+    expect(ids).not.toContain(grp.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // XOR check constraint — spot-check
 // ---------------------------------------------------------------------------
 describe("clinic_services XOR check constraint", () => {

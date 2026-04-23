@@ -2449,7 +2449,13 @@ router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, requireStr
 router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, requireStrictHospitalAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    
+
+    // Include both hospital-local and group-owned services so invoices on a
+    // chain-owned location (beauty2go etc.) can bill services configured at
+    // the group level. `unitId` is NULL for group services, so use a
+    // `leftJoin` to keep them in the result set.
+    const groupId = await getHospitalGroupIdCached(hospitalId, req);
+
     // Get all services marked as billable from all units in the hospital
     const billableServices = await db
       .select({
@@ -2460,10 +2466,13 @@ router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, require
         unitId: clinicServices.unitId,
       })
       .from(clinicServices)
-      .innerJoin(units, eq(clinicServices.unitId, units.id))
+      .leftJoin(units, eq(clinicServices.unitId, units.id))
       .where(
         and(
-          eq(clinicServices.hospitalId, hospitalId),
+          or(
+            eq(clinicServices.hospitalId, hospitalId),
+            groupId ? eq(clinicServices.groupId, groupId) : sql`false`,
+          ),
           eq(clinicServices.isInvoiceable, true)
         )
       )

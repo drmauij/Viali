@@ -262,8 +262,7 @@ router.post('/api/patients/:id/archive', isAuthenticated, requireWriteAccess, as
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, existingPatient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -289,8 +288,7 @@ router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, 
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, existingPatient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -327,8 +325,7 @@ router.post('/api/patients/:id/card-image/upload-url', isAuthenticated, requireW
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -398,8 +395,7 @@ router.patch('/api/patients/:id/card-image', isAuthenticated, requireWriteAccess
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -441,8 +437,7 @@ router.delete('/api/patients/:id/card-image', isAuthenticated, requireWriteAcces
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -498,8 +493,7 @@ router.get('/api/patients/:id/card-image/:cardType/:side', isAuthenticated, asyn
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -551,11 +545,9 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    logger.info(`[Documents] getUserHospitals took ${Date.now() - startTime}ms total`);
-    
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
-    
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
+    logger.info(`[Documents] access check took ${Date.now() - startTime}ms total`);
+
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -642,8 +634,7 @@ router.post('/api/patients/:id/documents/upload-url', isAuthenticated, requireWr
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -706,8 +697,7 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
 
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -749,8 +739,7 @@ router.patch('/api/patients/:id/documents/:docId', isAuthenticated, requireWrite
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -822,8 +811,7 @@ router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWrit
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -983,8 +971,7 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
@@ -1099,8 +1086,7 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -1174,8 +1160,7 @@ router.get('/api/patients/:id/messages', isAuthenticated, async (req: any, res) 
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -1213,8 +1198,7 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    const hasAccess = await userHasGroupAwareHospitalAccess(userId, patient.hospitalId, req);
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
