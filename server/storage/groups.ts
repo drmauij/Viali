@@ -112,6 +112,72 @@ export async function renameGroup(id: string, name: string) {
   return updated ?? null;
 }
 
+export type GroupBillingPatch = {
+  defaultLicenseType?: "free" | "basic" | "test" | null;
+  defaultPricePerRecord?: string | null;
+};
+
+export async function updateGroupBillingDefaults(
+  id: string,
+  patch: GroupBillingPatch,
+) {
+  const [updated] = await db
+    .update(hospitalGroups)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(hospitalGroups.id, id))
+    .returning();
+  return updated ?? null;
+}
+
+/**
+ * Apply the group's defaults to every member hospital's licenseType +
+ * pricePerRecord. Only copies fields that are set on the group (null group
+ * defaults leave clinics untouched). Returns how many clinics were updated.
+ */
+export async function cascadeGroupBillingDefaults(id: string): Promise<number> {
+  const [g] = await db
+    .select({
+      defaultLicenseType: hospitalGroups.defaultLicenseType,
+      defaultPricePerRecord: hospitalGroups.defaultPricePerRecord,
+    })
+    .from(hospitalGroups)
+    .where(eq(hospitalGroups.id, id));
+  if (!g) throw new Error("Group not found");
+
+  const patch: Record<string, unknown> = {};
+  if (g.defaultLicenseType !== null && g.defaultLicenseType !== undefined) {
+    patch.licenseType = g.defaultLicenseType;
+  }
+  if (g.defaultPricePerRecord !== null && g.defaultPricePerRecord !== undefined) {
+    patch.pricePerRecord = g.defaultPricePerRecord;
+  }
+  if (Object.keys(patch).length === 0) return 0;
+
+  const rows = await db
+    .update(hospitals)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(hospitals.groupId, id))
+    .returning({ id: hospitals.id });
+  return rows.length;
+}
+
+export type HospitalBillingPatch = {
+  licenseType?: "free" | "basic" | "test";
+  pricePerRecord?: string | null;
+};
+
+export async function updateHospitalBilling(
+  hospitalId: string,
+  patch: HospitalBillingPatch,
+) {
+  const [updated] = await db
+    .update(hospitals)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(hospitals.id, hospitalId))
+    .returning();
+  return updated ?? null;
+}
+
 /**
  * Refuse delete if any hospital still has group_id OR any group-owned service
  * exists. Throws a user-readable Error; the route translates to 409.

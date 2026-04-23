@@ -91,6 +91,88 @@ router.patch("/api/admin/groups/:id", async (req, res) => {
   }
 });
 
+// Group billing defaults (platform admin only).
+const licenseEnum = z.enum(["free", "basic", "test"]);
+const priceSchema = z
+  .union([z.string(), z.number()])
+  .transform((v) => (typeof v === "number" ? v.toFixed(2) : v))
+  .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), "Must be a non-negative decimal");
+const groupBillingSchema = z
+  .object({
+    defaultLicenseType: licenseEnum.nullable().optional(),
+    defaultPricePerRecord: priceSchema.nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      v.defaultLicenseType !== undefined ||
+      v.defaultPricePerRecord !== undefined,
+    "Body must include at least one of defaultLicenseType or defaultPricePerRecord",
+  );
+router.patch("/api/admin/groups/:id/billing", async (req, res) => {
+  const parsed = groupBillingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const updated = await groupStorage.updateGroupBillingDefaults(
+      req.params.id,
+      parsed.data,
+    );
+    if (!updated) return res.status(404).json({ error: "not found" });
+    res.json(updated);
+  } catch (err) {
+    logger.error("Error updating group billing defaults:", err);
+    res.status(500).json({ message: "Failed to update group billing" });
+  }
+});
+
+// Cascade group defaults to every member hospital's licenseType + pricePerRecord.
+// Null group defaults leave the corresponding clinic field untouched.
+router.post("/api/admin/groups/:id/cascade-billing", async (req, res) => {
+  try {
+    const updatedCount = await groupStorage.cascadeGroupBillingDefaults(
+      req.params.id,
+    );
+    res.json({ updatedCount });
+  } catch (err: any) {
+    if (err?.message === "Group not found") {
+      return res.status(404).json({ error: err.message });
+    }
+    logger.error("Error cascading group billing:", err);
+    res.status(500).json({ message: "Failed to cascade billing" });
+  }
+});
+
+// Per-clinic billing update (platform admin only — same auth gate as the rest
+// of this router). Accepts licenseType and/or pricePerRecord.
+const hospitalBillingSchema = z
+  .object({
+    licenseType: licenseEnum.optional(),
+    pricePerRecord: priceSchema.nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      v.licenseType !== undefined || v.pricePerRecord !== undefined,
+    "Body must include at least one of licenseType or pricePerRecord",
+  );
+router.patch("/api/admin/hospitals/:hospitalId/billing", async (req, res) => {
+  const parsed = hospitalBillingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const updated = await groupStorage.updateHospitalBilling(
+      req.params.hospitalId,
+      parsed.data,
+    );
+    if (!updated) return res.status(404).json({ error: "not found" });
+    res.json(updated);
+  } catch (err) {
+    logger.error("Error updating hospital billing:", err);
+    res.status(500).json({ message: "Failed to update hospital billing" });
+  }
+});
+
 router.delete("/api/admin/groups/:id", async (req, res) => {
   try {
     await groupStorage.deleteGroup(req.params.id);

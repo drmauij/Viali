@@ -19,15 +19,25 @@ import { useAuth } from "@/hooks/useAuth";
  * UI lives at /business/group in Task 13; for the demo Mau can seed via SQL).
  */
 
+type LicenseType = "free" | "basic" | "test";
+
 type Group = {
   id: string;
   name: string;
   bookingToken: string | null;
+  defaultLicenseType: LicenseType | null;
+  defaultPricePerRecord: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
-type Hospital = { id: string; name: string; groupId: string | null };
+type Hospital = {
+  id: string;
+  name: string;
+  groupId: string | null;
+  licenseType: LicenseType;
+  pricePerRecord: string | null;
+};
 type Admin = {
   userId: string;
   hospitalId: string;
@@ -111,6 +121,71 @@ export default function GroupDetail() {
           description: body.warning,
         });
       }
+    },
+  });
+
+  // Billing ---------------------------------------------------------------
+  const updateGroupBilling = useMutation({
+    mutationFn: async (patch: {
+      defaultLicenseType?: LicenseType | null;
+      defaultPricePerRecord?: string | null;
+    }) => {
+      const res = await apiRequest(
+        "PATCH",
+        `/api/admin/groups/${groupId}/billing`,
+        patch,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Group billing saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const cascadeBilling = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest(
+        "POST",
+        `/api/admin/groups/${groupId}/cascade-billing`,
+      );
+      return res.json() as Promise<{ updatedCount: number }>;
+    },
+    onSuccess: (body) => {
+      invalidate();
+      toast({
+        title: "Billing cascaded",
+        description: `Applied group defaults to ${body.updatedCount} clinic(s).`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Cascade failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateClinicBilling = useMutation({
+    mutationFn: async (v: {
+      hospitalId: string;
+      licenseType?: LicenseType;
+      pricePerRecord?: string | null;
+    }) => {
+      const { hospitalId, ...patch } = v;
+      const res = await apiRequest(
+        "PATCH",
+        `/api/admin/hospitals/${hospitalId}/billing`,
+        patch,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Clinic billing saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -335,6 +410,29 @@ export default function GroupDetail() {
         </p>
       </section>
 
+      <BillingSection
+        group={group}
+        members={members}
+        onGroupSave={(patch) => updateGroupBilling.mutate(patch)}
+        onCascade={() => {
+          if (
+            !confirm(
+              `Apply group defaults to all ${members.length} clinics? This overwrites the plan and price-per-record on every member clinic.`,
+            )
+          ) return;
+          cascadeBilling.mutate();
+        }}
+        onClinicSave={(patch) => updateClinicBilling.mutate(patch)}
+        groupSaving={updateGroupBilling.isPending}
+        cascading={cascadeBilling.isPending}
+        clinicSaving={updateClinicBilling.isPending}
+        clinicSavingId={
+          updateClinicBilling.isPending
+            ? (updateClinicBilling.variables?.hospitalId ?? null)
+            : null
+        }
+      />
+
       <section className="border rounded p-4 space-y-3">
         <h2 className="text-lg font-medium">Group Booking Token</h2>
         {group.bookingToken ? (
@@ -373,6 +471,189 @@ export default function GroupDetail() {
               : "Generate"}
         </Button>
       </section>
+    </div>
+  );
+}
+
+// Billing & Plan section — group defaults with optional cascade to clinics,
+// plus per-clinic override. Inline <select> + <input> auto-save on blur/change.
+type BillingSectionProps = {
+  group: Group;
+  members: Hospital[];
+  onGroupSave: (patch: {
+    defaultLicenseType?: LicenseType | null;
+    defaultPricePerRecord?: string | null;
+  }) => void;
+  onCascade: () => void;
+  onClinicSave: (v: {
+    hospitalId: string;
+    licenseType?: LicenseType;
+    pricePerRecord?: string | null;
+  }) => void;
+  groupSaving: boolean;
+  cascading: boolean;
+  clinicSaving: boolean;
+  clinicSavingId: string | null;
+};
+
+function BillingSection(props: BillingSectionProps) {
+  const { group, members, onGroupSave, onCascade } = props;
+  const [groupPlan, setGroupPlan] = useState<LicenseType | "">(
+    (group.defaultLicenseType ?? "") as LicenseType | "",
+  );
+  const [groupPrice, setGroupPrice] = useState<string>(
+    group.defaultPricePerRecord ?? "",
+  );
+
+  return (
+    <section className="border rounded p-4 space-y-4">
+      <h2 className="text-lg font-medium">Billing & Plan</h2>
+
+      <div className="space-y-3 bg-muted/40 p-3 rounded">
+        <div className="text-sm font-medium">Group defaults</div>
+        <p className="text-xs text-muted-foreground">
+          Applies to new clinics added to this group, and can be cascaded
+          to existing clinics with the button below.
+        </p>
+        <div className="flex items-end gap-2 flex-wrap">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">
+              Plan
+            </label>
+            <Select
+              value={groupPlan || "none"}
+              onValueChange={(v) => setGroupPlan(v === "none" ? "" : (v as LicenseType))}
+            >
+              <SelectTrigger className="w-[180px]" data-testid="select-group-plan">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— not set —</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="basic">Basic</SelectItem>
+                <SelectItem value="test">Test</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">
+              Price per record
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 1.50"
+              value={groupPrice}
+              onChange={(e) => setGroupPrice(e.target.value)}
+              className="border rounded px-2 py-1.5 text-sm w-[140px]"
+              data-testid="input-group-price"
+            />
+          </div>
+          <Button
+            size="sm"
+            disabled={props.groupSaving}
+            onClick={() =>
+              onGroupSave({
+                defaultLicenseType: groupPlan === "" ? null : groupPlan,
+                defaultPricePerRecord: groupPrice.trim() === "" ? null : groupPrice.trim(),
+              })
+            }
+            data-testid="button-save-group-billing"
+          >
+            {props.groupSaving ? "Saving…" : "Save group defaults"}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={
+              props.cascading ||
+              (group.defaultLicenseType == null && group.defaultPricePerRecord == null)
+            }
+            onClick={onCascade}
+            data-testid="button-cascade-billing"
+          >
+            {props.cascading ? "Cascading…" : "Apply to all clinics"}
+          </Button>
+        </div>
+      </div>
+
+      {members.length === 0 ? (
+        <div className="text-sm text-muted-foreground">
+          No clinics in this group yet.
+        </div>
+      ) : (
+        <div>
+          <div className="text-sm font-medium mb-2">Per-clinic billing</div>
+          <div className="divide-y border rounded">
+            {members.map((h) => (
+              <ClinicBillingRow
+                key={h.id}
+                clinic={h}
+                saving={props.clinicSavingId === h.id && props.clinicSaving}
+                onSave={(patch) =>
+                  props.onClinicSave({ hospitalId: h.id, ...patch })
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ClinicBillingRow({
+  clinic,
+  saving,
+  onSave,
+}: {
+  clinic: Hospital;
+  saving: boolean;
+  onSave: (patch: { licenseType?: LicenseType; pricePerRecord?: string | null }) => void;
+}) {
+  const [plan, setPlan] = useState<LicenseType>(clinic.licenseType);
+  const [price, setPrice] = useState<string>(clinic.pricePerRecord ?? "");
+
+  const dirty =
+    plan !== clinic.licenseType ||
+    (price.trim() || null) !== (clinic.pricePerRecord ?? null);
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 flex-wrap">
+      <div className="min-w-[160px] text-sm font-medium">{clinic.name}</div>
+      <Select value={plan} onValueChange={(v) => setPlan(v as LicenseType)}>
+        <SelectTrigger className="w-[140px] h-8" data-testid={`select-clinic-plan-${clinic.id}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="free">Free</SelectItem>
+          <SelectItem value="basic">Basic</SelectItem>
+          <SelectItem value="test">Test</SelectItem>
+        </SelectContent>
+      </Select>
+      <input
+        type="text"
+        inputMode="decimal"
+        placeholder="price / record"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        className="border rounded px-2 py-1 text-sm w-[130px]"
+        data-testid={`input-clinic-price-${clinic.id}`}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!dirty || saving}
+        onClick={() =>
+          onSave({
+            licenseType: plan,
+            pricePerRecord: price.trim() === "" ? null : price.trim(),
+          })
+        }
+        data-testid={`button-save-clinic-billing-${clinic.id}`}
+      >
+        {saving ? "Saving…" : "Save"}
+      </Button>
     </div>
   );
 }

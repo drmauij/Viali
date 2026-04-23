@@ -72,6 +72,11 @@ export const hospitalGroups = pgTable("hospital_groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   bookingToken: varchar("booking_token").unique(),
+  // Group-level billing defaults. Platform admin sets these and can optionally
+  // cascade to every member hospital via POST /api/admin/groups/:id/cascade-billing.
+  // Individual clinics can still be overridden per-clinic afterwards.
+  defaultLicenseType: varchar("default_license_type", { enum: ["free", "basic", "test"] }),
+  defaultPricePerRecord: decimal("default_price_per_record", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
