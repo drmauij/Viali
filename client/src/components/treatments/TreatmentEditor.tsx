@@ -192,8 +192,21 @@ export function TreatmentEditor({
     [services],
   );
 
+  // Hospital-wide zone suggestions — nurses can reuse zones from any
+  // prior treatment at this hospital, not just this patient's history.
+  const { data: hospitalZones = [] } = useQuery<string[]>({
+    queryKey: ["treatments-zones", hospitalId],
+    queryFn: () =>
+      apiRequest("GET", `/api/treatments/zones?hospitalId=${hospitalId}`).then(
+        (r) => r.json(),
+      ),
+    enabled: !!hospitalId,
+  });
+
   const zoneSuggestions = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(hospitalZones);
+    // Also include zones from this patient's local history (belt-and-
+    // suspenders for brand-new treatments that haven't persisted yet).
     for (const t of history) {
       for (const l of t.lines ?? []) {
         for (const z of (l.zones as string[]) ?? []) {
@@ -201,8 +214,10 @@ export function TreatmentEditor({
         }
       }
     }
-    return Array.from(set);
-  }, [history]);
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [hospitalZones, history]);
 
   const total = useMemo(
     () =>

@@ -79,6 +79,21 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
     enabled: !!patientId,
   });
 
+  // Services + items for name lookups on the chips — otherwise the map
+  // falls back to the UUID and the user sees raw ids in the Lines column.
+  const { data: services = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["clinic-services", hospitalId],
+    queryFn: () =>
+      apiRequest("GET", `/api/clinic/${hospitalId}/services`).then((r) =>
+        r.json(),
+      ),
+    enabled: !!hospitalId,
+  });
+  const { data: items = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/items/${hospitalId}?module=treatment`],
+    enabled: !!hospitalId,
+  });
+
   const amendMutation = useMutation({
     mutationFn: (treatmentId: string) =>
       apiRequest("POST", `/api/treatments/${treatmentId}/amend`).then((r) =>
@@ -118,20 +133,16 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
     },
   });
 
-  // Collect service/item name maps from the treatment list itself for the summary chips
+  // Resolve service + item names from their respective catalogs. Previously
+  // the maps were built from the line data itself, which meant the "name"
+  // was just the UUID — users saw raw ids in the Lines column.
   const { servicesMap, itemsMap } = useMemo(() => {
     const svc: Record<string, { name: string }> = {};
     const itm: Record<string, { name: string }> = {};
-    for (const treatment of treatments) {
-      for (const line of treatment.lines ?? []) {
-        // Names won't be available here unless the API includes them.
-        // The summary chips fall back to IDs if names are absent — acceptable for now.
-        if (line.serviceId) svc[line.serviceId] = svc[line.serviceId] ?? { name: line.serviceId };
-        if (line.itemId) itm[line.itemId] = itm[line.itemId] ?? { name: line.itemId };
-      }
-    }
+    for (const s of services) svc[s.id] = { name: s.name };
+    for (const i of items) itm[i.id] = { name: i.name };
     return { servicesMap: svc, itemsMap: itm };
-  }, [treatments]);
+  }, [services, items]);
 
   const handleNewTreatment = async () => {
     if (fetchingAppointments) return;
@@ -220,7 +231,7 @@ export function TreatmentsTab({ patientId, hospitalId, unitId, defaultOpenForApp
               <TableHead className="text-right">
                 {t("treatments.total", "Total")}
               </TableHead>
-              <TableHead>{t("treatments.status", "Status")}</TableHead>
+              <TableHead>{t("treatments.statusLabel", "Status")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>

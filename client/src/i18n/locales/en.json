@@ -8064,6 +8064,7 @@
     }
   },
   "treatments": {
+    "statusLabel": "Status",
     "tab": "Treatments",
     "newTreatment": "New Treatment",
     "startTreatment": "Start Treatment",
@@ -8120,7 +8121,6 @@
     "unitPrice": "Unit price",
     "zones": "Zones",
     "notes": "Notes (Besonderheiten)",
-    "status": "Status",
     "noTreatments": "No treatments recorded yet.",
     "unknownItem": "Item",
     "unitPlaceholder": "units",

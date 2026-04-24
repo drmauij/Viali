@@ -8155,6 +8155,7 @@
       "unitPrice": "Einzelpreis",
       "total": "Gesamt"
     },
+    "statusLabel": "Status",
     "status": {
       "draft": "Entwurf",
       "signed": "Signiert",
