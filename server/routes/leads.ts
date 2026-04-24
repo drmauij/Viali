@@ -1,7 +1,7 @@
 import { Router } from "express";
-import type { Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { eq, and, desc, sql, lt, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, lt, gte, lte, inArray } from "drizzle-orm";
 import { leads, leadContacts, leadWebhookConfig, users, patients, clinicAppointments, referralEvents, hospitals } from "@shared/schema";
 import { getLeadsStats } from "../services/leadsMetrics";
 import { buildLeadsCsv, type LeadCsvRow } from "../services/leadsCsvExport";
@@ -13,7 +13,67 @@ import { createHash, randomBytes } from "crypto";
 import { calculateNameSimilarity } from "../services/patientDeduplication";
 import { normalizePhoneForMatching } from "../utils/normalizePhone";
 import { ensurePatientHospitalLink } from "../utils/patientHospitalLink";
+import {
+  getHospitalGroupIdCached,
+  getGroupHospitalIdsCached,
+  userHasGroupAwareHospitalAccess,
+} from "../utils";
 import { sendAppointmentNotification } from "./clinic";
+
+/**
+ * Task 13: Funnels scope toggle — resolve the hospital scope for a lead read.
+ * Mirrors `resolveHospitalScope` in server/routes/business.ts so the "This
+ * clinic / All locations" toggle on /business/funnels behaves identically
+ * across the marketing KPI and leads surfaces.
+ *
+ *   - Default / `scope !== "group"` → `[activeHospitalId]`.
+ *   - `scope === "group"` but the active hospital has no `groupId` → silently
+ *     fall back to `[activeHospitalId]`.
+ *   - `scope === "group"` and the active hospital belongs to a group → caller
+ *     must have group-aware access. If not, we throw `LeadsScopeForbiddenError`
+ *     which the route handler turns into a 403 with `code: GROUP_SCOPE_FORBIDDEN`.
+ *
+ * The `acceptQueryFallback` flag is used by the CSV export endpoint: that
+ * route is opened via `<a href>` which cannot set custom headers, so it also
+ * accepts `?scope=group` in the URL to opt into group widening.
+ */
+class LeadsScopeForbiddenError extends Error {
+  code = "GROUP_SCOPE_FORBIDDEN" as const;
+  constructor() {
+    super("Access denied for group-scope leads read.");
+  }
+}
+
+async function resolveLeadsHospitalScope(
+  req: Request,
+  userId: string,
+  activeHospitalId: string,
+  opts?: { acceptQueryFallback?: boolean },
+): Promise<string[]> {
+  const headerScope = (req.headers["x-active-scope"] as string | undefined)?.toLowerCase();
+  const queryScope = opts?.acceptQueryFallback
+    ? (req.query?.scope as string | undefined)?.toLowerCase()
+    : undefined;
+  const effective = headerScope === "group" || queryScope === "group" ? "group" : "hospital";
+  if (effective !== "group") return [activeHospitalId];
+
+  const groupId = await getHospitalGroupIdCached(activeHospitalId, req);
+  if (!groupId) return [activeHospitalId];
+
+  const hasAccess = await userHasGroupAwareHospitalAccess(
+    userId,
+    activeHospitalId,
+    req,
+  );
+  if (!hasAccess) throw new LeadsScopeForbiddenError();
+
+  return await getGroupHospitalIdsCached(groupId, req);
+}
+
+function leadsScopeClause<T>(column: T, hospitalIds: string[]) {
+  const col = column as any;
+  return hospitalIds.length === 1 ? eq(col, hospitalIds[0]) : inArray(col, hospitalIds);
+}
 
 const router = Router();
 
@@ -509,13 +569,24 @@ const VALID_CONTACT_OUTCOMES = ["reached", "no_answer", "wants_callback", "will_
 // --- Internal API endpoints ---
 
 export function buildLeadsListConditions(args: {
-  hospitalId: string;
+  hospitalId?: string;
+  hospitalIds?: string[];
   status: string;
   from?: string;
   to?: string;
   before?: string;
 }) {
-  const conditions = [eq(leads.hospitalId, args.hospitalId)];
+  // Accepts either a single `hospitalId` (legacy per-hospital callers) or an
+  // array `hospitalIds` (Task 13 group scope). Any other existing filters
+  // (status, from/to window, `before` cursor) are orthogonal to the scope and
+  // are applied identically either way.
+  const ids = args.hospitalIds ?? (args.hospitalId ? [args.hospitalId] : []);
+  if (ids.length === 0) {
+    throw new Error("buildLeadsListConditions: at least one hospitalId is required");
+  }
+  const conditions = [
+    ids.length === 1 ? eq(leads.hospitalId, ids[0]) : inArray(leads.hospitalId, ids),
+  ];
   if (args.status && args.status !== "all") {
     conditions.push(eq(leads.status, args.status as any));
   }
@@ -545,7 +616,21 @@ router.get(
       const from = (req.query.from as string | undefined) || undefined;
       const to = (req.query.to as string | undefined) || undefined;
 
-      const conditions = buildLeadsListConditions({ hospitalId, status, from, to, before });
+      // Task 13: Funnels scope toggle — widen `leads.hospital_id` to every
+      // hospital in the group when `X-Active-Scope: group` is present and the
+      // caller has group access. Status / date / cursor filters are
+      // orthogonal and apply identically in either scope.
+      let hospitalIds: string[];
+      try {
+        hospitalIds = await resolveLeadsHospitalScope(req, req.user.id, hospitalId);
+      } catch (err) {
+        if (err instanceof LeadsScopeForbiddenError) {
+          return res.status(403).json({ message: err.message, code: err.code });
+        }
+        throw err;
+      }
+
+      const conditions = buildLeadsListConditions({ hospitalIds, status, from, to, before });
 
       const leadRows = await db
         .select({
@@ -994,12 +1079,27 @@ router.get(
       const from = (req.query.from as string | undefined) || undefined;
       const to = (req.query.to as string | undefined) || undefined;
 
+      // Task 13: Funnels scope toggle — aggregate across every hospital in
+      // the group when requested. Timezone-based `date_trunc` keeps using
+      // the active hospital's TZ; mixing TZs across a group would make the
+      // monthly bucket unpredictable and isn't a real chain-operator use
+      // case (sister clinics almost always share a TZ).
+      let hospitalIds: string[];
+      try {
+        hospitalIds = await resolveLeadsHospitalScope(req, req.user.id, hospitalId);
+      } catch (err) {
+        if (err instanceof LeadsScopeForbiddenError) {
+          return res.status(403).json({ message: err.message, code: err.code });
+        }
+        throw err;
+      }
+
       const [hospital] = await db
         .select({ timezone: hospitals.timezone })
         .from(hospitals)
         .where(eq(hospitals.id, hospitalId));
 
-      const stats = await getLeadsStats(hospitalId, {
+      const stats = await getLeadsStats(hospitalIds, {
         from,
         to,
         timezone: hospital?.timezone ?? "UTC",
@@ -1025,7 +1125,23 @@ router.get(
       const from = (req.query.from as string | undefined) || undefined;
       const to = (req.query.to as string | undefined) || undefined;
 
-      const conditions = buildLeadsListConditions({ hospitalId, status, from, to });
+      // Task 13: CSV export accepts scope via EITHER the `X-Active-Scope`
+      // header OR a `?scope=group` query param. The `<a href="…">` link in
+      // the client cannot set headers, so the query param is the primary
+      // trigger for a CSV export from the Funnels toggle.
+      let hospitalIds: string[];
+      try {
+        hospitalIds = await resolveLeadsHospitalScope(req, req.user.id, hospitalId, {
+          acceptQueryFallback: true,
+        });
+      } catch (err) {
+        if (err instanceof LeadsScopeForbiddenError) {
+          return res.status(403).json({ message: err.message, code: err.code });
+        }
+        throw err;
+      }
+
+      const conditions = buildLeadsListConditions({ hospitalIds, status, from, to });
 
       const rows = await db
         .select({

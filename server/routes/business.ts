@@ -1967,6 +1967,18 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isM
   try {
     const { hospitalId } = req.params;
 
+    // Task 13: Funnels scope toggle. Widens to every hospital in the group
+    // when `X-Active-Scope: group` is sent and caller has group access.
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
     const rows = await db
       .select({
         month: sql<string>`to_char(${referralEvents.createdAt}, 'YYYY-MM')`,
@@ -1974,7 +1986,7 @@ router.get('/api/business/:hospitalId/referral-timeseries', isAuthenticated, isM
         count: sql<number>`count(*)::int`,
       })
       .from(referralEvents)
-      .where(eq(referralEvents.hospitalId, hospitalId))
+      .where(hospitalScopeClause(referralEvents.hospitalId, hospitalIds))
       .groupBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`, referralEvents.source)
       .orderBy(sql`to_char(${referralEvents.createdAt}, 'YYYY-MM')`);
 
@@ -1991,6 +2003,19 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
     const { hospitalId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const before = req.query.before ? new Date(req.query.before as string) : undefined;
+
+    // Task 13: Funnels scope toggle — widen the `referral_events.hospital_id`
+    // filter to every hospital in the group when requested. Patient / service
+    // joins stay unchanged: those are looked up per-row, not scoped on.
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
 
     const rows = await db
       .select({
@@ -2030,7 +2055,7 @@ router.get('/api/business/:hospitalId/referral-events', isAuthenticated, isMarke
       .leftJoin(clinicAppointments, eq(referralEvents.appointmentId, clinicAppointments.id))
       .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
       .where(and(
-        eq(referralEvents.hospitalId, hospitalId),
+        hospitalScopeClause(referralEvents.hospitalId, hospitalIds),
         before ? sql`${referralEvents.createdAt} < ${before}` : sql`1=1`
       ))
       .orderBy(desc(referralEvents.createdAt))
@@ -2124,7 +2149,25 @@ router.get('/api/business/:hospitalId/referral-funnel', isAuthenticated, isMarke
     const { hospitalId } = req.params;
     const { from, to } = req.query;
 
-    const conditions = [sql`re.hospital_id = ${hospitalId}`];
+    // Task 13: Funnels scope toggle — widen `re.hospital_id` to the full
+    // group. The LATERAL `surgeries` subquery already joins on
+    // `s2.hospital_id = re.hospital_id`, so expanding the outer scope
+    // transparently cascades to surgery matching (each referral still only
+    // pairs with surgeries at its *own* home hospital).
+    let hospitalIds: string[];
+    try {
+      hospitalIds = await resolveHospitalScope(req, req.user.id, hospitalId);
+    } catch (err) {
+      if (err instanceof ScopeForbiddenError) {
+        return res.status(403).json({ message: err.message, code: err.code });
+      }
+      throw err;
+    }
+
+    const conditions =
+      hospitalIds.length === 1
+        ? [sql`re.hospital_id = ${hospitalIds[0]}`]
+        : [sql`re.hospital_id IN (${sql.join(hospitalIds.map((id) => sql`${id}`), sql`, `)})`];
     if (from) conditions.push(sql`re.created_at >= ${from}::timestamp`);
     if (to) conditions.push(sql`re.created_at <= ${to}::timestamp`);
 

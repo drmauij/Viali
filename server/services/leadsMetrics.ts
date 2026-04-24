@@ -34,12 +34,30 @@ export interface GetLeadsStatsOpts {
 }
 
 export async function getLeadsStats(
-  hospitalId: string,
+  hospitalIdOrIds: string | string[],
   opts: GetLeadsStatsOpts = {},
 ): Promise<LeadsStats> {
   const fromParam: string | null = opts.from ?? null;
   const toParam: string = opts.to ?? new Date().toISOString();
   const tz: string = opts.timezone ?? "UTC";
+
+  // Task 13: Funnels scope toggle — every query widens to the full group when
+  // an array is passed, falls back to `= $1` for the single-hospital path.
+  // We build a per-id fragment via `sql.join` rather than `= ANY($1::text[])`
+  // because drizzle's `pg` driver binds JS arrays in a way that Postgres'
+  // array parser rejects with `22P02` ("Array value must start with {").
+  // Using `IN (value, value, ...)` keeps the SQL portable without touching
+  // the driver-level array coercion.
+  const ids = Array.isArray(hospitalIdOrIds) ? hospitalIdOrIds : [hospitalIdOrIds];
+  if (ids.length === 0) {
+    throw new Error("getLeadsStats: at least one hospitalId is required");
+  }
+  const hospitalIdFrag = (col: "hospital_id" | "l.hospital_id") => {
+    const column = sql.raw(col);
+    if (ids.length === 1) return sql`${column} = ${ids[0]}`;
+    const list = sql.join(ids.map((id) => sql`${id}`), sql`, `);
+    return sql`${column} IN (${list})`;
+  };
 
   const { rows: totals } = await db.execute(sql`
     SELECT
@@ -48,7 +66,7 @@ export async function getLeadsStats(
         WHERE status = 'converted' OR appointment_id IS NOT NULL
       )::int AS converted
     FROM leads
-    WHERE hospital_id = ${hospitalId}
+    WHERE ${hospitalIdFrag("hospital_id")}
       AND (${fromParam}::timestamptz IS NULL OR created_at >= ${fromParam}::timestamptz)
       AND created_at <= ${toParam}::timestamptz
   `);
@@ -56,7 +74,7 @@ export async function getLeadsStats(
   const { rows: bySource } = await db.execute(sql`
     SELECT source, COUNT(*)::int AS count
     FROM leads
-    WHERE hospital_id = ${hospitalId}
+    WHERE ${hospitalIdFrag("hospital_id")}
       AND (${fromParam}::timestamptz IS NULL OR created_at >= ${fromParam}::timestamptz)
       AND created_at <= ${toParam}::timestamptz
     GROUP BY source
@@ -71,7 +89,7 @@ export async function getLeadsStats(
         WHERE status = 'converted' OR appointment_id IS NOT NULL
       )::int AS converted
     FROM leads
-    WHERE hospital_id = ${hospitalId}
+    WHERE ${hospitalIdFrag("hospital_id")}
       AND (${fromParam}::timestamptz IS NULL OR created_at >= ${fromParam}::timestamptz)
       AND created_at <= ${toParam}::timestamptz
     GROUP BY source
@@ -82,7 +100,7 @@ export async function getLeadsStats(
     SELECT AVG(EXTRACT(EPOCH FROM (ca.created_at - l.created_at)) / 86400.0)::float8 AS avg_days
     FROM leads l
     JOIN clinic_appointments ca ON ca.id = l.appointment_id
-    WHERE l.hospital_id = ${hospitalId}
+    WHERE ${hospitalIdFrag("l.hospital_id")}
       AND ca.created_at IS NOT NULL
       AND (${fromParam}::timestamptz IS NULL OR l.created_at >= ${fromParam}::timestamptz)
       AND l.created_at <= ${toParam}::timestamptz
@@ -93,7 +111,7 @@ export async function getLeadsStats(
       to_char(date_trunc('month', created_at AT TIME ZONE ${tz}), 'YYYY-MM') AS month,
       COUNT(*)::int AS count
     FROM leads
-    WHERE hospital_id = ${hospitalId}
+    WHERE ${hospitalIdFrag("hospital_id")}
       AND (${fromParam}::timestamptz IS NULL OR created_at >= ${fromParam}::timestamptz)
       AND created_at <= ${toParam}::timestamptz
     GROUP BY month
