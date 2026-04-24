@@ -37,21 +37,35 @@ export function ProtectedRoute({
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
 
+  // group_admin anywhere OR platform admin: chain-wide operators bypass
+  // module-type gates because their role isn't bound to a specific unit.
+  // (A group admin's job spans business AND clinic AND admin modules.)
+  const chainAdminHospitals = (user as any)?.hospitals ?? [];
+  const isChainAdmin =
+    (user as any)?.isPlatformAdmin ||
+    chainAdminHospitals.some((h: any) => h.role === "group_admin");
+
   // Module access is based on the ACTIVE unit selection
   // When user switches units, available modules change accordingly
-  const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
-  const hasSurgeryAccess = activeHospital?.unitType === 'or';
+  const hasAnesthesiaAccess =
+    activeHospital?.unitType === 'anesthesia' || isChainAdmin;
+  const hasSurgeryAccess =
+    activeHospital?.unitType === 'or' || isChainAdmin;
   // group_admin is admin-equivalent for module gating (matching the same
   // widening applied in ModuleDrawer / BottomNav). Server gates remain
   // authoritative; this is UX access so group admins can actually reach
   // the admin pages they have permission for.
   const hasAdminAccess =
     activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin";
+    activeHospital?.role === "group_admin" ||
+    isChainAdmin;
   const hasDoctorAccess = activeHospital?.role === "doctor";
-  const hasBusinessAccess = activeHospital?.unitType === 'business';
-  const hasClinicAccess = activeHospital?.unitType === 'clinic';
-  const hasLogisticAccess = activeHospital?.unitType === 'logistic';
+  const hasBusinessAccess =
+    activeHospital?.unitType === 'business' || isChainAdmin;
+  const hasClinicAccess =
+    activeHospital?.unitType === 'clinic' || isChainAdmin;
+  const hasLogisticAccess =
+    activeHospital?.unitType === 'logistic' || isChainAdmin;
 
   // Determine the default redirect path based on active unit's module
   const getDefaultRedirect = (): string => {

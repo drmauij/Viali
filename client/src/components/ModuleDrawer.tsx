@@ -49,11 +49,23 @@ export default function ModuleDrawer() {
 
   // Module access is based on the ACTIVE unit selection
   // When user switches units, available modules change accordingly
-  const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
-  const hasSurgeryAccess = activeHospital?.unitType === 'or';
-  const hasBusinessAccess = activeHospital?.unitType === 'business';
-  const hasClinicAccess = activeHospital?.unitType === 'clinic';
-  const hasLogisticAccess = activeHospital?.unitType === 'logistic';
+  // Chain-wide operators (group_admin anywhere or platform admin) bypass
+  // unit-type gates — they span every module by role definition.
+  const userHospitals = (user as any)?.hospitals ?? [];
+  const isChainAdmin =
+    (user as any)?.isPlatformAdmin ||
+    userHospitals.some((h: any) => h.role === "group_admin");
+
+  const hasAnesthesiaAccess =
+    activeHospital?.unitType === 'anesthesia' || isChainAdmin;
+  const hasSurgeryAccess =
+    activeHospital?.unitType === 'or' || isChainAdmin;
+  const hasBusinessAccess =
+    activeHospital?.unitType === 'business' || isChainAdmin;
+  const hasClinicAccess =
+    activeHospital?.unitType === 'clinic' || isChainAdmin;
+  const hasLogisticAccess =
+    activeHospital?.unitType === 'logistic' || isChainAdmin;
   // Treat group_admin as admin-equivalent for module visibility — a chain
   // group admin needs to reach the Admin module at every clinic they
   // manage (that's the whole point of the role).
