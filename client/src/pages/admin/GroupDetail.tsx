@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useLocation, Redirect } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -504,6 +504,12 @@ function BillingSection(props: BillingSectionProps) {
   const [groupPrice, setGroupPrice] = useState<string>(
     group.defaultPricePerRecord ?? "",
   );
+  // Sync local form state whenever the server-side group data changes
+  // (e.g. after Save group defaults or after a mutation elsewhere).
+  useEffect(() => {
+    setGroupPlan((group.defaultLicenseType ?? "") as LicenseType | "");
+    setGroupPrice(group.defaultPricePerRecord ?? "");
+  }, [group.defaultLicenseType, group.defaultPricePerRecord]);
 
   return (
     <section className="border rounded p-4 space-y-4">
@@ -613,6 +619,12 @@ function ClinicBillingRow({
 }) {
   const [plan, setPlan] = useState<LicenseType>(clinic.licenseType);
   const [price, setPrice] = useState<string>(clinic.pricePerRecord ?? "");
+  // Re-sync when the clinic prop changes (e.g. after cascade-billing or a
+  // peer save). Without this the row shows stale local state forever.
+  useEffect(() => {
+    setPlan(clinic.licenseType);
+    setPrice(clinic.pricePerRecord ?? "");
+  }, [clinic.licenseType, clinic.pricePerRecord]);
 
   const dirty =
     plan !== clinic.licenseType ||
