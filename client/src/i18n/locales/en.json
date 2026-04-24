@@ -477,7 +477,16 @@
     "logistic": {
       "title": "Logistic",
       "description": "Cross-unit inventory and order management for hospital-wide visibility"
-    }
+    },
+    "chain": {
+      "title": "Chain",
+      "description": "Chain-wide overview and tools"
+    },
+    "platform": {
+      "title": "Platform",
+      "description": "Cross-tenant Viali operator tools"
+    },
+    "thisClinic": "This clinic"
   },
   "quickLinks": {
     "title": "Quick Links",

@@ -558,7 +558,16 @@
     "logistic": {
       "title": "Logistik",
       "description": "Standortübergreifende Inventar- und Bestellverwaltung für spitalweite Übersicht"
-    }
+    },
+    "chain": {
+      "title": "Kette",
+      "description": "Kettenweite Übersicht und Werkzeuge"
+    },
+    "platform": {
+      "title": "Plattform",
+      "description": "Mandantenübergreifende Viali-Werkzeuge"
+    },
+    "thisClinic": "Diese Klinik"
   },
   "quickLinks": {
     "title": "Schnelllinks",
