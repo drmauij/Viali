@@ -11,15 +11,21 @@ interface ProtectedRouteProps {
   requireClinic?: boolean;
   requireLogistic?: boolean;
   requireDoctorOrAdmin?: boolean;
-  // Cross-tenant platform admin (users.is_platform_admin). Independent of
-  // the active hospital selection — used for /admin/groups and similar
-  // platform-wide surfaces.
+  // Cross-tenant platform admin (users.is_platform_admin). Independent of the
+  // active hospital selection — used for /platform/* routes. Gate for Viali
+  // operator tools.
   requirePlatformAdmin?: boolean;
-  // Group admin: the user must have a `group_admin` role row AND the active
-  // hospital must be part of a group. Used by `/business/group` (Task 13).
-  // The SERVER is authoritative — this flag is UX so group-admin surfaces
-  // don't flash for users who can't reach them.
-  requireGroupAdmin?: boolean;
+  // Chain admin: the user must have a `group_admin` role row somewhere AND
+  // the active hospital must be part of a group. Used by the /chain/* module.
+  // The server is authoritative — this flag is UX so chain-admin surfaces
+  // don't flash for users who can't reach them. Platform admins bypass (they
+  // can reach any chain tool from /platform/*).
+  requireChain?: boolean;
+  // Alias of requirePlatformAdmin for symmetry with requireChain. Routes on
+  // /platform/* should use requirePlatform — semantically clearer and lets us
+  // add platform-scoped logic later without touching the platform-admin
+  // column in users.
+  requirePlatform?: boolean;
 }
 
 export function ProtectedRoute({
@@ -32,63 +38,39 @@ export function ProtectedRoute({
   requireLogistic,
   requireDoctorOrAdmin,
   requirePlatformAdmin,
-  requireGroupAdmin
+  requireChain,
+  requirePlatform,
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
 
-  // group_admin anywhere OR platform admin: chain-wide operators bypass
-  // module-type gates because their role isn't bound to a specific unit.
-  // (A group admin's job spans business AND clinic AND admin modules.)
-  const chainAdminHospitals = (user as any)?.hospitals ?? [];
-  const isChainAdmin =
-    (user as any)?.isPlatformAdmin ||
-    chainAdminHospitals.some((h: any) => h.role === "group_admin");
-
-  // Module access is based on the ACTIVE unit selection
-  // When user switches units, available modules change accordingly
-  const hasAnesthesiaAccess =
-    activeHospital?.unitType === 'anesthesia' || isChainAdmin;
-  const hasSurgeryAccess =
-    activeHospital?.unitType === 'or' || isChainAdmin;
-  // group_admin is admin-equivalent for module gating (matching the same
-  // widening applied in ModuleDrawer / BottomNav). Server gates remain
-  // authoritative; this is UX access so group admins can actually reach
-  // the admin pages they have permission for.
-  const hasAdminAccess =
-    activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin" ||
-    isChainAdmin;
+  // Module access is based strictly on the ACTIVE unit selection. Chain
+  // admins reach single-clinic modules via their auto-provisioned admin
+  // role rows (one per hospital in the group); they don't get a bypass
+  // here. This removes an entire class of widening patches that the old
+  // /admin mix-up required.
+  const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
+  const hasSurgeryAccess = activeHospital?.unitType === 'or';
+  const hasAdminAccess = activeHospital?.role === "admin";
   const hasDoctorAccess = activeHospital?.role === "doctor";
-  const hasBusinessAccess =
-    activeHospital?.unitType === 'business' || isChainAdmin;
-  const hasClinicAccess =
-    activeHospital?.unitType === 'clinic' || isChainAdmin;
-  const hasLogisticAccess =
-    activeHospital?.unitType === 'logistic' || isChainAdmin;
+  const hasBusinessAccess = activeHospital?.unitType === 'business';
+  const hasClinicAccess = activeHospital?.unitType === 'clinic';
+  const hasLogisticAccess = activeHospital?.unitType === 'logistic';
 
-  // Determine the default redirect path based on active unit's module
+  // Default redirect when a route gate fails: pick a landing the user
+  // definitely has access to based on the active unit's role/type.
   const getDefaultRedirect = (): string => {
     if (hasBusinessAccess) {
       return activeHospital?.role === 'marketing' ? "/business/funnels" : "/business";
     }
-    if (hasAnesthesiaAccess) {
-      return "/anesthesia/op";
-    }
-    if (hasSurgeryAccess) {
-      return "/surgery/op";
-    }
-    if (hasClinicAccess) {
-      return "/clinic";
-    }
-    if (hasLogisticAccess) {
-      return "/logistic/inventory";
-    }
-    // Default fallback for inventory/standard units
+    if (hasAnesthesiaAccess) return "/anesthesia/op";
+    if (hasSurgeryAccess) return "/surgery/op";
+    if (hasClinicAccess) return "/clinic";
+    if (hasLogisticAccess) return "/logistic/inventory";
     return "/inventory/items";
   };
 
-  // Show loading while auth is loading or user data isn't available yet
+  // Loading gate — auth still resolving or user data not attached yet.
   if (isLoading || (isAuthenticated && !user)) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center">
@@ -101,16 +83,16 @@ export function ProtectedRoute({
     return <Redirect to="/" />;
   }
 
-  // Platform-admin routes bypass the per-hospital gate: they exist independently
-  // of the active-hospital selection. Non-platform-admins get redirected home.
-  if (requirePlatformAdmin) {
+  // Platform-admin routes exist independently of any active hospital — a
+  // Viali operator can land here regardless of their per-clinic roles.
+  if (requirePlatformAdmin || requirePlatform) {
     if (!(user as any)?.isPlatformAdmin) {
       return <Redirect to="/" />;
     }
     return <>{children}</>;
   }
 
-  // Wait for hospital data to be available before checking module access
+  // All subsequent gates require hospital data (roles depend on it).
   const userHospitals = (user as any)?.hospitals;
   if (!userHospitals || userHospitals.length === 0) {
     return (
@@ -122,27 +104,12 @@ export function ProtectedRoute({
 
   const defaultRedirect = getDefaultRedirect();
 
-  // Check anesthesia module access - active unit must be anesthesia module
-  if (requireAnesthesia && !hasAnesthesiaAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
+  if (requireAnesthesia && !hasAnesthesiaAccess) return <Redirect to={defaultRedirect} />;
+  if (requireSurgery && !hasSurgeryAccess) return <Redirect to={defaultRedirect} />;
+  if (requireAdmin && !hasAdminAccess) return <Redirect to={defaultRedirect} />;
+  if (requireBusiness && !hasBusinessAccess) return <Redirect to={defaultRedirect} />;
 
-  // Check surgery module access - active unit must be surgery module
-  if (requireSurgery && !hasSurgeryAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
-
-  // Check admin access - active unit role must be admin
-  if (requireAdmin && !hasAdminAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
-
-  // Check business module access - active unit must be business module
-  if (requireBusiness && !hasBusinessAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
-
-  // Marketing role can only access /business/funnels
+  // Marketing role can only access /business/funnels.
   if (requireBusiness && hasBusinessAccess && activeHospital?.role === 'marketing') {
     const currentPath = window.location.pathname;
     if (currentPath !== '/business/funnels') {
@@ -150,31 +117,19 @@ export function ProtectedRoute({
     }
   }
 
-  // Check clinic module access - active unit must be clinic module
-  if (requireClinic && !hasClinicAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
+  if (requireClinic && !hasClinicAccess) return <Redirect to={defaultRedirect} />;
+  if (requireLogistic && !hasLogisticAccess) return <Redirect to={defaultRedirect} />;
+  if (requireDoctorOrAdmin && !hasDoctorAccess && !hasAdminAccess) return <Redirect to={defaultRedirect} />;
 
-  // Check logistic module access - active unit must be logistic module
-  if (requireLogistic && !hasLogisticAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
-
-  // Check doctor or admin role access
-  if (requireDoctorOrAdmin && !hasDoctorAccess && !hasAdminAccess) {
-    return <Redirect to={defaultRedirect} />;
-  }
-
-  // Group-admin gate (Task 13). Relies on the server-side role rows that
-  // `GET /api/auth/user` already attaches to each hospital in `user.hospitals`.
-  // A user is a group admin if they have any `group_admin` row AND the
-  // active hospital has a `groupId`. Platform admins bypass this check.
-  if (requireGroupAdmin) {
-    const hasGroupAdminRole =
-      (user as any)?.isPlatformAdmin ||
+  // Chain gate: user has a group_admin row somewhere AND active hospital
+  // belongs to a group. Platform admins bypass (they reach chain surfaces
+  // from /platform).
+  if (requireChain) {
+    const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+    const hasChainAdminRole = isPlatformAdmin ||
       userHospitals.some((h: any) => h.role === "group_admin");
     const activeHasGroup = !!(activeHospital as any)?.groupId;
-    if (!hasGroupAdminRole || !activeHasGroup) {
+    if (!hasChainAdminRole || !activeHasGroup) {
       return <Redirect to={defaultRedirect} />;
     }
   }
