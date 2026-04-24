@@ -43,6 +43,7 @@ import publicOpenApiRouter from "./publicOpenApi";
 import publicMcpCardRouter from "./publicMcpCard";
 import { registerMarketingAiRoutes } from "./marketingAi";
 import treatmentsRouter from "./treatments";
+import { chainRouter } from "./chain";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -57,6 +58,9 @@ export function registerDomainRoutes(app: Express) {
   // Mount before businessRouter since businessRouter uses /api/business/:hospitalId/*
   // and would otherwise consume `/api/business/group/*` paths.
   app.use(businessGroupsRouter);
+  // Chain-scoped endpoints (/api/chain/:groupId/*). Gate: group_admin or platform admin.
+  // Mounted before adminRouter to avoid any :hospitalId wildcards swallowing /chain paths.
+  app.use(chainRouter);
   app.use(adminRouter);
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);
