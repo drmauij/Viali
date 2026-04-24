@@ -3402,4 +3402,57 @@ router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, i
   }
 });
 
+router.get('/api/business/:hospitalId/funnel-snapshot', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
+    const start = new Date();
+    start.setDate(start.getDate() - rangeDays);
+    const startIso = start.toISOString();
+
+    // Leads + contacted + booked in one query
+    const leadsRow = await db.execute<{
+      leads: string;
+      contacted: string;
+      booked: string;
+    }>(sql`
+      SELECT
+        COUNT(*) AS leads,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM lead_contacts lc WHERE lc.lead_id = l.id
+        )) AS contacted,
+        COUNT(*) FILTER (WHERE l.appointment_id IS NOT NULL) AS booked
+      FROM leads l
+      WHERE l.hospital_id = ${hospitalId}
+        AND l.created_at >= ${startIso}
+    `);
+
+    // First-visit = leads whose appointment actually resolved (completed or confirmed)
+    const firstVisitRow = await db.execute<{ first_visit: string }>(sql`
+      SELECT COUNT(*) AS first_visit
+      FROM leads l
+      JOIN clinic_appointments ca ON ca.id = l.appointment_id
+      WHERE l.hospital_id = ${hospitalId}
+        AND l.created_at >= ${startIso}
+        AND ca.status IN ('completed', 'confirmed')
+    `);
+
+    const leadsCount = parseInt((leadsRow.rows[0] as any)?.leads || '0');
+    const contacted = parseInt((leadsRow.rows[0] as any)?.contacted || '0');
+    const booked = parseInt((leadsRow.rows[0] as any)?.booked || '0');
+    const firstVisit = parseInt((firstVisitRow.rows[0] as any)?.first_visit || '0');
+
+    res.json({
+      leads: leadsCount,
+      contacted,
+      booked,
+      firstVisit,
+      conversionPct: leadsCount > 0 ? Number(((firstVisit / leadsCount) * 100).toFixed(1)) : 0,
+    });
+  } catch (error) {
+    logger.error("Error fetching funnel snapshot:", error);
+    res.status(500).json({ message: "Failed to fetch funnel snapshot" });
+  }
+});
+
 export default router;
