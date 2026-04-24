@@ -326,4 +326,66 @@ export const treatmentsStorage = {
       return { invoiceId: invoice.id };
     });
   },
+
+  async getTreatmentsSummary(
+    hospitalId: string,
+    rangeDays: number = 30,
+  ): Promise<{
+    topTreatments: Array<{ serviceId: string | null; name: string; revenue: number; count: number }>;
+    byDay: Array<{ date: string; revenue: number; count: number }>;
+  }> {
+    const start = new Date();
+    start.setDate(start.getDate() - rangeDays);
+    const startIso = start.toISOString();
+
+    const topRows = await db.execute<{
+      service_id: string | null;
+      name: string;
+      revenue: string;
+      count: string;
+    }>(sql`
+      SELECT
+        tl.service_id,
+        COALESCE(cs.name, 'Other') AS name,
+        COALESCE(SUM(CAST(tl.total AS numeric)), 0) AS revenue,
+        COUNT(*) AS count
+      FROM treatment_lines tl
+      JOIN treatments t ON t.id = tl.treatment_id
+      LEFT JOIN clinic_services cs ON cs.id = tl.service_id
+      WHERE t.hospital_id = ${hospitalId}
+        AND t.performed_at >= ${startIso}
+        AND t.status IN ('signed', 'invoiced')
+      GROUP BY tl.service_id, cs.name
+      ORDER BY revenue DESC
+      LIMIT 5
+    `);
+
+    const dayRows = await db.execute<{ date: string; revenue: string; count: string }>(sql`
+      SELECT
+        DATE(t.performed_at) AS date,
+        COALESCE(SUM(CAST(tl.total AS numeric)), 0) AS revenue,
+        COUNT(DISTINCT t.id) AS count
+      FROM treatments t
+      LEFT JOIN treatment_lines tl ON tl.treatment_id = t.id
+      WHERE t.hospital_id = ${hospitalId}
+        AND t.performed_at >= ${startIso}
+        AND t.status IN ('signed', 'invoiced')
+      GROUP BY DATE(t.performed_at)
+      ORDER BY date ASC
+    `);
+
+    return {
+      topTreatments: (topRows.rows as any[]).map(r => ({
+        serviceId: r.service_id,
+        name: r.name,
+        revenue: parseFloat(r.revenue) || 0,
+        count: parseInt(r.count) || 0,
+      })),
+      byDay: (dayRows.rows as any[]).map(r => ({
+        date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().slice(0, 10),
+        revenue: parseFloat(r.revenue) || 0,
+        count: parseInt(r.count) || 0,
+      })),
+    };
+  },
 };

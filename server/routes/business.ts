@@ -18,6 +18,7 @@ import {
 } from "../utils";
 import logger from "../logger";
 import { z } from "zod";
+import { treatmentsStorage } from "../storage/treatments";
 
 const router = Router();
 
@@ -3289,6 +3290,18 @@ router.delete('/api/business/:hospitalId/ad-budgets/:month', isAuthenticated, is
   } catch (error: any) {
     logger.error('Error deleting ad budgets:', error);
     res.status(500).json({ message: 'Failed to delete budgets' });
+  }
+});
+
+router.get('/api/business/:hospitalId/treatments-summary', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const range = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
+    const summary = await treatmentsStorage.getTreatmentsSummary(hospitalId, range);
+    res.json(summary);
+  } catch (error) {
+    logger.error("Error fetching treatments summary:", error);
+    res.status(500).json({ message: "Failed to fetch treatments summary" });
   }
 });
 
