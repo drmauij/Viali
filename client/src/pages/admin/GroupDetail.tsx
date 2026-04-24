@@ -192,6 +192,68 @@ export default function GroupDetail() {
     },
   });
 
+  // Create new clinic -----------------------------------------------------
+  const createClinic = useMutation({
+    mutationFn: async (args: {
+      name: string;
+      address?: string;
+      phone?: string;
+    }) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/admin/groups/${groupId}/clinics`,
+        args,
+      );
+      return res.json() as Promise<{ hospital: Hospital; unit: any }>;
+    },
+    onSuccess: (body) => {
+      invalidate();
+      toast({
+        title: "Clinic created",
+        description: `${body.hospital.name} added to the group.`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not create clinic",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create new user + promote --------------------------------------------
+  const createAdminUser = useMutation({
+    mutationFn: async (args: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      password: string;
+      hospitalId: string;
+    }) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/admin/groups/${groupId}/users`,
+        args,
+      );
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({
+        title: "User created & promoted",
+        description: "Admin access provisioned at every clinic in the group.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not create user",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Group admin promote / revoke -----------------------------------------
   const promoteAdmin = useMutation({
     mutationFn: async (v: { userId: string; hospitalId: string }) => {
@@ -440,15 +502,21 @@ export default function GroupDetail() {
           </Select>
           <Button
             size="sm"
+            variant="outline"
             disabled={
               !addPick || addPick === "__none" || addMember.isPending
             }
             onClick={() => addPick && addMember.mutate(addPick)}
             data-testid="button-add-member"
           >
-            Add hospital
+            Add existing hospital
           </Button>
         </div>
+
+        <CreateClinicForm
+          onCreate={(args) => createClinic.mutate(args)}
+          saving={createClinic.isPending}
+        />
       </section>
         </TabsContent>
 
@@ -474,6 +542,11 @@ export default function GroupDetail() {
                 ? `${revokeAdmin.variables.userId}-${revokeAdmin.variables.hospitalId}`
                 : null
             }
+          />
+          <CreateAdminUserForm
+            members={members}
+            onCreate={(args) => createAdminUser.mutate(args)}
+            saving={createAdminUser.isPending}
           />
         </TabsContent>
 
@@ -943,5 +1016,223 @@ function AdminsSection(props: AdminsSectionProps) {
         )}
       </div>
     </section>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Inline form for creating a brand-new clinic inside this group. Keeps
+// things minimal: name is required, address/phone optional, everything
+// else inherits from group defaults or sibling clinics.
+// ----------------------------------------------------------------------
+function CreateClinicForm({
+  onCreate,
+  saving,
+}: {
+  onCreate: (args: { name: string; address?: string; phone?: string }) => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+
+  return (
+    <div className="pt-3 mt-3 border-t space-y-2">
+      <div className="text-sm font-medium">Create new clinic</div>
+      <p className="text-xs text-muted-foreground">
+        Quickly spin up a fresh clinic in this group — inherits timezone,
+        currency, language and billing from the group.
+      </p>
+      <div className="flex gap-2 flex-wrap">
+        <input
+          type="text"
+          placeholder="Clinic name *"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="border rounded px-2 py-1.5 text-sm w-[220px]"
+          data-testid="input-new-clinic-name"
+        />
+        <input
+          type="text"
+          placeholder="Address (optional)"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className="border rounded px-2 py-1.5 text-sm w-[260px]"
+          data-testid="input-new-clinic-address"
+        />
+        <input
+          type="text"
+          placeholder="Phone (optional)"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="border rounded px-2 py-1.5 text-sm w-[160px]"
+          data-testid="input-new-clinic-phone"
+        />
+        <Button
+          size="sm"
+          disabled={!name.trim() || saving}
+          onClick={() => {
+            onCreate({
+              name: name.trim(),
+              address: address.trim() || undefined,
+              phone: phone.trim() || undefined,
+            });
+            setName("");
+            setAddress("");
+            setPhone("");
+          }}
+          data-testid="button-create-clinic"
+        >
+          {saving ? "Creating…" : "Create clinic"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Inline form in the Admins tab — creates a brand-new user, sets their
+// password, promotes to group_admin at a chosen member hospital, and
+// auto-provisions admin rows at every (hospital, unit) in the group.
+// ----------------------------------------------------------------------
+function CreateAdminUserForm({
+  members,
+  onCreate,
+  saving,
+}: {
+  members: Hospital[];
+  onCreate: (args: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+    hospitalId: string;
+  }) => void;
+  saving: boolean;
+}) {
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [password, setPassword] = useState("");
+  const [hospitalId, setHospitalId] = useState(members[0]?.id ?? "");
+
+  // Make sure the select has a valid default when the group's first clinic
+  // changes (e.g. after "Create clinic" adds the very first one).
+  useEffect(() => {
+    if (!hospitalId && members[0]?.id) setHospitalId(members[0].id);
+  }, [members, hospitalId]);
+
+  const valid =
+    email.includes("@") &&
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    password.length >= 8 &&
+    hospitalId;
+
+  return (
+    <div className="pt-3 mt-3 border-t space-y-2">
+      <div className="text-sm font-medium">
+        Create new user & promote as group admin
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Skips the signup dance. The new user gets a temporary password
+        (must change on first login) and admin role rows at every clinic
+        in the group.
+      </p>
+      <div className="flex gap-2 flex-wrap items-end">
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">
+            Email
+          </label>
+          <input
+            type="email"
+            placeholder="user@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-[220px]"
+            data-testid="input-new-user-email"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">
+            First name
+          </label>
+          <input
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-[140px]"
+            data-testid="input-new-user-firstname"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">
+            Last name
+          </label>
+          <input
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-[140px]"
+            data-testid="input-new-user-lastname"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">
+            Temp password (≥8)
+          </label>
+          <input
+            type="text"
+            placeholder="temporary"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-[160px] font-mono"
+            data-testid="input-new-user-password"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">
+            Home clinic
+          </label>
+          <Select value={hospitalId} onValueChange={setHospitalId}>
+            <SelectTrigger className="w-[200px]" data-testid="select-new-user-hospital">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              {members.length === 0 ? (
+                <SelectItem value="__none" disabled>
+                  Add a clinic first
+                </SelectItem>
+              ) : (
+                members.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>
+                    {h.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          size="sm"
+          disabled={!valid || saving}
+          onClick={() => {
+            onCreate({
+              email: email.trim(),
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              password,
+              hospitalId,
+            });
+            setEmail("");
+            setFirstName("");
+            setLastName("");
+            setPassword("");
+          }}
+          data-testid="button-create-user"
+        >
+          {saving ? "Creating…" : "Create & promote"}
+        </Button>
+      </div>
+    </div>
   );
 }

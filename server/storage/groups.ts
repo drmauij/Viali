@@ -4,6 +4,7 @@ import { db } from "../db";
 import {
   hospitalGroups,
   hospitals,
+  units,
   users,
   userHospitalRoles,
 } from "@shared/schema";
@@ -361,6 +362,76 @@ export async function listGroupMembers(groupId: string) {
   return db.select().from(hospitals).where(eq(hospitals.groupId, groupId));
 }
 
+/**
+ * Create a brand-new clinic (hospital + 1 default clinic unit) and attach it
+ * to the given group. Used by the platform-admin "Create clinic" flow on
+ * /admin/groups/:id so operators can onboard a chain without the signup dance.
+ *
+ * Inherits timezone/currency/defaultLanguage from an existing group sibling
+ * (if any) and seeds licenseType + pricePerRecord from the group defaults so
+ * new clinics look consistent with their siblings on day 1.
+ */
+export async function createClinicInGroup(
+  groupId: string,
+  args: {
+    name: string;
+    address?: string | null;
+    phone?: string | null;
+    timezone?: string | null;
+    currency?: string | null;
+    defaultLanguage?: string | null;
+  },
+): Promise<{
+  hospital: typeof hospitals.$inferSelect;
+  unit: typeof units.$inferSelect;
+}> {
+  const [group] = await db
+    .select({
+      defaultLicenseType: hospitalGroups.defaultLicenseType,
+      defaultPricePerRecord: hospitalGroups.defaultPricePerRecord,
+    })
+    .from(hospitalGroups)
+    .where(eq(hospitalGroups.id, groupId));
+  if (!group) throw new Error("Group not found");
+
+  const siblings = await listGroupMembers(groupId);
+  const sibling = siblings[0];
+  const bookingToken = randomUUID().replace(/-/g, "").slice(0, 24);
+
+  const [hospital] = await db
+    .insert(hospitals)
+    .values({
+      name: args.name,
+      address: args.address ?? null,
+      companyPhone: args.phone ?? null,
+      groupId,
+      bookingToken,
+      timezone: args.timezone ?? sibling?.timezone ?? "Europe/Zurich",
+      currency: args.currency ?? sibling?.currency ?? "CHF",
+      defaultLanguage:
+        args.defaultLanguage ?? sibling?.defaultLanguage ?? "de",
+      trialStartDate: new Date(),
+      licenseType: (group.defaultLicenseType ?? "test") as
+        | "free"
+        | "basic"
+        | "test",
+      pricePerRecord: group.defaultPricePerRecord ?? null,
+    } as any)
+    .returning();
+
+  const [unit] = await db
+    .insert(units)
+    .values({
+      hospitalId: hospital.id,
+      name: "Clinic",
+      type: "clinic",
+      isClinicModule: true,
+    })
+    .returning();
+
+  return { hospital, unit };
+}
+
 export async function addHospitalToGroup(
   groupId: string,
   hospitalId: string,
@@ -387,6 +458,23 @@ export async function addHospitalToGroup(
       .where(eq(hospitals.id, hospitalId));
     if (!h) throw new Error("Hospital not found");
     throw new Error("Hospital already in another group");
+  }
+
+  // Propagate admin access to every existing group_admin user so they
+  // immediately get admin rows at the new clinic without manual setup.
+  // Uses the same provisioning helper (idempotent per user).
+  const existingGroupAdminRows = await db
+    .selectDistinct({ userId: userHospitalRoles.userId })
+    .from(userHospitalRoles)
+    .innerJoin(hospitals, eq(userHospitalRoles.hospitalId, hospitals.id))
+    .where(
+      and(
+        eq(userHospitalRoles.role, "group_admin"),
+        eq(hospitals.groupId, groupId),
+      ),
+    );
+  for (const r of existingGroupAdminRows) {
+    await provisionAdminAtAllGroupHospitals(r.userId, groupId);
   }
 }
 
@@ -469,31 +557,149 @@ export async function promoteGroupAdmin(
   if (!h || h.groupId !== groupId) {
     throw new Error("Hospital not in group");
   }
-  const existing = await db
+  // Already group_admin at this hospital? Idempotent — still re-provision
+  // admin rows at other group clinics in case new ones have been added.
+  const existingGroupAdmin = await db
     .select()
     .from(userHospitalRoles)
     .where(
       and(
         eq(userHospitalRoles.userId, userId),
         eq(userHospitalRoles.hospitalId, hospitalId),
+        eq(userHospitalRoles.role, "group_admin"),
       ),
     );
-  if (existing.length === 0) {
-    throw new Error("User has no role at this hospital; cannot promote");
+  if (existingGroupAdmin.length === 0) {
+    // Pick a unitId: prefer the user's existing unit at this hospital so
+    // the picker shows them in the same module they already use; otherwise
+    // borrow the hospital's first unit.
+    const [anyExistingRole] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(
+        and(
+          eq(userHospitalRoles.userId, userId),
+          eq(userHospitalRoles.hospitalId, hospitalId),
+        ),
+      )
+      .limit(1);
+    let unitId = anyExistingRole?.unitId;
+    if (!unitId) {
+      const [unit] = await db
+        .select()
+        .from(units)
+        .where(eq(units.hospitalId, hospitalId))
+        .limit(1);
+      if (!unit) throw new Error("Hospital has no units");
+      unitId = unit.id;
+    }
+    await db.insert(userHospitalRoles).values({
+      userId,
+      hospitalId,
+      unitId,
+      role: "group_admin",
+    });
   }
-  // Already a group_admin at this hospital? Make the call idempotent.
-  if (existing.some((r) => r.role === "group_admin")) {
-    return;
+  // Always provision admin access at every (hospital, unit) in the group so
+  // the user can "move around" as admin without per-clinic manual setup.
+  await provisionAdminAtAllGroupHospitals(userId, groupId);
+}
+
+/**
+ * Insert an `admin` user_hospital_roles row for this user at every
+ * (hospital, unit) combo in the group they don't already have one for.
+ * Idempotent: skips combos where the user already has any role row.
+ *
+ * Called from `promoteGroupAdmin` (initial provision) and from
+ * `addHospitalToGroup` (propagate when a new clinic joins the group).
+ */
+export async function provisionAdminAtAllGroupHospitals(
+  userId: string,
+  groupId: string,
+): Promise<number> {
+  const rows = await db
+    .select({
+      hospitalId: hospitals.id,
+      unitId: units.id,
+    })
+    .from(hospitals)
+    .innerJoin(units, eq(units.hospitalId, hospitals.id))
+    .where(eq(hospitals.groupId, groupId));
+  if (rows.length === 0) return 0;
+
+  const existing = await db
+    .select({
+      hospitalId: userHospitalRoles.hospitalId,
+      unitId: userHospitalRoles.unitId,
+    })
+    .from(userHospitalRoles)
+    .where(eq(userHospitalRoles.userId, userId));
+  const existingSet = new Set(
+    existing.map((r) => `${r.hospitalId}|${r.unitId}`),
+  );
+
+  const toInsert = rows
+    .filter((r) => !existingSet.has(`${r.hospitalId}|${r.unitId}`))
+    .map((r) => ({
+      userId,
+      hospitalId: r.hospitalId,
+      unitId: r.unitId,
+      role: "admin" as const,
+      isBookable: false,
+      publicCalendarEnabled: false,
+    }));
+  if (toInsert.length === 0) return 0;
+
+  await db.insert(userHospitalRoles).values(toInsert);
+  return toInsert.length;
+}
+
+/**
+ * Platform-admin flow: create a new local user + password, make them
+ * group_admin at the given hospital, and auto-provision admin access at
+ * every (hospital, unit) in the group. Returns the created user row.
+ *
+ * Rejects if the email already exists — the UI should surface this and let
+ * the platform admin use the existing-user promote flow instead.
+ */
+export async function createAdminUserInGroup(
+  groupId: string,
+  args: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+    hospitalId: string;
+  },
+): Promise<typeof users.$inferSelect> {
+  // Mirror the existing `createUserWithPassword` behaviour (bcrypt 10
+  // rounds, mustChangePassword flag on first login).
+  const bcrypt = await import("bcrypt");
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, args.email));
+  if (existing) {
+    throw new Error("User with this email already exists");
   }
-  // Borrow a unitId from one of the user's existing rows at this hospital —
-  // user_hospital_roles.unit_id is NOT NULL.
-  const unitId = existing[0].unitId;
-  await db.insert(userHospitalRoles).values({
-    userId,
-    hospitalId,
-    unitId,
-    role: "group_admin",
-  });
+  const passwordHash = await bcrypt.hash(args.password, 10);
+  const [created] = await db
+    .insert(users)
+    .values({
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      passwordHash,
+      mustChangePassword: true,
+      canLogin: true,
+      staffType: "internal",
+    } as any)
+    .returning();
+
+  // Promote (will also run provisionAdminAtAllGroupHospitals).
+  await promoteGroupAdmin(groupId, created.id, args.hospitalId);
+
+  return created;
 }
 
 export async function revokeGroupAdmin(userId: string, hospitalId: string) {

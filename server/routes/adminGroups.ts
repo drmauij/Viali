@@ -241,6 +241,73 @@ router.patch("/api/admin/hospitals/:hospitalId/logo", async (req, res) => {
   }
 });
 
+// Create a brand-new clinic directly inside a group. Avoids the "logout,
+// signup, re-login as platform admin, associate" dance during chain onboarding.
+const createClinicSchema = z.object({
+  name: z.string().min(1).max(255),
+  address: z.string().max(500).optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  timezone: z.string().max(100).optional().nullable(),
+  currency: z.string().max(10).optional().nullable(),
+  defaultLanguage: z.string().max(10).optional().nullable(),
+});
+router.post("/api/admin/groups/:id/clinics", async (req, res) => {
+  const parsed = createClinicSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const { hospital, unit } = await groupStorage.createClinicInGroup(
+      req.params.id,
+      parsed.data,
+    );
+    res.status(201).json({ hospital, unit });
+  } catch (err: any) {
+    if (err?.message === "Group not found") {
+      return res.status(404).json({ error: err.message });
+    }
+    logger.error("Error creating clinic in group:", err);
+    res.status(500).json({ message: "Failed to create clinic" });
+  }
+});
+
+// Create a brand-new user + password + promote to group_admin at a chosen
+// hospital in one shot. Auto-provisions admin access at every (hospital,
+// unit) in the group so the user can freely switch clinics.
+const createUserSchema = z.object({
+  email: z.string().email().max(255),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  password: z.string().min(8).max(200),
+  hospitalId: z.string().min(1),
+});
+router.post("/api/admin/groups/:id/users", async (req, res) => {
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  try {
+    const created = await groupStorage.createAdminUserInGroup(
+      req.params.id,
+      parsed.data,
+    );
+    const { passwordHash: _ph, ...safe } = created;
+    res.status(201).json(safe);
+  } catch (err: any) {
+    if (err?.message === "User with this email already exists") {
+      return res.status(409).json({ error: err.message });
+    }
+    if (
+      err?.message === "Hospital not in group" ||
+      err?.message === "Hospital has no units"
+    ) {
+      return res.status(400).json({ error: err.message });
+    }
+    logger.error("Error creating admin user in group:", err);
+    res.status(500).json({ message: "Failed to create user" });
+  }
+});
+
 router.delete("/api/admin/groups/:id", async (req, res) => {
   try {
     await groupStorage.deleteGroup(req.params.id);
