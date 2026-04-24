@@ -3305,4 +3305,101 @@ router.get('/api/business/:hospitalId/treatments-summary', isAuthenticated, isBu
   }
 });
 
+router.get('/api/business/:hospitalId/providers-performance', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const rangeDays = parseInt((req.query.range as string)?.replace('d', '') || '30', 10);
+    const start = new Date();
+    start.setDate(start.getDate() - rangeDays);
+    const startIso = start.toISOString();
+
+    // Per-provider treatments: count + revenue from treatments + treatment_lines
+    const treatmentRows = await db.execute<{
+      provider_id: string;
+      first_name: string | null;
+      last_name: string | null;
+      treatments_count: string;
+      revenue: string;
+    }>(sql`
+      SELECT
+        t.provider_id,
+        u.first_name,
+        u.last_name,
+        COUNT(DISTINCT t.id) AS treatments_count,
+        COALESCE(SUM(CAST(tl.total AS numeric)), 0) AS revenue
+      FROM treatments t
+      LEFT JOIN treatment_lines tl ON tl.treatment_id = t.id
+      LEFT JOIN users u ON u.id = t.provider_id
+      WHERE t.hospital_id = ${hospitalId}
+        AND t.performed_at >= ${startIso}
+        AND t.status IN ('signed', 'invoiced')
+        AND t.provider_id IS NOT NULL
+      GROUP BY t.provider_id, u.first_name, u.last_name
+    `);
+
+    // Per-provider surgeries: count — surgeries.surgeonId is the surgeon provider
+    const surgeryRows = await db.execute<{
+      provider_id: string;
+      first_name: string | null;
+      last_name: string | null;
+      surgeries_count: string;
+    }>(sql`
+      SELECT
+        s.surgeon_id AS provider_id,
+        u.first_name,
+        u.last_name,
+        COUNT(*) AS surgeries_count
+      FROM surgeries s
+      LEFT JOIN users u ON u.id = s.surgeon_id
+      WHERE s.hospital_id = ${hospitalId}
+        AND s.planned_date >= ${startIso}
+        AND s.is_archived = false
+        AND s.surgeon_id IS NOT NULL
+      GROUP BY s.surgeon_id, u.first_name, u.last_name
+    `);
+
+    // Merge both lists keyed by provider_id
+    const merged = new Map<string, {
+      providerId: string;
+      name: string;
+      treatmentsCount: number;
+      surgeriesCount: number;
+      revenue: number;
+      utilizationPct: number | null;
+    }>();
+
+    for (const r of treatmentRows.rows as any[]) {
+      merged.set(r.provider_id, {
+        providerId: r.provider_id,
+        name: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown',
+        treatmentsCount: parseInt(r.treatments_count) || 0,
+        surgeriesCount: 0,
+        revenue: parseFloat(r.revenue) || 0,
+        utilizationPct: null, // Phase B.2 follow-up will compute from scheduled hours.
+      });
+    }
+    for (const r of surgeryRows.rows as any[]) {
+      const existing = merged.get(r.provider_id);
+      if (existing) {
+        existing.surgeriesCount = parseInt(r.surgeries_count) || 0;
+      } else {
+        merged.set(r.provider_id, {
+          providerId: r.provider_id,
+          name: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown',
+          treatmentsCount: 0,
+          surgeriesCount: parseInt(r.surgeries_count) || 0,
+          revenue: 0,
+          utilizationPct: null,
+        });
+      }
+    }
+
+    const providers = Array.from(merged.values()).sort((a, b) => b.revenue - a.revenue);
+    res.json({ providers });
+  } catch (error) {
+    logger.error("Error fetching providers performance:", error);
+    res.status(500).json({ message: "Failed to fetch providers performance" });
+  }
+});
+
 export default router;
