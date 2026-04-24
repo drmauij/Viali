@@ -40,11 +40,9 @@ export default function BottomNav() {
     return userHospitals[0];
   }, [user]);
 
-  // group_admin is admin-equivalent for navigation purposes — a chain group
-  // admin needs to reach the Admin module at every member clinic.
-  const isAdmin =
-    activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin";
+  // A chain admin reaches the Admin nav via their auto-provisioned admin
+  // role row at every member clinic, so no widening is needed here.
+  const isAdmin = activeHospital?.role === "admin";
 
   // Fetch pending checklist count for the active unit
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
@@ -177,53 +175,24 @@ export default function BottomNav() {
     }
     
     if (activeModule === "admin") {
-      const adminItems: NavItem[] = [];
-      // Group-admin self-serve: "Manage Chain" lives at the front of the
-      // admin nav for chain admins — chain management is their landing
-      // concern. Server gate is authoritative; this is UX.
-      const adminUserHospitals = (user as any)?.hospitals ?? [];
-      const isGroupAdminUser =
-        (user as any)?.isPlatformAdmin ||
-        adminUserHospitals.some((h: any) => h.role === "group_admin");
-      if (isGroupAdminUser && activeHospital?.groupId) {
-        adminItems.push({
-          id: "admin-chain",
-          icon: "fas fa-sitemap",
-          label: t('bottomNav.admin.chain', 'Manage Chain'),
-          path: "/admin/chain",
-        });
-      }
-      adminItems.push(
+      const adminItems: NavItem[] = [
         { id: "admin-settings", icon: "fas fa-cog", label: t('bottomNav.admin.settings'), path: "/admin" },
         { id: "admin-clinical", icon: "fas fa-stethoscope", label: t('bottomNav.admin.clinical'), path: "/admin/clinical" },
         { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
         { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
         { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
-      );
-      // Platform-admin only: cross-tenant hospital group management.
-      if ((user as any)?.isPlatformAdmin) {
-        adminItems.push({
-          id: "admin-groups",
-          icon: "fas fa-building",
-          label: "Groups",
-          path: "/admin/groups",
-        });
-      }
+      ];
       return adminItems;
     }
     
     if (activeModule === "business") {
       const businessItems: NavItem[] = [];
 
-      // Manage Chain lives under /admin/* now — see the admin-module
-      // nav block above. This section stays focused on per-hospital
-      // business surfaces (dashboard, marketing, administration, HR).
-
       if (activeHospital?.role === 'marketing') {
         // Marketing role: only Marketing page (Flows hidden for now)
         businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
       } else if (isAdmin) {
-        // Admin users (incl. group_admin — admin-equivalent): full nav
+        // Admin users: full nav
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
         businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
         businessItems.push({ id: "business-flows", icon: "fas fa-paper-plane", label: "Flows", path: "/business/flows" });
@@ -282,7 +251,7 @@ export default function BottomNav() {
       inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
     }
     return inventoryItems;
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, activeHospital?.canManageControlled, activeHospital?.groupId, hasPendingChecklists, addons.clinic, addons.questionnaire, user]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, activeHospital?.canManageControlled, hasPendingChecklists, addons.clinic, addons.questionnaire]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
