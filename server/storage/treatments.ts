@@ -121,6 +121,19 @@ export const treatmentsStorage = {
     });
   },
 
+  async listUniqueZones(hospitalId: string): Promise<string[]> {
+    const rows = await db.execute<{ zone: string }>(sql`
+      SELECT DISTINCT jsonb_array_elements_text(tl.zones) AS zone
+      FROM treatment_lines tl
+      JOIN treatments t ON tl.treatment_id = t.id
+      WHERE t.hospital_id = ${hospitalId}
+      ORDER BY zone
+    `);
+    return (rows.rows as { zone: string }[])
+      .map((r) => r.zone)
+      .filter((z) => !!z && z.trim().length > 0);
+  },
+
   async remove(id: string): Promise<void> {
     const [existing] = await db
       .select()

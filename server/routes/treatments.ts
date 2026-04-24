@@ -31,6 +31,26 @@ const updateSchema = createSchema.partial();
 // IMPORTANT: these routes must come BEFORE /:id routes to avoid
 // Express matching "configs" as an :id parameter.
 
+// All unique zone tags ever used at this hospital — powers the zone
+// autocomplete in TreatmentLineDialog so nurses can reuse zones entered
+// in prior treatments (not just the current patient's history).
+router.get(
+  "/api/treatments/zones",
+  isAuthenticated,
+  async (req: any, res: Response) => {
+    const { hospitalId } = req.query as Record<string, string | undefined>;
+    if (!hospitalId) {
+      return res.status(400).json({ error: "hospitalId required" });
+    }
+    try {
+      const zones = await treatmentsStorage.listUniqueZones(hospitalId);
+      res.json(zones);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  },
+);
+
 router.get(
   "/api/treatments/configs/list",
   isAuthenticated,
