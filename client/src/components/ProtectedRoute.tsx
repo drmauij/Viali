@@ -41,7 +41,13 @@ export function ProtectedRoute({
   // When user switches units, available modules change accordingly
   const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
   const hasSurgeryAccess = activeHospital?.unitType === 'or';
-  const hasAdminAccess = activeHospital?.role === "admin";
+  // group_admin is admin-equivalent for module gating (matching the same
+  // widening applied in ModuleDrawer / BottomNav). Server gates remain
+  // authoritative; this is UX access so group admins can actually reach
+  // the admin pages they have permission for.
+  const hasAdminAccess =
+    activeHospital?.role === "admin" ||
+    activeHospital?.role === "group_admin";
   const hasDoctorAccess = activeHospital?.role === "doctor";
   const hasBusinessAccess = activeHospital?.unitType === 'business';
   const hasClinicAccess = activeHospital?.unitType === 'clinic';

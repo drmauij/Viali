@@ -27,7 +27,9 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   // Check if user is admin
-  const isAdmin = activeHospital?.role === "admin";
+  const isAdmin =
+    activeHospital?.role === "admin" ||
+    activeHospital?.role === "group_admin";
 
   // Internal tab state
   const urlTab = new URLSearchParams(window.location.search).get('tab');

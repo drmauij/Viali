@@ -86,7 +86,9 @@ export default function Clinical() {
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
   // Check if user is admin
-  const isAdmin = activeHospital?.role === "admin";
+  const isAdmin =
+    activeHospital?.role === "admin" ||
+    activeHospital?.role === "group_admin";
 
   // Fetch units
   const { data: units = [], isLoading: unitsLoading } = useQuery<Unit[]>({
