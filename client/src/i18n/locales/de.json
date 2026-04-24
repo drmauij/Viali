@@ -441,6 +441,7 @@
     },
     "business": {
       "dashboard": "Dashboard",
+      "funnels": "Funnels",
       "administration": "Administration",
       "costs": "Kosten",
       "time": "Zeit",

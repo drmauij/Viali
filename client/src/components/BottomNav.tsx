@@ -221,18 +221,18 @@ export default function BottomNav() {
 
       if (activeHospital?.role === 'marketing') {
         // Marketing role: only Marketing page (Flows hidden for now)
-        businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/funnels" });
+        businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
       } else if (isAdmin) {
         // Admin users (incl. group_admin — admin-equivalent): full nav
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
-        businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/funnels" });
+        businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
         businessItems.push({ id: "business-flows", icon: "fas fa-paper-plane", label: "Flows", path: "/business/flows" });
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
         businessItems.push({ id: "business-hr", icon: "fas fa-user-tie", label: t('bottomNav.business.hr', 'HR'), path: "/business/hr" });
       } else if (activeHospital?.role === 'manager') {
         // Manager users: standard pages (Flows hidden for now — admin only)
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
-        businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/funnels" });
+        businessItems.push({ id: "business-funnels", icon: "fas fa-bullhorn", label: t('bottomNav.business.funnels', 'Funnels'), path: "/business/funnels" });
         businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
         businessItems.push({ id: "business-hr", icon: "fas fa-user-tie", label: t('bottomNav.business.hr', 'HR'), path: "/business/hr" });
       } else {

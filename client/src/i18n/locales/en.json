@@ -360,6 +360,7 @@
     },
     "business": {
       "dashboard": "Dashboard",
+      "funnels": "Funnels",
       "administration": "Administration",
       "costs": "Costs",
       "time": "Time",
