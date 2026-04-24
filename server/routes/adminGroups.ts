@@ -173,6 +173,27 @@ router.patch("/api/admin/hospitals/:hospitalId/billing", async (req, res) => {
   }
 });
 
+// Search users for promotion to group_admin. Email prefix match, annotated
+// with each candidate's existing roles at hospitals in this group so the UI
+// can present one-click promote buttons per eligible hospital.
+router.get("/api/admin/groups/:id/user-search", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (q.length < 2) {
+    return res.json([]); // keep short queries quiet
+  }
+  try {
+    const rows = await groupStorage.searchUsersForGroupPromotion(
+      req.params.id,
+      q,
+      10,
+    );
+    res.json(rows);
+  } catch (err) {
+    logger.error("Error searching users for promotion:", err);
+    res.status(500).json({ message: "Search failed" });
+  }
+});
+
 router.delete("/api/admin/groups/:id", async (req, res) => {
   try {
     await groupStorage.deleteGroup(req.params.id);

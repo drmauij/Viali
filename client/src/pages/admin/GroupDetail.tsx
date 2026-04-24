@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -189,6 +190,50 @@ export default function GroupDetail() {
     },
   });
 
+  // Group admin promote / revoke -----------------------------------------
+  const promoteAdmin = useMutation({
+    mutationFn: async (v: { userId: string; hospitalId: string }) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/admin/groups/${groupId}/admins`,
+        v,
+      );
+      return res.status === 204 ? null : res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Promoted to group admin" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not promote",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeAdmin = useMutation({
+    mutationFn: async (v: { userId: string; hospitalId: string }) => {
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/groups/${groupId}/admins/${v.userId}/${v.hospitalId}`,
+      );
+      return res.status === 204 ? null : res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: "Group admin revoked" });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not revoke",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const regenToken = useMutation({
     mutationFn: async () => {
       const res = await apiRequest(
@@ -300,6 +345,23 @@ export default function GroupDetail() {
         </Button>
       </div>
 
+      <Tabs defaultValue="clinics" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsTrigger value="clinics" data-testid="tab-clinics">
+            Clinics ({members.length})
+          </TabsTrigger>
+          <TabsTrigger value="admins" data-testid="tab-admins">
+            Admins ({admins.length})
+          </TabsTrigger>
+          <TabsTrigger value="billing" data-testid="tab-billing">
+            Billing & Plan
+          </TabsTrigger>
+          <TabsTrigger value="booking" data-testid="tab-booking">
+            Booking
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="clinics" className="mt-4">
       <section className="border rounded p-4 space-y-3">
         <h2 className="text-lg font-medium">
           Member Hospitals ({members.length})
@@ -366,51 +428,35 @@ export default function GroupDetail() {
           </Button>
         </div>
       </section>
+        </TabsContent>
 
-      <section className="border rounded p-4 space-y-3">
-        <h2 className="text-lg font-medium">Group Admins ({admins.length})</h2>
-        {admins.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            No group admins yet.
-          </div>
-        ) : (
-          <ul className="divide-y">
-            {admins.map((a) => {
-              const memberName =
-                members.find((m) => m.id === a.hospitalId)?.name ??
-                a.hospitalId;
-              const display =
-                [a.firstName, a.lastName].filter(Boolean).join(" ") ||
-                a.email ||
-                a.userId;
-              return (
-                <li
-                  key={`${a.userId}-${a.hospitalId}`}
-                  className="py-2 flex justify-between"
-                >
-                  <span>{display}</span>
-                  <span className="text-sm text-muted-foreground">
-                    @ {memberName}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {/*
-          Promote/revoke UI is deferred to Task 13 (/business/group). For the
-          Phase 1 demo, platform admin can promote via SQL or the existing
-          POST /api/admin/groups/:id/admins endpoint directly.
-        */}
-        <p className="text-xs text-muted-foreground">
-          To promote a user as group admin, call{" "}
-          <code>POST /api/admin/groups/{group.id}/admins</code> with{" "}
-          <code>{`{ userId, hospitalId }`}</code>. A UI will land with the
-          Business → Manage Group surface (Task 13).
-        </p>
-      </section>
+        <TabsContent value="admins" className="mt-4 border rounded p-4">
+          <AdminsSection
+            groupId={group.id}
+            admins={admins}
+            members={members}
+            onPromote={(v) => promoteAdmin.mutate(v)}
+            onRevoke={(v) => {
+              if (!confirm("Revoke group admin from this user?")) return;
+              revokeAdmin.mutate(v);
+            }}
+            promoting={promoteAdmin.isPending}
+            promotingKey={
+              promoteAdmin.isPending && promoteAdmin.variables
+                ? `${promoteAdmin.variables.userId}-${promoteAdmin.variables.hospitalId}`
+                : null
+            }
+            revoking={revokeAdmin.isPending}
+            revokingKey={
+              revokeAdmin.isPending && revokeAdmin.variables
+                ? `${revokeAdmin.variables.userId}-${revokeAdmin.variables.hospitalId}`
+                : null
+            }
+          />
+        </TabsContent>
 
-      <BillingSection
+        <TabsContent value="billing" className="mt-4">
+          <BillingSection
         group={group}
         members={members}
         onGroupSave={(patch) => updateGroupBilling.mutate(patch)}
@@ -426,13 +472,15 @@ export default function GroupDetail() {
         groupSaving={updateGroupBilling.isPending}
         cascading={cascadeBilling.isPending}
         clinicSaving={updateClinicBilling.isPending}
-        clinicSavingId={
-          updateClinicBilling.isPending
-            ? (updateClinicBilling.variables?.hospitalId ?? null)
-            : null
-        }
-      />
+            clinicSavingId={
+              updateClinicBilling.isPending
+                ? (updateClinicBilling.variables?.hospitalId ?? null)
+                : null
+            }
+          />
+        </TabsContent>
 
+        <TabsContent value="booking" className="mt-4">
       <section className="border rounded p-4 space-y-3">
         <h2 className="text-lg font-medium">Group Booking Token</h2>
         {group.bookingToken ? (
@@ -471,6 +519,8 @@ export default function GroupDetail() {
               : "Generate"}
         </Button>
       </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -667,5 +717,209 @@ function ClinicBillingRow({
         {saving ? "Saving…" : "Save"}
       </Button>
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Admins section: live email search + inline promote per eligible hospital,
+// with revoke buttons on existing group admin rows.
+// ----------------------------------------------------------------------
+type AdminsSectionProps = {
+  groupId: string;
+  admins: Admin[];
+  members: Hospital[];
+  onPromote: (v: { userId: string; hospitalId: string }) => void;
+  onRevoke: (v: { userId: string; hospitalId: string }) => void;
+  promoting: boolean;
+  promotingKey: string | null;
+  revoking: boolean;
+  revokingKey: string | null;
+};
+
+type SearchHit = {
+  userId: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  hospitalsInGroup: Array<{
+    hospitalId: string;
+    hospitalName: string;
+    role: string;
+    isGroupAdmin: boolean;
+  }>;
+};
+
+function AdminsSection(props: AdminsSectionProps) {
+  const { admins, members } = props;
+  const [q, setQ] = useState("");
+  // Debounce the query so every keystroke doesn't fire a request.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const { data: results = [], isFetching } = useQuery<SearchHit[]>({
+    queryKey: [
+      `/api/admin/groups/${props.groupId}/user-search`,
+      debouncedQ,
+    ],
+    queryFn: async () => {
+      if (debouncedQ.trim().length < 2) return [];
+      const res = await apiRequest(
+        "GET",
+        `/api/admin/groups/${props.groupId}/user-search?q=${encodeURIComponent(debouncedQ.trim())}`,
+      );
+      return res.json();
+    },
+    enabled: debouncedQ.trim().length >= 2,
+    staleTime: 10_000,
+  });
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-medium">
+        Group Admins ({admins.length})
+      </h2>
+
+      {admins.length === 0 ? (
+        <div className="text-sm text-muted-foreground">
+          No group admins yet. Promote someone using the search below.
+        </div>
+      ) : (
+        <ul className="divide-y border rounded">
+          {admins.map((a) => {
+            const memberName =
+              members.find((m) => m.id === a.hospitalId)?.name ?? a.hospitalId;
+            const display =
+              [a.firstName, a.lastName].filter(Boolean).join(" ") ||
+              a.email ||
+              a.userId;
+            const key = `${a.userId}-${a.hospitalId}`;
+            const revokingThis = props.revoking && props.revokingKey === key;
+            return (
+              <li
+                key={key}
+                className="py-2 px-3 flex items-center gap-3 flex-wrap"
+              >
+                <div className="min-w-[200px]">
+                  <div className="font-medium text-sm">{display}</div>
+                  {a.email && a.email !== display && (
+                    <div className="text-xs text-muted-foreground">
+                      {a.email}
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm text-muted-foreground flex-1">
+                  @ {memberName}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={revokingThis}
+                  onClick={() =>
+                    props.onRevoke({
+                      userId: a.userId,
+                      hospitalId: a.hospitalId,
+                    })
+                  }
+                  data-testid={`button-revoke-${key}`}
+                >
+                  {revokingThis ? "Revoking…" : "Revoke"}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="space-y-2 pt-2 border-t">
+        <div className="text-sm font-medium">Promote a user</div>
+        <input
+          type="search"
+          placeholder="Search users by email…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="border rounded px-3 py-2 text-sm w-full max-w-md"
+          data-testid="input-admin-search"
+        />
+        {debouncedQ.trim().length > 0 && debouncedQ.trim().length < 2 && (
+          <div className="text-xs text-muted-foreground">
+            Type at least 2 characters to search.
+          </div>
+        )}
+        {isFetching && (
+          <div className="text-xs text-muted-foreground">Searching…</div>
+        )}
+        {debouncedQ.trim().length >= 2 && !isFetching && results.length === 0 && (
+          <div className="text-xs text-muted-foreground">
+            No users matching that email.
+          </div>
+        )}
+        {results.length > 0 && (
+          <ul className="divide-y border rounded">
+            {results.map((u) => {
+              const display =
+                [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                u.email ||
+                u.userId;
+              const eligibleHospitals = u.hospitalsInGroup.filter(
+                (h) => !h.isGroupAdmin,
+              );
+              return (
+                <li
+                  key={u.userId}
+                  className="py-2 px-3 flex items-center gap-3 flex-wrap"
+                >
+                  <div className="min-w-[220px]">
+                    <div className="font-medium text-sm">{display}</div>
+                    {u.email && (
+                      <div className="text-xs text-muted-foreground">
+                        {u.email}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap flex-1 justify-end">
+                    {u.hospitalsInGroup.length === 0 ? (
+                      <span className="text-xs text-muted-foreground italic">
+                        No role at any group clinic — add a role first.
+                      </span>
+                    ) : eligibleHospitals.length === 0 ? (
+                      <span className="text-xs text-muted-foreground italic">
+                        Already group admin at every clinic they belong to.
+                      </span>
+                    ) : (
+                      eligibleHospitals.map((h) => {
+                        const key = `${u.userId}-${h.hospitalId}`;
+                        const promotingThis =
+                          props.promoting && props.promotingKey === key;
+                        return (
+                          <Button
+                            key={h.hospitalId}
+                            size="sm"
+                            disabled={promotingThis}
+                            onClick={() =>
+                              props.onPromote({
+                                userId: u.userId,
+                                hospitalId: h.hospitalId,
+                              })
+                            }
+                            data-testid={`button-promote-${key}`}
+                          >
+                            {promotingThis
+                              ? "Promoting…"
+                              : `Promote @ ${h.hospitalName}`}
+                          </Button>
+                        );
+                      })
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }

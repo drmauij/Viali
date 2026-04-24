@@ -103,6 +103,122 @@ export async function createGroup(name: string, initialHospitalIds: string[]) {
   });
 }
 
+/**
+ * Search users by email prefix (case-insensitive) and annotate each match
+ * with which hospitals in the given group they already have a role at —
+ * so the admin UI can either offer a "promote" button per existing role
+ * or disable the user with a clear "no role in any group clinic" hint.
+ *
+ * Skips users who are already `group_admin` on every member hospital.
+ */
+export async function searchUsersForGroupPromotion(
+  groupId: string,
+  query: string,
+  limit: number = 10,
+): Promise<
+  Array<{
+    userId: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    hospitalsInGroup: Array<{
+      hospitalId: string;
+      hospitalName: string;
+      role: string;
+      isGroupAdmin: boolean;
+    }>;
+  }>
+> {
+  const q = query.trim();
+  if (q.length === 0) return [];
+  const members = await listGroupMembers(groupId);
+  const memberIds = members.map((h) => h.id);
+  if (memberIds.length === 0) return [];
+  const memberNameById = new Map(members.map((h) => [h.id, h.name] as const));
+
+  // Step 1 — users whose email matches. Cap at `limit` for UX.
+  const userRows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(users)
+    .where(sql`LOWER(${users.email}) LIKE ${"%" + q.toLowerCase() + "%"}`)
+    .orderBy(users.email)
+    .limit(limit);
+
+  if (userRows.length === 0) return [];
+  const userIds = userRows.map((u) => u.id);
+
+  // Step 2 — all role rows those users have at member hospitals. One query.
+  const roleRows = await db
+    .select({
+      userId: userHospitalRoles.userId,
+      hospitalId: userHospitalRoles.hospitalId,
+      role: userHospitalRoles.role,
+    })
+    .from(userHospitalRoles)
+    .where(
+      and(
+        inArray(userHospitalRoles.userId, userIds),
+        inArray(userHospitalRoles.hospitalId, memberIds),
+      ),
+    );
+
+  const rolesByUser = new Map<
+    string,
+    Map<string, { roles: string[]; isGroupAdmin: boolean }>
+  >();
+  for (const r of roleRows) {
+    let byHospital = rolesByUser.get(r.userId);
+    if (!byHospital) {
+      byHospital = new Map();
+      rolesByUser.set(r.userId, byHospital);
+    }
+    let existing = byHospital.get(r.hospitalId);
+    if (!existing) {
+      existing = { roles: [], isGroupAdmin: false };
+      byHospital.set(r.hospitalId, existing);
+    }
+    existing.roles.push(r.role);
+    if (r.role === "group_admin") existing.isGroupAdmin = true;
+  }
+
+  return userRows.map((u) => {
+    const byHospital = rolesByUser.get(u.id) ?? new Map();
+    const hospitalsInGroup: Array<{
+      hospitalId: string;
+      hospitalName: string;
+      role: string;
+      isGroupAdmin: boolean;
+    }> = [];
+    for (const [hospitalId, info] of byHospital) {
+      // Prefer a non-group_admin role to display (that's the identity they
+      // were actually hired as). If they ONLY have group_admin, show that.
+      const displayRole =
+        info.roles.find((r: string) => r !== "group_admin") ?? info.roles[0];
+      hospitalsInGroup.push({
+        hospitalId,
+        hospitalName: memberNameById.get(hospitalId) ?? hospitalId,
+        role: displayRole,
+        isGroupAdmin: info.isGroupAdmin,
+      });
+    }
+    hospitalsInGroup.sort((a, b) =>
+      a.hospitalName.localeCompare(b.hospitalName),
+    );
+    return {
+      userId: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      hospitalsInGroup,
+    };
+  });
+}
+
 export async function renameGroup(id: string, name: string) {
   const [updated] = await db
     .update(hospitalGroups)
