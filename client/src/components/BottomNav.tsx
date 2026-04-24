@@ -221,8 +221,8 @@ export default function BottomNav() {
       if (activeHospital?.role === 'marketing') {
         // Marketing role: only Marketing page (Flows hidden for now)
         businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/marketing" });
-      } else if (activeHospital?.role === 'admin') {
-        // Admin users: all pages including Flows
+      } else if (isAdmin) {
+        // Admin users (incl. group_admin — admin-equivalent): full nav
         businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
         businessItems.push({ id: "business-marketing", icon: "fas fa-bullhorn", label: t('bottomNav.business.marketing', 'Marketing'), path: "/business/marketing" });
         businessItems.push({ id: "business-flows", icon: "fas fa-paper-plane", label: "Flows", path: "/business/flows" });
