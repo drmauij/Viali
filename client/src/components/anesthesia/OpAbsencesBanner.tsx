@@ -30,6 +30,12 @@ interface AvailabilityEntry {
   absenceType?: AbsenceType;
 }
 
+export interface AbsentStaff {
+  id: string;
+  name: string;
+  reason: string;
+}
+
 function formatDateKey(date: Date): string {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -48,10 +54,15 @@ function absenceLabel(t: (k: string, d?: string) => string, type?: AbsenceType):
   }
 }
 
-export default function OpAbsencesBanner({
-  hospitalId,
-  selectedDate,
-}: OpAbsencesBannerProps) {
+/**
+ * Hook form — lets the parent (OPCalendar) know how many staff are absent
+ * so it can choose a one-column vs two-column layout dynamically based on
+ * whether the banner has anything to render at all.
+ */
+export function useAbsentStaff(
+  hospitalId: string | undefined,
+  selectedDate: Date,
+): AbsentStaff[] {
   const { t } = useTranslation();
   const dateString = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
 
@@ -94,7 +105,7 @@ export default function OpAbsencesBanner({
     enabled: !!hospitalId && staffOptions.length > 0,
   });
 
-  const absentStaff = useMemo(() => {
+  return useMemo(() => {
     return staffOptions
       .filter((s) => availability[s.id]?.status === "absent")
       .map((s) => ({
@@ -106,6 +117,14 @@ export default function OpAbsencesBanner({
         ),
       }));
   }, [staffOptions, availability, t]);
+}
+
+export default function OpAbsencesBanner({
+  hospitalId,
+  selectedDate,
+}: OpAbsencesBannerProps) {
+  const { t } = useTranslation();
+  const absentStaff = useAbsentStaff(hospitalId, selectedDate);
 
   if (absentStaff.length === 0) return null;
 
