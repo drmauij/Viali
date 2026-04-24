@@ -247,7 +247,7 @@ export default function BusinessGroup() {
             Chain marketing →
           </Button>
         </Link>
-        <Link href="/business/dashboard?scope=group">
+        <Link href="/business?scope=group">
           <Button variant="outline" data-testid="link-cross-location-dashboard">
             Cross-location dashboard →
           </Button>
