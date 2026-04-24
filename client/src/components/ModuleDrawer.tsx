@@ -47,33 +47,28 @@ export default function ModuleDrawer() {
     return userHospitals[0];
   }, [user]);
 
-  // Module access is based on the ACTIVE unit selection
-  // When user switches units, available modules change accordingly
-  // Chain-wide operators (group_admin anywhere or platform admin) bypass
-  // unit-type gates — they span every module by role definition.
+  // Module access is based strictly on the active unit selection. Chain
+  // admins reach clinic modules via their auto-provisioned admin rows,
+  // not via a bypass here. Chain surfaces live in their own module (see
+  // the conditional Chain card rendered below).
   const userHospitals = (user as any)?.hospitals ?? [];
-  const isChainAdmin =
-    (user as any)?.isPlatformAdmin ||
-    userHospitals.some((h: any) => h.role === "group_admin");
+  const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
+  const hasSurgeryAccess = activeHospital?.unitType === 'or';
+  const hasBusinessAccess = activeHospital?.unitType === 'business';
+  const hasClinicAccess = activeHospital?.unitType === 'clinic';
+  const hasLogisticAccess = activeHospital?.unitType === 'logistic';
+  const isAdmin = activeHospital?.role === "admin";
+  const canAccessPreOp = isAdmin || activeHospital?.role === "doctor";
 
-  const hasAnesthesiaAccess =
-    activeHospital?.unitType === 'anesthesia' || isChainAdmin;
-  const hasSurgeryAccess =
-    activeHospital?.unitType === 'or' || isChainAdmin;
-  const hasBusinessAccess =
-    activeHospital?.unitType === 'business' || isChainAdmin;
-  const hasClinicAccess =
-    activeHospital?.unitType === 'clinic' || isChainAdmin;
-  const hasLogisticAccess =
-    activeHospital?.unitType === 'logistic' || isChainAdmin;
-  // Treat group_admin as admin-equivalent for module visibility — a chain
-  // group admin needs to reach the Admin module at every clinic they
-  // manage (that's the whole point of the role).
-  const isAdmin =
-    activeHospital?.role === "admin" ||
-    activeHospital?.role === "group_admin";
-  const canAccessPreOp =
-    isAdmin || activeHospital?.role === "doctor";
+  // Top-card visibility: Chain card shows when the user has a group_admin
+  // role row anywhere AND the active hospital belongs to a group (so the
+  // card always points at a real chain). Platform card shows for platform
+  // admins. A user who is both sees both.
+  const isPlatformAdmin = !!(user as any)?.isPlatformAdmin;
+  const hasChainAdminRole = isPlatformAdmin ||
+    userHospitals.some((h: any) => h.role === "group_admin");
+  const showChainCard = hasChainAdminRole && !!activeHospital?.groupId;
+  const showPlatformCard = isPlatformAdmin;
 
   const { data: pendingCountData } = useQuery<{ total: number; overdue: number }>({
     queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
@@ -123,10 +118,7 @@ export default function ModuleDrawer() {
       icon: "fas fa-user-shield",
       title: t('modules.admin.title'),
       description: t('modules.admin.description'),
-      // Chain admins land on /admin/chain (their primary concern);
-      // everyone else lands on the per-hospital Settings page.
-      route:
-        isChainAdmin && activeHospital?.groupId ? "/admin/chain" : "/admin",
+      route: "/admin",
       color: "bg-purple-500",
       adminOnly: true,
     },
@@ -320,6 +312,53 @@ export default function ModuleDrawer() {
             </button>
           </div>
 
+          {(showPlatformCard || showChainCard) && (
+            <div className="space-y-3 mb-6" data-testid="drawer-top-cards">
+              {showPlatformCard && (
+                <button
+                  onClick={() => handleModuleClick("/platform/groups")}
+                  className="w-full p-5 rounded-lg border-2 border-amber-500 bg-gradient-to-br from-amber-500/10 to-amber-600/5 hover:from-amber-500/15 hover:to-amber-600/10 text-left transition-all"
+                  data-testid="module-card-platform"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
+                      <i className="fas fa-globe text-xl text-white"></i>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-foreground">{t('modules.platform.title', 'Platform')}</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">{t('modules.platform.description', 'Cross-tenant Viali operator tools')}</p>
+                    </div>
+                    <i className="fas fa-chevron-right text-amber-500"></i>
+                  </div>
+                </button>
+              )}
+              {showChainCard && (
+                <button
+                  onClick={() => handleModuleClick("/chain/admin")}
+                  className="w-full p-5 rounded-lg border-2 border-blue-500 bg-gradient-to-br from-blue-500/10 to-blue-600/5 hover:from-blue-500/15 hover:to-blue-600/10 text-left transition-all"
+                  data-testid="module-card-chain"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+                      <i className="fas fa-sitemap text-xl text-white"></i>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-foreground">{t('modules.chain.title', 'Chain')}</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">{t('modules.chain.description', 'Chain-wide overview and tools')}</p>
+                    </div>
+                    <i className="fas fa-chevron-right text-blue-500"></i>
+                  </div>
+                </button>
+              )}
+              <div className="flex items-center gap-3 pt-2" data-testid="drawer-clinic-divider">
+                <div className="flex-1 h-px bg-border"></div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {t('modules.thisClinic', 'This clinic')}{activeHospital?.name ? ` — ${activeHospital.name}` : ''}
+                </div>
+                <div className="flex-1 h-px bg-border"></div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {modules.map((module) => (
               <button
