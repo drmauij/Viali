@@ -123,7 +123,10 @@ export default function ModuleDrawer() {
       icon: "fas fa-user-shield",
       title: t('modules.admin.title'),
       description: t('modules.admin.description'),
-      route: "/admin",
+      // Chain admins land on /admin/chain (their primary concern);
+      // everyone else lands on the per-hospital Settings page.
+      route:
+        isChainAdmin && activeHospital?.groupId ? "/admin/chain" : "/admin",
       color: "bg-purple-500",
       adminOnly: true,
     },

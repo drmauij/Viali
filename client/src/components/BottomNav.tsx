@@ -177,16 +177,10 @@ export default function BottomNav() {
     }
     
     if (activeModule === "admin") {
-      const adminItems: NavItem[] = [
-        { id: "admin-settings", icon: "fas fa-cog", label: t('bottomNav.admin.settings'), path: "/admin" },
-        { id: "admin-clinical", icon: "fas fa-stethoscope", label: t('bottomNav.admin.clinical'), path: "/admin/clinical" },
-        { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
-        { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
-        { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
-      ];
-      // Group-admin self-serve: "Manage Chain" in admin nav (previously also
-      // in business, now admin-only since the surface is administrative).
-      // Server gate is authoritative; this is UX.
+      const adminItems: NavItem[] = [];
+      // Group-admin self-serve: "Manage Chain" lives at the front of the
+      // admin nav for chain admins — chain management is their landing
+      // concern. Server gate is authoritative; this is UX.
       const adminUserHospitals = (user as any)?.hospitals ?? [];
       const isGroupAdminUser =
         (user as any)?.isPlatformAdmin ||
@@ -199,6 +193,13 @@ export default function BottomNav() {
           path: "/admin/chain",
         });
       }
+      adminItems.push(
+        { id: "admin-settings", icon: "fas fa-cog", label: t('bottomNav.admin.settings'), path: "/admin" },
+        { id: "admin-clinical", icon: "fas fa-stethoscope", label: t('bottomNav.admin.clinical'), path: "/admin/clinical" },
+        { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
+        { id: "admin-integrations", icon: "fas fa-plug", label: t('bottomNav.admin.integrations'), path: "/admin/integrations" },
+        { id: "admin-billing", icon: "fas fa-credit-card", label: t('bottomNav.admin.billing'), path: "/admin/billing" },
+      );
       // Platform-admin only: cross-tenant hospital group management.
       if ((user as any)?.isPlatformAdmin) {
         adminItems.push({
