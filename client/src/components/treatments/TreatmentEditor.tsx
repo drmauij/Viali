@@ -215,6 +215,20 @@ export function TreatmentEditor({
 
   // ---- Mutations ----
 
+  // Coerce empty-string numerics to undefined so Postgres doesn't reject
+  // the insert with `invalid input syntax for type numeric: ""`. The Line
+  // form uses controlled inputs that default to "" when unset, but the
+  // server expects either a numeric-formatted string or omission.
+  const sanitizeLine = (l: Partial<TreatmentLine>): Partial<TreatmentLine> => {
+    const blank = (v: unknown) => v === "" || v === null || v === undefined;
+    return {
+      ...l,
+      unitPrice: blank(l.unitPrice) ? undefined : l.unitPrice,
+      total: blank(l.total) ? undefined : l.total,
+    };
+  };
+  const sanitizeLines = (ls: Partial<TreatmentLine>[]) => ls.map(sanitizeLine);
+
   const saveMutation = useMutation({
     mutationFn: async (payload: { lines: Partial<TreatmentLine>[]; notes: string; performedAt: Date }) => {
       if (!existing && !user?.id) {
@@ -230,7 +244,7 @@ export function TreatmentEditor({
         appointmentId: appointmentId ?? null,
         performedAt: payload.performedAt.toISOString(),
         notes: payload.notes,
-        lines: payload.lines,
+        lines: sanitizeLines(payload.lines),
       };
       const res = existing
         ? await apiRequest("PUT", `/api/treatments/${existing.id}`, body)
@@ -269,7 +283,7 @@ export function TreatmentEditor({
         appointmentId: appointmentId ?? null,
         performedAt: performedAt.toISOString(),
         notes,
-        lines,
+        lines: sanitizeLines(lines),
       };
       let treatmentId = existing?.id;
       if (!treatmentId) {
