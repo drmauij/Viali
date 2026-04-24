@@ -508,7 +508,13 @@ export default function Marketing() {
     }
   }, [leadInsightsOpen]);
 
-  const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager' || activeHospital?.role === 'marketing';
+  // group_admin is admin-equivalent for the funnels page — a chain group
+  // admin's job spans this surface just like a hospital admin's does.
+  const isManager =
+    activeHospital?.role === 'admin' ||
+    activeHospital?.role === 'group_admin' ||
+    activeHospital?.role === 'manager' ||
+    activeHospital?.role === 'marketing';
   const isAdminOrManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
   const isAdmin = activeHospital?.role === 'admin';
   const { toast } = useToast();
