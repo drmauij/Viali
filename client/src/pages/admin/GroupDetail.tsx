@@ -3,6 +3,7 @@ import { Link, useParams, useLocation, Redirect } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -690,13 +691,13 @@ function BillingSection(props: BillingSectionProps) {
             <label className="text-xs text-muted-foreground block mb-1">
               Price per record
             </label>
-            <input
+            <Input
               type="text"
               inputMode="decimal"
               placeholder="e.g. 1.50"
               value={groupPrice}
               onChange={(e) => setGroupPrice(e.target.value)}
-              className="border rounded px-2 py-1.5 text-sm w-[140px]"
+              className="w-[140px]"
               data-testid="input-group-price"
             />
           </div>
@@ -788,13 +789,13 @@ function ClinicBillingRow({
           <SelectItem value="test">Test</SelectItem>
         </SelectContent>
       </Select>
-      <input
+      <Input
         type="text"
         inputMode="decimal"
         placeholder="price / record"
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-        className="border rounded px-2 py-1 text-sm w-[130px]"
+        className="w-[130px] h-8"
         data-testid={`input-clinic-price-${clinic.id}`}
       />
       <Button
@@ -930,12 +931,12 @@ function AdminsSection(props: AdminsSectionProps) {
 
       <div className="space-y-2 pt-2 border-t">
         <div className="text-sm font-medium">Promote a user</div>
-        <input
+        <Input
           type="search"
           placeholder="Search users by email…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="border rounded px-3 py-2 text-sm w-full max-w-md"
+          className="w-full max-w-md"
           data-testid="input-admin-search"
         />
         {debouncedQ.trim().length > 0 && debouncedQ.trim().length < 2 && (
@@ -1043,28 +1044,28 @@ function CreateClinicForm({
         currency, language and billing from the group.
       </p>
       <div className="flex gap-2 flex-wrap">
-        <input
+        <Input
           type="text"
           placeholder="Clinic name *"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="border rounded px-2 py-1.5 text-sm w-[220px]"
+          className="w-[220px]"
           data-testid="input-new-clinic-name"
         />
-        <input
+        <Input
           type="text"
           placeholder="Address (optional)"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          className="border rounded px-2 py-1.5 text-sm w-[260px]"
+          className="w-[260px]"
           data-testid="input-new-clinic-address"
         />
-        <input
+        <Input
           type="text"
           placeholder="Phone (optional)"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="border rounded px-2 py-1.5 text-sm w-[160px]"
+          className="w-[160px]"
           data-testid="input-new-clinic-phone"
         />
         <Button
@@ -1143,12 +1144,12 @@ function CreateAdminUserForm({
           <label className="text-xs text-muted-foreground block mb-1">
             Email
           </label>
-          <input
+          <Input
             type="email"
             placeholder="user@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="border rounded px-2 py-1.5 text-sm w-[220px]"
+            className="w-[220px]"
             data-testid="input-new-user-email"
           />
         </div>
@@ -1156,11 +1157,11 @@ function CreateAdminUserForm({
           <label className="text-xs text-muted-foreground block mb-1">
             First name
           </label>
-          <input
+          <Input
             type="text"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="border rounded px-2 py-1.5 text-sm w-[140px]"
+            className="w-[140px]"
             data-testid="input-new-user-firstname"
           />
         </div>
@@ -1168,11 +1169,11 @@ function CreateAdminUserForm({
           <label className="text-xs text-muted-foreground block mb-1">
             Last name
           </label>
-          <input
+          <Input
             type="text"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="border rounded px-2 py-1.5 text-sm w-[140px]"
+            className="w-[140px]"
             data-testid="input-new-user-lastname"
           />
         </div>
@@ -1180,12 +1181,12 @@ function CreateAdminUserForm({
           <label className="text-xs text-muted-foreground block mb-1">
             Temp password (≥8)
           </label>
-          <input
+          <Input
             type="text"
             placeholder="temporary"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="border rounded px-2 py-1.5 text-sm w-[160px] font-mono"
+            className="w-[160px] font-mono"
             data-testid="input-new-user-password"
           />
         </div>
